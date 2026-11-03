@@ -15,7 +15,7 @@ def test_spawned_native_diagnostics_leave_parent_json_and_pipe_replies_intact(tm
     runner = tmp_path / "native_stdio_control.py"
     runner.write_text(
         dedent(
-            r'''
+            r"""
             import json
             import logging
             import multiprocessing
@@ -94,7 +94,7 @@ def test_spawned_native_diagnostics_leave_parent_json_and_pipe_replies_intact(tm
                         process.join(5)
                     process.close()
                 print(json.dumps({"success": "partial_success", "error": "preserved"}))
-            '''
+            """
         )
     )
     result = subprocess.run(

@@ -1,6 +1,6 @@
 # Relational implementations and projection analysis
 
-> Current execution (2026-11-02): implementation is integrated under
+> Current execution (2026-11-03): implementation is integrated under
 > [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
 > [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
 > owns current disposition and open acceptance. Historical compatibility/repair statements below

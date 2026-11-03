@@ -49,8 +49,14 @@ def test_companion_chunks_prepare_outside_transactions_and_commit_independently(
 
     def run():
         pdf_streaming.adopt_pdf_companions(
-            cast(Any, None), cast(Any, None), "health", records(), "replay",
-            start_ordinal=10, check_active=lambda: None, cancellation=BorrowerCancellation(),
+            cast(Any, None),
+            cast(Any, None),
+            "health",
+            records(),
+            "replay",
+            start_ordinal=10,
+            check_active=lambda: None,
+            cancellation=BorrowerCancellation(),
         )
 
     if failure:
@@ -62,5 +68,7 @@ def test_companion_chunks_prepare_outside_transactions_and_commit_independently(
         run()
         assert boundaries == ["commit", "commit", "commit"]
         assert chunks == [
-            (64, 10, "replay:rows:10"), (64, 74, "replay:rows:74"), (2, 138, "replay:rows:138")
+            (64, 10, "replay:rows:10"),
+            (64, 74, "replay:rows:74"),
+            (2, 138, "replay:rows:138"),
         ]

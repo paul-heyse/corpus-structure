@@ -98,8 +98,7 @@ def qualify(selection: dict, database: str, root: Path, output: Path) -> None:
         if wrong_pin:
             assert result.returncode != 0 and not destination.exists()
             assert (
-                "pin" in result.stdout + result.stderr
-                or "digest" in result.stdout + result.stderr
+                "pin" in result.stdout + result.stderr or "digest" in result.stdout + result.stderr
             )
         else:
             assert result.returncode == 0, result.stdout + result.stderr
@@ -122,15 +121,10 @@ def qualify(selection: dict, database: str, root: Path, output: Path) -> None:
     parquet_table = pq.read_table(parquet)
     parquet_rows = parquet_table.to_pylist()
     assert json_rows and json_rows == parquet_rows
-    assert all(
-        row["content_digest"] == selection["content_digest"] for row in json_rows
-    )
+    assert all(row["content_digest"] == selection["content_digest"] for row in json_rows)
     metadata = parquet_table.schema.metadata
     assert metadata and b"source_contract" in metadata
-    assert (
-        json.loads(metadata[b"source_contract"])["contract"]
-        == "integrated-pdf-source-3"
-    )
+    assert json.loads(metadata[b"source_contract"])["contract"] == "integrated-pdf-source-3"
     receipts.append(
         {
             "operation": "projection-equality",
@@ -155,34 +149,34 @@ def qualify(selection: dict, database: str, root: Path, output: Path) -> None:
     product = envelope["product"]
     assert product["kind"] == "integrated"
     assert product["product_key"] == selection["product_key"]
-    if product["version"] == 2:
-        assert envelope["export_profile"] == "pdf-integrated-record-export-v2"
-        assert product["logical_digest"] == selection["content_digest"]
-        assert product["content"] == native_value
-        assert all(product["revision"][key] for key in (
-            "build_id", "release_id", "source_digest", "schema_digest", "recipe_digest", "frozen_digest"))
-        assert "native_metadata" in product and "request_outcomes" in product
-        # Conventional export SHA is verified against actual bytes, never compared
-        # with the distinct admitted record-fold identity.
-        export_manifest = json.loads(integrated.with_name(integrated.name + ".manifest.json").read_bytes())
-        with integrated.open("rb") as stream:
-            assert file_digest(stream,"sha256").hexdigest() == export_manifest["serialization_sha256"]
-    else:
-        assert product["version"] == 1
-        assert sha256(canonical(product)).hexdigest() == selection["content_digest"]
-        assert product["content"]["document"] == native_value
-    assert envelope["binding"]["contract"] == "integrated-pdf-source-3"
-    assert (
-        envelope["binding"]["selection"]["content_digest"]
-        == selection["content_digest"]
-    )
+    assert product["version"] == 2
+    assert envelope["export_profile"] == "pdf-integrated-record-export-v2"
+    assert product["logical_digest"] == selection["content_digest"]
+    assert product["content"] == native_value
     assert all(
-        product[name] for name in ("inputs", "occurrences", "relations", "coverage")
+        product["revision"][key]
+        for key in (
+            "build_id",
+            "release_id",
+            "source_digest",
+            "schema_digest",
+            "recipe_digest",
+            "frozen_digest",
+        )
     )
+    assert "native_metadata" in product and "request_outcomes" in product
+    # Conventional export SHA is verified against actual bytes, never compared
+    # with the distinct admitted record-fold identity.
+    export_manifest = json.loads(
+        integrated.with_name(integrated.name + ".manifest.json").read_bytes()
+    )
+    with integrated.open("rb") as stream:
+        assert file_digest(stream, "sha256").hexdigest() == export_manifest["serialization_sha256"]
+    assert envelope["binding"]["contract"] == "integrated-pdf-source-3"
+    assert envelope["binding"]["selection"]["content_digest"] == selection["content_digest"]
+    assert all(product[name] for name in ("inputs", "occurrences", "relations", "coverage"))
     # Selected content JSON explicitly declares the companion information it omits.
-    manifest = json.loads(
-        docling.with_name(docling.name + ".manifest.json").read_bytes()
-    )
+    manifest = json.loads(docling.with_name(docling.name + ".manifest.json").read_bytes())
     assert manifest["projection"] == "docling-content-only" and manifest["omissions"]
     receipts.append(
         {
@@ -192,7 +186,9 @@ def qualify(selection: dict, database: str, root: Path, output: Path) -> None:
             "native_serialization_projection": {
                 "owner": "derive_retained_native_projection + validate_native_callbacks",
                 "verified_computed_grids": verified_grids,
-                "preserved": "all declared values/presence plus native tree/global/bbox/list checks",
+                "preserved": (
+                    "all declared values/presence plus native tree/global/bbox/list checks"
+                ),
             },
             "native_collections": {
                 key: len(value)

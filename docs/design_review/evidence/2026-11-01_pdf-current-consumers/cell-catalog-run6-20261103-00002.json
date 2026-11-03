@@ -1,0 +1,169 @@
+{
+  "run_id": 6,
+  "views": [
+    {
+      "view_id": 1,
+      "section_pointer": "#/groups/3457",
+      "pin": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "labels": {
+        "section": 27,
+        "section_header": 44,
+        "text": 976,
+        "inline": 140,
+        "formula": 297,
+        "picture": 41,
+        "caption": 4,
+        "list": 91,
+        "list_item": 171,
+        "code": 2
+      },
+      "tables": [],
+      "charts": []
+    },
+    {
+      "view_id": 2,
+      "section_pointer": "#/groups/3484",
+      "pin": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "labels": {
+        "section": 23,
+        "section_header": 40,
+        "text": 1528,
+        "inline": 144,
+        "picture": 39,
+        "caption": 4,
+        "formula": 368,
+        "list": 68,
+        "list_item": 143,
+        "code": 2
+      },
+      "tables": [],
+      "charts": []
+    },
+    {
+      "view_id": 3,
+      "section_pointer": "#/groups/3507",
+      "pin": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "labels": {
+        "section": 8,
+        "section_header": 9,
+        "text": 427,
+        "inline": 47,
+        "list": 21,
+        "list_item": 59,
+        "formula": 99,
+        "picture": 12
+      },
+      "tables": [],
+      "charts": []
+    },
+    {
+      "view_id": 4,
+      "section_pointer": "#/groups/3566",
+      "pin": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "labels": {
+        "section": 35,
+        "section_header": 43,
+        "text": 925,
+        "inline": 79,
+        "formula": 110,
+        "list": 60,
+        "list_item": 162,
+        "picture": 41,
+        "table": 1,
+        "unspecified": 4,
+        "caption": 9,
+        "key_value_area": 2,
+        "footnote": 1
+      },
+      "tables": [
+        {
+          "pointer": "#/tables/33",
+          "keys": [
+            "data",
+            "prov",
+            "label",
+            "parent",
+            "captions",
+            "children",
+            "self_ref",
+            "footnotes",
+            "references",
+            "annotations",
+            "content_layer"
+          ],
+          "cells": 9,
+          "with_text": 9,
+          "with_bbox": 0,
+          "samples": [
+            {
+              "text": "Number of Samples",
+              "col_span": 1,
+              "fillable": false,
+              "row_span": 1,
+              "row_header": false,
+              "row_section": false,
+              "column_header": true,
+              "end_col_offset_idx": 1,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 0,
+              "start_row_offset_idx": 0
+            },
+            {
+              "text": "With order",
+              "col_span": 1,
+              "fillable": false,
+              "row_span": 1,
+              "row_header": false,
+              "row_section": false,
+              "column_header": true,
+              "end_col_offset_idx": 2,
+              "end_row_offset_idx": 1,
+              "start_col_offset_idx": 1,
+              "start_row_offset_idx": 0
+            }
+          ]
+        }
+      ],
+      "charts": []
+    },
+    {
+      "view_id": 5,
+      "section_pointer": "#/groups/4265",
+      "pin": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "labels": {
+        "section": 10,
+        "section_header": 18,
+        "text": 507,
+        "inline": 61,
+        "formula": 130,
+        "list": 31,
+        "list_item": 60,
+        "picture": 21,
+        "code": 1,
+        "footnote": 1
+      },
+      "tables": [],
+      "charts": []
+    }
+  ]
+}

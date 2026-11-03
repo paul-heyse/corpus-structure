@@ -1,0 +1,28 @@
+{
+  "verified_at": "2026-11-03T05:56:11.406424+00:00",
+  "outcome": "passed",
+  "scope": "purpose projection with direct exact evidence quotes and immutable canonical source custody; no provider/context fit/performance result",
+  "old_sources_bytes": 27740669,
+  "new_canonical_sources_bytes": 13428217,
+  "provider_sources_bytes": 2227961,
+  "guideline_bytes": 13818,
+  "domain_definitions_bytes": 52904,
+  "response_schema_bytes": 38903,
+  "body_characters": {
+    "normal": 19923,
+    "sampling": 29141
+  },
+  "native_items": {
+    "normal": 840,
+    "sampling": 1472
+  },
+  "evidence_entries": {
+    "normal": 655,
+    "sampling": 1179
+  },
+  "frames_unchanged": true,
+  "packet_hashes_unchanged": true,
+  "domain_schema_and_images_unchanged": true,
+  "direct_exact_evidence_quotes_retained": true,
+  "prepared_manifest_hashes_verified": true
+}

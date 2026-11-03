@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "id": "pdf.run6-reference-inputs",
+  "title": "Run6 source-only reference input projection and controlled protocol preparation",
+  "group": "unified-domain-model",
+  "package": "UM-14/15",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are complete immutable source-only reference frames and a separate purpose-specific provider view prepared with exact evidence custody, and do the bounded controlled concurrency/protocol/admission-frame/tamper checks pass before any real Claude authoring?",
+  "answers": [
+    "UM-14",
+    "UM-15",
+    "PDF-25"
+  ],
+  "method": "Retain the actual 00003 preparation/projection receipt and individual write-once bundle inputs, the unchanged00001/00002 comparison manifests, final helper snapshots, controlled five-case subprocess concurrency and 20-case protocol results, projection/canonical-frame/tamper controls, and scoped helper typing/lint logs. Preserve full canonical frames locally for validate_pass and a distinct provider projection with complete source text/items/pieces/ancestors/health plus exact evidence text/handles/locators/precision. The source snapshots include subsequent formatting/import sorting only; no behavioral rerun after those formatting-only changes is claimed. Exact short-tool invocation flags were not retained and are not reconstructed.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/run6-20261103-reference-inputs/helper-snapshots/author_source_references.py",
+      "role": "final formatted helper snapshot; live editable helper is outside this record custody",
+      "sha256": "ddc4271017dda654fbe40376601c96543408fdb9287e019d5848ba5b6fc89558"
+    },
+    {
+      "path": "raw/run6-20261103-reference-inputs/helper-snapshots/check_author_concurrency.py",
+      "role": "final formatted helper snapshot; live editable helper is outside this record custody",
+      "sha256": "52810b6bd4794a9470dbd585a35140ec7d724b487971c8c2205257446a240420"
+    },
+    {
+      "path": "run6-reference-inputs.md.j2",
+      "role": "catalog-rendered offline-preparation scope and result figures",
+      "sha256": "b9af33080c853ad06e25bc89fa7749ec063da4141914903669e9de798973f0d6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/run6-20261103-reference-inputs",
+      "role": "exact small projection/control/preparation/log receipts, final source snapshots and prior comparison manifests; no bundle duplication",
+      "sha256": "a8a75e36d83798c1745dfd387921a7ee9a96dc96d0d63ec7eb747252aefb1567"
+    },
+    {
+      "path": "references-run6-20261103-00003/annotation-guideline.txt",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "66f6640b969577c4862d13d318a16dd44a560b91d7d7f2862490319c30480168"
+    },
+    {
+      "path": "references-run6-20261103-00003/domain-definitions.json",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "d1937d80d878a30afd6756f866cfaa1ff9ffd1b70822771a69580f5c8618fdfb"
+    },
+    {
+      "path": "references-run6-20261103-00003/manifest.json",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "ae555e79569a6abdf28675de45280f8064583183135c57e56fbf4ea0fec4dcc0"
+    },
+    {
+      "path": "references-run6-20261103-00003/provider-sources.json",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "19481e95b0f2d5c9cbf9bd4b7a8341384ad87504324a13804dbfb4819a5caf51"
+    },
+    {
+      "path": "references-run6-20261103-00003/response.schema.json",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "8484cda84fefd5f3b30e6d4a47698b260bde801c0485a85c94305762f8c5b1b5"
+    },
+    {
+      "path": "references-run6-20261103-00003/source-normal.png",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "8cf805fe22e0e5d22e7cb4a387cca7a5054d4df70086113694dd533f159e55e9"
+    },
+    {
+      "path": "references-run6-20261103-00003/source-sampling.png",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "438ac5c20a6206ec41f8030f0e374ca9420a567bcaaee0ff5737103a941d3d70"
+    },
+    {
+      "path": "references-run6-20261103-00003/sources.json",
+      "role": "individually bound immutable prepared reference input; future A/B/C author outputs are excluded",
+      "sha256": "44af62e3984c1d3009c80a7050ef9ac5d4c2bdebacebb2142b938de0dc952129"
+    }
+  ],
+  "depends_on": [
+    "pdf.run6-source-ready"
+  ],
+  "results": [
+    {
+      "name": "prepared_intact_sections",
+      "value": 2,
+      "of": null,
+      "unit": "sections",
+      "note": "Combinatorial Structures and Normal Distribution, complete descendant views4 and5."
+    },
+    {
+      "name": "original00001_sources_bytes",
+      "value": 27740669,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "current00003_canonical_sources_bytes",
+      "value": 13428217,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "current00003_provider_sources_bytes",
+      "value": 2227961,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "normal_body_characters",
+      "value": 19923,
+      "of": null,
+      "unit": "characters",
+      "note": null
+    },
+    {
+      "name": "sampling_body_characters",
+      "value": 29141,
+      "of": null,
+      "unit": "characters",
+      "note": null
+    },
+    {
+      "name": "normal_native_items",
+      "value": 840,
+      "of": null,
+      "unit": "items",
+      "note": null
+    },
+    {
+      "name": "sampling_native_items",
+      "value": 1472,
+      "of": null,
+      "unit": "items",
+      "note": null
+    },
+    {
+      "name": "normal_exact_evidence_entries",
+      "value": 655,
+      "of": null,
+      "unit": "entries",
+      "note": null
+    },
+    {
+      "name": "sampling_exact_evidence_entries",
+      "value": 1179,
+      "of": null,
+      "unit": "entries",
+      "note": null
+    },
+    {
+      "name": "canonical_frames_and_packet_hashes",
+      "value": "unchanged",
+      "of": null,
+      "unit": null,
+      "note": "Actual projection receipt confirms equality with00001, including unchanged schema/domain/images and prepared manifest input hashes."
+    },
+    {
+      "name": "direct_exact_evidence_quotes",
+      "value": "retained",
+      "of": null,
+      "unit": null,
+      "note": "entry.text restored alongside precise handles, locators and occurrence precision; no truncation/chunking."
+    },
+    {
+      "name": "controlled_concurrency_cases",
+      "value": 5,
+      "of": 5,
+      "unit": "cases",
+      "note": "Controlled subprocess/session/custody/cleanup; no real provider qualification."
+    },
+    {
+      "name": "controlled_protocol_cases",
+      "value": 20,
+      "of": 20,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "projection_canonical_frame_tamper_controls",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "complete projected content/evidence, canonical admission-frame wiring and pre-provider tamper refusal; not rich semantic validity"
+    },
+    {
+      "name": "scoped_helper_types_and_ruff",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Two helpers with usual repository type search path; exact invocation flags not retained. Source snapshots include only subsequent formatting/import sorting."
+    },
+    {
+      "name": "actual_Claude_reference_authoring",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "model_capacity_availability_context_fit",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "inference_reference_agreement_grading",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Bounded Tested on 2026-11-03 for offline reference-input and controlled protocol preparation only: current 00003 retains complete unchanged canonical frames and packet hashes locally, with 13428217 canonical bytes and a distinct 2227961-byte provider view versus 27740669 bytes in 00001. Complete text, native items, pieces, ancestors, health and precise evidence handles/quotes/locators/occurrence precision are retained without chunking or truncation; raw reconciliation and duplicated schema/packet scaffolding are omitted only from the provider purpose view. The guideline is supplied once, canonical full frames remain the validate_pass admission authority, prepared hashes and unchanged images/schema/domain are confirmed by the actual receipt. Five controlled concurrency cases, 20 protocol cases and projection/canonical-frame/tamper controls pass, as do scoped helper typing/lint. These controlled results are not a real-provider result. No actual Claude call/reference authoring, model capacity/availability/context-fit qualification, inference, reference agreement or grading ran. Older 00001/00002 bundles remain unchanged and no references were authored from the intermediate projection. Individual input-file/manifest hashes exclude future A/B/C output files; no mutable bundle directory is hashed.",
+  "consumed_by": [
+    "UM-14",
+    "UM-15",
+    "PDF-25",
+    "D8",
+    "unified-domain-model coordinator",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

@@ -121,7 +121,8 @@ def test_retained_native_uses_current_selector_without_conversion_or_gpu_transit
         PdfConversion(
             sha256(original).hexdigest(), b"{}", snapshot(document), "success", (), (), (), None
         ),
-        product_key="organized" if already_organized else "native", schema_digest="b" * 64,
+        product_key="organized" if already_organized else "native",
+        schema_digest="b" * 64,
     )
     reference = ProductReference(12, values["product_key"], "c" * 64)
     organized = reference if already_organized else ProductReference(15, "organized", "d" * 64)
@@ -148,8 +149,7 @@ def test_retained_native_uses_current_selector_without_conversion_or_gpu_transit
         assert ref.unit_id == 1 and draft.product_key == "organized"
         retained.append(draft)
         sections = [
-            node for node in native_nodes(draft.document).values()
-            if str(node.label) == "section"
+            node for node in native_nodes(draft.document).values() if str(node.label) == "section"
         ]
         assert len(sections) == 1 and sections[0].name == "1.1: Retained"
         assert any(child.cref == text.self_ref for child in sections[0].children)
@@ -165,10 +165,13 @@ def test_retained_native_uses_current_selector_without_conversion_or_gpu_transit
     unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
     ctx: Any = SimpleNamespace(
         reader=SimpleNamespace(
-            native_section_drafts=native_sections, native_document=native_document,
+            native_section_drafts=native_sections,
+            native_document=native_document,
         ),
-        run=SimpleNamespace(options={}), retain_pdf_records=retain,
-        produce_pdf_records=refuse, logger=logging.getLogger(__name__),
+        run=SimpleNamespace(options={}),
+        retain_pdf_records=retain,
+        produce_pdf_records=refuse,
+        logger=logging.getLogger(__name__),
         settings=SimpleNamespace(nemotron_endpoint="unused"),
     )
     result = method.run([unit], methods.PdfIntegratedIngestConfig(native_product=reference), ctx)[0]

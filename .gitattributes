@@ -17,6 +17,10 @@ docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.log filter=lfs
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.png filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.bin filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-attempt-*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-run6-*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/mcp-run6-* filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/references-run6-*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/author-source-projection-controls-20261103-attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.jsonl filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stderr.txt filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,104 @@
+{
+  "verified_at": "2026-11-03T05:32:03.017506+00:00",
+  "run_id": 6,
+  "task_id": 6,
+  "product_key": "integrated",
+  "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac",
+  "source_view_id": 1,
+  "section_pointer": "#/groups/3457",
+  "membership": "descendants",
+  "formula_pointer": "#/texts/24485",
+  "formula_occurrence_id": "#/texts/24485",
+  "table_source_view_id": 4,
+  "table_pointer": "#/tables/33",
+  "cell_index": 0,
+  "cell_basis": "retained text-bearing table cell within the five analysis views",
+  "cell_bbox_state": "absent",
+  "artifact_digest": "abd8b477e4cc3259e35176a70e6df7a376d6c775505cc36dc25a1c689c848c9a",
+  "artifact_basis": "retained failed-or-partial recognition raw response",
+  "search_text": "normal",
+  "analysis_views": [
+    {
+      "id": 1,
+      "key": "source-view:f0d65f4f22dcf5f91024f97a05930542479ef8b7c7ecc7ad7ba2f801fc6f04f6",
+      "document_id": 4,
+      "native_product": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "section_pointer": "#/groups/3457",
+      "membership": "descendants",
+      "projection_digest": "ac7c6acc74f7e4d0f3437ea50ff6f908aedc7f59b77b31a09c68fdb582243a2c",
+      "recipe_digest": "72dec4c0dca383d153e7ab7811675a9c416325416ae1925c86aabc3af6c589c1",
+      "analysis_eligible": true
+    },
+    {
+      "id": 2,
+      "key": "source-view:eee9636580547da5406f969ba954feaaabc1796dfe48023a4516c5f3e0845371",
+      "document_id": 4,
+      "native_product": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "section_pointer": "#/groups/3484",
+      "membership": "descendants",
+      "projection_digest": "d6b8836750d06d726af7334ba894373e294b682f05ef8b5c5d988341ab123772",
+      "recipe_digest": "72dec4c0dca383d153e7ab7811675a9c416325416ae1925c86aabc3af6c589c1",
+      "analysis_eligible": true
+    },
+    {
+      "id": 3,
+      "key": "source-view:fc08bea6d1d11c81657a21ecaf1ff30c81b7c3958eadafb9ae719413a8abb11b",
+      "document_id": 4,
+      "native_product": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "section_pointer": "#/groups/3507",
+      "membership": "descendants",
+      "projection_digest": "08335776c5f46d8bf94b879ecf33da9451c44564c9b8a25195a2dd59b2719736",
+      "recipe_digest": "72dec4c0dca383d153e7ab7811675a9c416325416ae1925c86aabc3af6c589c1",
+      "analysis_eligible": true
+    },
+    {
+      "id": 4,
+      "key": "source-view:8f0414355fe6db892f5671d906c05e3290e5bd634dc4d58dcefb3acd79750ae5",
+      "document_id": 4,
+      "native_product": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "section_pointer": "#/groups/3566",
+      "membership": "descendants",
+      "projection_digest": "10cb77619dbfce67536fbadfdb0634d2aa9125d9cf9f8ec14da2165970cde85f",
+      "recipe_digest": "72dec4c0dca383d153e7ab7811675a9c416325416ae1925c86aabc3af6c589c1",
+      "analysis_eligible": true
+    },
+    {
+      "id": 5,
+      "key": "source-view:8fee5696fbb47875b0d5d7b0e6d7143d95734045b2084d835e58d00508724b27",
+      "document_id": 4,
+      "native_product": {
+        "task_id": 6,
+        "product_key": "integrated",
+        "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac"
+      },
+      "section_pointer": "#/groups/4265",
+      "membership": "descendants",
+      "projection_digest": "d10363d0150aed9405635ad081f7eb4c0e4171647dfdc32debc52ac5145a8bd1",
+      "recipe_digest": "72dec4c0dca383d153e7ab7811675a9c416325416ae1925c86aabc3af6c589c1",
+      "analysis_eligible": true
+    }
+  ],
+  "section_titles": [
+    "1.1: Sets",
+    "1.2: Functions",
+    "1.3: Relations",
+    "1.8: Combinatorial Structures",
+    "5.6: The Normal Distribution"
+  ]
+}

@@ -73,12 +73,14 @@ def main() -> None:
             if item.get("label") == "formula" and item.get("prov")
         )
         cell = next(
-            (item["self_ref"], index)
+            (views[identity].ref.id, item["self_ref"], index, cell)
             for identity in resolved
             for item in views[identity].items
             if item.get("label") == "table"
             for index, cell in enumerate(item["data"]["table_cells"])
-            if cell.get("text", "").strip() and cell.get("bbox")
+            # Cell inspection exposes retained content independently of optional
+            # cell geometry. Region rendering below uses the formula's own provenance.
+            if cell.get("text", "").strip()
         )
         selected_view, selected_formula = formula
         reader = PublishedPdfReader(conn, ProductReference(**expected))
@@ -129,8 +131,11 @@ def main() -> None:
             "membership": selected_view.ref.membership,
             "formula_pointer": selected_formula["self_ref"],
             "formula_occurrence_id": occurrence,
-            "table_pointer": cell[0],
-            "cell_index": cell[1],
+            "table_source_view_id": cell[0],
+            "table_pointer": cell[1],
+            "cell_index": cell[2],
+            "cell_basis": "retained text-bearing table cell within the five analysis views",
+            "cell_bbox_state": "present" if "bbox" in cell[3] else "absent",
             "artifact_digest": raw_digest,
             "artifact_basis": "retained failed-or-partial recognition raw response",
             "search_text": "normal",

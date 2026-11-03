@@ -1,0 +1,405 @@
+{
+  "schema_version": 1,
+  "id": "pdf.run6-source-ready",
+  "title": "Run6 SourceReady and actual native CLI, MCP, render and export consumers",
+  "group": "unified-domain-model",
+  "package": "UM-14/15",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current native99 pipeline reach SourceReady from the qualified organized observation and unchanged retained recognition, and do the actual CLI, external stdio MCP, rendering and detached native export consumers work under the exact published pin before any Claude knowledge extraction?",
+  "answers": [
+    "UM-14",
+    "UM-15",
+    "PDF-11",
+    "PDF-25"
+  ],
+  "method": "Retain the successful stock prepare-only run6, immutable integrated publication and five intact analysis views, original failed run5/selection receipts, exact installed-CLI and external stdio MCP journeys, actual PNG/raw-response results and four exports with detached projection/schema/inventory validation and deliberate wrong-pin refusals. Bind each existing consumer artifact individually and preserve consumer helper snapshots under a new immutable raw scope. Retain owned Nemotron shutdown and subsequent actual database-backed status receipts. This archival step runs no tests, probes, database operations, model calls or provider calls.",
+  "commands": [
+    "uv run ci regenerate --domain statistics --corpus docs/statistics_corpus/corpus --project pdf-docling-adoption --scope pdf-qualification --native-source build/um-final-intake-20261103-attempt-00003/organized.pin.json --prepare-only --leave-unselected --json",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --native-view sections --limit 5 --json",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --native-view formula --limit 5 --json --pointer '#/texts/24485'",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --native-view cell --limit 5 --json --pointer '#/tables/33' --cell 0",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --native-view trace --limit 5 --json --pointer '#/texts/24485'",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --native-view companion --limit 5 --json --pointer '#/texts/24485'",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --native-view manifest --limit 5 --json --collection coverage",
+    "/home/paul/.cargo/bin/uv run ci source inspect 6 --producing-task 6 --product integrated --native-digest 0000000000000000000000000000000000000000000000000000000000000000 --native-view items --limit 5 --json",
+    "uv run ci mcp serve --semantic-run 6",
+    "/home/paul/.cargo/bin/uv run ci source native-export --run 6 --producing-task 6 --product integrated --digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-run6-20261103-attempt-00002/section.items.jsonl --format jsonl --section '#/groups/3457' --membership descendants",
+    "/home/paul/.cargo/bin/uv run ci source native-export --run 6 --producing-task 6 --product integrated --digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-run6-20261103-attempt-00002/section.items.parquet --format parquet --section '#/groups/3457' --membership descendants",
+    "/home/paul/.cargo/bin/uv run ci source native-export --run 6 --producing-task 6 --product integrated --digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-run6-20261103-attempt-00002/whole.docling.json --format docling-json",
+    "/home/paul/.cargo/bin/uv run ci source native-export --run 6 --producing-task 6 --product integrated --digest 1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-run6-20261103-attempt-00002/whole.integrated.json --format integrated-json",
+    "/home/paul/.cargo/bin/uv run ci source native-export --run 6 --producing-task 6 --product integrated --digest 0000000000000000000000000000000000000000000000000000000000000000 --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-run6-20261103-attempt-00002/wrong-pin.json --format integrated-json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/run6-20261103-source-ready/helper-snapshots/select_current_source.py",
+      "role": "consumer helper snapshot at result retention; future edits to the live helper are outside this immutable record",
+      "sha256": "88438a65ccd474f4d71e199bf493890e5dcd462257c130f301a5b3a654b3e625"
+    },
+    {
+      "path": "raw/run6-20261103-source-ready/helper-snapshots/qualify_native_cli.py",
+      "role": "consumer helper snapshot at result retention; future edits to the live helper are outside this immutable record",
+      "sha256": "4da514f5bc05c552c1f5c3e1c7a2fe0af6c412d79b3bfa270a6648a1a24fc245"
+    },
+    {
+      "path": "raw/run6-20261103-source-ready/helper-snapshots/qualify_native_mcp.py",
+      "role": "consumer helper snapshot at result retention; future edits to the live helper are outside this immutable record",
+      "sha256": "37f1ad103a1c81b63fce34816f21ea6f5d28db1364e19f42f5ce56a12ba06631"
+    },
+    {
+      "path": "raw/run6-20261103-source-ready/helper-snapshots/qualify_native_exports.py",
+      "role": "consumer helper snapshot at result retention; future edits to the live helper are outside this immutable record",
+      "sha256": "49e65c5245e920b7a0a790ddb4f8a756064cafaf9d86a4a0066932f64320d502"
+    },
+    {
+      "path": "run6-source-ready.md.j2",
+      "role": "catalog-rendered non-Claude acceptance scope and result figures",
+      "sha256": "56cc13cb23c2fb51fa9a08bfe853c2a949969b78ff184e8e474418478266ddda"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/run6-20261103-source-ready",
+      "role": "immutable source-preparation/selection failures and successes, recognition inventories, settlement/status and helper source snapshots",
+      "sha256": "d805f1dd8bc3c7569267d1c601a6da075ed87904c6244dfc96b22607a7d818ed"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/cell.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/cell.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "17654e6fe235b6c16b9363f3856c9e4cca0868ee031eab452728fef507d23576"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/companion.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/companion.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "5711378268ebb492144a70d56c05ed83db6b96f47988c55caa35e8d11b04cf07"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/formula.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/formula.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "0902f4be07b5b48f0dfeb2c0790a310534dd8fbcaee31bfc58641475c6a9c0c2"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/manifest.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/manifest.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "504d170d60ae48fa0aa5ab4223b8c2534966468bafa244608dd14f25bc114399"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/partial.json",
+      "role": "actual CLI journey output",
+      "sha256": "c61f384375ac340b5419f7b4aef8b6a03dff6dd6792d6bb2c4dc6617bdd55bdd"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/result.json",
+      "role": "actual CLI journey output",
+      "sha256": "e5afa53b867a83855cb1b26b606c18e85d56b864291ff60a99f1847cff041cf5"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/sections.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/sections.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "d6452cbcc490af605b4865c38d735c2c7da2984492ae591a397b8d0327dad406"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/trace.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/trace.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "d1044cd90bb6b7d1343ba719e3e441eef4177a64edf9e5bd4c8140b97698c3e1"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/wrong-digest.stderr.txt",
+      "role": "actual CLI journey output",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "cli-run6-20261103-attempt-00002/wrong-digest.stdout.json",
+      "role": "actual CLI journey output",
+      "sha256": "43276bbc27cad096c79ac5f0ba926795fd9fd8c53db2d60fd6a85a13d3f72045"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/partial.json",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "9652fe928a46cf23c1b481e0a148e680d3724500a751b36588dc7110c360773a"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/result.json",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "0c5244ee6f7ec59b8df47931457852d3a133b85aa5585fbb2110077887a8f8a7"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/section.items.jsonl",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "47e7c2737397de7966057f3ba456b2d177ce9aa0cfe00318903a23e53d25b417"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/section.items.jsonl.stderr.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/section.items.jsonl.stdout.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/section.items.parquet",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "7cbb51b60e2967d89d099fc0927c59cfcfc20a240d2971e015af66bc0eebf95c"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/section.items.parquet.stderr.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/section.items.parquet.stdout.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.docling.json",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "c214fd782456a9df6272f2a264531efbef95a638a596d1e27903f2021e56ce5b"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.docling.json.manifest.json",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "23c42eac012a5abea835bed2992d0a9c4f9411057b1650e5546058e4fad3a8fc"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.docling.json.stderr.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.docling.json.stdout.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.integrated.json",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "0aa159e49d1377782e009c2322121a99a2c24a83e6d116daf731d35dc5e97e8d"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.integrated.json.manifest.json",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "4f842a54e95785d4f164773d9b1804838e384a442b959af631f4b5d20ad5df41"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.integrated.json.stderr.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/whole.integrated.json.stdout.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/wrong-pin.json.stderr.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "f6d19ee4e035d940760156c0106b9d9eb30ed6df190f36291ac28dfbcceb48ad"
+    },
+    {
+      "path": "exports-run6-20261103-attempt-00002/wrong-pin.json.stdout.log",
+      "role": "actual native export, manifest, detached validation or refusal receipt",
+      "sha256": "43276bbc27cad096c79ac5f0ba926795fd9fd8c53db2d60fd6a85a13d3f72045"
+    },
+    {
+      "path": "mcp-run6-20261103-attempt-00002.json",
+      "role": "actual external stdio MCP result, original response bytes, rendered PNG or server log",
+      "sha256": "838f2a333af0064d023ec02820cfbdc7f5fe3f331b5512a899816253f6111e76"
+    },
+    {
+      "path": "mcp-run6-20261103-attempt-00002.partial.json",
+      "role": "actual external stdio MCP result, original response bytes, rendered PNG or server log",
+      "sha256": "f2a95a00c882965bdc80ae26785c5b64da8f5e990dea32678a5ed8f73a696e89"
+    },
+    {
+      "path": "mcp-run6-20261103-attempt-00002.raw-response.bin",
+      "role": "actual external stdio MCP result, original response bytes, rendered PNG or server log",
+      "sha256": "abd8b477e4cc3259e35176a70e6df7a376d6c775505cc36dc25a1c689c848c9a"
+    },
+    {
+      "path": "mcp-run6-20261103-attempt-00002.render.png",
+      "role": "actual external stdio MCP result, original response bytes, rendered PNG or server log",
+      "sha256": "ce95efc4099b98fde74eb777e188ec6a88f00c728020bea544f78947924a7f75"
+    },
+    {
+      "path": "mcp-run6-20261103-attempt-00002.server.log",
+      "role": "actual external stdio MCP result, original response bytes, rendered PNG or server log",
+      "sha256": "f03f9ed9fade53cab9e5d2887d2ed7bdda2e8f59c235a68dd09db8e25161bc9d"
+    },
+    {
+      "path": "selection-run6-20261103-00002.json",
+      "role": "exact current consumer selection with explicit missing cell geometry",
+      "sha256": "32f5c972c4a4ed412bf090a9a32023021271ed444e03a3f07f6c9274bef78074"
+    },
+    {
+      "path": "cell-catalog-run6-20261103-00002.json",
+      "role": "exact current consumer selection with explicit missing cell geometry",
+      "sha256": "252a1fb5a7f85ec694f351ea304b26bcec4d1d89ea6c846feb73280b842e14ab"
+    }
+  ],
+  "depends_on": [
+    "2026-11-03_um-section-closure-qualification/um.section-closure-qualification99",
+    "2026-11-03_um-section-closure-forward/um.native-section99"
+  ],
+  "results": [
+    {
+      "name": "source_ready",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Whole-document integrated pin plus five intact source views; run remains awaiting_agent, not complete knowledge."
+    },
+    {
+      "name": "intact_analysis_views",
+      "value": 5,
+      "of": 5,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "awaiting_agent_tasks",
+      "value": 5,
+      "of": 5,
+      "unit": "tasks",
+      "note": "Tasks27–31; no Claude execution."
+    },
+    {
+      "name": "actual_cli_calls",
+      "value": 7,
+      "of": 7,
+      "unit": "calls",
+      "note": "Six successful native inspections and one expected wrong-digest refusal."
+    },
+    {
+      "name": "actual_mcp_journey_operations",
+      "value": 13,
+      "of": 13,
+      "unit": "operations",
+      "note": "Includes tool discovery, exact source reads/search, artifact bytes, actual render, wrong-digest refusal and queue status."
+    },
+    {
+      "name": "actual_export_stages",
+      "value": 7,
+      "of": 7,
+      "unit": "stages",
+      "note": "Four successful exports, one expected wrong-pin refusal, detached row equality and native roundtrip/inventory checks."
+    },
+    {
+      "name": "selected_jsonl_parquet_rows",
+      "value": 1819,
+      "of": null,
+      "unit": "rows",
+      "note": null
+    },
+    {
+      "name": "native_export_pages",
+      "value": 1589,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "native_export_texts",
+      "value": 183085,
+      "of": null,
+      "unit": "text items",
+      "note": null
+    },
+    {
+      "name": "native_export_tables",
+      "value": 107,
+      "of": null,
+      "unit": "tables",
+      "note": null
+    },
+    {
+      "name": "integrated_v2_export_bytes",
+      "value": 511116985,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "docling_export_bytes",
+      "value": 60577456,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "new_recognition_attempt_results",
+      "value": 0,
+      "of": null,
+      "unit": "attempt results",
+      "note": "Existing exact recognition receipts admitted; new provider model execution is not claimed."
+    },
+    {
+      "name": "owned_nemotron_pids_remaining",
+      "value": 0,
+      "of": null,
+      "unit": "PIDs",
+      "note": "Owned8035 service stopped; database-backed run6 status still succeeds."
+    },
+    {
+      "name": "orphaned_tasks_after_service_stop",
+      "value": 0,
+      "of": null,
+      "unit": "tasks",
+      "note": null
+    },
+    {
+      "name": "claude_knowledge_reference_grading_selection",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "Knowledge extraction, reference authoring, grading and result selection receive no completion credit; selected result unchanged."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Bounded Tested on 2026-11-03: stock run6 reached SourceReady on native99 with immutable pin 6/integrated/1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac, five intact analysis views 1–5 and proposal tasks 27–31 awaiting_agent. Actual CLI seven-call, external stdio MCP 13-operation (including original artifact bytes and an actual rendered PNG), and seven-stage native export journeys passed, including expected wrong-pin refusals. JSONL/Parquet agree on 1819 rows; detached exports retain 1589 pages, 183085 text items and 107 tables under their explicit schema/inventory checks. Native conversion/recognition reused qualified observations and exact retained recognition attempts without new attempt results; source health remains partial/unknown where reported, and absent candidate/OCR inventory is not fabricated. Owned Nemotron8035 PIDs were stopped; subsequent actual database-backed status succeeded with five awaiting agents and no orphaned tasks. The database remains available. No Claude knowledge execution, reference authoring, grading, semantic-fidelity validation, completed knowledge run or result selection is claimed; those obligations remain separate. Future author bundles and live editable helper paths are excluded from this record custody.",
+  "consumed_by": [
+    "UM-14",
+    "UM-15",
+    "PDF-11",
+    "PDF-25",
+    "D3",
+    "D8",
+    "unified-domain-model coordinator",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

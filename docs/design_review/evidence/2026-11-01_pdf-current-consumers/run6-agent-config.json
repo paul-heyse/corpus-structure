@@ -1,0 +1,25 @@
+{
+  "scope": "immutable queued model configuration only; no task claim/model execution",
+  "tasks": [
+    {
+      "task_id": 27,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "task_id": 28,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "task_id": 29,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "task_id": 30,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "task_id": 31,
+      "model": "claude-opus-5-5"
+    }
+  ]
+}

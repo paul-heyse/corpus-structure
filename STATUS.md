@@ -1,52 +1,48 @@
 # Status
-_Updated 2026-11-03; UM implementation through native99 is integrated; current-source consumer acceptance and actual PDF/provider acceptance remain active._
+_Updated 2026-11-03; native99 implementation and non-Claude source qualification delivered. Knowledge/reference/evaluator acceptance remains open._
 
 ## Current checkpoint
 
-- [UM coordinator](docs/plans/unified-domain-model_2026-11-01.md#remaining-execution--2026-11-02)
-  owns current scope. UM-CA13 and UM-TA01–04 implementation is integrated in `7188cafb`:
-  composed cancellation, query custody, scoped analysis determinants, alias impact and typed ports.
-- `f536fede` integrates native97: bounded companion transactions, freeze hashing outside the task
-  fence with existing model-owned isolation/count checks, and Standard-child stderr routing.
-  [Forward evidence](docs/design_review/evidence/2026-11-02_um-worker-stdio-forward/README.md)
-  retains author/replay/rollback, exact catalog and immutable-predecessor results.
-- Application `corpus_pdf_20261102`/OID16934542 is deployed through99 on dedicated18/corpus.
-  Other clusters are unchanged. Owned Nemotron service is available on8035; readiness is not inference.
-- Full-book run3 acknowledged1589 pages and performed native formula enrichment, then failed with
-  renewal lock contention. Its cancelled state, private spool, OCR metadata and failures remain.
-- Current protected native storage derivation published task4/native pin `5ea04802…`.
-  Actual post-termination read passed: unchanged health,6342 formula outcomes, empty terminal task,
-  cancelled auxiliary container and no unfinished tasks. No new inference/knowledge is claimed.
-  [Recovery scope](docs/design_review/evidence/2026-11-03_um-native-observation-recovery/README.md).
-- Native98 (`b349bf59`) freezes canonical organization and current-task published-output custody.
-  Native99 (`38cdb8ba`) qualifies excluded furniture child references without changing body items.
-  Author/replay passed with one source change and301 immutable predecessors. Run5’s organized pin
-  `28d8e222…` is retained; run6/task6 has passed the former closure failure and is admitting cached
-  triple-pass observations without repeating organization or conversion.
-- TA implementation and scoped acceptance remain complete at the
-  [TA coordinator](docs/plans/test-architecture-and-evidence_2026-11-02.md).
-  Unselected general improvement proposals and diagnostic audit premises are unchanged.
-- ADR-0047 compiler14/boundary12/execution23/archive3 remains current-only. No historical runtime
-  fallback is restored; exact archives alone confer no execution authority.
+- [UM coordinator](docs/plans/unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+  owns current scope. UM-CA13/TA01–04 plus actual publication/selection/frontier repairs are integrated
+  through native99 (`7188cafb`, `f536fede`, `b349bf59`, `38cdb8ba`). Frozen predecessors are unchanged.
+- Application `corpus_pdf_20261102`/OID16934542 is on native99 in dedicated18/corpus (5434).
+  The database stays online; other clusters are unchanged. No owned parsing/client process remains.
+  Owned Nemotron8035 is stopped; existing source/queued knowledge work needs no fresh PDF pass.
+- Run6 published `6/integrated/1882a372…` and prepared five intact descendant analysis views1–5.
+  Tasks27–31 await agent work; other source tasks are done/empty, with no failures/running leases.
+  Public status is awaiting_agent; no completed knowledge output or result/default selection exists.
+- [Exact continuation commands](docs/design_review/evidence/2026-11-01_pdf-current-consumers/RUN6.md)
+  cover MCP/queued extraction, current independent reference bundle00003, registration/evaluation
+  and eventual selection. No Claude session, A/B/C authoring or actual grade has run.
+- Current source uses qualified upstream native data and unchanged recognition receipts. Original
+  partial/unknown health and missing candidate/OCR inventory remain explicit; no new perception
+  inference or historical knowledge import is claimed. Failed run3/run5 artifacts remain retained.
+- TA scoped acceptance remains complete at its [coordinator](docs/plans/test-architecture-and-evidence_2026-11-02.md).
+  ADR-0047 current-only compiler14/boundary12/execution23/archive3 remains; no legacy runtime fallback.
+  Unselected improvements and diagnostic audit premises are unchanged.
 
 ## Verification
 
-- **passed:** warning-inclusive just types; corrected just ruff; just ready; focused custody,
-  cold/cache/persist, scenario static, actual cancellation and alias checks. No suppressions added.
-- **failed, retained:** CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all:3295passed/1failed,
-  complete native provenance; build/test-receipts/qualification/20261103T021214Z-2310775.
-  Corrected actual-statistics CLI/MCP alias case passed in um-alias-served-corrected-002.
-- **passed, bounded:** final99 functional union3318 nodes/563 native; zero required unresolved,
-  with complete native provenance. build/um-final99-functional-applicability.json retains explicit
-  96/97/98/99 applicability and original failed aggregates; actual provider acceptance is separate.
-- **passed:** spawned logger/native-FD and typed Pipe stdio control; companion transaction controls.
-- **passed:** exact published-native post-read in build/um-native-recovery-postread-00001.
-  Original helper-only post-check failure is preserved; no second import was performed.
-- **passed:** just lint-agents adr-lint deps clippy; evidence134records/0errors/39historical warnings.
-  **failed, deferred:** just docs-check, existing library-publication links. Final handoff is still due.
+- **passed, bounded:**3318 distinct functional nodes/563 native, zero required unresolved and complete
+  provenance. [Final99 account](docs/design_review/evidence/2026-11-03_um-section-closure-qualification/README.md)
+  retains explicit96/97/98/99 applicability; historical failed aggregates are not relabelled.
+- **passed:** actual stock SourceReady; CLI7 calls; external stdio MCP13 operations, real formula PNG
+  and raw-response custody; seven export stages with1819 equal JSONL/Parquet rows and full detached
+  native/integrated roundtrip (1589 pages,183085 texts,107 tables).
+  [Source consumer evidence](docs/design_review/evidence/2026-11-01_pdf-current-consumers/run6-source-ready.md).
+- **passed:** whole warning-inclusive types; whole Ruff before99 plus scoped final99/helper checks.
+  Projection/protocol controls use local scripted children; they establish no provider result.
+- **passed:** final current reference inputs preserve complete frames/quotes/structure and separate
+  the2,227,961-byte provider view from full canonical validation state.
+  [Input preparation evidence](docs/design_review/evidence/2026-11-01_pdf-current-consumers/run6-reference-inputs.md); no context-fit/speed claim.
+- **passed:** native99 author/replay/rollback/empty candidate; native97 concurrency/append protections;
+  prior applicable ready, lint-agents, adr-lint, deps and clippy. Evidence136records/0errors/39warnings.
+- **failed, deferred:** docs-check has existing library-reorganization publication links.
+  Final just turn-end passed; current docs-check reports no owned UM/consumer link error.
 
 ## Next
 
-Finish run6/task6 integrated publication and five-section preparation from the retained pin, then
-exercise CLI/MCP/export, independent automated references and grading. Account
-for the final applicable required union; readiness and bounded passes do not establish acceptance.
+Complete queued Claude knowledge work and independent references, then run the evaluator and
+assess final result selection using the handoff. UM-14/15 remain open for those actual outputs;
+source readiness and functional coverage do not establish extraction fidelity or full-plan exit.

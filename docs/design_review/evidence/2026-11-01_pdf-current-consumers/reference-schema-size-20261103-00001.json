@@ -1,0 +1,9 @@
+{
+  "scope": "archive-only schema argument-size prerequisite; no provider/source/prediction reads",
+  "release_id": "release:a13bbbd140a8586951a328a1fd261d17a2feb8a4810c3075243da0685bb3f9f7",
+  "schema_bytes": 38903,
+  "schema_sha256": "8484cda84fefd5f3b30e6d4a47698b260bde801c0485a85c94305762f8c5b1b5",
+  "helper_limit_bytes": 100000,
+  "within_helper_limit": true,
+  "provider_execution": "not_run"
+}

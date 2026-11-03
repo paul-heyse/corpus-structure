@@ -271,11 +271,14 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                     future.result()
                     pytest.fail("freeze completed while its inventory table was locked")
                 with semantic_db_engine.connect() as observer:
-                    waiting = observer.scalar(text(
-                        "SELECT count(*) FROM pg_locks WHERE pid=:pid "
-                        "AND locktype='relation' AND relation=to_regclass(:relation) "
-                        "AND NOT granted"
-                    ), {"pid": backend[0], "relation": relation})
+                    waiting = observer.scalar(
+                        text(
+                            "SELECT count(*) FROM pg_locks WHERE pid=:pid "
+                            "AND locktype='relation' AND relation=to_regclass(:relation) "
+                            "AND NOT granted"
+                        ),
+                        {"pid": backend[0], "relation": relation},
+                    )
                 if waiting:
                     break
                 assert monotonic() < deadline, "freeze did not reach the inventory read"
@@ -288,11 +291,20 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
             if concurrent_append:
                 with semantic_writer_engine.begin() as appender:
                     adopt_pdf_companion_batch(
-                        appender, build, "health",
-                        [{"conversion": "success", "source_scope": "whole_document",
-                          "display_coverage": "unknown", "inline_coverage": "unknown",
-                          "cell_coverage": "unknown"}],
-                        "concurrent-health", start_ordinal=1,
+                        appender,
+                        build,
+                        "health",
+                        [
+                            {
+                                "conversion": "success",
+                                "source_scope": "whole_document",
+                                "display_coverage": "unknown",
+                                "inline_coverage": "unknown",
+                                "cell_coverage": "unknown",
+                            }
+                        ],
+                        "concurrent-health",
+                        start_ordinal=1,
                     )
         if concurrent_append:
             with pytest.raises(DBAPIError, match="freeze inventory changed") as caught:
@@ -301,12 +313,20 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
             assert caught.value.orig.sqlstate == "40001"
             with semantic_db_engine.connect() as conn:
                 conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-                assert conn.scalar(text(
-                    "SELECT state FROM ops.pdf_stage_build WHERE build_id=:build"
-                ), {"build": build.build_id}) == "open"
-                assert conn.scalar(text(
-                    "SELECT count(*) FROM ops.pdf_frozen_build WHERE build_id=:build"
-                ), {"build": build.build_id}) == 0
+                assert (
+                    conn.scalar(
+                        text("SELECT state FROM ops.pdf_stage_build WHERE build_id=:build"),
+                        {"build": build.build_id},
+                    )
+                    == "open"
+                )
+                assert (
+                    conn.scalar(
+                        text("SELECT count(*) FROM ops.pdf_frozen_build WHERE build_id=:build"),
+                        {"build": build.build_id},
+                    )
+                    == 0
+                )
         else:
             assert len(future.result(timeout=10).frozen_digest) == 64
 
@@ -334,23 +354,33 @@ def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
     # Independent expected inventory: ordinary writers cannot replace/delete rows
     # while the freeze candidate is being hashed without holding the task fence.
     relations = (
-        "ops.pdf_stage_document", "ops.pdf_stage_native", "ops.pdf_stage_membership",
-        "ops.pdf_stage_reference", "ops.pdf_stage_artifact_stream", "ops.pdf_stage_artifact_part",
-        "ops.pdf_stage_companion", "ops.pdf_stage_endpoint", "ops.pdf_stage_companion_field",
+        "ops.pdf_stage_document",
+        "ops.pdf_stage_native",
+        "ops.pdf_stage_membership",
+        "ops.pdf_stage_reference",
+        "ops.pdf_stage_artifact_stream",
+        "ops.pdf_stage_artifact_part",
+        "ops.pdf_stage_companion",
+        "ops.pdf_stage_endpoint",
+        "ops.pdf_stage_companion_field",
     )
     with semantic_writer_engine.connect() as conn:
         for relation in relations:
-            assert conn.execute(text(
-                "SELECT has_table_privilege(current_user,:relation,'UPDATE'), "
-                "has_table_privilege(current_user,:relation,'DELETE')"
-            ), {"relation": relation}).one() == (False, False)
+            assert conn.execute(
+                text(
+                    "SELECT has_table_privilege(current_user,:relation,'UPDATE'), "
+                    "has_table_privilege(current_user,:relation,'DELETE')"
+                ),
+                {"relation": relation},
+            ).one() == (False, False)
     with (
         semantic_writer_engine.begin() as conn,
         pytest.raises(DBAPIError) as caught,
     ):
-        conn.execute(text(
-            "UPDATE ops.pdf_stage_companion SET body='{}'::jsonb WHERE product_id=:build"
-        ), {"build": private_build.build_id})
+        conn.execute(
+            text("UPDATE ops.pdf_stage_companion SET body='{}'::jsonb WHERE product_id=:build"),
+            {"build": private_build.build_id},
+        )
     assert isinstance(caught.value.orig, psycopg.Error)
     assert caught.value.orig.sqlstate == "42501"
 

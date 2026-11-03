@@ -1,0 +1,17 @@
+{
+  "outcome": "passed",
+  "scope": "purpose projection and immutable canonical source custody; no provider/context fit/performance result",
+  "old_sources_bytes": 27740669,
+  "new_canonical_sources_bytes": 13428217,
+  "provider_sources_bytes": 2160219,
+  "guideline_bytes": 13818,
+  "domain_definitions_bytes": 52904,
+  "response_schema_bytes": 38903,
+  "body_characters": {
+    "normal": 19923,
+    "sampling": 29141
+  },
+  "frames_unchanged": true,
+  "packet_hashes_unchanged": true,
+  "domain_schema_and_images_unchanged": true
+}
