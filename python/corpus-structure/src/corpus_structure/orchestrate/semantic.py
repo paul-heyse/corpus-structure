@@ -475,6 +475,18 @@ def run_source_methods(
                         from corpus_structure.methods.math.methods import MathReadingsBatch
 
                         shared_math_batch = MathReadingsBatch()
+                    from dataclasses import replace
+
+                    from .source_reader import ScopedSourceReader
+
+                    with engine.connect() as conn:
+                        view = run_view(conn, rid, prepared)
+                        bound_reader = view.reader
+                        if not isinstance(bound_reader, BoundReader):
+                            raise TypeError("source execution requires the bound database adapter")
+                        bound_reader.math_readings_batch = shared_math_batch
+                    scoped_reader = ScopedSourceReader(engine, bound_reader)
+                    method_view = replace(view, reader=scoped_reader)
                     while True:
                         # Child identity is formed only after its declared parent outputs exist.
                         # Ancestor context does not queue agent work or force math values.
@@ -514,14 +526,6 @@ def run_source_methods(
                                     registered[(cid, ref.unit_id)] = task_id
                                     ready.append(entry)
                                 deferred = [entry for entry in deferred if entry not in ready]
-                        with engine.connect() as conn:
-                            view = run_view(conn, rid, prepared)
-                            bound_reader = view.reader
-                            if not isinstance(bound_reader, BoundReader):
-                                raise TypeError(
-                                    "source execution requires the bound database adapter"
-                                )
-                            bound_reader.math_readings_batch = shared_math_batch
                         work = []
                         for method, config, cid in scheduled:
                             with engine.begin() as conn:
@@ -578,12 +582,6 @@ def run_source_methods(
                                         )
                                         for t in claimed
                                     ]
-                                from dataclasses import replace
-
-                                from .source_reader import ScopedSourceReader
-
-                                scoped_reader = ScopedSourceReader(engine, bound_reader)
-                                method_view = replace(view, reader=scoped_reader)
                                 units = [replace(unit, run=method_view) for unit in units]
 
                                 def retain_pdf_observation(

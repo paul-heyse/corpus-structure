@@ -71,6 +71,15 @@ later original until the earlier task renews, then durably settles both. Scoped 
 `raw/source-custody-types.log` records Pyrefly0 errors. This is bounded functional evidence, not
 assembled scheduler/provider qualification.
 
+`raw/source-jit-native.log` passed the actual native scheduler control with six original-document
+units and two controlled compatible math kernels: only the currently executing batch is leased,
+the batch sizes are4/2 for each method, all12 terminal receipts persist, and one reader/math
+preparation owner survives all four batches. The group reader now has exactly that lifetime;
+coherent reads still borrow independent snapshots. Earlier fixture-only stage/required-section
+failures remain in `raw/source-jit-attempt-*`. This establishes scheduler lifetime with controlled
+kernels, not mathematical correctness or the six-SourceView prerequisite journey. Scoped Ruff
+passed and `raw/source-group-types.log` records Pyrefly0 errors.
+
 ## Records
 
 <!-- evidence-index:start -->
