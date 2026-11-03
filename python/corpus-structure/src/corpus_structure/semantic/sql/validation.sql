@@ -64,7 +64,13 @@ BEGIN
    RAISE EXCEPTION 'structural identifier contradicts assigned entity identity' USING ERRCODE='23514'; END IF;
   CONTINUE;
  END IF;
- SELECT count(DISTINCT data.canonical_json(data.value_meaning(r,z,f.object_value_id))) INTO n FROM data.fact f
+ SELECT count(DISTINCT data.canonical_json(data.value_meaning(r,z,
+  CASE WHEN a.constraint_scope='accepted_value' THEN COALESCE(representative.object_value_id,f.object_value_id)
+       ELSE f.object_value_id END)))) INTO n FROM data.fact f
+ LEFT JOIN data.scientific_representative selected_view ON selected_view.release_id=r
+  AND selected_view.realization_id=z AND selected_view.fact_id=f.fact_id
+ LEFT JOIN data.fact representative ON representative.release_id=r AND representative.realization_id=z
+  AND representative.fact_id=selected_view.representative_fact_id
  WHERE f.release_id=r AND f.realization_id=z AND f.subject_id=a.entity_id AND f.property_id=a.property_id
  AND (a.constraint_scope='shape' OR EXISTS(SELECT FROM data.selection s WHERE (s.release_id,s.realization_id,s.fact_id)=(f.release_id,f.realization_id,f.fact_id)));
  IF n<COALESCE(a.minimum_cardinality,CASE WHEN a.required THEN 1 ELSE 0 END) OR n>COALESCE(a.maximum_cardinality,CASE WHEN a.multivalued THEN 9223372036854775807 ELSE 1 END) THEN RAISE EXCEPTION 'property cardinality %/%',a.entity_id,a.property_id USING ERRCODE='23514'; END IF;
