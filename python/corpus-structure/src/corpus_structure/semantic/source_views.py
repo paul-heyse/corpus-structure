@@ -102,7 +102,7 @@ def _ref(row) -> SourceViewRef:
 
 
 def selected_source_views(
-    conn: Connection, run_id: int, *, read_budget: Any = None
+    conn: Connection, run_id: int, *, read_budget: Any = None, source_view_id: int | None = None
 ) -> tuple[SourceViewRef, ...]:
     view, selection = table("kb.source_view"), table("ops.run_source_view")
     newer = selection.alias("newer")
@@ -121,6 +121,8 @@ def selected_source_views(
         )
         .order_by(selection.c.position, view.c.id)
     )
+    if source_view_id is not None:
+        statement = statement.where(view.c.id == source_view_id)
     if read_budget is not None:
         read_budget.preflight(conn, statement)
     refs = []

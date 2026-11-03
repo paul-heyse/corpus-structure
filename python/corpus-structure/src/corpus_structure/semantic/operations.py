@@ -907,7 +907,9 @@ class BoundReader:
     def source_view(self, source_view_id: int):
         from .source_views import load_source_view, selected_source_views
 
-        selected = selected_source_views(self.conn, self.run_id, read_budget=self._read_budget)
+        selected = selected_source_views(
+            self.conn, self.run_id, read_budget=self._read_budget, source_view_id=source_view_id
+        )
         if source_view_id not in {ref.id for ref in selected}:
             raise OperationConflict("source view is outside bound run")
         cache = getattr(self, "_native_views", None)

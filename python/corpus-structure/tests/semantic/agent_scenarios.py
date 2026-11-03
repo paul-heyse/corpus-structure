@@ -43,6 +43,7 @@ def build_resubmission_case(
     domain: str | None = None,
     evaluation_policy: bytes | None = None,
     query_inputs: tuple[SourceArtifact, ...] = (),
+    model: str = "automated-resubmission",
 ) -> tuple[PreparedRelease, RunId, TaskId, str]:
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
@@ -107,7 +108,7 @@ def build_resubmission_case(
     from corpus_structure.ingest.sentences import SentenceConfig
 
     config = {
-        "model": "automated-resubmission",
+        "model": model,
         "mode": "extract",
         "max_units": 1,
         "packet_cap_chars": 18000,

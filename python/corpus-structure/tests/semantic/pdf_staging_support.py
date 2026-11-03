@@ -27,7 +27,10 @@ from .operation_scenario_support import prepare_operation_scenario
 
 @pytest.fixture
 def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
-    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(
+        semantic_db_engine, composed=True,
+        observations=getattr(request, "param", None) == "renderable_pdf",
+    )
     recipe = b'{"recipe":"stage-test"}'
     path = tmp_path / "source.pdf"
     if getattr(request, "param", None) == "renderable_pdf":

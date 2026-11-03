@@ -34,8 +34,13 @@ from corpus_structure.semantic.releases import persist_release
 
 @pytest.mark.parametrize("producer_method", ["agent.opus", "agent.general"])
 def test_native_tool_queue_read_schema_and_fenced_rich_submission(
-    semantic_db_engine, semantic_writer_engine, tmp_path, producer_method
+    semantic_db_engine, semantic_writer_engine, tmp_path, producer_method, monkeypatch
 ):
+    invocation_events = []
+    monkeypatch.setattr(
+        "corpus_structure.intervene.semantic_server._invocation_event",
+        lambda *args, **details: invocation_events.append((args, details)),
+    )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = proposal_inputs(
         SourceBundle(
@@ -368,3 +373,13 @@ classes:
             row["payload"]["claims"][0]["qualification"]["parameters"]["scale"]["amount"]
             == "1.23456789012345678901234567890123456789"
         )
+
+    leased = {(args[0], args[1]): args for args, _ in invocation_events if args[4] == "leased"}
+    completed = [(args, details) for args, details in invocation_events if args[4] == "completed"]
+    assert len(completed) == 2
+    for args, details in completed:
+        assert args[3] == leased[(args[0], args[1])][3]
+        assert args[3]["method"] == producer_method
+        assert args[3]["configured_model"] == "declared-automated-agent"
+        assert details["receipt"]["task_id"] == args[0]
+        assert details["receipt"]["attempt"] == args[1]

@@ -254,3 +254,69 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
         assert bytes(row.content) == rendered
         assert conn.scalar(text("SELECT count(*) FROM ops.native_region_artifact")) == 1
         assert conn.scalar(text("SELECT count(*) FROM ops.native_source_frame")) == 1
+
+
+    # The actual mutating MCP tool renders/persists first; inline delivery has its
+    # own byte disposition and must never erase the committed artifact reference.
+    import anyio
+    from fastmcp import Client
+
+    from corpus_structure.intervene.semantic_server import (
+        SemanticAgentSession, _rendered_artifact_result, build_semantic_server,
+    )
+    from corpus_structure.semantic.native_requests import NativeRequestResult
+
+    server = build_semantic_server(SemanticAgentSession(semantic_writer_engine, task.run_id))
+    deliveries = []
+
+    async def image_delivery():
+        async with Client(server) as client:
+            for cap in (1024 * 1024, 1024):
+                delivered = await client.call_tool(
+                    "render_source_region",
+                    {"run_id": task.run_id, "source_view_id": view_id,
+                     "pointer": item.self_ref, "region_index": 0, "scale": 8,
+                     "max_bytes": cap},
+                    raise_on_error=False,
+                )
+                deliveries.append(delivered)
+
+    anyio.run(image_delivery)
+    included, refused = deliveries
+    assert not included.is_error and included.structured_content["inline_image"]["disposition"] == "included"
+    assert any(content.type == "image" for content in included.content)
+    assert refused.is_error and refused.structured_content["inline_image"]["disposition"] == "refused"
+    assert all(content.type != "image" for content in refused.content)
+    assert refused.structured_content["artifact_digest"] == included.structured_content["artifact_digest"]
+    assert refused.structured_content["inline_image"]["reason"] == "oversized_item"
+    with semantic_db_engine.connect() as conn:
+        artifact_digest = refused.structured_content["artifact_digest"]
+        assert conn.scalar(text("SELECT count(*) FROM kb.source_artifact WHERE artifact_digest=:digest"),
+                           {"digest": artifact_digest}) == 1
+        origin = included.structured_content["task_id"]
+        assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": origin}) in {"empty", "reused"}
+        assert conn.scalar(text("SELECT count(*) FROM ops.native_region_artifact WHERE artifact_digest=:digest"),
+                           {"digest": artifact_digest}) >= 1
+
+    # A direct delivery replay proves the large artifact body is never selected
+    # when its retained scalar length already excludes inline transfer.
+    from sqlalchemy import event
+
+    selected_sql = []
+
+    def record_sql(conn, cursor, statement, parameters, context, executemany):
+        selected_sql.append(statement)
+
+    event.listen(semantic_writer_engine, "before_cursor_execute", record_sql)
+    try:
+        native = NativeRequestResult(**{key: included.structured_content[key] for key in (
+            "run_id", "task_id", "cut_id", "status", "source_view_id", "product_digest",
+            "artifact_digest", "result", "error",
+        )})
+        bounded = _rendered_artifact_result(semantic_writer_engine, native, 1024)
+    finally:
+        event.remove(semantic_writer_engine, "before_cursor_execute", record_sql)
+    wire = bounded.to_mcp_result()
+    assert wire.is_error and len(wire.model_dump_json(by_alias=True, exclude_none=True).encode()) <= 1024
+    assert any("octet_length" in statement for statement in selected_sql)
+    assert not any("SELECT kb.source_artifact.content" in statement for statement in selected_sql)

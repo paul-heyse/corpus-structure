@@ -6,13 +6,13 @@ import secrets
 import threading
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
-from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Engine, func, select
 
 from corpus_structure.intervene import service, submission
@@ -72,6 +72,75 @@ def _invocation_event(task_id, attempt, holder, binding, event, **details):
         stream.write("\n")
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def _rendered_artifact_result(engine, result, max_bytes):
+    """Bound inline MCP delivery after durable rendering, before artifact materialization."""
+    from dataclasses import asdict
+
+    from fastmcp.utilities.types import Image
+    from mcp.types import CallToolResult, ImageContent, TextContent
+
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.query import read_snapshot
+
+    if type(max_bytes) is not int or not 1024 <= max_bytes <= 8 * 1024 * 1024:
+        raise ValueError("inline image max_bytes must be between 1024 and 8388608")
+    if result.artifact_digest is None:
+        raise ValueError("rendered source has no retained artifact reference")
+    structured = asdict(result)
+    artifact = table("kb.source_artifact")
+
+    def wire(content, body, *, refused=False):
+        return CallToolResult(content=content, structured_content=body, is_error=refused)
+
+    def size(response):
+        return len(response.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
+
+    def refusal(raw_bytes, required):
+        body = dict(structured, inline_image=dict(
+            disposition="refused", reason="oversized_item", media_type="image/png",
+            artifact_bytes=raw_bytes, required_bytes=required, max_bytes=max_bytes,
+        ))
+        response = wire([TextContent(type="text", text=(
+            "Rendered artifact is committed; inline image exceeds max_bytes. "
+            "Use the retained artifact reference."
+        ))], body, refused=True)
+        if size(response) > max_bytes:
+            # The minimum supported budget is sized for a reference-only refusal,
+            # independently of any potentially large optional native result detail.
+            body = {key: structured[key] for key in (
+                "run_id", "task_id", "source_view_id", "artifact_digest"
+            )}
+            body["inline_image"] = {"disposition": "refused", "reason": "oversized_item"}
+            response = wire(
+                [TextContent(type="text", text="Inline image refused; artifact retained.")],
+                body, refused=True,
+            )
+            if size(response) > max_bytes:
+                raise ValueError("retained artifact reference exceeds inline response budget")
+        return ToolResult.from_mcp_result(response)
+
+    with read_snapshot(engine) as conn:
+        length = conn.execute(select(func.octet_length(artifact.c.content)).where(
+            artifact.c.artifact_digest == result.artifact_digest
+        )).scalar_one()
+        body = dict(structured, inline_image=dict(
+            disposition="included", media_type="image/png", artifact_bytes=length,
+            max_bytes=max_bytes,
+        ))
+        empty = wire([ImageContent(type="image", data="", mime_type="image/png")], body)
+        required = size(empty) + 4 * ((length + 2) // 3)
+        if required > max_bytes:
+            return refusal(length, required)
+        content = bytes(conn.execute(select(artifact.c.content).where(
+            artifact.c.artifact_digest == result.artifact_digest
+        )).scalar_one())
+    response = wire([Image(data=content, format="png").to_image_content()], body)
+    actual = size(response)
+    if actual > max_bytes:
+        return refusal(length, actual)
+    return ToolResult.from_mcp_result(response)
 
 
 @dataclass
@@ -505,13 +574,9 @@ def build_semantic_server(
         pointer: str,
         region_index: int = 0,
         scale: float = 2,
+        max_bytes: Annotated[int, Field(ge=1024, le=8 * 1024 * 1024)] = 1024 * 1024,
     ) -> ToolResult:
-        """Demand and retain a source-qualified PDF region image through native task ownership."""
-        from dataclasses import asdict
-
-        from fastmcp.utilities.types import Image
-
-        from corpus_structure.semantic.metadata import table
+        """Retain a source-qualified region and deliver inline imagery within max_bytes."""
         from corpus_structure.semantic.native_requests import request_source_view
 
         active = bound_run(ctx, run_id)
@@ -523,23 +588,11 @@ def build_semantic_server(
             pointer=pointer,
             region_index=region_index,
             scale=scale,
-            code_commit="native-source-mcp-v3",
+            code_commit="native-source-mcp-v4",
         )
         if result.status == "failed":
             raise ValueError(result.error or "native region render failed")
-        artifacts = table("kb.source_artifact")
-        with active.engine.connect() as conn:
-            content = bytes(
-                conn.execute(
-                    select(artifacts.c.content).where(
-                        artifacts.c.artifact_digest == result.artifact_digest
-                    )
-                ).scalar_one()
-            )
-        return ToolResult(
-            content=[Image(data=content, format="png").to_image_content()],
-            structured_content=asdict(result),
-        )
+        return _rendered_artifact_result(active.engine, result, max_bytes)
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)
@@ -645,11 +698,7 @@ def build_semantic_server(
                 )
             session.sessions.pop(task_id, None)
             _invocation_event(
-                task_id,
-                active.attempt,
-                active.holder,
-                {},
-                "completed",
+                task_id, active.attempt, active.holder, result.producer_binding, "completed",
                 receipt=result.completion.receipt.model_dump(mode="json"),
             )
             data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()

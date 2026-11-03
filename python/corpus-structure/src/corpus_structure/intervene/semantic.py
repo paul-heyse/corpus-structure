@@ -48,6 +48,7 @@ class CompletedProposalCommit(OperationResult):
 
     disposition: Literal["completed_accepted", "completed_refused"]
     completion: CompletionResult
+    producer_binding: dict[str, str]
 
 
 type ProposalCommit = HeldProposalCommit | CompletedProposalCommit
@@ -163,9 +164,9 @@ class ProposalSession:
         import os
 
         invocation_id = os.environ.get("CORPUS_AGENT_INVOCATION_ID")
-        diagnostic = {
+        diagnostic: dict[str, JsonValue] = {
             "execution_identity": {
-                "binding": producer.values(),
+                "binding": dict[str, JsonValue](producer.values()),
                 "task_id": self.task_id, "attempt": self.attempt, "holder": self.holder,
                 "assurance": "provider_reported" if invocation_id else "manual_operator",
                 "invocation_id": invocation_id,
@@ -272,6 +273,7 @@ class ProposalSession:
             if isinstance(checked, RefusedProposal)
             else "completed_accepted",
             completion=observations,
+            producer_binding=producer.values(),
         )
         from corpus_structure.semantic.operation_results import validate_result_dimension
 
