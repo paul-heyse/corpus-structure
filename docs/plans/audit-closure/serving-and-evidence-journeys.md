@@ -283,6 +283,14 @@ Version4 cursors bind exact immutable selection and both work bounds, cap encode
 and reject version3 meaning. Items, sections, companion occurrence pages and manifests use an
 actual extra row to establish more results; exhaustion never follows merely from a full page.
 
+The actual source-search MCP route is `integrated-source-4`: selected-view references,
+ranked excerpt rows and their metadata share the same declared row/byte admission before
+transfer, and the response receives a complete-envelope byte check. Its new cursor version
+binds the search, exact selected source pins and both bounds. A headline's word count alone
+is not byte admission, because one token can be arbitrarily large. The named `find` query
+uses the same preflight reader with a shared10,000-row/8 MiB source budget, plus its ordinary
+answer envelope limit; version3 search cursors require explicit compatibility refusal.
+
 The defaults reuse the existing published-reader maximum10,000-row admission and ordinary-answer
 1 MiB/8 MiB byte boundary. They accommodate normal100-row inspection while preserving a finite
 whole-invocation refusal point; they make no latency or universal document-capacity claim. Full

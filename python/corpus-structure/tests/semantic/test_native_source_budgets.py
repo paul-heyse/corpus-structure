@@ -165,3 +165,55 @@ def test_interactive_packet_propagates_one_budget_and_refuses_whole_packet(monke
     assert caught.value.reason == "oversized_item"
     assert run_view.call_args.kwargs["read_budget"] is budget
     assert references.call_args.kwargs["read_budget"] is budget
+
+
+def test_source_search_uses_one_budget_and_refuses_old_cursor(monkeypatch):
+    from corpus_structure.semantic import pdf_contracts, source_views
+    from corpus_structure.serve import source_search
+
+    monkeypatch.setattr(pdf_contracts, "pdf_context_for_run", lambda *args: Mock())
+    selected = Mock(return_value=())
+    rows = Mock(return_value=[])
+    monkeypatch.setattr(source_views, "selected_source_views", selected)
+    monkeypatch.setattr(source_search, "source_search_rows", rows)
+    request = source_search.SourceSearchRequest(run_id=1, text="Alice", max_bytes=1024)
+    answer = source_search.search_source(Mock(), request)
+    assert answer.version == "integrated-source-4" and answer.population_complete
+    assert selected.call_args.kwargs["read_budget"] is rows.call_args.kwargs["read_budget"]
+    with pytest.raises(InvalidContinuation):
+        source_search.search_source(Mock(), request.model_copy(update={"cursor": "e30="}))
+
+
+def test_source_search_preflights_selected_scalar_bytes_on_postgresql(semantic_bare_engine):
+    from sqlalchemy import event, text
+
+    from corpus_structure.serve.source_search import source_search_rows
+
+    with semantic_bare_engine.begin() as conn:
+        for ddl in (
+            "CREATE SCHEMA kb",
+            "CREATE SCHEMA ops",
+            "CREATE TABLE kb.document(id bigint,source_uri text)",
+            "CREATE TABLE kb.source_view(id bigint,document_id bigint,native_task_id bigint,"
+            "native_product_key text,native_content_digest text,section_pointer text,"
+            "membership text,projection_digest text,projection jsonb)",
+            "CREATE TABLE ops.run_source_view(run_id bigint,source_view_id bigint,"
+            "supersedes_source_view_id bigint)",
+            "INSERT INTO kb.document VALUES(1,repeat('u',4096))",
+            "INSERT INTO kb.source_view VALUES(1,1,2,'native',repeat('a',64),'#/body','direct',"
+            "repeat('b',64),'{\"text\":\"Alice publishes exact evidence.\"}')",
+            "INSERT INTO ops.run_source_view VALUES(1,1,NULL)",
+        ):
+            conn.execute(text(ddl))
+        statements = []
+        event.listen(
+            conn,
+            "before_cursor_execute",
+            lambda c, cur, statement, params, ctx, many: statements.append(statement),
+        )
+        with pytest.raises(ReadLimit) as caught:
+            source_search_rows(
+                conn, run_id=1, text="Alice", limit=1, read_budget=PublishedReadBudget(10, 1024)
+            )
+        assert caught.value.reason == "oversized_item"
+        assert len(statements) == 1 and "octet_length" in statements[0]

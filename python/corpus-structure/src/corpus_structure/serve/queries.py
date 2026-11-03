@@ -267,7 +267,7 @@ class Unsupported(Query):
 class Find(Query):
     result: type[BaseModel]
     name, params, result = "find", FindParams, FindAnswer
-    version = "integrated-source-3"
+    version = "integrated-source-4"
 
     def rows(self, ctx, p, after=None):
         from corpus_structure.serve.source_search import source_search_rows
@@ -276,6 +276,9 @@ class Find(Query):
         if phase not in (0, 1):
             raise ValueError("invalid source search cursor")
         if phase == 0:
+            from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+
+            budget = PublishedReadBudget(10000, 8 * 1024 * 1024)
             while True:
                 rows = source_search_rows(
                     ctx.conn,
@@ -284,6 +287,7 @@ class Find(Query):
                     limit=ctx.row_batch,
                     after_score=None if score_after is None else float(score_after),
                     after_id=None if key_after is None else int(key_after),
+                    read_budget=budget,
                 )
                 for row in rows:
                     yield Positioned(
