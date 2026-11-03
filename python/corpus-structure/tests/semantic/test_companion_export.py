@@ -234,7 +234,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     from pathlib import Path
     from types import SimpleNamespace
 
-    from corpus_structure.core.db.adbc_lifetime import ADBCBorrowerCancellation
+    from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
     from corpus_structure.semantic import analytics
     from corpus_structure.semantic.companion_projection import projection
@@ -243,7 +243,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     from corpus_structure.settings import Settings
 
     events: list[dict[str, object] | str] = []
-    cancellation = ADBCBorrowerCancellation()
+    cancellation = OperationCancellation()
     pin = PublishedSourcePin(
         project_id="p",
         run_id=1,
@@ -301,7 +301,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
         yield object()
 
     @contextmanager
-    def snapshot(*args):
+    def snapshot(*args, cancellation=None):
         yield SimpleNamespace(
             execute=lambda statement: SimpleNamespace(scalar_one=lambda: "00000001-00000002-1")
         )
@@ -310,7 +310,9 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     monkeypatch.setattr(export, "open_runtime_engine", engine)
     monkeypatch.setattr(export, "read_snapshot", snapshot)
     monkeypatch.setattr(
-        native_source, "inspect_native_source", lambda *args: SimpleNamespace(release_id="producer")
+        native_source,
+        "inspect_native_source",
+        lambda *args, **kwargs: SimpleNamespace(release_id="producer"),
     )
     settings = Settings(
         analytics={"adbc_driver_path": Path("/selected/driver.so"), "batch_size_hint_bytes": 123456}

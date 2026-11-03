@@ -62,6 +62,28 @@ def test_actual_statistics_pack_acquisition_binds_installed_queries():
     assert any(artifact.kind == "query_bindings.json" for artifact in prepared.artifacts)
 
 
+def test_preimported_exact_object_lowering_is_captured_and_edits_refuse(tmp_path, monkeypatch):
+    from corpus_structure.semantic.consolidation import plain
+
+    pack, release, inputs = prepared_pack(tmp_path)
+    name = "operation/query-source/runtime/semantic/consolidation.py"
+    captured = next(item for item in inputs if item.name == name)
+    filename = sys.modules[plain.__module__].__file__
+    assert filename is not None
+    path = Path(filename)
+    assert captured.content == path.read_bytes()
+    assert open_query_registry(release, pack, query_name="probe")["probe"].name == "probe"
+    original = Path.read_bytes
+
+    def edited(self):
+        content = original(self)
+        return content + b"\n# changed exact-object lowering\n" if self == path else content
+
+    monkeypatch.setattr(Path, "read_bytes", edited)
+    with pytest.raises(QueryCompatibilityError, match="restart"):
+        acquire_query_inputs(pack)
+
+
 def compatibility(pack, query, *, duplicate=False):
     entry = dict(
         query="probe",

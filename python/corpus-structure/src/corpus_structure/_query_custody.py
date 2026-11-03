@@ -26,6 +26,7 @@ QUERY_SOURCES = (
     "serve/explain.py",
     "serve/native_source.py",
     "semantic/query.py",
+    "semantic/consolidation.py",
     "semantic/coverage_contract.py",
     "semantic/continuations.py",
     "semantic/query_compatibility.py",

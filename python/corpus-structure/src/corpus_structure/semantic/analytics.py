@@ -39,7 +39,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from corpus_structure.core.db.adbc_lifetime import ADBCBorrowerCancellation, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import owned_adbc_read
+from corpus_structure.core.db.cancellation import OperationCancellation
 
 from ._typed_columns import data_occurrence_columns
 from .analytical_kernels import (
@@ -826,154 +827,160 @@ def load_packet(
     resident_limit_bytes: int = 512 * 1024**2,
     batch_size_hint_bytes: int = 8 * 1024**2,
     scratch_path: str | Path | None = None,
-    cancellation: ADBCBorrowerCancellation | None = None,
+    cancellation: OperationCancellation | None = None,
 ) -> AnalyticalPacket:
     """Capture all mutable relations through an imported snapshot, consuming readers once.
 
     Caller owns the exporting ReadSession and must close it before long local computation.
     A fresh bulk connection has no data query before SET TRANSACTION SNAPSHOT. It is never pooled.
     """
-    from .contracts import execution_payload, require_bound_operation
+    cancellation = cancellation or OperationCancellation()
+    cancellation.check_active()
+    with cancellation.postgresql.borrow(session.connection):
+        from .contracts import execution_payload, require_bound_operation
 
-    if cancellation is not None:
-        cancellation.check_active()
-    require_bound_operation(session.prepared, "capture_analytics")
+        if cancellation is not None:
+            cancellation.check_active()
+        require_bound_operation(session.prepared, "capture_analytics")
 
-    from .analysis_contracts import prepare_capture_policy
+        from .analysis_contracts import prepare_capture_policy
 
-    modes = prepare_capture_policy(session.prepared).modes
-    if mode not in modes or min(batch_size, resident_limit_bytes, batch_size_hint_bytes) < 1:
-        raise ValueError("invalid capture mode or capacity configuration")
-    compiled = compile_projection(session.prepared, session.binding)
-    snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
-    # Exported ids are server-generated; SQLAlchemy renders their SQL literal safely.
-    snapshot_sql = (
-        postgresql.dialect(paramstyle="named")
-        .statement_compiler(postgresql.dialect(paramstyle="named"), None)
-        .render_literal_value(snapshot, String())
-    )
-    owner = CaptureOwner(scratch_path) if mode == "spooled" else None
-
-    def annotate_failure(error: BaseException, phase):
-        from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
-        from corpus_structure.core.db.store import (
-            DatabaseOperationFailure,
-            EffectKnowledge,
-            classify_error,
-            record_operation_failure,
+        modes = prepare_capture_policy(session.prepared).modes
+        if mode not in modes or min(batch_size, resident_limit_bytes, batch_size_hint_bytes) < 1:
+            raise ValueError("invalid capture mode or capacity configuration")
+        compiled = compile_projection(session.prepared, session.binding)
+        snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
+        # Exported ids are server-generated; SQLAlchemy renders their SQL literal safely.
+        snapshot_sql = (
+            postgresql.dialect(paramstyle="named")
+            .statement_compiler(postgresql.dialect(paramstyle="named"), None)
+            .render_literal_value(snapshot, String())
         )
+        owner = CaptureOwner(scratch_path) if mode == "spooled" else None
 
-        if isinstance(error, (adbc_manager.Error, DatabaseOperationCancelled)):
-            failure = classify_error(
-                error,
-                phase=phase,
-                effects=EffectKnowledge.NONE,
-                cancellation_requested=cancellation is not None and cancellation.requested,
+        def annotate_failure(error: BaseException, phase):
+            from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+            from corpus_structure.core.db.store import (
+                DatabaseOperationFailure,
+                EffectKnowledge,
+                classify_error,
+                record_operation_failure,
             )
-            record_operation_failure(
-                error,
-                DatabaseOperationFailure(
-                    failure,
-                    operation_id="capture_analytics",
-                    release_id=compiled.binding.release_id,
-                    realization_id=compiled.binding.realization_id,
+
+            if isinstance(error, (adbc_manager.Error, DatabaseOperationCancelled)):
+                failure = classify_error(
+                    error,
+                    phase=phase,
+                    effects=EffectKnowledge.NONE,
+                    cancellation_requested=cancellation is not None and cancellation.requested,
+                )
+                record_operation_failure(
+                    error,
+                    DatabaseOperationFailure(
+                        failure,
+                        operation_id="capture_analytics",
+                        release_id=compiled.binding.release_id,
+                        realization_id=compiled.binding.realization_id,
+                    ),
+                )
+
+        from corpus_structure.core.db.store import DatabasePhase
+
+        try:
+            cancellation.check_active()
+            connection = open_adbc_connection(uri, driver_path=driver_path)
+        except BaseException as error:
+            annotate_failure(error, DatabasePhase.ACQUIRING)
+            if owner:
+                _cleanup_after_failure(error, owner.close)
+            raise
+        descriptors = {}
+        budget = [0]
+        try:
+            with (
+                owned_adbc_read(connection, cancellation.adbc) as bulk,
+                bulk.cursor() as cursor,
+            ):
+                cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
+                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
+                cursor.adbc_statement.set_options(
+                    **{
+                        "adbc.postgresql.use_copy": "true",
+                        "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
+                    }
+                )
+                relations = {}
+                for projection in compiled.relations:
+                    if cancellation is not None:
+                        cancellation.check_active()
+                    cursor.execute(compile_sql(projection.statement))
+                    with cursor.fetch_record_batch() as reader:
+
+                        def normalized(projection=projection, reader=reader):
+                            for raw in reader:
+                                if cancellation is not None:
+                                    cancellation.check_active()
+                                for offset in range(0, raw.num_rows, batch_size):
+                                    value = normalize_relation(
+                                        pa.Table.from_batches([raw.slice(offset, batch_size)]),
+                                        projection,
+                                        compiled.profile,
+                                    )
+                                    yield from value.to_batches(max_chunksize=batch_size)
+
+                        relations[projection.name], descriptors[projection.name] = store_relation(
+                            owner,
+                            projection.name,
+                            projection.schema,
+                            normalized(),
+                            tuple(
+                                c.name for c in table("data." + projection.name).primary_key.columns
+                            ),
+                            budget,
+                            resident_limit_bytes,
+                        )
+            manifest = finish_manifest(
+                owner,
+                asdict(compiled.binding),
+                compiled.projection_id,
+                compiled.profile.digest,
+                descriptors,
+            )
+        except BaseException as error:
+            annotate_failure(error, DatabasePhase.EXECUTING)
+            if owner:
+                _cleanup_after_failure(error, owner.close)
+            raise
+        try:
+            return AnalyticalPacket(
+                compiled.binding,
+                compiled.projection_id,
+                compiled.profile.digest,
+                MappingProxyType(relations),
+                tuple(sorted({p.iri for d in session.prepared.definitions for p in d.properties})),
+                compiled.profile.scale,
+                execution_model_id=session.prepared.execution_model_id,
+                execution_contract=execution_payload(session.prepared),
+                owner=owner,
+                manifest=manifest,
+                input_contract=_owned_input(
+                    session.prepared,
+                    "capture",
+                    release=session.prepared.release_id,
+                    snapshot=asdict(compiled.binding),
+                    projection=compiled.projection_id,
+                    content=(
+                        {"logical_digest": manifest["logical_digest"]}
+                        if manifest
+                        else {"exported_snapshot": snapshot, "projection": compiled.projection_id}
+                    ),
                 ),
             )
-
-    from corpus_structure.core.db.store import DatabasePhase
-
-    try:
-        connection = open_adbc_connection(uri, driver_path=driver_path)
-    except BaseException as error:
-        annotate_failure(error, DatabasePhase.ACQUIRING)
-        if owner:
-            _cleanup_after_failure(error, owner.close)
-        raise
-    descriptors = {}
-    budget = [0]
-    try:
-        with (
-            owned_adbc_read(connection, cancellation) as bulk,
-            bulk.cursor() as cursor,
-        ):
-            cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
-            cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
-            cursor.adbc_statement.set_options(
-                **{
-                    "adbc.postgresql.use_copy": "true",
-                    "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
-                }
-            )
-            relations = {}
-            for projection in compiled.relations:
-                if cancellation is not None:
-                    cancellation.check_active()
-                cursor.execute(compile_sql(projection.statement))
-                with cursor.fetch_record_batch() as reader:
-
-                    def normalized(projection=projection, reader=reader):
-                        for raw in reader:
-                            if cancellation is not None:
-                                cancellation.check_active()
-                            for offset in range(0, raw.num_rows, batch_size):
-                                value = normalize_relation(
-                                    pa.Table.from_batches([raw.slice(offset, batch_size)]),
-                                    projection,
-                                    compiled.profile,
-                                )
-                                yield from value.to_batches(max_chunksize=batch_size)
-
-                    relations[projection.name], descriptors[projection.name] = store_relation(
-                        owner,
-                        projection.name,
-                        projection.schema,
-                        normalized(),
-                        tuple(c.name for c in table("data." + projection.name).primary_key.columns),
-                        budget,
-                        resident_limit_bytes,
-                    )
-        manifest = finish_manifest(
-            owner,
-            asdict(compiled.binding),
-            compiled.projection_id,
-            compiled.profile.digest,
-            descriptors,
-        )
-    except BaseException as error:
-        annotate_failure(error, DatabasePhase.EXECUTING)
-        if owner:
-            _cleanup_after_failure(error, owner.close)
-        raise
-    try:
-        return AnalyticalPacket(
-            compiled.binding,
-            compiled.projection_id,
-            compiled.profile.digest,
-            MappingProxyType(relations),
-            tuple(sorted({p.iri for d in session.prepared.definitions for p in d.properties})),
-            compiled.profile.scale,
-            execution_model_id=session.prepared.execution_model_id,
-            execution_contract=execution_payload(session.prepared),
-            owner=owner,
-            manifest=manifest,
-            input_contract=_owned_input(
-                session.prepared,
-                "capture",
-                release=session.prepared.release_id,
-                snapshot=asdict(compiled.binding),
-                projection=compiled.projection_id,
-                content=(
-                    {"logical_digest": manifest["logical_digest"]}
-                    if manifest
-                    else {"exported_snapshot": snapshot, "projection": compiled.projection_id}
-                ),
-            ),
-        )
-    except BaseException as error:
-        if owner:
-            _cleanup_after_failure(error, owner.close)
-        raise
+        except BaseException as error:
+            if owner:
+                _cleanup_after_failure(error, owner.close)
+            raise
 
 
 def open_adbc_connection(uri: str, *, driver_path: str | Path | None = None):
@@ -1000,16 +1007,18 @@ def capture_packet(
     resident_limit_bytes: int = 512 * 1024**2,
     batch_size_hint_bytes: int = 8 * 1024**2,
     scratch_path: str | Path | None = None,
-    cancellation: ADBCBorrowerCancellation | None = None,
+    cancellation: OperationCancellation | None = None,
 ) -> AnalyticalPacket:
     """Own both database scopes and end them before returning replayable analytical inputs."""
     from .query import read_session
 
-    if cancellation is not None:
-        cancellation.check_active()
+    cancellation = cancellation or OperationCancellation()
+    cancellation.check_active()
     packet = None
     try:
-        with read_session(engine, realization_id, release_id=release_id) as session:
+        with read_session(
+            engine, realization_id, release_id=release_id, cancellation=cancellation.postgresql
+        ) as session:
             packet = load_packet(
                 session,
                 uri,
@@ -1021,6 +1030,7 @@ def capture_packet(
                 scratch_path=scratch_path,
                 cancellation=cancellation,
             )
+        cancellation.check_active()
         return packet
     except BaseException as error:
         if packet is not None:

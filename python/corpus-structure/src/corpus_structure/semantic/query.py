@@ -419,14 +419,18 @@ class CoverageRequirement:
 
 @contextmanager
 def read_session(
-    store: Engine | _Store, realization_id: str, release_id: str | None = None
+    store: Engine | _Store,
+    realization_id: str,
+    release_id: str | None = None,
+    *,
+    cancellation: BorrowerCancellation | None = None,
 ) -> Generator[ReadSession]:
     """Own a fresh REPEATABLE READ, read-only connection, binding exactly once.
 
     The optional release selector must equal the realization's immutable binding;
     the project's active pointer is deliberately not consulted.
     """
-    with read_snapshot(store) as conn:
+    with read_snapshot(store, cancellation=cancellation) as conn:
         yield bind_realization(conn, realization_id, release_id)
 
 

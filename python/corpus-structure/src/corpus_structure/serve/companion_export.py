@@ -17,7 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import String, text
 from sqlalchemy.dialects import postgresql
 
-from corpus_structure.core.db.adbc_lifetime import ADBCBorrowerCancellation, owned_adbc_read
+from corpus_structure.core.db.adbc_lifetime import owned_adbc_read
+from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.semantic.analytics import open_adbc_connection
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.query import read_snapshot
@@ -84,12 +85,12 @@ def export_companion_parquet(
     request: CompanionExportRequest,
     settings: Settings,
     *,
-    cancellation: ADBCBorrowerCancellation | None = None,
+    cancellation: OperationCancellation | None = None,
 ) -> CompanionExportManifest:
     from corpus_structure.semantic.companion_projection import projection
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
-    cancellation = cancellation or ADBCBorrowerCancellation()
+    cancellation = cancellation or OperationCancellation()
     cancellation.check_active()
     destination = request.destination
     if destination.exists():
@@ -107,7 +108,7 @@ def export_companion_parquet(
         root.mkdir()
         with (
             open_runtime_engine(settings, "companion-export", purpose="read") as engine,
-            read_snapshot(engine) as conn,
+            read_snapshot(engine, cancellation=cancellation.postgresql) as conn,
         ):
             response = inspect_native_source(
                 conn,
@@ -119,18 +120,20 @@ def export_companion_parquet(
                     view="products",
                     limit=1,
                 ),
+                cancellation=cancellation.postgresql,
             )
             producer_release_id = response.release_id
             if not producer_release_id:
                 raise SemanticRefusal("published producer release is unavailable")
             # Native family functions independently check every pin component.
             snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
+            cancellation.check_active()
             with (
                 owned_adbc_read(
                     open_adbc_connection(
                         read.database.url, driver_path=settings.analytics.adbc_driver_path
                     ),
-                    cancellation,
+                    cancellation.adbc,
                 ) as bulk,
                 bulk.cursor() as cursor,
             ):
@@ -191,8 +194,8 @@ def export_companion_parquet(
             not_requested=tuple(name for name in FAMILIES if name not in files),
         )
         (root / "manifest.json").write_text(manifest.model_dump_json(indent=2) + "\n")
-        cancellation.check_active()
-        _publish_directory(root, destination)
+        with cancellation.publication():
+            _publish_directory(root, destination)
         return manifest
 
 

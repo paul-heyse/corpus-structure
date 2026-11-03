@@ -15,6 +15,7 @@ from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import ConfigDict, TypeAdapter, ValidationError
 from pydantic.dataclasses import dataclass
 
+from .determinants import projection_analysis_runtime
 from .identity import canonical_bytes
 from .metadata import PHYSICAL_MODEL_ID, metadata, physical_sources_id
 from .projection_analysis import ProjectionAnalysis, analyze_recipe
@@ -108,6 +109,8 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
     name = _PREFIX + "capture/companion-projection-model.yaml"
     if name not in supplied:
         return None
+    # Direct callers must not bypass captured/runtime qualification either.
+    projection_analysis_runtime(dependencies)
     required = {
         "companion-projections": name,
         "pdf-products": "execution/schema/pdf_products",

@@ -644,75 +644,92 @@ def observe_engine(
     scenario_seed: Mapping[str, str] | None = None,
 ) -> None:
     """Observe each physical acquisition without opening a SQLAlchemy transaction."""
+
+    @event.listens_for(engine, "connect")
+    def acquired(connection, _record):
+        observe_connection(
+            connection, engine.url, purpose=purpose, policy=policy, scenario_seed=scenario_seed
+        )
+
+
+def observe_connection(
+    connection,
+    url: URL,
+    *,
+    purpose: str | None,
+    policy: DatabasePolicy | None = None,
+    scenario_seed: Mapping[str, str] | None = None,
+    nodeid: str | None = None,
+) -> None:
+    """Observe an actual acquisition; callers retain the native resource lifetime."""
     import hashlib
     import json
     from dataclasses import asdict
 
-    @event.listens_for(engine, "connect")
-    def acquired(connection, _record):
-        try:
-            from qualification_plugin import record_native_context
-        except ImportError:
-            return
-        with connection.cursor() as cursor:
+    try:
+        from qualification_plugin import record_native_context
+    except ImportError:
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT current_database(), (SELECT oid FROM pg_database "
+            "WHERE datname=current_database()), current_user, session_user, "
+            "current_setting('server_version'), current_setting('port'), "
+            "pg_postmaster_start_time()"
+        )
+        database, oid, principal, login, version, port, started = cursor.fetchone()
+        cursor.execute("SELECT to_regclass('public.semantic_alembic_version')")
+        revision = None
+        if cursor.fetchone()[0] is not None:
             cursor.execute(
-                "SELECT current_database(), (SELECT oid FROM pg_database "
-                "WHERE datname=current_database()), current_user, session_user, "
-                "current_setting('server_version'), current_setting('port'), "
-                "pg_postmaster_start_time()"
+                "SELECT has_table_privilege(current_user, "
+                "'public.semantic_alembic_version', 'SELECT')"
             )
-            database, oid, principal, login, version, port, started = cursor.fetchone()
-            cursor.execute("SELECT to_regclass('public.semantic_alembic_version')")
-            revision = None
-            if cursor.fetchone()[0] is not None:
-                cursor.execute(
-                    "SELECT has_table_privilege(current_user, "
-                    "'public.semantic_alembic_version', 'SELECT')"
-                )
-                if cursor.fetchone()[0]:
-                    cursor.execute("SELECT version_num FROM public.semantic_alembic_version")
-                    row = cursor.fetchone()
-                    revision = row[0] if row else None
-        if not connection.autocommit:
-            connection.rollback()
-        key = (connection.info.host, port, started.isoformat(), oid)
-        policy_ref = (
-            hashlib.sha256(json.dumps(asdict(policy), sort_keys=True).encode()).hexdigest()
-            if policy
-            else None
-        )
-        if policy is not None:
-            _DEPLOYMENTS[key] = {"revision": revision, "policy_ref": policy_ref}
-        deployment = _DEPLOYMENTS.get(key, {})
-        record_native_context(
-            {
-                "schema": "native-context/v1",
-                "requested": {
-                    "database": engine.url.database,
-                    "host": engine.url.query.get("host", engine.url.host),
-                    "port": engine.url.query.get("port", engine.url.port),
-                    "principal": engine.url.username,
-                    "purpose": purpose,
-                },
-                "acquired": {
-                    "database": database,
-                    "database_oid": oid,
-                    "current_user": principal,
-                    "session_user": login,
-                    "server_version": version,
-                    "server_started": started.isoformat(),
-                    "port": port,
-                    "host": connection.info.host,
-                    "revision": revision or deployment.get("revision"),
-                    "policy_ref": policy_ref or deployment.get("policy_ref"),
-                    "scenario_seed": dict(scenario_seed) if scenario_seed is not None else None,
-                    "deployment_status": "observed"
-                    if revision or deployment.get("revision")
-                    else "unavailable",
-                },
-                "provenance": {"complete": True, "missing": []},
-            }
-        )
+            if cursor.fetchone()[0]:
+                cursor.execute("SELECT version_num FROM public.semantic_alembic_version")
+                row = cursor.fetchone()
+                revision = row[0] if row else None
+    if not connection.autocommit:
+        connection.rollback()
+    key = (connection.info.host, port, started.isoformat(), oid)
+    policy_ref = (
+        hashlib.sha256(json.dumps(asdict(policy), sort_keys=True).encode()).hexdigest()
+        if policy
+        else None
+    )
+    if policy is not None:
+        _DEPLOYMENTS[key] = {"revision": revision, "policy_ref": policy_ref}
+    deployment = _DEPLOYMENTS.get(key, {})
+    record_native_context(
+        {
+            "schema": "native-context/v1",
+            "requested": {
+                "database": url.database,
+                "host": url.query.get("host", url.host),
+                "port": url.query.get("port", url.port),
+                "principal": url.username,
+                "purpose": purpose,
+            },
+            "acquired": {
+                "database": database,
+                "database_oid": oid,
+                "current_user": principal,
+                "session_user": login,
+                "server_version": version,
+                "server_started": started.isoformat(),
+                "port": port,
+                "host": connection.info.host,
+                "revision": revision or deployment.get("revision"),
+                "policy_ref": policy_ref or deployment.get("policy_ref"),
+                "scenario_seed": dict(scenario_seed) if scenario_seed is not None else None,
+                "deployment_status": "observed"
+                if revision or deployment.get("revision")
+                else "unavailable",
+            },
+            "provenance": {"complete": True, "missing": []},
+        },
+        nodeid=nodeid,
+    )
 
 
 def record_server_context(settings: Settings, server: PgAdmin) -> None:

@@ -270,3 +270,85 @@ def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unkn
             assert answer.structured_content == report
 
     anyio.run(journey)
+
+
+def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
+    semantic_db_engine, semantic_reader_engine, cli
+):
+    import yaml
+
+    from corpus_structure.semantic.operation_reporting import compatibility_advice
+
+    bundle, deps, profile = report_inputs()
+    path = "operation/domain-rules.yaml"
+    source = next(item for item in deps.artifacts if item.name == path)
+    policy = yaml.safe_load(source.content)
+    old_policy = {
+        **policy,
+        "identity": {"alias_profile": "class-alias-input-1", "aliases": {}},
+    }
+    new_policy = {
+        **policy,
+        "identity": {
+            "alias_profile": "class-alias-input-1",
+            "aliases": {"rewrites": [{"match": "alpha", "replace": "beta"}]},
+        },
+    }
+    releases = []
+    for value in (old_policy, new_policy):
+        dependencies = replace(
+            deps,
+            artifacts=tuple(
+                SourceArtifact(item.name, yaml.safe_dump(value).encode())
+                if item.name == path
+                else item
+                for item in deps.artifacts
+            ),
+        )
+        release = prepare_release(bundle, dependencies, profile)
+        with semantic_db_engine.begin() as conn:
+            persist_release(conn, bundle, dependencies, profile, release)
+        releases.append(release)
+    before, after = releases
+    settings = Settings(
+        database={
+            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        }
+    )
+    result = cli(
+        "schema",
+        "diff",
+        before.release_id,
+        after.release_id,
+        "--json",
+        settings=lambda: settings,
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    alias = next(c for c in report["changes"] if c["aspect"] == "alias_normalization")
+    assert alias["model_ref"] == "alias_policy:https://example.org/Thing"
+    assert "implementation:resolve_identity" in alias["consumers"]
+    assert "analysis_profile:mathematical-interpretation/alignment_policy" in alias["consumers"]
+    assert alias["members"][0]["model_path"].endswith("/classes/rewrites")
+
+    async def journey():
+        server = build_semantic_server(
+            SemanticProjectSession(semantic_reader_engine, "alias-impact")
+        )
+        async with Client(server) as client:
+            answer = await client.call_tool(
+                "compare_semantic_releases",
+                dict(before=before.release_id, after=after.release_id),
+            )
+            assert answer.structured_content == report
+
+    anyio.run(journey)
+    from corpus_structure.semantic.operation_reporting import compare_semantic_releases
+
+    advice = compatibility_advice(compare_semantic_releases(before, after))
+    assert any("implementation:resolve_identity" in text for text in advice)
+    assert any(
+        "analysis_profile:mathematical-interpretation/alignment_policy" in text for text in advice
+    )

@@ -581,3 +581,143 @@ def test_actual_schema_check_reports_retained_located_coverage(cli, semantic_app
         item["category"] == "unassessed" and "helper body" in item["message"]
         for item in located["observations"]
     )
+
+
+def alias_release(policy=None, *, origins=None, profile="class-iri-aliases-1"):
+    import json
+
+    from corpus_structure.semantic.types import PreparedArtifact
+
+    base = prepared()
+    iri = base.definitions[0].iri
+    artifact = PreparedArtifact(
+        "operation/alias-policy.json",
+        json.dumps(
+            {
+                "profile": profile,
+                "classes": {
+                    iri: {"articles": [], "head_words": {iri: []}, "rewrites": policy or []}
+                },
+                "origins": {iri: origins or ["original"]},
+            }
+        ).encode(),
+    )
+    return replace(
+        base, artifacts=(*(a for a in base.artifacts if a.kind != artifact.kind), artifact)
+    )
+
+
+def test_alias_only_impact_retains_class_member_and_actual_consumer_kinds():
+    old = alias_release()
+    new = alias_release([{"match": "alpha", "replace": "beta"}])
+    value = compare_semantic_releases(old, new).model_dump(mode="json")
+    changes = [c for c in value["changes"] if c["aspect"] == "alias_normalization"]
+    assert len(changes) == 1
+    change = changes[0]
+    assert change["model_ref"] == "alias_policy:" + old.definitions[0].iri
+    assert "implementation:resolve_identity" in change["consumers"]
+    assert any(c.startswith("analysis_profile:") for c in change["consumers"])
+    assert change["members"][0]["model_path"].endswith("/rewrites")
+    assert not value["complete"]
+
+
+def test_origin_only_alias_impact_does_not_advise_semantic_regeneration():
+    from corpus_structure.semantic.operation_reporting import compatibility_advice
+
+    report = compare_semantic_releases(alias_release(), alias_release(origins=["relocated"]))
+    value = report.model_dump(mode="json")
+    assert [c["aspect"] for c in value["changes"]] == ["alias_origin"]
+    assert value["changes"][0]["consumers"] == []
+    advice = compatibility_advice(report)
+    assert any("provenance" in text for text in advice)
+    assert not any(text.startswith("Regenerate") for text in advice)
+
+
+def test_unknown_alias_profile_is_unassessed_not_an_empty_policy():
+    value = compare_semantic_releases(alias_release(), alias_release(profile="unknown")).model_dump(
+        mode="json"
+    )
+    assert not value["complete"]
+    assert any("alias policy unassessed" in text for text in value["unknowns"])
+
+
+def test_alias_rewrite_order_is_a_semantic_change_with_independent_ordered_values():
+    rules = [{"match": "a", "replace": "b"}, {"match": "b", "replace": "c"}]
+    report = compare_semantic_releases(alias_release(rules), alias_release(rules[::-1]))
+    change = next(
+        c for c in report.model_dump(mode="json")["changes"] if c["aspect"] == "alias_normalization"
+    )
+    member = change["members"][0]
+    assert member["model_path"].endswith("/classes/rewrites")
+    assert member["before"] != member["after"]
+    assert member["before"]["items"][0]["fields"][0]["value"]["text"] == "a"
+    assert member["after"]["items"][0]["fields"][0]["value"]["text"] == "b"
+
+
+def test_alias_policy_added_and_removed_class_retains_its_full_identity():
+    import json
+
+    from corpus_structure.semantic.types import PreparedArtifact
+
+    old = alias_release()
+    iri = old.definitions[0].iri
+    empty = PreparedArtifact(
+        "operation/alias-policy.json",
+        json.dumps(
+            {
+                "profile": "class-iri-aliases-1",
+                "classes": {},
+                "origins": {},
+            }
+        ).encode(),
+    )
+    removed = replace(
+        old,
+        artifacts=(
+            *(a for a in old.artifacts if a.kind != empty.kind),
+            empty,
+        ),
+    )
+    for before, after, expected in ((old, removed, "removed"), (removed, old, "added")):
+        report = compare_semantic_releases(before, after).model_dump(mode="json")
+        change = next(c for c in report["changes"] if c["aspect"] == "alias_normalization")
+        assert change["kind"] == expected
+        assert change["model_ref"] == "alias_policy:" + iri
+
+
+def test_missing_neutral_alias_product_does_not_invent_a_normalization_change():
+    original = alias_release()
+    neutral = replace(
+        original,
+        artifacts=tuple(
+            a
+            for a in original.artifacts
+            if a.kind not in {"operation/alias-policy.json", "operation/domain-rules.yaml"}
+        ),
+    )
+    report = compare_semantic_releases(neutral, original).model_dump(mode="json")
+    assert not any(c["aspect"] == "alias_normalization" for c in report["changes"])
+    assert any(c["aspect"] == "alias_origin" for c in report["changes"])
+
+
+def test_alias_profile_consumer_without_implementation_custody_remains_unknown(monkeypatch):
+    from corpus_structure.semantic import operation_reporting as reports
+    from corpus_structure.semantic.contracts import bound_execution_model
+
+    old = alias_release()
+    new = alias_release([{"match": "a", "replace": "b"}])
+    model = bound_execution_model(old)
+    without_alignment = replace(
+        model,
+        implementation_digests=tuple(
+            pair
+            for pair in model.implementation_digests
+            if pair[0] != "alignment/semantic_alignment.py"
+        ),
+    )
+    monkeypatch.setattr(reports, "bound_execution_model", lambda prepared: without_alignment)
+    result = reports.compare_semantic_releases(old, new).model_dump(mode="json")
+    change = next(c for c in result["changes"] if c["aspect"] == "alias_normalization")
+    assert "implementation:resolve_identity" in change["consumers"]
+    assert not any(c.startswith("analysis_profile:") for c in change["consumers"])
+    assert any("alignment implementation custody unavailable" in u for u in result["unknowns"])

@@ -1,14 +1,20 @@
 """Synthetic semantic releases for isolated operation contract tests."""
 
-from sqlalchemy import insert
+from sqlalchemy import Engine, insert
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.types import PreparedRelease
 
 
 def prepare_operation_scenario(
-    engine, *, observations=False, archive=False, composed=True, evaluation=False
-):
+    engine: Engine,
+    *,
+    observations: bool = False,
+    archive: bool = False,
+    composed: bool = True,
+    evaluation: bool = False,
+) -> PreparedRelease:
     bundle = SourceBundle(
         "m",
         (

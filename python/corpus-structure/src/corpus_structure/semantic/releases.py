@@ -20,8 +20,7 @@ from cattrs.errors import BaseValidationError
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import Connection, select
 
-from .determinants import BYTE_LIBRARIES as _LIBRARIES
-from .determinants import determinant_version
+from .determinants import release_library_versions
 from .identity import canonical_bytes
 from .types import (
     SEMANTIC_COMPILER_VERSION,
@@ -123,10 +122,14 @@ def _validate_manifest(
     profile: PreparationProfile,
     prepared: PreparedRelease,
 ) -> None:
+    try:
+        libraries = release_library_versions(dependencies)
+    except ValueError as error:
+        raise ReleaseConflict(str(error)) from error
     manifest: dict[str, Any] = {
         "root": bundle.root,
         "profile": asdict(profile),
-        "libraries": {name: determinant_version(name) for name in _LIBRARIES},
+        "libraries": libraries,
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
         "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
         "ontology_sources": sorted(dependencies.ontology_sources),
@@ -553,7 +556,7 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
             raise ReleaseConflict("unexpected archived inputs")
         # Detect version changes before attempting to interpret with another compiler.
         manifest = json.loads(bytes(row["manifest_bytes"]))
-        if manifest["libraries"] != {name: determinant_version(name) for name in _LIBRARIES}:
+        if manifest["libraries"] != release_library_versions(dependencies):
             raise ReleaseConflict("archived compiler library versions differ")
         from .prepare import prepare_release
 

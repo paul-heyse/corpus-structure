@@ -26,8 +26,8 @@ from .conditional_rules import (
     compile_native_conditionals,
     inspect_rule_declarations,
 )
+from .determinants import ANALYSIS_LIBRARIES, determinant_version, release_library_versions
 from .determinants import BYTE_LIBRARIES as _LIBRARIES
-from .determinants import determinant_version
 from .identity import canonical_bytes
 from .types import (
     BOUNDARY_ABI_VERSION,
@@ -519,6 +519,15 @@ def prepare_release(
         _fail("profile", "profile", "unsupported profile", "unsupported")
     stack = _compiler_stack()
     try:
+        libraries = release_library_versions(
+            dependencies, base={name: value for name, value in stack if name in _LIBRARIES}
+        )
+    except ValueError as error:
+        _fail("analysis_runtime", "execution/implementation/libraries.json", str(error))
+    # Ordinary non-analysis preparation has no analyzer dependency. Repeated library
+    # names already present in the base stack retain their one manifest entry.
+    stack = tuple(dict((*stack, *libraries.items())).items())
+    try:
         hash((bundle, dependencies, profile))
     except TypeError:
         # Malformed mutable inputs still reach the existing preparation diagnostics.
@@ -805,7 +814,11 @@ def _prepare_release_uncached(
             "root": bundle.root,
             **({"execution_model_id": execution.model_id} if execution is not None else {}),
             "profile": asdict(profile),
-            "libraries": {name: value for name, value in stack if name in _LIBRARIES},
+            "libraries": {
+                name: value
+                for name, value in stack
+                if name in _LIBRARIES or name in ANALYSIS_LIBRARIES
+            },
             "sources": sorted((s.name, s.digest) for s in bundle.sources),
             "dependencies": sorted((a.name, a.digest) for a in dependencies.artifacts),
             "ontology_sources": sorted(dependencies.ontology_sources),

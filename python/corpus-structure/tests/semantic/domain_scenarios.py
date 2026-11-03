@@ -1,5 +1,6 @@
 """Explicit synthetic semantic scenarios used by domain operation tests."""
 
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,7 +8,7 @@ from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import insert, select
+from sqlalchemy import Engine, insert, select
 
 from corpus_structure.semantic import (
     PreparationProfile,
@@ -16,6 +17,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
 from corpus_structure.semantic.metadata import table
@@ -37,6 +39,7 @@ from corpus_structure.semantic.proposals import (
     proposal_inputs,
 )
 from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.types import PreparedRelease
 
 
 class DomainFixtureConfig(BaseModel):
@@ -46,30 +49,30 @@ class DomainFixtureConfig(BaseModel):
 
 
 def build_domain_case(
-    admin,
-    writer,
-    path,
+    admin: Engine,
+    writer: Engine,
+    path: Path,
     *,
-    rules=b"rules: []\n",
-    graph=False,
-    duplicate=False,
-    formulas=(),
-    known=False,
-    local_known=False,
-    input_noise=False,
-    nary=False,
-    broken=False,
-    claim_chain=False,
-    cycle=False,
-    condition=None,
-    report_count=1,
-    global_person_identity=False,
-    authored_alternative=False,
-    integer_alias=False,
-    math=None,
-    second_math=None,
-    statement_packets=None,
-):
+    rules: bytes = b"rules: []\n",
+    graph: bool = False,
+    duplicate: bool = False,
+    formulas: Sequence[str] = (),
+    known: bool = False,
+    local_known: bool = False,
+    input_noise: bool = False,
+    nary: bool = False,
+    broken: bool = False,
+    claim_chain: bool = False,
+    cycle: bool = False,
+    condition: dict[str, Any] | None = None,
+    report_count: int = 1,
+    global_person_identity: bool = False,
+    authored_alternative: bool = False,
+    integer_alias: bool = False,
+    math: dict[str, Any] | None = None,
+    second_math: dict[str, Any] | None = None,
+    statement_packets: str | None = None,
+) -> tuple[PreparedRelease, RunId, CutId]:
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
         "id": "https://example.org/domain",

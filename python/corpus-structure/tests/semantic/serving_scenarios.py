@@ -36,8 +36,13 @@ from .agent_scenarios import build_resubmission_case, lease_and_read
 
 
 def build_completed_serving_case(
-    admin, writer, tmp_path, *, complete_coverage=False, query_pack=None
-):
+    admin: Engine,
+    writer: Engine,
+    tmp_path: Path,
+    *,
+    complete_coverage: bool = False,
+    query_pack: Path | None = None,
+) -> tuple[PreparedRelease, RunId, TaskId, str]:
     prepared, run, task, locator = build_resubmission_case(
         admin,
         writer,

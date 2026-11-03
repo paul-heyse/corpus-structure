@@ -157,3 +157,95 @@ def test_failed_second_registration_preserves_the_original_cancel_target():
             pytest.fail("a second borrower must not enter")
         token.request_cancel()
     assert calls == [("rejected", "rollback"), ("rejected", "close"), ("first", "cancel")]
+
+
+def test_operation_request_reaches_both_backends_even_if_dispatch_is_interrupted(monkeypatch):
+    import pytest
+
+    from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+
+    owner = OperationCancellation()
+    calls = []
+
+    def interrupted():
+        calls.append("postgresql")
+        raise KeyboardInterrupt("dispatch interrupted")
+
+    monkeypatch.setattr(owner.postgresql, "request_cancel", interrupted)
+    monkeypatch.setattr(owner.adbc, "request_cancel", lambda: calls.append("adbc"))
+    with pytest.raises(BaseExceptionGroup) as caught:
+        owner.request_cancel()
+    assert calls == ["postgresql", "adbc"]
+    assert isinstance(caught.value.exceptions[0], KeyboardInterrupt)
+    with pytest.raises(DatabaseOperationCancelled):
+        owner.check_active()
+
+
+def test_operation_request_before_publication_refuses_atomic_effect():
+    import pytest
+
+    from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+
+    owner = OperationCancellation()
+    owner.request_cancel()
+    with pytest.raises(DatabaseOperationCancelled), owner.publication():
+        pytest.fail("a canceled operation cannot publish")
+
+
+def test_capture_registers_actual_binding_queries_before_bulk_acquisition(db_engine, monkeypatch):
+    from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.semantic import analytics, query
+
+    owner = OperationCancellation(timeout=2)
+    entered = Event()
+    failures = []
+    backend = []
+
+    def bind(conn, *args):
+        backend.append(conn.scalar(text("SELECT pg_backend_pid()")))
+        entered.set()
+        conn.execute(text("SELECT pg_sleep(20)"))
+        raise AssertionError("capture must cancel before binding can return")
+
+    monkeypatch.setattr(query, "bind_realization", bind)
+    monkeypatch.setattr(
+        analytics,
+        "open_adbc_connection",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("metadata cancellation must not acquire bulk transport")
+        ),
+    )
+
+    def capture():
+        try:
+            analytics.capture_packet(db_engine, "unbound", "unused", cancellation=owner)
+        except Exception as error:
+            failures.append(error)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(capture)
+        assert entered.wait(timeout=10)
+        deadline = monotonic() + 10
+        while True:
+            with db_engine.connect() as control:
+                active = control.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_stat_activity WHERE pid=:pid "
+                        "AND state='active' AND wait_event='PgSleep'"
+                    ),
+                    {"pid": backend[0]},
+                )
+            if active:
+                break
+            assert monotonic() < deadline, "binding query did not become active"
+            sleep(0.02)
+        owner.request_cancel()
+        future.result(timeout=10)
+    assert len(failures) == 1
+    assert "cancel" in str(failures[0]).lower()
+    assert owner.cleanup_failures == []
+    owner.request_cancel()
+    with db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT 73")) == 73

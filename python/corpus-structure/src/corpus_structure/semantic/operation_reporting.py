@@ -735,6 +735,7 @@ def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease) -
             "Changed implementation bytes require qualified compatibility; "
             "behavior equivalence is unassessed."
         )
+    _alias_impact(before, after, changes, unknowns)
     _projection_impact(before, after, changes, unknowns)
     return _report(
         "SemanticImpactReport",
@@ -746,6 +747,67 @@ def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease) -
             complete=not unknowns,
         ),
     )
+
+
+def _alias_impact(before: PreparedRelease, after: PreparedRelease, changes, unknowns) -> None:
+    from .alias_policy import released_alias_product
+
+    try:
+        old, new = released_alias_product(before), released_alias_product(after)
+    except (ValueError, TypeError, KeyError) as error:
+        unknowns.add(f"Released alias policy unassessed: {error}")
+        return
+    models = (bound_execution_model(before), bound_execution_model(after))
+    consumers = set()
+    consumer_unknowns = set()
+    for model in models:
+        for binding in model.implementations:
+            if (binding.owner, binding.symbol) == (
+                "semantic.domain_operations",
+                "_entity_mappings",
+            ):
+                consumers.add("implementation:" + binding.id)
+        for profile in model.analysis_profiles:
+            if profile.alignment_policy is None:
+                continue
+            reference = "analysis_profile:" + profile.id + "/alignment_policy"
+            if dict(model.implementation_digests).get("alignment/semantic_alignment.py"):
+                consumers.add(reference)
+            else:
+                consumer_unknowns.add(reference + ": alignment implementation custody unavailable")
+    for group, aspect in (("classes", "alias_normalization"), ("origins", "alias_origin")):
+        left, right = old[group], new[group]
+        for iri in sorted(left.keys() | right.keys()):
+            previous, current = left.get(iri, _NO_MEMBER), right.get(iri, _NO_MEMBER)
+            if previous == current:
+                continue
+            kind = (
+                "added"
+                if previous is _NO_MEMBER
+                else "removed"
+                if current is _NO_MEMBER
+                else "changed"
+            )
+            reason = (
+                "Released alias normalization differs."
+                if group == "classes"
+                else "Alias source origin differs; normalization is assessed separately."
+            )
+            changes.append(
+                dict(
+                    kind=kind,
+                    model_ref="alias_policy:" + iri,
+                    aspect=aspect,
+                    consumers=sorted(consumers) if group == "classes" else [],
+                    reason=reason,
+                    members=_changed_members(
+                        previous, current, "alias_policy:" + iri + "/" + group
+                    ),
+                )
+            )
+            if group == "classes":
+                unknowns.update(consumer_unknowns)
+                unknowns.add("Dynamic alias-policy consumer closure is unassessed for " + iri)
 
 
 def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes, unknowns) -> None:
@@ -826,15 +888,24 @@ def compatibility_advice(impact: BaseModel) -> tuple[str, ...]:
     """Advice from the shared comparison; admission and migration stay independent."""
     value = impact.model_dump(mode="json")
     advice = []
-    if value["changes"]:
-        consumers = sorted({name for change in value["changes"] for name in change["consumers"]})
+    semantic_changes = [change for change in value["changes"] if change["aspect"] != "alias_origin"]
+    if any(change["aspect"] == "alias_origin" for change in value["changes"]):
+        advice.append(
+            "Alias source provenance changed; normalization changes are reported separately."
+        )
+    if semantic_changes:
+        consumers = sorted({name for change in semantic_changes for name in change["consumers"]})
         advice.append(
             "Regenerate and qualify affected declared consumers"
             + (": " + ", ".join(consumers) if consumers else "; consumer closure is unassessed")
             + "."
         )
     else:
-        advice.append("No examined declared definitions changed.")
+        advice.append(
+            "No examined normalization changed."
+            if value["changes"]
+            else "No examined declared definitions changed."
+        )
     if not value["complete"]:
         advice.append("Resolve unknown dependency coverage before claiming compatibility.")
     advice.append("Native admission, revision fences and explicit activation remain required.")

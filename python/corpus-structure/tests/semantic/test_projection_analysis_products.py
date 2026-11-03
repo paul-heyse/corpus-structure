@@ -1,6 +1,8 @@
 """Retained-source analysis is a product, not a current-code archive substitute."""
 
 import json
+import subprocess
+import sys
 from dataclasses import replace
 from functools import lru_cache
 
@@ -18,6 +20,114 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.types import PreparedArtifact, ResolvedDependencies, SourceArtifact
 
 from .test_operation_reporting import prepared
+
+
+def test_runtime_mismatch_refuses_before_warm_preparation_or_direct_production(monkeypatch):
+    from corpus_structure.semantic import determinants
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import PreparationError
+
+    from .test_operation_reporting import report_inputs
+
+    inputs = report_inputs()
+    prepare_release(*inputs)
+    original = determinants.determinant_version
+    monkeypatch.setattr(
+        determinants,
+        "determinant_version",
+        lambda name: "incompatible-analyzer" if name == "sqlglot" else original(name),
+    )
+    with pytest.raises(PreparationError, match="reacquire"):
+        prepare_release(*inputs)
+    with pytest.raises(ValueError, match="reacquire"):
+        prepare_projection_analysis(inputs[1])
+
+
+def test_missing_analysis_provenance_refuses_but_nonanalysis_preparation_is_independent():
+    from corpus_structure.semantic.determinants import projection_analysis_runtime
+
+    assert projection_analysis_runtime(ResolvedDependencies()) == ()
+    deps = composed_dependencies(ResolvedDependencies())
+    stripped = replace(
+        deps,
+        artifacts=tuple(
+            item
+            for item in deps.artifacts
+            if item.name != "execution/implementation/libraries.json"
+        ),
+    )
+    with pytest.raises(ValueError, match="provenance missing"):
+        prepare_projection_analysis(stripped)
+
+
+def test_retained_analysis_read_does_not_consult_current_analyzer(monkeypatch):
+    from corpus_structure.semantic import projection_analysis, projection_analysis_products
+
+    retained = with_product(prepared(), product())
+
+    def unavailable():
+        raise AssertionError("retained artifact reading must not execute analysis")
+
+    monkeypatch.setattr(projection_analysis, "analyze_recipe", unavailable)
+    monkeypatch.setattr(projection_analysis_products, "analyze_recipe", unavailable)
+    value = read_projection_analysis(retained)
+    assert value is not None
+    assert {entry.family for entry in value.projections} == {
+        "input",
+        "relation",
+        "coverage",
+        "mapping_report",
+    }
+
+
+def test_cold_composed_preparation_retains_independent_analysis_contents():
+    from .test_operation_reporting import report_inputs
+
+    bundle = report_inputs()[0]
+    child = """
+import json, sys
+from corpus_structure.semantic import prepare_release
+from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic.projection_analysis_products import read_projection_analysis
+from corpus_structure.semantic.types import (
+    SourceArtifact, SourceBundle, ResolvedDependencies, PreparationProfile,
+)
+payload = json.load(sys.stdin)
+bundle = SourceBundle(
+    payload['root'], tuple(SourceArtifact(n, bytes.fromhex(c)) for n,c in payload['sources']),
+)
+prepared = prepare_release(
+    bundle, composed_dependencies(ResolvedDependencies()), PreparationProfile(version='semantic-2'),
+)
+product = read_projection_analysis(prepared)
+assert product is not None
+relation = next(item.analysis for item in product.projections if item.family == 'relation')
+print(json.dumps({
+    'profile': json.loads(prepared.manifest)['profile']['version'],
+    'types': dict(relation.output_types), 'value': dict(relation.value_dependencies),
+    'relational': dict(relation.relational_dependencies),
+    'libraries': json.loads(prepared.manifest)['libraries'],
+}))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", child],
+        input=json.dumps(
+            {"root": bundle.root, "sources": [(s.name, s.content.hex()) for s in bundle.sources]}
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    value = json.loads(result.stdout)
+    assert value["profile"] == "semantic-2"
+    assert value["types"]["endpoint_role"] == "TEXT"
+    assert "physical:kb.pdf_record_endpoint.role" in value["value"]["endpoint_role"]
+    assert "physical:kb.pdf_record_companion.family" in value["relational"]["where"]
+    assert "physical:kb.pdf_record_companion.family" not in value["value"]["endpoint_role"]
+    assert value["libraries"]["sqlglot"] == "30.27.0"
+    assert value["libraries"]["sqlalchemy"] == "2.1.6"
 
 
 @lru_cache(maxsize=1)

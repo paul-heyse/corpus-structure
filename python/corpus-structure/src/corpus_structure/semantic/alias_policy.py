@@ -137,6 +137,37 @@ def _released_content(prepared: PreparedRelease) -> bytes | None:
     return None
 
 
+def released_alias_product(prepared: PreparedRelease) -> dict[str, Any]:
+    """Detached comparable policy facts from this release, including neutral meaning."""
+    content = _released_content(prepared)
+    if content is None:
+        return {
+            "profile": PROFILE,
+            "classes": {
+                d.iri: {**LabelRules().model_dump(mode="json"), "head_words": {d.iri: []}}
+                for d in prepared.definitions
+            },
+            "origins": {},
+        }
+    policies = _released_policy(content)
+    product = json.loads(content)
+    origins = product["origins"]
+    if (
+        not isinstance(origins, dict)
+        or set(origins) != set(policies)
+        or any(
+            not isinstance(values, list) or any(not isinstance(v, str) for v in values)
+            for values in origins.values()
+        )
+    ):
+        raise ValueError("unsupported released alias origins; regenerate and admit the release")
+    return {
+        "profile": PROFILE,
+        "classes": {iri: policy.model_dump(mode="json") for iri, policy in policies.items()},
+        "origins": origins,
+    }
+
+
 def released_label_policy(prepared: PreparedRelease, class_iri: str) -> LabelRules:
     """Use declared released meaning; old nonempty aliases never acquire new interpretation."""
     content = _released_content(prepared)

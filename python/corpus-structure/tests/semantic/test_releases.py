@@ -157,6 +157,33 @@ def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, mon
         }
 
 
+def test_composed_analysis_runtime_survives_exact_persist_and_load(
+    semantic_db_engine: Engine, monkeypatch
+):
+    from corpus_structure.semantic import determinants
+
+    with semantic_db_engine.begin() as conn:
+        bundle, dependencies, profile, prepared = stage(conn)
+        libraries = json.loads(prepared.manifest)["libraries"]
+        assert libraries["sqlglot"] == "30.27.0"
+        assert libraries["sqlalchemy"] == "2.1.6"
+        assert (
+            releases.persist_release(conn, bundle, dependencies, profile, prepared)
+            == prepared.release_id
+        )
+        assert releases.verify_release(conn, prepared.release_id) == prepared
+        original = determinants.determinant_version
+        monkeypatch.setattr(
+            determinants,
+            "determinant_version",
+            lambda name: "incompatible" if name == "sqlglot" else original(name),
+        )
+        # Ordinary archived-product reads retain custody without today's producer.
+        assert releases.open_release(conn, prepared.release_id) == prepared
+        with pytest.raises(releases.ReleaseConflict, match="reacquire"):
+            releases.verify_release(conn, prepared.release_id)
+
+
 def test_conflicting_artifact_refuses_without_partial_changes(semantic_db_engine: Engine):
     with semantic_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn)

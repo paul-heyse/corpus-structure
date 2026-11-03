@@ -20,6 +20,7 @@ from sqlglot.optimizer.scope import build_scope
 from sqlglot.schema import MappingSchema
 
 from . import projection_recipe as ir
+from .determinants import analysis_runtime
 from .metadata import metadata
 from .refusals import SemanticRefusal
 
@@ -261,8 +262,14 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
     return expanded
 
 
-@lru_cache(maxsize=32)
 def analyze_recipe(recipe: ir.ProjectionRecipe) -> ProjectionAnalysis:
+    return _analyze_recipe_cached(recipe, analysis_runtime())
+
+
+@lru_cache(maxsize=32)
+def _analyze_recipe_cached(
+    recipe: ir.ProjectionRecipe, runtime: tuple[tuple[str, str], ...]
+) -> ProjectionAnalysis:
     """Prepare analysis once for a checked immutable projection at its valid lifetime."""
     schema = MappingSchema(dialect="postgres")
     for source in recipe.sources:

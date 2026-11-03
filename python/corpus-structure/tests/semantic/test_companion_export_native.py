@@ -505,3 +505,134 @@ def test_all_typed_families_capture_from_actual_published_rows(
                     ),
                 ).all()
             conn.rollback()
+
+
+@pytest.mark.parametrize("phase", ["metadata", "handoff", "bulk"])
+def test_export_cancellation_spans_actual_metadata_handoff_and_bulk(
+    semantic_db_engine, semantic_reader_engine, native_settings, tmp_path, monkeypatch, phase
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from time import monotonic, sleep
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from sqlalchemy.engine import make_url
+
+    from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.serve import companion_export as export
+    from corpus_structure.serve import native_source
+
+    owner = OperationCancellation(timeout=2)
+    settings = read_settings(native_settings, semantic_db_engine)
+    name = "um-export-cancel-" + uuid4().hex
+    base_url = make_url(settings.database.url).update_query_dict({"application_name": name})
+    settings = settings.model_copy(
+        update={
+            "database": settings.database.model_copy(
+                update={"url": base_url.render_as_string(hide_password=False)}
+            )
+        }
+    )
+    entered = Event()
+    failures = []
+    destination = tmp_path / "not-published"
+    request = CompanionExportRequest(
+        pin=PublishedSourcePin(
+            project_id="p",
+            run_id=1,
+            selection_release_id="r",
+            task_id=2,
+            product_key="native",
+            content_digest="a" * 64,
+        ),
+        destination=destination,
+        families=("input",),
+    )
+
+    def inspect(conn, request, *, cancellation):
+        assert cancellation is owner.postgresql
+        if phase == "metadata":
+            entered.set()
+            conn.execute(text("SELECT pg_sleep(20)"))
+        return SimpleNamespace(release_id="producer")
+
+    original_acquire = export.open_adbc_connection
+
+    def acquire(*args, **kwargs):
+        connection = original_acquire(*args, **kwargs)
+        if phase == "handoff":
+            owner.request_cancel()
+        return connection
+
+    monkeypatch.setattr(native_source, "inspect_native_source", inspect)
+    monkeypatch.setattr(export, "open_adbc_connection", acquire)
+    if phase == "bulk":
+
+        def statement(statement):
+            from sqlalchemy import cast, func, null
+
+            # Keep the projection's actual wire shape valid: a void-only SELECT
+            # can fail schema admission after cancellation instead of reaching
+            # the cancellation boundary under test.
+            blocked = select(
+                *(
+                    cast(null(), column.type).label(column.name)
+                    for column in statement.selected_columns
+                )
+            ).select_from(func.pg_sleep(20))
+            entered.set()
+            return _literal_statement(blocked)
+
+        monkeypatch.setattr(export, "_literal_statement", statement)
+
+    def run():
+        try:
+            export_companion_parquet(request, settings, cancellation=owner)
+        except Exception as error:
+            failures.append(error)
+
+    # PostgreSQL exposes other sessions' activity details to the same role. Observe
+    # the actual reader sessions as the reader, rather than relying on maintenance
+    # credentials to carry cross-role monitoring privileges.
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(run)
+        if phase != "handoff":
+            assert entered.wait(timeout=10)
+            deadline = monotonic() + 10
+            while True:
+                with semantic_reader_engine.connect() as control:
+                    active = control.scalar(
+                        text(
+                            "SELECT count(*) FROM pg_stat_activity WHERE state='active' "
+                            "AND wait_event='PgSleep' AND datname=current_database() "
+                            "AND application_name=:name"
+                        ),
+                        {"name": "companion-export" if phase == "metadata" else name},
+                    )
+                if active:
+                    break
+                if future.done():
+                    future.result()
+                    pytest.fail(f"export ended before cancellation: {failures!r}")
+                assert monotonic() < deadline, "native cancellation phase never became active"
+                sleep(0.02)
+            owner.request_cancel()
+        future.result(timeout=10)
+    assert len(failures) == 1
+    assert "cancel" in str(failures[0]).lower()
+    assert not destination.exists()
+    assert not list(tmp_path.glob(".companion-*"))
+    assert owner.cleanup_failures == []
+    owner.request_cancel()
+    with semantic_reader_engine.connect() as control:
+        assert (
+            control.scalar(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() "
+                    "AND application_name IN (:metadata,:bulk)"
+                ),
+                {"metadata": "companion-export", "bulk": name},
+            )
+            == 0
+        )

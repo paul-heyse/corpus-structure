@@ -57,6 +57,7 @@ def active_query(engine, pid, fragment):
         )
 
 
+@pytest.mark.usefixtures("observed_store_checkouts")
 def test_actual_pool_pressure_timeout_closed_and_non_destructive_diagnostics(
     db_engine, monkeypatch
 ):
@@ -212,6 +213,7 @@ def test_renewal_exit_cancels_active_query_and_joins_owner(db_engine, monkeypatc
             assert conn.scalar(text("SELECT 19")) == 19
 
 
+@pytest.mark.usefixtures("observed_store_checkouts")
 def test_renewal_native_statement_deadline_reaches_authority_check(db_engine, monkeypatch):
     def slow_renew(conn, **kwargs):
         conn.execute(text("SELECT pg_sleep(20)"))
@@ -254,6 +256,7 @@ def _check_failed(check):
     return False
 
 
+@pytest.mark.usefixtures("observed_store_checkouts")
 def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(db_engine):
     import json
 

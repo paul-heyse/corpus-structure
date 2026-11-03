@@ -1,7 +1,12 @@
 """One owner of release-producing and runtime-acceptance determinants."""
 
+import json
 import sys
 from importlib.metadata import version
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .types import ResolvedDependencies
 
 _BASE_BYTE_LIBRARIES = (
     "linkml",
@@ -20,6 +25,41 @@ SCIENTIFIC_LIBRARIES = ("sympy", "rule-engine", "numpy", "lark", "regex")
 BYTE_LIBRARIES = (*_BASE_BYTE_LIBRARIES, "pydantic-core", *SCIENTIFIC_LIBRARIES, "python")
 BOUNDARY_LIBRARIES = ("python", "pydantic", "pydantic-core", "jsonschema", "cattrs")
 DEPLOYMENT_LIBRARIES = ("sqlalchemy", "psycopg", "pglast", "alembic")
+ANALYSIS_LIBRARIES = ("sqlglot", "sqlalchemy", "linkml-runtime")
+
+
+def analysis_runtime() -> tuple[tuple[str, str], ...]:
+    return tuple((name, determinant_version(name)) for name in ANALYSIS_LIBRARIES)
+
+
+def release_library_versions(
+    dependencies: ResolvedDependencies, *, base: dict[str, str] | None = None
+) -> dict[str, str]:
+    """One bounded manifest rule for production, persistence and full verification."""
+    if base is None:
+        base = {name: determinant_version(name) for name in BYTE_LIBRARIES}
+    if set(base) != set(BYTE_LIBRARIES):
+        raise ValueError("release compiler library set differs from the supported determinants")
+    return {**base, **dict(projection_analysis_runtime(dependencies))}
+
+
+def projection_analysis_runtime(
+    dependencies: ResolvedDependencies,
+) -> tuple[tuple[str, str], ...]:
+    """Qualify production, not archive reading, before either preparation cache."""
+    sources = {source.name: source.content for source in dependencies.artifacts}
+    prefix = "execution/implementation/"
+    if prefix + "capture/companion-projection-model.yaml" not in sources:
+        return ()
+    advice = "reacquire execution inputs and prepare/admit a new release"
+    try:
+        recorded = json.loads(sources[prefix + "libraries.json"])
+    except (KeyError, ValueError, TypeError) as error:
+        raise ValueError(f"projection analysis runtime provenance missing; {advice}") from error
+    current = analysis_runtime()
+    if not isinstance(recorded, dict) or any(recorded.get(k) != v for k, v in current):
+        raise ValueError(f"projection analysis runtime differs from captured inputs; {advice}")
+    return current
 
 
 def determinant_version(name: str) -> str:

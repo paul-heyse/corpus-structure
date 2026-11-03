@@ -20,6 +20,7 @@ def settings_for(engine: Engine) -> Settings:
     return Settings(database={"url": url.render_as_string(hide_password=False)})
 
 
+@pytest.mark.usefixtures("observed_store_checkouts")
 def test_the_store_opens_and_lends_its_pool(db_engine: Engine) -> None:
     with store.open_store(settings_for(db_engine), "test-store") as opened:
         with opened.engine.connect() as conn:
@@ -31,6 +32,7 @@ def test_the_store_opens_and_lends_its_pool(db_engine: Engine) -> None:
         assert opened.pool.get_stats()["pool_size"] >= 1
 
 
+@pytest.mark.usefixtures("observed_store_checkouts")
 def test_an_extension_at_another_version_fails_startup_with_the_typed_error(
     db_engine: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -58,6 +60,7 @@ def test_errors_are_classified(db: Any) -> None:
     assert store.classify_error(dup.value).cause is store.DatabaseCause.FENCING
 
 
+@pytest.mark.usefixtures("observed_store_checkouts")
 def test_notice_callback_copies_selected_fields_while_valid(db_engine, caplog):
     import logging
 

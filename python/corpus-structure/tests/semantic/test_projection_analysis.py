@@ -65,6 +65,21 @@ def test_analysis_does_not_mutate_a_previously_built_tree():
     assert tree.sql(dialect="postgres") == before
 
 
+def test_inner_analysis_cache_tracks_its_runtime(monkeypatch):
+    from corpus_structure.semantic import projection_analysis
+
+    recipe = run_recipe()
+    first = analyze_recipe(recipe)
+    runtime = projection_analysis.analysis_runtime()
+    monkeypatch.setattr(
+        projection_analysis, "analysis_runtime", lambda: (*runtime, ("test-runtime", "changed"))
+    )
+    second = analyze_recipe(recipe)
+    assert second == first
+    assert second is not first
+    assert analyze_recipe(recipe) is second
+
+
 def test_unknown_column_fails_before_lineage_can_masquerade_as_valid():
     recipe = run_recipe()
     field = replace(recipe.fields[0], expression=ir.Field("r", "not_a_column"))

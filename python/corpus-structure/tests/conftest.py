@@ -284,3 +284,21 @@ def committing_db(db_server: PgAdmin, semantic_head_template: SemanticTemplate) 
         policy=semantic_head_template.policy,
     ) as engine:
         yield engine
+
+
+@pytest.fixture
+def observed_store_checkouts(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    """Attach the existing recorder to actual Store sessions, including startup refusal."""
+    from psycopg_pool import ConnectionPool
+
+    from native_test_support import observe_connection
+
+    engine = request.getfixturevalue("db_engine")
+    nodeid = request.node.nodeid
+    check = ConnectionPool.check_connection
+
+    def observed(connection):
+        check(connection)
+        observe_connection(connection, engine.url, purpose=None, nodeid=nodeid)
+
+    monkeypatch.setattr(ConnectionPool, "check_connection", staticmethod(observed))

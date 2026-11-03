@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from sqlalchemy import insert
+from fastmcp import Client
+from sqlalchemy import Engine, insert
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
@@ -20,6 +21,7 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operation_results import RunId, TaskId
 from corpus_structure.semantic.operations import (
     OperationBinding,
     create_run,
@@ -27,20 +29,21 @@ from corpus_structure.semantic.operations import (
 )
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.types import PreparedRelease
 
 
 def build_resubmission_case(
-    admin,
-    engine,
-    path,
+    admin: Engine,
+    engine: Engine,
+    path: Path,
     *,
-    composed=False,
-    identity_keyed=False,
-    global_names=False,
-    domain=None,
+    composed: bool = False,
+    identity_keyed: bool = False,
+    global_names: bool = False,
+    domain: str | None = None,
     evaluation_policy: bytes | None = None,
     query_inputs: tuple[SourceArtifact, ...] = (),
-):
+) -> tuple[PreparedRelease, RunId, TaskId, str]:
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
         "id": "https://example.org/resubmit",
@@ -150,7 +153,9 @@ def build_resubmission_case(
     return prepared, run, task, locator
 
 
-async def lease_and_read(client, run, task, *, expect_previous=False):
+async def lease_and_read(
+    client: Client, run: RunId, task: TaskId, *, expect_previous: bool = False
+) -> dict[str, Any]:
     queue = (await client.call_tool("queue_next", {"run": run})).structured_content
     assert queue is not None
     leased = queue["tasks"][0]

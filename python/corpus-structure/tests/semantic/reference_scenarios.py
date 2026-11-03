@@ -4,12 +4,14 @@ The paragraph/answer author owns expected meaning. This helper supplies only nat
 custody, current pack preparation, task leasing and the production finalization boundary.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import anyio
 from fastmcp import Client
 from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
-from sqlalchemy import insert
+from sqlalchemy import Engine, insert
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
@@ -19,14 +21,22 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.semantic import queue_agent
 from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operation_results import RunId
 from corpus_structure.semantic.operations import OperationBinding, create_run, register_document
 from corpus_structure.semantic.regeneration import prepare_pack
 from corpus_structure.semantic.releases import activate_release, persist_release
+from corpus_structure.semantic.types import PreparedRelease
 
 from .agent_scenarios import lease_and_read
 
 
-def publish_reference_case(admin, writer, directory: Path, domain: str, cases):
+def publish_reference_case(
+    admin: Engine,
+    writer: Engine,
+    directory: Path,
+    domain: str,
+    cases: Sequence[tuple[str, dict[str, Any]]],
+) -> tuple[PreparedRelease, RunId, tuple[str, ...]]:
     """Each case is (independent paragraph, authored current proposal batch)."""
     if len(cases) != 1:
         raise ValueError("reference journeys use one independently authored source paragraph")
