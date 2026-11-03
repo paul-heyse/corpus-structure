@@ -571,3 +571,36 @@ def test_cli_and_mcp_render_the_same_owned_semantic_reason(code):
     assert result.exit_code == 1
     cli = json.loads(result.stdout)["error"]
     assert cli["code"] == code and cli["semantic_reason"] == tool["semantic_reason"]
+
+
+def test_new_expression_form_spelling_uses_released_symbol_behavior():
+    from pathlib import Path
+
+    import yaml
+
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.rule_views import binding_symbols
+
+    core = yaml.safe_load(
+        (Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml").read_bytes()
+    )
+    core["enums"]["ExpressionForm"]["permissible_values"]["assignment"] = {
+        "in_subset": ["symbol_definition", "binding_symbol_expression"]
+    }
+    release = prepare_release(
+        SourceBundle(
+            "semantic_core", (SourceArtifact("semantic_core", yaml.safe_dump(core).encode()),)
+        )
+    )
+    definition = {
+        "kind": "expression",
+        "form": "assignment",
+        "language": "latex",
+        "expression": "x = y",
+    }
+    validated = release.validate_json("Value", canonical_bytes(definition))
+    projected = project_rule_value(release, "Value", validated)
+    assert projected.expression_form == "assignment" and projected.defined_symbol == "x"
+    symbol = {**definition, "expression": "x"}
+    assert binding_symbols(release, "Value", (symbol,)) == {"x"}

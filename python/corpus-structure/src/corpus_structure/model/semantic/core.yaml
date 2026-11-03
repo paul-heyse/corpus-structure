@@ -584,7 +584,7 @@ enums:
       '>=': {}
   ExpressionForm:
     permissible_values:
-      formula: {}
+      formula: {in_subset: [symbol_definition, binding_symbol_expression]}
       set: {}
       relation: {}
       membership: {}

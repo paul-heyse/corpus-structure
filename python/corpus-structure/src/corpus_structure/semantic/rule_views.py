@@ -128,6 +128,8 @@ class ValueView:
     expression_language: str | None = None
     missing_reason: str | None = None
     unavailable_reason: str | None = None
+    symbol_definition: bool = False
+    binding_symbol: bool = False
 
     @property
     def expression_content(self) -> str | None:
@@ -159,8 +161,7 @@ class ValueView:
     def defined_symbol(self) -> str | None:
         return (
             defined_symbol(self.latex)
-            if (self.expression_form == "formula" or self.t == "formula")
-            and self.expression_language in {None, "latex", "tex"}
+            if self.symbol_definition and self.expression_language in {None, "latex", "tex"}
             else None
         )
 
@@ -284,9 +285,12 @@ def project_rule_value(
             ),
             None,
         )
-        form = value.get("form") or (
-            kind if kind in {"formula", "set", "relation", "membership", "list"} else None
+        forms = (
+            prepared.enum_members("ExpressionForm")
+            if "ExpressionForm" in prepared.vocabulary_names
+            else frozenset()
         )
+        form = value.get("form") or (kind if kind in forms else None)
     else:
         kind = "entity" if declared in prepared.index.definitions else "text"
         lexical, scalar, form = None, value, None
@@ -325,7 +329,28 @@ def project_rule_value(
         language,
         missing_reason,
         unavailable,
+        prepared.member_has_behavior("ExpressionForm", form, "symbol_definition")
+        if "ExpressionForm" in prepared.vocabulary_names
+        else False,
+        prepared.member_has_behavior("ExpressionForm", form, "binding_symbol_expression")
+        if "ExpressionForm" in prepared.vocabulary_names
+        else False,
     )
+
+
+def binding_symbols(
+    prepared: PreparedRelease, binding: PropertyDefinition | str, values
+) -> frozenset[str]:
+    """Bare binding symbols supplied by released form behavior, independent of spelling."""
+    symbols = set()
+    for raw in values:
+        projected = project_rule_value(prepared, binding, raw)
+        if projected is None or not projected.binding_symbol or not projected.expression_content:
+            continue
+        symbol = projected.expression_content.strip().lstrip("\\")
+        if len(symbol) <= MAX_SYMBOL and _BARE.fullmatch(symbol):
+            symbols.add(symbol)
+    return frozenset(symbols)
 
 
 def build_rule_language(

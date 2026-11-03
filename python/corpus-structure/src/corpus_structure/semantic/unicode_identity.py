@@ -212,7 +212,11 @@ def requires_unicode_identity(prepared) -> bool:
         )
         if any(
             prop.case_policy == "casefold"
-            and (prop.name in identifying or (qualification and prop.key_role != "provenance"))
+            and (
+                prop.name in identifying
+                or "display" in prepared.index.property_roles.get((definition.iri, prop.iri), ())
+                or (qualification and prop.key_role != "provenance")
+            )
             for prop in definition.properties
         ):
             return True

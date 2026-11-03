@@ -3002,14 +3002,13 @@ class ReleasedRulesPolicy:
 
         from .grammar_profile import GRAMMAR_KINDS
         from .rule_views import (
-            _BARE,
-            MAX_SYMBOL,
             BindingView,
             EntityView,
             NodeView,
             QualifiersView,
             Reading,
             StatementView,
+            binding_symbols,
             project_rule_value,
         )
 
@@ -3082,18 +3081,15 @@ class ReleasedRulesPolicy:
             props = self.metadata.get((candidate.class_name, candidate.predicate), {})
             param_map = props.get("cs:param_map")
             entries = candidate.qualification.get(param_map, ()) if param_map else ()
-            symbols = set()
-            if self.prepared.member_has_behavior(
+            symbols = frozenset()
+            if param_map and self.prepared.member_has_behavior(
                 "StatementRole", candidate.statement_role, "supplies_binding_symbol"
             ):
-                for entry in entries.values() if isinstance(entries, dict) else entries:
-                    value = entry.get("value", entry)
-                    if value.get("kind") == "formula" or (
-                        value.get("kind") == "expression" and value.get("form") == "formula"
-                    ):
-                        symbol = value["expression"].strip().lstrip("\\")
-                        if len(symbol) <= MAX_SYMBOL and _BARE.fullmatch(symbol):
-                            symbols.add(symbol)
+                binding = self.prepared.index.properties[self.qprops[param_map].range, "value"]
+                members = entries.values() if isinstance(entries, dict) else entries
+                symbols = binding_symbols(
+                    self.prepared, binding, (entry.get("value", entry) for entry in members)
+                )
             gives[candidate.occurrence_id] = symbols
         context_index = CandidateContextIndex.prepare(self.prepared, candidates, gives)
         # The rule operation evaluates source assertions. Its view item IDs are occurrence
