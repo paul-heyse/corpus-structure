@@ -763,6 +763,7 @@ class ReadSession:
         from sqlalchemy import Text, bindparam, cast
         from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
+        from .consolidation import plain
         from .value_codec import value_meaning
 
         value, fact = table("data.typed_value"), table("data.fact")
@@ -803,7 +804,7 @@ class ReadSession:
                             parsed = adapter.validate_json(operand, strict=True)
                         except ValidationError:
                             parsed = adapter.validate_json(json.dumps(operand), strict=True)
-                        meaning = value_meaning(parsed)
+                        meaning = value_meaning(plain(parsed))
                     except (ValidationError, TypeError, ValueError) as error:
                         raise SemanticRefusal(
                             "unsupported exact object operand for release property"

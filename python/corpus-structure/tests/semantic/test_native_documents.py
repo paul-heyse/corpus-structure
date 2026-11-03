@@ -21,7 +21,7 @@ from corpus_structure.semantic.operations import (
 )
 from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
 
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 @pytest.mark.parametrize("captured_page", [False, pytest.param(True, marks=pytest.mark.corpus)])
@@ -48,7 +48,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
         store_pdf_original,
     )
 
-    prepared = setup(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
     original, recipe = b"%PDF-1.7\nindependent source fixture", b'{"recipe":"native-test"}'
     schema = (
         files("corpus_structure")

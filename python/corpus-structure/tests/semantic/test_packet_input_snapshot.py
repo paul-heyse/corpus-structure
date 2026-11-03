@@ -17,13 +17,13 @@ from corpus_structure.semantic.publication import (
     publish_on_connection,
 )
 
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 def test_native_packet_read_blocks_input_publication_then_rejects_stale_run(
     semantic_db_engine, semantic_writer_engine
 ):
-    prepared = setup(semantic_db_engine)
+    prepared = prepare_operation_scenario(semantic_db_engine)
     engine = semantic_writer_engine
     with engine.begin() as conn:
         run = create_run(
@@ -61,7 +61,7 @@ def test_native_task_configuration_matches_frozen_params_and_version(
 
     from corpus_structure.semantic.operations import create_task, record_method
 
-    prepared = setup(semantic_db_engine)
+    prepared = prepare_operation_scenario(semantic_db_engine)
     engine = semantic_writer_engine
 
     def operation(name="read", version="1", agent=False):

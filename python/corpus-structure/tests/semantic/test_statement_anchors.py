@@ -15,7 +15,7 @@ from corpus_structure.semantic.proposals import (
 from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.source_projection import statement_identity
 
-from .test_domain_operations import fixture
+from .domain_scenarios import build_domain_case
 from .test_proposals import batch, prepared
 
 
@@ -56,11 +56,12 @@ def test_same_local_handle_has_distinct_source_identity_across_frames():
 def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, packets, expected
 ):
-    _prepared, run, cut = fixture(
+    _prepared, run, cut = build_domain_case(
         semantic_db_engine,
         semantic_writer_engine,
         tmp_path / "source.html",
-        two_reports=True,
+        report_count=2,
+        global_person_identity=True,
         statement_packets=packets,
     )
     from pdf_acceptance_support import independent_pdf_address
@@ -117,13 +118,13 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
     from corpus_structure.semantic import source_frames
     from corpus_structure.semantic.operations import seal_cut
 
-    from .test_agent_resubmission import lease_and_read, source_task
+    from .agent_scenarios import build_resubmission_case, lease_and_read
 
     # Model a task completed by the earlier server, before source-frame capture existed.
     # The real packet builder, native task/hash custody and submission transaction remain active.
     with monkeypatch.context() as earlier:
         earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
-        _, run, task, locator = source_task(
+        _, run, task, locator = build_resubmission_case(
             semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
         )
         session = SemanticAgentSession(semantic_writer_engine, run)
@@ -203,9 +204,9 @@ def test_bulk_frames_deduplicate_origins_and_preserve_exact_coordinates(
 
     from corpus_structure.semantic.source_frames import load_source_frames
 
-    from .test_agent_resubmission import source_task
+    from .agent_scenarios import build_resubmission_case
 
-    prepared, run, task, _ = source_task(
+    prepared, run, task, _ = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "frame.html"
     )
     from corpus_structure.orchestrate.semantic import agent_packet

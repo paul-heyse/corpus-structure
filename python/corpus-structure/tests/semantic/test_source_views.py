@@ -33,7 +33,7 @@ from corpus_structure.semantic.source_views import (
 )
 
 from .native_record_fixtures import publish_native_record_fixture
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 def test_native_source_view_is_real_unit_with_exact_context(
@@ -56,7 +56,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.proposals import native_source_frame
 
-    prepared = setup(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
     original = b"%PDF-1.7\nindependent source view fixture"
     recipe = b'{"recipe":"native-scope-fixture"}'
     schema = (

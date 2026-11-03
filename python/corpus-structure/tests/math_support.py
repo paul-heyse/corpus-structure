@@ -8,7 +8,10 @@ three S0-R2 pages and the 78-page run read the gitignored corpus and are `corpus
 Pages are analysed in spawned single-threaded worker processes, one page per task: the grammar's
 deadline runs only on a process's main thread, and a page's spans take tens of seconds of CPU.
 
-The pack constants below retain the independent historical oracle configuration.
+The pack constants below retain the independent historical oracle configuration; they are not
+synchronized with current methods.yaml. Mathematical/TeX meaning is adjudicated under D1 §6.2
+and the cited source, not by regenerating production output. A changed expectation selects a new
+reference with its source, rationale and affected consumers, preserving the frozen witness.
 """
 
 from __future__ import annotations

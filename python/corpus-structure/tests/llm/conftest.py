@@ -5,8 +5,10 @@ spike pages are vendored under `fixtures/trace/corpus/`,
 so their checks never skip; the three S0-R2 pages read the gitignored corpus and their tests are
 `corpus`-marked. The spike side is the thin fixtures of `data/` (written once by `data/build.py`).
 
-The pack's fallback macro map is D2 §12.1's `domains/statistics/methods.yaml` `math.macros`, written
-here until that file exists.
+`PACK_MACROS` is the frozen historical fallback configuration for these archived source and
+quote/offset witnesses, not a copy to synchronize with today's statistics pack. Current pack
+configuration is tested through semantic preparation. A changed macro interpretation needs an
+independently adjudicated, explicitly selected new reference; current output alone is not an oracle.
 """
 
 from __future__ import annotations

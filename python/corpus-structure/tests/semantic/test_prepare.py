@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import base64
 import json
+import subprocess
+import sys
 from dataclasses import FrozenInstanceError, fields
 from decimal import Decimal, localcontext
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -519,6 +523,7 @@ def test_unknown_functional_semantics_refuse():
 
 def test_pure_preparation_reuses_only_identical_inputs_and_compiler_stack(monkeypatch):
     import corpus_structure.semantic.prepare as compiler
+    from corpus_structure.semantic.types import PreparationProfile
 
     compiler._prepare_release_cached.cache_clear()
     original = compiler._prepare_release_uncached
@@ -532,6 +537,10 @@ def test_pure_preparation_reuses_only_identical_inputs_and_compiler_stack(monkey
     source = bundle()
     first = compiler.prepare_release(source)
     assert compiler.prepare_release(SourceBundle(source.root, tuple(source.sources))) is first
+    profile_changed = compiler.prepare_release(
+        source, profile=PreparationProfile(constraint_scope="occurrence")
+    )
+    assert profile_changed is not first
     changed = SourceBundle(
         source.root, (SourceArtifact(source.sources[0].name, source.sources[0].content + b"\n"),)
     )
@@ -546,5 +555,80 @@ def test_pure_preparation_reuses_only_identical_inputs_and_compiler_stack(monkey
         ),
     )
     assert compiler.prepare_release(source) is not first
-    assert len(calls) == 3
+    assert len(calls) == 4
     compiler._prepare_release_cached.cache_clear()
+
+
+def test_fresh_interpreters_cold_compile_deterministic_semantic_artifacts():
+    source = bundle().sources[0]
+    payload = json.dumps(
+        {
+            "name": source.name,
+            "content": source.content.hex(),
+        }
+    )
+    child = """
+import base64, hashlib, json, sys
+from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+import corpus_structure.semantic.prepare as compiler
+from pydantic import ValidationError
+
+payload = json.load(sys.stdin)
+source = SourceArtifact(payload["name"], bytes.fromhex(payload["content"]))
+calls = []
+uncached = compiler._prepare_release_uncached
+def counted(*args):
+    calls.append(args[3])
+    return uncached(*args)
+compiler._prepare_release_uncached = counted
+prepared = prepare_release(SourceBundle("example", (source,)))
+definitions = next(a.content for a in prepared.artifacts if a.kind == "definitions.json")
+valid = prepared.validate_json("Thing", '{"id":"A","label":"ready","amount":"1.25"}')
+rejected = False
+try:
+    prepared.validate_json("Thing", '{"id":12,"unknown":true}')
+except ValidationError:
+    rejected = True
+print(json.dumps({
+    "release_id": prepared.release_id,
+    "manifest": json.loads(prepared.manifest),
+    "manifest_digest": hashlib.sha256(prepared.manifest).hexdigest(),
+    "definitions": base64.b64encode(definitions).decode(),
+    "valid": valid.model_dump(mode="json"),
+    "rejected": rejected,
+    "uncached_calls": len(calls),
+}, sort_keys=True))
+"""
+
+    def run_fresh() -> dict[str, Any]:
+        result = subprocess.run(
+            [sys.executable, "-c", child],
+            input=payload,
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=30,
+        )
+        return json.loads(result.stdout)
+
+    first = run_fresh()
+    second = run_fresh()
+    assert first == second
+    assert first["uncached_calls"] == 1
+    assert first["release_id"] == f"release:{first['manifest_digest']}"
+    assert first["rejected"] is True
+    assert first["valid"] == {"id": "A", "label": "ready", "amount": "1.25"}
+
+    manifest = first["manifest"]
+    assert manifest["root"] == "example"
+    assert manifest["profile"]["version"] == "semantic-1"
+    assert manifest["sources"] == [[source.name, source.digest]]
+    definitions = json.loads(base64.b64decode(first["definitions"]))
+    thing = next(definition for definition in definitions if definition["name"] == "Thing")
+    assert thing["iri"] == "https://example.org/Thing"
+    assert thing["identity_groups"] == [["id"]]
+    assert {prop["name"]: (prop["range"], prop["required"]) for prop in thing["properties"]} == {
+        "id": ("string", True),
+        "label": ("string", False),
+        "amount": ("decimal", False),
+    }

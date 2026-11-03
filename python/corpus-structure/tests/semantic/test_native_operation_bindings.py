@@ -21,7 +21,7 @@ from corpus_structure.semantic.operations import (
     record_method,
 )
 
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 class Config(BaseModel):
@@ -32,7 +32,7 @@ def test_native_claim_abi_result_and_observable_trigger_fence(
     semantic_db_engine,
     semantic_writer_engine,
 ):
-    prepared = setup(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
     model = bound_execution_model(prepared)
     call = model.operation("claim").call
     assert call is not None

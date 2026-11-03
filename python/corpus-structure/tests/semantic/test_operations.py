@@ -9,7 +9,7 @@ from pydantic import create_model
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic._operation_ids import TaskAttempt
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import (
@@ -24,109 +24,11 @@ from corpus_structure.semantic.operations import (
     seal_cut,
 )
 
-
-def setup(engine, *, observations=False, archive=False, composed=True, evaluation=False):
-    bundle = SourceBundle(
-        "m",
-        (
-            SourceArtifact(
-                "m",
-                b"""id: https://example/m
-name: m
-prefixes: {ex: 'https://example/'}
-default_prefix: ex
-types:
- string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
- integer: {base: int, uri: 'http://www.w3.org/2001/XMLSchema#integer'}
- boolean: {base: bool, uri: 'http://www.w3.org/2001/XMLSchema#boolean'}
-classes:
- Report:
-  attributes:
-   text: {required: true}
-""",
-            ),
-        ),
-    )
-    if observations:
-        from pathlib import Path
-
-        from corpus_structure.semantic.observations import observation_inputs
-
-        core = SourceArtifact(
-            "core",
-            (
-                Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-            ).read_bytes(),
-        )
-        root = bundle.sources[0]
-        bundle = SourceBundle(
-            "m",
-            (
-                core,
-                SourceArtifact(
-                    root.name,
-                    root.content.split(b"types:", 1)[0].replace(
-                        b"default_prefix: ex", b"default_prefix: ex\nimports: [core]"
-                    )
-                    + b"classes:"
-                    + root.content.split(b"classes:", 1)[1],
-                ),
-            ),
-        )
-        bundle = observation_inputs(bundle)
-    from corpus_structure.semantic.types import ResolvedDependencies
-
-    dependencies = ResolvedDependencies()
-    if observations:
-        import yaml
-
-        from corpus_structure.semantic.metrics import METRIC_INPUT, observation_dependencies
-
-        packaged = observation_dependencies(dependencies)
-        declared = yaml.safe_load(
-            next(a.content for a in packaged.artifacts if a.name == METRIC_INPUT)
-        )
-        declared["metrics"].append(
-            dict(
-                id="count",
-                value_type="SourceNumberOrNull",
-                subject_kind="run",
-                detail_schema="SourceObject",
-                description="Test method count",
-            )
-        )
-        dependencies = observation_dependencies(dependencies, yaml.safe_dump(declared).encode())
-    from corpus_structure.semantic.releases import persist_release
-    from corpus_structure.semantic.types import PreparationProfile
-
-    profile = PreparationProfile()
-    if evaluation:
-        from corpus_structure.semantic.analytical_profile import analytical_inputs
-        from corpus_structure.semantic.domain_operations import domain_rule_inputs
-        from corpus_structure.semantic.proposals import proposal_inputs
-
-        dependencies = domain_rule_inputs(dependencies, b"rules: []\n")
-        bundle = proposal_inputs(bundle, dependencies)
-        bundle, dependencies = analytical_inputs(bundle, dependencies)
-    if composed or evaluation:
-        from corpus_structure.semantic.composed import composed_dependencies
-
-        dependencies = composed_dependencies(dependencies)
-        profile = PreparationProfile(version="semantic-2")
-    p = prepare_release(bundle, dependencies, profile)
-    with engine.begin() as c:
-        persist_release(c, bundle, dependencies, profile, p)
-        c.execute(insert(table("data.project")).values(project_id="p"))
-        c.execute(
-            insert(table("data.realization")).values(
-                realization_id="z", release_id=p.release_id, project_id="p"
-            )
-        )
-    return p
+from .operation_scenario_support import prepare_operation_scenario
 
 
 def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semantic_writer_engine):
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     binding = OperationBinding(p.release_id, "z", 0, b"{}")
     with e.begin() as c:
@@ -221,7 +123,7 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
 
 
 def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_engine):
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     with pytest.raises(OperationConflict), e.begin() as c:
         create_run(
@@ -301,7 +203,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
     class SourceConfig(BaseModel):
         pass
 
-    p = setup(semantic_db_engine, observations=True, evaluation=True)
+    p = prepare_operation_scenario(semantic_db_engine, observations=True, evaluation=True)
     e = semantic_writer_engine
     method = SimpleNamespace(
         name="read",
@@ -509,7 +411,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
 
 
 def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writer_engine):
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     method = SimpleNamespace(
         name="read",
@@ -579,7 +481,7 @@ def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
     from corpus_structure.ingest.methods import METHODS
     from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 
-    p = setup(semantic_db_engine, observations=True, archive=True)
+    p = prepare_operation_scenario(semantic_db_engine, observations=True, archive=True)
     e = semantic_writer_engine
     corpus = tmp_path / "corpus"
     from pdf_acceptance_support import write_controlled_pdf
@@ -674,7 +576,7 @@ def test_native_role_cannot_forge_reuse_binding(
 ):
     from sqlalchemy import update
 
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     method = SimpleNamespace(
         name="read",
@@ -800,7 +702,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
 ):
     from sqlalchemy import update
 
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     with e.begin() as c:
         run = create_run(
@@ -918,7 +820,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
 def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
     semantic_db_engine, semantic_writer_engine
 ):
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     method = SimpleNamespace(
         name="read",
@@ -990,7 +892,7 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
 ):
     from corpus_structure.semantic.operations import end_source_run
 
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     with e.begin() as c:
         run = create_run(
@@ -1040,7 +942,7 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
 def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
     semantic_db_engine, semantic_writer_engine
 ):
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     t = table("ops.task")
     with e.begin() as c:

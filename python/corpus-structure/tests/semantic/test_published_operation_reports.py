@@ -15,7 +15,7 @@ from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.settings import Settings
 
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 from .test_selected_source_native import publish_selected
 
 

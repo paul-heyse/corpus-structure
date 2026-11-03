@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.metadata import table
 
-from .test_domain_operations import fixture
+from .domain_scenarios import build_domain_case
 
 
 def test_finished_result_refuses_new_protected_publication(
@@ -18,7 +18,7 @@ def test_finished_result_refuses_new_protected_publication(
 ):
     from corpus_structure.semantic.publication import PublicationBatch, publish_batch
 
-    prepared, _run, cut = fixture(
+    prepared, _run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
     )
     result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
@@ -38,7 +38,7 @@ def test_native_source_locator_is_checked_against_stored_citation(
     from corpus_structure.semantic.domain_operations import _cut_input
     from corpus_structure.semantic.publication import publish_on_connection
 
-    _prepared, _run, cut = fixture(
+    _prepared, _run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
     )
     inputs = _cut_input(semantic_writer_engine, cut, "hostile")
@@ -68,7 +68,7 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
     from corpus_structure.semantic.identity import occurrence_key
     from corpus_structure.semantic.publication import publish_on_connection
 
-    prepared, run, cut = fixture(
+    prepared, run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
     )
     inputs = _cut_input(semantic_writer_engine, cut, "hostile")
@@ -147,7 +147,7 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
         publish_on_connection,
     )
 
-    prepared, _run, cut = fixture(
+    prepared, _run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
     )
     inputs = _cut_input(semantic_writer_engine, cut, "hostile")
@@ -204,7 +204,7 @@ def test_finished_replay_does_not_reinterpret_an_advanced_input(
     from corpus_structure.semantic.domain_operations import DomainOperationRefused
     from corpus_structure.semantic.publication import PublicationBatch, publish_batch
 
-    prepared, _run, cut = fixture(
+    prepared, _run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", known=True
     )
     result = consolidate_cut(semantic_writer_engine, cut, "evaluated")

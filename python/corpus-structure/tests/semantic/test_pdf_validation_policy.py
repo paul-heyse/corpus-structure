@@ -6,8 +6,8 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build
 
+from .pdf_staging_support import private_build as private_build
 from .test_pdf_publication import stage_complete_native
-from .test_pdf_staging import private_build as private_build
 
 
 @pytest.mark.parametrize(

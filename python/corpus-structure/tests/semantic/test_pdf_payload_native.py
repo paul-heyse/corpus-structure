@@ -15,8 +15,8 @@ from corpus_structure.semantic.pdf_publication import (
 )
 from corpus_structure.semantic.pdf_record_identity import structured_payload_scalar
 
+from .pdf_staging_support import private_build as private_build
 from .test_pdf_publication import stage_complete_native
-from .test_pdf_staging import private_build as private_build
 
 
 def test_payload_forward_state_retains_previous_managed_objects():

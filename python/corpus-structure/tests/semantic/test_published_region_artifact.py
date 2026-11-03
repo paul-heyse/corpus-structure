@@ -44,7 +44,7 @@ from corpus_structure.semantic.source_views import (
 from corpus_structure.serve.native_regions import render_pdf_region
 
 from .native_record_fixtures import publish_native_record_fixture
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize("private_build", ["renderable_pdf"], indirect=True)

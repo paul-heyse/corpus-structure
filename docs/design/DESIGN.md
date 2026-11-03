@@ -347,6 +347,14 @@ reserved CLI initialization; [D3](D3-database.md) owns this boundary.
 
 > Decision: ADR-0032
 
+**Implemented, 2026-11-02; qualification is scoped at the test-architecture coordinator.**
+Named default serving readers clone a sealed session-local populated source through that same
+native lifecycle. Each consumer retains fresh committed isolation, policy replay and actual
+purpose authentication; recipe/preparation mismatch refuses reuse. Varied and producer/lifecycle
+cases retain independent preparation. This extends preparation without changing native ownership.
+
+> Decision: ADR-0048
+
 **Implemented; scoped Tested (2026-10-29).** The transitioned composed-model boundary now
 uses finite trusted lifecycle/conditional guards and protected terminal effects. Completed output
 is a relationship, enforced atomically with run completion; measurement rows derive from immutable

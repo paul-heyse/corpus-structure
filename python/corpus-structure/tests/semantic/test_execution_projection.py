@@ -70,6 +70,17 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     from corpus_structure.semantic.types import PreparationError, SourceArtifact
 
     inputs = trusted_execution_inputs()
+    compile_execution_model(inputs)
+    expected = {
+        "unknown": ("unsupported_effect", "delete_archive"),
+        "moved": ("unsupported_effect_profile", "archive"),
+        "transition": ("unsupported_effect_profile", "capture_cut"),
+        "version": ("unsupported_effect_profile", "archive"),
+        "effect_version": ("unsupported_effect", "persist_exact_archive"),
+        "binding_only": ("implementation_effects", "archive"),
+        "duplicate": ("duplicate_definition", "effect_definitions"),
+        "unresolved": ("unresolved_contract_reference", "archive"),
+    }[change]
     catalog = yaml.safe_load(inputs.catalog.content)
     operations = {o["id"]: o for o in catalog["operations"]}
     bindings = {b["id"]: b for b in catalog["implementations"]}
@@ -104,16 +115,14 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     )
     with pytest.raises(PreparationError) as refused:
         compile_execution_model(candidate)
-    codes = {d.code for d in refused.value.diagnostics}
-    assert codes & {
-        "unsupported_effect",
-        "unsupported_effect_profile",
-        "implementation_effects",
-        "duplicate_definition",
-        "unresolved_contract_reference",
-    }
-    if change in {"moved", "transition", "version", "effect_version"}:
-        diagnostic = refused.value.diagnostics[0]
+    diagnostics = refused.value.diagnostics
+    assert expected in {(diagnostic.code, diagnostic.location) for diagnostic in diagnostics}
+    if expected[0] in {"unsupported_effect", "unsupported_effect_profile"}:
+        diagnostic = next(
+            diagnostic
+            for diagnostic in diagnostics
+            if (diagnostic.code, diagnostic.location) == expected
+        )
         assert (
             diagnostic.contract_id
             and diagnostic.consumer

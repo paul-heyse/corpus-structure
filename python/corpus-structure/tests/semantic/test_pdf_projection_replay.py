@@ -23,7 +23,7 @@ from corpus_structure.semantic.pdf_publication import (
 )
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 
 
 def test_native_projection_replays_exact_keys_and_refuses_changed_membership(

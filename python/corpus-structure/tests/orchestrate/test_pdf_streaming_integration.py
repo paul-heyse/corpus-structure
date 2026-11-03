@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 from semantic import conftest as semantic_fixtures
-from semantic import test_pdf_staging as staging_fixtures
+from semantic import pdf_staging_support as staging_fixtures
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 

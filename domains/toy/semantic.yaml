@@ -54,7 +54,7 @@ slots:
     domain: Organization
     range: Asset
     multivalued: true
-    annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm}
+    annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm, cs:qualifiers: share}
   inspection:
     domain: Asset
     range: InspectionValue

@@ -13,8 +13,8 @@ from corpus_structure.ingest.pdf_streaming import iter_replay_artifact_batches
 from corpus_structure.semantic.pdf_publication import freeze_pdf_build, prepare_pdf_build
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
 
+from .pdf_staging_support import private_build as private_build
 from .test_pdf_publication import stage_complete_native
-from .test_pdf_staging import private_build as private_build
 
 
 @pytest.mark.parametrize(

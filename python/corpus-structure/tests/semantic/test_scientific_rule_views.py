@@ -256,6 +256,51 @@ classes:
         rule.evaluate({"claim": claim})
 
 
+def test_nested_keyed_record_projects_its_declared_formula_value():
+    raw = b"""id: https://example.org/nested
+name: nested
+prefixes: {ex: 'https://example.org/'}
+default_prefix: ex
+types: {string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}}
+classes:
+  Value:
+    attributes:
+      kind: {required: true}
+  Formula:
+    is_a: Value
+    attributes:
+      expression: {required: true}
+  Entry:
+    attributes:
+      key: {identifier: true, required: true}
+      value: {range: Formula, inlined: true, required: true}
+  Qualification:
+    attributes:
+      symbols: {range: Entry, multivalued: true, inlined: true, required: true}
+"""
+    prepared = prepare_release(SourceBundle("nested", (SourceArtifact("nested", raw),)))
+    view = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/rule-view.yaml"
+    prepared = replace(
+        prepared,
+        artifacts=(*prepared.artifacts, PreparedArtifact(RULE_VIEW_INPUT, view.read_bytes())),
+    )
+    props = {
+        p.name: p for d in prepared.definitions if d.name == "Qualification" for p in d.properties
+    }
+    lang = build_rule_language(prepared, qprops=props, builtins={}, values={}, arguments={})
+    rule = lang.compile(
+        "nested",
+        'claim.qualifiers.symbols["location"].key == "location" and '
+        'claim.qualifiers.symbols["location"].value.t == "formula" and '
+        'claim.qualifiers.symbols["location"].value.latex == "a"',
+    )
+    entry = {"key": "location", "value": {"kind": "formula", "expression": "a"}}
+    claim = SimpleNamespace(qualifiers=SimpleNamespace(symbols={"location": entry}))
+    assert rule.evaluate({"claim": claim})
+    entry["value"]["expression"] = "b"
+    assert not rule.evaluate({"claim": claim})
+
+
 def test_same_scientific_recipe_refuses_changed_sampling_runtime(monkeypatch):
     import json
 

@@ -15,7 +15,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import publish_on_connection
 from corpus_structure.semantic.query import QuerySpec, read_session
 
-from .test_domain_operations import fixture, locate_proposal
+from .domain_scenarios import build_domain_case, locate_proposal
 
 
 def _source(admin, writer, path, monkeypatch, *, outside=False):
@@ -42,8 +42,8 @@ def _source(admin, writer, path, monkeypatch, *, outside=False):
             raw["claims"][0].pop("statement_role")
         return locate(prepared, raw, frame)
 
-    monkeypatch.setattr(fixture.__module__ + ".locate_proposal", author)
-    return fixture(admin, writer, path, duplicate=True)
+    monkeypatch.setattr(build_domain_case.__module__ + ".locate_proposal", author)
+    return build_domain_case(admin, writer, path, duplicate=True)
 
 
 def test_occurrences_keep_statement_and_citation_roles_in_query_explain(

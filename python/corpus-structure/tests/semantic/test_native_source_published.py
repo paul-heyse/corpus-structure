@@ -13,7 +13,7 @@ from corpus_structure.serve.native_source import (
     _published_parent_product,
 )
 
-from . import test_pdf_integrated as integrated_fixtures
+from . import pdf_integration_support as integrated_fixtures
 
 native_source = integrated_fixtures.native_source
 

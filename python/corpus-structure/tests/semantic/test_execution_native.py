@@ -87,9 +87,9 @@ def test_native_attempt_and_nonterminal_transition_fences(
         record_method,
     )
 
-    from .test_operations import setup
+    from .operation_scenario_support import prepare_operation_scenario
 
-    prepared = setup(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -186,9 +186,9 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         renew_claim,
     )
 
-    from .test_operations import setup
+    from .operation_scenario_support import prepare_operation_scenario
 
-    prepared = setup(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -335,9 +335,9 @@ def test_held_progress_survives_cancel_and_fail(
         release_claim,
     )
 
-    from .test_operations import setup
+    from .operation_scenario_support import prepare_operation_scenario
 
-    prepared = setup(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -417,9 +417,9 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         record_method,
     )
 
-    from .test_operations import setup
+    from .operation_scenario_support import prepare_operation_scenario
 
-    prepared = setup(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -550,9 +550,9 @@ def test_invocation_effect_enforces_agent_packet_disposition(
         record_method,
     )
 
-    from .test_operations import setup
+    from .operation_scenario_support import prepare_operation_scenario
 
-    prepared = setup(semantic_db_engine, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,

@@ -12,9 +12,11 @@ def test_cli_finalization_returns_real_receipt_and_exact_replay(
     from corpus_structure.cli import orchestrate as cli
     from corpus_structure.cli.app import app
 
-    from .test_domain_operations import fixture
+    from .domain_scenarios import build_domain_case
 
-    _, run, _ = fixture(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+    _, run, _ = build_domain_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
+    )
 
     @contextmanager
     def engine(_, **kwargs):

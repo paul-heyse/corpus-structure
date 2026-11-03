@@ -30,8 +30,8 @@ from corpus_structure.serve.companion_export import (
     inventory_companion_export,
 )
 
+from .pdf_staging_support import private_build as private_build
 from .test_pdf_publication import stage_complete_native
-from .test_pdf_staging import private_build as private_build
 
 
 def publish(engine, build, key, directory, *, coverage=(), rejected_coverage=()):

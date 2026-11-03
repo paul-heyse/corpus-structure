@@ -191,8 +191,11 @@ def test_native_binary_copy_invalid_null_is_atomic(semantic_db_engine, semantic_
             "entity": pa.Table.from_pylist([{"entity_id": None}], schema=stage_schema("entity")),
         },
     )
-    with pytest.raises(DBAPIError):
+    with pytest.raises(DBAPIError) as refused:
         publish_arrow(semantic_writer_engine, invalid)
+    assert isinstance(refused.value.orig, psycopg.Error)
+    assert refused.value.orig.sqlstate == "23502"
+    assert refused.value.orig.diag.column_name == "entity_id"
     with semantic_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
         assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 0

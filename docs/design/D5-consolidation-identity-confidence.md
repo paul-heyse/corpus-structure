@@ -17,6 +17,13 @@ conflicts are decided; how confidence is estimated and calibrated; how judgments
 validation set status. Consolidation is methods M17 and M18 of
 [D4](D4-method-catalog.md#11-consolidation-summary) and the only writer of knowledge rows.
 
+
+**Implemented (2026-11-02; TA-08/12 qualification separately owned).** Consolidation and
+reference alignment obtain the same released class-IRI alias policy compiled under
+[D2](D2-schema-and-guidelines.md). Article handling, ordered rewrites, head-word removal,
+nonempty labels and evidence retention remain separate obligations. New-policy release identity
+prevents a current alias correction from silently reinterpreting an admitted older policy.
+
 ## Parsing products and binding demands
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** Binding consumes native source

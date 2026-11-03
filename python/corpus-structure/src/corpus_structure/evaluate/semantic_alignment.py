@@ -439,31 +439,11 @@ def equivalent(
 
 
 def _entity_pairs(ref, pred, prepared, out, science_scope):
-    import yaml
-
-    from corpus_structure.core.keys import LabelRules, normalize_label
     from corpus_structure.core.vocab import CaseRule
-    from corpus_structure.semantic.domain_operations import RULE_INPUT
+    from corpus_structure.semantic.alias_policy import label_normalizer
 
-    policy = (
-        next((yaml.safe_load(a.content) for a in prepared.artifacts if a.kind == RULE_INPUT), {})
-        or {}
-    )
-    rules = LabelRules.model_validate((policy.get("identity") or {}).get("aliases", {}))
+    normalize_label = label_normalizer(prepared)
     definitions = {d.iri: d for d in prepared.definitions}
-    prefixes = {
-        r.name: __import__("json").loads(r.body)["uri"]
-        for r in prepared.registry_rows
-        if r.kind == "prefix"
-    }
-
-    def compact(iri):
-        candidates = [
-            (len(uri), prefix + ":" + iri[len(uri) :])
-            for prefix, uri in prefixes.items()
-            if iri.startswith(uri)
-        ]
-        return max(candidates)[1] if candidates else iri
 
     def compatible(a, b):
         da, db = definitions.get(a), definitions.get(b)
@@ -558,7 +538,7 @@ def _entity_pairs(ref, pred, prepared, out, science_scope):
             normalized[id(entity), case] = tuple(
                 (
                     label if case is CaseRule.PRESERVE else _text(label),
-                    normalize_label(label, compact(entity["class_iri"]), rules, case),
+                    normalize_label(label, entity["class_iri"], case),
                 )
                 for label in prepared_names[id(entity)]
             )

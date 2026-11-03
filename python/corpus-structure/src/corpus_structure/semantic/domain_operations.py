@@ -101,6 +101,7 @@ def domain_rule_inputs(
     execution_model=None,
 ) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
+    from .alias_policy import SOURCE_PROFILE
     from .scientific_evidence import scientific_policy_recipe
 
     source = _policy_yaml(domain) or {}
@@ -114,6 +115,12 @@ def domain_rule_inputs(
     source["operation"] = operation
     if aliases is not None:
         source["identity"] = {"aliases": dict(aliases)}
+    identity = source.setdefault("identity", {})
+    if not isinstance(identity, dict):
+        raise ValueError("invalid operation identity policy")
+    if identity.get("alias_profile", SOURCE_PROFILE) != SOURCE_PROFILE:
+        raise ValueError("unsupported alias input profile")
+    identity["alias_profile"] = SOURCE_PROFILE
     if any(a.name == RULE_INPUT for a in dependencies.artifacts):
         raise ValueError("domain rules already declared")
     return replace(
@@ -767,8 +774,9 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
 
 def _entity_mappings(prepared, observations, output, known, contexts):
     """Exact declared identity keys and explicitly global label policy, never fuzzy identity."""
-    from corpus_structure.core.keys import LabelRules, normalize_label
     from corpus_structure.core.vocab import CaseRule
+
+    from .alias_policy import label_normalizer
 
     by_iri = {d.iri: d for d in prepared.definitions}
     meta = {
@@ -776,22 +784,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
         for row in prepared.registry_rows
         if row.kind == "operation_class"
     }
-    artifact = next((a for a in prepared.artifacts if a.kind == RULE_INPUT), None)
-    policy = _policy_yaml(artifact.content) if artifact is not None else {}
-    aliases = LabelRules.model_validate((policy.get("identity") or {}).get("aliases", {}))
-    prefixes = {
-        row.name: json.loads(row.body)["uri"]
-        for row in prepared.registry_rows
-        if row.kind == "prefix"
-    }
-
-    def compact(iri):
-        choices = [
-            (len(uri), prefix + ":" + iri[len(uri) :])
-            for prefix, uri in prefixes.items()
-            if iri.startswith(uri)
-        ]
-        return max(choices)[1] if choices else iri
+    normalize_label = label_normalizer(prepared)
 
     mappings = {}
     entries = []
@@ -852,7 +845,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
             if meta[definition.name].get("cs:case") == "casefold"
             else CaseRule.PRESERVE
         )
-        return (definition.iri, normalize_label(label, compact(definition.iri), aliases, case))
+        return (definition.iri, normalize_label(label, definition.iri, case))
 
     for observation, entity, definition in entries:
         groups = [g for g in definition.identity_groups if g != definition.identity_slots]
@@ -924,7 +917,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                         if meta[definition.name].get("cs:case") == "casefold"
                         else CaseRule.PRESERVE
                     )
-                    label = normalize_label(item["label"], compact(iri), aliases, case)
+                    label = normalize_label(item["label"], iri, case)
                     match = (iri, label)
                     known_labels.setdefault(match, identity)
                 continue
@@ -2354,8 +2347,7 @@ class ReleasedRulesPolicy:
                 )
 
     def validate_source(self):
-        from corpus_structure.core.keys import LabelRules
-
+        from .alias_policy import label_normalizer
         from .analytical_kernels import ALTERNATIVE_OF, SAME_SLOT, ViewSpec
 
         source = self.source
@@ -2376,9 +2368,13 @@ class ReleasedRulesPolicy:
                 "operation derive rules require an admitted inference profile"
             )
         identity = source.get("identity", {})
-        if not isinstance(identity, dict) or set(identity) - {"aliases"}:
+        if not isinstance(identity, dict) or set(identity) - {
+            "aliases",
+            "alias_profile",
+            "alias_contexts",
+        }:
             raise DomainOperationRefused("invalid operation identity policy")
-        LabelRules.model_validate(identity.get("aliases", {}))
+        label_normalizer(self.prepared)
         props = {p.iri for d in self.prepared.definitions for p in d.properties}
         groups = {g for body in self.metadata.values() for g in body.get("groups", ())}
 

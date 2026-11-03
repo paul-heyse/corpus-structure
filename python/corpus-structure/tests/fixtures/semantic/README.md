@@ -14,24 +14,24 @@ directory, launched the pinned Python with that directory as `PYTHONPATH`, and s
 its returned manifest, profile, products and artifacts. No dependency installation or
 compiler/profile relabelling was used. Both manifests retain the producing runtime tuple.
 
-The compatibility contract exercised by `tests/semantic/test_release_compatibility.py` is:
+The current-only compatibility contract exercised by
+`tests/semantic/test_release_compatibility.py` accepts compiler 14 with boundary ABI 12 and its
+recorded compatible runtime tuple. Compilers 10–13 and unknown future compilers refuse even
+when their dependency versions happen to equal today's. The retained older files document
+producer lineage and refusal inputs; their presence does not select a legacy runtime. Opening a
+compiler-14 archive remains distinct from rederivation, admission and execution.
 
-| Compiler | Product opening and retained boundary vectors | Full verification by current compiler 13 | New activation by current compiler 13 |
-| --- | --- | --- | --- |
-| 10 | Supported only with recorded legacy boundary/runtime recipe | Refused: requires historical compatible compiler | Refused |
-| 11 | Supported only with recorded boundary/runtime recipe | Refused: requires historical compatible compiler | Refused |
-| 12 | Supported with boundary ABI 12 and recorded runtime | Refused: requires historical compatible compiler | Refused |
-| 13 | Supported with boundary ABI 12 and recorded runtime | Exact-source/product rederivation | Requires verification and live admission |
+Corrected alias execution requires the released `class-iri-aliases-1` product derived from
+`class-alias-input-1` source bytes. Compiler-14 archives remain readable without rewriting frozen
+products; an old nonempty unversioned alias policy refuses alias execution and requires forward
+regeneration/admission. An absent or empty policy explicitly declares neutral normalization.
 
 Historical reading is not admission. Cache controls additionally distinguish database identity,
 current archive bytes, runtime changes, failed verification and finalized immutable projections.
 Equal exported JSON Schema is explicitly insufficient for acceptance compatibility.
 
-The selected-answer control restores an independent small historical-shaped completed-result
-snapshot over the genuine compiler-10 archive. It is intentionally distinct from operational
-runs 1/2 and does not recreate or regrade them. Administrator trigger bypass is limited to
-restoring already-finished run/cut metadata; actual selection, public reading, explanation,
-ADBC capture, detached export and new activation use their production routes. The control
-asserts independently stated exact Decimal values and old release/realization identity before
-and after activating a current release. It establishes this fixture journey, not a copied
-production database or an alternate-runtime qualification.
+A hypothetical intentional boundary change starts with an independent acceptance vector and
+its intended meaning, the proposed before/after difference and affected reader/runtime consumers.
+Current compiler output is candidate evidence; it cannot authorize changing a historical archive.
+Select a new product/profile and reference through the current release contract, retain these
+originals and their producer revisions, and test explicit refusal where the runtime is unsupported.

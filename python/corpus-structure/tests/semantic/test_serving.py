@@ -4,19 +4,15 @@ import base64
 import json
 from pathlib import Path
 
-import anyio
 import pytest
-from fastmcp import Client
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
-from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.analytics import SPINE, load_packet
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query import read_session
-from corpus_structure.semantic.query_compatibility import acquire_query_inputs, open_query_registry
+from corpus_structure.semantic.query_compatibility import open_query_registry
 from corpus_structure.semantic.refusals import StaleSnapshot, WrongBinding
 from corpus_structure.serve.explain import UnitExplanation, explain
 from corpus_structure.serve.export import export_packet
@@ -32,132 +28,30 @@ from corpus_structure.serve.results import (
     TransformationAnswer,
 )
 
-from .test_agent_resubmission import lease_and_read, source_task
+from .serving_scenarios import (
+    build_completed_serving_case,
+    install_pack_scenario,
+)
+from .serving_scenarios import (
+    serving_read_scenario as serving_read_scenario,
+)
+from .serving_scenarios import (
+    serving_scenario_seed as serving_scenario_seed,
+)
 
 
-def completed(admin, writer, tmp_path, *, complete_coverage=False, query_pack=None):
-    prepared, run, task, locator = source_task(
-        admin,
-        writer,
-        tmp_path / "source.html",
-        composed=True,
-        domain="statistics",
-        query_inputs=acquire_query_inputs(
-            query_pack or Path(__file__).resolve().parents[4] / "domains/statistics"
-        ),
+def test_named_semantic_pages_explanations_and_source_search(serving_read_scenario):
+    prepared, run, _task, locator = (
+        serving_read_scenario.prepared,
+        serving_read_scenario.run,
+        serving_read_scenario.task,
+        serving_read_scenario.locator,
     )
-
-    async def submit():
-        async with Client(build_semantic_server(SemanticAgentSession(writer, run))) as client:
-            unit = await lease_and_read(client, run, task)
-            claims = [
-                {
-                    "id": item,
-                    "subject": "person2" if name == "Bob" else "person",
-                    "predicate": "https://example.org/name",
-                    "object": {"kind": "text", "text": name},
-                    "qualification": {"modality": "asserted", "polarity": True},
-                    "establishment": "stated",
-                    "evidence": [
-                        {
-                            "sentence": unit["sentences"][0]["id"],
-                            "quote": "Alice is here.",
-                            "role": "primary",
-                        }
-                    ],
-                }
-                for item, name in [("name1", "Alice"), ("name2", "Alice"), ("name3", "Bob")]
-            ]
-            result = await client.call_tool(
-                "propose_claims",
-                {
-                    "task_id": task,
-                    "batch": {
-                        "unit_ref": locator,
-                        "entities": [
-                            {"id": "person", "class_iri": "https://example.org/Person"},
-                            {"id": "person2", "class_iri": "https://example.org/Person"},
-                        ],
-                        "claims": claims,
-                    },
-                },
-            )
-            assert result.structured_content is not None
-            assert result.structured_content["submission_disposition"] == "completed_accepted", (
-                json.dumps(result.structured_content, sort_keys=True)
-            )
-
-    anyio.run(submit)
-    if complete_coverage:
-        from types import SimpleNamespace
-
-        from corpus_structure.core.method import CoverageDraft, UnitRef, UnitResult
-        from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-        from corpus_structure.semantic.operations import (
-            claim_tasks,
-            complete_unit_result,
-            create_task,
-            record_method,
-        )
-
-        class WitnessConfig(BaseModel):
-            pass
-
-        method = SimpleNamespace(
-            name="coverage.witness",
-            version="1",
-            family="extract",
-            tier="deterministic",
-            unit_type=TaskUnitType.RUN,
-            Config=WitnessConfig,
-            confidence_source=None,
-        )
-        with writer.begin() as conn:
-            config = record_method(conn, method, "default", {}, "coverage-witness")
-            task_id = create_task(
-                conn,
-                run_id=run,
-                config_id=config,
-                stage="extract",
-                unit_type="run",
-                unit_key="global",
-                input_hash="coverage-witness",
-            )
-            claimed = claim_tasks(conn, run_id=run, config_id=config, holder="coverage-witness")[0]
-            complete_unit_result(
-                conn,
-                task_id=task_id,
-                attempt=claimed.attempt,
-                holder="coverage-witness",
-                prepared=prepared,
-                method=method,
-                configuration_hash="coverage-witness",
-                source="coverage-witness",
-                result=UnitResult(
-                    ref=UnitRef(TaskUnitType.RUN, unit_key="global"),
-                    outcome=ObservationOutcome.EMPTY,
-                    coverage=(
-                        CoverageDraft(
-                            family="https://example.org/name",
-                            scope="*",
-                            outcome="complete",
-                        ),
-                    ),
-                ),
-            )
-    finalize_bound_run(writer, run, "served-result")
-    return prepared, run, task, locator
-
-
-def test_named_semantic_pages_explanations_and_source_search(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
-):
-    prepared, run, _task, locator = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
     registry = open_query_registry(
         prepared, Path(__file__).resolve().parents[4] / "domains/statistics"
     )
     with (
-        semantic_reader_engine.connect().execution_options(
+        serving_read_scenario.reader.connect().execution_options(
             isolation_level="REPEATABLE READ"
         ) as conn,
         conn.begin(),
@@ -181,6 +75,24 @@ def test_named_semantic_pages_explanations_and_source_search(
         second_fact = json.loads(second.model_dump_json())["rows"][0]["fact"]
         assert {first_fact["object"], second_fact["object"]} == {"Alice", "Bob"}
         assert first_fact["fact_id"] != second_fact["fact_id"]
+
+        def subject_classes(row):
+            return frozenset(
+                membership["class_iri"] for membership in row["subject"]["memberships"]
+            )
+
+        assert {
+            (
+                subject_classes(row),
+                row["object"],
+                row["qualification"]["modality"],
+                row["qualification"]["polarity"],
+            )
+            for row in (first_fact, second_fact)
+        } == {
+            (frozenset({"https://example.org/Person"}), "Alice", "asserted", True),
+            (frozenset({"https://example.org/Person"}), "Bob", "asserted", True),
+        }
         occurrences = serve_query(
             conn,
             registry,
@@ -192,6 +104,32 @@ def test_named_semantic_pages_explanations_and_source_search(
         occurrence_rows = json.loads(occurrences.model_dump_json())["rows"]
         assert sorted(row["fact"]["object"] for row in occurrence_rows) == ["Alice", "Alice", "Bob"]
         assert len({row["fact"]["occurrence_id"] for row in occurrence_rows}) == 3
+        assert {
+            (
+                subject_classes(row["fact"]),
+                row["fact"]["object"],
+                row["fact"]["item"],
+                row["fact"]["qualification"]["modality"],
+                row["fact"]["qualification"]["polarity"],
+            )
+            for row in occurrence_rows
+        } == {
+            (frozenset({"https://example.org/Person"}), "Alice", "claims/0", "asserted", True),
+            (frozenset({"https://example.org/Person"}), "Alice", "claims/1", "asserted", True),
+            (frozenset({"https://example.org/Person"}), "Bob", "claims/2", "asserted", True),
+        }
+        alice_subjects = {
+            row["fact"]["subject"]["entity_id"]
+            for row in occurrence_rows
+            if row["fact"]["object"] == "Alice"
+        }
+        bob_subjects = {
+            row["fact"]["subject"]["entity_id"]
+            for row in occurrence_rows
+            if row["fact"]["object"] == "Bob"
+        }
+        assert len(alice_subjects) == len(bob_subjects) == 1
+        assert alice_subjects.isdisjoint(bob_subjects)
         candidates = serve_query(
             conn,
             registry,
@@ -249,9 +187,24 @@ def test_named_semantic_pages_explanations_and_source_search(
                 page_token=first.next_page_token,
             )
 
-        explanation = explain(conn, run, "claim", first_fact["fact_id"])
+        alice_id = next(
+            row["fact_id"] for row in (first_fact, second_fact) if row["object"] == "Alice"
+        )
+        explanation = explain(conn, run, "claim", alice_id)
         assert isinstance(explanation.detail, FactExplanation)
-        assert explanation.detail.supports and explanation.detail.evidence
+        assert {support.item for support in explanation.detail.supports} == {
+            "claims/0",
+            "claims/1",
+        }
+        assert len({support.source for support in explanation.detail.supports}) == 1
+        linked_evidence = {
+            evidence_id
+            for support in explanation.detail.supports
+            for evidence_id in support.evidence_ids
+        }
+        assert linked_evidence
+        assert {evidence.evidence_id for evidence in explanation.detail.evidence} == linked_evidence
+        assert {evidence.source_uri for evidence in explanation.detail.evidence} == {"source.html"}
         assert explanation.detail.evidence[0].source is not None
         assert explanation.detail.evidence[0].source.observation_key
         source = explain(conn, run, "unit", locator)
@@ -319,16 +272,14 @@ def test_named_semantic_pages_explanations_and_source_search(
             )
 
 
-def test_full_projection_exports_and_cancel_cleanup(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, monkeypatch
-):
+def test_full_projection_exports_and_cancel_cleanup(serving_read_scenario, tmp_path, monkeypatch):
     import pyarrow.parquet as pq
 
-    _, _run, _, _ = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
-    uri = semantic_reader_engine.url.render_as_string(hide_password=False).replace(
+    _run = serving_read_scenario.run
+    uri = serving_read_scenario.reader.url.render_as_string(hide_password=False).replace(
         "postgresql+psycopg:", "postgresql:"
     )
-    with read_session(semantic_reader_engine, "served-result") as session:
+    with read_session(serving_read_scenario.reader, "served-result") as session:
         packet = load_packet(session, uri)
     parquet = export_packet(packet, tmp_path / "parquet")
     jsonl = export_packet(packet, tmp_path / "jsonl", format="jsonl")
@@ -356,89 +307,6 @@ def test_full_projection_exports_and_cancel_cleanup(
         export_packet(packet, tmp_path / "cancelled")
     assert not (tmp_path / "cancelled").exists()
     assert not list(tmp_path.glob(".semantic-export-*"))
-
-
-def install_pack(admin, writer, name, entries, *, contexts=False):
-    from dataclasses import replace
-
-    from sqlalchemy import insert
-
-    from corpus_structure.semantic import (
-        PreparationProfile,
-        ResolvedDependencies,
-        SourceArtifact,
-        SourceBundle,
-        prepare_release,
-    )
-    from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.consolidation import SourceItem, assemble
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.publication import EvidenceRow, SelectionRow, publish_batch
-    from corpus_structure.semantic.releases import persist_release
-
-    root = Path(__file__).resolve().parents[4]
-    bundle = SourceBundle(
-        "domain",
-        (
-            SourceArtifact(
-                "semantic_core",
-                (
-                    root / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                ).read_bytes(),
-            ),
-            SourceArtifact("domain", (root / f"domains/{name}/semantic.yaml").read_bytes()),
-        ),
-    )
-    dependencies = composed_dependencies(ResolvedDependencies())
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
-    with admin.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id="pack"))
-        conn.execute(
-            insert(table("data.realization")).values(
-                project_id="pack", realization_id="pack", release_id=prepared.release_id
-            )
-        )
-    if callable(entries):
-        entries = entries(prepared)
-    entries = list(entries) + [
-        (subject, cls, "id", subject, {"modality": "asserted", "polarity": True}, "Qualification")
-        for subject, cls in sorted({(row[0], row[1]) for row in entries})
-    ]
-    evidence = (EvidenceRow("pack-evidence", "pack.html", "pack.html#p", "native-parser", "1"),)
-    items = tuple(
-        SourceItem(
-            subject, cls, prop, obj, qualification, "pack-source", str(i), "stated", evidence, qcls
-        )
-        for i, (subject, cls, prop, obj, qualification, qcls) in enumerate(entries)
-    )
-    batch = assemble(prepared, "pack", "pack-test", items)
-    if contexts:
-        from corpus_structure.semantic.publication import OccurrenceContextRow
-
-        batch = replace(
-            batch,
-            occurrence_context=tuple(
-                OccurrenceContextRow(
-                    o.occurrence_id,
-                    "stmt",
-                    "definiens"
-                    if items[int(o.item)].property_name == "defined_as"
-                    else "premise"
-                    if items[int(o.item)].qualification["modality"] == "supposed"
-                    else "conclusion",
-                )
-                for o in batch.occurrence
-                if items[int(o.item)].subject in {"rv0", "rv1"}
-                and items[int(o.item)].property_name in {"has_distribution", "defined_as"}
-            ),
-        )
-    batch = replace(
-        batch, selection=tuple(SelectionRow(f.fact_id) for f in batch.fact)
-    ).bind_preparation(prepared)
-    publish_batch(writer, batch)
-    return prepared, batch
 
 
 def test_statistics_named_algorithms_and_exact_ownership(
@@ -498,7 +366,7 @@ def test_statistics_named_algorithms_and_exact_ownership(
             ("stmt", "SourceStatement", "locator", "pack.html#stmt", q, "Qualification"),
         ]
 
-    _prepared, _batch = install_pack(
+    _prepared, _batch = install_pack_scenario(
         semantic_db_engine,
         semantic_writer_engine,
         "statistics",
@@ -596,7 +464,7 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(
             "ToyQualification",
         ),
     ]
-    _, _batch = install_pack(semantic_db_engine, semantic_writer_engine, "toy", entries)
+    _, _batch = install_pack_scenario(semantic_db_engine, semantic_writer_engine, "toy", entries)
     registry = build_registry(GENERIC, Path(__file__).resolve().parents[4] / "domains/toy")
     with read_session(semantic_reader_engine, "pack") as session:
         ctx = QueryContext(0, session.connection)
@@ -621,15 +489,13 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(
         assert rows("2020-12-31")[0]["applicability"] == "not_applicable"
 
 
-def test_real_cli_query_explain_and_export_dispatch(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, cli
-):
+def test_real_cli_query_explain_and_export_dispatch(serving_read_scenario, tmp_path, cli):
     from corpus_structure.settings import Settings
 
-    _, run, _, locator = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
+    run, locator = serving_read_scenario.run, serving_read_scenario.locator
     settings = Settings(
         database={
-            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            "url": serving_read_scenario.reader.url.set(drivername="postgresql").render_as_string(
                 hide_password=False
             )
         }
@@ -756,7 +622,7 @@ def test_real_cli_query_implementation_edit_and_bound_followups(
         "class Probe(Claims):\n    name, version = 'probe', '1'\nQUERIES=[Probe()]\n"
     )
     (pack / "queries.py").write_text(plugin)
-    prepared, run, _, locator = completed(
+    prepared, run, _, locator = build_completed_serving_case(
         semantic_db_engine, semantic_writer_engine, tmp_path, query_pack=pack
     )
     original = open_query_registry(prepared, pack)
@@ -892,7 +758,7 @@ def test_empty_named_continuation_does_not_assert_whole_query_absence(
 ):
     from corpus_structure.semantic.query import read_snapshot
 
-    prepared, run, _, _ = completed(
+    prepared, run, _, _ = build_completed_serving_case(
         semantic_db_engine, semantic_writer_engine, tmp_path, complete_coverage=True
     )
     registry = open_query_registry(

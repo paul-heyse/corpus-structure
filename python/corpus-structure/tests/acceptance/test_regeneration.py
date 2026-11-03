@@ -40,7 +40,7 @@ def test_retained_integrated_cli_lifecycle(
         seed_retained_integrated_product,
     )
 
-    from ..semantic.test_pdf_integrated import IMAGE, RESPONSE, observation
+    from ..semantic.pdf_integration_support import IMAGE, RESPONSE, observation
 
     builder = runpy.run_path(str(ROOT / "fixtures/toy/build_pdf.py"))
     domains = tmp_path / "domains"

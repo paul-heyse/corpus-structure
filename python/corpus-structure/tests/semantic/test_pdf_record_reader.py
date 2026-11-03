@@ -30,16 +30,19 @@ class NativeRows(PublishedPdfReader):
         }
         self.streams = {}
         self.profiles = {}
+        self.descriptors = {}
 
         def write(stream, profile, chunks):
             chunks = tuple(chunks)
             self.streams[stream], self.profiles[stream] = chunks, profile
             length, root = byte_root(chunks)
-            return ScalarDescriptor(
+            descriptor = ScalarDescriptor(
                 b"y" if profile == "pdf-record-native-json-v1" else profile[-1:].encode(),
                 length,
                 root,
             )
+            self.descriptors[stream] = descriptor
+            return descriptor
 
         self.rows = list(
             iter_native_records(
@@ -236,12 +239,11 @@ def test_streamed_native_json_preserves_values_presence_and_order():
     assert reader.native_items(["#/texts/0"])["#/texts/0"]["text"] == ("A \u03b1 and A")
 
 
-def test_large_unicode_scalar_is_serialized_in_bounded_chunks():
+def test_reference_scalar_replay_retains_large_unicode():
     value = native()
     value["texts"][0]["text"] = ('\u03b1\\"\n') * 100_000
     reader = NativeRows(value)
     chunks = list(reader.iter_native_json())
-    assert max(map(len, chunks)) < 1024 * 1024
     assert json.loads(b"".join(chunks))["texts"][0]["text"] == value["texts"][0]["text"]
 
 
@@ -354,8 +356,10 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
     value = native()
     value["pages"] = {"1": {"size": {"width": -0.0, "height": 100.0}, "page_no": 1}}
     if large:
-        value["texts"][0]["text"] = ('\u03b1\\"\n') * 100_000
-        value["body"]["meta"] = {"vendor": {"empty": [], "large": "Ω" * 100_000}}
+        value["texts"][0]["text"] = ('\u03b1\\"\n') * 350_000
+        value["body"]["meta"] = {"vendor": {"empty": [], "large": "Ω" * 350_000}}
+    if large:
+        assert len(value["texts"][0]["text"].encode("utf-8")) > 1024 * 1024
     lowered = NativeRows(value)
     with semantic_bare_engine.begin() as conn:
         for ddl in (
@@ -435,7 +439,10 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
             # A scalar replay owner exercises formatter boundaries independently of
             # server artifact admission (which has its separate native controls).
             def scalar(self, stream_id):
-                yield from lowered.scalar(stream_id)
+                from corpus_structure.semantic.pdf_record_identity import emit_parts
+
+                for part in emit_parts(stream_id, lowered.scalar(stream_id)):
+                    yield part.body
 
             def _profile(self, stream_id):
                 return lowered._profile(stream_id)
@@ -443,6 +450,64 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
         reader = ScalarReader(
             conn, ProductReference(42, "integrated", "f" * 64), revision=lowered.revision
         )
+        results = []
+
+        def returned(conn, clause, multiparams, params, options, result):
+            results.append(result)
+
+        event.listen(conn, "after_execute", returned)
+        streamed = io.BytesIO()
+        for chunk in reader.iter_native_json():
+            assert isinstance(chunk, bytes) and len(chunk) < 1024 * 1024
+            streamed.write(chunk)
+        assert results[-1].closed
+        reconstructed = json.loads(streamed.getvalue())
+        assert reconstructed == value
+        assert type(reconstructed["pages"]["1"]["size"]["height"]) is float
+
+        def logical_identity(rows):
+            from corpus_structure.semantic.pdf_record_identity import LogicalIdentity
+            from corpus_structure.semantic.pdf_records import native_record_identity_fields
+
+            identity = LogicalIdentity(
+                rows._one("header")["native_schema_digest"], "release", "a" * 64
+            )
+            fields = [
+                part
+                for row in rows.rows
+                if (
+                    part := native_record_identity_fields(
+                        row, scalar_descriptor=rows.descriptors.__getitem__
+                    )
+                )
+                is not None
+            ]
+            ordered = sorted(fields, key=lambda p: (p[0].encode(), p[1].encode()))
+            for family, key, members in ordered:
+                identity.add_record(family, key, members)
+            return identity.pin().logical_digest
+
+        # Native identity has independent scalar/fold vectors. Here it assesses the
+        # formatter against the authored input, including distinctions JSON equality loses.
+        assert logical_identity(NativeRows(reconstructed)) == logical_identity(lowered)
+        assert len(queries) == 1
+        queries.clear()
+        early = reader.iter_native_json()
+        next(early)
+        early.close()
+        assert results[-1].closed
+        assert len(queries) == 1
+        queries.clear()
+
+        class BrokenSink(io.BytesIO):
+            def write(self, chunk, /) -> int:
+                raise OSError("consumer stopped")
+
+        with pytest.raises(OSError, match="consumer stopped"):
+            reader.write_native_json(BrokenSink())
+        assert results[-1].closed
+        assert len(queries) == 1
+        queries.clear()
         sink = io.BytesIO()
         receipt = reader.write_native_json(sink)
         assert json.loads(sink.getvalue()) == value
@@ -452,7 +517,19 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
         queries.clear()
         assert reader.hydrate_document() == value
         assert len(queries) == 1
+        from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+
+        cancelled_reader = ScalarReader(
+            conn, ProductReference(42, "integrated", "f" * 64), revision=lowered.revision
+        )
+        cancelled = cancelled_reader.iter_native_json()
+        next(cancelled)
+        cancelled_reader.cancellation.request_cancel()
+        with pytest.raises(DatabaseOperationCancelled):
+            next(cancelled)
+        assert results[-1].closed
         event.remove(conn, "before_cursor_execute", called)
+        event.remove(conn, "after_execute", returned)
         assert (
             conn.execute(
                 text(

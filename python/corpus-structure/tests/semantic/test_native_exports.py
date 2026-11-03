@@ -7,7 +7,7 @@ import pytest
 from corpus_structure.semantic.source_views import load_source_view
 from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source
 
-from .test_pdf_native_consumer_journey import native_source_task
+from .test_pdf_native_consumer_journey import native_build_resubmission_case
 
 
 def test_complete_docling_json_export_preserves_native_shape(
@@ -17,7 +17,9 @@ def test_complete_docling_json_export_preserves_native_shape(
 ):
     from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel
 
-    _, run, _, view_id, _ = native_source_task(semantic_db_engine, semantic_writer_engine, tmp_path)
+    _, run, _, view_id, _ = native_build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path
+    )
     with semantic_writer_engine.connect() as conn:
         view = load_source_view(conn, view_id)
         pin = view.ref.native_product

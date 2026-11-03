@@ -15,7 +15,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.runtime import open_runtime_engine, resolve_source_binding
 
-from .test_agent_resubmission import lease_and_read, source_task
+from .agent_scenarios import build_resubmission_case, lease_and_read
 
 
 def test_application_settings_resolve_original_credentials_before_clone_substitution(
@@ -56,7 +56,7 @@ def test_environment_change_preserves_active_mcp_submission_binding(
     tmp_path,
     monkeypatch,
 ):
-    prepared, run, task, locator = source_task(
+    prepared, run, task, locator = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
     )
     database = semantic_application_settings.database
@@ -127,7 +127,7 @@ def test_default_project_mcp_observes_run_created_after_startup(
         async with Client(server) as client:
             first = (await client.call_tool("queue_status", {})).structured_content
             assert first is not None and first["queues"] == []
-            prepared, run, task, locator = source_task(
+            prepared, run, task, locator = build_resubmission_case(
                 semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
             )
             with semantic_writer_engine.connect() as conn:
@@ -177,7 +177,9 @@ def test_default_mcp_and_direct_share_protected_direction_log(
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
 
-    _, run, _, _ = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+    _, run, _, _ = build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
+    )
     session = SemanticProjectSession(semantic_writer_engine, "resubmit")
 
     async def record():
@@ -309,56 +311,147 @@ def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(semant
         assert conn.execute(select(table("ops.intervention").c.id)).all() == []
 
 
-def test_default_cli_mcp_stdio_starts_with_protocol_response(
-    semantic_db_engine, semantic_application_settings
+@pytest.mark.parametrize("mode", ["complete", "early_exit", "tool_failure", "cancelled"])
+def test_current_cli_stdio_journey_and_settlement(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_application_settings,
+    tmp_path,
+    monkeypatch,
+    mode,
 ):
-    import json
     import os
-    import select as readiness
-    import subprocess
     import sys
+    from pathlib import Path
 
+    from fastmcp.client.transports import StdioTransport
+
+    prepared, run, task, locator = build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
+    )
+    command = str(Path(sys.executable).with_name("ci"))
+    processes = []
+    original_open = anyio.open_process
+
+    async def observed_open(argv, *args, **kwargs):
+        process = await original_open(argv, *args, **kwargs)
+        if argv[0] == command:
+            processes.append(process)
+        return process
+
+    monkeypatch.setattr(anyio, "open_process", observed_open)
     database = semantic_application_settings.database
-    default_project = semantic_application_settings.runtime.default_project
-    env = {key: value for key, value in os.environ.items() if not key.startswith("CORPUS_")}
-    env.update(
-        {
-            "CORPUS_DATABASE__URL": database.url,
-            "CORPUS_DATABASE__MAINTENANCE_URL": database.maintenance_url,
-            "CORPUS_DATABASE__READER_URL": database.reader_url or "",
-            "CORPUS_DATABASE__EVALUATOR_URL": database.evaluator_url or "",
-            "CORPUS_DATABASE__ADMISSION_URL": database.admission_url or "",
-            "CORPUS_RUNTIME__DEFAULT_PROJECT": default_project,
-        }
-    )
-    proc = subprocess.Popen(
-        [sys.executable, "-c", "from corpus_structure.cli.app import main; main()", "mcp", "serve"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+    env = {
+        "CORPUS_DATABASE__URL": database.url,
+        "CORPUS_DATABASE__MAINTENANCE_URL": database.maintenance_url,
+        "CORPUS_DATABASE__READER_URL": database.reader_url or "",
+        "CORPUS_DATABASE__EVALUATOR_URL": database.evaluator_url or "",
+        "CORPUS_DATABASE__ADMISSION_URL": database.admission_url or "",
+        "CORPUS_RUNTIME__DEFAULT_PROJECT": "resubmit",
+    }
+    transport = StdioTransport(
+        command=command,
+        args=["mcp", "serve", "--semantic-run", str(run)],
         env=env,
-        text=True,
+        cwd=str(Path(__file__).resolve().parents[4]),
+        keep_alive=False,
+        log_file=tmp_path / "stdio-stderr.log",
     )
-    try:
-        assert proc.stdin is not None and proc.stdout is not None
-        hello = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2025-06-18",
-                "capabilities": {},
-                "clientInfo": {"name": "semantic-smoke", "version": "1"},
-            },
-        }
-        proc.stdin.write(json.dumps(hello) + "\n")
-        proc.stdin.flush()
-        assert readiness.select([proc.stdout], [], [], 30)[0], "semantic stdio handshake timed out"
-        reply = json.loads(proc.stdout.readline())
-        assert reply["id"] == 1 and "result" in reply
-    finally:
-        proc.kill()
-        proc.communicate(timeout=10)
+
+    async def journey():
+        with anyio.CancelScope() as cancellation:
+            async with Client(transport) as client:
+                names = {tool.name for tool in await client.list_tools()}
+                assert {"queue_next", "read_unit", "read_instructions", "propose_claims"} <= names
+                with semantic_db_engine.connect() as conn:
+                    sessions = (
+                        conn.exec_driver_sql(
+                            "SELECT usename FROM pg_stat_activity WHERE datname=current_database() "
+                            "AND application_name='ci-mcp-semantic'"
+                        )
+                        .scalars()
+                        .all()
+                    )
+                    assert sessions and set(sessions) == {"corpus_sem_writer"}
+                if mode == "cancelled":
+                    cancellation.cancel()
+                    await anyio.sleep(0)
+                if mode == "early_exit":
+                    return
+                unit = await lease_and_read(client, run, task)
+                if mode == "tool_failure":
+                    with pytest.raises(
+                        ToolError,
+                        match="task is not leased by this session or has already finished",
+                    ):
+                        await client.call_tool("read_unit", {"task_id": task + 1000000, "part": 1})
+                    return
+                batch = {
+                    "unit_ref": locator,
+                    "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
+                    "claims": [
+                        {
+                            "id": "name",
+                            "subject": "person",
+                            "predicate": "https://example.org/name",
+                            "object": {"kind": "text", "text": "Alice"},
+                            "qualification": {"modality": "asserted", "polarity": True},
+                            "establishment": "stated",
+                            "evidence": [
+                                {
+                                    "sentence": unit["sentences"][0]["id"],
+                                    "quote": "Alice is here.",
+                                    "role": "primary",
+                                }
+                            ],
+                        }
+                    ],
+                }
+                result = (
+                    await client.call_tool("propose_claims", {"task_id": task, "batch": batch})
+                ).structured_content
+                assert (
+                    result is not None and result["submission_disposition"] == "completed_accepted"
+                )
+                assert result["rejected"] == []
+                assert result["accepted"]["claims"] == 1
+        assert processes and processes[0].pid != os.getpid()
+
+    anyio.run(journey)
+    assert len(processes) == 1 and processes[0].returncode is not None
+    with pytest.raises(ProcessLookupError):
+        os.killpg(processes[0].pid, 0)
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.exec_driver_sql(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() "
+                "AND application_name='ci-mcp-semantic'"
+            ).scalar_one()
+            == 0
+        )
+        task_row = conn.execute(
+            select(table("ops.task").c.status).where(table("ops.task").c.id == task)
+        ).scalar_one()
+        if mode == "complete":
+            assert task_row == "done"
+            observations = (
+                conn.execute(
+                    select(table("kb.observation")).where(table("kb.observation").c.task_id == task)
+                )
+                .mappings()
+                .all()
+            )
+            assert len(observations) == 1
+            observation = observations[0]
+            assert observation["release_id"] == prepared.release_id
+            assert observation["payload_definition"] == "AgentStoredBatch"
+            claims = observation["payload"]["claims"]
+            assert len(claims) == 1
+            assert claims[0]["predicate"] == "https://example.org/name"
+            assert claims[0]["object"] == {"kind": "text", "text": "Alice"}
+            assert claims[0]["qualification"] == {"modality": "asserted", "polarity": True}
+        else:
+            assert task_row != "done"
 
 
 def test_default_status_and_task_listing_do_not_select_another_project(
@@ -374,7 +467,9 @@ def test_default_status_and_task_listing_do_not_select_another_project(
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
 
-    _, run, _, _ = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+    _, run, _, _ = build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
+    )
 
     @contextmanager
     def engine(settings, **kwargs):

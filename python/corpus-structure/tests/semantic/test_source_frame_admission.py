@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from .test_agent_resubmission import source_task
+from .agent_scenarios import build_resubmission_case
 
 
 @pytest.mark.parametrize(
@@ -18,7 +18,7 @@ from .test_agent_resubmission import source_task
 def test_source_frame_deployment_drift_refuses_composed_admission(
     semantic_db_engine, semantic_writer_engine, tmp_path, change, expected
 ):
-    prepared, _, task, _ = source_task(
+    prepared, _, task, _ = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
     with semantic_writer_engine.begin() as conn:

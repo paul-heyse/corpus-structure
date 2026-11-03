@@ -82,10 +82,7 @@ class OwnershipAt:
         )
         for claim in ctx.reader.claims(statement=stmt, after=after):
             qualification = claim.fact.qualification
-            interval = getattr(qualification, "valid_time", None)
-            interval = (
-                None if interval is None else interval.model_dump(mode="json", exclude_unset=True)
-            )
+            interval = qualification.model_dump(mode="json", exclude_unset=True).get("valid_time")
             yield Positioned(
                 OwnershipRow(
                     claim=claim, interval=interval, applicability=applicability(interval, p.date)

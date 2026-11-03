@@ -120,6 +120,22 @@ and vocabulary before preparation succeeds. A run never reopens a current schema
 ontology service to reinterpret a recorded operation. Pydantic Settings still selects and validates
 process configuration once; it does not supply semantic defaults or merge method policies.
 
+
+**Implemented (2026-11-02; TA-08/12 qualification separately owned).** Versioned
+`class-alias-input-1` source declarations compile once with the composed root into
+`operation/alias-policy.json` (`class-iri-aliases-1`). Effective policies use full class IRIs,
+source-relative name authority and each selected pack's explicit import closure. Pack-global
+articles and ordered rewrites remain applicable there; head-word entries resolve once. Equal
+per-class policies coalesce; incompatible candidates refuse with origins, including shared core
+classes. Compatible canonical rule artifacts coalesce; unsupported non-alias composition refuses
+instead of losing namespaced operation inputs. Source-statement matching uses its released binding.
+
+Consolidation and semantic alignment consume one released accessor. `normalize_label` remains a
+pure operation over its supplied class key/policy, without local/prefixed interpretation fallback.
+The new declaration affects release identity. Compiler14 archives remain readable; old nonempty
+unversioned alias execution requires regeneration/admission rather than reinterpretation. Explicit
+absence/empty policy retains neutral normalization. No frozen artifact or migration is rewritten.
+
 > Decision: ADR-0027
 
 ## Parsing contract compilation

@@ -12,8 +12,8 @@ from corpus_structure.semantic.pdf_publication import (
     validate_pdf_build,
 )
 
+from .pdf_staging_support import private_build as private_build
 from .test_pdf_publication import stage_complete_native
-from .test_pdf_staging import private_build as private_build
 
 
 @pytest.mark.parametrize("isolation", ["REPEATABLE READ", "READ COMMITTED"])

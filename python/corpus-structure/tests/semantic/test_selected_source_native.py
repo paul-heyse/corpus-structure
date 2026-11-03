@@ -37,8 +37,8 @@ from corpus_structure.serve.selected_source import (
     export_selected_source,
 )
 
+from .pdf_staging_support import private_build as private_build
 from .test_companion_export_native import read_settings
-from .test_pdf_staging import private_build as private_build
 
 
 def deploy_selected(engine):

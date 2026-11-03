@@ -14,7 +14,7 @@ from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_page_payloads,
 )
 
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 def example():
@@ -193,7 +193,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     )
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
-    prepared = setup(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
     original = b"%PDF-1.7\nindependent inline correspondence fixture"
     recipe = b'{"fixture":"unresolved-inline"}'
     schema = (

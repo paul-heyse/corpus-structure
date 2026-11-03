@@ -10,8 +10,8 @@ from corpus_structure.ingest.pdf_stream_reconciliation import (
     reconcile_pdf_stream,
 )
 
-from . import test_pdf_integrated as integration_fixtures
-from .test_pdf_integrated import pin
+from . import pdf_integration_support as integration_fixtures
+from .pdf_integration_support import pin
 from .test_pdf_reconciliation import recognized
 
 native_source = integration_fixtures.native_source

@@ -175,9 +175,9 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
 ):
     from corpus_structure.settings import Settings
 
-    from .test_agent_resubmission import source_task
+    from .agent_scenarios import build_resubmission_case
 
-    prepared, _, _, _ = source_task(
+    prepared, _, _, _ = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
     settings = Settings(

@@ -180,10 +180,19 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         qualification = inputs.qualifications[0] if inputs.qualifications else "Qualification"
         statement_class = inputs.statements[0] if inputs.statements else "SourceStatement"
     else:
+        from .alias_policy import RULE_INPUT, SOURCE_PROFILE
+        from .identity import canonical_bytes
+
         sources: dict[str, SourceArtifact] = {}
         composed_artifacts: dict[str, SourceArtifact] = {}
         qualifiers = []
         statement_classes = []
+        shared_policy = None
+        shared_origin = None
+        alias_contexts = []
+        # These remain one operation's inputs. Equal inputs coalesce; incompatible
+        # policies require an explicit future operation binding, not an order winner.
+        shared_artifacts: dict[str, SourceArtifact] = {}
         for inputs in acquired:
             bundle, deps = inputs.bundle, inputs.dependencies
             for source in bundle.sources:
@@ -201,10 +210,45 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
                     raise PackInputError(f"packs disagree on semantic module {source.name}")
             qualifiers.extend(inputs.qualifications)
             statement_classes.extend(inputs.statements)
+            rule_input = next(a for a in deps.artifacts if a.name == RULE_INPUT)
+            policy = yaml.safe_load(rule_input.content)
+            identity = policy.pop("identity", {})
+            if (
+                not isinstance(identity, dict)
+                or set(identity) - {"alias_profile", "aliases"}
+                or identity.get("alias_profile") != SOURCE_PROFILE
+            ):
+                raise PackInputError(f"unsupported acquired alias input: {inputs.origin}")
+            try:
+                differs = shared_policy is not None and canonical_bytes(policy) != canonical_bytes(
+                    shared_policy
+                )
+            except (TypeError, ValueError) as error:
+                raise PackInputError(
+                    f"invalid non-alias operation policy: {inputs.origin}"
+                ) from error
+            if differs:
+                raise PackInputError(
+                    f"incompatible non-alias operation policy: {shared_origin} and {inputs.origin}"
+                )
+            shared_policy, shared_origin = policy, inputs.origin
+            alias_contexts.append(
+                # Source-module attribution is reproducible across checkout paths.
+                {"origin": bundle.root, "root": bundle.root, "aliases": identity.get("aliases", {})}
+            )
             # Operation configuration remains pack-scoped, not a merged executable graph.
             for artifact in deps.artifacts:
                 if artifact.name.startswith(("execution/", "operation/analytical")):
                     continue
+                if artifact.name in {
+                    "operation/rule-view.yaml",
+                    "operation/scientific-policy.json",
+                    "operation/scientific.yaml",
+                    "operation/scientific-policies.yaml",
+                }:
+                    previous = shared_artifacts.setdefault(artifact.name, artifact)
+                    if previous != artifact:
+                        raise PackInputError(f"packs disagree on operation input {artifact.name}")
                 artifact = SourceArtifact(f"pack/{inputs.name}/{artifact.name}", artifact.content)
                 previous = composed_artifacts.setdefault(artifact.name, artifact)
                 if previous != artifact:
@@ -231,7 +275,18 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
             "composed_pack",
             (*sources.values(), SourceArtifact("composed_pack", yaml.safe_dump(root).encode())),
         )
-        deps = ResolvedDependencies(tuple(composed_artifacts.values()))
+        assert shared_policy is not None  # acquired is nonempty and every pack has RULE_INPUT
+        shared_policy["identity"] = {
+            "alias_profile": SOURCE_PROFILE,
+            "alias_contexts": alias_contexts,
+        }
+        deps = ResolvedDependencies(
+            (
+                *composed_artifacts.values(),
+                *shared_artifacts.values(),
+                SourceArtifact(RULE_INPUT, yaml.safe_dump(shared_policy, sort_keys=True).encode()),
+            )
+        )
     bundle = proposal_inputs(
         bundle,
         deps,

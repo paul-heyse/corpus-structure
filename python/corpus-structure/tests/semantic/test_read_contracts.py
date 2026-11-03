@@ -124,9 +124,9 @@ def test_native_cut_family_universe_and_document_lifting(
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
     from corpus_structure.semantic.query import bind_completed_result, read_snapshot
 
-    from .test_agent_resubmission import source_task
+    from .agent_scenarios import build_resubmission_case
 
-    prepared, run, task, locator = source_task(
+    prepared, run, task, locator = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "coverage.html", composed=True
     )
     with semantic_writer_engine.begin() as conn:

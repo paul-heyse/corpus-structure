@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "id": "ta.native-policy-provenance95",
+  "title": "Descriptor-only native95 for released semantic alignment policy",
+  "group": "test-architecture-and-evidence",
+  "package": "TA-08/12",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the TA alignment-source change require only an append-only descriptor provenance transition, with unchanged native enforcement and an empty current candidate?",
+  "answers": [
+    "TA-08",
+    "TA-12",
+    "DTA-015"
+  ],
+  "method": "Use authenticated PgAdmin-owned disposable databases. Rehearse the single generated descriptor transition and exact native admission inside an outer rollback; freeze byte-bound successor95 without editing94; replay a fresh95 deployment, repeated upgrade, and empty candidate.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-policy-provenance/author.py author docs/design_review/evidence/2026-11-02_ta-native-policy-provenance/raw/author-001",
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-policy-provenance/freeze.py",
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-policy-provenance/author.py replay docs/design_review/evidence/2026-11-02_ta-native-policy-provenance/raw/replay-001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author.py",
+      "role": "owned authoring and replay procedure",
+      "sha256": "1de946f3baa367f54c2c87aee706c56ca95a5c92a1650756985d187b70344795"
+    },
+    {
+      "path": "freeze.py",
+      "role": "append-only freezing procedure",
+      "sha256": "6f643e3d8a9c07c8dcc290487afac024a71f830d3c7b6fe8d20033a1090ebddf"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/author-001",
+      "role": "candidate and rollback rehearsal",
+      "sha256": "1ead791a446f523767e6341d933b2f3e1d923aad4b40ea087e8322f36160a24d"
+    },
+    {
+      "path": "raw/freeze-001.json",
+      "role": "frozen artifact and pin identities",
+      "sha256": "ee5fcfd6be5fc32389a832b1d900caf1137ce6403cfd8fb0978b593363e205b0"
+    },
+    {
+      "path": "raw/replay-001/result.json",
+      "role": "current-head replay and empty candidate",
+      "sha256": "1d27188dc158d9d8791f963976257c40ece61936d535d1844f438ab3f057e30a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-02_um-current-only-forward/um.current-only-forward94"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 1,
+      "of": 85,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "changed_input",
+      "value": "execution/implementation/alignment/semantic_alignment.py",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "replay_candidate_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Frozen95 changes only execution_contract_descriptor model/input provenance for the alignment implementation. The other native objects, privileges and guard policy remain unchanged; exact admission holds before/after rollback and fresh95 replay has an empty candidate. This establishes bounded native provenance, not application database adoption, full-head95 qualification, PDF/provider acceptance or performance.",
+  "consumed_by": [
+    "TA-08",
+    "TA-12",
+    "D3"
+  ]
+}

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.pdf_contracts import prepare_pdf_product
 
-from . import test_pdf_integrated as fixtures
+from . import pdf_integration_support as fixtures
 
 native_source = fixtures.native_source
 

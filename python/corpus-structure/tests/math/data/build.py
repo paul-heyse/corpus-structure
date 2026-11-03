@@ -14,7 +14,12 @@ run from the repository root: `python3 python/corpus-structure/tests/math/data/b
   partial, `f` failed), the failure category of each failed span by its index, and the record's
   totals.
 
-The committed JSON is the fixture's authority; this script is provenance.
+The committed JSON is the fixture's authority; this script is provenance. These are frozen
+historical inputs to current component checks, not qualification of today's PDF recognition or
+provider. Changes must cite the original paths/records above, state the intended semantic or
+coordinate difference, adjudicate independently under the cited source and D1 §6.2, and add a new
+explicitly selected reference while preserving the old witness. A current producer rerun supplies
+a candidate difference, not authority to accept it.
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 """Independent semantic matching expectations; no published expected results are reused."""
 
 import copy
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cache
@@ -150,16 +151,35 @@ def test_ambiguous_labels_refuse_alignment_and_known_identity_disambiguates():
 
 
 def test_alias_normalization_requires_class_compatibility():
-    from corpus_structure.semantic.domain_operations import RULE_INPUT
+    from corpus_structure.semantic.alias_policy import ARTIFACT, PROFILE
 
     p = prepared()
+    incompatible = "https://example.org/Incompatible"
+    p.definitions = (
+        *p.definitions,
+        ClassDefinition("Incompatible", incompatible, (), (), ("id",), (("id",),)),
+    )
     p.artifacts = (
-        PreparedArtifact(RULE_INPUT, b"identity:\n  aliases:\n    articles: [the]\nrules: []\n"),
+        PreparedArtifact(
+            ARTIFACT,
+            json.dumps(
+                {
+                    "profile": PROFILE,
+                    "classes": {
+                        definition.iri: {"articles": ["the"], "head_words": {}, "rewrites": []}
+                        for definition in p.definitions
+                    },
+                    "origins": {
+                        definition.iri: ["alignment-fixture"] for definition in p.definitions
+                    },
+                }
+            ).encode(),
+        ),
     )
     a, b = batch("The Alice"), batch("Alice")
     got = align_semantic(side(a), side(b), p.bound())
     assert got.entity_pairs == [("p", "p", "alias_normalization")]
-    b["entities"][0]["class_iri"] = "https://example.org/Incompatible"
+    b["entities"][0]["class_iri"] = incompatible
     assert align_semantic(side(a), side(b), p.bound()).entity_pairs == []
 
 

@@ -24,7 +24,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_views import load_source_view
 
-from .test_agent_resubmission import lease_and_read, source_task
+from .agent_scenarios import build_resubmission_case, lease_and_read
 
 
 def independent_native_frame(conn, run, unit_key, sentence_id):
@@ -43,7 +43,7 @@ def independent_native_frame(conn, run, unit_key, sentence_id):
 def test_independent_reference_grade_retains_exact_pass_and_qualification(
     semantic_db_engine, semantic_writer_engine, tmp_path, cli, semantic_evaluator_engine
 ):
-    _prepared, run, task, locator = source_task(
+    _prepared, run, task, locator = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
     source_session = SemanticAgentSession(semantic_writer_engine, run)
@@ -446,7 +446,7 @@ def test_archived_split_policy_preserves_reserved_forced_and_chapter_partitions(
 golden:
   sizes: {dev: 2, test: 1}
 """
-    prepared, _, _, _ = source_task(
+    prepared, _, _, _ = build_resubmission_case(
         semantic_db_engine,
         semantic_writer_engine,
         tmp_path / "source.html",
@@ -503,7 +503,7 @@ golden:
 def test_duplicate_premise_fact_preserves_later_local_claim_references(
     semantic_db_engine, semantic_writer_engine, tmp_path, semantic_evaluator_engine
 ):
-    _prepared, run, task, locator = source_task(
+    _prepared, run, task, locator = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
 
@@ -626,7 +626,7 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
 ):
     from corpus_structure.evaluate.semantic import _source_units
 
-    _prepared, run, task, locator = source_task(
+    _prepared, run, task, locator = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
     session = SemanticAgentSession(semantic_writer_engine, run)
@@ -744,7 +744,7 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
         # Construct a retained result from the earlier consolidator, which allowed absent
         # frames. Current consolidation refuses this state before evaluation can begin.
         earlier.setattr(source_frames, "load_source_frames", lambda conn, task_ids: {})
-        prepared, origin_run, task, locator = source_task(
+        prepared, origin_run, task, locator = build_resubmission_case(
             semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
         )
         with semantic_writer_engine.begin() as conn:

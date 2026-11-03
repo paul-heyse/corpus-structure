@@ -553,6 +553,20 @@ def _prepare_release_uncached(
             _fail("execution_model", "execution", str(exc))
     elif any(a.name.startswith("execution/") for a in dependencies.artifacts):
         _fail("execution_model", "execution", "execution inputs require semantic-2")
+    operation_inputs = {}
+    for dependency in dependencies.artifacts:
+        if dependency.name in {
+            "operation/domain-rules.yaml",
+            "operation/rule-view.yaml",
+            "operation/scientific-policy.json",
+        }:
+            try:
+                declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
+            except (yaml.YAMLError, ValueError) as exc:
+                _fail("operation_rules", dependency.name, str(exc))
+            if not isinstance(declared, dict):
+                _fail("operation_rules", dependency.name, "rules must be a mapping")
+            operation_inputs[dependency.name] = declared
     view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies, profile)
     rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
     enum_types = {s.enum: tuple(m.value for m in s.members) for s in vocabularies}
@@ -805,6 +819,20 @@ def _prepare_release_uncached(
         PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
+    from .alias_policy import ARTIFACT as ALIAS_ARTIFACT
+    from .alias_policy import RULE_INPUT, compile_alias_policy
+
+    domain_policy = next((a for a in dependencies.artifacts if a.name == RULE_INPUT), None)
+    if domain_policy is not None:
+        try:
+            identity = operation_inputs[RULE_INPUT].get("identity", {})
+            compiled_aliases = compile_alias_policy(
+                bundle, tuple(definitions), identity, view.expand_curie
+            )
+        except (ValueError, TypeError, KeyError) as exc:
+            _fail("alias_policy", RULE_INPUT, str(exc))
+        if compiled_aliases is not None:
+            artifacts.append(PreparedArtifact(ALIAS_ARTIFACT, compiled_aliases))
     if comparison is not None:
         artifacts.append(
             PreparedArtifact("comparison_projection.json", projection_bytes(comparison))
@@ -848,17 +876,7 @@ def _prepare_release_uncached(
                 _fail("analytical_profile", dependency.name, str(exc))
             artifacts.append(PreparedArtifact(dependency.name, dependency.content))
     for dependency in dependencies.artifacts:
-        if dependency.name in {
-            "operation/domain-rules.yaml",
-            "operation/rule-view.yaml",
-            "operation/scientific-policy.json",
-        }:
-            try:
-                declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
-            except (yaml.YAMLError, ValueError) as exc:
-                _fail("operation_rules", dependency.name, str(exc))
-            if not isinstance(declared, dict):
-                _fail("operation_rules", dependency.name, "rules must be a mapping")
+        if dependency.name in operation_inputs:
             artifacts.append(PreparedArtifact(dependency.name, dependency.content))
     for name, adapter in adapters:
         artifacts.append(

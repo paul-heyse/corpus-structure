@@ -16,17 +16,17 @@ from corpus_structure.semantic.operations import complete_task
 from corpus_structure.semantic.pdf_storage import PdfObservationListRequest, read_pdf_observations
 from corpus_structure.settings import Settings
 
-from .test_pdf_integrated import (
+from .pdf_integration_support import (
     HOLDER,
     RESPONSE,
     observation,
     prepare,
     publish,
 )
-from .test_pdf_integrated import (
+from .pdf_integration_support import (
     native_source as native_source,
 )
-from .test_pdf_integrated import (
+from .pdf_integration_support import (
     pdf13_db as pdf13_db,
 )
 

@@ -18,7 +18,7 @@ from corpus_structure.semantic.pdf_ocr_contracts import (
 )
 from corpus_structure.semantic.pdf_payloads import PayloadContractError, prepare_payload_family
 
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 @pytest.mark.parametrize("declaration", ["scoped", "health"])
@@ -400,7 +400,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         store_pdf_original,
     )
 
-    prepared = setup(semantic_db_engine, observations=True, composed=True)
+    prepared = prepare_operation_scenario(semantic_db_engine, observations=True, composed=True)
     original = b"%PDF-1.7\nindependent OCR custody fixture"
     recipe = b'{"fixture":"estimated-word"}'
     schema = (

@@ -209,36 +209,153 @@ def test_outcome_translation_preserves_unknown_and_unsupported(products):
 
 
 @pytest.mark.parametrize(
-    "section,index,field,value,code",
+    "section,identity,field,value,code,location",
     [
-        ("concepts", 0, "family", "made_up", "contract_catalog"),
-        ("relationships", 0, "identity_roles", ["missing"], "unresolved_contract_reference"),
-        ("relationships", 19, "reference_scope", "execution", "unqualified_reference"),
-        ("lifecycles", 0, "initial_states", ["missing"], "unresolved_contract_reference"),
-        ("transitions", 0, "operation", "missing", "unresolved_contract_reference"),
-        ("transitions", 0, "from_states", ["finished"], "terminal_transition"),
-        ("operations", 0, "implementation", "missing", "unresolved_contract_reference"),
-        ("operations", 0, "outcomes", ["silently_accepted"], "operation_outcome"),
-        ("implementations", 0, "symbol", "arbitrary_function", "unapproved_implementation"),
-        ("implementations", 0, "owner", "os", "unapproved_implementation"),
-        ("implementations", 0, "input_concepts", ["SourceBundle"], "implementation_contract"),
-        ("invariants", 0, "implementation", "missing", "unresolved_contract_reference"),
-        ("projections", 0, "sources", ["Missing"], "unresolved_contract_reference"),
-        ("outcome_domains", "scientific", "values", ["invented"], "outcome_implementation"),
-        ("outcome_translations", 0, "target", "missing", "translation_outcome"),
+        (
+            "concepts",
+            "IdentityExclusion",
+            "family",
+            "made_up",
+            "contract_catalog",
+            "execution-model.yaml",
+        ),
+        (
+            "relationships",
+            "bundle_contains",
+            "identity_roles",
+            ["missing"],
+            "unresolved_contract_reference",
+            "bundle_contains/identity_roles",
+        ),
+        (
+            "relationships",
+            "occurrence_reports",
+            "reference_scope",
+            "execution",
+            "unqualified_reference",
+            "occurrence_reports",
+        ),
+        (
+            "lifecycles",
+            "run",
+            "initial_states",
+            ["missing"],
+            "unresolved_contract_reference",
+            "run",
+        ),
+        (
+            "transitions",
+            "run_start_source",
+            "operation",
+            "missing",
+            "unresolved_contract_reference",
+            "run_start_source",
+        ),
+        (
+            "transitions",
+            "run_start_source",
+            "from_states",
+            ["finished"],
+            "terminal_transition",
+            "run_start_source",
+        ),
+        (
+            "operations",
+            "resolve_identity",
+            "implementation",
+            "missing",
+            "unresolved_contract_reference",
+            "resolve_identity",
+        ),
+        (
+            "operations",
+            "resolve_identity",
+            "outcomes",
+            ["silently_accepted"],
+            "operation_outcome",
+            "resolve_identity",
+        ),
+        (
+            "implementations",
+            "convert_pdf",
+            "symbol",
+            "arbitrary_function",
+            "unapproved_implementation",
+            "convert_pdf",
+        ),
+        (
+            "implementations",
+            "convert_pdf",
+            "owner",
+            "os",
+            "unapproved_implementation",
+            "convert_pdf",
+        ),
+        (
+            "implementations",
+            "convert_pdf",
+            "input_concepts",
+            ["SourceBundle"],
+            "implementation_contract",
+            "convert_pdf",
+        ),
+        (
+            "invariants",
+            "identity_exclusions",
+            "implementation",
+            "missing",
+            "unresolved_contract_reference",
+            "identity_exclusions",
+        ),
+        (
+            "projections",
+            "occurrence",
+            "sources",
+            ["Missing"],
+            "unresolved_contract_reference",
+            "occurrence",
+        ),
+        (
+            "outcome_domains",
+            "scientific",
+            "values",
+            ["invented"],
+            "outcome_implementation",
+            "scientific",
+        ),
+        (
+            "outcome_translations",
+            ("source_coverage", "complete", "semantic_coverage", "complete"),
+            "target",
+            "missing",
+            "translation_outcome",
+            "outcome_translation",
+        ),
     ],
 )
-def test_invalid_connected_definitions_refuse(inputs, section, index, field, value, code):
+def test_invalid_connected_definitions_refuse(
+    inputs, section, identity, field, value, code, location
+):
     data = body(inputs)
-    item = (
-        next(row for row in data[section] if row["id"] == index)
-        if isinstance(index, str)
-        else data[section][index]
-    )
+    if section == "outcome_translations":
+        item = next(
+            row
+            for row in data[section]
+            if (
+                row["source_domain"],
+                row["source"],
+                row["target_domain"],
+                row["target"],
+            )
+            == identity
+        )
+    else:
+        item = next(row for row in data[section] if row["id"] == identity)
     item[field] = value
     with pytest.raises(PreparationError) as error:
         compile_execution_model(changed(inputs, data))
-    assert error.value.diagnostics[0].code == code
+    diagnostic = error.value.diagnostics[0]
+    assert (diagnostic.code, diagnostic.location) == (code, location)
 
 
 def test_missing_local_shape_and_wrong_scalar_types_refuse(inputs):

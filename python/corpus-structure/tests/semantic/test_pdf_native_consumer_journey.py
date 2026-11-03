@@ -55,11 +55,11 @@ from corpus_structure.semantic.proposals import native_source_frame, proposal_in
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.source_views import load_source_view, store_source_view
 
+from .agent_scenarios import lease_and_read
 from .native_record_fixtures import publish_native_record_fixture
-from .test_agent_resubmission import lease_and_read
 
 
-def native_source_task(admin, writer, tmp_path, *, ancestor=False):
+def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
     from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel
 
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
@@ -403,7 +403,7 @@ def authored(unit, sentence, prefix) -> dict[str, Any]:
 def test_native_proposal_consolidation_and_independent_reference_journey(
     semantic_db_engine, semantic_writer_engine, semantic_evaluator_engine, tmp_path
 ):
-    _prepared, run, task, view, key = native_source_task(
+    _prepared, run, task, view, key = native_build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path
     )
     session = SemanticAgentSession(semantic_writer_engine, run)
@@ -702,7 +702,7 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
     from corpus_structure.semantic.proposals import native_address, native_frame_source
     from corpus_structure.semantic.source_projection import statement_identity
 
-    prepared, run, task, child, key = native_source_task(
+    prepared, run, task, child, key = native_build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path, ancestor=True
     )
     with semantic_writer_engine.connect() as conn:

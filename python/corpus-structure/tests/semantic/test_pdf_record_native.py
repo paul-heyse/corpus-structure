@@ -1,5 +1,6 @@
 """Private record foundations: model counterfactuals and actual native constraints."""
 
+import psycopg
 import pytest
 import yaml
 from linkml_runtime.utils.schemaview import SchemaView
@@ -187,10 +188,22 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
                 **binding,
             ),
         )
-        for changes in (
-            {"source_digest": "c" * 64},
-            {"release_id": "release:missing"},
-            {"mapping_profile": "other"},
+        for changes, sqlstate, constraint in (
+            (
+                {"source_digest": "c" * 64},
+                "23503",
+                "fk_pdf_record_document_source_digest",
+            ),
+            (
+                {"release_id": "release:missing"},
+                "23503",
+                "fk_pdf_record_document_release_id",
+            ),
+            (
+                {"mapping_profile": "other"},
+                "23514",
+                "ck_pdf_record_document_mapping_profile_e3d5e39c85",
+            ),
         ):
             header = dict(
                 product_id="wrong",
@@ -201,8 +214,12 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
                 **binding,
             )
             header.update(changes)
-            with pytest.raises(DBAPIError), conn.begin_nested():
+            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
                 conn.execute(insert(tables["ops.pdf_record_document"]), header)
+            assert isinstance(refused.value.orig, psycopg.Error)
+            assert refused.value.orig.sqlstate == sqlstate
+            assert refused.value.orig.diag.constraint_name == constraint
+        assert conn.scalar(text("SELECT count(*) FROM ops.pdf_record_document")) == 1
         native = dict(
             product_id="p",
             revision_id="r",

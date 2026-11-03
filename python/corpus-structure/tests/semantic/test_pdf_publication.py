@@ -17,7 +17,7 @@ from corpus_structure.semantic.pdf_publication import (
 )
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 
 
 def stage_complete_native(engine, build, directory):

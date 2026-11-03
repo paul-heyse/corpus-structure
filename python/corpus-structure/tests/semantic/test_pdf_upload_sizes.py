@@ -9,7 +9,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
 
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 
 
 def test_four_megabyte_binary_batch_uses_declared_native_extent(

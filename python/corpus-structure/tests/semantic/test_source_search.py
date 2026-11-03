@@ -7,7 +7,7 @@ from sqlalchemy import text
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.serve.source_search import SourceSearchRequest, search_source
 
-from .test_pdf_native_consumer_journey import native_source_task
+from .test_pdf_native_consumer_journey import native_build_resubmission_case
 
 
 def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_handles(
@@ -15,7 +15,9 @@ def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_han
     semantic_writer_engine,
     tmp_path,
 ):
-    _, run, _, view_id, _ = native_source_task(semantic_db_engine, semantic_writer_engine, tmp_path)
+    _, run, _, view_id, _ = native_build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path
+    )
     with semantic_writer_engine.connect() as conn:
         assert (
             conn.scalar(
@@ -60,7 +62,9 @@ def test_artifact_pages_are_bound_to_the_exact_selected_product(
 
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
-    _, run, _, view_id, _ = native_source_task(semantic_db_engine, semantic_writer_engine, tmp_path)
+    _, run, _, view_id, _ = native_build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path
+    )
     expected = (
         files("corpus_structure")
         .joinpath("model/semantic/docling-validation.schema.json")

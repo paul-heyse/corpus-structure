@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_identity_sql
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
 
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 
 
 def test_publication_inline_and_key_spelling(semantic_db_engine):

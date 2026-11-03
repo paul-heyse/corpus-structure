@@ -617,7 +617,13 @@ class PgAdmin:
             yield SemanticTemplate(name, policy)
 
 
-def principal_engine(settings: Settings, purpose: Purpose, database: str | None) -> Engine:
+def principal_engine(
+    settings: Settings,
+    purpose: Purpose,
+    database: str | None,
+    *,
+    scenario_seed: Mapping[str, str] | None = None,
+) -> Engine:
     # Resolve credentials against the original endpoint before substituting the owned clone.
     # In particular no restricted login inherits a maintenance password.
     from corpus_structure.semantic.runtime import connection_settings
@@ -626,11 +632,17 @@ def principal_engine(settings: Settings, purpose: Purpose, database: str | None)
     resolved = connection_settings(settings, purpose)
     url = make_url(resolved.database.sqlalchemy_url).set(database=database)
     engine = create_engine(url, poolclass=NullPool)
-    observe_engine(engine, purpose=purpose)
+    observe_engine(engine, purpose=purpose, scenario_seed=scenario_seed)
     return engine
 
 
-def observe_engine(engine: Engine, *, purpose: str, policy: DatabasePolicy | None = None) -> None:
+def observe_engine(
+    engine: Engine,
+    *,
+    purpose: str,
+    policy: DatabasePolicy | None = None,
+    scenario_seed: Mapping[str, str] | None = None,
+) -> None:
     """Observe each physical acquisition without opening a SQLAlchemy transaction."""
     import hashlib
     import json
@@ -693,6 +705,7 @@ def observe_engine(engine: Engine, *, purpose: str, policy: DatabasePolicy | Non
                     "host": connection.info.host,
                     "revision": revision or deployment.get("revision"),
                     "policy_ref": policy_ref or deployment.get("policy_ref"),
+                    "scenario_seed": dict(scenario_seed) if scenario_seed is not None else None,
                     "deployment_status": "observed"
                     if revision or deployment.get("revision")
                     else "unavailable",

@@ -6,7 +6,7 @@ from threading import Event
 import psycopg
 import pytest
 from semantic import conftest as semantic_fixtures
-from semantic import test_pdf_staging as staging_fixtures
+from semantic import pdf_staging_support as staging_fixtures
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 

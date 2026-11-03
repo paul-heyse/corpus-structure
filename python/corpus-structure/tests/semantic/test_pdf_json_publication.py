@@ -9,7 +9,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.identity import canonical_bytes
 
-from . import test_pdf_integrated as fixtures
+from . import pdf_integration_support as fixtures
 
 native_source = fixtures.native_source
 pdf13_db = fixtures.pdf13_db

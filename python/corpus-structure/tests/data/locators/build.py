@@ -9,7 +9,11 @@ For each page it removes the diagnostic attributes production segments do not ca
 `tag`, `sid`, `sourceline`, `roles`), drops the spike's segment keys, rebuilds the segment tree from
 the parent keys and writes `<page>.json`: `{"page", "source_uri", "canonical_text", "document"}`,
 where `document` is the nested `Segment` tree that `RenditionContent` validates. Stdlib only; the
-output is committed and is the fixture's authority, this script its provenance.
+output is committed and is the fixture's authority, this script its provenance. These archived
+coordinates challenge current locator mechanics and do not qualify current PDF extraction. A
+deliberate coordinate change needs the source identity, old/new span, independent source-text
+adjudication and affected consumers; add an explicitly selected new witness and preserve this one.
+Regenerated current coordinates alone are not their own acceptance authority.
 """
 
 from __future__ import annotations

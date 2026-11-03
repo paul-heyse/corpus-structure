@@ -25,7 +25,7 @@ from corpus_structure.semantic.pdf_publication_native import publication_sql
 from corpus_structure.semantic.pdf_records import iter_native_records
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
 
-from .test_pdf_staging import private_build as private_build
+from .pdf_staging_support import private_build as private_build
 
 
 @pytest.mark.parametrize(

@@ -20,13 +20,13 @@ from corpus_structure.semantic.operations import (
     seal_cut,
 )
 
-from .test_operations import setup
+from .operation_scenario_support import prepare_operation_scenario
 
 
 def test_native_declared_corpus_and_final_open_task_guard(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
-    p = setup(semantic_db_engine)
+    p = prepare_operation_scenario(semantic_db_engine)
     e = semantic_writer_engine
     source = tmp_path / "source"
     source.write_text("source")

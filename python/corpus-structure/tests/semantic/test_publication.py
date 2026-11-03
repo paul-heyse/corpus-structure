@@ -9,6 +9,7 @@ from functools import cache, partial
 from threading import Barrier
 from typing import Any, Literal
 
+import psycopg
 import pytest
 import yaml
 from sqlalchemy import insert, text
@@ -219,6 +220,8 @@ def test_batch_is_immutable_and_numeric_receipt_encoding():
 def test_native_copy_atomic_idempotent_distinct_occurrences(
     semantic_db_engine, semantic_writer_engine
 ):
+    from sqlalchemy import select
+
     R = seed(semantic_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
@@ -231,8 +234,52 @@ def test_native_copy_atomic_idempotent_distinct_occurrences(
         assert conn.scalar(text("SELECT count(*) FROM data.support")) == 2
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert bytes(conn.scalar(text("SELECT content FROM data.batch"))) == candidate.content
-    with pytest.raises(DBAPIError):
-        publish_batch(semantic_writer_engine, replace(candidate, entity=(EntityRow("wrong"),)))
+
+    def committed_state():
+        from corpus_structure.semantic.metadata import table
+
+        names = (
+            "entity",
+            "membership",
+            "typed_value",
+            "fact",
+            "occurrence",
+            "support",
+            "selection",
+            "evidence",
+            "membership_support",
+            "batch",
+        )
+        with semantic_db_engine.connect() as conn:
+            rows = {}
+            for name in names:
+                relation = table(f"data.{name}")
+                rows[name] = tuple(
+                    dict(row)
+                    for row in conn.execute(
+                        select(relation).order_by(*relation.primary_key.columns)
+                    ).mappings()
+                )
+            return (
+                conn.scalar(text("SELECT data_revision FROM data.realization")),
+                rows,
+            )
+
+    committed = committed_state()
+    with pytest.raises(DBAPIError) as refused:
+        publish_batch(
+            semantic_writer_engine,
+            replace(
+                candidate,
+                batch_id="bad-membership",
+                membership=(MembershipRow("missing-entity", C, "source assertion"),),
+            ),
+        )
+    assert isinstance(refused.value.orig, psycopg.Error)
+    original = refused.value.orig
+    assert original.sqlstate == "23503"
+    assert original.diag.constraint_name == "fk_membership_realization_id_release_id_entity_id"
+    assert committed_state() == committed
 
 
 def test_native_rejects_bad_identity_and_leaves_no_partial_state(
@@ -241,11 +288,42 @@ def test_native_rejects_bad_identity_and_leaves_no_partial_state(
     R = seed(semantic_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
-    bad = replace(candidate, occurrence=(replace(candidate.occurrence[0], occurrence_id="forged"),))
-    with pytest.raises(DBAPIError):
+    bad = replace(
+        candidate,
+        occurrence=(
+            replace(candidate.occurrence[0], source="other-source"),
+            *candidate.occurrence[1:],
+        ),
+    )
+    with pytest.raises(DBAPIError) as refused:
         publish_batch(semantic_writer_engine, bad)
+    assert isinstance(refused.value.orig, psycopg.Error)
+    assert refused.value.orig.diag.message_primary == "invalid occurrence identity"
     with semantic_db_engine.connect() as conn:
         for name in ("entity", "typed_value", "fact", "occurrence", "batch"):
+            assert conn.scalar(text(f"SELECT count(*) FROM data.{name}")) == 0
+        assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
+
+
+def test_native_rejects_bad_fact_identity_without_partial_state(
+    semantic_db_engine, semantic_writer_engine
+):
+    R = seed(semantic_db_engine).release_id
+    candidate = partial(make_batch, release_id=R)()
+    forged_id = "fact:forged"
+    bad = replace(
+        candidate,
+        fact=(replace(candidate.fact[0], fact_id=forged_id),),
+        occurrence=tuple(replace(row, fact_id=forged_id) for row in candidate.occurrence),
+        support=tuple(replace(row, fact_id=forged_id) for row in candidate.support),
+        selection=tuple(replace(row, fact_id=forged_id) for row in candidate.selection),
+    )
+    with pytest.raises(DBAPIError) as refused:
+        publish_batch(semantic_writer_engine, bad)
+    assert isinstance(refused.value.orig, psycopg.Error)
+    assert refused.value.orig.diag.message_primary == "invalid fact identity"
+    with semantic_db_engine.connect() as conn:
+        for name in ("entity", "membership", "typed_value", "fact", "occurrence", "batch"):
             assert conn.scalar(text(f"SELECT count(*) FROM data.{name}")) == 0
         assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
 
@@ -254,12 +332,22 @@ def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, seman
     R = seed(semantic_db_engine).release_id
     batch = partial(make_batch, release_id=R)
     candidate = batch()
-    for value in (
-        ValueRow("vb", "null"),
-        ValueRow("vb", "string"),
-        ValueRow("vb", "entity", entity_id="foreign-entity"),
+    for value, sqlstate, primary, constraint in (
+        (ValueRow("vb", "null"), "23514", "value violates declared range string", None),
+        (
+            ValueRow("vb", "integer", integer_value=1),
+            "23514",
+            None,
+            "ck_typed_value_physical_dcfa9b38a9",
+        ),
+        (
+            ValueRow("vb", "entity", entity_id="foreign-entity"),
+            "23503",
+            None,
+            "fk_typed_value_realization_id_release_id_entity_id",
+        ),
     ):
-        with pytest.raises(DBAPIError):
+        with pytest.raises(DBAPIError) as refused:
             publish_batch(
                 semantic_writer_engine,
                 replace(
@@ -268,11 +356,27 @@ def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, seman
                     fact=(replace(candidate.fact[0], object_value_id="vb"),),
                 ),
             )
-    with pytest.raises(DBAPIError):
+        assert isinstance(refused.value.orig, psycopg.Error)
+        assert refused.value.orig.sqlstate == sqlstate
+        if primary is not None:
+            assert refused.value.orig.diag.message_primary == primary
+        elif constraint is not None:
+            assert refused.value.orig.diag.constraint_name == constraint
+    with pytest.raises(DBAPIError) as refused:
         publish_batch(
             semantic_writer_engine,
             replace(candidate, value_role=(RoleRow("vb", "item", 0, "foreign-value"),)),
         )
+    assert isinstance(refused.value.orig, psycopg.Error)
+    assert refused.value.orig.sqlstate == "23503"
+    assert (
+        refused.value.orig.diag.constraint_name
+        == "fk_value_role_realization_id_release_id_child_value_id"
+    )
+    with semantic_db_engine.connect() as conn:
+        for name in ("entity", "typed_value", "fact", "occurrence", "batch"):
+            assert conn.scalar(text(f"SELECT count(*) FROM data.{name}")) == 0
+        assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 0
 
 
 def test_restricted_role_cannot_bypass_or_replace_stage(

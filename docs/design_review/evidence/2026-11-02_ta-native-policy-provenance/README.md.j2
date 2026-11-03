@@ -1,0 +1,44 @@
+# Test-architecture execution provenance
+
+The TA alias correction changes the tracked semantic-alignment implementation. Current authoring
+therefore differs from the frozen94 execution descriptor. The question is whether the existing
+forward route produces only that provenance transition, preserves physical/function policy, and
+replays as a current empty candidate. Frozen predecessors are immutable. No application database
+or shared service configuration is changed; PgAdmin owns disposable databases on18/corpus.
+
+`author.py author <new-output>` acquires a fresh deployed source and clone, checks the candidate,
+rehearses it with Alembic Operations inside an outer rollback, and writes reviewed inputs.
+`author.py replay <new-output>` checks the subsequently frozen current head and empty candidate.
+Author mode is an acquisition-time procedure executed before95 is frozen; it deliberately refuses
+an unexpected current head. Replay mode is the current frozen95 check. New output directories
+are required; original outputs are retained.
+
+Alembic's standalone MigrationContext/Operations.invoke API was confirmed through Context7 and
+the [official runtime API](https://alembic.sqlalchemy.org/en/latest/api/runtime.html) and
+[Operations API](https://alembic.sqlalchemy.org/en/latest/ops.html),2026-11-02. Repository native
+authoring and authenticated resource ownership retain their existing implementation contracts.
+
+**Passed, bounded Tested,2026-11-02:** authoring and fresh95 replay, including repeated upgrade,
+empty candidate and exact native catalog admission after outer rollback. The accepted result is
+`ta.native-policy-provenance95` in `records/`; figures belong to that record. The migration changes
+only the alignment implementation's descriptor provenance. No application database adoption,
+provider result, full95 qualification or performance claim follows. The original failed broad
+test receipt and the successful four-case rerun are owned by the TA coordinator.
+
+Initial freeze-utility and evidence-finalization invocation errors were corrected; their logs are
+retained in `build/ta-native95-freeze.log` and `build/ta-native95-evidence-finalize.log`. They are
+not passing experiments. No predecessor file was overwritten.
+
+## Records
+
+## Accepted result
+
+{% set gid = '2026-11-02_ta-native-policy-provenance/ta.native-policy-provenance95' %}
+{% set accepted = record(gid) %}
+Outcome: **{{ accepted.outcome }}**.
+
+| Result | Value |
+|---|---|
+{% for item in query('SELECT name, value_num, value_text FROM record_results WHERE gid = $gid ORDER BY name', gid=gid) %}
+| {{ item.name | replace('_', ' ') }} | {% if item.value_num is not none %}{{ item.value_num | int }}{% else %}{{ item.value_text }}{% endif %} |
+{% endfor %}

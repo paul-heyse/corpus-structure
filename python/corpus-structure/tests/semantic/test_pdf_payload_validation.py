@@ -11,7 +11,7 @@ from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore,
 from corpus_structure.semantic.pdf_payloads import PROFILE, prepare_payload_family
 from corpus_structure.semantic.pdf_record_identity import byte_root
 
-from . import test_pdf_integrated as integrated_examples
+from . import pdf_integration_support as integrated_examples
 from .test_pdf_ocr_contracts import inventory
 
 native_source = integrated_examples.native_source

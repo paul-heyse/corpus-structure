@@ -362,7 +362,7 @@ def build_rule_language(
             value = obj.get(name) if isinstance(obj, Mapping) else getattr(obj, name, None)
         else:
             value = obj[name] if isinstance(obj, Mapping) else getattr(obj, name)
-        if owner == "Qualifiers" and value is not None and not isinstance(obj, BaseModel):
+        if value is not None and not isinstance(obj, BaseModel):
             if spec.parameter_map:
                 if isinstance(value, Mapping) and all(
                     isinstance(v, Mapping) and "kind" in v for v in value.values()
@@ -377,7 +377,9 @@ def build_rule_language(
                             raise ValueError("parameter-map projection contains duplicate keys")
                         projected[key] = _value_projection(entry["value"])
                     value = projected
-            elif spec.range == "Value":
+            elif spec.range == "Value" and spec.source_class is not None:
+                # Native schema fields also occur inside keyed records. Logical rule-view
+                # fields already hold projected Values and have no source_class.
                 value = (
                     {key: _value_projection(v) for key, v in value.items()}
                     if spec.collection == "mapping"

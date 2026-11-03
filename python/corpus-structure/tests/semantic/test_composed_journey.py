@@ -9,13 +9,13 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import QuerySpec, read_session
 
-from .test_agent_resubmission import lease_and_read, source_task
+from .agent_scenarios import build_resubmission_case, lease_and_read
 
 
 def test_composed_source_submission_final_cut_and_explanation(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
-    prepared, run, task, locator = source_task(
+    prepared, run, task, locator = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
     session = SemanticAgentSession(semantic_writer_engine, run)
@@ -87,7 +87,7 @@ def test_composed_private_evaluation_cannot_commit_without_result(
 
     from corpus_structure.semantic.operations import seal_cut
 
-    prepared, run, task, _ = source_task(
+    prepared, run, task, _ = build_resubmission_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
     )
     # Complete the otherwise idle agent task through its actual scoped claim/completion route.

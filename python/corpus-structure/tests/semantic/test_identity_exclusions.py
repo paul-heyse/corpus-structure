@@ -10,7 +10,7 @@ from corpus_structure.intervene.semantic_server import SemanticAgentSession, bui
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 
-from .test_agent_resubmission import lease_and_read, source_task
+from .agent_scenarios import build_resubmission_case, lease_and_read
 
 
 def exclusion_result(
@@ -24,7 +24,7 @@ def exclusion_result(
     global_names=False,
     local_ids=("p", "q"),
 ):
-    prepared, run, task, locator = source_task(
+    prepared, run, task, locator = build_resubmission_case(
         admin,
         writer,
         tmp_path / "exclusions.html",

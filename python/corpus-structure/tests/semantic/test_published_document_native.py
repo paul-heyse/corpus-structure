@@ -15,8 +15,8 @@ from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_views import load_source_view, store_source_view
 
 from .native_record_fixtures import publish_native_record_fixture
+from .pdf_staging_support import private_build as private_build
 from .test_pdf_inline_reports import example as inline_report_example
-from .test_pdf_staging import private_build as private_build
 from .test_selected_source_native import deploy_selected, publish_selected
 
 

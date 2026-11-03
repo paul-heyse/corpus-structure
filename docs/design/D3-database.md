@@ -351,6 +351,15 @@ events distinguish requested configuration from observed database, deployment an
 context, with missing native provenance explicit. Private-cluster/plugin alternatives remain
 unselected; the bounded comparison does not change the production cluster arrangement.
 
+**Accepted target, Proposed implementation (2026-11-02).** The repeated default completed
+serving population may be prepared once in an owned session-local populated source, bound to
+its immutable preparation/population recipe. Settle clients and seal it; each read consumer
+receives a fresh PgAdmin clone with exact policy replay and actual purpose connections. Variants
+and tests of publication/deployment/write lifecycle remain cold. No persistent scenario cache,
+shared mutable database or additional janitor is introduced. TA-05/12 own tested acceptance.
+
+> Decision: ADR-0048
+
 > Decision: ADR-0032
 
 ## Composed-model admission fence
@@ -2090,6 +2099,14 @@ ADBC has its own cancellation handle and independently attempts rollback and phy
 preserving the primary exception. These mechanisms do not claim a hard end-to-end cleanup deadline.
 
 ## Current-only operational baseline
+
+**Implemented; bounded native provenance Tested,2026-11-02.** Frozen successor95 records the
+released-alias alignment implementation's current model/input provenance. Its single descriptor
+transition preserves the84 other managed native objects, physical metadata and enforcement
+policy. The [accepted native record](../design_review/evidence/2026-11-02_ta-native-policy-provenance/README.md)
+owns author/replay evidence; the [TA coordinator](../plans/test-architecture-and-evidence_2026-11-02.md#remaining-increment-acceptance--2026-11-02)
+records the operator-accepted four-failure rerun and limits. This is not a fresh full95 campaign.
+Existing application databases/results are not migrated or reactivated by test qualification.
 
 **Accepted target, implementation in progress (2026-11-02).** ADR-0047 retires old result-format
 compatibility and semantic-1 execution after current caller migration. New PDF sources and
