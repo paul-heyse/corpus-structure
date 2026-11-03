@@ -821,7 +821,7 @@ class BoundReader:
         )
 
     def _native_product_input(self, reference):
-        """Shared selected-or-claimed custody and archived contract admission."""
+        """Selected/input pins or this running task's exact published output custody."""
         from .contracts import require_bound_operation
         from .pdf_contracts import pdf_context_for_task
         from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
@@ -865,16 +865,25 @@ class BoundReader:
             for view in selected_source_views(self.conn, self.run_id)
         )
         if self.source_tasks:
-            task, config, run, document = (
+            task, config, run, document, source_build = (
                 table("ops.task"),
                 table("ops.method_config"),
                 table("ops.run"),
                 table("kb.document"),
+                table("ops.source_build"),
             )
             declared = self.conn.execute(
-                select(config.c.params, document.c.content_hash, document.c.project_id)
+                select(
+                    config.c.params,
+                    document.c.content_hash,
+                    document.c.project_id,
+                    task.c.id.label("task_id"),
+                    document.c.id.label("document_id"),
+                    source_build.c.artifact_digest.label("bound_original_digest"),
+                )
                 .join(task, task.c.method_config_id == config.c.id)
                 .join(document, document.c.id == task.c.unit_id)
+                .outerjoin(source_build, source_build.c.task_id == task.c.id)
                 .where(
                     task.c.id.in_(tuple(self.source_tasks.values())),
                     task.c.run_id == self.run_id,
@@ -913,10 +922,23 @@ class BoundReader:
                 and item["project_id"] == project == producer_project
                 for item in claims
             )
+            # A method may publish an organized/native product before selecting its
+            # source views. It cannot declare this future output in its input config.
+            # Only the same bound running document task gets that route. Immutable
+            # product identity is attempt-independent; live claim/write fencing stays
+            # with the method owner, not an invented producing-attempt read contract.
+            permitted = permitted or any(
+                item.get("task_id") == reference.task_id
+                and self.source_tasks.get(item["document_id"]) == reference.task_id
+                and item.get("bound_original_digest") == row["original_digest"]
+                and item["content_hash"] == row["original_digest"]
+                and item["project_id"] == project == producer_project
+                for item in claims
+            )
         if not permitted:
             raise OperationConflict(
                 "whole-native read requires a selected source view or exact claimed "
-                "method input pin"
+                "method input/output pin"
             )
         if row["contract_digest"] != context.contract_digest:
             raise OperationConflict("native product archived contract differs")

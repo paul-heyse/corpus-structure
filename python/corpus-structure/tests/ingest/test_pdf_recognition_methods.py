@@ -100,9 +100,89 @@ def test_retained_and_standard_pins_have_exclusive_roles():
         methods.PdfIntegratedIngestConfig(native_product=reference, integrated_product=reference)
 
 
+@pytest.mark.parametrize("already_organized", [False, True])
+def test_retained_native_uses_current_selector_without_conversion_or_gpu_transition(
+    monkeypatch, already_organized
+):
+    from corpus_structure.ingest import pdf_methods
+    from corpus_structure.ingest.pdf_hierarchy import native_nodes
+    from corpus_structure.ingest.pdf_section_views import NoQualifiedSections
+
+    document = DoclingDocument(name="Retained observation")
+    document.add_page(page_no=1, size=Size(width=200, height=300))
+    if already_organized:
+        parent = document.add_group(label=GroupLabel.SECTION, name="1.1: Retained")
+    else:
+        parent = None
+        document.add_heading(text="1.1: Retained", level=1)
+    text = document.add_text(label=DocItemLabel.TEXT, text="retained body", parent=parent)
+    original = b"%PDF-retained-observation"
+    values = publication_payload(
+        PdfConversion(
+            sha256(original).hexdigest(), b"{}", snapshot(document), "success", (), (), (), None
+        ),
+        product_key="organized" if already_organized else "native", schema_digest="b" * 64,
+    )
+    reference = ProductReference(12, values["product_key"], "c" * 64)
+    organized = reference if already_organized else ProductReference(15, "organized", "d" * 64)
+    selected, hydrated, retained = [], [], []
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("retained input must not recompute Standard or change GPU phases")
+
+    def native_sections(pin, **kwargs):
+        selected.append(pin)
+        if not already_organized and pin == reference:
+            raise NoQualifiedSections("raw native observation")
+        assert pin == organized
+        return (SimpleNamespace(native_product=organized),)
+
+    def native_document(pin, *, include_candidate_pages=True):
+        hydrated.append(pin)
+        if not already_organized and pin == reference:
+            return SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}")
+        assert pin == organized and include_candidate_pages is False
+        raise RuntimeError("controlled stop after current organized input resolution")
+
+    def retain(ref, draft):
+        assert ref.unit_id == 1 and draft.product_key == "organized"
+        retained.append(draft)
+        sections = [
+            node for node in native_nodes(draft.document).values()
+            if str(node.label) == "section"
+        ]
+        assert len(sections) == 1 and sections[0].name == "1.1: Retained"
+        assert any(child.cref == text.self_ref for child in sections[0].children)
+        assert draft.companions["input"] == ({**reference.values(), "role": "structural"},)
+        return organized
+
+    monkeypatch.setattr(methods, "native_before_nemotron", refuse)
+    monkeypatch.setattr(methods, "RecognitionWorker", refuse)
+    monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "release")
+    monkeypatch.setattr(pdf_methods, "_consumer_release", lambda ctx: "release")
+    method = methods.IngestPdfIntegrated()
+    monkeypatch.setattr(method._selector, "original_recipe", lambda cfg: b"{}")
+    unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
+    ctx: Any = SimpleNamespace(
+        reader=SimpleNamespace(
+            native_section_drafts=native_sections, native_document=native_document,
+        ),
+        run=SimpleNamespace(options={}), retain_pdf_records=retain,
+        produce_pdf_records=refuse, logger=logging.getLogger(__name__),
+        settings=SimpleNamespace(nemotron_endpoint="unused"),
+    )
+    result = method.run([unit], methods.PdfIntegratedIngestConfig(native_product=reference), ctx)[0]
+    assert result.outcome == ObservationOutcome.FAILED
+    assert result.error == "RuntimeError: controlled stop after current organized input resolution"
+    assert selected == ([reference] if already_organized else [reference, organized])
+    assert hydrated == ([organized] if already_organized else [reference, organized])
+    assert len(retained) == (0 if already_organized else 1)
+
+
 def test_live_integration_retains_typed_candidates_and_distinct_valid_health_rows(
     tmp_path, monkeypatch
 ):
+    from corpus_structure.ingest import pdf_methods
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
@@ -209,6 +289,7 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
 
     monkeypatch.setattr(methods, "RecognitionWorker", NoProviderWorker)
     monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "release")
+    monkeypatch.setattr(pdf_methods, "_consumer_release", lambda ctx: "release")
     monkeypatch.setattr(methods, "_drafts", lambda *args, **kwargs: ())
     cfg = methods.PdfIntegratedIngestConfig(native_product=reference)
     settings = SimpleNamespace(
@@ -220,6 +301,9 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
     )
     ctx: Any = SimpleNamespace(
         reader=SimpleNamespace(
+            native_section_drafts=lambda *args, **kwargs: (
+                SimpleNamespace(native_product=reference),
+            ),
             native_document=native,
             capture_pdf_candidates=capture,
             pdf_context=lambda: context,

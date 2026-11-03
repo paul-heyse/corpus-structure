@@ -13,7 +13,9 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.core.method import SourceViewDraft
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from corpus_structure.semantic.operations import (
+    BoundReader,
     OperationBinding,
+    OperationConflict,
     claim_tasks,
     create_run,
     create_task,
@@ -217,6 +219,65 @@ def test_native_source_view_is_real_unit_with_exact_context(
         document=doc,
     )
     native_reference = ProductReference(task, "native", published.logical_digest)
+    with semantic_writer_engine.begin() as conn:
+        reader = BoundReader(conn, run, prepared)
+        reader.bind_source_tasks({document: task})
+        # No selected view or future-output input config exists yet. The current
+        # task's immutable publication is the legitimate source for selection.
+        assert selected_source_views(conn, run) == ()
+        current = reader.native_document(native_reference, include_candidate_pages=False)
+        assert current.original == original
+        assert current.values()["document"]["name"] == doc.name
+        drafts = reader.native_section_drafts(
+            native_reference,
+            document_id=document,
+            selections=(),
+            membership="descendants",
+            scope=None,
+            consumer_release=prepared.release_id,
+        )
+        assert drafts and all(item.native_product == native_reference for item in drafts)
+        # A real, different document cannot be substituted for the producing unit.
+        other_original = b"%PDF-1.7\nother actual document"
+        other_path = tmp_path / "other.pdf"
+        other_path.write_bytes(other_original)
+        other = register_document(
+            conn,
+            project_id="p",
+            source_uri="file:other-document",
+            original_path=str(other_path),
+            original=other_original,
+            mime="application/pdf",
+        )
+        reader.bind_source_tasks({other: task})
+        with pytest.raises(OperationConflict, match="exact claimed"):
+            reader.native_document(native_reference)
+        another_run = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+            kind="slice",
+            options={},
+            code_commit="other-source-custody",
+        )
+        another = create_task(
+            conn,
+            run_id=another_run,
+            config_id=config,
+            stage="ingest",
+            unit_type="document",
+            unit_id=document,
+            unit_key="different-current-task",
+            input_hash="different-task",
+            fresh=True,
+        )
+        claim_tasks(
+            conn, run_id=RunId(another_run), config_id=MethodConfigId(config), holder="other-owner"
+        )
+        reader = BoundReader(conn, another_run, prepared)
+        reader.bind_source_tasks({document: another})
+        with pytest.raises(OperationConflict, match="exact claimed"):
+            reader.native_document(native_reference)
     with semantic_writer_engine.begin() as conn:
         draft = SourceViewDraft(
             "view-independent",
@@ -474,8 +535,6 @@ def test_native_source_view_is_real_unit_with_exact_context(
             ).scalar_one()
             == draft.key
         )
-
-    from corpus_structure.semantic.operations import BoundReader, OperationConflict
 
     # An archived native product is adopted only by an exact declared, claimed input.
     with semantic_writer_engine.begin() as conn:

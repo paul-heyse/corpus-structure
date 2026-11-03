@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import nullcontext
 from hashlib import sha256
 from typing import Any, Literal
 
@@ -238,31 +239,29 @@ class IngestPdfIntegrated:
 
                 from .pdf_stream_reconciliation import reconcile_pdf_stream
 
-                native_reference = cfg.native_product
-                if native_reference is None:
-                    # This is the declared Standard producer phase of the combined pipeline.
-                    # Its real recipe/parent products are published before Nemotron requests.
-                    with native_before_nemotron(
+                # The native selector owns qualification and organization for both retained
+                # and freshly converted inputs. A supplied raw pin therefore follows the
+                # same current hierarchy policy as a new Standard producer observation.
+                native_phase = (
+                    native_before_nemotron(
                         ctx.settings.nemotron_endpoint, check_active=ctx.check_active
-                    ):
-                        try:
-                            standard = self._selector.run([unit], cfg, ctx)[0]
-                        finally:
-                            self._selector.close()
-                        native = None
-                        if native is None and standard.source_views:
-                            native_reference = standard.source_views[0].native_product
-                            native = ctx.reader.native_document(
-                                native_reference, include_candidate_pages=False
-                            )
-                        if standard.outcome == ObservationOutcome.FAILED:
-                            raise RuntimeError(standard.error or "Standard PDF phase failed")
-                        if native is None or native_reference is None:
-                            raise RuntimeError("Standard PDF phase returned no organized source")
-                else:
-                    native = ctx.reader.native_document(
-                        native_reference, include_candidate_pages=False
                     )
+                    if cfg.native_product is None
+                    else nullcontext()
+                )
+                with native_phase:
+                    try:
+                        standard = self._selector.run([unit], cfg, ctx)[0]
+                    finally:
+                        self._selector.close()
+                if standard.outcome == ObservationOutcome.FAILED:
+                    raise RuntimeError(standard.error or "Standard PDF phase failed")
+                if not standard.source_views:
+                    raise RuntimeError("Standard PDF phase returned no organized source")
+                native_reference = standard.source_views[0].native_product
+                native = ctx.reader.native_document(
+                    native_reference, include_candidate_pages=False
+                )
                 values = native.values()
                 if (
                     values.get("source_scope") != "whole_document"
@@ -346,7 +345,6 @@ class IngestPdfIntegrated:
                         raise RuntimeError(f"unresolved triple-pass physical pages: {failures}")
 
                 ctx.check_active()
-                from contextlib import nullcontext
                 from pathlib import Path
                 from uuid import uuid4
 

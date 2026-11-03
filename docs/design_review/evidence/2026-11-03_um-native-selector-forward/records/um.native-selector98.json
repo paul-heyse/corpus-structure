@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "um.native-selector98",
+  "title": "Native98 retained selection and same-task product custody provenance",
+  "group": "unified-domain-model",
+  "package": "UM-07/14/15",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do canonical selection of a supplied native pin and the bounded same-task published-product custody correction require only a descriptor provenance successor, preserving native97 policy and exact predecessors?",
+  "answers": [
+    "UM-07",
+    "UM-14",
+    "UM-15"
+  ],
+  "method": "Use authenticated PgAdmin-owned disposable databases at native97. Require one descriptor-only transition changing exactly the two reviewed implementation inputs, with unchanged function catalog, privileges and schema. Rehearse through Alembic Operations, admit exactly, require empty candidate, then roll back and admit97. Verify source stability and all predecessor hashes, freeze byte-bound98, and replay fresh98 with repeated upgrade and empty candidate.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_um-native-selector-forward/author.py author docs/design_review/evidence/2026-11-03_um-native-selector-forward/raw/author-001",
+    "uv run python docs/design_review/evidence/2026-11-03_um-native-selector-forward/freeze.py",
+    "uv run python docs/design_review/evidence/2026-11-03_um-native-selector-forward/author.py replay docs/design_review/evidence/2026-11-03_um-native-selector-forward/raw/replay-001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author.py",
+      "role": "owned authoring and replay procedure",
+      "sha256": "412c11cf3d2657f8d41d04868797442e6e1b51e945d41afda18c77e9e2e77063"
+    },
+    {
+      "path": "freeze.py",
+      "role": "append-only freezing procedure",
+      "sha256": "28039eb9fe010e4e919d06e6db73780de03c5f97d0cab57ff05b81bae2f06d3b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "exact candidate/source/predecessor identities, author/freeze/replay outputs and logs",
+      "sha256": "f984a61683a6a4f4de274d265f19024148862a03ca8afbd49310016dd53e8fba"
+    }
+  ],
+  "depends_on": [
+    "2026-11-02_um-worker-stdio-forward/um.native-stdio-renewal97"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 1,
+      "of": 86,
+      "unit": null,
+      "note": "execution_contract_descriptor only"
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "changed_inputs",
+      "value": 2,
+      "of": null,
+      "unit": "inputs",
+      "note": "invocation/operations.py and pdf/recognition_methods.py"
+    },
+    {
+      "name": "replay_candidate_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_predecessor_files",
+      "value": 298,
+      "of": 298,
+      "unit": "files",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Frozen98 captures only the reviewed retained-native selection and same-task published-product custody source corrections. The descriptor functions, physical metadata, privileges, ownership and native guard bodies are unchanged from97. Both producer sources stayed stable, every predecessor retained exact bytes, rehearsal restored admitted97, and fresh98 replay has an empty candidate. This establishes native provenance/admission and replay, not operational application migration, selector functional correctness, complete source publication, provider behavior or extraction quality.",
+  "consumed_by": [
+    "UM-07",
+    "UM-14",
+    "UM-15",
+    "D3"
+  ]
+}

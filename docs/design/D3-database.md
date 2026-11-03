@@ -156,6 +156,15 @@ The receipt's projection-contract digest and the producer schema-source digest a
 authorities. A newer validation epoch qualifies new preparation/seal work; it does not reinterpret
 an immutable published pin or require recomputing that publication's contract with installed policy.
 
+**Implemented; focused controls Tested (2026-11-03).** Current source methods may read their exact
+published output before selecting its source views: the bound running document task, document/source
+build original and producing/consuming project must agree. This does not expose private builds or
+permit another same-source task's arbitrary output. Selected-view and explicit input-pin custody
+remain supported. Immutable published identity is attempt-independent; active claim and effect
+fencing retain their existing owners. Integrated intake sends both supplied and newly converted
+native inputs through the same section selector/organizer, without repeating Standard conversion
+for supplied pins. Native98 records these two implementation changes without a schema change.
+
 Private append, freeze, frozen-union validation and final seal reuse existing task/attempt fences.
 Membership cannot change under validation; seal rechecks owner, run/task/input/contract premises.
 Native closure still covers inventories, tree/backpointers/order, frames, occurrences/cells,

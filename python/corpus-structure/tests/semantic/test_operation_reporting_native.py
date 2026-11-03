@@ -277,9 +277,8 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
 ):
     import yaml
 
-    from corpus_structure.semantic.operation_reporting import compatibility_advice
-
     from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.operation_reporting import compatibility_advice
     from corpus_structure.semantic.regeneration import prepare_pack
 
     bundle, deps, profile, _ = prepare_pack(DOMAINS / "statistics")

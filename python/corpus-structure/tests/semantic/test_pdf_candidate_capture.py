@@ -332,3 +332,34 @@ def test_selected_pin_keeps_existing_authority_when_no_claim_declares_it(monkeyp
     )
     _, admitted, actual_reader = reader._native_product_input(pin)
     assert admitted is context and actual_reader is published
+
+
+@pytest.mark.parametrize(
+    "change,accepted",
+    [
+        ({}, True),
+        ({"task_id": 12}, False),
+        ({"document_id": 4}, False),
+        ({"bound_original_digest": "other-original"}, False),
+        ({"content_hash": "other-original"}, False),
+        ({"project_id": "other-project"}, False),
+    ],
+)
+def test_current_running_task_published_output_has_exact_custody(monkeypatch, change, accepted):
+    claim = dict(
+        params={},
+        task_id=11,
+        document_id=3,
+        bound_original_digest="original",
+        content_hash="original",
+        project_id="project",
+    )
+    claim.update(change)
+    reader, pin, context, published, _, _ = reader_fixture(monkeypatch, claim_change=claim)
+    reader.source_tasks = {3: pin.task_id}
+    if accepted:
+        _, admitted, actual = reader._native_product_input(pin)
+        assert admitted is context and actual is published
+    else:
+        with pytest.raises(OperationConflict, match="exact claimed"):
+            reader._native_product_input(pin)
