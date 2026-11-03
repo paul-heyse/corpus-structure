@@ -47,3 +47,4 @@ docs/design_review/evidence/2026-11-03_m1-private-records/report-schema-refresh.
 docs/design_review/evidence/2026-11-03_m1-private-records/predecessor-operation-report-schemas.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-gliner-runtime/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-gliner-runtime/*.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_m1-family-assembly/attempt-*.json filter=lfs diff=lfs merge=lfs -text

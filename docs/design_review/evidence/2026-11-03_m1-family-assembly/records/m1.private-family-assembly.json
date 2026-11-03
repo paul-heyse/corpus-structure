@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "m1.private-family-assembly",
+  "title": "Released family candidate composition and actual CPU source binding",
+  "group": "M1",
+  "package": "M1-08",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can released five-family candidate roles preserve source locations, structural paths and unresolved states through shared assembly?",
+  "answers": [],
+  "method": "Independent focused source fixtures for all five released families; actual retained source CPU definition operation; root integrated-tree rerun of80 focused tests.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/semantic/test_record_contracts.py -q"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_cpu_assembly.py",
+      "role": null,
+      "sha256": "a12af84adb918a03b6536b0e751e8f510c081d1dc05a700ce10516d355a46a6c"
+    },
+    {
+      "path": "attempt-00001.json",
+      "role": null,
+      "sha256": "4588f616662dbc7b448f57410e22cde202ee3472d3bd716839109dac2fbadd21"
+    },
+    {
+      "path": "attempt-00002.json",
+      "role": null,
+      "sha256": "a257e1a7fd65445575da82480c3f2ad7a4fc5654b53c9148415a2908d0f4c8ac"
+    }
+  ],
+  "depends_on": [
+    "m1.cpu-mapped-source-operation"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "80 focused tests passed on integrated main tree2026-11-03. Actual CPU produced three located private candidates and joined; definition associations were incorrect/unqualified, so this establishes source binding and shape only. Attempt1 retained failed before inference. Other-family actual-source routing, native persistence, accepted publication and release quality remain open.",
+  "consumed_by": [
+    "M1-03",
+    "M1-07",
+    "M1-08"
+  ]
+}
