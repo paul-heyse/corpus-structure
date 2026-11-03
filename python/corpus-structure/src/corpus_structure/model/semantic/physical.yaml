@@ -2262,6 +2262,20 @@ classes:
         ["set_id"], "target": "eval.reference_set.id"}]'
       ph:checks: '[]'
 
+  split_decision:
+    in_subset: [eval]
+    attributes:
+      decision_id: {range: string, required: true}
+      project_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      intent: {range: json_payload, required: true}
+      digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [decision_id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns": ["release_id"], "target": "sem.release.release_id"}]'
+
   document_split:
     in_subset:
     - eval
@@ -2280,6 +2294,8 @@ classes:
       split:
         range: string
         required: true
+      decision_id: {range: string}
+      reason: {range: string}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -2289,7 +2305,7 @@ classes:
         - project_id
         - source_uri
     annotations:
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}]'
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns": ["decision_id"], "target": "eval.split_decision.decision_id"}]'
       ph:checks: '["split IN (''dev'',''test'',''reserved'')"]'
 
   execution_operation:
