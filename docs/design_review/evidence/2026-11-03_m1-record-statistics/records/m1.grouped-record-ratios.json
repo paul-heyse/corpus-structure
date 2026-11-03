@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "id": "m1.grouped-record-ratios",
+  "title": "Source-group ratio and paired difference mechanics",
+  "group": "M1",
+  "package": "M1-13",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do grouped ratio calculations preserve shared origin indices and honest undefined/degenerate intervals?",
+  "answers": [],
+  "method": "Independent occurrence-count fixtures and exact installed SciPy1.18.1 paired bootstrap API; main-tree pure tests.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/evaluate/test_record_alignment.py -q",
+    "uv run ruff check python/corpus-structure/src/corpus_structure/evaluate/record_statistics.py python/corpus-structure/tests/evaluate/test_record_statistics.py",
+    "uv run pyrefly check python/corpus-structure/src/corpus_structure/evaluate/record_statistics.py python/corpus-structure/tests/evaluate/test_record_statistics.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "source-sha256.json",
+      "role": null,
+      "sha256": "1aa760dbffdc01e3df6a3d117fca22271002b2a761afe51ebb08d0d2dfdf0584"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "52 focused tests passed, scoped Ruff/Pyrefly passed. Pure descriptive group-ratio mechanics only; zero-error/undefined/few-group intervals remain unestablished. No protected reference, population sufficiency, calibrated model or one-sided release claim. Initial development diagnostic failures documented separately.",
+  "consumed_by": [
+    "M1-13",
+    "M1-14",
+    "M1-15"
+  ]
+}

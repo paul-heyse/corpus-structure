@@ -1,0 +1,45 @@
+# Grouped record ratio calculations
+
+**Tested, bounded pure evaluator scope · 2026-11-03.** M1-13 consumes source-origin
+contributions, resamples common group indices, and recomputes ratios of aggregate counts.
+This is neither protected reference storage nor a release interval decision.
+
+`evaluate/record_statistics.py` retains no-output groups and requires explicit population,
+cut, guideline, policy, grouping assumptions, minimum groups and seed. Paired comparisons
+require identical origin/family/reference universes. It refuses malformed counts, duplicate
+group contributions and counts beyond exact float64 integer transport. Too few groups,
+undefined resampled denominators and degenerate distributions (including last-bit noise)
+return an unestablished interval. A computed percentile interval is descriptive conditional
+on supplied grouping/sampling assumptions; release_gate remains unestablished. No record
+count can establish origin independence. Inclusion-weighted population estimation is not
+implemented; these are unweighted occurrence ratios over the declared cohort.
+
+Context7 resolved official SciPy1.18.1 documentation; retrieved resampling notes were shallow,
+so the installed exact1.18.1 bootstrap docstring supplied consequential API details: paired
+resamples common indices, batch bounds vectorized samples, rng is explicit, and alternative
+controls interval sidedness. This operation uses a declared two-sided percentile development
+procedure, not the proposed one-sided M1 release lower bound. Official API:
+[scipy.stats.bootstrap](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html).
+
+**passed:**52 focused tests (25 new grouped-statistic cases and27 existing record-alignment
+cases) in the main tree. Independent examples cover count-weighted ratios, no-output recall,
+undefined precision samples, one-book insufficiency, all-correct degeneracy, paired origin
+indices, changed populations, seed/order/batch stability and invalid counts/procedures.
+Scoped Ruff/Pyrefly passed. SciPy emitted a retained DegenerateDataWarning for undefined
+resamples (its message names BCa despite requested percentile); the operation explicitly
+reports that interval unestablished and does not discard those draws.
+
+```sh
+uv run pytest python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/evaluate/test_record_alignment.py -q
+uv run ruff check python/corpus-structure/src/corpus_structure/evaluate/record_statistics.py python/corpus-structure/tests/evaluate/test_record_statistics.py
+uv run pyrefly check python/corpus-structure/src/corpus_structure/evaluate/record_statistics.py python/corpus-structure/tests/evaluate/test_record_statistics.py
+```
+
+Development diagnostics: initial Ruff import/line-length diagnostics and12 Pyrefly test
+errors (optional bound assertions) failed, then were structurally corrected with explicit
+nonmissing assertions/formatting. Functional initial24 cases passed; final25 cases include
+exact-count transport refusal. No failed gate is promoted into release evidence.
+
+**not_run:** protected reference/prediction binding, actual family accuracy, population
+sufficiency, fitting/calibration, one-sided release interval, native/evaluator/provider
+isolation and assembled M1 qualification. One retained textbook remains development-only.
