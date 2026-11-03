@@ -1,19 +1,235 @@
 """Independent occurrence counts and group-resampling failure cases."""
 
 from dataclasses import replace
+from fractions import Fraction
+from itertools import combinations
+from math import comb
+from random import Random
 
 import pytest
 
+from corpus_structure.evaluate.record_statistics import (
+    FinitePopulationPrecisionProcedure,
+    finite_population_precision,
+    grouped_ratio,
+    paired_group_difference,
+)
 from corpus_structure.evaluate.record_statistics import (
     GroupContribution as Contribution,
 )
 from corpus_structure.evaluate.record_statistics import (
     GroupRatioProcedure as Procedure,
 )
-from corpus_structure.evaluate.record_statistics import (
-    grouped_ratio,
-    paired_group_difference,
+
+
+@pytest.fixture
+def finite_procedure():
+    return FinitePopulationPrecisionProcedure(
+        population="held-out finite statistics cut",
+        source_cut="held-out-cut-1",
+        guideline="guideline-1",
+        acceptance_policy="frozen-policy-1",
+        frame_id="accepted-records-1",
+        sample_id="assessment-srs-1",
+        assumptions=(
+            "Complete accepted-record frame; ordered frame, size and seed frozen before labels; "
+            "SRS without replacement; conditional on adjudicated reference correctness."
+        ),
+        population_size=100,
+        sample_size=50,
+        seed=7,
+        confidence=0.95,
+    )
+
+
+def finite_case(procedure):
+    frame = tuple(f"record:{index}" for index in range(procedure.population_size))
+    sample = tuple(Random(procedure.seed).sample(frame, procedure.sample_size))
+    return frame, sample
+
+
+def test_finite_zero_errors_has_nonperfect_exact_bound(finite_procedure):
+    frame, sample = finite_case(finite_procedure)
+    result = finite_population_precision(
+        frame, sample, family="definition", correct=50, procedure=finite_procedure
+    )
+    # Independent finite combinatorics: five population errors would escape a size-50
+    # sample with probability <5%; four errors would escape with probability >5%.
+    assert Fraction(comb(95, 50), comb(100, 50)) < Fraction(1, 20)
+    assert Fraction(comb(96, 50), comb(100, 50)) > Fraction(1, 20)
+    assert result.estimate == 1
+    assert result.lower_correct == 96
+    assert result.lower == 0.96
+    assert result.errors == 0
+    assert result.interval_status == "computed"
+    assert result.scope == "frozen_accepted_record_frame_only"
+    assert result.release_gate == "unestablished"
+    assert result.procedure == finite_procedure
+    assert len(result.frame_digest) == len(result.sample_digest) == 64
+    assert (
+        finite_population_precision(
+            frame, sample[::-1], family="definition", correct=50, procedure=finite_procedure
+        )
+        == result
+    )
+
+
+def test_finite_census_reports_exact_point_bound(finite_procedure):
+    procedure = replace(finite_procedure, sample_size=100)
+    frame, _ = finite_case(procedure)
+    # A census needs membership, not a random ordering of every member.
+    result = finite_population_precision(
+        frame, frame, family="assertion", correct=97, procedure=procedure
+    )
+    assert result.estimate == result.lower == 0.97
+    assert result.lower_correct == 97
+    assert result.errors == 3
+    assert result.interval_status == "census"
+    assert "no sampling uncertainty" in result.reason
+    assert result.release_gate == "unestablished"
+
+
+def test_finite_large_population_approaches_zero_error_binomial_limit(finite_procedure):
+    procedure = replace(finite_procedure, population_size=10_000, sample_size=59)
+    frame, sample = finite_case(procedure)
+    result = finite_population_precision(
+        frame, sample, family="measurement", correct=59, procedure=procedure
+    )
+    binomial_lower = 0.05 ** (1 / 59)
+    assert result.lower is not None
+    assert binomial_lower <= result.lower < binomial_lower + 59 / 10_000
+    assert result.lower >= 0.95
+
+
+@pytest.mark.parametrize(("population", "size"), [(0, 0), (10, 0)])
+def test_empty_finite_cases_do_not_pass_by_vacuity(finite_procedure, population, size):
+    procedure = replace(finite_procedure, population_size=population, sample_size=size)
+    frame, sample = finite_case(procedure)
+    result = finite_population_precision(
+        frame, sample, family="formula_context", correct=0, procedure=procedure
+    )
+    assert result.estimate is result.lower is result.lower_correct is None
+    assert result.interval_status == "unestablished"
+    assert "empty" in result.reason
+    assert result.release_gate == "unestablished"
+
+
+def test_all_incorrect_finite_sample_has_zero_lower_bound(finite_procedure):
+    frame, sample = finite_case(finite_procedure)
+    result = finite_population_precision(
+        frame, sample, family="table", correct=0, procedure=finite_procedure
+    )
+    assert result.lower_correct == result.lower == result.estimate == 0
+    assert result.interval_status == "computed"
+
+
+def test_finite_bounds_against_all_small_population_samples(finite_procedure):
+    # Enumerate actual finite populations/samples rather than asking SciPy to compute
+    # the expectation. For each possible population total, noncoverage is at most 5%.
+    for population in range(1, 9):
+        for size in range(1, population + 1):
+            procedure = replace(finite_procedure, population_size=population, sample_size=size)
+            frame, sample = finite_case(procedure)
+            lower = {
+                correct: finite_population_precision(
+                    frame, sample, family="definition", correct=correct, procedure=procedure
+                ).lower_correct
+                for correct in range(size + 1)
+            }
+            for total_correct in range(population + 1):
+                rejected = 0
+                samples = tuple(combinations(range(population), size))
+                for selected in samples:
+                    correct = sum(index < total_correct for index in selected)
+                    bound = lower[correct]
+                    assert bound is not None
+                    rejected += bound > total_correct
+                assert Fraction(rejected, len(samples)) <= Fraction(1, 20)
+            bounds = tuple(value for value in lower.values() if value is not None)
+            assert len(bounds) == size + 1
+            assert bounds == tuple(sorted(bounds))
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"population_size": -1},
+        {"population_size": True},
+        {"population_size": 99},
+        {"sample_size": -1},
+        {"sample_size": True},
+        {"sample_size": 49},
+        {"seed": -1},
+        {"seed": True},
+        {"confidence": 0},
+        {"confidence": 1},
+        {"confidence": float("nan")},
+        {"confidence": float("inf")},
+        {"confidence": True},
+        {"population": ""},
+        {"source_cut": ""},
+        {"guideline": ""},
+        {"acceptance_policy": ""},
+        {"frame_id": ""},
+        {"sample_id": ""},
+        {"assumptions": ""},
+        {"selection": "cluster_convenience_sample"},
+    ],
 )
+def test_finite_procedure_requires_explicit_valid_design(finite_procedure, change):
+    frame, sample = finite_case(finite_procedure)
+    with pytest.raises(ValueError):
+        finite_population_precision(
+            frame,
+            sample,
+            family="table",
+            correct=50,
+            procedure=replace(finite_procedure, **change),
+        )
+
+
+@pytest.mark.parametrize("correct", [-1, 51, True, 1.5])
+def test_finite_correct_count_is_bounded_integer(finite_procedure, correct):
+    frame, sample = finite_case(finite_procedure)
+    with pytest.raises(ValueError):
+        finite_population_precision(
+            frame, sample, family="table", correct=correct, procedure=finite_procedure
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "frame_duplicate",
+        "frame_shape",
+        "sample_duplicate",
+        "outside",
+        "convenience",
+        "frame_order",
+        "family",
+    ],
+)
+def test_finite_identities_and_actual_selection_are_checked(finite_procedure, change):
+    frame, sample = finite_case(finite_procedure)
+    family = "table"
+    if change == "frame_duplicate":
+        frame = (*frame[:-1], frame[0])
+    elif change == "frame_shape":
+        frame = "record-identities"
+    elif change == "sample_duplicate":
+        sample = (*sample[:-1], sample[0])
+    elif change == "outside":
+        sample = (*sample[:-1], "outside-frame")
+    elif change == "convenience":
+        sample = frame[:50]
+    elif change == "frame_order":
+        frame = frame[::-1]
+    else:
+        family = "unknown"
+    with pytest.raises(ValueError):
+        finite_population_precision(
+            frame, sample, family=family, correct=50, procedure=finite_procedure
+        )
 
 
 @pytest.fixture

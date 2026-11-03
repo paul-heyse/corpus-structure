@@ -10,12 +10,178 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from hashlib import sha256
+from random import Random
 from typing import Literal
 
 import numpy as np
-from scipy.stats import bootstrap
+from scipy.stats import bootstrap, hypergeom
+
+from corpus_structure.semantic.identity import canonical_bytes
 
 from .record_alignment import FAMILIES
+
+
+@dataclass(frozen=True)
+class FinitePopulationPrecisionProcedure:
+    """Caller-declared frame and fixed selection, frozen before examining sample labels.
+
+    Replay checks the declared selection mechanism, not its randomization intent or the
+    completeness of the caller's accepted-record frame. Identities name existing artifacts;
+    this procedure neither stores references nor determines record correctness.
+    """
+
+    population: str
+    source_cut: str
+    guideline: str
+    acceptance_policy: str
+    frame_id: str
+    sample_id: str
+    assumptions: str
+    population_size: int
+    sample_size: int
+    seed: int
+    confidence: float
+    selection: Literal["python-random-sample-without-replacement-1"] = (
+        "python-random-sample-without-replacement-1"
+    )
+
+
+@dataclass(frozen=True)
+class FinitePopulationPrecisionEstimate:
+    family: str
+    population_size: int
+    sample_size: int
+    correct: int
+    errors: int
+    estimate: float | None
+    lower_correct: int | None
+    lower: float | None
+    interval_status: Literal["computed", "census", "unestablished"]
+    reason: str
+    frame_digest: str
+    sample_digest: str
+    procedure: FinitePopulationPrecisionProcedure
+    method: str = "finite-population-srs-hypergeometric-one-sided-1"
+    scope: Literal["frozen_accepted_record_frame_only"] = "frozen_accepted_record_frame_only"
+    release_gate: Literal["unestablished"] = "unestablished"
+
+
+def _record_ids(values: Sequence[str], label: str) -> tuple[str, ...]:
+    if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+        raise ValueError(f"{label} requires an explicit sequence of accepted-record identities")
+    result = tuple(values)
+    if any(not isinstance(value, str) or not value.strip() for value in result):
+        raise ValueError(f"{label} requires nonempty accepted-record identities")
+    if len(set(result)) != len(result):
+        raise ValueError(f"{label} repeats accepted-record identities")
+    return result
+
+
+def finite_population_precision(
+    frame_record_ids: Sequence[str],
+    sample_record_ids: Sequence[str],
+    *,
+    family: str,
+    correct: int,
+    procedure: FinitePopulationPrecisionProcedure,
+) -> FinitePopulationPrecisionEstimate:
+    """Invert exact hypergeometric upper-tail tests for one frozen accepted-record frame.
+
+    The ordered frame and declared fixed sample size/seed reproduce Python Random.sample.
+    Sample order is immaterial. A census needs every frame member, without randomization.
+    Caller/source authority establishes predeclaration and frame completeness. Correctness
+    is conditional on adjudicated references; reference fidelity and source-side recall/
+    capture census remain separate obligations. This establishes no new-origin accuracy.
+
+    For population-correct count K, X ~ hypergeom(N, K, n). Retain K when
+    P_K(X >= observed_correct) > 1-confidence; the smallest retained integer divided by N
+    is the one-sided lower bound. Zero sample errors do not imply a perfect population.
+    At a complete census, the bound is the exact observed finite-population proportion.
+
+    Sources: https://ucb-stat-159-s21.github.io/site/Notes/binom.html
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.hypergeom.html
+    """
+    if family not in FAMILIES:
+        raise ValueError("unsupported record family")
+    if any(
+        not isinstance(value, str) or not value.strip()
+        for value in (
+            procedure.population,
+            procedure.source_cut,
+            procedure.guideline,
+            procedure.acceptance_policy,
+            procedure.frame_id,
+            procedure.sample_id,
+            procedure.assumptions,
+        )
+    ):
+        raise ValueError("finite precision requires explicit frozen frame/sample and assumptions")
+    if procedure.selection != "python-random-sample-without-replacement-1":
+        raise ValueError("finite precision requires the declared uniform without-replacement SRS")
+    if any(
+        type(value) is not int or value < 0
+        for value in (procedure.population_size, procedure.sample_size, procedure.seed, correct)
+    ):
+        raise ValueError(
+            "finite precision requires nonnegative integer sizes, seed and correct count"
+        )
+    if (
+        type(procedure.confidence) not in (float, int)
+        or not math.isfinite(procedure.confidence)
+        or not 0 < procedure.confidence < 1
+    ):
+        raise ValueError(
+            "finite precision requires a declared confidence strictly between zero and one"
+        )
+    frame = _record_ids(frame_record_ids, "frame")
+    sample = _record_ids(sample_record_ids, "sample")
+    population, size = procedure.population_size, procedure.sample_size
+    if population != len(frame) or size != len(sample) or not correct <= size <= population:
+        raise ValueError("finite precision counts differ from the declared frame/sample sizes")
+    if not set(sample) <= set(frame):
+        raise ValueError("sample is outside the frozen accepted-record frame")
+    if size != population and set(sample) != set(Random(procedure.seed).sample(frame, size)):
+        raise ValueError("sample differs from declared uniform without-replacement selection")
+
+    estimate = correct / size if size else None
+    lower_correct, lower = None, None
+    status: Literal["computed", "census", "unestablished"] = "unestablished"
+    reason = "empty accepted-record population" if not population else "empty assessment sample"
+    if size:
+        if size == population:
+            lower_correct, status = correct, "census"
+            reason = "exact finite-cut precision census; no sampling uncertainty"
+        else:
+            low, high = correct, population - size + correct
+            alpha = 1 - procedure.confidence
+            while low < high:
+                candidate = (low + high) // 2
+                tail = float(hypergeom.sf(correct - 1, population, candidate, size))
+                if not math.isfinite(tail):
+                    raise ArithmeticError("hypergeometric tail is nonfinite")
+                if tail <= alpha:
+                    low = candidate + 1
+                else:
+                    high = candidate
+            lower_correct, status = low, "computed"
+            reason = "one-sided sampling bound conditional on the declared frozen finite frame"
+        lower = lower_correct / population
+    return FinitePopulationPrecisionEstimate(
+        family,
+        population,
+        size,
+        correct,
+        size - correct,
+        estimate,
+        lower_correct,
+        lower,
+        status,
+        reason,
+        sha256(canonical_bytes(frame)).hexdigest(),
+        sha256(canonical_bytes(sorted(sample))).hexdigest(),
+        procedure,
+    )
 
 
 @dataclass(frozen=True)
