@@ -81,11 +81,11 @@ classes:
         annotations:
           rv:nullable: 'true'
       parse:
-        range: string
+        range: RuleReadingOutcome
         annotations:
           rv:nullable: 'true'
       math_kind:
-        range: string
+        range: RuleReadingKind
         annotations:
           rv:nullable: 'true'
   Statement:
@@ -215,3 +215,11 @@ classes:
   Qualifiers:
     description: Fields are induced from the exact bound Qualification definitions,
       not a parallel type map.
+
+enums:
+  RuleReadingOutcome:
+    description: Operation reading outcomes, distinct from source observation and publication outcomes.
+    permissible_values: {ok: {}, partial: {}, ambiguous: {}, failed: {}}
+  RuleReadingKind:
+    description: Meaning read by the admitted mathematical operation, distinct from the source value discriminator.
+    permissible_values: {formula: {}, relation: {}, membership: {}, set: {}, list: {}}

@@ -20,10 +20,14 @@ def test_source_subset_is_narrower_than_storage_and_generated_boundary():
     release = prepared()
     assert release.source_establishments() == {"stated", "agent_asserted"}
     assert release.enum_members("Establishment") == {"stated", "agent_asserted", "derived"}
+    from corpus_structure.semantic.identity import canonical_bytes
+
     raw = batch()
+    release.validate_json("AgentAuthoredBatch", canonical_bytes(raw))
     raw["claims"][0]["establishment"] = "derived"
-    with pytest.raises(ValidationError):
-        release.validate_python("AgentAuthoredBatch", raw)
+    with pytest.raises(ValidationError) as refused:
+        release.validate_json("AgentAuthoredBatch", canonical_bytes(raw))
+    assert any(error["loc"] == ("claims", 0, "establishment") for error in refused.value.errors())
 
 
 def test_expression_projection_keeps_declared_enum_and_expression_form():
@@ -198,3 +202,33 @@ def test_unexpected_comparison_value_error_remains_a_failure(monkeypatch):
     monkeypatch.setattr(scientific_evidence, "SemanticComparator", BrokenComparator)
     with pytest.raises(ValueError, match="programming defect injected"):
         policy.scientific_decisions(inputs, scope)
+
+
+def test_logical_reading_dimensions_are_owned_by_the_archived_rule_schema():
+    from corpus_structure.semantic.rule_views import Reading, ValueView
+    from .test_scientific_rule_views import language
+
+    lang = language()
+    rule = lang.compile("reading", 'claim.value&.parse == "ok"')
+    assert rule.evaluate({"claim": SimpleNamespace(value=ValueView("text", None, "x", None, "text", Reading("ok")))})
+    with pytest.raises(ValidationError):
+        rule.evaluate({"claim": SimpleNamespace(value=ValueView("text", None, "x", None, "text", Reading("invented")))})
+
+
+def test_persisted_scientific_reason_is_typed_and_original_abi_stays_readable():
+    from corpus_structure.semantic.scientific_evidence import scientific_assessment_reason
+    from corpus_structure.semantic.scientific_evidence_schema import parse_scientific_assessment_reason
+    import json
+
+    reason = SemanticReason("incompatible_bindings", "scientific_policy", "release:test", ("occ:a", "occ:b"), detail="bindings differ")
+    serialized = scientific_assessment_reason(None, detail="undecided", context={}, semantic_reason=reason)
+    opened = parse_scientific_assessment_reason(serialized)
+    assert opened.abi == "scientific-assessment-evidence-2"
+    assert opened.semantic_reason == reason
+    original = json.loads(serialized)
+    original["abi"] = "scientific-assessment-evidence-1"
+    original.pop("semantic_reason")
+    assert parse_scientific_assessment_reason(json.dumps(original)).semantic_reason is None
+    original["semantic_reason"] = json.loads(serialized)["semantic_reason"]
+    with pytest.raises(ValidationError, match="original scientific evidence ABI"):
+        parse_scientific_assessment_reason(json.dumps(original))

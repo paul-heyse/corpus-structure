@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from functools import cached_property
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import yaml
 from linkml_runtime.linkml_model import SchemaDefinition
@@ -19,7 +19,6 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, TypeAdapter, create_m
 from rule_engine import DataType
 
 from corpus_structure.core import tex
-from corpus_structure.core.vocab import MathKind, ParseOutcome
 from corpus_structure.schema.rulelang import Language
 
 from .types import PreparedRelease, PropertyDefinition
@@ -32,11 +31,10 @@ MAX_SYMBOL = 64
 
 
 class Reading(NamedTuple):
-    """The math grammar's reading of one value (finalize only): its parse status, the kind it read
-    as (`MathKind`), and its symbols."""
+    """Operation reading; the archived rule schema owns its admitted dimensions."""
 
-    status: ParseOutcome
-    kind: MathKind | None = None
+    status: str
+    kind: str | None = None
     symbols: tuple[str, ...] = ()
 
 
@@ -150,11 +148,11 @@ class ValueView:
 
     @property
     def parse(self) -> str | None:
-        return self.reading.status.value if self.reading else None
+        return str(self.reading.status) if self.reading else None
 
     @property
     def math_kind(self) -> str | None:
-        return self.reading.kind.value if self.reading and self.reading.kind else None
+        return str(self.reading.kind) if self.reading and self.reading.kind else None
 
 
 @dataclass(frozen=True)
@@ -332,6 +330,21 @@ def build_rule_language(
         "date": DataType.DATETIME,
         "datetime": DataType.DATETIME,
     }
+
+    # Logical reading dimensions belong to the archived operation recipe, rather
+    # than to a legacy runtime enum. The same vocabulary constrains compiler literals
+    # and actual accessor values through the cached strict adapters.
+    logical_enums = {str(name): tuple(str(member) for member in enum.permissible_values)
+                     for name, enum in view.all_enums().items()}
+    values = dict(values)
+    for name, members in logical_enums.items():
+        primitive_annotations[name] = Literal[tuple(members)]
+        primitive_types[name] = DataType.STRING
+    from corpus_structure.schema.rulelang import Vocabulary
+    for owner, fields in declarations.items():
+        for name, spec in fields.items():
+            if spec.range in logical_enums:
+                values[owner, name] = Vocabulary(spec.range, frozenset(logical_enums[spec.range]))
 
     def domain_range(class_name: str) -> str:
         if class_name == "Value" or "Value" in definitions[class_name].ancestors:

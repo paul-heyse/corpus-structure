@@ -171,7 +171,7 @@ def _rule_cases():
         return NodeView(op, None, None, None, term)
 
     def value(text, reading=None, slot="formula"):
-        return ValueView(slot, text, None, None, slot, reading)
+        return ValueView(slot, text, None, None, slot, reading, expression_form=slot)
 
     def qualifiers(**kw):
         return SimpleNamespace(modality="asserted", polarity=True, **kw)

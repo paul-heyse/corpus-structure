@@ -127,3 +127,42 @@ def require_unicode_identity_pair(
             expected="exact qualified Unicode runtime/collation pair",
             actual="unqualified or changed determinants",
         ))
+
+
+# Independently qualified on 2026-11-03. This is an exact supported runtime pair,
+# not a promise about other Python builds, UCDs, PostgreSQL versions or collations.
+# Evidence: docs/design_review/evidence/2026-11-03_unicode-identity/records/ac03.unicode.json.
+QUALIFIED_PAIR = UnicodeIdentityQualification(
+    PROFILE, DOMAIN,
+    {
+        "implementation": "CPython",
+        "python": "3.14.10 (main, Oct 26 2026, 14:09:22) [Clang 23.1.3 ]",
+        "ucd": "16.0.0",
+        "mapping_digest": "97b00ff02d8ab202d343184b422f25c8ea8e0b30db3f9334ed3b2d909a615d02",
+    },
+    {
+        "server_version": "18.6 (Ubuntu 18.6-1.pgdg24.04+2)",
+        "server_version_num": "180006",
+        "encoding": "UTF8",
+        "provider": "b",
+        "recorded_version": "1",
+        "actual_version": "1",
+    },
+    "97b00ff02d8ab202d343184b422f25c8ea8e0b30db3f9334ed3b2d909a615d02",
+    1557,
+)
+
+
+def qualified_python_identity_recipe() -> bytes:
+    """Producing artifacts retain only the independently qualified Python determinants."""
+    if QUALIFIED_PAIR.python != python_identity_runtime():
+        raise SemanticOperationRefusal(SemanticReason(
+            "incompatible_bindings", "resolve_identity", None,
+            expected="independently qualified Python Unicode runtime",
+            actual="unqualified Python/UCD/build or folding mapping",
+        ))
+    return QUALIFIED_PAIR.content()
+
+
+def require_current_unicode_pair(connection: Connection) -> None:
+    require_unicode_identity_pair(connection, QUALIFIED_PAIR)

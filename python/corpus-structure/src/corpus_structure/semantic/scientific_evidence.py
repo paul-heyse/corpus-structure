@@ -28,6 +28,7 @@ from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 
 from .identity import canonical_bytes
+from .refusals import SemanticReason
 from .scientific_evidence_schema import ScientificAssessmentEvidence as ScientificAssessmentEvidence
 from .scientific_evidence_schema import (
     parse_scientific_assessment_reason as parse_scientific_assessment_reason,
@@ -313,7 +314,8 @@ class ScientificDecision:
 
 
 def scientific_assessment_reason(
-    evidence: ScientificEvidence | None, *, detail: str, context: Any
+    evidence: ScientificEvidence | None, *, detail: str, context: Any,
+    semantic_reason: SemanticReason | None = None,
 ) -> str:
     """Serialize exact model operands/context with the policy that consumed evidence."""
     envelope = ScientificAssessmentEvidence(
@@ -328,6 +330,7 @@ def scientific_assessment_reason(
         operands=(evidence.a, evidence.b) if evidence else None,
         context=canonical_bytes(context).decode(),
         detail=detail,
+        semantic_reason=semantic_reason,
     )
     return canonical_bytes(envelope.model_dump(mode="json")).decode()
 

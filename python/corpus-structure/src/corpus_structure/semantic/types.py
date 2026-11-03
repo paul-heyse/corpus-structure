@@ -262,6 +262,9 @@ class PreparedRelease:
     _property_adapters: dict[tuple[str, str, bool], TypeAdapter[Any]] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
+    _enum_memberships: dict[tuple[str, str | None], frozenset[str]] = field(
+        default_factory=dict, repr=False, compare=False, init=False
+    )
     _result_adapters: dict[tuple[str, str, str | None], TypeAdapter[Any]] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
@@ -313,7 +316,10 @@ class PreparedRelease:
 
     def enum_members(self, name: str, *, subset: str | None = None) -> frozenset[str]:
         """Closed membership and authored member properties share release authority."""
-        return _enum_members(self.vocabularies, self.registry_rows, name, subset)
+        key = (name, subset)
+        if key not in self._enum_memberships:
+            self._enum_memberships[key] = _enum_members(self.vocabularies, self.registry_rows, name, subset)
+        return self._enum_memberships[key]
 
     def source_establishments(self) -> frozenset[str]:
         """Source admission is narrower than general occurrence storage."""

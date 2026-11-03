@@ -72,6 +72,7 @@ def build_domain_case(
     math: dict[str, Any] | None = None,
     second_math: dict[str, Any] | None = None,
     statement_packets: str | None = None,
+    attribute_assertions: bool = False,
 ) -> tuple[PreparedRelease, RunId, CutId]:
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
@@ -305,6 +306,9 @@ def build_domain_case(
                 {
                     "predicate": "https://example.org/name",
                     "value": {"kind": "text", "text": "Alice"},
+                    "qualification": {"modality": "asserted", "polarity": True},
+                    "establishment": "stated",
+                    "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}],
                 }
             ]
         else:
@@ -410,6 +414,14 @@ def build_domain_case(
     if condition is not None:
         for claim in raw["claims"]:
             claim["qualification"] = {**claim["qualification"], "condition": condition}
+    if attribute_assertions:
+        raw["entities"][0]["attributes"] = [{
+            "predicate": "https://example.org/name", "value": {"kind": "text", "text": "Alice"},
+            "qualification": {"modality": "supposed", "polarity": False},
+            "establishment": "agent_asserted",
+            "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"},
+                         {"sentence": "s1", "quote": "Alice is here.", "role": "supporting"}],
+        }]
     located = (
         locate_proposal(
             prepared, raw, frame, known_classes={"known:alice": ("https://example.org/Person",)}

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "ac03.unicode",
+  "title": "Exact Python and PostgreSQL Unicode folding pair",
+  "group": "Audit closure semantic contracts",
+  "package": "AC03",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the exact selected Python/UCD and PostgreSQL builtin collation agree on Unicode default folding over the supported PostgreSQL text domain?",
+  "answers": [
+    "AC03 I01",
+    "DA-009"
+  ],
+  "method": "Read-only comparison of every supported scalar mapping, plus six independently specified sequence cases and a changed-determinant refusal at the Python admission boundary. No normalization is applied.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=/home/paul/.cache/corpus-ac-semantic/.venv uv run python docs/design_review/evidence/2026-11-03_unicode-identity/code/qualify.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "code/qualify.py",
+      "role": "read-only qualification",
+      "sha256": "af4a53f167f374e4bfc52a37d3481150d93b567bc63f16c2d7ccf716b35ce3f7"
+    },
+    {
+      "path": "inputs/unicode_identity.py",
+      "role": "qualification implementation snapshot",
+      "sha256": "919dca8fdb85f8353cf1cc59c49da83127821587f45213279ef2d5c295d1b2ee"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/qualified-pair.json",
+      "role": "exact runtime pair, full mapping digest and independent cases",
+      "sha256": "15583d79813507558bd57afec3b7c613ae2a8dceb1d369c1e583ea3fcec3a73d"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "changed_scalar_mappings",
+      "value": 1557,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "independent_sequence_cases",
+      "value": 6,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "mapping_digest",
+      "value": "97b00ff02d8ab202d343184b422f25c8ea8e0b30db3f9334ed3b2d909a615d02",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The exact CPython3.14.10/UCD16.0.0 and PostgreSQL18.6/UTF8/builtin pg_unicode_fast version1 pair agrees on every scalar mapping within PostgreSQL's text domain, excluding NUL and surrogates. Composed and decomposed strings remain distinct. Other runtime pairs are unqualified; native deployment binding and integrated publication require their own evidence.",
+  "consumed_by": [
+    "AC03",
+    "AC13"
+  ]
+}

@@ -460,3 +460,22 @@ classes:
     assert envelope.__dict__["root"] is node
     assert opened._boundary_models["Node"] is node_type
     assert item.validate_python(node, strict=True) is node
+
+
+@pytest.mark.parametrize("compiler", ["14", "15"])
+def test_genuine_supported_archive_retains_exact_boundary_and_comparison_meaning(compiler, monkeypatch):
+    from decimal import Decimal
+    from corpus_structure.semantic import prepare
+    from corpus_structure.semantic.comparison_projection import comparison_projection
+
+    data, bundle, artifacts = archived(_FIXTURE.with_name(f"reader-v{compiler}.json"))
+    # These are actual compiler14/15 outputs generated from their retained source
+    # commits, rather than a current archive relabelled with another compiler number.
+    monkeypatch.setattr(prepare, "prepare_release", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("archive reading must not recompile")))
+    opened = reconstruct_release(data["products"], bytes.fromhex(data["manifest"]), bundle,
+                                 PreparationProfile(**data["profile"]), artifacts)
+    value = opened.validate_json("Quote", '{"id":"source:exact","exact":"1.200"}')
+    assert value.exact == Decimal("1.200")
+    assert value.exact.as_tuple().exponent == -3
+    assert comparison_projection(opened).compiler_version == compiler
+    assert comparison_projection(opened).default == "non-provenance-qualification-is-context-v1"

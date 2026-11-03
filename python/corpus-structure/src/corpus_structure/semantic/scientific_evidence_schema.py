@@ -5,14 +5,18 @@ from __future__ import annotations
 import json
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, NonNegativeInt
+from pydantic import BaseModel, ConfigDict, NonNegativeInt, model_validator
+
+from .refusals import SemanticReason
 
 
 class ScientificAssessmentEvidence(BaseModel):
     """Versioned persisted explanation for the scientific assessment constructor."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    abi: Literal["scientific-assessment-evidence-1"] = "scientific-assessment-evidence-1"
+    abi: Literal["scientific-assessment-evidence-1", "scientific-assessment-evidence-2"] = (
+        "scientific-assessment-evidence-2"
+    )
     policy: Literal[
         "consolidation-evidence-1",
         "reference-evidence-1",
@@ -27,6 +31,13 @@ class ScientificAssessmentEvidence(BaseModel):
     operands: tuple[str, str] | None
     context: str
     detail: str
+    semantic_reason: SemanticReason | None = None
+
+    @model_validator(mode="after")
+    def original_abi(self):
+        if self.abi == "scientific-assessment-evidence-1" and self.semantic_reason is not None:
+            raise ValueError("original scientific evidence ABI cannot acquire semantic reasons")
+        return self
 
 
 def parse_scientific_assessment_reason(reason: str | None) -> ScientificAssessmentEvidence | None:

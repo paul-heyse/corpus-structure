@@ -119,7 +119,7 @@ def project_markup(
         ("subject", subject, subject_locator, segment),
         ("object", target_id, target_locator, target),
     ):
-        attributes = {"id": entity, "locator": locator}
+        attributes = {"locator": locator}
         hint = payload.get("value") if role == "subject" else node.attrs.get("hint")
         kind = hint.get("statement_kind") if isinstance(hint, Mapping) else None
         if kind is not None:

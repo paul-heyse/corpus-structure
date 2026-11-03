@@ -11,7 +11,6 @@ from collections import defaultdict
 from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass, replace
-from datetime import date, datetime
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
@@ -46,6 +45,7 @@ from .publication import (
     _publish,
 )
 from .query import SnapshotBinding
+from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
 from .releases import open_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
@@ -53,7 +53,6 @@ RULE_INPUT = "operation/domain-rules.yaml"
 VERSION = "semantic-domain-3"
 
 
-from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
 
 
 class DomainOperationRefused(SemanticRefusal):
@@ -1085,9 +1084,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                 relevant = tuple(sorted(soft_ids[node] for node in members if node[0] == "known"))
                 if len(relevant) > 1:
                     outcome = "ambiguous_anchor"
-            elif groups:
-                outcome = "incomplete_key"
-            elif basis == "global_label":
+            elif groups or basis == "global_label":
                 outcome = "incomplete_key"
             decisions[oid, e["id"]] = (basis, outcome, relevant, groups, dependencies)
             # An absent/incomplete semantic key never licenses a label merge for a keyed class.
@@ -1183,13 +1180,6 @@ def _project_cut(
     entity_mappings, extra_attributes, parsed, resolution_decisions = _entity_mappings(
         prepared, observations, output, known, contexts
     )
-    operation_props = {
-        (body["class"], body["property"]): body
-        for row in prepared.registry_rows
-        if row.kind == "operation_property"
-        for body in (json.loads(row.body),)
-    }
-
     def coverage_row(
         family, scope, outcome, reason=None, source_outcome=None, required_capability=None
     ):
@@ -1610,7 +1600,7 @@ def _project_cut(
             statement = statements.get(claim.get("statement"))
             if statement is not None and statement["kind"] != "outside":
                 sid = statement_ids[claim["statement"]]
-                props = {"id": sid, "locator": statement["anchor"]}
+                props = {"locator": statement["anchor"]}
                 from .statement_types import statement_definition, statement_kinds
 
                 statement_type = statement_definition(prepared)
@@ -2312,8 +2302,6 @@ class ReleasedRulesPolicy:
                 "Establishment", frozenset(prepared.enum_members("Establishment"))
             ),
         }
-        from corpus_structure.core.vocab import MathKind, ParseOutcome
-
         from .statement_types import statement_kinds as bound_statement_kinds
 
         statement_kinds = Vocabulary("StatementKind", bound_statement_kinds(prepared))
@@ -2323,12 +2311,6 @@ class ReleasedRulesPolicy:
         values[("Claim", "statement_kind")] = statement_kinds
         values[("Statement", "kind")] = statement_kinds
         values[("Claim", "statement_role")] = statement_roles
-        values[("Value", "parse")] = Vocabulary(
-            "ParseOutcome", frozenset(m.value for m in ParseOutcome)
-        )
-        values[("Value", "math_kind")] = Vocabulary(
-            "MathKind", frozenset(m.value for m in MathKind)
-        )
         values[("Value", "t")] = Vocabulary(
             "Value discriminators",
             frozenset(
@@ -2650,7 +2632,7 @@ class ReleasedRulesPolicy:
             o.occurrence_id: o.report_qualification_value_id for o in inputs.batch.occurrence
         }
 
-        def assessment(a, b, outcome, reason, tier, evidence=None):
+        def assessment(a, b, outcome, reason, tier, evidence=None, semantic_reason=None):
             from .scientific_evidence import scientific_assessment_reason
 
             validate_result_dimension(self.prepared, "scientific_policy", "comparison", outcome)
@@ -2683,6 +2665,7 @@ class ReleasedRulesPolicy:
                         reason=scientific_assessment_reason(
                             evidence,
                             detail=reason or f"{tier} comparison: {outcome}",
+                            semantic_reason=semantic_reason,
                             context={
                                 "left": a.object,
                                 "right": b.object,
@@ -2721,12 +2704,15 @@ class ReleasedRulesPolicy:
             for index, a in enumerate(ordered):
                 for b in ordered[index + 1 :]:
                     reason = None
+                    reason_code = None
                     comparison = None
                     operative_macros = dict(a.macros)
                     if _bindings(a.object) != _bindings(b.object):
                         reason = "distinct explicit expression bindings"
+                        reason_code = "incompatible_bindings"
                     elif set(a.constants) != set(b.constants):
                         reason = "incompatible source constant declarations"
+                        reason_code = "incompatible_bindings"
                     elif isinstance(a.object, dict) and isinstance(b.object, dict):
                         left_context = a.object.get("macro_context", {})
                         right_context = b.object.get("macro_context", {})
@@ -2735,6 +2721,7 @@ class ReleasedRulesPolicy:
                             for name in left_context.keys() & right_context.keys()
                         ):
                             reason = "incompatible referenced source macro definitions"
+                            reason_code = "incompatible_bindings"
                         else:
                             for name in right_context:
                                 operative_macros[name] = b.macros[name]
@@ -2802,13 +2789,8 @@ class ReleasedRulesPolicy:
                                 left, right, conditions, ref_eq=lambda x, y: x == y
                             )
                         except (DomainOperationRefused, ScientificInterpretationUnavailable) as exc:
-                            reason = canonical_bytes({"semantic_reason": {
-                                "code": "unsupported_interpretation",
-                                "operation": "scientific_policy",
-                                "release_id": self.prepared.release_id,
-                                "references": [a.occurrence_id, b.occurrence_id],
-                                "detail": str(exc),
-                            }}).decode()
+                            reason = str(exc)
+                            reason_code = "unsupported_interpretation"
                     if comparison is None:
                         assessment(
                             a,
@@ -2816,6 +2798,11 @@ class ReleasedRulesPolicy:
                             "undecided",
                             reason or "no faithful comparison operand",
                             "undecided",
+                            semantic_reason=SemanticReason(
+                                reason_code or "missing_operands", "scientific_policy",
+                                self.prepared.release_id, (a.occurrence_id, b.occurrence_id),
+                                detail=reason or "no faithful comparison operand",
+                            ),
                         )
                         unresolved.update(c.occurrence_id for c in members)
                         continue
@@ -3157,14 +3144,14 @@ class ReleasedRulesPolicy:
                             completeness="failed" if result.failure else "complete",
                         )
                         reading = Reading(
-                            result.status,
+                            result.status.value,
                             GRAMMAR_KINDS.get(result.kind or ""),
                             tuple(sorted({o.name for o in result.occurrences if not o.constant})),
                         )
                         readings[key] = reading
                     reading = readings[key]
-                    if reading.status.value != "ok":
-                        reading_note = "mathematical reading " + reading.status.value
+                    if reading.status != "ok":
+                        reading_note = "mathematical reading " + reading.status
                     for binding in raw.get("bindings", ()):
                         bindings.append(
                             BindingView(
