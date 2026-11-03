@@ -1165,7 +1165,9 @@ def validation_failure_report(
                 operation=operation,
                 scope=scope,
                 message=str(error),
-                original_report="refusal:" + type(error).__name__,
+                original_report=(canonical_bytes(asdict(error.semantic_reason)).decode()
+                                 if getattr(error, "semantic_reason", None) is not None
+                                 else "refusal:" + type(error).__name__),
             )
         ]
     elif isinstance(error, ValueError):

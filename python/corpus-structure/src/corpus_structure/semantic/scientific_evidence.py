@@ -833,7 +833,7 @@ def canonical_operand(raw: Any, macros: Mapping[str, MacroDef]) -> dict[str, Any
     elif isinstance(raw, (date, datetime)):
         raw = {"kind": "date", "date": raw.isoformat()}
     if not isinstance(raw, Mapping):
-        raise ValueError("scientific operand has no faithful comparison shape")
+        raise ScientificInterpretationUnavailable("scientific operand has no faithful comparison shape")
     kind = raw.get("kind")
     if kind == "text":
         return {
@@ -843,7 +843,7 @@ def canonical_operand(raw: Any, macros: Mapping[str, MacroDef]) -> dict[str, Any
     if kind in {"number", "quantity"}:
         number = Decimal(raw["number"])
         if not number.is_finite():
-            raise ValueError("scientific number must be finite")
+            raise ScientificInterpretationUnavailable("scientific number must be finite")
         lexical = format(number, "f") if number else "0"
         if "." in lexical:
             lexical = lexical.rstrip("0").rstrip(".")
@@ -868,7 +868,7 @@ def canonical_operand(raw: Any, macros: Mapping[str, MacroDef]) -> dict[str, Any
         return {"key": raw["target"]}
     if kind in {"formula", "set", "expression"}:
         if raw.get("language") not in {"latex", "tex"}:
-            raise ValueError("scientific expression language has no comparison")
+            raise ScientificInterpretationUnavailable("scientific expression language has no comparison")
         return {
             "t": "set" if kind == "set" or raw.get("form") == "set" else "formula",
             "latex": token_form(raw["expression"], macros),
@@ -881,7 +881,7 @@ def canonical_operand(raw: Any, macros: Mapping[str, MacroDef]) -> dict[str, Any
             **({"start": canonical_operand(raw["lower"], macros)} if "lower" in raw else {}),
             **({"end": canonical_operand(raw["upper"], macros)} if "upper" in raw else {}),
         }
-    raise ValueError(f"scientific {kind!r} operand has no faithful comparison shape")
+    raise ScientificInterpretationUnavailable(f"scientific {kind!r} operand has no faithful comparison shape")
 
 
 def canonical_restriction(raw: Mapping[str, Any], macros: Mapping[str, MacroDef]) -> Any:
@@ -914,7 +914,11 @@ def canonical_restriction(raw: Mapping[str, Any], macros: Mapping[str, MacroDef]
         if relation in {"=", "!="}:
             sides.sort(key=_json)
         return {"op": "cmp", "rel": relation, "lhs": sides[0], "rhs": sides[1]}
-    raise ValueError(f"condition {kind!r} has no mathematical restriction projection")
+    raise ScientificInterpretationUnavailable(f"condition {kind!r} has no mathematical restriction projection")
+
+
+class ScientificInterpretationUnavailable(ValueError):
+    """A known scientific representation cannot be interpreted by the admitted operation."""
 
 
 class SemanticComparator(MathematicalEvidence):
@@ -938,7 +942,7 @@ class SemanticComparator(MathematicalEvidence):
                 or node.get("kind") not in {"formula", "set", "expression"}
                 or node.get("language") not in {"latex", "tex"}
             ):
-                raise ValueError(
+                raise ScientificInterpretationUnavailable(
                     "mathematical restriction requires a supported semantic expression"
                 )
             from .analysis_contracts import prepare_interpretation_context
@@ -968,7 +972,7 @@ class SemanticComparator(MathematicalEvidence):
                 if lhs is not None and rhs is not None:
                     relations.append((node["relation"], lhs, rhs))
             else:
-                raise ValueError(f"unsupported scientific restriction {kind!r}")
+                raise ScientificInterpretationUnavailable(f"unsupported scientific restriction {kind!r}")
 
         for condition in conditions:
             visit(condition)
@@ -983,7 +987,7 @@ class SemanticComparator(MathematicalEvidence):
             elif node["kind"] == "compare":
                 expected_relations += 1
         if len(members) != expected_members or len(relations) != expected_relations:
-            raise ValueError("mathematical restriction reading is incomplete")
+            raise ScientificInterpretationUnavailable("mathematical restriction reading is incomplete")
         product = (tuple(members), tuple(relations))
         self._condition_products[key] = product
         return product

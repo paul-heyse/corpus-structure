@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
 _EMPTY_DEPENDENCIES = ResolvedDependencies()
-SEMANTIC_AGENT_VERSION = "semantic-6"
+SEMANTIC_AGENT_VERSION = "semantic-7"
 MAX_KNOWN = 30
 
 
@@ -58,6 +58,7 @@ def proposal_inputs(
     ):
         raise ValueError("agent operation needs an explicit Qualification class or subclass")
     module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
+    module["classes"]["SourceAttributeAssertion"]["attributes"]["qualification"]["range"] = qualification_class
     entities = [
         d
         for d in candidate.classes
@@ -81,6 +82,16 @@ def proposal_inputs(
     module["enums"]["AgentStatementKind"]["permissible_values"] = {
         **{name: {} for name in sorted(candidate.enum_members(statement_enum))},
         "outside": {"description": "An explicitly unresolved external statement reference."},
+    }
+    for contextual, canonical in (("AgentStatementRole", "StatementRole"),
+                                  ("AgentEvidenceRole", "EvidenceRole")):
+        module["enums"][contextual]["permissible_values"] = {
+            name: {} for name in sorted(candidate.enum_members(canonical))
+        }
+    # Resolve the effective member metadata through the ordinary release preparer, rather
+    # than reproducing LinkML inheritance/include semantics in the producer.
+    module["enums"]["SourceEstablishment"]["permissible_values"] = {
+        name: {} for name in sorted(candidate.enum_members("Establishment", subset="source_admissible"))
     }
     module["enums"]["AgentClassIRI"]["permissible_values"] = {d.iri: {} for d in entities}
     module["enums"]["AgentPropertyIRI"]["permissible_values"] = {
@@ -825,63 +836,72 @@ def locate_proposal(
     native_cascades = {}
 
     issues = []
-    for section in ("claims", "unsupported", "identity_exclusions"):
-        for index, item in enumerate(stored.get(section, ())):
-            located = []
-            for ordinal, citation in enumerate(item["evidence"]):
-                path = f"{section}[{index}].evidence[{ordinal}]"
-                if not citation["quote"] or citation["sentence"] not in sentences:
-                    raise ProposalRefused(
-                        f"{path}: citation needs nonempty quote and a declared sentence"
-                    )
-                handle = citation["sentence"]
-                source, sentence = source_entries[handle]
-                native_alias = isinstance(frame, NativeProposalFrame) and (
-                    source is not frame or sentence.id.startswith("native_evidence:")
+    evidence_items = [
+        (f"{section}[{index}]", item)
+        for section in ("claims", "unsupported", "identity_exclusions")
+        for index, item in enumerate(stored.get(section, ()))
+    ]
+    evidence_items.extend(
+        (f"entities[{index}].attributes[{ordinal}]", attribute)
+        for index, entity in enumerate(stored.get("entities", ()))
+        for ordinal, attribute in enumerate(entity.get("attributes", ()))
+    )
+    for item_path, item in evidence_items:
+        located = []
+        for ordinal, citation in enumerate(item["evidence"]):
+            path = f"{item_path}.evidence[{ordinal}]"
+            if not citation["quote"] or citation["sentence"] not in sentences:
+                raise ProposalRefused(
+                    f"{path}: citation needs nonempty quote and a declared sentence"
                 )
-                # Native aliases name one retained item/cell/formula piece. A quote outside that
-                # piece cannot relocate into another sentence or use a fuzzy reinterpretation.
-                if native_alias:
-                    if citation["quote"] not in source.text[sentence.start : sentence.end]:
-                        found = Located()
-                    else:
-                        if handle not in native_cascades:
-                            native_cascades[handle] = Cascade(
-                                source.text,
-                                [FrameSentence(handle, sentence.start, sentence.end)],
-                                dict(macros or {}),
-                                policy=placement_policy,
-                            )
-                        found = native_cascades[handle].locate(citation["quote"], handle)
+            handle = citation["sentence"]
+            source, sentence = source_entries[handle]
+            native_alias = isinstance(frame, NativeProposalFrame) and (
+                source is not frame or sentence.id.startswith("native_evidence:")
+            )
+            # Native aliases name one retained item/cell/formula piece. A quote outside that
+            # piece cannot relocate into another sentence or use a fuzzy reinterpretation.
+            if native_alias:
+                if citation["quote"] not in source.text[sentence.start : sentence.end]:
+                    found = Located()
                 else:
-                    found = cascade.locate(citation["quote"], sentence.id)
-                row = dict(citation)
-                row["placement"] = found.step.value if found.step is not None else "not_found"
-                row["matches"] = found.matches
-                row["picked"] = found.picked
-                row["timeouts"] = tuple(step.value for step in found.timeouts)
-                if found.score is not None:
-                    row["alignment_score"] = Decimal(str(found.score))
-                if found.fuzzy_counts is not None:
-                    row["fuzzy_counts"] = found.fuzzy_counts
-                row["outcome"] = "unlocated"
-                if found.found and found.sentence is not None:
-                    row.update(
-                        locator=sentences[found.sentence].locator,
-                        start=found.start,
-                        end=found.end,
-                        outcome="coarse"
-                        if found.step in {Step.TOKENS, Step.CHARACTERS}
-                        else "located",
-                    )
-                if row["outcome"] != "located":
-                    issues.append(
-                        ProposalIssue(
-                            path, row["outcome"], "source quote placement is " + row["outcome"]
+                    if handle not in native_cascades:
+                        native_cascades[handle] = Cascade(
+                            source.text,
+                            [FrameSentence(handle, sentence.start, sentence.end)],
+                            dict(macros or {}),
+                            policy=placement_policy,
                         )
+                    found = native_cascades[handle].locate(citation["quote"], handle)
+            else:
+                found = cascade.locate(citation["quote"], sentence.id)
+            row = dict(citation)
+            row["placement"] = found.step.value if found.step is not None else "not_found"
+            row["matches"] = found.matches
+            row["picked"] = found.picked
+            row["timeouts"] = tuple(step.value for step in found.timeouts)
+            if found.score is not None:
+                row["alignment_score"] = Decimal(str(found.score))
+            if found.fuzzy_counts is not None:
+                row["fuzzy_counts"] = found.fuzzy_counts
+            row["outcome"] = "unlocated"
+            if found.found and found.sentence is not None:
+                row.update(
+                    locator=sentences[found.sentence].locator,
+                    start=found.start,
+                    end=found.end,
+                    outcome="coarse"
+                    if found.step in {Step.TOKENS, Step.CHARACTERS}
+                    else "located",
+                )
+            if row["outcome"] != "located":
+                issues.append(
+                    ProposalIssue(
+                        path, row["outcome"], "source quote placement is " + row["outcome"]
                     )
-                located.append(row)
-            item["evidence"] = tuple(located)
+                )
+            located.append(row)
+        item["evidence"] = tuple(located)
     return LocatedProposal(
         authored, prepared.validate_python("AgentStoredBatch", stored), tuple(issues)
     )

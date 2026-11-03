@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import adbc_driver_manager
 import psycopg
@@ -19,6 +19,34 @@ if TYPE_CHECKING:
 
 class SemanticRefusal(ValueError):
     """An owned boundary deliberately refuses an unsupported or incompatible request."""
+
+
+@dataclass(frozen=True)
+class SemanticReason:
+    """An operation's expected inability to decide, without interpreting human text."""
+
+    code: Literal["missing_operands", "unsupported_interpretation", "incompatible_bindings", "preparation_failed"]
+    operation: str
+    release_id: str | None
+    references: tuple[str, ...] = ()
+    expected: str | None = None
+    actual: str | None = None
+    detail: str | None = None
+
+    def render(self) -> str:
+        return self.detail or self.code.replace("_", " ")
+
+
+class SemanticOperationRefusal(SemanticRefusal):
+    def __init__(self, reason: SemanticReason):
+        self.semantic_reason = reason
+        self.reason = reason.code
+        super().__init__(reason.render())
+
+
+def semantic_failure_fields(error: BaseException) -> dict[str, Any]:
+    reason = getattr(error, "semantic_reason", None)
+    return {"semantic_reason": asdict(reason)} if reason is not None else {}
 
 
 @dataclass
@@ -121,6 +149,7 @@ def tool_refusals(*expected: type[Exception]):
                         {
                             "code": type(error).__name__,
                             "message": str(error),
+                            **semantic_failure_fields(error),
                             "validation": failure_context(error)
                             .report(error)
                             .model_dump(mode="json"),

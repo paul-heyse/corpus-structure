@@ -160,6 +160,42 @@ class ClassPreview:
     abstract: bool
 
 
+
+def _enum_members(vocabularies, registry_rows, name: str, subset: str | None = None) -> frozenset[str]:
+    """Shared effective closed membership and authored contextual metadata resolution."""
+    import json
+
+    vocabulary = next(v for v in vocabularies if v.enum == name)
+    if subset is None:
+        return frozenset(m.value for m in vocabulary.members)
+    definitions = {
+        r.name: json.loads(r.body) for r in registry_rows if r.kind == "enum_definition"
+    }
+
+    def properties(
+        expression: dict[str, Any], stack: tuple[str, ...]
+    ) -> dict[str, dict[str, Any]]:
+        # Membership has already been resolved by the ontology/value-set compiler. This
+        # resolves authored member metadata only, in the same seed/override order.
+        result: dict[str, dict[str, Any]] = {}
+        for parent in expression.get("inherits") or ():
+            if parent in stack:
+                raise ValueError("cyclic archived enum metadata")
+            result.update(properties(definitions[parent], (*stack, parent)))
+        result.update(expression.get("permissible_values") or {})
+        for included in expression.get("include") or ():
+            result.update(properties(included, stack))
+        return result
+
+    members = properties(definitions[name], (name,))
+    return frozenset(
+        m.value
+        for m in vocabulary.members
+        if subset in members.get(m.value, {}).get("in_subset", ())
+    )
+
+
+
 @dataclass(frozen=True)
 class SchemaPreview:
     """Names and closed vocabulary for authoring inputs, without release admission artifacts."""
@@ -167,10 +203,10 @@ class SchemaPreview:
     classes: tuple[ClassPreview, ...]
     vocabularies: tuple[VocabularySnapshot, ...]
     diagnostics: tuple[Diagnostic, ...]
+    enum_definitions: tuple[RegistryRow, ...] = ()
 
-    def enum_members(self, name: str) -> frozenset[str]:
-        vocabulary = next(v for v in self.vocabularies if v.enum == name)
-        return frozenset(m.value for m in vocabulary.members)
+    def enum_members(self, name: str, *, subset: str | None = None) -> frozenset[str]:
+        return _enum_members(self.vocabularies, self.enum_definitions, name, subset)
 
 
 class _AdapterLookup(Mapping[str, TypeAdapter[BaseModel]]):
@@ -276,36 +312,35 @@ class PreparedRelease:
 
     def enum_members(self, name: str, *, subset: str | None = None) -> frozenset[str]:
         """Closed membership and authored member properties share release authority."""
+        return _enum_members(self.vocabularies, self.registry_rows, name, subset)
+
+    def source_establishments(self) -> frozenset[str]:
+        """Source admission is narrower than general occurrence storage."""
+        return self.enum_members("Establishment", subset="source_admissible")
+
+    def reference_splits(self) -> frozenset[str]:
+        return self.enum_members("ReferenceSplit", subset="executable")
+
+    def member_has_behavior(self, vocabulary: str, member: str | None, behavior: str) -> bool:
+        return member is not None and member in self.enum_members(vocabulary, subset=behavior)
+
+    def display_properties(self, class_id: str) -> tuple[PropertyDefinition, ...]:
+        """Ordered released display bindings; names carry no display semantics."""
         import json
 
-        vocabulary = next(v for v in self.vocabularies if v.enum == name)
-        if subset is None:
-            return frozenset(m.value for m in vocabulary.members)
-        definitions = {
-            r.name: json.loads(r.body) for r in self.registry_rows if r.kind == "enum_definition"
+        definition = self.index.definitions.get(class_id) or self.index.by_iri[class_id]
+        metadata = {
+            body["property"]: body
+            for row in self.registry_rows
+            if row.kind == "operation_property"
+            for body in (json.loads(row.body),)
+            if body["class"] == definition.name
         }
-
-        def properties(
-            expression: dict[str, Any], stack: tuple[str, ...]
-        ) -> dict[str, dict[str, Any]]:
-            # Membership has already been resolved by the ontology/value-set compiler. This
-            # resolves authored member metadata only, in the same seed/override order.
-            result: dict[str, dict[str, Any]] = {}
-            for parent in expression.get("inherits") or ():
-                if parent in stack:
-                    raise ValueError("cyclic archived enum metadata")
-                result.update(properties(definitions[parent], (*stack, parent)))
-            result.update(expression.get("permissible_values") or {})
-            for included in expression.get("include") or ():
-                result.update(properties(included, stack))
-            return result
-
-        members = properties(definitions[name], (name,))
-        return frozenset(
-            m.value
-            for m in vocabulary.members
-            if subset in members.get(m.value, {}).get("in_subset", ())
-        )
+        return tuple(sorted(
+            (prop for prop in definition.properties
+             if "display" in self.index.property_roles.get((definition.iri, prop.iri), ())),
+            key=lambda prop: (int(metadata[prop.iri].get("cs:display_order", "0")), prop.iri),
+        ))
 
     def entity_keys(
         self,

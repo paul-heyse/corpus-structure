@@ -78,6 +78,8 @@ SPINE = (
     "entity",
     "entity_input",
     "entity_source",
+    "entity_resolution",
+    "scientific_representative",
     "identity_exclusion",
     "identity_exclusion_evidence",
     "membership",

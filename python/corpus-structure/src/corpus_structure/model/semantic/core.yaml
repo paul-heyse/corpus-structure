@@ -111,6 +111,7 @@ classes:
           occurrences.
         annotations:
           cs:role: display
+          cs:display_order: 0
           cs:constraint_scope: accepted_value
       aliases:
         multivalued: true
@@ -118,6 +119,7 @@ classes:
           rules.
         annotations:
           cs:role: display
+          cs:display_order: 1
   SemanticScope:
     attributes:
       extent:
@@ -594,9 +596,9 @@ enums:
       document: {}
   Establishment:
     permissible_values:
-      stated: {}
+      stated: {in_subset: [source_admissible]}
       derived: {}
-      agent_asserted: {}
+      agent_asserted: {in_subset: [source_admissible]}
   MissingReason:
     permissible_values:
       absent: {}
@@ -660,6 +662,7 @@ enums:
         description: A statement whose only content is a supposition (a context premise).
         in_subset:
         - claim_bearing
+        - global_premise_context
       narrative:
         description: Narrative text between units that states claims.
         in_subset:
@@ -697,6 +700,7 @@ enums:
     description: The part a claim plays in its statement (guideline §10.3).
     permissible_values:
       premise:
+        in_subset: [participates_as_premise, supplies_binding_symbol]
         description: A supposition the statement makes.
       conclusion:
         description: What a theorem, corollary or remark concludes.
@@ -705,6 +709,7 @@ enums:
       restriction:
         description: Reserved; restrictions are condition nodes in guideline v1.
       example_value:
+        in_subset: [supplies_binding_symbol]
         description: A setup value of an example or exercise.
   EvidenceRole:
     description: The part an evidence span plays for its claim (guideline §10.8).

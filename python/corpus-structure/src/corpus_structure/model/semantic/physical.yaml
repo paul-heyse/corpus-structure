@@ -669,8 +669,7 @@ classes:
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"},
         {"columns": ["realization_id", "release_id", "object_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
         {"columns": ["realization_id", "release_id", "qualification_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
-      ph:indexes: '[["realization_id", "release_id", "property_id", "subject_id"], ["realization_id",
-        "release_id", "property_id", "object_value_id"]]'
+      ph:indexes: '[["realization_id", "release_id", "property_id", "subject_id"], ["realization_id", "release_id", "property_id", "object_value_id"], {"expression": "release_id, realization_id, subject_id, fact_id COLLATE \"C\"", "name": "ix_fact_scoped_adjacency", "include": ["property_id", "object_value_id"]}]'
   occurrence:
     in_subset:
     - data
@@ -1776,6 +1775,44 @@ classes:
     annotations:
       ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
+  entity_resolution:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      observation_id: {range: integer, required: true}
+      local_id: {range: string, required: true}
+      entity_id: {range: string, required: true}
+      basis: {range: string, required: true}
+      outcome: {range: string, required: true}
+      candidates: {range: string, required: true}
+      key_policy: {range: string, required: true}
+      dependencies: {range: string, required: true}
+      reason: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      operation_version: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, observation_id, local_id]
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
+      ph:checks: '["basis IN (''declared_key'', ''global_label'', ''source_local'')", "outcome IN (''resolved'', ''ambiguous_anchor'', ''incomplete_key'', ''ungrounded_cycle'')"]'
+  scientific_representative:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      fact_id: {range: string, required: true}
+      representative_fact_id: {range: string, required: true}
+      policy_id: {range: string, required: true}
+      component_id: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, fact_id]
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "representative_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
   alternative_group:
     in_subset: [data]
     attributes:

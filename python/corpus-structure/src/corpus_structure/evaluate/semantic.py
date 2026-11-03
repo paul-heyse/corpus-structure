@@ -672,6 +672,8 @@ def _prediction(conn, completed, unit, prepared):
     }
     known: dict[str, str] = {}
     seen = set()
+    from corpus_structure.semantic.identity import claim_source_item
+
     claim_aliases = {}
     for observation in observations:
         source = observation["payload"]
@@ -692,7 +694,7 @@ def _prediction(conn, completed, unit, prepared):
                 if (observation["id"], item["id"]) in mappings:
                     known[value["id"]] = mappings[observation["id"], item["id"]]
         for index, claim in enumerate(rewritten.get("claims", ())):
-            fact = admitted.get((observation["observation_key"], "claims/" + str(index)))
+            fact = admitted.get((observation["observation_key"], claim_source_item(index)))
             if fact is None:
                 continue
             c = copy.deepcopy(claim)

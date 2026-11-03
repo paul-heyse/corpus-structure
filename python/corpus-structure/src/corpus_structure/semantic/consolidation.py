@@ -223,7 +223,7 @@ def assemble(
     supports: set[SupportRow] = set()
 
     for item in items:
-        if item.establishment not in {"stated", "agent_asserted"}:
+        if item.establishment not in prepared.source_establishments():
             raise ValueError(
                 "source assembly requires explicit source establishment; inference publishes proofs"
             )

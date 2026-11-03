@@ -76,6 +76,7 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:key_role",
         "cs:case",
         "cs:role",
+        "cs:display_order",
         "cs:qualifiers",
         "cs:identity_qualifiers",
         "cs:param_map",
@@ -503,7 +504,11 @@ def preview_schema(
         )
         for name, cls in sorted(view.all_classes().items())
     )
-    return SchemaPreview(classes, vocabularies, diagnostics)
+    enums = tuple(
+        RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
+        for name, enum in sorted(view.all_enums().items())
+    )
+    return SchemaPreview(classes, vocabularies, diagnostics, enums)
 
 
 def prepare_release(

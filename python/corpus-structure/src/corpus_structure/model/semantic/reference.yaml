@@ -179,8 +179,8 @@ enums:
       final_assessment: {}
   ReferenceSplit:
     permissible_values:
-      dev: {}
-      test: {}
+      dev: {in_subset: [executable]}
+      test: {in_subset: [executable]}
       reserved: {}
   ReferencePassKind:
     permissible_values:

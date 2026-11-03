@@ -31,6 +31,13 @@ def canonical_bytes(value: Any) -> bytes:
     ).encode()
 
 
+def claim_source_item(index: int) -> str:
+    """Ordinary proposal-list address; native record addresses use their own ABI."""
+    if isinstance(index, bool) or not isinstance(index, int) or index < 0:
+        raise ValueError("claim source index must be a nonnegative integer")
+    return f"claims/{index}"
+
+
 def occurrence_key(release_id: str, realization: str, source: str, item: str) -> str:
     """Two occurrences differ by source/item; a retry uses the same complete tuple."""
     if not all((release_id, realization, source, item)):

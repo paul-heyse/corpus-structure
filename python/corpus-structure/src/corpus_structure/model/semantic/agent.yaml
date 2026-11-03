@@ -5,10 +5,17 @@ prefixes:
 default_prefix: agent
 default_range: string
 classes:
-  AgentAttribute:
+  SourceAttributeAssertion:
     attributes:
       predicate: {range: AgentPropertyIRI, required: true}
       value: {range: Value, inlined: true, required: true}
+      qualification: {range: Qualification, inlined: true, required: true}
+      establishment: {range: SourceEstablishment, required: true}
+      evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
+  StoredSourceAttributeAssertion:
+    is_a: SourceAttributeAssertion
+    slot_usage:
+      evidence: {range: AgentLocatedEvidence}
   AgentReference:
     attributes:
       source_uri: {}
@@ -19,9 +26,13 @@ classes:
       id: {required: true}
       class_iri: {range: AgentClassIRI, required: true}
       label: {}
-      attributes: {range: AgentAttribute, inlined: true, multivalued: true}
+      attributes: {range: SourceAttributeAssertion, inlined: true, multivalued: true}
       scope: {range: SemanticScope, inlined: true}
       reference: {range: AgentReference, inlined: true}
+  AgentStoredEntity:
+    is_a: AgentEntity
+    slot_usage:
+      attributes: {range: StoredSourceAttributeAssertion}
   AgentStatementBinding:
     description: Explicit release-bound domain class used when materializing source statements.
     attributes:
@@ -90,7 +101,7 @@ classes:
       predicate: {range: AgentPropertyIRI, required: true}
       object: {range: Value, inlined: true, required: true}
       qualification: {range: Qualification, inlined: true, required: true}
-      establishment: {range: Establishment, required: true}
+      establishment: {range: SourceEstablishment, required: true}
       statement: {range: SourceStatement}
       statement_role: {range: AgentStatementRole}
       evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
@@ -136,6 +147,7 @@ classes:
   AgentStoredBatch:
     is_a: AgentAuthoredBatch
     slot_usage:
+      entities: {range: AgentStoredEntity}
       identity_exclusions: {range: AgentStoredIdentityExclusion}
       claims: {range: AgentStoredClaim}
       unsupported: {range: AgentStoredUnsupported}
@@ -146,23 +158,16 @@ enums:
       known: {}
   AgentStatementKind:
     permissible_values: {}
+  SourceEstablishment:
+    permissible_values: {}
   AgentStatementRole:
-    permissible_values:
-      premise: {}
-      conclusion: {}
-      definiens: {}
-      restriction: {}
-      example_value: {}
+    permissible_values: {}
   AgentClassIRI:
     permissible_values: {}
   AgentPropertyIRI:
     permissible_values: {}
   AgentEvidenceRole:
-    permissible_values:
-      primary: {}
-      supporting: {}
-      condition: {}
-      definition: {}
+    permissible_values: {}
   AgentPlacementOutcome:
     permissible_values:
       located: {}

@@ -71,6 +71,29 @@ class EntitySourceRow:
 
 
 @dataclass(frozen=True)
+class EntityResolutionRow:
+    observation_id: int
+    local_id: str
+    entity_id: str
+    basis: str
+    outcome: str
+    candidates: str
+    key_policy: str
+    dependencies: str
+    reason: str
+    operation_id: str
+    operation_version: str
+
+
+@dataclass(frozen=True)
+class ScientificRepresentativeRow:
+    fact_id: str
+    representative_fact_id: str
+    policy_id: str
+    component_id: str
+
+
+@dataclass(frozen=True)
 class IdentityExclusionRow:
     exclusion_id: str
     observation_id: int
@@ -285,6 +308,8 @@ _ROW_TYPES = {
     **RECORD_ROW_TYPES,
     "entity": EntityRow,
     "entity_source": EntitySourceRow,
+    "entity_resolution": EntityResolutionRow,
+    "scientific_representative": ScientificRepresentativeRow,
     "identity_exclusion": IdentityExclusionRow,
     "identity_exclusion_evidence": IdentityExclusionEvidenceRow,
     "membership": MembershipRow,
@@ -332,6 +357,8 @@ class PublicationBatch:
     batch_id: str
     entity: tuple[EntityRow, ...] = ()
     entity_source: tuple[EntitySourceRow, ...] = ()
+    entity_resolution: tuple[EntityResolutionRow, ...] = ()
+    scientific_representative: tuple[ScientificRepresentativeRow, ...] = ()
     identity_exclusion: tuple[IdentityExclusionRow, ...] = ()
     identity_exclusion_evidence: tuple[IdentityExclusionEvidenceRow, ...] = ()
     membership: tuple[MembershipRow, ...] = ()

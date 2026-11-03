@@ -1,6 +1,6 @@
 id: https://corpus-structure.dev/semantic/rule-view
 name: semantic_rule_view
-version: semantic-rule-view-1
+version: semantic-rule-view-2
 prefixes:
   rv: https://corpus-structure.dev/semantic/rule-view/
   xsd: http://www.w3.org/2001/XMLSchema#
@@ -46,6 +46,20 @@ classes:
           rv:collection: array
   Value:
     attributes:
+      value_kind:
+        range: string
+      declared_range:
+        range: string
+      enum_id:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      expression_form:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      reading_status:
+        range: string
       t:
         range: string
       latex:

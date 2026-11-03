@@ -83,6 +83,11 @@ def test_logical_object_accessor_checks_actual_return_type_and_literal_vocabular
                 "claim": SimpleNamespace(
                     value=SimpleNamespace(
                         t=3,
+                        value_kind="text",
+                        declared_range="Value",
+                        enum_id=None,
+                        expression_form=None,
+                        reading_status="unavailable",
                         latex=None,
                         v=None,
                         enum=None,
@@ -236,7 +241,7 @@ classes:
         registry_rows=(
             *prepared.registry_rows,
             RegistryRow(
-                "operation_property", "params", canonical_bytes({"cs:param_map": "params"})
+                "operation_property", "params", canonical_bytes({"cs:param_map": "params", "class": "Qualification", "property": "https://example.org/params", "name": "params"})
             ),
         ),
     )

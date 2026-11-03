@@ -22,10 +22,10 @@ from corpus_structure.core import tex
 from corpus_structure.core.vocab import MathKind, ParseOutcome
 from corpus_structure.schema.rulelang import Language
 
-from .types import PreparedRelease
+from .types import PreparedRelease, PropertyDefinition
 
 RULE_VIEW_INPUT = "operation/rule-view.yaml"
-RULE_VIEW_ABI = "semantic-rule-view-1"
+RULE_VIEW_ABI = "semantic-rule-view-2"
 _BARE = re.compile(r"[A-Za-z]+(_\{?\w+\}?)?")
 MAX_SYMBOL = 64
 
@@ -124,10 +124,24 @@ class ValueView:
     enum: str | None
     slot_kind: str
     reading: Reading | None = None
+    declared_range: str = "Value"
+    expression_form: str | None = None
+
+    @property
+    def value_kind(self) -> str:
+        return self.t
+
+    @property
+    def enum_id(self) -> str | None:
+        return self.enum
+
+    @property
+    def reading_status(self) -> str:
+        return self.parse or ("missing" if self.t == "missing" else "unavailable")
 
     @cached_property
     def defined_symbol(self) -> str | None:
-        return defined_symbol(self.latex) if self.t == "formula" else None
+        return defined_symbol(self.latex) if self.expression_form == "formula" or self.t == "formula" else None
 
     @property
     def parse(self) -> str | None:
@@ -186,22 +200,41 @@ def _annotations(slot) -> dict[str, str]:
     return {str(name): str(getattr(value, "value", value)) for name, value in entries}
 
 
-def _value_projection(value):
-    if isinstance(value, ValueView) or value is None:
+def project_rule_value(
+    prepared: PreparedRelease,
+    binding: PropertyDefinition | str,
+    value: Any,
+    reading: Reading | None = None,
+) -> ValueView | None:
+    """One translation for claim roots, inlined values and keyed parameter entries.
+
+    The declared binding, rather than the discriminator, owns range and enum identity.
+    Reading absence is unavailable, and failed readings retain their actual status.
+    """
+    if value is None:
+        return None
+    declared = binding.range if isinstance(binding, PropertyDefinition) else binding
+    if isinstance(value, ValueView):
+        if value.declared_range != declared:
+            raise ValueError("rule value belongs to another declared range")
         return value
-    if not isinstance(value, Mapping):
-        raise ValueError("typed rule Value requires a semantic record")
-    kind = value["kind"]
-    lexical = value.get("expression")
-    scalar = next(
-        (
-            value[name]
-            for name in ("text", "number", "boolean", "date", "instant", "lexical")
-            if name in value
-        ),
-        None,
-    )
-    return ValueView(str(kind), lexical, None if scalar is None else str(scalar), None, str(kind))
+    enum = declared if any(v.enum == declared for v in prepared.vocabularies) else None
+    if isinstance(value, BaseModel):
+        value = value.model_dump(mode="python", exclude_unset=True)
+    if isinstance(value, Mapping):
+        kind = value["kind"]
+        lexical = value.get("expression")
+        scalar = next((value[name] for name in (
+            "text", "number", "boolean", "date", "instant", "lexical", "target"
+        ) if name in value), None)
+        form = value.get("form") or (kind if kind in {"formula", "set", "relation", "membership", "list"} else None)
+    else:
+        kind = "entity" if declared in prepared.index.definitions else "text"
+        lexical, scalar, form = None, value, None
+    if isinstance(scalar, date):
+        scalar = scalar.isoformat()
+    return ValueView(str(kind), lexical, None if scalar is None else str(scalar),
+                     enum, declared, reading, declared, form)
 
 
 def build_rule_language(
@@ -367,7 +400,10 @@ def build_rule_language(
                 if isinstance(value, Mapping) and all(
                     isinstance(v, Mapping) and "kind" in v for v in value.values()
                 ):
-                    value = {key: _value_projection(member) for key, member in value.items()}
+                    parent = prepared.index.properties[spec.source_class, spec.source_property]
+                    entry_binding = prepared.index.properties[parent.range, "value"]
+                    value = {key: project_rule_value(prepared, entry_binding, member)
+                             for key, member in value.items()}
                 else:
                     entries = list(value.values()) if isinstance(value, Mapping) else value
                     projected = {}
@@ -375,17 +411,19 @@ def build_rule_language(
                         key = entry["key"]
                         if key in projected:
                             raise ValueError("parameter-map projection contains duplicate keys")
-                        projected[key] = _value_projection(entry["value"])
+                        parent = prepared.index.properties[spec.source_class, spec.source_property]
+                        entry_binding = prepared.index.properties[parent.range, "value"]
+                        projected[key] = project_rule_value(prepared, entry_binding, entry["value"])
                     value = projected
             elif spec.range == "Value" and spec.source_class is not None:
                 # Native schema fields also occur inside keyed records. Logical rule-view
                 # fields already hold projected Values and have no source_class.
                 value = (
-                    {key: _value_projection(v) for key, v in value.items()}
+                    {key: project_rule_value(prepared, prepared.index.properties[spec.source_class, spec.source_property], v) for key, v in value.items()}
                     if spec.collection == "mapping"
-                    else tuple(_value_projection(v) for v in value)
+                    else tuple(project_rule_value(prepared, prepared.index.properties[spec.source_class, spec.source_property], v) for v in value)
                     if spec.collection == "array"
-                    else _value_projection(value)
+                    else project_rule_value(prepared, prepared.index.properties[spec.source_class, spec.source_property], value)
                 )
         if spec.collection == "array" and isinstance(value, list):
             value = tuple(value)
