@@ -402,7 +402,8 @@ contracts. Local overviews supplied broader discovery leads; their research vers
 assumed equal to current dependency pins. No library overviews were rewritten. The supplemental reassessment additionally inspected tagged
 record/schema/engine/processor/trainer implementations and immutable base/multi configurations.
 It corrects the former source-uncertain cardinality/explicit-span statements while leaving local
-runtime and quality evidence unestablished. The source document remains operator-owned dirty work. Optional native formation, structured
+runtime and quality evidence unestablished. The initially dirty source document was committed independently as `4720b9a7` with unchanged
+blob during subsequent plan authoring. Optional native formation, structured
 assignment, original attribute/combined APIs and supplied-span recovery were assessed in composition;
 shared model residency and exact schema fingerprints constrain reuse. The original base-install
 claim is qualified by the supplemental reported import issue, not repeated as an import guarantee.
@@ -415,3 +416,13 @@ Documentation maintenance/publication checks are reported in the session handoff
 The proposed gates in the rollout page remain unestablished. The next decision is selection into
 implementation planning, including the named qualification prerequisites, rather than claiming
 that M1 has been implemented or released.
+
+
+## Implementation planning owner
+
+**Proposed plan scope, 2026-11-03.** The [M1 coordinator](../plans/first-production-milestone_2026-11-03.md)
+now owns the planned O01–O07 packages, WP0–WP6 mapping and conditional investigation/disposition
+routes. O08–O11 remain trigger-based opportunities with their value argument here; no unconditional
+implementation adoption follows. Execution and runtime qualification have not started. The operator
+clarified that prior UM code functionality and validation are complete; its remaining agent
+assessment/follow-up work is distinct from the new M1 scope.

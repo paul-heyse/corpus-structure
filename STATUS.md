@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-03; native99 implementation and non-Claude source qualification delivered. Knowledge/reference/evaluator acceptance remains open._
+_Updated 2026-11-03; native99 implementation and non-Claude source qualification delivered. Remaining UM work is agent assessment and follow-up only._
 
 ## Current checkpoint
 
@@ -22,12 +22,10 @@ _Updated 2026-11-03; native99 implementation and non-Claude source qualification
   ADR-0047 current-only compiler14/boundary12/execution23/archive3 remains; no legacy runtime fallback.
   Unselected improvements and diagnostic audit premises are unchanged.
 
-- **Proposed design, 2026-11-03:** [M1 target](docs/target-pipeline-design/first-production-milestone.md)
-  now integrates the [functional review](docs/functional_reviews/m1-target-design_2026-11-03.md):
-  five statistics-first CPU record families, concrete library mechanisms and staged extensions.
-  Supplemental GLiNER review integrates native assignment/schema controls and composed recovery;
-  latent/anchorless/count-guided routes remain conditional. Operator library edits stay uncommitted.
-  Implementation selection and M1 runtime/release qualification remain separate.
+- **Proposed M1 series, 2026-11-03:** [coordinator](docs/plans/first-production-milestone_2026-11-03.md)
+  owns M1-00–15, O01–O07 and trigger-based expansions from the integrated target/review.
+  No M1 implementation or runtime qualification started; operator library content is preserved.
+  UM code functionality/validation is complete; only its agent assessment/follow-up remains.
 
 ## Verification
 
@@ -48,8 +46,8 @@ _Updated 2026-11-03; native99 implementation and non-Claude source qualification
 - **failed, deferred:** docs-check has existing library-reorganization publication links.
   Final just turn-end passed; current docs-check reports no owned UM/consumer link error.
 
-- **M1 docs, 2026-11-03:** `git diff --check` and `just turn-end` passed; `just docs-check` failed on existing
-  publication links, with no M1 target/review target error. Product checks `not_run` (design only).
+- **M1 plan docs, 2026-11-03:** `git diff --check` and `just turn-end` passed; `just docs-check` failed on existing
+  publication links, with no M1 target/review target error. Product checks `not_run` (plan authoring only).
 
 ## Next
 

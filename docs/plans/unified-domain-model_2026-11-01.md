@@ -1,6 +1,6 @@
 # Unified domain model: typed operations and generated realization
 
-**Status:** Active — implementation, functional/native qualification and actual non-Claude source consumers delivered through native99; knowledge/reference/evaluator acceptance remains open (2026-11-03).
+**Status:** Active — code functionality implemented and validated; remaining scope is agent assessment and follow-up work only (operator clarification, 2026-11-03).
 **Created:** 2026-11-01. **Target claims:** Substantial implementation with the bounded gaps below; Tested only within
 recorded receipt scopes. Historical evidence retains its original source and scope. This coordinator alone owns package state,
 execution queue and source-review disposition for the new series.
@@ -416,6 +416,10 @@ retirement, forward freezing, fresh bootstrap/intake and final qualification. Al
 predecessor checks retain their limits. Final source must be qualified after broad retirement.
 
 ## Current execution checkpoint — 2026-11-02
+
+**Operator clarification, 2026-11-03:** no code functionality remains to implement or validate in
+this series. Remaining work is agent assessment and follow-up only. New M1 code and qualification
+are owned by the [M1 series](first-production-milestone_2026-11-03.md), not unfinished UM work.
 
 **Implemented / bounded Tested (updated2026-11-03); Claude-dependent acceptance open.**
 Current compiler14/boundary12/execution23/archive3 and ADR-0047 remain current-only.
