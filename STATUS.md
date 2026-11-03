@@ -2,6 +2,7 @@
 _Updated 2026-11-03; bounded M1 completion audit recorded. UM functionality/validation remains complete._
 
 ## Current checkpoint
+- [Broad audit](docs/design_review/audit/README.md) refreshed 2026-11-03 at fe67cc8+identified dirty M1; DA-053 claim-lifetime diagnosis; static only. `just docs-check` failed on links outside audit.
 
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md) owns package/finding
   disposition. Its [completion audit](docs/plans/first-production-milestone_2026-11-03.md#completion-audit--claimed-finished-slices)

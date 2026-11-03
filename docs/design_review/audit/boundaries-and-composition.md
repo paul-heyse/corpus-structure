@@ -1,199 +1,70 @@
 # Boundaries and composition
 
-These findings concern module and library boundaries, configuration and lifecycle in the
-go-forward architecture, at the [audited baseline](README.md#baseline). The operator scoped the
-audit to the go-forward design. Legacy modules are therefore examined only at the edges where
-go-forward code depends on them ([DA-045](#da-045)).
-
-Paths are relative to `python/corpus-structure/src/corpus_structure/` unless they start with
-`scripts/`, `ops/` or `docs/` (repository root), or `rev/`
-(`python/corpus-structure/semantic_alembic/versions/`).
+**Implemented source inspected, 2026-11-03.** [Baseline](README.md#baseline).
+Paths omit `python/corpus-structure/src/corpus_structure/`.
 
 <a id="da-018"></a>
 
-## DA-018 — Retired at this baseline
+## DA-018 — Historical extension-version correction retained
 
-*Was: "Server extension versions are neither pinned nor reconciled, and the test template ignores
-them" (2026-10-28).*
-
-Phase 0 corrected it before the pivot:
-- `ops/postgresql/extensions.txt` records each expected `extversion`;
-- `scripts/pg_provision.sh` installs and verifies them (`:45-53`, `:115-121`);
-- `core/db/extensions.py` refuses a mismatched database at `ci db init` (`cli/db.py:84-94`) and at
-  every engine open (`core/db/store.py:93-94`);
-- the semantic test fixture checks them too.
-
-Verified 2026-10-29 at `ad4593f`. The earlier text is in Git.
+The earlier phase0 extension-pin correction retains its October29 evidence date. No fresh
+provider/version campaign was run. This refresh supplies no reason to reinstate that diagnosis.
 
 <a id="da-019"></a>
 
-## DA-019 — Retired at this baseline
+## DA-019 — Historical test-sweep lease correction not refreshed
 
-*Was: "Test-database sweeping can drop a template another live session is using" (2026-10-28).*
-
-The legacy fixture now takes advisory-lock leases and sweeps only what it can lock
-(`python/corpus-structure/tests/conftest.py:18-20`, `:65`, `:167`, `:242-295`). The semantic
-fixture creates a unique database per test and has no sweeper. Any remaining residue and harness
-design belong to the [test audit](../test-audit/README.md) (DTA-002). Verified 2026-10-29. The
-earlier text is in Git.
+The former phase0 test-lease finding remains historical. The independent test account owns its
+current coverage; this production audit does not renew that baseline.
 
 <a id="da-020"></a>
 
-## DA-020 — Analytical resource selection is not propagated to consolidation
+## DA-020 — Analytics-setting propagation diagnosis corrected
 
-**Source-inspected 2026-11-01 at `1cb8e620`; FP-01/05/07, DP-18/20; A4.**
-This narrows the inherited broader configuration diagnosis. `settings.py:98–108` declares
-analytical threads, memory and scratch selection. `semantic/domain_operations.py:2050–2075`
-constructs `AnalysisScope(packet)` without those inputs; `analytics.py:1018–1025` separately
-supplies defaults of four threads, 2GB and no chosen scratch path. An operator choosing a lower
-resource envelope does not thereby select that envelope for this consolidation path. Export
-consumes capture settings; do not describe every analytical setting as unused. The correction
-belongs at runtime acquisition/operation composition, keeping resource selection separate from
-release-owned arithmetic policy. No performance or failure measurement was run.
-
-Closure: show a non-default resource selection reaching actual consolidation scope creation,
-with immutable semantic policy unaffected. Other former coordinate/principal observations are
-inherited at October 29 scope and require reinspection before reuse.
+consolidate_cut receives actual AnalyticsSettings and forwards thread/memory/scratch to AnalysisScope
+(`semantic/domain_operations.py:2058–2088`). Finalization forwards settings
+(`orchestrate/commands.py:387`), and both CLI routes pass settings.analytics
+(`cli/regenerate.py:262`; cli/orchestrate.py:287). This is source correction, not performance qualification.
 
 <a id="da-045"></a>
 
-## DA-045 — Go-forward contracts still live in legacy modules, and one layer depends upward
+## DA-045 — Method reader's read-only promise is not enforced by its connection capability
 
-**Principles:** FP-01, FP-03, DP-13–DP-17 (DP-17: module boundaries follow ownership), DP-18, A1.
-**Subject:** implemented.
-
-### Diagnosis
-
-The go-forward architecture owns its release, publication and serving contracts. It does not own
-several contracts it runs on, which still live in modules the pivot treats as legacy. This is
-recorded as boundary facts. The legacy internals were not audited.
-
-| Contract the go-forward code relies on | Legacy owner | Go-forward consumers (examples) |
-|---|---|---|
-| Method contract, `Reader`, `UnitResult` | `core.method` | `semantic/operations.py`, `observations.py`, `operation_results.py` |
-| Execution and observation enums (task unit, observation kind and outcome, run kind, measurement scope, run and task status) | `core.vocab`, generated from the legacy `model/core.yaml` and `system.yaml` | `semantic/operations.py:28,131,739-923`; `orchestrate/commands.py:13`; `cli/orchestrate.py:24` ([DA-012](structure-and-invariants.md#da-012)) |
-| kb identity recipes (`document_key`, `rendition_key`, `segment_key`, `content_digest`) | `core.evidence` | `semantic/operations.py:480,526` |
-| Connection pool and extension check | `core.db.store.open_store`, `core.db.extensions` | `semantic/runtime.py:70`; `cli/db.py` |
-| Physical compiler, naming convention, digest CHECK names | `schema.relational` | `semantic/metadata.py:18` ([DA-031](native-integrity.md#da-031)) |
-| Rule-visible view types and kernels | `schema.rules`, `schema.rulelang`, `validate.views` (including private names), `pool.steps`, `pool.duckdb_engine` (private SQL), `consolidate.finalize.GRAMMAR_KINDS` | `semantic/domain_operations.py:2298-2454, 2938-2950`; `semantic/analytics.py:40, 673, 757` ([DA-005](semantic-model-and-authority.md#da-005)) |
-| Scientific equivalence | `evaluate.equivalence` (private `_constraints`), `core.values` | `semantic/domain_operations.py:2183-2249, 2627, 2811` ([DA-034](semantic-model-and-authority.md#da-034)) |
-| Locator grammar, canonical JSON for tokens, label normalization | `core.locators`, `core.canonical`, `core.keys.normalize_label`/`LabelRules` | `semantic/source_frames.py`, `proposals.py`, `source_projection.py`; `serve/journey.py`; `semantic/domain_operations.py:817-974`; `evaluate/semantic_alignment.py` |
-| Pack location and run configuration | `schema.pack.DOMAINS`, `orchestrate.phase0` (which imports legacy `consolidate.pass_` and `validate.runner`), `orchestrate.registry`, `orchestrate.policy`, `orchestrate.runs.code_commit` | `orchestrate/commands.py`, `project.py`, `cli/regenerate.py`, `cli/orchestrate.py`, `semantic/regeneration.py` |
-
-Two contract defects sit at these edges. They are in go-forward code, not in the legacy modules:
-- **The method boundary's read-only promise is a convention.**
-  - The legacy contract documents `Reader.connection()` as "a read-only connection"
-    (`core/method.py:226-228`). The go-forward `BoundReader` returns the run's own connection
-    (`semantic/operations.py:905-908`).
-  - `method.select` runs inside the task-creating transaction (`orchestrate/semantic.py:211-217`).
-  - Methods issue raw SQL against `kb.document`, `kb.rendition` and `ops.run`
-    (`ingest/methods.py:155-163, 175, 256-261, 274-279`; `methods/math/methods.py:163`;
-    `methods/llm/packet.py:458`).
-- **One layering inversion.** `semantic.contracts`, the semantic authority layer, imports the
-  execution layer (`orchestrate.project`, `orchestrate.semantic`; `semantic/contracts.py:37`).
-
-### Consequence
-
-- Changing a go-forward method contract, execution enum, physical naming rule, rule-visible field
-  or equivalence rule means editing a module the plans treat as retiring.
-- Importing the semantic run path imports the legacy `consolidate` and `validate` packages.
-- SP-09 retirement of these modules is blocked by live edges no retirement list names (the leverage
-  review recorded that SP-09 names no module list).
-- Method plug-ins encode physical table names outside the MetaData.
-- The read-only, run-scoped method contract is not enforced, although natively the writer cannot
-  write `data` or `sem`.
-
-### Counterevidence
-
-Several of these are deliberately reused pure algorithms. The pivot coordinator says "useful pure
-algorithms … remain". The defect is the unowned contract and the direction of the dependency, not
-the reuse.
-
-**Evidence:** import facts observed at `ad4593f`. The contract defects are diagnosed from source.
+**FP-02/03/05, DP-08/17/18; implemented, narrowed.** Reader.connection promises read-only
+(`core/method.py:358–359`), but BoundReader returns its existing connection
+(`semantic/operations.py:1272–1275`), and ScopedSourceReader uses an ordinary engine checkout
+(`orchestrate/source_reader.py:45–46`). Method selection happens inside a write-capable
+registration transaction (`orchestrate/semantic.py:365–375`). A method obeying the interface shape
+therefore receives more effect authority than the contract describes.
+Scoped read rollback protects against ordinary accidental persistence, but does not enforce
+read-only behavior. Shared core.method/vocabulary/pure algorithms are legitimate live dependencies;
+their older legacy label does not establish a violation. The semantic/contracts.py import of
+orchestration is a dependency-direction question, not independently demonstrated semantic damage.
 
 <a id="da-047"></a>
 
-## DA-047 — Surfaces are maintained without a go-forward consumer
+## DA-047 — Advertised operational surfaces overstate their current behavior
 
-**Principles:** DP-16 (G7), DP-01; AGENTS.md "check that it has a real consumer". **Subject:**
-implemented.
-
-### Diagnosis
-
-Several go-forward surfaces are built, versioned or rendered with nothing consuming them:
-
-| Surface | Evidence |
-|---|---|
-| The `data.selected_fact` view | Created in revision 0002. No Python or native consumer; `semantic/query.py:436-445` re-expresses the accepted projection directly |
-| Authored SQL | Admission, archival and the native admission requirement all exist (`semantic/authored_sql.py`; `require_execution_release`). Nothing executes authored SQL, no pack supplies any, and the current activation route cannot admit it ([DA-030](native-integrity.md#da-030)) |
-| `record_direction` and `ops.intervention` | The MCP tool writes free-text directions under `actor="agent:session"`. No go-forward Python reader exists (SQL readers were not searched exhaustively) |
-| The `propose_claims` schema hash | Substituted with the expected value when the agent omits it (`intervene/semantic_server.py:388`), so attestation is optional. Packet integrity is still re-derived server-side |
-| The consolidation `fuse` product | Built over an empty `CandidateInput`. Its only use, `candidate_facts - fused_ids`, is decidable from the batch (`semantic/domain_operations.py:2011-2022, 3101-3103`) |
-| `StatusReport.orphaned` | Always `[]` (`orchestrate/commands.py:298, 340`), while `cli/status.py:67-69` renders an orphan hint ([DA-041](structure-and-invariants.md#da-041)) |
-| CLI options `--agent-reuse by_unit` and `--wait` | Advertised (`cli/orchestrate.py:139-140`), but refused by the semantic run path (`orchestrate/semantic.py:69-77`) |
-| `PreparedRelease.queries` | Trivial per-class descriptors with no consumer |
-| `semantic/routines.py` and `semantic/sql/*.sql` | Dead and stale ([DA-032](native-integrity.md#da-032)) |
-
-### Consequence
-
-Each surface needs maintenance and review and suggests a capability that does not exist. Two of
-them create real hazards:
-- the dead `deploy_routines` would grant UPDATE broadly;
-- the optional schema hash weakens an attestation the protocol appears to require.
-
-**Evidence:** diagnosed from source. Absence claims rest on grep over the go-forward packages, and
-dynamic access was not traced.
+**FP-06, DP-15/22/24; implemented, narrowed.** Orphan status is always empty
+(`orchestrate/commands.py:399,441`); CLI advertises by_unit (`cli/orchestrate.py:141`) while
+semantic execution refuses it (`orchestrate/semantic.py:91–95`). These surfaces can imply
+functionality they do not establish. Omitted proposal schema hash being replaced by the server
+value (`intervene/semantic_server.py:575`) is an interface-policy fact, not automatically a defect.
+PreparedRelease.queries remains descriptor state, not proof of a missing execution consumer.
+The old empty-fusion claim is removed: fusion consumes admitted-cut candidates
+(`domain_operations.py:2080–2091`). Native SQL/generators now have authoring consumers;
+no blanket dead-code diagnosis remains.
 
 <a id="da-052"></a>
 
-## DA-052 — Claim-proposal production is welded to the interactive `agent.opus` path, not to a declared producer contract
+## DA-052 — Knowledge-claim agent production is bound to a literal method identity
 
-**Principles:** FP-03, DP-02, DP-08, A2; §E change locality. **Subject:** implemented.
-
-### Diagnosis
-
-Native code recognizes agent work generically, by method tier or family `'agent'`
-(`rev/semantic_0018_*.sql:24`; `rev/semantic_0020_*.sql:25`; `rev/semantic_0023_execution.sql:188, 370`).
-Python binds it by the method *name* `agent.opus` at five sites:
-- propose (`orchestrate/semantic.py:99, 523, 584-591`);
-- the MCP lease (`intervene/semantic_server.py:126`);
-- the automated provider (`intervene/automated.py:57, 202`).
-
-Status reporting uses a third predicate, tier (`orchestrate/commands.py:316`; [DA-003](semantic-model-and-authority.md#da-003)).
-
-The agent's operation contract has two sources:
-- the registered `AgentOpus` method declares version, family, tier and confidence source
-  (`methods/llm/agent_opus.py:100-107`);
-- `queue_agent` builds its own literal descriptor and hashes configurations by a second scheme
-  (`orchestrate/semantic.py:468-480`; compare `orchestrate/registry.py:220`).
-
-Methods are registered through a hard-coded tuple in `orchestrate/phase0.py:88-95`, which imports
-legacy `consolidate` and `validate` code.
-
-Claim proposals have one writer and one reader:
-- only the MCP commit writes `AgentStoredBatch` (`intervene/semantic.py:218-220`);
-- source-path producers can write only `SourceObservation` (`semantic/operations.py:707`);
-- consolidation projects only `AgentStoredBatch` (`semantic/domain_operations.py:1224-1231`), and
-  every other report becomes `unanalysed` coverage.
-
-### Consequence
-
-Scenario SC5 shows what a second producer meets:
-- **A second agent method** (another name, tier `agent`) is refused at propose. If queued another
-  way, it would never be leased by MCP or the automated provider, and its open tasks would block
-  finalization forever (`orchestrate/commands.py:268-275`).
-- **A hosted-model producer** (tier `hosted_llm`) cannot contribute claims at all. Native code does
-  not treat it as agent work, so the hold-and-resubmit protocol does not apply.
-- **A cheaper model as a second `agent.opus` configuration** works only in manual MCP mode, with
-  misattribution possible ([DA-051](served-claims.md#da-051)). The automated provider refuses it.
-- **Adding a tier** means editing descriptor literals and five name checks.
-
-### Counterevidence
-
-A cheaper model can be configured under `agent.opus` (`AgentOpusConfig.model`), and native
-recognition is already generic.
-
-**Evidence:** diagnosed from source (W2-C scenario SC5, 2026-10-29).
-
-**Related:** [DA-026](semantic-model-and-authority.md#da-026) (operation bindings),
-[DA-045](#da-045) (legacy registry and method contract).
+**FP-02/03/04, DP-06/08/16; implemented.** Scheduling builds agent.opus explicitly
+(`orchestrate/semantic.py:885–899`), routing requires that name (`:1024–1031`), and snapshots select
+only its configurations (`:151–173`). MCP and automation do the same
+(`intervene/semantic_server.py:142–159`; automated.py:88–97,307–314`). Another agent identity needs
+coordinated policy, queue and provider edits rather than one producer binding.
+M1 source-record candidates now pass through source completion records
+(`semantic/observations.py:260–272`), which corrects the old claim that other producers cannot
+contribute anything. That route does not establish a general knowledge-claim proposal contract.
+Actual attribution limits have one home at [DA-051](served-claims.md#da-051).
