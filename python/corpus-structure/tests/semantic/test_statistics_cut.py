@@ -39,6 +39,8 @@ from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.source_frames import capture_source_frame
 
+from .inventory_reading import inventory_supports
+
 
 def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targets(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
@@ -250,6 +252,6 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         assert len(relations.rows) == 2
         assert len({row.object for row in relations.rows}) == 2
         assert all(
-            len(session.explain(row.fact_id).supports) == 1
+            len(inventory_supports(session, row.fact_id)) == 1
             for row in (*densities.rows, *relations.rows)
         )

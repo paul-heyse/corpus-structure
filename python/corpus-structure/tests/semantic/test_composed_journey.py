@@ -10,6 +10,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import QuerySpec, read_session
 
 from .agent_scenarios import build_resubmission_case, lease_and_read
+from .inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 
 
 def test_composed_source_submission_final_cut_and_explanation(
@@ -75,7 +76,11 @@ def test_composed_source_submission_final_cut_and_explanation(
         facts = reader.query(QuerySpec(cls, reader.property_handle(cls, "name"), "accepted"))
         assert len(facts.rows) == 1 and facts.rows[0].object == "Alice"
         explanation = reader.explain(facts.rows[0].fact_id)
-        assert explanation.supports and explanation.evidence and explanation.source_observations
+        assert (
+            inventory_supports(reader, explanation.fact_id)
+            and inventory_evidence(reader, explanation.fact_id)
+            and inventory_reports(reader, explanation.fact_id)
+        )
 
 
 def test_composed_private_evaluation_cannot_commit_without_result(

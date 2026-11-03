@@ -156,6 +156,8 @@ def read_native_items(
     after: int = -1,
     limit: int = 100,
     projection_context=None,
+    read_budget=None,
+    _reader=None,
 ) -> list[dict[str, Any]]:
     """Read a pinned page of item projections; an incorrect pin always refuses."""
     if not 1 <= limit <= 1000 or after < -1 or membership not in {"direct", "descendants"}:
@@ -163,12 +165,15 @@ def read_native_items(
     from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
     from .product_reference import ProductReference
 
-    published = published_record_reader(
+    published = _reader or published_record_reader(
         conn,
         ProductReference(task_id, product_key, content_digest),
         projection_context=projection_context,
+        read_budget=read_budget,
     )
     if published is not None:
+        if published.reference != ProductReference(task_id, product_key, content_digest):
+            raise ValueError("native item reader differs from selected product pin")
         _record_product_identity(conn, task_id, product_key, content_digest, published)
         try:
             published._native_schema_mapping()
@@ -254,6 +259,7 @@ def read_native_regions(
     content_digest: str,
     pointer: str,
     projection_context=None,
+    read_budget=None,
 ) -> list[dict[str, Any]]:
     """Resolve only regions attached to a pinned native occurrence."""
     if not read_native_items(
@@ -264,6 +270,7 @@ def read_native_regions(
         pointer=pointer,
         limit=1,
         projection_context=projection_context,
+        read_budget=read_budget,
     ):
         raise ValueError("native occurrence unavailable")
     from .pdf_record_reader import published_record_reader
@@ -273,6 +280,7 @@ def read_native_regions(
         conn,
         ProductReference(task_id, product_key, content_digest),
         projection_context=projection_context,
+        read_budget=read_budget,
     )
     if published is not None:
         return [
@@ -358,7 +366,9 @@ def _pdf_product_identity(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        cancellation=cancellation,
     )
     if record_reader is not None:
         return _record_product_identity(conn, task_id, product_key, content_digest, record_reader)
@@ -387,11 +397,22 @@ def _pdf_product_identity(
     return dict(identity)
 
 
+def _budgeted_mappings(conn, query, read_budget=None):
+    if read_budget is not None:
+        read_budget.preflight(conn, query)
+    rows = [dict(row) for row in conn.execute(query).mappings()]
+    if read_budget is not None:
+        for row in rows:
+            read_budget.value(row)
+    return rows
+
+
 def _pdf_descriptors(
     conn: Connection,
     pins: list[tuple[int, str, str]],
     *,
     cancellation: BorrowerCancellation | None = None,
+    read_budget=None,
 ) -> list[dict[str, Any]]:
     """Compact per-product context; payload and native document columns are never selected."""
     from .pdf_record_reader import published_record_reader
@@ -401,7 +422,10 @@ def _pdf_descriptors(
     archived = []
     for task, key, digest in pins:
         reader = published_record_reader(
-            conn, ProductReference(task, key, digest), cancellation=cancellation
+            conn,
+            ProductReference(task, key, digest),
+            cancellation=cancellation,
+            read_budget=read_budget,
         )
         if reader is None:
             archived.append((task, key, digest))
@@ -433,7 +457,7 @@ def _pdf_descriptors(
             tuple_(products.c.task_id, products.c.product_key, products.c.content_digest).in_(pins),
         )
     )
-    current.extend(dict(row) for row in conn.execute(query).mappings())
+    current.extend(_budgeted_mappings(conn, query, read_budget))
     return sorted(current, key=lambda r: (r["task_id"], r["product_key"]))
 
 
@@ -451,6 +475,7 @@ def read_pdf_product(
     row_budget: int = 1000,
     include_body: bool = False,
     cancellation: BorrowerCancellation | None = None,
+    read_budget=None,
 ) -> dict[str, Any]:
     """Read a bounded complete companion for the selected occurrence page.
 
@@ -464,13 +489,21 @@ def read_pdf_product(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        cancellation=cancellation,
+        read_budget=read_budget,
     )
     if record_reader is not None:
         identity = _pdf_product_identity(
-            conn, task_id, product_key, content_digest, cancellation=cancellation
+            conn,
+            task_id,
+            product_key,
+            content_digest,
+            cancellation=cancellation,
         )
         selected = []
+        more = False
         if occurrence_id is not None:
             selected = list(
                 record_reader.iter_rows(
@@ -494,7 +527,9 @@ def read_pdf_product(
             )
             from itertools import islice
 
-            selected = list(islice(rows, limit))
+            selected = list(islice(rows, limit + 1))
+            more = len(selected) > limit
+            selected = selected[:limit]
         chosen = (
             list(pointers)
             if pointers is not None
@@ -525,7 +560,7 @@ def read_pdf_product(
             context,
             descriptor=record_reader.product_descriptor(),
             identity=identity,
-            cursor=selected[-1]["local_id"] if len(selected) == limit else None,
+            cursor=selected[-1]["local_id"] if more else None,
             manifest={
                 "collections": ["inputs", "coverage", "relations", "mapping_reports"],
                 "paged": True,
@@ -543,10 +578,17 @@ def read_pdf_product(
                 result["body"] = json.loads(sink.getvalue())["product"]
         return result
     identity = _pdf_product_identity(
-        conn, task_id, product_key, content_digest, cancellation=cancellation
+        conn,
+        task_id,
+        product_key,
+        content_digest,
+        cancellation=cancellation,
     )
     descriptor = _pdf_descriptors(
-        conn, [(task_id, product_key, content_digest)], cancellation=cancellation
+        conn,
+        [(task_id, product_key, content_digest)],
+        cancellation=cancellation,
+        read_budget=read_budget,
     )[0]["descriptor"]
     occurrences, relations, endpoints, coverage, inputs = map(
         table,
@@ -562,14 +604,10 @@ def read_pdf_product(
 
     def bounded(query):
         nonlocal remaining
-        rows = [
-            dict(r)
-            for r in conn.execute(
-                query.limit(
-                    min(limit, remaining + 1) if query is occurrence_query else remaining + 1
-                )
-            ).mappings()
-        ]
+        selected_query = query.limit(
+            min(limit + 1, remaining + 1) if query is occurrence_query else remaining + 1
+        )
+        rows = _budgeted_mappings(conn, selected_query, read_budget)
         if len(rows) > remaining:
             raise ValueError("PDF mandatory companion exceeds requested row budget")
         remaining -= len(rows)
@@ -586,6 +624,8 @@ def read_pdf_product(
         query = query.where(occurrences.c.pointer.in_(pointers))
     occurrence_query = query.order_by(occurrences.c.occurrence_id)
     rows = bounded(occurrence_query)
+    more = len(rows) > limit
+    rows = rows[:limit]
     if occurrence_id is not None and not rows:
         raise NativeDocumentUnavailable("PDF occurrence is unavailable under the exact pin")
     ids = [r["occurrence_id"] for r in rows]
@@ -698,7 +738,7 @@ def read_pdf_product(
         )
         if input_rows
         else [],
-        "cursor": rows[-1]["occurrence_id"] if len(rows) == limit else None,
+        "cursor": rows[-1]["occurrence_id"] if more else None,
         "manifest": {
             "collections": ["inputs", "coverage", "relations", "mapping_reports"],
             "paged": True,
@@ -708,13 +748,16 @@ def read_pdf_product(
         import json
 
         body = table("ops.pdf_product_body")
-        result["body"] = json.loads(
-            conn.execute(
-                select(body.c.payload).where(
-                    body.c.task_id == task_id, body.c.product_key == product_key
-                )
-            ).scalar_one()
+        payloads = _budgeted_mappings(
+            conn,
+            select(body.c.payload).where(
+                body.c.task_id == task_id, body.c.product_key == product_key
+            ),
+            read_budget,
         )
+        if len(payloads) != 1:
+            raise NativeDocumentUnavailable("exact PDF product body is unavailable")
+        result["body"] = json.loads(payloads[0]["payload"])
     return result
 
 
@@ -746,6 +789,7 @@ def trace_pdf_occurrence(
     occurrence_id: str,
     limit: int = 1000,
     cancellation: BorrowerCancellation | None = None,
+    read_budget=None,
 ) -> dict[str, Any]:
     """Follow the selected occurrence's attributed inputs, with bounded node materialization."""
     if not 1 <= limit <= 10000:
@@ -754,7 +798,10 @@ def trace_pdf_occurrence(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        cancellation=cancellation,
+        read_budget=read_budget,
     )
     if record_reader is not None:
         pending = [(task_id, product_key, content_digest, occurrence_id)]
@@ -767,7 +814,10 @@ def trace_pdf_occurrence(
                 continue
             visited.add(pin)
             reader = published_record_reader(
-                conn, ProductReference(task, key, digest), cancellation=cancellation
+                conn,
+                ProductReference(task, key, digest),
+                cancellation=cancellation,
+                read_budget=read_budget,
             )
             if reader is None:
                 branch = trace_pdf_occurrence(
@@ -778,6 +828,7 @@ def trace_pdf_occurrence(
                     occurrence_id=occurrence,
                     limit=limit - len(nodes),
                     cancellation=cancellation,
+                    read_budget=read_budget,
                 )
                 for node in branch["nodes"]:
                     identity = (
@@ -831,7 +882,9 @@ def trace_pdf_occurrence(
         pins = sorted({(n["task_id"], n["product_key"], n["content_digest"]) for n in nodes})
         return dict(
             nodes=nodes,
-            products=_pdf_descriptors(conn, pins, cancellation=cancellation),
+            products=_pdf_descriptors(
+                conn, pins, cancellation=cancellation, read_budget=read_budget
+            ),
             complete=True,
         )
     _pdf_product_identity(conn, task_id, product_key, content_digest, cancellation=cancellation)
@@ -898,7 +951,7 @@ def trace_pdf_occurrence(
         )
         .limit(limit + 1)
     )
-    nodes = [dict(r) for r in conn.execute(query).mappings()]
+    nodes = _budgeted_mappings(conn, query, read_budget)
     if not nodes:
         raise NativeDocumentUnavailable("PDF occurrence is unavailable under the exact pin")
     if len(nodes) > limit:
@@ -908,7 +961,9 @@ def trace_pdf_occurrence(
     )
     return {
         "nodes": nodes,
-        "products": _pdf_descriptors(conn, pins, cancellation=cancellation),
+        "products": _pdf_descriptors(
+            conn, pins, cancellation=cancellation, read_budget=read_budget
+        ),
         "complete": True,
     }
 
@@ -923,6 +978,7 @@ def read_pdf_manifest(
     after: str = "",
     limit: int = 100,
     cancellation: BorrowerCancellation | None = None,
+    read_budget=None,
 ) -> dict[str, Any]:
     """Page the global companion without raising budgets or loading the content body."""
     if not 1 <= limit <= 1000:
@@ -931,7 +987,10 @@ def read_pdf_manifest(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        cancellation=cancellation,
+        read_budget=read_budget,
     )
     if record_reader is not None:
         from itertools import islice
@@ -964,14 +1023,22 @@ def read_pdf_manifest(
         rows = rows[:limit]
         return dict(
             identity=_pdf_product_identity(
-                conn, task_id, product_key, content_digest, cancellation=cancellation
+                conn,
+                task_id,
+                product_key,
+                content_digest,
+                cancellation=cancellation,
             ),
             collection=collection,
             rows=[r["body"] for r in rows],
             cursor=rows[-1]["local_id"] if more else None,
         )
     identity = _pdf_product_identity(
-        conn, task_id, product_key, content_digest, cancellation=cancellation
+        conn,
+        task_id,
+        product_key,
+        content_digest,
+        cancellation=cancellation,
     )
     choices = {
         "inputs": ("ops.pdf_product_input", "input_index"),
@@ -989,10 +1056,7 @@ def read_pdf_manifest(
     if after:
         cursor = int(after) if collection in {"inputs", "mapping_reports"} else after
         query = query.where(relation.c[key] > cursor)
-    rows = [
-        dict(row)
-        for row in conn.execute(query.order_by(relation.c[key]).limit(limit + 1)).mappings()
-    ]
+    rows = _budgeted_mappings(conn, query.order_by(relation.c[key]).limit(limit + 1), read_budget)
     more = len(rows) > limit
     rows = rows[:limit]
     return {
@@ -1013,23 +1077,36 @@ def integrated_source_context(
     section_pointer: str,
     membership: str,
     cancellation: BorrowerCancellation | None = None,
+    read_budget=None,
 ) -> dict[str, Any] | None:
     """Selected source's mandatory companion, assembled from bounded occurrence pages."""
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        cancellation=cancellation,
+        read_budget=read_budget,
     )
     if record_reader is not None:
         if membership not in {"direct", "descendants"}:
             raise ValueError("source membership is not qualified")
         identity = _pdf_product_identity(
-            conn, task_id, product_key, content_digest, cancellation=cancellation
+            conn,
+            task_id,
+            product_key,
+            content_digest,
+            cancellation=cancellation,
         )
         if identity["kind"] == "native":
             return None
-        return record_reader.source_context(pointers, section_pointer, membership=membership)
+        return record_reader.source_context(
+            pointers,
+            section_pointer,
+            membership=membership,
+            row_budget=read_budget.max_rows if read_budget is not None else None,
+        )
     _pdf_product_identity(conn, task_id, product_key, content_digest, cancellation=cancellation)
     raise NativeDocumentUnavailable("recognition observations are not selected source content")
 
@@ -1043,6 +1120,7 @@ def read_pdf_artifact(
     artifact_digest: str,
     offset: int = 0,
     cancellation: BorrowerCancellation | None = None,
+    read_budget=None,
 ) -> dict[str, Any]:
     """Read a fixed byte page from the exact product's retained input custody."""
     if type(offset) is not int or offset < 0:
@@ -1079,29 +1157,39 @@ def read_pdf_artifact(
         ),
         custody.c.artifact_digest == artifact_digest,
     )
+    criteria = (
+        artifacts.c.artifact_digest == artifact_digest,
+        artifacts.c.artifact_digest.in_(member),
+    )
+    total_bytes = conn.execute(
+        select(func.octet_length(artifacts.c.content)).where(*criteria)
+    ).scalar_one_or_none()
+    if total_bytes is None:
+        raise NativeDocumentUnavailable("artifact is outside the exact PDF input custody")
+    if offset > total_bytes:
+        raise ValueError("PDF artifact offset exceeds retained byte length")
+    if read_budget is not None:
+        from .query import ReadLimit
+
+        if read_budget.rows >= read_budget.max_rows:
+            raise ReadLimit("native artifact row-work budget exhausted", reason="work_limit")
+        read_budget.rows += 1
+        read_budget.reserve(min(65536, total_bytes - offset))
     row = (
         conn.execute(
-            select(
-                func.octet_length(artifacts.c.content).label("total_bytes"),
-                func.substring(artifacts.c.content, offset + 1, 65536).label("content"),
-            ).where(
-                artifacts.c.artifact_digest == artifact_digest,
-                artifacts.c.artifact_digest.in_(member),
+            select(func.substring(artifacts.c.content, offset + 1, 65536).label("content")).where(
+                *criteria
             )
         )
         .mappings()
-        .one_or_none()
+        .one()
     )
-    if row is None:
-        raise NativeDocumentUnavailable("artifact is outside the exact PDF input custody")
-    if offset > row["total_bytes"]:
-        raise ValueError("PDF artifact offset exceeds retained byte length")
     content = bytes(row["content"])
     next_offset = offset + len(content)
     return {
         "artifact_digest": artifact_digest,
-        "total_bytes": row["total_bytes"],
+        "total_bytes": total_bytes,
         "offset": offset,
         "content": content,
-        "next_offset": next_offset if next_offset < row["total_bytes"] else None,
+        "next_offset": next_offset if next_offset < total_bytes else None,
     }

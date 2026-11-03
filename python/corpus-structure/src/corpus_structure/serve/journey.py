@@ -14,6 +14,7 @@ from corpus_structure.semantic.continuations import decode_continuation, validat
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import (
+    AnswerSelection,
     Coverage,
     ReadLimit,
     ReadSession,
@@ -198,6 +199,7 @@ def serve_query(
         conn,
         row_batch=min(max_rows + 1, 64) if max_rows is not None and max_rows > 0 else 64,
         projection=projection,
+        query_binding=query.reference,
     )
     binding = ctx.session.binding
     if query.release_id != binding.release_id:
@@ -211,6 +213,9 @@ def serve_query(
     ):
         projection = "fact"
         ctx.projection = projection
+    ctx.answer_selection = AnswerSelection(
+        parameter_digest=params_digest(dumped), projection=projection
+    )
     if body is not None:
         validate_query_token(query, body)
         validate_continuation(
@@ -250,7 +255,12 @@ def serve_query(
         None
         if requirement is None
         else ctx.session.coverage_details(
-            requirement.family, requirement.members | {"*"}, limit=64, max_bytes=max_bytes
+            requirement.family,
+            requirement.members | {"*"},
+            limit=64,
+            max_bytes=max_bytes,
+            query_binding=query.reference,
+            selection=ctx.answer_selection,
         )
     )
     cov = () if coverage_detail is None else tuple(Coverage(**row) for row in coverage_detail.items)
@@ -260,6 +270,7 @@ def serve_query(
     def response(more: bool, cursor: JsonValue, *, with_rows: bool = True) -> QueryResult:
         return QueryResult(
             run_id=run_id,
+            cut_id=ctx.session.completed_cut_id,
             binding=binding,
             projection=projection,
             knowledge=(

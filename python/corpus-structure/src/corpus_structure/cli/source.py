@@ -54,6 +54,8 @@ def inspect(
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None,
     cursor: str | None = None,
     limit: int = 100,
+    max_rows: int = 10000,
+    max_bytes: int = 1048576,
     json: JsonOpt = False,
 ):
     from corpus_structure.cli.failures import failure_boundary
@@ -87,6 +89,8 @@ def inspect(
                     collection=collection,
                     cursor=cursor,
                     limit=limit,
+                    max_rows=max_rows,
+                    max_bytes=max_bytes,
                 ),
                 cancellation=cancellation,
             ),

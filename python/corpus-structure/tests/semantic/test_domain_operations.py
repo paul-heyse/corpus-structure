@@ -13,6 +13,7 @@ from corpus_structure.semantic.domain_operations import (
 from corpus_structure.semantic.metadata import table
 
 from .domain_scenarios import build_domain_case
+from .inventory_reading import inventory_alternatives, inventory_assessments
 
 
 def test_actual_cut_publishes_fresh_result_and_preserves_reports(
@@ -548,8 +549,8 @@ def test_independent_source_binding_disagreement_persists_one_compact_group(
         result = session.query(QuerySpec(cls, prop))
         assert len(result.rows) == 2 and len({row.source for row in result.rows}) == 2
         explanation = session.explain(result.rows[0].fact_id)
-        assert len(explanation.alternatives) == 1
-        group = explanation.alternatives[0]
+        assert len(inventory_alternatives(session, explanation.fact_id)) == 1
+        group = inventory_alternatives(session, explanation.fact_id)[0]
         assert set(group.member_fact_ids) == {row.fact_id for row in result.rows}
         assert (
             __import__("json").loads(group.reason)["generated"][0]["kind"]
@@ -557,7 +558,7 @@ def test_independent_source_binding_disagreement_persists_one_compact_group(
         )
         assert {
             row.outcome
-            for row in explanation.assessments
+            for row in inventory_assessments(session, explanation.fact_id)
             if row.operation_id == "consolidate.status"
         } == {"ambiguous"}
         assert not session.query(QuerySpec(cls, prop, "accepted")).rows
@@ -585,9 +586,11 @@ def test_authored_alternatives_retain_source_reason_without_duplicate_fact_group
         prop = session.property_handle(cls, "name")
         rows = session.query(QuerySpec(cls, prop)).rows
         explanation = session.explain(rows[0].fact_id)
-        assert len(explanation.alternatives) == (0 if duplicate else 1)
+        assert len(inventory_alternatives(session, explanation.fact_id)) == (0 if duplicate else 1)
         if not duplicate:
-            source = __import__("json").loads(explanation.alternatives[0].reason)["sources"][0]
+            source = __import__("json").loads(
+                inventory_alternatives(session, explanation.fact_id)[0].reason
+            )["sources"][0]
             assert source == {
                 "observation_key": rows[0].source,
                 "local_id": "choice",
@@ -656,10 +659,27 @@ def test_recorded_math_fallbacks_and_constants_drive_native_science(
         if operand == "fallback":
             used = next(row.object for row in rows if row.object.expression.startswith(r"\A"))
             assert used.macro_context[r"\A"].body == "x" and "unused" not in used.macro_context
-        assert len(session.query(QuerySpec(cls, prop, "accepted")).rows) == 1
+        selected = session.query(QuerySpec(cls, prop, "accepted")).rows
+        expected_facts = {row.fact_id for row in rows}
+        assert len(expected_facts) == 2
+        assert {row.fact_id for row in selected} == expected_facts
+        representative = table("data.scientific_representative")
+        representatives = (
+            session.connection.execute(
+                select(representative).where(
+                    session.scope(representative), representative.c.fact_id.in_(expected_facts)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        assert {row["fact_id"]: row["representative_fact_id"] for row in representatives} == {
+            fact_id: min(expected_facts) for fact_id in expected_facts
+        }
+        assert {row["policy_id"] for row in representatives} == {"min-fact-id-1"}
         assert {
             a.outcome
-            for a in session.explain(rows[0].fact_id).assessments
+            for a in inventory_assessments(session, rows[0].fact_id)
             if a.operation_id == "scientific.value_equivalence"
         } == {"equivalent"}
 
@@ -685,7 +705,7 @@ def test_unqualified_log_domain_is_not_cancelled_into_accepted_equivalence(
         assert {
             assessment.outcome
             for row in rows
-            for assessment in session.explain(row.fact_id).assessments
+            for assessment in inventory_assessments(session, row.fact_id)
             if assessment.operation_id == "scientific.value_equivalence"
         } == {"undecided"}
 

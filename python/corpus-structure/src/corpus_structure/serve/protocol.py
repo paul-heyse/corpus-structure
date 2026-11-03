@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection
 
 from corpus_structure.semantic.query import (
+    AnswerSelection,
     Coverage,
     CoverageSummary,
     InventoryPage,
@@ -45,6 +46,8 @@ class QueryContext:
     conn: Connection
     row_batch: int = 64
     projection: Literal["occurrence", "fact", "accepted"] = "accepted"
+    query_binding: QueryBindingReference | None = None
+    answer_selection: AnswerSelection | None = None
 
     @cached_property
     def session(self) -> ReadSession:
@@ -87,6 +90,7 @@ class QueryResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     contract_version: Literal[2] = 2
     run_id: int
+    cut_id: int | None = None
     binding: SnapshotBinding
     projection: Literal["occurrence", "fact", "accepted"]
     arithmetic_profile: str = "exact"

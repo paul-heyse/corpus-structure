@@ -7,7 +7,7 @@ from .query import SnapshotBinding
 
 
 def read_reference_classes(
-    connection, binding: SnapshotBinding, entity_ids: tuple[str, ...]
+    connection, binding: SnapshotBinding, entity_ids: tuple[str, ...], *, read_budget=None
 ) -> dict[str, tuple[str, ...]]:
     """Resolve explicit packet referents in the exact admitted input snapshot."""
     from .query import StaleSnapshot, WrongRelease
@@ -26,13 +26,16 @@ def read_reference_classes(
         return {}
     membership = table("data.membership")
     result = {identity: [] for identity in entity_ids}
-    for entity, cls in connection.execute(
-        select(membership.c.entity_id, membership.c.class_id).where(
-            membership.c.release_id == binding.release_id,
-            membership.c.realization_id == binding.realization_id,
-            membership.c.entity_id.in_(entity_ids),
-        )
-    ):
+    query = select(membership.c.entity_id, membership.c.class_id).where(
+        membership.c.release_id == binding.release_id,
+        membership.c.realization_id == binding.realization_id,
+        membership.c.entity_id.in_(entity_ids),
+    )
+    if read_budget is not None:
+        read_budget.preflight(connection, query)
+    for entity, cls in connection.execute(query):
+        if read_budget is not None:
+            read_budget.value((entity, cls))
         result[entity].append(cls)
     if any(not classes for classes in result.values()):
         raise ValueError("packet reference has no admitted input class membership")

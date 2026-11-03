@@ -12,8 +12,8 @@ from sqlalchemy import and_, select
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.query import AnswerSelection, ReadLimit, SnapshotBinding
 from corpus_structure.semantic.query import Explanation as FactExplanation
-from corpus_structure.semantic.query import ReadLimit, SnapshotBinding
 from corpus_structure.semantic.query_compatibility import (
     BoundQuery,
     QueryBindingReference,
@@ -44,12 +44,15 @@ class UnitExplanation(BaseModel):
 
 class Explanation(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+    contract_version: Literal[2] = 2
+    cut_id: int | None = None
     run_id: int
     binding: SnapshotBinding
     kind: Literal["claim", "unit"]
     identifier: str
     detail: FactExplanation | UnitExplanation
     query_binding: QueryBindingReference | None = None
+    selection: AnswerSelection | None = None
 
 
 def explain(
@@ -62,6 +65,7 @@ def explain(
     continuation=None,
     limit=64,
     max_bytes=1024 * 1024,
+    selection=None,
 ):
     if (
         type(limit) is not int
@@ -71,6 +75,7 @@ def explain(
     ):
         raise QueryRefused("unsupported explanation page bounds")
     session = bind_session(conn, run_id)
+    session._detail_selection(selection)
     if query is not None and query.release_id != session.binding.release_id:
         raise QueryCompatibilityError("explanation belongs to another producing query release")
     if kind == "claim":
@@ -79,7 +84,13 @@ def explain(
                 raise InvalidContinuation(
                     "claim explanations page their named inventory collections"
                 )
-            detail = session.explain(key, limit=limit, max_bytes=max_bytes)
+            detail = session.explain(
+                key,
+                limit=limit,
+                max_bytes=max_bytes,
+                query_binding=query.reference if query is not None else None,
+                selection=selection,
+            )
         except KeyError:
             raise QueryRefused(f"no semantic fact {key}") from None
     else:
@@ -104,6 +115,7 @@ def explain(
             "unit": key,
             "binding": {k: v for k, v in asdict(session.binding).items() if k != "capture_id"},
             "query_binding": query.reference.model_dump(mode="json") if query is not None else None,
+            "selection": session._detail_selection(selection),
             "limit": limit,
             "max_bytes": max_bytes,
         }
@@ -223,11 +235,13 @@ def explain(
         )
     response = Explanation(
         run_id=run_id,
+        cut_id=session.completed_cut_id,
         binding=session.binding,
         kind=kind,
         identifier=key,
         detail=detail,
         query_binding=query.reference if query is not None else None,
+        selection=selection,
     )
     if len(canonical_bytes(response.model_dump(mode="json"))) > max_bytes:
         raise ReadLimit("complete explanation envelope exceeds max_bytes", reason="oversized_item")
@@ -237,20 +251,36 @@ def explain(
 class UnitSourceReport(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     binding: SnapshotBinding
+    query_binding: QueryBindingReference | None = None
+    selection: AnswerSelection | None = None
     run_id: int
+    cut_id: int | None = None
     unit_key: str
     collection: Literal["observation", "task_result"]
     identifier: str
     payload: dict[str, JsonValue]
 
 
-def unit_source_report(conn, run_id, unit_key, collection, identifier, *, max_bytes=1024 * 1024):
+def unit_source_report(
+    conn,
+    run_id,
+    unit_key,
+    collection,
+    identifier,
+    *,
+    max_bytes=1024 * 1024,
+    query=None,
+    selection=None,
+):
     """Read a body only through its immutable unit/completed-cut membership."""
     from sqlalchemy import Text, func
 
     if type(max_bytes) is not int or not 1 <= max_bytes <= 8 * 1024 * 1024:
         raise QueryRefused("unsupported source report byte bound")
     session = bind_session(conn, run_id)
+    session._detail_selection(selection)
+    if query is not None and query.release_id != session.binding.release_id:
+        raise WrongBinding("source report belongs to another producing query release")
     completed, task, ct = (
         table(name) for name in ("ops.completed_result", "ops.task", "ops.cut_task")
     )
@@ -289,6 +319,9 @@ def unit_source_report(conn, run_id, unit_key, collection, identifier, *, max_by
         binding=session.binding,
         run_id=run_id,
         unit_key=unit_key,
+        cut_id=session.completed_cut_id,
+        query_binding=query.reference if query is not None else None,
+        selection=selection,
         collection=collection,
         identifier=str(identifier),
         payload=row[0],

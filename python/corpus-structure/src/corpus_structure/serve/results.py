@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from corpus_structure.semantic.query import EntityReference, Evidence, QueryRow, ValueNode
+from corpus_structure.semantic.query import (
+    EntityReference,
+    Evidence,
+    FactStanding,
+    QueryRow,
+    ValueNode,
+)
 from corpus_structure.serve.native_source import NativeSourceRequest
 
 
@@ -26,6 +32,7 @@ class ClaimAnswer(Answer):
 
 
 class EvidenceAnswer(Answer):
+    standing: FactStanding
     fact_id: str
     evidence: Evidence
 

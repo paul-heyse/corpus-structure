@@ -19,7 +19,7 @@ class KnownReference:
     aliases: tuple[str, ...]
 
 
-def document_references(conn, view, document_id: int, *, limit: int):
+def document_references(conn, view, document_id: int, *, limit: int, read_budget=None):
     """Use release-declared global scope and display properties; refuse a truncated universe."""
     from corpus_structure.semantic.query import SnapshotBinding, StaleSnapshot, WrongRelease
     from corpus_structure.semantic.references import read_reference_classes
@@ -77,27 +77,30 @@ def document_references(conn, view, document_id: int, *, limit: int):
         select(facts.c.subject_id.label("entity_id")),
         select(facts.c.entity_id).where(facts.c.entity_id.is_not(None)),
     ).subquery()
-    ids = tuple(
-        conn.execute(
-            select(candidates.c.entity_id)
-            .join(
-                member,
-                and_(
-                    member.c.entity_id == candidates.c.entity_id,
-                    member.c.release_id == binding.release_id,
-                    member.c.realization_id == binding.input_realization_id,
-                    member.c.class_id.in_(global_classes),
-                ),
-            )
-            .distinct()
-            .order_by(candidates.c.entity_id)
-            .limit(limit + 1)
-        ).scalars()
+    identity_query = (
+        select(candidates.c.entity_id)
+        .join(
+            member,
+            and_(
+                member.c.entity_id == candidates.c.entity_id,
+                member.c.release_id == binding.release_id,
+                member.c.realization_id == binding.input_realization_id,
+                member.c.class_id.in_(global_classes),
+            ),
+        )
+        .distinct()
+        .order_by(candidates.c.entity_id)
+        .limit(limit + 1)
     )
+    if read_budget is not None:
+        read_budget.preflight(conn, identity_query)
+    ids = tuple(conn.execute(identity_query).scalars())
+    if read_budget is not None:
+        read_budget.value(ids)
     if len(ids) > limit:
         raise OperationConflict(f"document reference universe exceeds packet limit {limit}")
     try:
-        classes = read_reference_classes(conn, snapshot, ids)
+        classes = read_reference_classes(conn, snapshot, ids, read_budget=read_budget)
     except (StaleSnapshot, WrongRelease) as exc:
         raise OperationConflict(str(exc)) from exc
     display_meta = [
@@ -149,7 +152,11 @@ def document_references(conn, view, document_id: int, *, limit: int):
         )
         .order_by(f.c.subject_id, f.c.property_id, v.c.text_value, role.c.position)
     )
+    if read_budget is not None:
+        read_budget.preflight(conn, display)
     for entity, prop, text in conn.execute(display):
+        if read_budget is not None:
+            read_budget.value((entity, prop, text))
         (labels if prop in scalar else aliases)[entity].append(text)
     return tuple(
         KnownReference(

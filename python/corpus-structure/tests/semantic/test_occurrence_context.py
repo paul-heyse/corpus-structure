@@ -16,6 +16,7 @@ from corpus_structure.semantic.publication import publish_on_connection
 from corpus_structure.semantic.query import QuerySpec, read_session
 
 from .domain_scenarios import build_domain_case, locate_proposal
+from .inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 
 
 def _source(admin, writer, path, monkeypatch, *, outside=False):
@@ -86,12 +87,17 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
             "condition",
         }
         explanation = session.explain(claims[0].fact_id)
-        supported = {support.item: support for support in explanation.supports}
+        assert explanation.binding == session.binding
+        supported = {
+            support.item: support for support in inventory_supports(session, claims[0].fact_id)
+        }
         for item in ("claims/0", "claims/1"):
             assert supported[item].context == by_item[item].context
-            assert supported[item].citation_roles == by_item[item].citation_roles
-        assert explanation.evidence
-        for evidence in explanation.evidence:
+            assert {(role.evidence_id, role.role) for role in supported[item].citation_roles} == {
+                (role.evidence_id, role.role) for role in by_item[item].citation_roles
+            }
+        assert inventory_evidence(session, claims[0].fact_id)
+        for evidence in inventory_evidence(session, claims[0].fact_id):
             assert evidence.source is not None
             assert evidence.source.run_id == run
             assert evidence.source.payload_definition == "AgentStoredBatch"
@@ -99,8 +105,8 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
             assert evidence.source.span_id is None
             assert evidence.source.source_view_id is not None
             assert evidence.source.native_address == expected_quote
-        assert len(explanation.source_observations) == 1
-        report = explanation.source_observations[0]
+        assert len(inventory_reports(session, claims[0].fact_id)) == 1
+        report = inventory_reports(session, claims[0].fact_id)[0]
         assert report.observation_key == claims[0].source
         assert report.payload["statements"][0]["anchor"] == first_anchor
         assert report.payload["claims"][1]["statement_role"] == "premise"

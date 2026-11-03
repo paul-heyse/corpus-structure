@@ -251,7 +251,7 @@ class Transformations(Query):
             referenced = set().union(*(condition_refs(row) for row in batch))
             premises = {
                 row.fact.fact_id: row
-                for row in ctx.reader.claims(
+                for row in ctx.reader.claim_tuple(
                     statement=premise_selection.where(f.c.fact_id.in_(referenced))
                 )
             }
@@ -263,32 +263,42 @@ class Transformations(Query):
                 continue
             contexts = ctx.conn.execute(
                 select(o.c.fact_id, c.c.statement_entity_id)
+                .distinct()
                 .join(c, and_(_same_scope(o, c), o.c.occurrence_id == c.c.occurrence_id))
                 .where(
                     ctx.reader.scope(o),
                     o.c.fact_id.in_(wanted),
                     c.c.statement_entity_id.is_not(None),
                 )
+                .limit(10001)
             ).all()
+            if len(contexts) > 10000:
+                raise ReadLimit(
+                    "transformation statement context budget exhausted", reason="work_limit"
+                )
             statements_by_fact = {
                 key: {r.statement_entity_id for r in contexts if r.fact_id == key} for key in wanted
             }
             statement_ids = {r.statement_entity_id for r in contexts}
             definition_contexts = ctx.conn.execute(
                 select(o.c.fact_id, c.c.statement_entity_id)
+                .distinct()
                 .join(c, and_(_same_scope(o, c), o.c.occurrence_id == c.c.occurrence_id))
                 .where(
                     ctx.reader.scope(o),
                     c.c.statement_entity_id.in_(statement_ids),
                     c.c.statement_role == "definiens",
                 )
+                .limit(10001)
             ).all()
-            definitions = tuple(
-                ctx.reader.claims(
-                    statement=ctx.reader.fact_statement(
-                        include_candidates=p.include_candidates, include_suppositions=True
-                    ).where(f.c.fact_id.in_({r.fact_id for r in definition_contexts}))
+            if len(definition_contexts) > 10000:
+                raise ReadLimit(
+                    "transformation definition context budget exhausted", reason="work_limit"
                 )
+            definitions = ctx.reader.claim_tuple(
+                statement=ctx.reader.fact_statement(
+                    include_candidates=p.include_candidates, include_suppositions=True
+                ).where(f.c.fact_id.in_({r.fact_id for r in definition_contexts}))
             )
             for conclusion in batch:
                 key = conclusion.fact.fact_id

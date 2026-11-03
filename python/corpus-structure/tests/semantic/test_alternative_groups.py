@@ -20,6 +20,7 @@ from corpus_structure.semantic.publication import (
 )
 from corpus_structure.semantic.query import read_session
 
+from .inventory_reading import inventory_alternatives, inventory_assessments, inventory_supports
 from .test_query import Z, candidate, seed
 
 
@@ -102,8 +103,9 @@ def test_native_group_and_assessments_explain_all_source_occurrences(
     assert publish_batch(semantic_writer_engine, batch).data_revision == 1
     with read_session(semantic_reader_engine, Z) as session:
         explanation = session.explain(batch.fact[0].fact_id)
-        assert len(explanation.alternatives) == 1
-        group = explanation.alternatives[0]
+        assert explanation.binding == session.binding
+        assert len(inventory_alternatives(session, batch.fact[0].fact_id)) == 1
+        group = inventory_alternatives(session, batch.fact[0].fact_id)[0]
         assert group.group_id == batch.alternative_group[0].group_id
         assert group.member_fact_ids == tuple(
             sorted([batch.fact[0].fact_id, batch.fact[1].fact_id])
@@ -113,17 +115,26 @@ def test_native_group_and_assessments_explain_all_source_occurrences(
             and group.operation_version == "semantic-5"
         )
         assert json.loads(group.reason)["sources"][1]["reason"] == "Second raw reason"
-        assert len(explanation.supports) == 2
-        assert {assessment.assessment_id for assessment in explanation.assessments} == {
+        assert len(inventory_supports(session, batch.fact[0].fact_id)) == 2
+        assert {
+            assessment.assessment_id
+            for assessment in inventory_assessments(session, batch.fact[0].fact_id)
+        } == {
             "assessment:fact",
             "assessment:occurrence",
         }
-        occurrence = next(a for a in explanation.assessments if a.occurrence_id is not None)
+        occurrence = next(
+            a
+            for a in inventory_assessments(session, batch.fact[0].fact_id)
+            if a.occurrence_id is not None
+        )
         assert occurrence.confidence == Decimal("0.25") and occurrence.outcome == "rejected"
         assert occurrence.reason == "Explicit operation reason"
         assert occurrence.uncertainty == "Insufficient source agreement"
-        assert session.explain(batch.fact[1].fact_id).alternatives == explanation.alternatives
-        assert session.explain(batch.fact[2].fact_id).alternatives == ()
+        assert inventory_alternatives(session, batch.fact[1].fact_id) == inventory_alternatives(
+            session, batch.fact[0].fact_id
+        )
+        assert inventory_alternatives(session, batch.fact[2].fact_id) == ()
     with semantic_writer_engine.connect() as conn:
         assert len(conn.execute(select(table("data.alternative_group"))).all()) == 1
         assert len(conn.execute(select(table("data.alternative_member"))).all()) == 2

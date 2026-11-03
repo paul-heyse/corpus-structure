@@ -33,6 +33,8 @@ from corpus_structure.semantic.publication import (
 )
 from corpus_structure.semantic.query import SnapshotBinding
 
+from .inventory_reading import inventory_derivations
+
 R, Z, C, P, Q = (
     "release:infer",
     "realization:infer",
@@ -448,7 +450,11 @@ def test_real_archived_binary_release_round_trip(
         expected_premises = (fact_key(r, Z, "a", P, "b", qual), fact_key(r, Z, "b", P, "c", qual))
         with read_session(semantic_writer_engine, Z) as session:
             explanation = session.explain(head)
-            assert any(d.premise_fact_ids == expected_premises for d in explanation.derivations)
+            assert explanation.binding == session.binding
+            assert any(
+                d.premise_fact_ids == expected_premises
+                for d in inventory_derivations(session, head)
+            )
     # Preserve source modality and prevent required scalar graph flags being admitted.
     schema["slots"]["p"]["range"] = "string"
     bad_bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))

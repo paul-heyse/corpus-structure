@@ -668,8 +668,8 @@ classes:
       version:
         range: PdfInteger
         required: true
-        minimum_value: 3
-        maximum_value: 3
+        minimum_value: 4
+        maximum_value: 4
         slot_uri: pdf:PdfNativeReadRequest_version
       run_id:
         range: PdfInteger
@@ -717,11 +717,23 @@ classes:
         range: PdfInteger
         required: true
         minimum_value: 1
-        maximum_value: 10000
+        maximum_value: 1000
         slot_uri: pdf:PdfNativeReadRequest_limit
       occurrence_id: {range: PdfString, required: false, slot_uri: pdf:PdfNativeReadRequest_occurrence_id}
       collection: {range: PdfManifestCollection, required: false, slot_uri: pdf:PdfNativeReadRequest_collection}
       artifact_digest: {range: PdfDigest, required: false, slot_uri: pdf:PdfNativeReadRequest_artifact_digest}
+      max_rows:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 10000
+        slot_uri: pdf:PdfNativeReadRequest_max_rows
+      max_bytes:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 8388608
+        slot_uri: pdf:PdfNativeReadRequest_max_bytes
   PdfDomainRule:
     attributes:
       rule_id:

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from sqlalchemy import Connection
+from sqlalchemy import Connection, Text, any_, func, literal, select
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
@@ -35,6 +35,73 @@ if TYPE_CHECKING:
     from ._operation_calls import ContentDigest, ProductKey, TaskId
     from .operation_value_types import NativeRowResult
     from .types import PreparedRelease
+
+
+@dataclass
+class PublishedReadBudget:
+    """Invocation-owned source rows and bytes; full exports choose explicit streaming."""
+
+    max_rows: int
+    max_bytes: int
+    rows: int = 0
+    bytes: int = 0
+
+    def preflight(self, conn, statement, *, payload_reserved=False):
+        from .query import ReadLimit
+
+        # Only scalar lengths/count cross this first protected read. Data remains on
+        # the server until its exact immutable selection has passed admission.
+        requested = statement.subquery()
+        selected = select(requested).limit(self.max_rows - self.rows + 1).subquery()
+        size = sum(
+            (func.coalesce(func.octet_length(column.cast(Text)), 0) for column in selected.c),
+            literal(0),
+        )
+        summary = conn.execute(
+            select(
+                func.count().label("rows"),
+                func.coalesce(func.sum(size), 0).label("bytes"),
+                func.coalesce(func.max(size), 0).label("largest"),
+            ).select_from(selected)
+        ).one()
+        if self.rows + summary.rows > self.max_rows:
+            raise ReadLimit("native source row-work budget exhausted", reason="work_limit")
+        allowance = self.max_bytes if payload_reserved else self.max_bytes - self.bytes
+        # PostgreSQL JSON text has insignificant whitespace/hex byte transport. A
+        # bounded 2x transfer preflight precedes canonical decoded-row accounting.
+        if summary.largest > 2 * self.max_bytes:
+            raise ReadLimit(
+                "a native source object exceeds the byte budget", reason="oversized_item"
+            )
+        if summary.bytes > 2 * allowance:
+            raise ReadLimit("native source byte-work budget exhausted", reason="work_limit")
+        self.rows += summary.rows
+
+    def value(self, value):
+        from pydantic_core import to_jsonable_python
+
+        from .identity import canonical_bytes
+        from .query import ReadLimit
+
+        size = len(canonical_bytes(to_jsonable_python(value)))
+        if size > self.max_bytes:
+            raise ReadLimit(
+                "a native source object exceeds the byte budget", reason="oversized_item"
+            )
+        self.reserve(size)
+
+    def reserve(self, size):
+        from .query import ReadLimit
+
+        if type(size) is not int or size < 0:
+            raise ValueError("source byte length must be a nonnegative integer")
+        if size > self.max_bytes:
+            raise ReadLimit(
+                "a native source payload exceeds the byte budget", reason="oversized_item"
+            )
+        if self.bytes + size > self.max_bytes:
+            raise ReadLimit("native source byte-work budget exhausted", reason="work_limit")
+        self.bytes += size
 
 
 class _ProjectionParameters(TypedDict):
@@ -67,7 +134,7 @@ def _record_envelope(row: NativeRowResult) -> dict[str, Any]:
     return body
 
 
-def _published_revision(conn: Connection, reference: ProductReference):
+def _published_revision(conn: Connection, reference: ProductReference, *, read_budget=None):
     from ._operation_calls import (
         materialize_read_pdf_published_revision,
         prepare_read_pdf_published_revision,
@@ -79,13 +146,18 @@ def _published_revision(conn: Connection, reference: ProductReference):
         product_key=reference.product_key,
         logical_digest=reference.content_digest,
     )
+    if read_budget is not None:
+        read_budget.preflight(conn, statement)
     with conn.execute(statement) as result:
         row = result.one_or_none()
-        return (
+        decoded = (
             materialize_read_pdf_published_revision(row).model_dump(mode="python")
             if row is not None
             else None
         )
+    if read_budget is not None and decoded is not None:
+        read_budget.value(decoded)
+    return decoded
 
 
 _METADATA_PROJECTIONS = (
@@ -128,11 +200,12 @@ def published_record_reader(
     *,
     cancellation: BorrowerCancellation | None = None,
     projection_context: PreparedRelease | None = None,
+    read_budget: PublishedReadBudget | None = None,
 ):
     """Return the current published port, or None for a non-source observation."""
     cancellation = cancellation or BorrowerCancellation()
     with cancellation.borrow(conn):
-        row = _published_revision(conn, reference)
+        row = _published_revision(conn, reference, read_budget=read_budget)
         return (
             PublishedPdfReader(
                 conn,
@@ -140,6 +213,7 @@ def published_record_reader(
                 revision=dict(row),
                 cancellation=cancellation,
                 projection_context=projection_context,
+                read_budget=read_budget,
             )
             if row
             else None
@@ -159,7 +233,9 @@ class PublishedPdfReader:
         revision: Mapping[str, Any] | None = None,
         cancellation: BorrowerCancellation | None = None,
         projection_context: PreparedRelease | None = None,
+        read_budget: PublishedReadBudget | None = None,
     ):
+        self.read_budget = read_budget
         self.projection_context = projection_context
         self.conn, self.reference = conn, reference
         self.cancellation = cancellation or BorrowerCancellation()
@@ -202,6 +278,29 @@ class PublishedPdfReader:
         if cancellation is not None:
             cancellation.check_active()
 
+    def _raw_rows(self, statement, *, payload_reserved=False):
+        with self._read_scope():
+            budget = getattr(self, "read_budget", None)
+            if budget is not None:
+                budget.preflight(self.conn, statement, payload_reserved=payload_reserved)
+            with self.conn.execute(statement) as result:
+                return list(result)
+
+    def _read_operation(self, name, *, selection=None, **parameters):
+        from . import _operation_calls as calls
+
+        statement = getattr(calls, "prepare_" + name)(**parameters)
+        if selection is not None:
+            statement = selection(statement)
+        materialize = getattr(calls, "materialize_" + name)
+        return tuple(materialize(row) for row in self._raw_rows(statement))
+
+    def _admit_value(self, value):
+        budget = getattr(self, "read_budget", None)
+        if budget is not None:
+            budget.value(value)
+        return value
+
     def iter_rows(
         self,
         family: str,
@@ -209,27 +308,34 @@ class PublishedPdfReader:
         *,
         after=None,
         batch_size: int = 100,
+        _payload_reserved=False,
     ) -> Generator[dict[str, Any]]:
         from ._operation_calls import materialize_read_pdf_record_rows, prepare_read_pdf_record_rows
 
         if not 1 <= batch_size <= 1000:
             raise ValueError("published record batch size must be 1..1000")
+        if getattr(self, "read_budget", None) is not None:
+            batch_size = min(batch_size, 64)
         while True:
             # Each bounded function call rechecks the immutable published binding. Close
             # Result before yielding so abandonment cannot leak a server-side cursor.
-            with (
-                self._read_scope(),
-                self.conn.execute(
-                    prepare_read_pdf_record_rows(
-                        **_record_parameters(self.reference),
-                        family=family,
-                        filters=dict(filters or {}),
-                        after=after,
-                        limit=batch_size,
-                    ).execution_options(yield_per=batch_size),
-                ) as result,
-            ):
-                rows = [_record_envelope(materialize_read_pdf_record_rows(row)) for row in result]
+            statement = prepare_read_pdf_record_rows(
+                **_record_parameters(self.reference),
+                family=family,
+                filters=dict(filters or {}),
+                after=after,
+                limit=batch_size,
+            )
+            rows = [
+                _record_envelope(materialize_read_pdf_record_rows(row))
+                for row in self._raw_rows(statement, payload_reserved=_payload_reserved)
+            ]
+            for row in rows:
+                self._admit_value(
+                    {key: value for key, value in row.items() if key != "body"}
+                    if family == "artifact_part" and _payload_reserved
+                    else row
+                )
             if not rows:
                 return
             for row in rows:
@@ -275,6 +381,9 @@ class PublishedPdfReader:
             stream["serialization_sha256"],
             bytes.fromhex(stream["byte_root"]),
         )
+        budget = getattr(self, "read_budget", None)
+        if budget is not None:
+            budget.reserve(stream["byte_length"])
         parts = (
             ArtifactPart(
                 stream_id,
@@ -284,7 +393,9 @@ class PublishedPdfReader:
                 row["body"],
                 row["sha256_digest"],
             )
-            for row in self.iter_rows("artifact_part", {"stream_id": stream_id})
+            for row in self.iter_rows(
+                "artifact_part", {"stream_id": stream_id}, _payload_reserved=True
+            )
         )
         with closing(parts) as owned_parts:
             for chunk in replay_artifact(
@@ -315,7 +426,10 @@ class PublishedPdfReader:
         from .published_document import PublishedDocumentBinding
 
         binding = PublishedDocumentBinding.from_revision(self.reference, self.revision)
-        result = [row.decoded_json_fields(operation="read_native_source") for row in rows]
+        result = [
+            self._admit_value(row.decoded_json_fields(operation="read_native_source"))
+            for row in rows
+        ]
         if placement and any(
             (row["product_id"], row["revision_id"])
             != (binding.native_build_id, binding.native_revision_id)
@@ -324,29 +438,40 @@ class PublishedPdfReader:
             raise ValueError("published projection escaped its exact placement")
         return result
 
-    def sections(self):
-        from ._operation_calls import read_published_sections
+    def sections(self, *, after=None, section_pointer=None, membership="direct", limit=None):
+        def selected(statement):
+            root = statement.subquery()
+            query = select(root)
+            if after is not None:
+                query = query.where(root.c.ordinal > after)
+            if section_pointer is not None:
+                query = query.where(
+                    literal(section_pointer) == any_(root.c.ancestors)
+                    if membership == "descendants"
+                    else root.c.parent_pointer == section_pointer
+                )
+            return query.order_by(root.c.ordinal).limit(limit)
 
         with self._projection_scope() as pin:
-            rows = read_published_sections(self.conn, **pin)
+            rows = self._read_operation("read_published_sections", **pin, selection=selected)
         return self._projection_values(rows, placement=False)
 
     def section_nodes(self, section: str, membership: str):
-        from ._operation_calls import read_published_section_nodes
 
         if membership not in {"direct", "descendants"}:
             raise ValueError("invalid published section membership")
         with self._projection_scope() as pin:
-            rows = read_published_section_nodes(
-                self.conn, **pin, section=section, membership=membership
+            rows = self._read_operation(
+                "read_published_section_nodes", **pin, section=section, membership=membership
             )
         return self._projection_values(rows)
 
     def selected_native_items(self, pointers: Sequence[str]):
-        from ._operation_calls import read_published_items
 
         with self._projection_scope() as pin:
-            projected = read_published_items(self.conn, **pin, pointers=tuple(pointers))
+            projected = self._read_operation(
+                "read_published_items", **pin, pointers=tuple(pointers)
+            )
         rows = self._projection_values(projected)
         values = {row["pointer"]: row["native_json"] for row in rows}
         if len(values) != len(set(pointers)) or set(values) != set(pointers):
@@ -354,13 +479,12 @@ class PublishedPdfReader:
         return values
 
     def item_page(self, *, section=None, membership="direct", pointer=None, after=-1, limit=100):
-        from ._operation_calls import read_published_item_page
 
         if membership not in {"direct", "descendants"}:
             raise ValueError("invalid published item membership")
         with self._projection_scope() as pin:
-            rows = read_published_item_page(
-                self.conn,
+            rows = self._read_operation(
+                "read_published_item_page",
                 **pin,
                 section=section,
                 membership=membership,
@@ -371,24 +495,23 @@ class PublishedPdfReader:
         return self._projection_values(rows)
 
     def regions(self, pointer: str):
-        from ._operation_calls import read_published_regions
 
         with self._projection_scope() as pin:
-            rows = read_published_regions(self.conn, **pin, pointer=pointer)
+            rows = self._read_operation("read_published_regions", **pin, pointer=pointer)
         return self._projection_values(rows)
 
     def selected_regions(self, pointers: Sequence[str]):
-        from ._operation_calls import read_published_region_batch
 
         with self._projection_scope() as pin:
-            rows = read_published_region_batch(self.conn, **pin, pointers=tuple(pointers))
+            rows = self._read_operation(
+                "read_published_region_batch", **pin, pointers=tuple(pointers)
+            )
         return self._projection_values(rows)
 
     def item_ancestors(self, pointer: str):
-        from ._operation_calls import read_published_item_ancestors
 
         with self._projection_scope() as pin:
-            rows = read_published_item_ancestors(self.conn, **pin, pointer=pointer)
+            rows = self._read_operation("read_published_item_ancestors", **pin, pointer=pointer)
         return self._projection_values(rows)
 
     def _remember_metadata_report(self, row, body):
@@ -493,21 +616,23 @@ class PublishedPdfReader:
             ]
 
     def section_reports(self, pointers: Sequence[str], sections: Sequence[str]):
-        from ._operation_calls import read_published_section_reports
 
         with self._projection_scope() as pin:
-            rows = read_published_section_reports(
-                self.conn, **pin, pointers=tuple(pointers), sections=tuple(sections)
+            rows = self._read_operation(
+                "read_published_section_reports",
+                **pin,
+                pointers=tuple(pointers),
+                sections=tuple(sections),
             )
         return self._projection_values(rows, placement=False)
 
     def region(self, pointer: str, region_index: int):
-        from ._operation_calls import read_published_region
 
         with self._projection_scope() as pin:
-            row = read_published_region(
-                self.conn, **pin, pointer=pointer, region_index=region_index
+            row = self._read_operation(
+                "read_published_region", **pin, pointer=pointer, region_index=region_index
             )
+        row = row[0] if len(row) == 1 else None
         if row is None:
             raise PublishedRegionUnavailable("published region is absent or ambiguous")
         return self._projection_values((row,))[0]
@@ -551,12 +676,17 @@ class PublishedPdfReader:
                     "native record schema differs from its producer archive"
                 )
             artifacts = table("kb.source_artifact")
-            with (
-                self._read_scope(),
-                self.conn.execute(
-                    select(artifacts.c.content).where(artifacts.c.artifact_digest == digest)
-                ) as result,
-            ):
+            statement = select(artifacts.c.content).where(artifacts.c.artifact_digest == digest)
+            budget = getattr(self, "read_budget", None)
+            if budget is not None:
+                length = self.conn.execute(
+                    select(func.octet_length(artifacts.c.content)).where(
+                        artifacts.c.artifact_digest == digest
+                    )
+                ).scalar_one_or_none()
+                if length is not None:
+                    budget.reserve(length)
+            with self._read_scope(), self.conn.execute(statement) as result:
                 retained = result.scalar_one_or_none()
             if retained is None:
                 raise PublishedSchemaUnavailable("retained native schema artifact is missing")
@@ -1010,28 +1140,23 @@ class PublishedPdfReader:
 
         after = ""
         while True:
-            with (
-                self._read_scope(),
-                self.conn.execute(
-                    prepare_read_pdf_record_context_rows(
-                        **_record_parameters(self.reference),
-                        pointers=tuple(pointers),
-                        section=section_pointer,
-                        family=family,
-                        after=after,
-                        limit=100,
-                    ),
-                ) as result,
-            ):
-                rows = [
-                    _record_envelope(materialize_read_pdf_record_context_rows(row))
-                    for row in result
-                ]
+            statement = prepare_read_pdf_record_context_rows(
+                **_record_parameters(self.reference),
+                pointers=tuple(pointers),
+                section=section_pointer,
+                family=family,
+                after=after,
+                limit=64,
+            )
+            rows = [
+                self._admit_value(_record_envelope(materialize_read_pdf_record_context_rows(row)))
+                for row in self._raw_rows(statement)
+            ]
             for row in rows:
                 self._check_active()
                 after = row["local_id"]
                 yield row
-            if len(rows) < 100:
+            if len(rows) < 64:
                 return
 
     def source_context(
@@ -1048,19 +1173,19 @@ class PublishedPdfReader:
             prepare_record_integrated_source_context,
         )
 
-        with (
-            self._read_scope(),
-            self.conn.execute(
-                prepare_record_integrated_source_context(
-                    **_record_parameters(self.reference),
-                    pointers=tuple(pointers),
-                    section=section_pointer,
-                    membership=membership,
-                    row_budget=row_budget,
-                ),
-            ) as result,
-        ):
-            return _record_envelope(materialize_record_integrated_source_context(result.one()))
+        statement = prepare_record_integrated_source_context(
+            **_record_parameters(self.reference),
+            pointers=tuple(pointers),
+            section=section_pointer,
+            membership=membership,
+            row_budget=row_budget,
+        )
+        rows = self._raw_rows(statement)
+        if len(rows) != 1:
+            raise ValueError("published source context is unavailable or ambiguous")
+        return self._admit_value(
+            _record_envelope(materialize_record_integrated_source_context(rows[0]))
+        )
 
     def occurrence_context(
         self, selected: Sequence[Mapping[str, Any]], section_pointer: str, *, row_budget: int

@@ -7,8 +7,9 @@ from typing import Any
 
 from sqlalchemy import and_, exists, false, func, or_, select
 
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import same_scope_clause, scope_clause
+from corpus_structure.semantic.query import ReadLimit, same_scope_clause, scope_clause
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.serve.results import ClaimAnswer, EntityAnswer
 
@@ -115,6 +116,18 @@ class Reader:
             if len(rows) < self.ctx.row_batch:
                 break
 
+    def claim_tuple(self, *, statement, max_items=1000, max_bytes=8 * 1024 * 1024):
+        """Admit a complete nested scientific claim collection, or refuse it in full."""
+        items, size = [], 0
+        for row in self.claims(statement=statement):
+            size += len(canonical_bytes(row.model_dump(mode="json")))
+            if len(items) >= max_items or size > max_bytes:
+                raise ReadLimit(
+                    "nested claim collection exceeds row/byte budget", reason="work_limit"
+                )
+            items.append(row)
+        return tuple(items)
+
     def entity_ids(self, key=None, label=None, class_name=None):
         e, f, v = T["entity"], T["fact"], T["typed_value"]
         stmt = select(e.c.entity_id).where(self.scope(e))
@@ -148,6 +161,12 @@ class Reader:
             for definition in self.prepared.definitions:
                 for prop in self.prepared.display_properties(definition.iri):
                     groups.setdefault((prop.iri, prop.case_policy), set()).add(definition.iri)
+            if any(policy == "casefold" for _, policy in groups):
+                from corpus_structure.semantic.unicode_identity import (
+                    require_unicode_identity_release,
+                )
+
+                require_unicode_identity_release(self.conn, self.prepared)
             choices = []
             for (property_iri, case_policy), classes in groups.items():
                 text_match = (
@@ -186,18 +205,23 @@ class Reader:
             )
         return stmt
 
-    def resolve(self, value, class_name=None, limit=None):
+    def resolve(self, value, class_name=None, limit=10001):
         direct = (
             self.conn.execute(self.entity_ids(key=value, class_name=class_name).limit(limit))
             .scalars()
             .all()
         )
-        return (
+        found = (
             direct
             or self.conn.execute(self.entity_ids(label=value, class_name=class_name).limit(limit))
             .scalars()
             .all()
         )
+        if limit is not None and len(found) >= limit:
+            raise ReadLimit(
+                "entity resolution population exceeds the admitted limit", reason="work_limit"
+            )
+        return found
 
     def entity_rows(self, key=None, label=None, after=None):
         e = T["entity"]
@@ -267,13 +291,18 @@ class Reader:
 
         token = None
         while True:
-            page = self.session.inventory(
-                fact_id,
-                "evidence",
-                continuation=token,
-                after_identity=after,
-                limit=self.ctx.row_batch,
-            )
+            try:
+                page = self.session.inventory(
+                    fact_id,
+                    "evidence",
+                    continuation=token,
+                    after_identity=after,
+                    limit=self.ctx.row_batch,
+                    query_binding=getattr(self.ctx, "query_binding", None),
+                    selection=getattr(self.ctx, "answer_selection", None),
+                )
+            except KeyError:
+                raise SemanticRefusal(f"no semantic fact {fact_id}") from None
             for row in page.items:
                 if after is None or row["evidence_id"] > after:
                     yield Evidence(**{key: row[key] for key in Evidence.model_fields if key in row})

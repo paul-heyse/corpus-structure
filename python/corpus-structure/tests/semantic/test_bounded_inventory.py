@@ -139,7 +139,7 @@ def test_label_lookup_uses_released_display_role_and_property_case_policy():
     prepared = SimpleNamespace(
         definitions=[SimpleNamespace(iri="class:custom")],
         display_properties=lambda iri: (
-            SimpleNamespace(iri="property:custom-display", case_policy="casefold"),
+            SimpleNamespace(iri="property:custom-display", case_policy="preserve"),
         ),
     )
     owned = SimpleNamespace(binding=binding, prepared=prepared)
@@ -147,6 +147,88 @@ def test_label_lookup_uses_released_display_role_and_property_case_policy():
     stmt = reader.entity_ids(label="Straße")
     params = stmt.compile().params
     assert "property:custom-display" in params.values()
-    assert "strasse" in params.values()
-    assert "casefold" in str(stmt)
+    assert "Straße" in params.values()
+    assert "casefold" not in str(stmt)
     assert "canonical_name" not in str(stmt)
+
+
+def test_inventory_continuation_retains_the_producing_query_binding():
+    from corpus_structure.semantic.query import AnswerSelection
+    from corpus_structure.semantic.query_compatibility import QueryBindingReference
+
+    selected = AnswerSelection(parameter_digest="parameters:first", projection="accepted")
+    bound = QueryBindingReference(
+        release_id="release",
+        query="claims",
+        version="ordinary-answer-2",
+        contract="contract",
+        producing_implementation="producing",
+        implementation="installed",
+        compatibility="exact",
+    )
+    reader = session(Connection())
+    object.__setattr__(reader, "completed_run_id", 12)
+    object.__setattr__(reader, "completed_cut_id", 34)
+    page = reader.inventory(
+        "fact", "supports", limit=1, max_bytes=4096, query_binding=bound, selection=selected
+    )
+    assert page.query_binding == bound
+    assert (page.run_id, page.cut_id) == (12, 34)
+    assert page.next_page_token is not None
+    body = json.loads(base64.urlsafe_b64decode(page.next_page_token))
+    assert body["query_binding"] == bound.model_dump(mode="json")
+    assert (body["run"], body["cut"]) == (12, 34)
+    assert page.selection == selected
+    with pytest.raises(WrongBinding):
+        reader.inventory(
+            "fact",
+            "supports",
+            limit=1,
+            max_bytes=4096,
+            continuation=page.next_page_token,
+            query_binding=bound,
+            selection=selected.model_copy(update={"parameter_digest": "parameters:other"}),
+        )
+    changed = bound.model_copy(update={"implementation": "different"})
+    with pytest.raises(WrongBinding):
+        reader.inventory(
+            "fact",
+            "supports",
+            limit=1,
+            max_bytes=4096,
+            continuation=page.next_page_token,
+            query_binding=changed,
+            selection=selected,
+        )
+
+
+def test_casefold_lookup_refuses_when_the_qualification_owner_refuses(monkeypatch):
+    """Component refusal only; the actual Unicode/PostgreSQL pair is an integration obligation."""
+    import sys
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.serve.read import Reader
+
+    observed = []
+
+    def refuse(conn, prepared):
+        observed.append((conn, prepared))
+        raise SemanticRefusal("unqualified folding recipe")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "corpus_structure.semantic.unicode_identity",
+        SimpleNamespace(require_unicode_identity_release=refuse),
+    )
+    prepared = SimpleNamespace(
+        definitions=[SimpleNamespace(iri="class:custom")],
+        display_properties=lambda iri: (
+            SimpleNamespace(iri="property:display", case_policy="casefold"),
+        ),
+    )
+    owned = SimpleNamespace(binding=SnapshotBinding("r", "z", 1, "c"), prepared=prepared)
+    reader = Reader(SimpleNamespace(session=owned, conn=None))
+    with pytest.raises(SemanticRefusal, match="unqualified"):
+        reader.entity_ids(label="Straße")
+    assert observed == [(None, prepared)]

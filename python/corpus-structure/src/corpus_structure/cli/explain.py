@@ -37,10 +37,20 @@ def _explain(
         read_snapshot(engine) as conn,
     ):
         query = None
+        selection = None
         if query_token is not None:
             from corpus_structure.cli.query import followup_context
 
             _, rid, query = followup_context(conn, query_token, project, run)
+            from corpus_structure.semantic.query import AnswerSelection
+            from corpus_structure.serve.journey import decode_token
+
+            origin = decode_token(query_token)
+            selection = AnswerSelection(
+                parameter_digest=origin["params"],
+                projection=origin["projection"],
+                arithmetic=origin["arithmetic"],
+            )
         else:
             _, rid = result_context(
                 conn,
@@ -49,21 +59,43 @@ def _explain(
             )
         if report is not None:
             from corpus_structure.serve.explain import unit_source_report
-            from corpus_structure.serve.journey import bind_session
+            from corpus_structure.serve.journey import QueryRefused, bind_session
 
+            if kind == "claim" and collection != "observation":
+                raise QueryRefused("unsupported claim report collection")
             value = (
-                bind_session(conn, rid).source_report(key, report, max_bytes=max_bytes)
+                bind_session(conn, rid).source_report(
+                    key,
+                    report,
+                    max_bytes=max_bytes,
+                    query_binding=query.reference if query is not None else None,
+                    selection=selection,
+                )
                 if kind == "claim"
-                else unit_source_report(conn, rid, key, collection, report, max_bytes=max_bytes)
+                else unit_source_report(
+                    conn, rid, key, collection, report, max_bytes=max_bytes, query=query
+                )
             )
         elif collection is not None:
             from corpus_structure.serve.journey import bind_session
 
             if kind != "claim":
                 raise ValueError("unit inventories are selected through explain unit")
-            value = bind_session(conn, rid).inventory(
-                key, collection, continuation=page_token, limit=limit, max_bytes=max_bytes
-            )
+            try:
+                value = bind_session(conn, rid).inventory(
+                    key,
+                    collection,
+                    continuation=page_token,
+                    limit=limit,
+                    max_bytes=max_bytes,
+                    query_binding=query.reference if query is not None else None,
+                    selection=selection,
+                )
+            except KeyError:
+                from corpus_structure.serve.journey import QueryRefused
+
+                raise QueryRefused(f"no semantic fact {key}") from None
+
         else:
             value = explain_query(
                 conn,
@@ -74,6 +106,7 @@ def _explain(
                 continuation=page_token,
                 limit=limit,
                 max_bytes=max_bytes,
+                selection=selection,
             )
         emit(value, json=json)
 

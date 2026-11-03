@@ -274,7 +274,7 @@ def test_current_inspection_preserves_exact_product_and_companion_selector(
     )
     assert result.exit_code == 0, (result.output, result.exception)
     selected = read.call_args.args[1]
-    assert selected.version == 3
+    assert selected.version == 4
     assert selected.content_digest == "a" * 64
     assert selected.view == "manifest" and selected.collection == "coverage"
     assert json.loads(result.stdout)["rows"] == [{"outcome": "unknown"}]

@@ -228,10 +228,12 @@ class Evidence(Query):
     name, params, result = "evidence", EvidenceParams, EvidenceAnswer
 
     def rows(self, ctx, p, after=None):
+        standing = ctx.session.fact_standing({p.key})[p.key]
         for evidence in ctx.reader.evidence(p.key, after=after):
             if after is None or evidence.evidence_id > str(after):
                 yield Positioned(
-                    EvidenceAnswer(fact_id=p.key, evidence=evidence), evidence.evidence_id
+                    EvidenceAnswer(fact_id=p.key, evidence=evidence, standing=standing),
+                    evidence.evidence_id,
                 )
 
 

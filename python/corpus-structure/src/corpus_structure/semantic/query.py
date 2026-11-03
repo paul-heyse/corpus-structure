@@ -43,6 +43,7 @@ from .coverage_contract import coverage_recipe
 from .identity import canonical_bytes
 from .metadata import table
 from .outcomes import ScientificOutcome
+from .query_compatibility import QueryBindingReference
 from .releases import open_release
 from .scientific_evidence_schema import (
     ScientificAssessmentEvidence,
@@ -53,7 +54,13 @@ if TYPE_CHECKING:
     from .ontology import QualifiedGraphProjection
 
 
-from .refusals import InvalidContinuation, SemanticRefusal, WrongBinding, WrongRelease
+from .refusals import (
+    InvalidContinuation,
+    SemanticReason,
+    SemanticRefusal,
+    WrongBinding,
+    WrongRelease,
+)
 from .refusals import StaleSnapshot as StaleSnapshot
 
 
@@ -104,6 +111,12 @@ class QuerySpec:
 
 class _Envelope(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+
+class AnswerSelection(_Envelope):
+    parameter_digest: str
+    projection: Literal["occurrence", "fact", "accepted"]
+    arithmetic: Literal["exact"] = "exact"
 
 
 class Membership(_Envelope):
@@ -221,7 +234,12 @@ class CoverageSummary(_Envelope):
 class InventoryPage(_Envelope):
     """A bounded, binding-checked selection, separate from source payloads."""
 
+    contract_version: Literal[2] = 2
     binding: SnapshotBinding
+    selection: AnswerSelection | None = None
+    run_id: int | None = None
+    cut_id: int | None = None
+    query_binding: QueryBindingReference | None = None
     root: str
     collection: str
     items: tuple[dict[str, Any], ...]
@@ -238,6 +256,9 @@ class ReadLimit(SemanticRefusal):
 class QueryResult(_Envelope):
     contract_version: Literal[2] = 2
     binding: SnapshotBinding
+    selection: AnswerSelection | None = None
+    run_id: int | None = None
+    cut_id: int | None = None
     projection: Literal["occurrence", "fact", "accepted"]
     rows: tuple[QueryRow, ...]
     values: tuple[ValueNode, ...]
@@ -265,6 +286,10 @@ class SourceCustody(_Envelope):
 
 class SourceObservationReport(_Envelope):
     binding: SnapshotBinding
+    selection: AnswerSelection | None = None
+    run_id: int | None = None
+    cut_id: int | None = None
+    query_binding: QueryBindingReference | None = None
     root_fact_id: str
     observation_id: int
     observation_key: str
@@ -356,11 +381,16 @@ class Assessment(_Envelope):
     context_value_id: str | None
     comparison_tier: str | None
     scientific_evidence: ScientificAssessmentEvidence | None = None
+    semantic_reason: SemanticReason | None = None
 
 
 class Explanation(_Envelope):
     contract_version: Literal[2] = 2
     binding: SnapshotBinding
+    selection: AnswerSelection | None = None
+    run_id: int | None = None
+    cut_id: int | None = None
+    query_binding: QueryBindingReference | None = None
     fact_id: str
     standing: FactStanding
     inventories: dict[str, InventoryPage]
@@ -420,7 +450,14 @@ def bind_realization(conn: Connection, realization_id: str, release_id: str | No
     return _bind_realization(conn, realization_id, release_id)
 
 
-def _bind_realization(conn: Connection, realization_id: str, release_id: str | None = None):
+def _bind_realization(
+    conn: Connection,
+    realization_id: str,
+    release_id: str | None = None,
+    *,
+    completed_run_id=None,
+    completed_cut_id=None,
+):
     realization = table("data.realization")
     row = conn.execute(
         select(realization.c.release_id, realization.c.data_revision).where(
@@ -432,20 +469,32 @@ def _bind_realization(conn: Connection, realization_id: str, release_id: str | N
     if release_id is not None and row.release_id != release_id:
         raise WrongRelease("release selector differs from realization binding")
     binding = SnapshotBinding(row.release_id, realization_id, row.data_revision, str(uuid4()))
-    return ReadSession(conn, binding, open_release(conn, binding.release_id))
+    return ReadSession(
+        conn,
+        binding,
+        open_release(conn, binding.release_id),
+        completed_run_id=completed_run_id,
+        completed_cut_id=completed_cut_id,
+    )
 
 
 def bind_completed_result(conn: Connection, run_id: int):
     _require_snapshot(conn)
     completed = table("ops.completed_result")
     row = conn.execute(
-        select(completed.c.release_id, completed.c.output_realization_id).where(
+        select(completed.c.release_id, completed.c.output_realization_id, completed.c.cut_id).where(
             completed.c.run_id == run_id
         )
     ).one_or_none()
     if row is None:
         raise SemanticRefusal(f"no completed semantic result for run {run_id}")
-    return _bind_realization(conn, row.output_realization_id, row.release_id)
+    return _bind_realization(
+        conn,
+        row.output_realization_id,
+        row.release_id,
+        completed_run_id=run_id,
+        completed_cut_id=row.cut_id,
+    )
 
 
 @dataclass(frozen=True)
@@ -504,6 +553,8 @@ class ReadSession:
         default_factory=dict, repr=False, compare=False
     )
 
+    completed_run_id: int | None = field(default=None, kw_only=True)
+    completed_cut_id: int | None = field(default=None, kw_only=True)
     _analysis_input: Any = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -1262,13 +1313,9 @@ class ReadSession:
             for identity, items in memberships.items()
         }
 
-    def _values(
-        self, roots: set[str], subjects: set[str]
-    ) -> tuple[dict[str, Any], tuple[ValueNode, ...], dict[str, EntityReference]]:
-        """Bounded adjacency discovery precedes value-body hydration in batches of 64."""
+    def _discover_values(self, roots):
+        """Bound complete graph discovery without fetching value bodies."""
         v, r = table("data.typed_value"), table("data.value_role")
-        if not roots:
-            return {}, (), self._entities(subjects)
         max_nodes, max_edges, max_bytes = 100_000, 100_000, 8 * 1024 * 1024
         pending = deque(sorted(roots))
         scheduled = set(roots)
@@ -1355,6 +1402,16 @@ class ReadSession:
                     break
                 last = edges[-1]
                 cursor = (last["parent_value_id"], last["role"], last["position"])
+        return admitted, roles
+
+    def _values(
+        self, roots: set[str], subjects: set[str]
+    ) -> tuple[dict[str, Any], tuple[ValueNode, ...], dict[str, EntityReference]]:
+        """Bounded adjacency discovery precedes value-body hydration in batches of 64."""
+        v = table("data.typed_value")
+        if not roots:
+            return {}, (), self._entities(subjects)
+        admitted, roles = self._discover_values(roots)
         records = {}
         for keys in batched(admitted, 64, strict=False):
             records.update(
@@ -1525,8 +1582,32 @@ class ReadSession:
             Coverage(**{key: row[key] for key in Coverage.model_fields}) for row in rows[:limit]
         ), len(rows) > limit
 
+    def _detail_query_binding(self, query_binding):
+        if query_binding is None:
+            return None
+        if not isinstance(query_binding, QueryBindingReference):
+            raise WrongBinding("detail requires a typed query binding")
+        if query_binding.release_id != self.binding.release_id:
+            raise WrongRelease("detail query binding belongs to another producing release")
+        return query_binding.model_dump(mode="json")
+
+    def _detail_selection(self, selection):
+        if selection is None:
+            return None
+        if not isinstance(selection, AnswerSelection):
+            raise WrongBinding("detail requires a typed answer selection")
+        return selection.model_dump(mode="json")
+
     def coverage_details(
-        self, family, scopes, *, continuation=None, limit=64, max_bytes=1024 * 1024
+        self,
+        family,
+        scopes,
+        *,
+        continuation=None,
+        limit=64,
+        max_bytes=1024 * 1024,
+        query_binding=None,
+        selection=None,
     ):
         """Page only the released requirement's selected scopes under the same binding."""
         if (
@@ -1536,13 +1617,19 @@ class ReadSession:
             or not 1 <= max_bytes <= 8 * 1024 * 1024
         ):
             raise SemanticRefusal("unsupported coverage detail page bounds")
+        named_binding = self._detail_query_binding(query_binding)
+        selected = self._detail_selection(selection)
         scopes = tuple(sorted(scopes))
         identity = {
             "version": 2,
             "release": self.binding.release_id,
             "realization": self.binding.realization_id,
             "revision": self.binding.data_revision,
+            "run": self.completed_run_id,
+            "cut": self.completed_cut_id,
             "family": family,
+            "query_binding": named_binding,
+            "selection": selected,
             "scopes": sha256(canonical_bytes(scopes)).hexdigest(),
             "limit": limit,
             "max_bytes": max_bytes,
@@ -1574,8 +1661,12 @@ class ReadSession:
             raise ReadLimit("coverage cursor exceeds 8192 bytes", reason="oversized_item")
         result = InventoryPage(
             binding=self.binding,
+            run_id=self.completed_run_id,
+            cut_id=self.completed_cut_id,
             root=family,
             collection="coverage",
+            query_binding=query_binding,
+            selection=selection,
             items=tuple(row.model_dump(mode="python") for row in rows),
             population_complete=not more,
             next_page_token=token,
@@ -1619,6 +1710,23 @@ class ReadSession:
             return select(d).where(
                 self.scope(d), d.c.conclusion_fact_id == fact_id
             ), d.c.derivation_id
+        if collection == "occurrence_contexts":
+            context = table("data.occurrence_context")
+            return select(context).where(
+                self.scope(context), context.c.occurrence_id.in_(occurrences)
+            ), context.c.occurrence_id
+        if collection == "citation_roles":
+            citation = table("data.occurrence_evidence_role")
+            key = (
+                func.jsonb_build_array(
+                    citation.c.occurrence_id, citation.c.evidence_id, citation.c.role
+                )
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(citation, key).where(
+                self.scope(citation), citation.c.occurrence_id.in_(occurrences)
+            ), key
         if collection == "support_evidence":
             key = (
                 func.jsonb_build_array(oe.c.occurrence_id, oe.c.evidence_id)
@@ -1696,11 +1804,31 @@ class ReadSession:
                 .label("cursor_identity")
             )
             return select(origins, key), key
+        if collection == "identity_exclusion_evidence":
+            exclusions, _ = self._inventory_statement(fact_id, "identity_exclusions")
+            relation = table("data.identity_exclusion_evidence")
+            ids = exclusions.with_only_columns(table("data.identity_exclusion").c.exclusion_id)
+            key = (
+                func.jsonb_build_array(relation.c.exclusion_id, relation.c.evidence_id)
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(relation, key).where(
+                self.scope(relation), relation.c.exclusion_id.in_(ids)
+            ), key
         if collection == "identity_exclusions":
             relation, values, roles = (
                 table("data." + name)
                 for name in ("identity_exclusion", "typed_value", "value_role")
             )
+            root = self.connection.execute(
+                select(f.c.object_value_id, f.c.qualification_value_id).where(
+                    self.scope(f), f.c.fact_id == fact_id
+                )
+            ).one()
+            # The recursive relational filter below is over this same immutable graph,
+            # whose complete node/edge/byte population has already been admitted.
+            self._discover_values({value for value in root if value is not None})
             root_fact = select(f).where(self.scope(f), f.c.fact_id == fact_id).subquery()
             roots = select(root_fact.c.object_value_id).union(
                 select(root_fact.c.qualification_value_id)
@@ -1760,6 +1888,8 @@ class ReadSession:
         after_identity=None,
         limit=64,
         max_bytes=1024 * 1024,
+        query_binding=None,
+        selection=None,
     ):
         """Select identity rows before hydration; reports contain references, never bodies."""
         from pydantic import TypeAdapter
@@ -1771,6 +1901,8 @@ class ReadSession:
             or not 1 <= max_bytes <= 8 * 1024 * 1024
         ):
             raise SemanticRefusal("inventory limits exceed the supported range")
+        named_binding = self._detail_query_binding(query_binding)
+        selected = self._detail_selection(selection)
         f = table("data.fact")
         if (
             self.connection.execute(
@@ -1780,11 +1912,15 @@ class ReadSession:
         ):
             raise KeyError(fact_id)
         identity = {
-            "inventory_version": 1,
+            "inventory_version": 2,
             "release": self.binding.release_id,
             "realization": self.binding.realization_id,
             "revision": self.binding.data_revision,
+            "run": self.completed_run_id,
+            "cut": self.completed_cut_id,
             "root": fact_id,
+            "query_binding": named_binding,
+            "selection": selected,
             "collection": collection,
             "limit": limit,
             "max_bytes": max_bytes,
@@ -1877,8 +2013,12 @@ class ReadSession:
                 )
         page = InventoryPage(
             binding=self.binding,
+            run_id=self.completed_run_id,
+            cut_id=self.completed_cut_id,
             root=fact_id,
             collection=collection,
+            query_binding=query_binding,
+            selection=selection,
             items=items,
             population_complete=not more,
             next_page_token=token,
@@ -1889,8 +2029,12 @@ class ReadSession:
             )
         return page
 
-    def source_report(self, fact_id, observation_key, *, max_bytes=1024 * 1024):
+    def source_report(
+        self, fact_id, observation_key, *, max_bytes=1024 * 1024, query_binding=None, selection=None
+    ):
         """Explicit immutable report read; a wrong root cannot select another report."""
+        self._detail_query_binding(query_binding)
+        self._detail_selection(selection)
         if type(max_bytes) is not int or not 1 <= max_bytes <= 8 * 1024 * 1024:
             raise SemanticRefusal("source report byte limit exceeds the supported range")
         stmt, _ = self._inventory_statement(fact_id, "source_reports")
@@ -1914,7 +2058,11 @@ class ReadSession:
             raise WrongBinding("source report is unavailable under this fact and binding")
         report = SourceObservationReport(
             binding=self.binding,
+            run_id=self.completed_run_id,
+            cut_id=self.completed_cut_id,
             root_fact_id=fact_id,
+            query_binding=query_binding,
+            selection=selection,
             observation_id=row["id"],
             observation_key=row["observation_key"],
             payload=row["payload"],
@@ -2208,22 +2356,29 @@ class ReadSession:
         if not occurrence_ids:
             return {}, {}
         context, roles = table("data.occurrence_context"), table("data.occurrence_evidence_role")
+        context_stmt = select(context).where(
+            self.scope(context), context.c.occurrence_id.in_(occurrence_ids)
+        )
+        role_stmt = (
+            select(roles)
+            .where(self.scope(roles), roles.c.occurrence_id.in_(occurrence_ids))
+            .order_by(roles.c.occurrence_id, roles.c.evidence_id)
+        )
+        self._admit_hydration(context_stmt, role_stmt)
+        context_rows = self.connection.execute(context_stmt.limit(100001)).mappings().all()
+        role_rows = self.connection.execute(role_stmt.limit(100001)).mappings().all()
+        if max(len(context_rows), len(role_rows)) > 100000:
+            raise ReadLimit(
+                "occurrence context/citation reference budget exhausted", reason="work_limit"
+            )
         contexts = {
             row["occurrence_id"]: OccurrenceContext(
                 statement_entity_id=row["statement_entity_id"], statement_role=row["statement_role"]
             )
-            for row in self.connection.execute(
-                select(context).where(
-                    _scope(self.binding, context), context.c.occurrence_id.in_(occurrence_ids)
-                )
-            ).mappings()
+            for row in context_rows
         }
         by_occurrence: dict[str, list[CitationRole]] = defaultdict(list)
-        for row in self.connection.execute(
-            select(roles)
-            .where(_scope(self.binding, roles), roles.c.occurrence_id.in_(occurrence_ids))
-            .order_by(roles.c.occurrence_id, roles.c.evidence_id)
-        ).mappings():
+        for row in role_rows:
             by_occurrence[row["occurrence_id"]].append(
                 CitationRole(evidence_id=row["evidence_id"], role=row["role"])
             )
@@ -2239,37 +2394,41 @@ class ReadSession:
                 "kb.observation_input",
             )
         )
-        receipts = (
-            self.connection.execute(
-                select(
-                    source.c.evidence_id,
-                    source.c.rendition_id,
-                    source.c.span_id,
-                    source.c.source_view_id,
-                    source.c.native_address,
-                    observation.c.id,
-                    observation.c.observation_key,
-                    observation.c.task_id,
-                    observation.c.payload_definition,
-                    observation.c.kind,
-                    task.c.run_id,
-                )
-                .select_from(
-                    source.join(observation, source.c.observation_id == observation.c.id).join(
-                        task, task.c.id == observation.c.task_id
-                    )
-                )
-                .where(_scope(self.binding, source), source.c.evidence_id.in_(evidence_ids))
+        custody_stmt = (
+            select(
+                source.c.evidence_id,
+                source.c.rendition_id,
+                source.c.span_id,
+                source.c.source_view_id,
+                source.c.native_address,
+                observation.c.id,
+                observation.c.observation_key,
+                observation.c.task_id,
+                observation.c.payload_definition,
+                observation.c.kind,
+                task.c.run_id,
             )
-            .mappings()
-            .all()
+            .select_from(
+                source.join(observation, source.c.observation_id == observation.c.id).join(
+                    task, task.c.id == observation.c.task_id
+                )
+            )
+            .where(_scope(self.binding, source), source.c.evidence_id.in_(evidence_ids))
         )
+        self._admit_hydration(custody_stmt)
+        receipts = self.connection.execute(custody_stmt).mappings().all()
+
         dependencies: dict[int, list[str]] = defaultdict(list)
-        for row in self.connection.execute(
+        input_stmt = (
             select(inputs)
             .where(inputs.c.observation_id.in_([row["id"] for row in receipts]))
             .order_by(inputs.c.position)
-        ).mappings():
+        )
+        self._admit_hydration(input_stmt)
+        input_rows = self.connection.execute(input_stmt.limit(100001)).mappings().all()
+        if len(input_rows) > 100000:
+            raise ReadLimit("source custody input reference budget exhausted", reason="work_limit")
+        for row in input_rows:
             dependencies[row["observation_id"]].append(row["source_observation_key"])
         return {
             row["evidence_id"]: SourceCustody(
@@ -2317,7 +2476,10 @@ class ReadSession:
             frozenset({spec.coverage_scope}) if spec.coverage_scope != "*" else frozenset(),
         )
         summary = self.coverage_summary(requirement)
-        detail = self.coverage_details(prop.iri, requirement.members | {"*"})
+        selection = AnswerSelection(
+            parameter_digest=self._fingerprint(spec), projection=spec.projection
+        )
+        detail = self.coverage_details(prop.iri, requirement.members | {"*"}, selection=selection)
         coverage = tuple(Coverage(**row) for row in detail.items)
         complete_coverage = summary.state == "established"
         token = None
@@ -2327,6 +2489,9 @@ class ReadSession:
             )
         result = QueryResult(
             binding=self.binding,
+            selection=selection,
+            run_id=self.completed_run_id,
+            cut_id=self.completed_cut_id,
             projection=spec.projection,
             rows=output,
             values=nodes,
@@ -2350,12 +2515,23 @@ class ReadSession:
             )
         return result
 
-    def explain(self, fact_id: str, *, limit=64, max_bytes=1024 * 1024) -> Explanation:
+    def explain(
+        self, fact_id: str, *, limit=64, max_bytes=1024 * 1024, query_binding=None, selection=None
+    ) -> Explanation:
         """Bounded inventories under one snapshot; source report bodies are explicit reads."""
         pages = {
-            name: self.inventory(fact_id, name, limit=limit, max_bytes=max_bytes)
+            name: self.inventory(
+                fact_id,
+                name,
+                limit=limit,
+                max_bytes=max_bytes,
+                query_binding=query_binding,
+                selection=selection,
+            )
             for name in (
                 "supports",
+                "occurrence_contexts",
+                "citation_roles",
                 "evidence",
                 "assessments",
                 "derivations",
@@ -2366,6 +2542,7 @@ class ReadSession:
                 "alternative_members",
                 "input_supports",
                 "identity_exclusions",
+                "identity_exclusion_evidence",
                 "establishments",
             )
         }
@@ -2373,8 +2550,12 @@ class ReadSession:
         # fields would silently imply complete nested evidence/premise populations.
         result = Explanation(
             binding=self.binding,
+            run_id=self.completed_run_id,
+            cut_id=self.completed_cut_id,
             fact_id=fact_id,
             standing=self.fact_standing({fact_id})[fact_id],
+            query_binding=query_binding,
+            selection=selection,
             inventories=pages,
         )
         if len(canonical_bytes(result.model_dump(mode="json"))) > max_bytes:

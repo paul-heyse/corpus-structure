@@ -265,6 +265,44 @@ bytes and independent of claim acceptance. No incomplete graph is returned as ex
 Only after complete bounded discovery are value bodies fetched in batches of at most64;
 entity memberships/source-reference metadata receive the same8 MiB physical preflight.
 
+Native source inspection uses `NativeSourceRequest`/`NativeSourceResponse` version4.
+`limit` remains an output-page bound (default100, maximum1,000); invocation work is separately
+bound by `max_rows` (default and maximum10,000 fetched rows, including metadata, nested
+companions, repeated reads and lookahead) and `max_bytes` (default1 MiB, maximum8 MiB).
+Bytes count canonical UTF-8 decoded rows plus explicitly reserved raw artifact/schema bytes;
+the complete canonical response envelope must independently fit the same byte limit. A protected
+selection is first queried only for row count and scalar encoded lengths before payload transfer.
+Its original page limit is retained inside the detection-row bound. PostgreSQL scalar text/JSON
+transport admits at most twice the remaining canonical-byte allowance to account for JSON
+whitespace and bytea hex encoding; decoded canonical values then consume the exact allowance.
+Retained scalar streams reserve their declared whole byte length before the first64 KiB artifact
+part is requested. Explicit artifact inspection retains its existing64 KiB range contract and
+reserves that range before `substring` transfers it; base64 and envelope expansion still must fit.
+Oversized objects refuse `oversized_item`; cumulative work exhaustion refuses `work_limit`.
+Version4 cursors bind exact immutable selection and both work bounds, cap encoded size at8 KiB,
+and reject version3 meaning. Items, sections, companion occurrence pages and manifests use an
+actual extra row to establish more results; exhaustion never follows merely from a full page.
+
+The defaults reuse the existing published-reader maximum10,000-row admission and ordinary-answer
+1 MiB/8 MiB byte boundary. They accommodate normal100-row inspection while preserving a finite
+whole-invocation refusal point; they make no latency or universal document-capacity claim. Full
+native exports remain explicitly selected streaming demands. Interactive queue packet creation
+uses one shared10,000-row/8 MiB source budget per `queue_next` invocation across all leased units,
+source views, ancestor views, observations and known label/class rows. The complete packet's
+UTF-8 parts must also fit8 MiB before it is cached for `read_unit` character paging. Explicit
+private queue/model preparation retains its declared bulk scope. The older character page cap
+controls transport packaging after admission and is not treated as pre-transfer byte admission.
+
+Other ordinary-answer v2 nested reads use finite operational admission: source-custody
+input references and occurrence context/citation references admit at most100,000 rows and
+8 MiB of physical scalar metadata; the whole nested population refuses on exhaustion.
+Label lookup admits at most10,000 matches by default (walk lookup uses its explicit frontier
+bound). Transformation statement/definition context selections admit at most10,000 distinct
+rows each; their nested premise/definition claim collections admit at most1,000 claims and
+8 MiB of canonical encoded data. These limits do not select scientific representatives or
+change assessment/selection meaning. Full detached exports retain their explicit full-relation
+contract and derive standing from captured physical relations.
+
 ### Walk meaning and selected physical route
 
 The new `relations_between` contract explicitly asks for **walks**, not reachability or shortest

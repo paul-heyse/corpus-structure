@@ -10,6 +10,8 @@ import pytest
 
 from corpus_structure.semantic.identity import fact_key, occurrence_key
 
+from .inventory_reading import inventory_evidence, inventory_supports
+
 
 @pytest.mark.parametrize(
     "release,realization,subject,predicate,object_value,object_meaning,qualification,qualification_meaning,preimage,digest",
@@ -313,13 +315,14 @@ classes:
         assert result.rows[0].qualification is not None
         assert result.rows[0].qualification.model_dump() == qualification
         explanation = session.explain(expected_fact)
+        assert explanation.binding == session.binding
         assert {
             (support.occurrence_id, support.source, support.item, support.evidence_ids)
-            for support in explanation.supports
+            for support in inventory_supports(session, expected_fact)
         } == {(expected_occurrence, source, item_id, ("evidence:identity-vector",))}
         assert {
             (evidence.evidence_id, evidence.source_uri, evidence.locator)
-            for evidence in explanation.evidence
+            for evidence in inventory_evidence(session, expected_fact)
         } == {("evidence:identity-vector", "urn:vector", "line:1")}
 
 

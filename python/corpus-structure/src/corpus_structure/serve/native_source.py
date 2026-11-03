@@ -19,7 +19,7 @@ from corpus_structure.semantic.product_reference import ProductReference
 
 class NativeSourceRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     run_id: int = Field(gt=0)
     task_id: int = Field(gt=0)
     product_key: str = Field(min_length=1)
@@ -46,6 +46,8 @@ class NativeSourceRequest(BaseModel):
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=1000)
+    max_rows: int = Field(default=10000, strict=True, ge=1, le=10000)
+    max_bytes: int = Field(default=1024 * 1024, strict=True, ge=1, le=8 * 1024 * 1024)
 
     @model_validator(mode="after")
     def qualified_selection(self):
@@ -102,14 +104,48 @@ class NativeSourceRequest(BaseModel):
 
 class NativeSourceResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     selection: NativeSourceRequest
     release_id: str
     outcome: Literal["source_ready", "missing", "invalid", "unsupported"] = "source_ready"
     health: dict[str, JsonValue]
     rows: list[dict[str, JsonValue]]
     next_cursor: str | None = None
+    population_complete: bool = True
     companion: dict[str, JsonValue] | None = None
+
+
+def _source_cursor(request, after):
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.query import ReadLimit
+
+    token = base64.urlsafe_b64encode(
+        canonical_bytes(dict(cursor_version=4, selection=request.selection_digest(), after=after))
+    ).decode("ascii")
+    if len(token.encode("ascii")) > 8192:
+        raise ReadLimit("native source cursor exceeds 8192 bytes", reason="oversized_item")
+    return token
+
+
+def _source_position(request):
+    from corpus_structure.semantic.refusals import InvalidContinuation
+
+    try:
+        if len(request.cursor.encode("utf-8")) > 8192:
+            raise ValueError("oversized cursor")
+        body = json.loads(base64.b64decode(request.cursor, altchars=b"-_", validate=True))
+        if (
+            set(body) != {"cursor_version", "selection", "after"}
+            or type(body["cursor_version"]) is not int
+            or body["cursor_version"] != 4
+            or body["selection"] != request.selection_digest()
+        ):
+            raise ValueError("cursor version or selection differs")
+        return body["after"]
+    except (ValueError, TypeError, KeyError) as error:
+        raise InvalidContinuation(
+            "invalid native source continuation", reason="invalid_continuation"
+        ) from error
 
 
 def _published_derivations(reader, pointers):
@@ -170,7 +206,19 @@ def inspect_native_source(
     """Finish a selected read before releasing its cancellation registration."""
     cancellation = cancellation or BorrowerCancellation()
     with cancellation.borrow(conn):
-        response = _inspect_native_source(conn, request, cancellation=cancellation)
+        from corpus_structure.semantic.identity import canonical_bytes
+        from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+        from corpus_structure.semantic.query import ReadLimit
+
+        budget = PublishedReadBudget(request.max_rows, request.max_bytes)
+        response = _inspect_native_source(
+            conn, request, cancellation=cancellation, read_budget=budget
+        )
+        response = response.model_copy(update={"population_complete": response.next_cursor is None})
+        if len(canonical_bytes(response.model_dump(mode="json"))) > request.max_bytes:
+            raise ReadLimit(
+                "complete native source envelope exceeds max_bytes", reason="oversized_item"
+            )
         cancellation.check_active()
         return response
 
@@ -208,7 +256,11 @@ def _published_native_header(reader, origin_run: int, *, runtime: bool):
 
 
 def _inspect_native_source(
-    conn: Connection, request: NativeSourceRequest, *, cancellation: BorrowerCancellation
+    conn: Connection,
+    request: NativeSourceRequest,
+    *,
+    cancellation: BorrowerCancellation,
+    read_budget,
 ) -> NativeSourceResponse:
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_record_reader import (
@@ -242,6 +294,7 @@ def _inspect_native_source(
             run.project_id,
             cancellation=cancellation,
             projection_context=projection_context,
+            read_budget=read_budget,
         )
     pin = dict(
         task_id=request.task_id,
@@ -253,6 +306,7 @@ def _inspect_native_source(
         ProductReference(**pin),
         cancellation=cancellation,
         projection_context=projection_context,
+        read_budget=read_budget,
     )
     if published is None:
         raise ValueError("native source requires a current published record")
@@ -287,28 +341,31 @@ def _inspect_native_source(
             raise ValueError("native source is not selected by the requested run")
     after = -1
     if request.cursor is not None:
-        try:
-            cursor = json.loads(base64.urlsafe_b64decode(request.cursor))
-            if (
-                cursor["selection"] != request.selection_digest()
-                or type(cursor["after"]) is not int
-            ):
-                raise ValueError("cursor selection differs")
-            after = cursor["after"]
-        except (KeyError, ValueError, TypeError) as error:
-            raise ValueError("invalid native continuation") from error
+        after = _source_position(request)
+        if type(after) is not int:
+            from corpus_structure.semantic.refusals import InvalidContinuation
+
+            raise InvalidContinuation(
+                "invalid native ordinal continuation", reason="invalid_continuation"
+            )
     parent_product = _published_parent_product(published)
     # The storage reader checks the admitted archive even for metadata-only selections.
-    rows = read_native_items(
-        conn,
-        **pin,
-        section_pointer=request.section_pointer,
-        membership=request.membership or "direct",
-        pointer=request.pointer,
-        after=after,
-        limit=request.limit,
-        projection_context=projection_context,
-    )
+    if request.view in {"products", "sections"}:
+        published._native_schema_mapping()
+        rows = []
+    else:
+        rows = read_native_items(
+            conn,
+            **pin,
+            section_pointer=request.section_pointer,
+            membership=request.membership or "direct",
+            pointer=request.pointer,
+            after=after,
+            limit=request.limit,
+            projection_context=projection_context,
+            read_budget=read_budget,
+            _reader=published,
+        )
     next_cursor = None
     if request.view == "products":
         rows = [
@@ -321,23 +378,14 @@ def _inspect_native_source(
             )
         ]
     elif request.view == "sections":
-        sections = published.sections()
-        selected = [
-            row
-            for row in sections
-            if row["ordinal"] > after
-            and (
-                request.section_pointer is None
-                or (
-                    request.membership == "descendants"
-                    and request.section_pointer in row["ancestors"]
-                )
-                or (
-                    request.membership != "descendants"
-                    and row["parent_pointer"] == request.section_pointer
-                )
-            )
-        ][: request.limit]
+        selected = published.sections(
+            after=after,
+            section_pointer=request.section_pointer,
+            membership=request.membership or "direct",
+            limit=request.limit + 1,
+        )
+        more = len(selected) > request.limit
+        selected = selected[: request.limit]
         rows = [
             dict(
                 task_id=request.task_id,
@@ -346,6 +394,8 @@ def _inspect_native_source(
             )
             for row in selected
         ]
+        if more:
+            next_cursor = _source_cursor(request, rows[-1]["ordinal"])
     elif request.view in {"item", "formula", "cell", "regions", "trace"}:
         if request.pointer is None or len(rows) != 1:
             raise ValueError("native occurrence inspection requires one existing pointer")
@@ -356,7 +406,11 @@ def _inspect_native_source(
             report["source_product"] = parent_product
         if request.view in {"regions", "trace"}:
             rows = read_native_regions(
-                conn, **pin, pointer=request.pointer, projection_context=projection_context
+                conn,
+                **pin,
+                pointer=request.pointer,
+                projection_context=projection_context,
+                read_budget=read_budget,
             )
             if request.view == "trace":
                 mappings = (
@@ -426,24 +480,38 @@ def _inspect_native_source(
                         recognized_latex=native.get("text"),
                         recognition=health,
                         inline_alignment_reports=alignment,
-                        interpretation=_recorded_interpretations(conn, request),
+                        interpretation=_recorded_interpretations(
+                            conn, request, read_budget=read_budget
+                        ),
                         regions=read_native_regions(
                             conn,
                             **pin,
                             pointer=request.pointer,
                             projection_context=projection_context,
+                            read_budget=read_budget,
                         ),
                     )
                 ]
             else:
                 rows = [dict(rows[0], native=native, inline_alignment_reports=alignment)]
-    if request.view in {"items", "sections"} and len(rows) == request.limit:
-        next_cursor = base64.urlsafe_b64encode(
-            json.dumps(
-                dict(selection=request.selection_digest(), after=rows[-1]["ordinal"]),
-                sort_keys=True,
-            ).encode()
-        ).decode()
+    if request.view == "items" and len(rows) == request.limit:
+        last_ordinal = rows[-1]["ordinal"]
+        if type(last_ordinal) is not int:
+            raise ValueError("native item cursor requires an integer ordinal")
+        following = read_native_items(
+            conn,
+            **pin,
+            section_pointer=request.section_pointer,
+            membership=request.membership or "direct",
+            pointer=request.pointer,
+            after=last_ordinal,
+            limit=1,
+            projection_context=projection_context,
+            read_budget=read_budget,
+            _reader=published,
+        )
+        if following:
+            next_cursor = _source_cursor(request, last_ordinal)
     from corpus_structure.semantic.pdf_storage import integrated_source_context
 
     companion = integrated_source_context(
@@ -455,6 +523,7 @@ def _inspect_native_source(
         section_pointer=request.section_pointer or "#/body",
         membership=request.membership or "direct",
         cancellation=cancellation,
+        read_budget=read_budget,
     )
     return NativeSourceResponse(
         selection=request,
@@ -473,6 +542,7 @@ def _inspect_companion(
     *,
     cancellation: BorrowerCancellation,
     projection_context,
+    read_budget,
 ) -> NativeSourceResponse:
     """Authorize the exact selected graph before reading retained companion/observation data."""
     from corpus_structure.semantic.metadata import table
@@ -513,15 +583,13 @@ def _inspect_companion(
         raise ValueError("PDF companion is not selected by the requested project/run")
     after = ""
     if request.cursor is not None:
-        try:
-            cursor = json.loads(base64.urlsafe_b64decode(request.cursor))
-            if cursor["selection"] != request.selection_digest() or not isinstance(
-                cursor["after"], str
-            ):
-                raise ValueError("cursor selection differs")
-            after = cursor["after"]
-        except (KeyError, ValueError, TypeError) as error:
-            raise ValueError("invalid PDF companion continuation") from error
+        after = _source_position(request)
+        if not isinstance(after, str):
+            from corpus_structure.semantic.refusals import InvalidContinuation
+
+            raise InvalidContinuation(
+                "invalid native companion continuation", reason="invalid_continuation"
+            )
     pin = dict(
         task_id=request.task_id,
         product_key=request.product_key,
@@ -542,6 +610,7 @@ def _inspect_companion(
             artifact_digest=request.artifact_digest,
             offset=offset,
             cancellation=cancellation,
+            read_budget=read_budget,
         )
         following = result.pop("next_offset")
         content = result.pop("content")
@@ -551,15 +620,7 @@ def _inspect_companion(
             length=len(content),
             next_offset=following,
         )
-        continuation = (
-            None
-            if following is None
-            else base64.urlsafe_b64encode(
-                json.dumps(
-                    dict(selection=request.selection_digest(), after=str(following))
-                ).encode()
-            ).decode()
-        )
+        continuation = None if following is None else _source_cursor(request, str(following))
         return NativeSourceResponse(
             selection=request,
             release_id=row.release_id,
@@ -576,6 +637,7 @@ def _inspect_companion(
             occurrence_id=request.occurrence_id,
             limit=request.limit,
             cancellation=cancellation,
+            read_budget=read_budget,
         )
     elif request.view == "manifest":
         if request.collection is None:
@@ -587,6 +649,7 @@ def _inspect_companion(
             after=after,
             limit=request.limit,
             cancellation=cancellation,
+            read_budget=read_budget,
         )
     else:
         pointers = None
@@ -598,6 +661,7 @@ def _inspect_companion(
                 ProductReference(**pin),
                 cancellation=cancellation,
                 projection_context=projection_context,
+                read_budget=read_budget,
             )
             if published is None:
                 raise ValueError("native section requires a current published record")
@@ -616,16 +680,13 @@ def _inspect_companion(
             section_pointer=request.section_pointer,
             after=after,
             limit=request.limit,
+            row_budget=request.max_rows,
             cancellation=cancellation,
+            read_budget=read_budget,
         )
     continuation = result.get("cursor")
-    next_cursor = (
-        None
-        if continuation is None
-        else base64.urlsafe_b64encode(
-            json.dumps(dict(selection=request.selection_digest(), after=continuation)).encode()
-        ).decode()
-    )
+    next_cursor = None if continuation is None else _source_cursor(request, continuation)
+
     return NativeSourceResponse(
         selection=request,
         release_id=row.release_id,
@@ -635,7 +696,9 @@ def _inspect_companion(
     )
 
 
-def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) -> dict:
+def _recorded_interpretations(
+    conn: Connection, request: NativeSourceRequest, *, read_budget=None
+) -> dict:
     """Read selected-run analysis only; inspection never requests stronger computation."""
     if request.pointer is None:
         raise ValueError("recorded analysis requires one native formula occurrence")
@@ -648,11 +711,13 @@ def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) ->
     release = conn.execute(
         select(runs.c.release_id).where(runs.c.id == request.run_id)
     ).scalar_one()
-    reader = BoundReader(conn, request.run_id, open_release(conn, release), analysis=False)
+    reader = BoundReader(
+        conn, request.run_id, open_release(conn, release), analysis=False, read_budget=read_budget
+    )
     results = []
     views, selection = table("kb.source_view"), table("ops.run_source_view")
     newer = selection.alias("newer_analysis_selection")
-    view_ids = conn.execute(
+    view_query = (
         select(views.c.id)
         .join(selection, selection.c.source_view_id == views.c.id)
         .where(
@@ -668,7 +733,12 @@ def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) ->
             .exists(),
         )
         .order_by(views.c.id)
-    ).scalars()
+    )
+    if read_budget is not None:
+        read_budget.preflight(conn, view_query)
+    view_ids = tuple(conn.execute(view_query).scalars())
+    if read_budget is not None:
+        read_budget.value(view_ids)
     from corpus_structure.semantic.native_analysis import stored_native_analysis
 
     for view_id in view_ids:

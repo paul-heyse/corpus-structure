@@ -10,8 +10,9 @@ from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.query_compatibility import open_query_registry
 from corpus_structure.serve.explain import explain
-from corpus_structure.serve.journey import serve_query
+from corpus_structure.serve.journey import bind_session, serve_query
 
+from .inventory_reading import inventory_evidence, inventory_reports, inventory_supports
 from .reference_scenarios import publish_reference_case
 
 STAT = "https://corpus-structure.dev/domains/statistics/"
@@ -133,17 +134,28 @@ def test_statistics_aliases_consolidate_current_source_and_serve_one_family(
             explanation = explain(conn, run, "claim", facts[expression]["fact_id"])
             assert explanation.binding.release_id == prepared.release_id
             assert isinstance(explanation.detail, FactExplanation)
-            assert {support.item for support in explanation.detail.supports} == expected_items
-            linked = {e for support in explanation.detail.supports for e in support.evidence_ids}
+            reader = bind_session(conn, run)
+            assert {
+                support.item for support in inventory_supports(reader, explanation.identifier)
+            } == expected_items
+            linked = {
+                e
+                for support in inventory_supports(reader, explanation.identifier)
+                for e in support.evidence_ids
+            }
             assert linked
-            assert {e.evidence_id for e in explanation.detail.evidence} == linked
-            assert {e.source_uri for e in explanation.detail.evidence} == {"reference.pdf"}
+            assert {
+                e.evidence_id for e in inventory_evidence(reader, explanation.identifier)
+            } == linked
+            assert {e.source_uri for e in inventory_evidence(reader, explanation.identifier)} == {
+                "reference.pdf"
+            }
             assert all(
                 e.source is not None and e.source.source_view_id is not None
-                for e in explanation.detail.evidence
+                for e in inventory_evidence(reader, explanation.identifier)
             )
-            assert explanation.detail.source_observations
-            for observation in explanation.detail.source_observations:
+            assert inventory_reports(reader, explanation.identifier)
+            for observation in inventory_reports(reader, explanation.identifier):
                 if observation.payload.get("claims"):
                     assert {
                         e["quote"] for c in observation.payload["claims"] for e in c["evidence"]
@@ -378,17 +390,20 @@ def test_toy_original_inspection_quotes_preserve_nested_roles_and_source_decimal
             explanation = explain(conn, run, "claim", actual["fact_id"])
             assert explanation.binding.release_id == prepared.release_id
             assert isinstance(explanation.detail, FactExplanation)
-            assert {support.item for support in explanation.detail.supports} == {item}
+            reader = bind_session(conn, run)
+            assert {
+                support.item for support in inventory_supports(reader, explanation.identifier)
+            } == {item}
             citation_roles = {
                 citation.role
-                for support in explanation.detail.supports
+                for support in inventory_supports(reader, explanation.identifier)
                 for citation in support.citation_roles
             }
             assert citation_roles == {"primary", "supporting"}
-            assert len(explanation.detail.evidence) == 2
+            assert len(inventory_evidence(reader, explanation.identifier)) == 2
             matching = [
                 c
-                for observation in explanation.detail.source_observations
+                for observation in inventory_reports(reader, explanation.identifier)
                 for c in observation.payload.get("claims", ())
                 if c["id"] == authored_id
             ]
