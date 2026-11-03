@@ -10,7 +10,7 @@ import pytest
 from corpus_structure.orchestrate.source_reader import ScopedSourceReader
 
 
-def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure():
+def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure(monkeypatch):
     live = []
     owner: Any = SimpleNamespace(conn="closed setup", prepared="release")
 
@@ -23,6 +23,7 @@ def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure()
         finally:
             live.remove(token)
 
+    monkeypatch.setattr("corpus_structure.semantic.query.read_snapshot", lambda engine: connect())
     engine: Any = SimpleNamespace(connect=connect)
 
     def original(document_id):
@@ -43,12 +44,10 @@ def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure()
         reader.original(1)
     assert not live
     assert owner.conn == "closed setup"
-    with reader.connection() as connection:
-        assert connection in live
-    assert not live
+    assert not hasattr(reader, "connection")
 
 
-def test_parallel_read_calls_never_cross_owner_connections():
+def test_parallel_read_calls_never_cross_owner_connections(monkeypatch):
     import time
 
     live = []
@@ -73,6 +72,7 @@ def test_parallel_read_calls_never_cross_owner_connections():
         return bytes([number])
 
     owner.original = original
+    monkeypatch.setattr("corpus_structure.semantic.query.read_snapshot", lambda engine: connect())
     engine: Any = SimpleNamespace(connect=connect)
     reader = ScopedSourceReader(engine, owner)
     with ThreadPoolExecutor(max_workers=4) as pool:

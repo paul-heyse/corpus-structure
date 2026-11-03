@@ -27,7 +27,6 @@ import logging
 import math
 import typing
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -355,9 +354,14 @@ class Reader(Protocol):
         """The retained original bytes under this reader's admitted project/run custody."""
         ...
 
-    def connection(self) -> AbstractContextManager[Any]:
-        """A read-only connection for method-specific queries (A1's known entities)."""
+    def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
+        """Owned document references under the frozen corpus and original-source selection."""
         ...
+
+    def source_view_documents(self) -> tuple[UnitRef, ...]:
+        """Owned distinct selected-view documents, in document identity order."""
+        ...
+
 
 
 @dataclass(frozen=True, slots=True)

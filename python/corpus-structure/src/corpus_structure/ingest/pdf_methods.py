@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, text
 
 from corpus_structure.core.method import (
     Digest,
@@ -33,7 +32,6 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.product_reference import ProductReference
 
 from .pdf import PdfConversion, PdfRecipe
@@ -175,19 +173,7 @@ class IngestPdf:
         return recipe.to_bytes()
 
     def select(self, run: SourceRunContext, cfg: PdfIngestConfig) -> Iterable[UnitRef]:
-        corpus = run.options.get("corpus")
-        listed = corpus.get("documents") if isinstance(corpus, dict) else None
-        keys = [str(k) for k in listed] if isinstance(listed, list) else []
-        with run.reader.connection() as conn:
-            rows = conn.execute(
-                text(
-                    "SELECT d.id,d.key FROM kb.document d JOIN ops.run r "
-                    "ON r.project_id=d.project_id WHERE r.id=:run AND d.key=ANY(:keys) "
-                    "AND d.source_uri=ANY(:sources) ORDER BY d.key"
-                ),
-                dict(run=run.run_id, keys=keys, sources=list(cfg.originals)),
-            )
-            return [UnitRef(TaskUnitType.DOCUMENT, int(r.id), str(r.key)) for r in rows]
+        return run.reader.documents(cfg.originals)
 
     def input_digest(self, unit: UnitView, cfg: PdfIngestConfig) -> Digest:
         if unit.ref.unit_key is None:
@@ -329,11 +315,7 @@ class IngestPdf:
 
 
 def _consumer_release(ctx: MethodContext) -> str:
-    runs = table("ops.run")
-    with ctx.reader.connection() as conn:
-        return conn.execute(
-            select(runs.c.release_id).where(runs.c.id == ctx.run.run_id)
-        ).scalar_one()
+    return ctx.reader.prepared.release_id
 
 
 def _snapshot_from_values(values: Mapping[str, Any]) -> NativeSnapshot:
@@ -684,15 +666,7 @@ class EnrichPdfMath:
         )
 
     def select(self, run: SourceRunContext, cfg: PdfEnrichConfig) -> Iterable[UnitRef]:
-        ids = list(dict.fromkeys(v.document_id for v in run.reader.source_views()))
-        documents = table("kb.document")
-        with run.reader.connection() as conn:
-            rows = conn.execute(
-                select(documents.c.id, documents.c.key)
-                .where(documents.c.id.in_(ids))
-                .order_by(documents.c.id)
-            )
-            return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
+        return run.reader.source_view_documents()
 
     def input_digest(self, unit: UnitView, cfg: PdfEnrichConfig) -> Digest:
         views = [v for v in unit.run.reader.source_views() if v.document_id == unit.ref.unit_id]
@@ -721,7 +695,6 @@ class EnrichPdfMath:
 
         outputs = []
         release = _consumer_release(ctx)
-        _require_enrichment_operation(ctx, release)
         for unit in units:
             candidate_directory: Path | None = None
             worker: PdfWorker | None = None
@@ -991,10 +964,3 @@ class EnrichPdfMath:
 
                     shutil.rmtree(candidate_directory)
         return outputs
-
-
-def _require_enrichment_operation(ctx: MethodContext, release: str) -> None:
-    from corpus_structure.semantic.contracts import require_database_operation
-
-    with ctx.reader.connection() as conn:
-        require_database_operation(conn, release, "enrich_pdf_math")

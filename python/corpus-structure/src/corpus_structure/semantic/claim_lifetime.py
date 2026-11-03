@@ -5,9 +5,9 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
-from threading import Event, Thread
+from threading import Event, RLock, Thread
 
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
@@ -21,7 +21,78 @@ from corpus_structure.core.db.store import (
 from corpus_structure.settings import DatabaseSettings
 
 from .operation_results import ClaimedTask
-from .operations import renew_claim
+from .operations import OperationConflict, renew_claim
+
+
+class ClaimSettlementUncertain(OperationConflict):
+    """Exact completion intent remains available to the caller for receipt recovery."""
+
+    def __init__(self, claim, holder, completion):
+        self.claim = claim
+        self.holder = holder
+        self.completion = completion
+        super().__init__(f"completion uncertain for task {claim.task_id}, attempt {claim.attempt}, "
+                         f"holder {holder}; replay the retained exact completion intent")
+
+
+class ClaimOwner:
+    def __init__(self, engine, claims, holder, database, check_active):
+        self.engine, self.holder, self.database = engine, holder, database
+        self._check_active = check_active
+        self.lock = RLock()
+        self.active = {(claim.task_id, claim.attempt, holder): claim for claim in claims}
+        if len(self.active) != len(claims) or any(claim.holder != holder for claim in claims):
+            raise ValueError("claim owner requires unique exact task/attempt/holder bindings")
+        self.uncertain = {}
+
+    def __call__(self):
+        self._check_active()
+        if self.uncertain:
+            raise next(iter(self.uncertain.values()))
+
+    def settle(self, claim: ClaimedTask, completion: Callable[[Connection], object]):
+        """Serialize renewal and finite exact completion/replay, retaining per-task durability."""
+        key = (claim.task_id, claim.attempt, self.holder)
+        with self.lock:
+            self()
+            if key not in self.active:
+                raise OperationConflict("task is no longer active in this owner")
+            for replay in range(2):
+                phase = DatabasePhase.ACQUIRING
+                try:
+                    with self.engine.connect() as conn:
+                        with conn.begin():
+                            phase = DatabasePhase.EXECUTING
+                            _deadlines(conn, self.database)
+                            result = completion(conn)
+                            phase = DatabasePhase.COMMITTING
+                        # Never retire until commit succeeds or an exact replay commits.
+                    del self.active[key]
+                    return result
+                except Exception as error:
+                    failure = classify_error(error, phase=phase)
+                    if phase != DatabasePhase.COMMITTING or failure.cause not in {
+                        DatabaseCause.CONNECTION_UNUSABLE, DatabaseCause.IO,
+                        DatabaseCause.UNKNOWN_OPERATIONAL,
+                    }:
+                        raise
+                    uncertainty = ClaimSettlementUncertain(claim, self.holder, completion)
+                    if replay:
+                        self.uncertain[key] = uncertainty
+                        record_operation_failure(error, DatabaseOperationFailure(
+                            failure, operation_id=f"claim:{claim.task_id}:{claim.attempt}",
+                            remediation="replay_exact_completion", release_id=claim.release_id))
+                        raise uncertainty from error
+            raise AssertionError("unreachable settlement state")
+
+
+def _deadlines(conn, database):
+    for setting, seconds in (
+        ("statement_timeout", database.renewal_statement_timeout_seconds),
+        ("lock_timeout", database.renewal_lock_timeout_seconds),
+    ):
+        conn.execute(text("SELECT set_config(:setting, :value, true)"),
+                     {"setting": setting, "value": f"{max(1, int(seconds * 1000))}ms"})
 
 
 @contextmanager
@@ -32,7 +103,7 @@ def maintained_claims(
     *,
     interval: float = 30,
     database: DatabaseSettings | None = None,
-) -> Generator[Callable[[], None]]:
+) -> Generator[ClaimOwner]:
     """Renew on an owned, cancellable checkout with finite server query deadlines.
 
     Stop cancels the live renewal and joins its owner. Server deadlines and modern libpq
@@ -50,30 +121,23 @@ def maintained_claims(
         if failed.is_set():
             raise failures[0]
 
+    owner = ClaimOwner(engine, claims, holder, database, check_active)
+
     def renew() -> None:
         while not stop.wait(interval):
             phase = DatabasePhase.ACQUIRING
             effects = EffectKnowledge.NONE
             claim = claims[0] if len(claims) == 1 else None
             try:
-                with engine.connect() as conn, cancellation.borrow(conn):
+                with owner.lock, engine.connect() as conn, cancellation.borrow(conn):
+                    if not owner.active or owner.uncertain:
+                        continue
                     try:
                         with conn.begin():
                             phase = DatabasePhase.EXECUTING
                             effects = EffectKnowledge.UNCERTAIN
-                            statement_ms = max(
-                                1, int(database.renewal_statement_timeout_seconds * 1000)
-                            )
-                            lock_ms = max(1, int(database.renewal_lock_timeout_seconds * 1000))
-                            conn.execute(
-                                text("SELECT set_config('statement_timeout', :value, true)"),
-                                {"value": f"{statement_ms}ms"},
-                            )
-                            conn.execute(
-                                text("SELECT set_config('lock_timeout', :value, true)"),
-                                {"value": f"{lock_ms}ms"},
-                            )
-                            for claim in claims:
+                            _deadlines(conn, database)
+                            for claim in tuple(owner.active.values()):
                                 cancellation.check_active()
                                 renew_claim(
                                     conn,
@@ -117,7 +181,7 @@ def maintained_claims(
     thread = Thread(target=renew, name="corpus-claim-renewal", daemon=True)
     thread.start()
     try:
-        yield check_active
+        yield owner
         check_active()
     finally:
         primary = sys.exception()

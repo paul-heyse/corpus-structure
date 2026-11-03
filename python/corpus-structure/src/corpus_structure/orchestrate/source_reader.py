@@ -2,7 +2,7 @@
 
 The existing BoundReader remains the semantic and cache owner. Its public Reader
 operations return owned values, so connection checkout can end before native or
-scientific computation. Explicit connection consumers own their context instead.
+scientific computation. Each coherent read uses the shared read-only snapshot owner.
 """
 
 from __future__ import annotations
@@ -39,7 +39,9 @@ class ScopedSourceReader:
         self._owner.math_readings_batch = value
 
     def _read(self, operation: Callable[[BoundReader], _T]) -> _T:
-        with self._read_lock, self._engine.connect() as connection:
+        from corpus_structure.semantic.query import read_snapshot
+
+        with self._read_lock, read_snapshot(self._engine) as connection:
             previous = self._owner.conn
             self._owner.conn = connection
             try:
@@ -47,8 +49,11 @@ class ScopedSourceReader:
             finally:
                 self._owner.conn = previous
 
-    def connection(self):
-        return self._engine.connect()
+    def documents(self, originals):
+        return self._read(lambda reader: reader.documents(originals))
+
+    def source_view_documents(self):
+        return self._read(lambda reader: reader.source_view_documents())
 
     def pdf_context(self):
         return self._read(lambda reader: reader.pdf_context())

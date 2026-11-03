@@ -7,7 +7,6 @@ release, method input and source item; task attempts and sequence IDs do not ent
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
@@ -615,7 +614,44 @@ def read_original(
     return data
 
 
-def complete_unit_result(
+@dataclass(frozen=True)
+class PreparedUnitCompletion:
+    """Detached exact intent: large report preparation precedes the short owner fence."""
+
+    prepared: PreparedRelease
+    task_id: TaskId
+    attempt: TaskAttempt
+    holder: str
+    run_id: RunId
+    rows: tuple[Mapping[str, Any], ...]
+    outcome: str
+    error: Mapping[str, Any] | None
+    envelope: Mapping[str, Any]
+    source_views: tuple[Any, ...]
+
+    def apply(self, conn: Connection) -> CompletionResult:
+        from ._operation_calls import lock_complete_unit_run
+        from .source_views import store_source_view
+
+        lock_complete_unit_run(conn, run_id=self.run_id)
+        tasks = table("ops.task")
+        task = conn.execute(
+            select(tasks).where(tasks.c.id == self.task_id).with_for_update()
+        ).mappings().one()
+        if task["attempt"] != self.attempt or task["claimed_by"] != self.holder:
+            raise OperationConflict("recognizer attempt lost")
+        if task["status"] == "running":
+            for position, draft in enumerate(self.source_views):
+                store_source_view(conn, run_id=self.run_id, task_id=self.task_id,
+                                  attempt=self.attempt, holder=self.holder,
+                                  draft=draft, position=position)
+        return complete_task(conn, task_id=self.task_id, attempt=self.attempt,
+                             holder=self.holder, prepared=self.prepared,
+                             observations=self.rows, outcome=self.outcome,
+                             error=self.error, envelope=self.envelope)
+
+
+def prepare_unit_completion(
     conn: Connection,
     *,
     task_id: TaskId,
@@ -627,7 +663,7 @@ def complete_unit_result(
     configuration_hash: str,
     source: str,
     records: Sequence[Mapping[str, Any]] | None = None,
-) -> CompletionResult:
+) -> PreparedUnitCompletion:
     """The actual recognizer terminal boundary: binding, source storage and one native fence."""
     from .contracts import require_bound_operation
 
@@ -635,15 +671,7 @@ def complete_unit_result(
     from .observations import bind_result, source_python
 
     task_table = table("ops.task")
-    initial = conn.execute(select(task_table).where(task_table.c.id == task_id)).mappings().one()
-    from ._operation_calls import lock_complete_unit_run
-
-    lock_complete_unit_run(conn, run_id=RunId(initial["run_id"]))
-    task = (
-        conn.execute(select(task_table).where(task_table.c.id == task_id).with_for_update())
-        .mappings()
-        .one()
-    )
+    task = conn.execute(select(task_table).where(task_table.c.id == task_id)).mappings().one()
     if task["attempt"] != attempt or task["claimed_by"] != holder:
         raise OperationConflict("recognizer attempt lost")
     record_coordinates = ()
@@ -675,19 +703,6 @@ def complete_unit_result(
     # observation through the Python boundary. Keep those representations separate.
     envelope = bound.model_dump(mode="json", exclude={"observations"})
     items = bound.model_dump(mode="python", include={"observations"})["observations"]
-    if result.source_views:
-        from .source_views import store_source_view
-
-        for position, draft in enumerate(result.source_views):
-            store_source_view(
-                conn,
-                run_id=task["run_id"],
-                task_id=task_id,
-                attempt=attempt,
-                holder=holder,
-                draft=draft,
-                position=position,
-            )
     rows = []
     for item in items:
         rows.append(
@@ -706,19 +721,32 @@ def complete_unit_result(
             )
         )
     outcome = {"produced": "done", "empty": "empty", "failed": "failed"}[result.outcome.value]
-    # Source-view-only ingestion completes with an empty observation collection.
-    ids = complete_task(
-        conn,
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        prepared=prepared,
-        observations=rows,
-        outcome=outcome,
-        error={"message": result.error} if result.error else None,
-        envelope=envelope,
+    return PreparedUnitCompletion(
+        prepared, task_id, attempt, holder, RunId(task["run_id"]), tuple(rows),
+        outcome, {"message": result.error} if result.error else None, envelope,
+        tuple(result.source_views),
     )
-    return ids
+
+
+def complete_unit_result(
+    conn: Connection,
+    *,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    prepared: PreparedRelease,
+    result: UnitResult,
+    method: Method[Any] | OperationDescriptor,
+    configuration_hash: str,
+    source: str,
+    records: Sequence[Mapping[str, Any]] | None = None,
+) -> CompletionResult:
+    """Prepare and apply on the caller's transaction; source execution prepares before fencing."""
+    return prepare_unit_completion(
+        conn, task_id=task_id, attempt=attempt, holder=holder, prepared=prepared,
+        result=result, method=method, configuration_hash=configuration_hash,
+        source=source, records=records,
+    ).apply(conn)
 
 
 @dataclass(frozen=True)
@@ -1269,10 +1297,38 @@ class BoundReader:
                 return artifact.content
         raise LookupError("artifact does not belong to the run release")
 
-    def connection(self) -> AbstractContextManager[Connection]:
-        from contextlib import nullcontext
+    def documents(self, originals):
+        from corpus_structure.core.method import UnitRef
+        from corpus_structure.core.vocab import TaskUnitType
 
-        return nullcontext(self.conn)
+        documents, runs = table("kb.document"), table("ops.run")
+        options = self.conn.execute(
+            select(runs.c.options).where(runs.c.id == self.run_id)
+        ).scalar_one()
+        keys = (options.get("corpus") or {}).get("documents", [])
+        rows = self.conn.execute(
+            select(documents.c.id, documents.c.key)
+            .join(runs, runs.c.project_id == documents.c.project_id)
+            .where(runs.c.id == self.run_id, documents.c.key.in_(keys),
+                   documents.c.source_uri.in_(originals))
+            .order_by(documents.c.key)
+        ).all()
+        return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
+
+    def source_view_documents(self):
+        from corpus_structure.core.method import UnitRef
+        from corpus_structure.core.vocab import TaskUnitType
+
+        ids = {view.document_id for view in self.source_views()}
+        documents, runs = table("kb.document"), table("ops.run")
+        rows = self.conn.execute(
+            select(documents.c.id, documents.c.key)
+            .join(runs, runs.c.project_id == documents.c.project_id)
+            .where(runs.c.id == self.run_id, documents.c.id.in_(ids))
+            .order_by(documents.c.id)
+        ).all()
+        return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
+
 
 
 def run_view(
