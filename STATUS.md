@@ -1,12 +1,12 @@
 # Status
-_Updated 2026-11-03; M1 integration active. UM functionality/validation remains complete._
+_Updated 2026-11-03; bounded M1 completion audit recorded. UM functionality/validation remains complete._
 
 ## Current checkpoint
 
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md) owns package/finding
-  disposition. ADR49–52 cover CPU records, product placement, attributed evidence and independent
-  references. The scoped combined public/reference target review accepts Proposed architecture;
-  it does not establish native security, family quality or a qualified release.
+  disposition. Its [completion audit](docs/plans/first-production-milestone_2026-11-03.md#completion-audit--claimed-finished-slices)
+  sustains claimed-finished sub-items at their bounded source/evidence scope; no whole package
+  is complete. Stale integration wording is reconciled; native/release qualification stays open.
 - Integrated: explicit retained-PDF CPU candidate policy; five-family assembly; canonical/attributed
   evidence and prepared context2; candidate-only18-relation public projection; bounded completed
   reads with root selection before hydration; shared reconstruction index; record CLI/MCP and
@@ -27,10 +27,13 @@ _Updated 2026-11-03; M1 integration active. UM functionality/validation remains 
 - Live application corpus_pdf_20261102 on18/corpus5434 remains native99. Run6 product6 and views1–5
   remain intact; tasks27–31 await their separate agent assessment. Public status awaiting_agent;
   no completed/selected knowledge output or default. Other clusters remain unchanged.
-  [UM continuation](docs/design_review/evidence/2026-11-01_pdf-current-consumers/RUN6.md)
-  retains independent references/evaluation under its own coordinator; M1 does not reopen UM code.
+  [UM continuation](docs/design_review/evidence/2026-11-01_pdf-current-consumers/RUN6.md) retains its own scope.
 
 ## Verification
+
+- **Audit, 2026-11-03:** source baseline9afc38f3; all77 integrated source hashes matched;
+  detached population verifier passed. Historical351-test/38-collected claims checked against
+  receipts, not rerun. No database/provider/host operations or full qualification in this audit.
 
 - **passed, bounded, 2026-11-03:**351 final-source focused tests over19files; scoped Ruff on54
   Python paths; Pyrefly0errors/1 retained warning; `just ready`, `just turn-end`, `just adr-lint`.
@@ -42,15 +45,12 @@ _Updated 2026-11-03; M1 integration active. UM functionality/validation remains 
   but false definition associations were observed. Described packs remain experimental;
   no improvement/accuracy claim. Native canaries do not qualify current assembled publication.
 - **not_run:** coherent final native publication/reference/fitting/consumer journeys (38 tests
-  collected, not executed); missing
-  actual fitting role/authentication approval. Full `just test-all`/hygiene await complete scope.
+  collected, not executed); actual fitting role/authentication approval pending. Full qualification
+  awaits complete scope.
 - **Prior UM passed, bounded:**3318 distinct functional nodes/563 native with its final99
   applicability account; actual SourceReady CLI/MCP/source export retain their original scope.
   [UM evidence](docs/design_review/evidence/2026-11-03_um-section-closure-qualification/README.md).
-- **Failed, retained:** development fixture/type/integration attempts remain in dated evidence.
-  Existing docs-check library-reorganization links remain deferred; no unrelated corrections.
-
-Five integrated temporary worktrees are archived and removed; recovery links are in the evidence.
+- **Failed, retained:** development failures and existing docs-check link failures remain recorded.
 
 ## Next
 

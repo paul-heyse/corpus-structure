@@ -266,6 +266,92 @@ controls and a release manifest naming dependencies, guidelines, policies and re
 Conditional deferrals can remain deferred without falsely claiming their implementation. An
 unavailable required reference or failed gate keeps the corresponding release obligation open.
 
+## Completion audit — claimed-finished slices
+
+**Audited 2026-11-03; source baseline `9afc38f3`, clean at inspection start.** The operator
+limited this audit to items represented as finished, including implemented/integrated sub-items
+inside packages still **In progress**. No whole M1 package is marked complete. Eligibility comes
+from the checkpoint's positive delivery/correction claims and their cited records, not every
+obligation in the companions. Planned/open scope and untriggered enhancements were context only.
+The audit does not reassess prior UM functionality or authorize product repairs, migration,
+provider execution, fitting-role provisioning or a default switch.
+
+The audit reconstructed each claim against its companion's intended behavior and relevant current
+architectural owner, then inspected implementation, adjacent consumers and original evidence.
+Fresh read-only implementation reviewers assessed contracts/context, CPU/assembly/numerical and
+public/reference/consumer slices. The coordinator reconciled source and receipt applicability.
+This is a completion assessment against accepted scope, not a new design review.
+
+### Disposition of eligible claims
+
+| Claimed-finished item | Audit judgment and actual boundary |
+| --- | --- |
+| M1-00 accepted authority/review artifacts | Confirmed as accepted decisions and scoped Proposed targets under ADR-0049–52. This does not claim implemented or qualified enclosing architecture. |
+| M1-01 frozen development population | Confirmed detached integrity: five views/7310 pieces and deterministic40-item sample, all from one development origin. No release-population suitability or source independence is inferred. |
+| M1-02/03 private declarations/binding/native100 custody | Confirmed source implementation and historical scoped results for five-family roles/states, occurrence/interpretation identity, field evidence, task/source binding, private accepted refusal and graph fences. Preserve the123 native/private tests at their original revision. |
+| M1-03/05 attributed candidate/context2 extension | Confirmed independently pinned selected same-product contexts, captured text distinct from provider precision, invocation-owned preparation and policy-bound whitespace readings. Candidate6's99 deterministic/19 actual native controls plus2 rechecks establish that historical subset, not the current assembled native deployment. |
+| M1-04 detached annotation operation | Confirmed reusable token/sentence/lemma/POS/morph/dependency columns and recorded actual local availability on the retained paragraph. Canonical preparation consumes them; linguistic accuracy and persisted product/assembled adoption are not established. |
+| M1-06/07 resident CPU/schema operations and canonical policy | Confirmed resident worker lifecycle, strict bound packs/reports and explicit retained-product CPU candidate route in source. Hashed offline entity/combined/mapped operations remain actual historical operation evidence; no family accuracy, aggregate RSS, ordinary-workload capacity or full runtime claim follows. |
+| M1-08 shared family assembly and repaired header/original selection | Confirmed five-family candidate assembly and the two repaired boundaries in source and independent focused controls. Wrong actual definition associations and the unsuccessful described-pack experiment remain explicit; shape/location success is not faithful reading. |
+| M1-09 pure numerical operation and malformed-input correction | Confirmed three fixed templates, complete retained-support event sums, hard constraints/dependence inputs and explicit limit/failure outcomes. The recorded repaired source/tests match; exactness is candidate-relative and numerical, with provisional scores. Released producer coupling/fitting/admission remain outside this completed slice. |
+| M1-11 candidate public projection/compiler preservation | Confirmed18 finite relations, released-role lowering/reconstruction, candidate-only policy, sealed-cut reconciliation source and graph fences. Genuine compiler14 reading preserves archived meaning while changed preparation uses compiler15. Native authoring of the earlier public candidate is historical; no current coherent native/publication result is claimed. |
+| M1-12 pinned readers/CLI/MCP/export source integration | Confirmed source-root selection before hydration, shared reconstruction index, pinned presentation, registered CLI/MCP adapters, exact lexical export and atomic directory composition. Controlled detached adapter results support mechanics; actual native consumer/source/default-change journeys remain not_run. |
+| M1-13 strict comparison, group ratios and reference machinery | Confirmed released-role strict comparison and descriptive paired origin resampling with honest zero/undefined/degenerate limits. Distinct source-only reference schemas/operations, source-ready freezing, immutable origin partitions and restricted fitting capability exist in source. Actual reference/fitting authentication and grading are unqualified. No one-sided release bound or quality/calibration claim is established. |
+| Public/reference review F01–F04 source corrections | Confirmed exact per-unit population/origin/version checks, shared indexing, root/keyset selection and cursor prevalidation, and canonical cell handle translation. Existing native/consumer qualification obligations stay under these same IDs; static correction is not native closure. |
+| Final focused verification claim | Confirmed recorded351 passing nodes over19 files,54-path Ruff/Pyrefly with0errors/1 retained warning, and38 native controls collected only. All77 source/test/support hashes in the integrated manifest matched the audit baseline. Counts overlap earlier receipts and are not added together. |
+
+**Bounded conclusion:** no material implementation omission was established in the stated
+claimed-finished slices. Their completion is sustained only at the boundaries above. No package
+or whole-milestone completion follows, and no new implementation-gap ID is introduced merely
+because surrounding work remains open. The checkpoint contained stale descriptions of attributed
+custody, canonical pack/policy dispatch, reference machinery and consumer source integration;
+those accounts are reconciled in place. They were understatements of delivered slices, not
+justification to promote unrun native or release claims.
+
+### Evidence applicability and benefit limits
+
+- **passed in this audit:** `python docs/design_review/evidence/2026-11-03_m1-population/verify.py`
+  checked detached digests, exact projection reconstruction and deterministic sample only:
+  five views/7310 regions/40 selections. No database or provider was accessed.
+- **Source/receipt inspection:** all77 entries of
+  [the integrated source manifest](../design_review/evidence/2026-11-03_m1-public-record-projection/root-final-source-sha256.json)
+  matched. The recorded argv/log independently account for351 focused passes; original native
+  collection lists8 reference,19 attributed and11 public controls. These tests were not rerun
+  by the audit. Original record dates, failure logs and supersession boundaries remain intact.
+- The early74-contract/37-context and other older receipts cover their recorded source states.
+  Later source evolved; their numbers are not presented as fresh current-source qualification.
+  Actual mapped CPU receipts retain their operation scope: worker bytes still match, while the
+  later explicit canonical-context refusal is supported by the later focused controls.
+- Candidate6's native coordinate/report/recognition SQL, released record model, binder and context
+  match current implementation; its software-input closure and reader/inventory integration
+  evolved afterward. It cannot establish current exact-deployment admission. Individual inspected
+  evidence file hashes were checked; the audit did not independently recompute every directory
+  digest, rebuild archived environments or rerun historical providers.
+- **Benefits:** availability, representation fidelity under controlled expectations and recorded
+  operation execution are supported at those scopes. Family quality, calibrated final-event
+  confidence, group independence, useful released recall and measured aggregate resource fit
+  remain unestablished. Existing failed/false-definition outcomes remain contrary evidence;
+  no new empirical improvement claim is made.
+
+### Remaining obligations relevant to these boundaries
+
+These are existing open work, not newly discovered omissions in the completed slices:
+
+| Owner | Remaining settling evidence/work |
+| --- | --- |
+| M1-03/05/07/11/13 | Coherent forward native preparation/migration and actual custody/publication/reference integration; preserve exact implementation fences and predecessor meanings. |
+| M1-12/13/14; existing F01–F04 | Execute the applicable native and real consumer journeys on that coherent source/context, including source evidence, empty/missing predictions, cursor/refusal and atomicity controls. Fitting authentication remains a separately pending host authorization. |
+| M1-06/09/14 | Ordinary/dense workload and aggregate CPU/RSS/recovery evidence beyond bounded safe refusals and detached operations. |
+| M1-01/08/10/13/14 | Independent references, accepted family subsets, evaluated policy/assertion lowering, calibration and defensible statistical release evidence. Existing open packages retain these obligations. |
+
+**Publication checks passed, 2026-11-03:** `just turn-end`, `just adr-lint`,
+`git diff --check`, unchanged77-file source hash comparison and the60-line STATUS bound.
+These are document/publication checks, not rerun product qualification.
+
+No full qualification campaign, production repair, native deployment or host mutation was performed
+by this audit. Changes from the audit are confined to the coordinator's current account and STATUS;
+companions remain target/acceptance detail rather than duplicate progress ledgers.
+
 ## Current checkpoint and next work
 
 **Active execution, 2026-11-03.** The operator authorized implementation through a qualified
@@ -299,9 +385,14 @@ its own owner.
   [m1.native-private-record-custody](../design_review/evidence/2026-11-03_m1-private-records/records/m1.native-private-record-custody.json)
   establishes same-pin private completion/read custody and graph product fences on native100,
   123 focused tests and final-source hash verification. All three predecessor graph validators
-  remain. No live database/default was migrated. Cross-view admission, actual producer integration,
-  accepted structural publication and evaluator round trips remain open; optional private records
-  must not imply published support. Staged whitespace check failed on two generated admission
+  remain. No live database/default was migrated. Independently pinned same-product selected
+  contexts and captured recognition have a later bounded candidate implementation and historical
+  native result: [m1.attributed-source-candidate](../design_review/evidence/2026-11-03_m1-attributed-evidence/records/m1.attributed-source-candidate.json)
+  records99 deterministic/19 actual disposable-native controls and2 release-parity rechecks.
+  Coherent forward/native-current qualification, actual attributed producer adoption, accepted
+  structural publication and evaluator round trips remain open; private records are not published
+  support. Earlier74/123 receipts retain their original source and scope. Staged whitespace
+  check failed on two generated admission
   lines; verified frozen bytes and the failed formatting receipt are preserved independently of
   the123 functional passes.
 - **M1-07 In progress:** exact `gliner2[local]==2.1.0` added without transitive upgrades;
@@ -310,30 +401,38 @@ its own owner.
   [m1.cpu-combined-operation](../design_review/evidence/2026-11-03_m1-gliner-cpu/records/m1.cpu-combined-operation.json)
   additionally executes native grouped records, enums, attributes, content classification and relations.
   Retained attempt00001 does not establish its weight/tokenizer revision because the auto-loader
-  drops Hub arguments; attempt00002 corrects that custody route. Runtime admission, typed source
-  reports, constrained wrappers, operation-quality and full-record quality remain open. The
+  drops Hub arguments; attempt00002 corrects that custody route. Typed source-report/pack
+  integration is implemented at the bounded candidate source level; runtime qualification and
+  operation-quality, assembled native and full-record quality remain open. The
   [installed adapter contract](../design_review/evidence/2026-11-03_m1-gliner-adapter/README.md)
   records schema, enum, preprocessing and diagnostic limitations; absent diagnostics stay unavailable.
 - **M1-04/05 In progress:** [m1.private-source-contexts](../design_review/evidence/2026-11-03_m1-source-contexts/records/m1.private-source-contexts.json)
   establishes bounded private context serialization/mapping (37 focused tests, scoped Ruff/Pyrefly,
-  independent review), separate from live selection/routing, annotation or native authentication.
+  independent review), separate from live selection/routing and native-current qualification.
+  Context2 adds invocation-owned prepared sources, independently pinned related contexts, captured
+  coordinates and policy-bound whitespace readings; the attributed candidate record above owns
+  its scoped evidence. The original37-test receipt remains historical, not a current native claim.
   [m1.rich-annotation-operation](../design_review/evidence/2026-11-03_m1-annotations/records/m1.rich-annotation-operation.json)
   establishes richer detached columns on the retained paragraph; display math metadata remains
-  explicit. Method/operation admission, persistence and downstream consumers stay open. A failed
-  adjacent check against actively edited
-  native determinants is retained; repeat that scope at the coherent native endpoint.
+  explicit. Canonical candidate preparation consumes these detached annotations in source.
+  Persisted linguistic-product/operation admission and assembled downstream qualification remain
+  open. A failed adjacent check against actively edited native determinants is retained; repeat
+  that scope at the coherent native endpoint.
 - **M1-13 In progress:** early private strict five-family comparison is implemented from released
   required/meaning-changing roles, source-region/guideline/release binding and independent policy
   versions. [m1.private-annotation-and-comparison](../design_review/evidence/2026-11-03_m1-annotations/records/m1.private-annotation-and-comparison.json)
-  records75 combined focused tests and scoped Ruff/Pyrefly. Protected reference passes, published
-  prediction binding, clustered intervals and sufficient release references remain open.
+  records75 historical combined focused tests and scoped Ruff/Pyrefly. The later integrated
+  source adds protected reference/published-prediction binding machinery and descriptive group
+  ratios; their actual native journey, defensible release intervals and sufficient references
+  remain open.
 - **M1-06 In progress:** detached serial resident CPU worker is implemented in an isolated
   increment, now integrated; independent review corrections cover pack lineage, duplicate fields,
   loader closure, operational path identity and complete finite IPC frames.
   [m1.cpu-mapped-source-operation](../design_review/evidence/2026-11-03_m1-gliner-runtime/records/m1.cpu-mapped-source-operation.json)
   establishes actual retained-source mapping and cold/warm CPU operation;68 focused runtime/context
-  checks pass. Released packs, producer/policy registration and aggregate admission remain open;
-  no whole-runtime qualification follows from these probe calls.
+  checks pass at their recorded source. Released pack generation and explicit canonical
+  `m1-candidate` producer/policy dispatch are now integrated in source; their assembled native
+  journey and aggregate admission qualification remain open; no whole-runtime qualification follows from these probe calls.
 - **M1-08 In progress:** shared released-family pack/assembly operations are integrated;
   [m1.private-family-assembly](../design_review/evidence/2026-11-03_m1-family-assembly/records/m1.private-family-assembly.json)
   records80 focused tests, scoped Ruff/Pyrefly and an actual CPU shape/location check. Actual
@@ -368,8 +467,10 @@ its own owner.
   controls passed at their recorded source states.
 - **M1-12 In progress:** a bounded completed-result reader returns all 18 archived relations with
   report-to-source membership, count/row/canonical JSON budgets and pinned cut/revision. Six
-  additional actual-native reader controls are authored, not run. CLI/MCP/export adoption is
-  being integrated; no assembled consumer or selected-result-switch claim follows.
+  additional actual-native reader controls are authored, not run. CLI/MCP/export adapters are
+  integrated in source, including common record presentation and atomic JSONL/Parquet companions;
+  focused detached controls cover their mechanics. Actual assembled native consumer and
+  selected-result-switch journeys remain not_run.
 - **M1-13 protected-reference scope In progress:** distinct source-record schemas/operations reuse
   existing protected set/unit/pass/frame/evaluation storage. Source-ready membership, retained
   guideline text and immutable origin partitions are independent of prediction presence. Fitting
@@ -393,8 +494,8 @@ its own owner.
   actual fitting/provider/consumer journey or release qualification follows.
 - **M1-10/14/15 Planned:** no completion or whole-release qualification claim.
 
-Next: finish the scoped publication/reference target assessment and consumer integration, then
-freeze and qualify the coherent forward native boundary. Fitting-role/peer authentication is a
+Next: qualify the source-integrated publication/reference/consumer machinery against a coherent
+forward native boundary; the scoped target assessment and detached adapter integration are done. Fitting-role/peer authentication is a
 pending explicit host approval. Actual accepted policy, numerical producer coupling, cross-context
 producer adoption, replay/recovery, independent references and family release evidence remain open.
 M1-14 cannot close from the development canaries or pure tests. Production defaults,
