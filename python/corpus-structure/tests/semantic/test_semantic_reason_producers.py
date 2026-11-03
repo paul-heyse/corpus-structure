@@ -33,7 +33,7 @@ from corpus_structure.semantic.refusals import SemanticReason, decode_semantic_r
 
 
 @cache
-def release():
+def release(custom_binding=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     domain = b"""id: https://example.org/reasons
 name: reasons
@@ -49,11 +49,21 @@ classes:
         inlined: true
         annotations: {cs:role: predicate, cs:constraint_scope: accepted_value}
 """
+    core_content = core.read_bytes()
+    if custom_binding:
+        import yaml
+
+        schema = yaml.safe_load(core_content)
+        schema["classes"]["DeclaredCustomBinding"] = {
+            "is_a": "ExpressionBinding",
+            "attributes": {"kind": {"equals_string": "custom_binding"}},
+        }
+        core_content = yaml.safe_dump(schema).encode()
     dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
     bundle = proposal_inputs(
         SourceBundle(
             "reasons",
-            (SourceArtifact("reasons", domain), SourceArtifact("semantic_core", core.read_bytes())),
+            (SourceArtifact("reasons", domain), SourceArtifact("semantic_core", core_content)),
         ),
         dependencies,
     )
@@ -63,8 +73,16 @@ classes:
     )
 
 
-def cut(*, language="latex", expression="x", condition=None, unresolved=False, incompatible=False):
-    prepared = release()
+def cut(
+    *,
+    language="latex",
+    expression="x",
+    condition=None,
+    unresolved=False,
+    incompatible=False,
+    custom_binding=False,
+):
+    prepared = release(custom_binding)
     frame = ProposalFrame(
         "unit", "The source names x.", (ProposalSentence("s", "sentence", 0, 19),)
     )
@@ -88,6 +106,8 @@ def cut(*, language="latex", expression="x", condition=None, unresolved=False, i
             }
         ],
     }
+    if custom_binding:
+        raw["claims"][0]["object"]["bindings"] = [{"kind": "custom_binding", "symbol": "x"}]
     if condition is not None:
         raw["claims"][0]["qualification"]["condition"] = condition
     if unresolved:
@@ -217,16 +237,8 @@ def test_actual_comparison_and_both_transports_retain_structured_cause(tmp_path)
     assert isinstance(json.loads(batch.content)[2]["assessment"][0][-1], (dict, type(None)))
 
 
-def test_actual_preparation_failure_is_an_owned_reason(monkeypatch, tmp_path):
-    from corpus_structure.semantic import analysis_contracts
-    from corpus_structure.semantic.types import Diagnostic, PreparationError
-
-    inputs = cut()
-
-    def unavailable(*args, **kwargs):
-        raise PreparationError((Diagnostic("unsupported_scope", "source", "cannot prepare scope"),))
-
-    monkeypatch.setattr(analysis_contracts, "prepare_interpretation_context", unavailable)
+def test_actual_preparation_failure_is_an_owned_reason(tmp_path):
+    inputs = cut(custom_binding=True)
     decision = evaluate(inputs, tmp_path)
     reason = next(
         row.semantic_reason
@@ -234,7 +246,23 @@ def test_actual_preparation_failure_is_an_owned_reason(monkeypatch, tmp_path):
         if row.operation_id == "operation.not_checkable"
     )
     assert reason is not None
-    assert reason.code == "preparation_failed" and reason.actual == "unsupported_scope"
+    assert reason.code == "preparation_failed" and reason.actual == "analysis_binding_kind"
+
+
+def test_runtime_or_admission_preparation_errors_remain_failures(monkeypatch, tmp_path):
+    from corpus_structure.semantic import analysis_contracts
+    from corpus_structure.semantic.types import Diagnostic, PreparationError
+
+    inputs = cut()
+
+    def incompatible(*args, **kwargs):
+        raise PreparationError(
+            (Diagnostic("unsupported_analysis_implementation", "release", "runtime mismatch"),)
+        )
+
+    monkeypatch.setattr(analysis_contracts, "prepare_interpretation_context", incompatible)
+    with pytest.raises(PreparationError, match="runtime mismatch"):
+        evaluate(inputs, tmp_path)
 
 
 def test_actual_reading_boundary_does_not_flatten_programming_value_errors(monkeypatch, tmp_path):

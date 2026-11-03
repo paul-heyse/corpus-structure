@@ -290,6 +290,17 @@ def _candidate_reading(prepared, candidate, raw, readings):
             )
         reading = readings[key]
     except PreparationError as error:
+        # These describe source meaning that this operation cannot prepare. Admission,
+        # runtime and internal result-contract defects retain their failure identity.
+        source_context_codes = {
+            "analysis_binding_kind",
+            "analysis_declaration",
+            "analysis_declaration_authority",
+        }
+        if not error.diagnostics or any(
+            diagnostic.code not in source_context_codes for diagnostic in error.diagnostics
+        ):
+            raise
         return None, SemanticReason(
             "preparation_failed",
             "evaluate",
