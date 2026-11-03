@@ -46,6 +46,21 @@ classes:
           rv:collection: array
   Value:
     attributes:
+      expression_content:
+        range: string
+        annotations: {rv:nullable: 'true'}
+      lexical_content:
+        range: string
+        annotations: {rv:nullable: 'true'}
+      expression_language:
+        range: string
+        annotations: {rv:nullable: 'true'}
+      missing_reason:
+        range: string
+        annotations: {rv:nullable: 'true'}
+      unavailable_reason:
+        range: string
+        annotations: {rv:nullable: 'true'}
       value_kind:
         range: string
       declared_range:
@@ -160,6 +175,10 @@ classes:
         range: Value
         annotations:
           rv:nullable: 'true'
+      qualification_values:
+        range: Value
+        description: Scalar qualification projections retain their binding, enum and availability; nested collections remain under qualifiers.
+        annotations: {rv:collection: mapping}
       qualifiers:
         range: Qualifiers
       statement:

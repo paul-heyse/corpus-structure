@@ -47,7 +47,7 @@ def release(keyed=False):
 
 
 def source(*, keyed=False, located=True):
-    entities = [
+    entities: list[dict[str, Any]] = [
         {
             "id": name,
             "class_iri": "https://example.org/Person",
@@ -104,11 +104,11 @@ def source(*, keyed=False, located=True):
 
 def test_cannot_link_prevents_indirect_label_merge_and_preserves_unconstrained_ids():
     observed = source()
-    mappings, _, _, _ = _entity_mappings(release(), [observed], "out", {}, {9: ({}, ())})
+    mappings, _, _ = _entity_mappings(release(), [observed], "out", {}, {9: ({}, ())})
     assert mappings[9]["a"] == mappings[9]["b"]
     assert mappings[9]["a"] != mappings[9]["c"]
     observed["payload"]["identity_exclusions"] = []
-    plain, _, _, _ = _entity_mappings(release(), [observed], "out", {}, {9: ({}, ())})
+    plain, _, _ = _entity_mappings(release(), [observed], "out", {}, {9: ({}, ())})
     assert len(set(plain[9].values())) == 1
 
 
@@ -122,9 +122,7 @@ def test_required_key_identity_refuses_exclusion_and_retains_structured_endpoint
 
 
 def test_uncertain_exclusion_does_not_authorize_identity_constraint():
-    mappings, _, _, _ = _entity_mappings(
-        release(), [source(located=False)], "out", {}, {9: ({}, ())}
-    )
+    mappings, _, _ = _entity_mappings(release(), [source(located=False)], "out", {}, {9: ({}, ())})
     assert len(set(mappings[9].values())) == 1
 
 
@@ -141,7 +139,7 @@ def test_known_entity_cannot_link_vetoes_label_match():
             "fields": {},
         }
     }
-    mappings, _, _, _ = _entity_mappings(release(), [observed], "out", known, {9: ({}, ())})
+    mappings, _, _ = _entity_mappings(release(), [observed], "out", known, {9: ({}, ())})
     assert mappings[9]["a"] != "known:alice"
 
 
@@ -151,15 +149,15 @@ def test_partition_is_independent_of_observation_arrival_and_database_ids():
     first = source()
     second = copy.deepcopy(first)
     second["id"], second["observation_key"] = 15, "observation:other"
-    left, _, _, _ = _entity_mappings(
+    left, _, _ = _entity_mappings(
         release(), [first, second], "out", {}, {9: ({}, ()), 15: ({}, ())}
     )
-    right, _, _, _ = _entity_mappings(
+    right, _, _ = _entity_mappings(
         release(), [second, first], "out", {}, {9: ({}, ()), 15: ({}, ())}
     )
     assert left == right
     first["id"], second["id"] = 77, 44
-    reassigned, _, _, _ = _entity_mappings(
+    reassigned, _, _ = _entity_mappings(
         release(), [first, second], "out", {}, {77: ({}, ()), 44: ({}, ())}
     )
     assert reassigned[77] == left[9]

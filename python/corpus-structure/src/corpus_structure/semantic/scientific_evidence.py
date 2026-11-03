@@ -314,7 +314,10 @@ class ScientificDecision:
 
 
 def scientific_assessment_reason(
-    evidence: ScientificEvidence | None, *, detail: str, context: Any,
+    evidence: ScientificEvidence | None,
+    *,
+    detail: str,
+    context: Any,
     semantic_reason: SemanticReason | None = None,
 ) -> str:
     """Serialize exact model operands/context with the policy that consumed evidence."""

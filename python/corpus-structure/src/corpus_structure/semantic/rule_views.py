@@ -7,9 +7,9 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from functools import cached_property
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal, NamedTuple, overload
 
 import yaml
 from linkml_runtime.linkml_model import SchemaDefinition
@@ -21,8 +21,8 @@ from rule_engine import DataType
 from corpus_structure.core import tex
 from corpus_structure.schema.rulelang import Language
 
-from .types import PreparedRelease, PropertyDefinition
 from .refusals import SemanticOperationRefusal, SemanticReason
+from .types import PreparedRelease, PropertyDefinition
 
 RULE_VIEW_INPUT = "operation/rule-view.yaml"
 RULE_VIEW_ABI = "semantic-rule-view-2"
@@ -125,6 +125,17 @@ class ValueView:
     reading: Reading | None = None
     declared_range: str = "Value"
     expression_form: str | None = None
+    expression_language: str | None = None
+    missing_reason: str | None = None
+    unavailable_reason: str | None = None
+
+    @property
+    def expression_content(self) -> str | None:
+        return self.latex
+
+    @property
+    def lexical_content(self) -> str | None:
+        return self.v
 
     @property
     def value_kind(self) -> str:
@@ -136,13 +147,20 @@ class ValueView:
 
     @property
     def reading_status(self) -> str:
-        return self.parse or ("missing" if self.t == "missing" else "unavailable")
+        return self.parse or (
+            "missing"
+            if self.t == "missing"
+            else "unsupported"
+            if self.unavailable_reason
+            else "unavailable"
+        )
 
     @cached_property
     def defined_symbol(self) -> str | None:
         return (
             defined_symbol(self.latex)
-            if self.expression_form == "formula" or self.t == "formula"
+            if (self.expression_form == "formula" or self.t == "formula")
+            and self.expression_language in {None, "latex", "tex"}
             else None
         )
 
@@ -203,6 +221,29 @@ def _annotations(slot) -> dict[str, str]:
     return {str(name): str(getattr(value, "value", value)) for name, value in entries}
 
 
+RuleValueInput = (
+    ValueView | BaseModel | Mapping[str, Any] | str | bool | int | float | decimal.Decimal | date
+)
+
+
+@overload
+def project_rule_value(
+    prepared: PreparedRelease,
+    binding: PropertyDefinition | str,
+    value: None,
+    reading: Reading | None = None,
+) -> None: ...
+
+
+@overload
+def project_rule_value(
+    prepared: PreparedRelease,
+    binding: PropertyDefinition | str,
+    value: RuleValueInput,
+    reading: Reading | None = None,
+) -> ValueView: ...
+
+
 def project_rule_value(
     prepared: PreparedRelease,
     binding: PropertyDefinition | str,
@@ -219,9 +260,17 @@ def project_rule_value(
     declared = binding.range if isinstance(binding, PropertyDefinition) else binding
     if isinstance(value, ValueView):
         if value.declared_range != declared:
-            raise ValueError("rule value belongs to another declared range")
+            raise SemanticOperationRefusal(
+                SemanticReason(
+                    "incompatible_bindings",
+                    "evaluate",
+                    prepared.release_id,
+                    expected=declared,
+                    actual=value.declared_range,
+                )
+            )
         return value
-    enum = declared if any(v.enum == declared for v in prepared.vocabularies) else None
+    enum = declared if declared in prepared.vocabulary_names else None
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="python", exclude_unset=True)
     if isinstance(value, Mapping):
@@ -241,6 +290,27 @@ def project_rule_value(
     else:
         kind = "entity" if declared in prepared.index.definitions else "text"
         lexical, scalar, form = None, value, None
+        if enum is None and kind != "entity":
+            kind = (
+                "boolean"
+                if isinstance(value, bool)
+                else "number"
+                if isinstance(value, (int, float, decimal.Decimal))
+                else "instant"
+                if isinstance(value, datetime)
+                else "date"
+                if isinstance(value, date)
+                else "text"
+            )
+    language = value.get("language") if isinstance(value, Mapping) else None
+    missing_reason = (
+        value.get("reason") if isinstance(value, Mapping) and kind == "missing" else None
+    )
+    unavailable = (
+        "unsupported_expression_language"
+        if lexical is not None and language not in {None, "tex", "latex"}
+        else None
+    )
     if isinstance(scalar, date):
         scalar = scalar.isoformat()
     return ValueView(
@@ -252,6 +322,9 @@ def project_rule_value(
         reading,
         declared,
         form,
+        language,
+        missing_reason,
+        unavailable,
     )
 
 
@@ -278,16 +351,26 @@ def build_rule_language(
 
     artifact = next((a for a in prepared.artifacts if a.kind == RULE_VIEW_INPUT), None)
     if artifact is None:
-        raise SemanticOperationRefusal(SemanticReason(
-            "preparation_failed", "evaluate", prepared.release_id,
-            references=(RULE_VIEW_INPUT,), detail="release lacks its archived semantic rule-view recipe",
-        ))
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "preparation_failed",
+                "evaluate",
+                prepared.release_id,
+                references=(RULE_VIEW_INPUT,),
+                detail="release lacks its archived semantic rule-view recipe",
+            )
+        )
     document = yaml.safe_load(artifact.content)
     if document.get("version") != RULE_VIEW_ABI:
-        raise SemanticOperationRefusal(SemanticReason(
-            "incompatible_bindings", "evaluate", prepared.release_id,
-            expected=RULE_VIEW_ABI, actual=document.get("version"),
-        ))
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "incompatible_bindings",
+                "evaluate",
+                prepared.release_id,
+                expected=RULE_VIEW_ABI,
+                actual=document.get("version"),
+            )
+        )
     schema = yaml_loader.loads(artifact.content.decode(), target_class=SchemaDefinition)
     if not isinstance(schema, SchemaDefinition):
         raise ValueError("archived semantic rule-view is not a LinkML schema")
@@ -334,13 +417,17 @@ def build_rule_language(
     # Logical reading dimensions belong to the archived operation recipe, rather
     # than to a legacy runtime enum. The same vocabulary constrains compiler literals
     # and actual accessor values through the cached strict adapters.
-    logical_enums = {str(name): tuple(str(member) for member in enum.permissible_values)
-                     for name, enum in view.all_enums().items()}
+    logical_enums = {
+        str(name): tuple(str(member) for member in (enum.permissible_values or {}))
+        for name, enum in view.all_enums().items()
+    }
     values = dict(values)
+    literal: Any = Literal
     for name, members in logical_enums.items():
-        primitive_annotations[name] = Literal[tuple(members)]
+        primitive_annotations[name] = literal[tuple(members)]
         primitive_types[name] = DataType.STRING
     from corpus_structure.schema.rulelang import Vocabulary
+
     for owner, fields in declarations.items():
         for name, spec in fields.items():
             if spec.range in logical_enums:
@@ -434,13 +521,21 @@ def build_rule_language(
             value = obj.get(name) if isinstance(obj, Mapping) else getattr(obj, name, None)
         else:
             value = obj[name] if isinstance(obj, Mapping) else getattr(obj, name)
+        source_binding = (
+            prepared.index.properties[spec.source_class, spec.source_property]
+            if spec.source_class is not None and spec.source_property is not None
+            else None
+        )
         if value is not None and not isinstance(obj, BaseModel):
             if spec.parameter_map:
+                if source_binding is None:
+                    raise ValueError(
+                        "parameter-map projection requires its declared source binding"
+                    )
+                entry_binding = prepared.index.properties[source_binding.range, "value"]
                 if isinstance(value, Mapping) and all(
                     isinstance(v, Mapping) and "kind" in v for v in value.values()
                 ):
-                    parent = prepared.index.properties[spec.source_class, spec.source_property]
-                    entry_binding = prepared.index.properties[parent.range, "value"]
                     value = {
                         key: project_rule_value(prepared, entry_binding, member)
                         for key, member in value.items()
@@ -452,37 +547,42 @@ def build_rule_language(
                         key = entry["key"]
                         if key in projected:
                             raise ValueError("parameter-map projection contains duplicate keys")
-                        parent = prepared.index.properties[spec.source_class, spec.source_property]
-                        entry_binding = prepared.index.properties[parent.range, "value"]
                         projected[key] = project_rule_value(prepared, entry_binding, entry["value"])
                     value = projected
-            elif spec.range == "Value" and spec.source_class is not None:
-                # Native schema fields also occur inside keyed records. Logical rule-view
-                # fields already hold projected Values and have no source_class.
+            elif source_binding is not None and source_binding.range in prepared.vocabulary_names:
+
+                def enum_scalar(member):
+                    projected = project_rule_value(prepared, source_binding, member)
+                    if projected is None:
+                        raise SemanticOperationRefusal(
+                            SemanticReason(
+                                "missing_operands",
+                                "evaluate",
+                                prepared.release_id,
+                                references=(source_binding.name,),
+                            )
+                        )
+                    return projected.v
+
+                value = (
+                    tuple(enum_scalar(member) for member in value)
+                    if spec.collection == "array"
+                    else {key: enum_scalar(member) for key, member in value.items()}
+                    if spec.collection == "mapping"
+                    else enum_scalar(value)
+                )
+            elif spec.range == "Value" and source_binding is not None:
                 value = (
                     {
-                        key: project_rule_value(
-                            prepared,
-                            prepared.index.properties[spec.source_class, spec.source_property],
-                            v,
-                        )
-                        for key, v in value.items()
+                        key: project_rule_value(prepared, source_binding, member)
+                        for key, member in value.items()
                     }
                     if spec.collection == "mapping"
                     else tuple(
-                        project_rule_value(
-                            prepared,
-                            prepared.index.properties[spec.source_class, spec.source_property],
-                            v,
-                        )
-                        for v in value
+                        project_rule_value(prepared, source_binding, member) for member in value
                     )
                     if spec.collection == "array"
-                    else project_rule_value(
-                        prepared,
-                        prepared.index.properties[spec.source_class, spec.source_property],
-                        value,
-                    )
+                    else project_rule_value(prepared, source_binding, value)
                 )
         if spec.collection == "array" and isinstance(value, list):
             value = tuple(value)

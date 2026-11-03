@@ -421,7 +421,9 @@ def _current_source_guard_definitions(connection):
         elif key == ("data", "validate_pre_inference_state"):
             from .routines import stage_verification_sql
 
-            sql = path.read_text().replace("{typed_value_stage_verify}", stage_verification_sql("typed_value"))
+            sql = path.read_text().replace(
+                "{typed_value_stage_verify}", stage_verification_sql("typed_value")
+            )
         elif path.name == "derived_publication.sql":
             from .native_products import derived_publication_sql
 

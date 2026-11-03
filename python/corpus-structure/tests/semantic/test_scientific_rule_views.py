@@ -83,6 +83,11 @@ def test_logical_object_accessor_checks_actual_return_type_and_literal_vocabular
                 "claim": SimpleNamespace(
                     value=SimpleNamespace(
                         t=3,
+                        expression_content=None,
+                        lexical_content=None,
+                        expression_language=None,
+                        missing_reason=None,
+                        unavailable_reason=None,
                         value_kind="text",
                         declared_range="Value",
                         enum_id=None,

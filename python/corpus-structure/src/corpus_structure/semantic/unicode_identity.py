@@ -26,10 +26,15 @@ DOMAIN = "unicode-scalars-except-nul-no-normalization"
 
 def identity_casefold(value: str) -> str:
     if "\0" in value or any(0xD800 <= ord(char) <= 0xDFFF for char in value):
-        raise SemanticOperationRefusal(SemanticReason(
-            "unsupported_interpretation", "resolve_identity", None,
-            expected=DOMAIN, actual="non-postgresql-text-scalar",
-        ))
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "unsupported_interpretation",
+                "resolve_identity",
+                None,
+                expected=DOMAIN,
+                actual="non-postgresql-text-scalar",
+            )
+        )
     return value.casefold()
 
 
@@ -59,7 +64,8 @@ def python_identity_runtime() -> dict[str, str]:
 
 
 def postgres_identity_runtime(connection: Connection) -> dict[str, Any]:
-    row = connection.exec_driver_sql("""
+    row = (
+        connection.exec_driver_sql("""
         SELECT current_setting('server_version') AS server_version,
                current_setting('server_version_num') AS server_version_num,
                current_setting('server_encoding') AS encoding,
@@ -67,7 +73,10 @@ def postgres_identity_runtime(connection: Connection) -> dict[str, Any]:
                pg_collation_actual_version(c.oid) AS actual_version
         FROM pg_collation c
         WHERE c.oid = 'pg_catalog.pg_unicode_fast'::regcollation
-    """).mappings().one()
+    """)
+        .mappings()
+        .one()
+    )
     return dict(row)
 
 
@@ -88,10 +97,15 @@ def qualify_unicode_identity(connection: Connection) -> UnicodeIdentityQualifica
     """Compare the complete scalar folding relation, not a sample parity assertion."""
     postgres = postgres_identity_runtime(connection)
     if postgres["encoding"] != "UTF8" or postgres["provider"] != "b":
-        raise SemanticOperationRefusal(SemanticReason(
-            "incompatible_bindings", "resolve_identity", None,
-            expected="UTF8 builtin pg_unicode_fast", actual=str(postgres),
-        ))
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "incompatible_bindings",
+                "resolve_identity",
+                None,
+                expected="UTF8 builtin pg_unicode_fast",
+                actual=str(postgres),
+            )
+        )
     native = tuple(
         (row[0], row[1])
         for row in connection.exec_driver_sql("""
@@ -104,36 +118,51 @@ def qualify_unicode_identity(connection: Connection) -> UnicodeIdentityQualifica
     )
     python = python_folding_mapping()
     if native != python:
-        raise SemanticOperationRefusal(SemanticReason(
-            "incompatible_bindings", "resolve_identity", None,
-            expected=_digest(python), actual=_digest(native),
-            detail="Python/PostgreSQL Unicode folding mappings differ",
-        ))
-    return UnicodeIdentityQualification(PROFILE, DOMAIN, dict(python_identity_runtime()),
-                                        postgres, _digest(native), len(native))
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "incompatible_bindings",
+                "resolve_identity",
+                None,
+                expected=_digest(python),
+                actual=_digest(native),
+                detail="Python/PostgreSQL Unicode folding mappings differ",
+            )
+        )
+    return UnicodeIdentityQualification(
+        PROFILE, DOMAIN, dict(python_identity_runtime()), postgres, _digest(native), len(native)
+    )
 
 
 def require_unicode_identity_pair(
-    connection: Connection, qualification: UnicodeIdentityQualification,
+    connection: Connection,
+    qualification: UnicodeIdentityQualification,
 ) -> None:
     """Admission compares exact qualified determinants; it does not re-run mapping scans."""
-    if (qualification.profile != PROFILE or qualification.domain != DOMAIN
+    if (
+        qualification.profile != PROFILE
+        or qualification.domain != DOMAIN
         or qualification.python != python_identity_runtime()
         or qualification.postgres != postgres_identity_runtime(connection)
         or qualification.mapping_digest != python_identity_runtime()["mapping_digest"]
-        or qualification.mapping_count != len(python_folding_mapping())):
-        raise SemanticOperationRefusal(SemanticReason(
-            "incompatible_bindings", "resolve_identity", None,
-            expected="exact qualified Unicode runtime/collation pair",
-            actual="unqualified or changed determinants",
-        ))
+        or qualification.mapping_count != len(python_folding_mapping())
+    ):
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "incompatible_bindings",
+                "resolve_identity",
+                None,
+                expected="exact qualified Unicode runtime/collation pair",
+                actual="unqualified or changed determinants",
+            )
+        )
 
 
 # Independently qualified on 2026-11-03. This is an exact supported runtime pair,
 # not a promise about other Python builds, UCDs, PostgreSQL versions or collations.
 # Evidence: docs/design_review/evidence/2026-11-03_unicode-identity/records/ac03.unicode.json.
 QUALIFIED_PAIR = UnicodeIdentityQualification(
-    PROFILE, DOMAIN,
+    PROFILE,
+    DOMAIN,
     {
         "implementation": "CPython",
         "python": "3.14.10 (main, Oct 26 2026, 14:09:22) [Clang 23.1.3 ]",
@@ -156,13 +185,39 @@ QUALIFIED_PAIR = UnicodeIdentityQualification(
 def qualified_python_identity_recipe() -> bytes:
     """Producing artifacts retain only the independently qualified Python determinants."""
     if QUALIFIED_PAIR.python != python_identity_runtime():
-        raise SemanticOperationRefusal(SemanticReason(
-            "incompatible_bindings", "resolve_identity", None,
-            expected="independently qualified Python Unicode runtime",
-            actual="unqualified Python/UCD/build or folding mapping",
-        ))
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "incompatible_bindings",
+                "resolve_identity",
+                None,
+                expected="independently qualified Python Unicode runtime",
+                actual="unqualified Python/UCD/build or folding mapping",
+            )
+        )
     return QUALIFIED_PAIR.content()
 
 
 def require_current_unicode_pair(connection: Connection) -> None:
     require_unicode_identity_pair(connection, QUALIFIED_PAIR)
+
+
+def requires_unicode_identity(prepared) -> bool:
+    """Select folding admission from compiled identity/qualification and label bindings."""
+    import json
+
+    for definition in prepared.definitions:
+        identifying = {name for group in definition.identity_groups for name in group}
+        qualification = (
+            definition.name == "Qualification" or "Qualification" in definition.ancestors
+        )
+        if any(
+            prop.case_policy == "casefold"
+            and (prop.name in identifying or (qualification and prop.key_role != "provenance"))
+            for prop in definition.properties
+        ):
+            return True
+    return any(
+        json.loads(row.body).get("cs:case") == "casefold"
+        for row in prepared.registry_rows
+        if row.kind == "operation_class"
+    )

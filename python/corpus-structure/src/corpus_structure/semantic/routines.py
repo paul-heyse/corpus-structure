@@ -18,7 +18,9 @@ def stage_verification_sql(name: str) -> str:
     """One native staging-shape check for publication, disposal and scoped readers."""
     row_type, types = STAGE_TYPES[name]
     columns = [field.name for field in fields(row_type)]
-    signatures = ",".join("'" + column + ":" + kind + "'" for column, kind in zip(columns, types, strict=True))
+    signatures = ",".join(
+        "'" + column + ":" + kind + "'" for column, kind in zip(columns, types, strict=True)
+    )
     return (
         "IF NOT EXISTS(SELECT FROM pg_catalog.pg_class c WHERE "
         f"c.relnamespace=pg_my_temp_schema() AND c.relname='sp_{name}' "

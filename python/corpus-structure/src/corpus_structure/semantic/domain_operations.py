@@ -35,24 +35,22 @@ from .publication import (
     AlternativeMemberRow,
     AssessmentRow,
     CoverageRow,
+    EntityResolutionRow,
     EvidenceRow,
     EvidenceSourceRow,
-    EntityResolutionRow,
-    ScientificRepresentativeRow,
     PublicationBatch,
     PublicationReceipt,
+    ScientificRepresentativeRow,
     SelectionRow,
     _publish,
 )
 from .query import SnapshotBinding
-from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
+from .refusals import SemanticOperationRefusal, SemanticReason, SemanticReasonCode, SemanticRefusal
 from .releases import open_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
 RULE_INPUT = "operation/domain-rules.yaml"
 VERSION = "semantic-domain-3"
-
-
 
 
 class DomainOperationRefused(SemanticRefusal):
@@ -119,6 +117,7 @@ def domain_rule_inputs(
         raise ValueError("unsupported domain operation header")
     source["operation"] = operation
     from .rule_views import RULE_VIEW_ABI
+
     source["rule_view_abi"] = RULE_VIEW_ABI
     if aliases is not None:
         source["identity"] = {"aliases": dict(aliases)}
@@ -194,9 +193,13 @@ class CandidateContextIndex:
         global_premises = set()
         symbol_owners = defaultdict(set)
         for candidate in candidates:
-            if prepared.member_has_behavior("StatementRole", candidate.statement_role, "participates_as_premise"):
+            if prepared.member_has_behavior(
+                "StatementRole", candidate.statement_role, "participates_as_premise"
+            ):
                 premises[candidate.statement].add(candidate.occurrence_id)
-                if prepared.member_has_behavior("StatementKind", candidate.statement_kind, "global_premise_context"):
+                if prepared.member_has_behavior(
+                    "StatementKind", candidate.statement_kind, "global_premise_context"
+                ):
                     global_premises.add(candidate.occurrence_id)
             for symbol in gives.get(candidate.occurrence_id, ()):
                 symbol_owners[symbol].add(candidate.occurrence_id)
@@ -208,12 +211,19 @@ class CandidateContextIndex:
         )
 
     def statement_premises(self, candidate) -> tuple[str, ...]:
-        return tuple(sorted((self.premises.get(candidate.statement, frozenset())
-                             | self.global_premises) - {candidate.occurrence_id}))
+        return tuple(
+            sorted(
+                (self.premises.get(candidate.statement, frozenset()) | self.global_premises)
+                - {candidate.occurrence_id}
+            )
+        )
 
     def given_by_others(self, occurrence_id: str) -> tuple[str, ...]:
-        return tuple(sorted(symbol for symbol, owners in self.symbol_owners.items()
-                            if owners - {occurrence_id}))
+        return tuple(
+            sorted(
+                symbol for symbol, owners in self.symbol_owners.items() if owners - {occurrence_id}
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -878,7 +888,6 @@ def _entity_mappings(prepared, observations, output, known, contexts):
 
     mappings = {}
     entries = []
-    extra = {}
     parsed = {}
     for observation in observations:
         if observation["payload_definition"] != "AgentStoredBatch":
@@ -994,7 +1003,10 @@ def _entity_mappings(prepared, observations, output, known, contexts):
             )
             soft_resolved.update((node, canonical) for node in group)
     resolved = set()
-    decisions = {}
+    decisions: dict[
+        tuple[int, str],
+        tuple[str, str, tuple[str, ...], list[tuple[str, ...]], list[tuple[int, str]]],
+    ] = {}
     keys = {}
     known_labels = {}
     for identity, item in known.items():
@@ -1051,9 +1063,14 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                 attrs[prop.name] = _property_value(prepared, definition, prop, value, mapping)
             if e.get("scope") is not None and "scope_locator" in fields:
                 attrs.setdefault("scope_locator", e["scope"]["locator"])
-                extra[oid, e["id"]] = {"scope_locator": e["scope"]["locator"]}
             groups = [g for g in definition.identity_groups if g != definition.identity_slots]
-            basis = "declared_key" if groups else "global_label" if meta.get(definition.name, {}).get("cs:scope") == "global" else "source_local"
+            basis = (
+                "declared_key"
+                if groups
+                else "global_label"
+                if meta.get(definition.name, {}).get("cs:scope") == "global"
+                else "source_local"
+            )
             outcome = "resolved"
             relevant = ()
             if groups and all(all(name in attrs for name in g) for g in groups):
@@ -1113,24 +1130,42 @@ def _entity_mappings(prepared, observations, output, known, contexts):
     for observation, entity, definition in pending if not progress else ():
         oid, local = observation["id"], entity["id"]
         groups = [g for g in definition.identity_groups if g != definition.identity_slots]
-        decisions.setdefault((oid, local), ("declared_key", "ungrounded_cycle", (), groups, ()))
-    entry_definitions = {(observation["id"], entity["id"]): definition for observation, entity, definition in entries}
+        decisions.setdefault((oid, local), ("declared_key", "ungrounded_cycle", (), groups, []))
+    entry_definitions = {
+        (observation["id"], entity["id"]): definition for observation, entity, definition in entries
+    }
     rows = tuple(
         EntityResolutionRow(
-            oid, local, mappings[oid][local], basis, outcome,
+            oid,
+            local,
+            mappings[oid][local],
+            basis,
+            outcome,
             canonical_bytes(relevant).decode(),
-            canonical_bytes({"groups": groups, "class": definition.iri,
-                             "property_cases": {prop.name: prop.case_policy for prop in definition.properties if any(prop.name in group for group in groups)},
-                             "label_scope": meta.get(definition.name, {}).get("cs:scope", "local"),
-                             "label_case": meta.get(definition.name, {}).get("cs:case", "preserve")}).decode(),
+            canonical_bytes(
+                {
+                    "groups": groups,
+                    "class": definition.iri,
+                    "property_cases": {
+                        prop.name: prop.case_policy
+                        for prop in definition.properties
+                        if any(prop.name in group for group in groups)
+                    },
+                    "label_scope": meta.get(definition.name, {}).get("cs:scope", "local"),
+                    "label_case": meta.get(definition.name, {}).get("cs:case", "preserve"),
+                }
+            ).decode(),
             canonical_bytes(dependencies).decode(),
             "declared_identity" if outcome == "resolved" else outcome,
-            "resolve_identity", VERSION,
+            "resolve_identity",
+            VERSION,
         )
-        for (oid, local), (basis, outcome, relevant, groups, dependencies) in sorted(decisions.items())
+        for (oid, local), (basis, outcome, relevant, groups, dependencies) in sorted(
+            decisions.items()
+        )
         for definition in (entry_definitions[oid, local],)
     )
-    return mappings, extra, parsed, rows
+    return mappings, parsed, rows
 
 
 def _project_cut(
@@ -1177,9 +1212,10 @@ def _project_cut(
         )
     if len({constants for _, constants in contexts.values()}) > 1:
         raise DomainOperationRefused("cut has incompatible recorded mathematical constant profiles")
-    entity_mappings, extra_attributes, parsed, resolution_decisions = _entity_mappings(
+    entity_mappings, parsed, resolution_decisions = _entity_mappings(
         prepared, observations, output, known, contexts
     )
+
     def coverage_row(
         family, scope, outcome, reason=None, source_outcome=None, required_capability=None
     ):
@@ -1564,38 +1600,82 @@ def _project_cut(
                     if citation.get("outcome") != "located":
                         continue
                     start, end = citation["start"], citation["end"]
-                    if not 0 <= start < end <= len(_evidence_source_text(descriptor, citation["locator"])):
-                        raise DomainOperationRefused("attribute evidence lies outside its cited source")
-                    eid = "evidence:" + sha256(canonical_bytes(
-                        [source, "entities", local, "attributes", index, ordinal, citation]
-                    )).hexdigest()
-                    located.append(EvidenceRow(
-                        eid, descriptor["source_uri"],
-                        canonical_bytes({"locator": citation["locator"], "start": start,
-                                         "end": end, "role": citation["role"]}).decode(),
-                        descriptor["provider"], descriptor["version"],
-                    ))
+                    if (
+                        not 0
+                        <= start
+                        < end
+                        <= len(_evidence_source_text(descriptor, citation["locator"]))
+                    ):
+                        raise DomainOperationRefused(
+                            "attribute evidence lies outside its cited source"
+                        )
+                    eid = (
+                        "evidence:"
+                        + sha256(
+                            canonical_bytes(
+                                [source, "entities", local, "attributes", index, ordinal, citation]
+                            )
+                        ).hexdigest()
+                    )
+                    located.append(
+                        EvidenceRow(
+                            eid,
+                            descriptor["source_uri"],
+                            canonical_bytes(
+                                {
+                                    "locator": citation["locator"],
+                                    "start": start,
+                                    "end": end,
+                                    "role": citation["role"],
+                                }
+                            ).decode(),
+                            descriptor["provider"],
+                            descriptor["version"],
+                        )
+                    )
                     evidence_roles[eid] = citation["role"]
-                    source_links[eid] = _evidence_link(observation, descriptor, start, end, citation["locator"])
+                    source_links[eid] = _evidence_link(
+                        observation, descriptor, start, end, citation["locator"]
+                    )
                 if not located:
-                    coverage_row("attribute", f"{source}/entities/{local}/attributes/{index}",
-                                 "partial", "attribute lacks located support")
+                    coverage_row(
+                        "attribute",
+                        f"{source}/entities/{local}/attributes/{index}",
+                        "partial",
+                        "attribute lacks located support",
+                    )
                     continue
                 value = _property_value(
-                    prepared, definition, prop,
+                    prepared,
+                    definition,
+                    prop,
                     bind_expression_context(attribute["value"], macros),
-                    {**mapping, **statement_ids}, claim_refs,
+                    {**mapping, **statement_ids},
+                    claim_refs,
                 )
                 qualification = _reference(
-                    prepared, qualification_class,
+                    prepared,
+                    qualification_class,
                     bind_expression_context(_plain(attribute["qualification"]), macros),
-                    {**mapping, **statement_ids}, claim_refs,
+                    {**mapping, **statement_ids},
+                    claim_refs,
                 )
-                items.append(SourceItem(
-                    subject, definition.name, prop.name, value, qualification, source,
-                    f"entities/{local}/attributes/{index}", attribute["establishment"],
-                    tuple(located), qualification_class,
-                ))
+                if not isinstance(qualification, dict):
+                    raise DomainOperationRefused("attribute qualification requires a typed record")
+                items.append(
+                    SourceItem(
+                        subject,
+                        definition.name,
+                        prop.name,
+                        value,
+                        qualification,
+                        source,
+                        f"entities/{local}/attributes/{index}",
+                        attribute["establishment"],
+                        tuple(located),
+                        qualification_class,
+                    )
+                )
         for claim, item in claim_rows:
             statement = statements.get(claim.get("statement"))
             if statement is not None and statement["kind"] != "outside":
@@ -1701,16 +1781,12 @@ def _project_cut(
         EntityRow,
         IdentityExclusionEvidenceRow,
         IdentityExclusionRow,
-        MembershipRow,
-        MembershipSupportRow,
     )
 
     exclusion_rows = []
     exclusion_links = []
     exclusion_evidence = []
     exclusion_entities = set()
-    exclusion_memberships = set()
-    exclusion_membership_support = set()
     for observation in observations:
         payload = parsed.get(observation["id"], {})
         descriptor = descriptors[observation["id"]]
@@ -1730,10 +1806,7 @@ def _project_cut(
                 return mapping[value["target"]] if value["kind"] == "local" else value["target"]
 
             left, right = endpoint(exclusion["left"]), endpoint(exclusion["right"])
-            if any(
-                identity not in metadata or metadata[identity].get("representable") is False
-                for identity in (left, right)
-            ):
+            if any(identity not in metadata for identity in (left, right)):
                 raise DomainOperationRefused(
                     "identity exclusion endpoint lacks representable required identity: "
                     + exclusion["id"]
@@ -1800,16 +1873,8 @@ def _project_cut(
                     observation, descriptor, start, end, citation["locator"]
                 )
                 exclusion_links.append(IdentityExclusionEvidenceRow(xid, eid))
-                for identity, value in ((left, exclusion["left"]), (right, exclusion["right"])):
+                for identity in (left, right):
                     exclusion_entities.add(EntityRow(identity))
-                    if value["kind"] == "local":
-                        cls = next(
-                            e["class_iri"]
-                            for e in payload["entities"]
-                            if e["id"] == value["target"]
-                        )
-                        exclusion_memberships.add(MembershipRow(identity, cls, "stated"))
-                        exclusion_membership_support.add(MembershipSupportRow(identity, cls, eid))
 
     def rows_union(old, new):
         from dataclasses import astuple
@@ -1819,8 +1884,6 @@ def _project_cut(
     batch = replace(
         batch,
         entity=rows_union(batch.entity, exclusion_entities),
-        membership=rows_union(batch.membership, exclusion_memberships),
-        membership_support=rows_union(batch.membership_support, exclusion_membership_support),
         evidence=rows_union(batch.evidence, exclusion_evidence),
         identity_exclusion=tuple(exclusion_rows),
         identity_exclusion_evidence=tuple(exclusion_links),
@@ -1979,7 +2042,14 @@ def _project_cut(
     decided = {(row.observation_id, row.local_id) for row in resolution_decisions}
     batch = replace(
         batch,
-        entity=rows_union(batch.entity, {EntityRow(identity) for mapping in entity_mappings.values() for identity in mapping.values()}),
+        entity=rows_union(
+            batch.entity,
+            {
+                EntityRow(identity)
+                for mapping in entity_mappings.values()
+                for identity in mapping.values()
+            },
+        ),
         entity_resolution=resolution_decisions,
         entity_source=tuple(
             sorted(
@@ -2398,11 +2468,17 @@ class ReleasedRulesPolicy:
         }:
             raise DomainOperationRefused("unknown domain operation policy section")
         from .rule_views import RULE_VIEW_ABI
+
         if source.get("rule_view_abi") != RULE_VIEW_ABI:
-            raise SemanticOperationRefusal(SemanticReason(
-                "incompatible_bindings", "evaluate", self.prepared.release_id,
-                expected=RULE_VIEW_ABI, actual=source.get("rule_view_abi"),
-            ))
+            raise SemanticOperationRefusal(
+                SemanticReason(
+                    "incompatible_bindings",
+                    "evaluate",
+                    self.prepared.release_id,
+                    expected=RULE_VIEW_ABI,
+                    actual=source.get("rule_view_abi"),
+                )
+            )
         if source.get("operation") != {"name": "semantic-domain", "version": VERSION}:
             raise DomainOperationRefused("unsupported domain operation name/version")
         if source.get("derive"):
@@ -2570,7 +2646,11 @@ class ReleasedRulesPolicy:
         from .identity import _meaning
         from .operation_results import validate_result_dimension
         from .scientific_evidence import EvidenceTier as Tier
-        from .scientific_evidence import (SemanticComparator, ScientificInterpretationUnavailable, grammar_name)
+        from .scientific_evidence import (
+            ScientificInterpretationUnavailable,
+            SemanticComparator,
+            grammar_name,
+        )
 
         groups = defaultdict(list)
         rows = []
@@ -2704,7 +2784,7 @@ class ReleasedRulesPolicy:
             for index, a in enumerate(ordered):
                 for b in ordered[index + 1 :]:
                     reason = None
-                    reason_code = None
+                    reason_code: SemanticReasonCode | None = None
                     comparison = None
                     operative_macros = dict(a.macros)
                     if _bindings(a.object) != _bindings(b.object):
@@ -2799,8 +2879,10 @@ class ReleasedRulesPolicy:
                             reason or "no faithful comparison operand",
                             "undecided",
                             semantic_reason=SemanticReason(
-                                reason_code or "missing_operands", "scientific_policy",
-                                self.prepared.release_id, (a.occurrence_id, b.occurrence_id),
+                                reason_code or "missing_operands",
+                                "scientific_policy",
+                                self.prepared.release_id,
+                                (a.occurrence_id, b.occurrence_id),
                                 detail=reason or "no faithful comparison operand",
                             ),
                         )
@@ -2839,10 +2921,7 @@ class ReleasedRulesPolicy:
             for component in components.values():
                 if len(component) > 1:
                     equivalent_components.append(
-                        tuple(
-                            c.fact_id
-                            for c in sorted(component, key=lambda c: c.fact_id)
-                        )
+                        tuple(c.fact_id for c in sorted(component, key=lambda c: c.fact_id))
                     )
         return generated, unresolved, equivalent_components, assessments
 
@@ -2923,7 +3002,6 @@ class ReleasedRulesPolicy:
 
         from .grammar_profile import GRAMMAR_KINDS
         from .rule_views import (
-            project_rule_value,
             _BARE,
             MAX_SYMBOL,
             BindingView,
@@ -2932,6 +3010,7 @@ class ReleasedRulesPolicy:
             QualifiersView,
             Reading,
             StatementView,
+            project_rule_value,
         )
 
         errors = set()
@@ -3004,10 +3083,14 @@ class ReleasedRulesPolicy:
             param_map = props.get("cs:param_map")
             entries = candidate.qualification.get(param_map, ()) if param_map else ()
             symbols = set()
-            if self.prepared.member_has_behavior("StatementRole", candidate.statement_role, "supplies_binding_symbol"):
+            if self.prepared.member_has_behavior(
+                "StatementRole", candidate.statement_role, "supplies_binding_symbol"
+            ):
                 for entry in entries.values() if isinstance(entries, dict) else entries:
                     value = entry.get("value", entry)
-                    if value.get("kind") == "formula" or (value.get("kind") == "expression" and value.get("form") == "formula"):
+                    if value.get("kind") == "formula" or (
+                        value.get("kind") == "expression" and value.get("form") == "formula"
+                    ):
                         symbol = value["expression"].strip().lstrip("\\")
                         if len(symbol) <= MAX_SYMBOL and _BARE.fullmatch(symbol):
                             symbols.add(symbol)
@@ -3100,8 +3183,12 @@ class ReleasedRulesPolicy:
             reading_note = None
             if isinstance(c.object, str) and c.object in inputs.entity_metadata:
                 obj = entity(c.object)
-                prop = next(p for p in self.definitions[c.class_name].properties if p.iri == c.predicate)
-                value = project_rule_value(self.prepared, prop, c.rule_object if c.rule_object is not None else c.object)
+                prop = next(
+                    p for p in self.definitions[c.class_name].properties if p.iri == c.predicate
+                )
+                value = project_rule_value(
+                    self.prepared, prop, c.rule_object if c.rule_object is not None else c.object
+                )
             else:
                 raw = c.rule_object if c.rule_object is not None else c.object
                 kind = str(raw.get("kind")) if isinstance(raw, dict) else "text"
@@ -3162,7 +3249,9 @@ class ReleasedRulesPolicy:
                                 binding.get("parameter"),
                             )
                         )
-                prop = next(p for p in self.definitions[c.class_name].properties if p.iri == c.predicate)
+                prop = next(
+                    p for p in self.definitions[c.class_name].properties if p.iri == c.predicate
+                )
                 value = project_rule_value(self.prepared, prop, raw, reading)
             # Multiple located reports of the same proposition are support, not competing
             # scientific claims. The kernels preserve occurrence addresses for source
@@ -3215,6 +3304,17 @@ class ReleasedRulesPolicy:
                 object=obj,
                 value=value,
                 qualifiers=QualifiersView(qvalues),
+                qualification_values={
+                    name: project_rule_value(self.prepared, self.qprops[name], raw)
+                    for name, raw in qvalues.items()
+                    if raw is not None
+                    and not self.qprops[name].multivalued
+                    and (
+                        self.qprops[name].range not in self.definitions
+                        or self.qprops[name].range == "Value"
+                        or "Value" in self.definitions[self.qprops[name].range].ancestors
+                    )
+                },
                 statement=statement,
                 statement_kind=c.statement_kind,
                 statement_role=c.statement_role,
@@ -3358,14 +3458,21 @@ class ReleasedRulesPolicy:
             accepted = sorted(set(component) & selected)
             if not accepted:
                 continue
-            component_id = "component:" + sha256(canonical_bytes(sorted(set(component)))).hexdigest()
+            component_id = (
+                "component:" + sha256(canonical_bytes(sorted(set(component)))).hexdigest()
+            )
             representative_rows.extend(
                 ScientificRepresentativeRow(fact, accepted[0], "min-fact-id-1", component_id)
                 for fact in accepted
             )
             covered.update(accepted)
         representative_rows.extend(
-            ScientificRepresentativeRow(fact, fact, "min-fact-id-1", "component:" + sha256(canonical_bytes([fact])).hexdigest())
+            ScientificRepresentativeRow(
+                fact,
+                fact,
+                "min-fact-id-1",
+                "component:" + sha256(canonical_bytes([fact])).hexdigest(),
+            )
             for fact in sorted(selected - covered)
         )
         return PolicyDecision(

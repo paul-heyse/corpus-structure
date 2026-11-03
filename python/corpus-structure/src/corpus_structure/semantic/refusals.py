@@ -21,16 +21,16 @@ class SemanticRefusal(ValueError):
     """An owned boundary deliberately refuses an unsupported or incompatible request."""
 
 
+SemanticReasonCode = Literal[
+    "missing_operands", "unsupported_interpretation", "incompatible_bindings", "preparation_failed"
+]
+
+
 @dataclass(frozen=True)
 class SemanticReason:
     """An operation's expected inability to decide, without interpreting human text."""
 
-    code: Literal[
-        "missing_operands",
-        "unsupported_interpretation",
-        "incompatible_bindings",
-        "preparation_failed",
-    ]
+    code: SemanticReasonCode
     operation: str
     release_id: str | None
     references: tuple[str, ...] = ()
@@ -51,7 +51,11 @@ class SemanticOperationRefusal(SemanticRefusal):
 
 def semantic_failure_fields(error: BaseException) -> dict[str, Any]:
     reason = getattr(error, "semantic_reason", None)
-    return {"semantic_reason": asdict(reason)} if reason is not None else {}
+    ordinary_reason = getattr(error, "reason", None)
+    fields: dict[str, Any] = {"reason": ordinary_reason} if isinstance(ordinary_reason, str) else {}
+    if isinstance(reason, SemanticReason):
+        fields.update(code=reason.code, semantic_reason=asdict(reason))
+    return fields
 
 
 @dataclass

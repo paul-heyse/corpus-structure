@@ -160,22 +160,19 @@ class ClassPreview:
     abstract: bool
 
 
-
 @lru_cache(maxsize=512)
-def _enum_members(vocabularies, registry_rows, name: str, subset: str | None = None) -> frozenset[str]:
+def _enum_members(
+    vocabularies, registry_rows, name: str, subset: str | None = None
+) -> frozenset[str]:
     """Shared effective closed membership and authored contextual metadata resolution."""
     import json
 
     vocabulary = next(v for v in vocabularies if v.enum == name)
     if subset is None:
         return frozenset(m.value for m in vocabulary.members)
-    definitions = {
-        r.name: json.loads(r.body) for r in registry_rows if r.kind == "enum_definition"
-    }
+    definitions = {r.name: json.loads(r.body) for r in registry_rows if r.kind == "enum_definition"}
 
-    def properties(
-        expression: dict[str, Any], stack: tuple[str, ...]
-    ) -> dict[str, dict[str, Any]]:
+    def properties(expression: dict[str, Any], stack: tuple[str, ...]) -> dict[str, dict[str, Any]]:
         # Membership has already been resolved by the ontology/value-set compiler. This
         # resolves authored member metadata only, in the same seed/override order.
         result: dict[str, dict[str, Any]] = {}
@@ -194,7 +191,6 @@ def _enum_members(vocabularies, registry_rows, name: str, subset: str | None = N
         for m in vocabulary.members
         if subset in members.get(m.value, {}).get("in_subset", ())
     )
-
 
 
 @dataclass(frozen=True)
@@ -318,7 +314,9 @@ class PreparedRelease:
         """Closed membership and authored member properties share release authority."""
         key = (name, subset)
         if key not in self._enum_memberships:
-            self._enum_memberships[key] = _enum_members(self.vocabularies, self.registry_rows, name, subset)
+            self._enum_memberships[key] = _enum_members(
+                self.vocabularies, self.registry_rows, name, subset
+            )
         return self._enum_memberships[key]
 
     def source_establishments(self) -> frozenset[str]:
@@ -331,23 +329,44 @@ class PreparedRelease:
     def member_has_behavior(self, vocabulary: str, member: str | None, behavior: str) -> bool:
         return member is not None and member in self.enum_members(vocabulary, subset=behavior)
 
-    def display_properties(self, class_id: str) -> tuple[PropertyDefinition, ...]:
-        """Ordered released display bindings; names carry no display semantics."""
+    @cached_property
+    def vocabulary_names(self) -> frozenset[str]:
+        return frozenset(vocabulary.enum for vocabulary in self.vocabularies)
+
+    @cached_property
+    def _display_bindings(self) -> Mapping[str, tuple[PropertyDefinition, ...]]:
         import json
 
-        definition = self.index.definitions.get(class_id) or self.index.by_iri[class_id]
         metadata = {
-            body["property"]: body
+            (body["class"], body["property"]): body
             for row in self.registry_rows
             if row.kind == "operation_property"
             for body in (json.loads(row.body),)
-            if body["class"] == definition.name
         }
-        return tuple(sorted(
-            (prop for prop in definition.properties
-             if "display" in self.index.property_roles.get((definition.iri, prop.iri), ())),
-            key=lambda prop: (int(metadata[prop.iri].get("cs:display_order", "0")), prop.iri),
-        ))
+        return MappingProxyType(
+            {
+                definition.name: tuple(
+                    sorted(
+                        (
+                            prop
+                            for prop in definition.properties
+                            if "display"
+                            in self.index.property_roles.get((definition.iri, prop.iri), ())
+                        ),
+                        key=lambda prop: (
+                            int(metadata[definition.name, prop.iri].get("cs:display_order", "0")),
+                            prop.iri,
+                        ),
+                    )
+                )
+                for definition in self.definitions
+            }
+        )
+
+    def display_properties(self, class_id: str) -> tuple[PropertyDefinition, ...]:
+        """Ordered released display bindings; names carry no display semantics."""
+        definition = self.index.definitions.get(class_id) or self.index.by_iri[class_id]
+        return self._display_bindings[definition.name]
 
     def entity_keys(
         self,
@@ -373,6 +392,7 @@ class PreparedRelease:
                 value = values[name]
                 if props[name].case_policy == "casefold" and isinstance(value, str):
                     from .unicode_identity import identity_casefold
+
                     value = identity_casefold(value)
                 pairs.append((name, _meaning(value)))
             out.append(
@@ -417,6 +437,7 @@ class PreparedRelease:
                 continue
             if props[name].case_policy == "casefold" and isinstance(value, str):
                 from .unicode_identity import identity_casefold
+
                 value = identity_casefold(value)
             result[name] = value
         return fact_key(self.release_id, realization, subject, predicate, object_, result)

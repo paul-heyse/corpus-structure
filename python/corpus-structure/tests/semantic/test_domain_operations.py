@@ -290,7 +290,7 @@ def test_same_fact_reports_keep_statement_specific_rule_decisions(
 @pytest.mark.parametrize(
     ("formulas", "outcome", "selected"),
     [
-        (("a+b", "b+a"), "equivalent", 1),
+        (("a+b", "b+a"), "equivalent", 2),
         (("a+1", "a+2"), "different", 0),
         (("f(x)", "g(x)"), "undecided", 0),
     ],
@@ -334,6 +334,22 @@ def test_native_scientific_comparison_preserves_facts_and_uncertainty(
             )
             == selected
         )
+        if outcome == "equivalent":
+            reps = table("data.scientific_representative")
+            components = (
+                conn.execute(
+                    select(reps)
+                    .join(f, f.c.fact_id == reps.c.fact_id)
+                    .where(f.c.property_id == "https://example.org/name")
+                )
+                .mappings()
+                .all()
+            )
+            assert len(components) == 2
+            assert {row["representative_fact_id"] for row in components} == {
+                min(row["fact_id"] for row in components)
+            }
+            assert len({row["component_id"] for row in components}) == 1
 
 
 @pytest.mark.parametrize("local_known", [False, True])
