@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "m1.private-bounded-interpretation",
+  "title": "Three-template retained-support event probabilities",
+  "group": "M1",
+  "package": "M1-09",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can three fixed candidate templates compute complete qualified event sums with explicit numerical and resource outcomes?",
+  "answers": [],
+  "method": "Independent hand-calculated numerical fixtures, pure operation controls, malformed-input reproductions/repair, independent source review and main-tree54-test endpoint.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_record_interpretation.py -q"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/review-malformed-boundary-before.txt",
+      "role": null,
+      "sha256": "212494a37f92080e8928cdfa451b654eb7d73f68f55ddf60590012e48fb48bd6"
+    },
+    {
+      "path": "raw/review-final-source-sha256.txt",
+      "role": null,
+      "sha256": "efc068d1ff4b2764731e8c86c00c99b36ae00071f6c1b7683a8cf61a15283d18"
+    },
+    {
+      "path": "raw/review-final-pytest.txt",
+      "role": null,
+      "sha256": "94e3284abe1fa93f0f6eb18c529dda7b146eb72f50eeb13f1962570f79c28123"
+    },
+    {
+      "path": "raw/review-final-ruff.txt",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/review-final-pyrefly.txt",
+      "role": null,
+      "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "54 focused tests passed after root integration, independent reviewer closed malformed-input P2 on exact repaired hashes. Scores are provisional and exact only relative to retained support/floating-point arithmetic. Conservative total-joint limit, cooperative duration/cancellation and numerical workspace bound do not establish actual workload fit, process memory cap, admitted operation, gain, calibration or publication. Earlier failures/reproductions remain retained.",
+  "consumed_by": [
+    "M1-09",
+    "M1-10",
+    "M1-14"
+  ]
+}
