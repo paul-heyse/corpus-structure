@@ -858,9 +858,11 @@ class BoundReader:
         cut_id: int | None = None,
         *,
         analysis: bool = True,
+        read_budget: Any = None,
     ):
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         self._analysis_enabled = analysis
+        self._read_budget = read_budget
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
 
@@ -881,7 +883,9 @@ class BoundReader:
         from .source_views import selected_source_views
 
         selected = tuple(
-            v for v in selected_source_views(self.conn, self.run_id) if v.analysis_eligible
+            v for v in selected_source_views(
+                self.conn, self.run_id, read_budget=self._read_budget
+            ) if v.analysis_eligible
         )
         run = table("ops.run")
         options = self.conn.execute(
@@ -903,7 +907,8 @@ class BoundReader:
     def source_view(self, source_view_id: int):
         from .source_views import load_source_view, selected_source_views
 
-        if source_view_id not in {r.id for r in selected_source_views(self.conn, self.run_id)}:
+        selected = selected_source_views(self.conn, self.run_id, read_budget=self._read_budget)
+        if source_view_id not in {ref.id for ref in selected}:
             raise OperationConflict("source view is outside bound run")
         cache = getattr(self, "_native_views", None)
         if cache is None:
@@ -911,7 +916,8 @@ class BoundReader:
             self._native_views = cache
         if source_view_id not in cache:
             cache[source_view_id] = load_source_view(
-                self.conn, source_view_id, analysis=self._analysis_enabled
+                self.conn, source_view_id, analysis=self._analysis_enabled,
+                read_budget=self._read_budget,
             )
         return cache[source_view_id]
 
@@ -920,7 +926,7 @@ class BoundReader:
 
         source = self.source_view(source_view_id)
         ancestors = {a["self_ref"] for a in source.ancestors}
-        selected = selected_source_views(self.conn, self.run_id)
+        selected = selected_source_views(self.conn, self.run_id, read_budget=self._read_budget)
         return tuple(
             v
             for v in selected
@@ -1233,8 +1239,12 @@ class BoundReader:
         if self.cut_id is not None:
             cut = table("ops.cut_task")
             q = q.join(cut, cut.c.origin_task_id == o.c.task_id).where(cut.c.cut_id == self.cut_id)
+        if self._read_budget is not None:
+            self._read_budget.preflight(self.conn, q)
         out = []
         for row in self.conn.execute(q).mappings():
+            if self._read_budget is not None:
+                self._read_budget.value(row["payload"])
             payload = (
                 source_python(row["payload"]["payload"])
                 if row["payload_definition"] == "SourceObservation"

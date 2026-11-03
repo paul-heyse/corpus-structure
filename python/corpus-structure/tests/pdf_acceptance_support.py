@@ -392,9 +392,9 @@ def write_controlled_pdf(path: Path, paragraphs: tuple[str, ...]) -> bytes:
 
 
 def publish_controlled_pdf_views(
-    engine, *, prepared, run_id, document_id, original, paragraphs, keys
+    engine, *, prepared, run_id, document_id, original, paragraphs, keys, source_claim=None
 ):
-    """Retain independently authored section text through the real native publication ports."""
+    """Retain authored sections; a supplied claim leaves terminal settlement with its owner."""
     from dataclasses import replace
     from tempfile import TemporaryDirectory
 
@@ -409,8 +409,12 @@ def publish_controlled_pdf_views(
     document = DoclingDocument(name="Controlled source reports; no inference")
     root = document.add_group(label=GroupLabel.SECTION, name="People")
     sections = [root]
-    if len(paragraphs) > 1:
-        sections.append(document.add_group(label=GroupLabel.SECTION, name="Other", parent=root))
+    for index in range(1, len(paragraphs)):
+        sections.append(document.add_group(
+            label=GroupLabel.SECTION,
+            name="Other" if index == 1 else f"Other {index}",
+            parent=root,
+        ))
     for index, paragraph in enumerate(paragraphs):
         document.add_text(
             label=DocItemLabel.TEXT,
@@ -434,35 +438,39 @@ def publish_controlled_pdf_views(
         .read_bytes()
     )
     with engine.begin() as conn:
-        config = record_method(
-            conn,
-            SimpleNamespace(
-                name="pdf.controlled-source",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
+        if source_claim is None:
+            config = record_method(
+                conn,
+                SimpleNamespace(
+                    name="pdf.controlled-source",
+                    version="1",
+                    family="ingest",
+                    tier="deterministic",
+                    confidence_source=None,
+                    unit_type="document",
+                    Config=create_model("ControlledSource"),
+                ),
+                "default",
+                {},
+                "controlled-source-config",
+                prepared=prepared,
+            )
+            task = create_task(
+                conn,
+                run_id=run_id,
+                config_id=config,
+                stage="ingest",
                 unit_type="document",
-                Config=create_model("ControlledSource"),
-            ),
-            "default",
-            {},
-            "controlled-source-config",
-            prepared=prepared,
-        )
-        task = create_task(
-            conn,
-            run_id=run_id,
-            config_id=config,
-            stage="ingest",
-            unit_type="document",
-            unit_id=document_id,
-            unit_key="controlled-source",
-            input_hash=conversion.original_digest,
-        )
-        claim = claim_tasks(
-            conn, run_id=RunId(run_id), config_id=MethodConfigId(config), holder="controlled-source"
-        )[0]
+                unit_id=document_id,
+                unit_key="controlled-source",
+                input_hash=conversion.original_digest,
+            )
+            claim = claim_tasks(
+                conn, run_id=RunId(run_id), config_id=MethodConfigId(config), holder="controlled-source"
+            )[0]
+        else:
+            claim = source_claim
+            task = claim.task_id
         store_pdf_original(
             conn,
             task_id=task,
@@ -520,15 +528,16 @@ def publish_controlled_pdf_views(
                 position=index,
             )
             views.append(load_source_view(conn, view_id))
-        complete_task(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder=claim.holder,
-            prepared=prepared,
-            observations=[],
-            outcome="empty",
-        )
+        if source_claim is None:
+            complete_task(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder=claim.holder,
+                prepared=prepared,
+                observations=[],
+                outcome="empty",
+            )
         return tuple(views)
 
 

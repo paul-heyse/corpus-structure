@@ -80,6 +80,24 @@ failures remain in `raw/source-jit-attempt-*`. This establishes scheduler lifeti
 kernels, not mathematical correctness or the six-SourceView prerequisite journey. Scoped Ruff
 passed and `raw/source-group-types.log` records Pyrefly0 errors.
 
+The selected six-SourceView AC07 scenario is now exercised in `raw/source-sixviews-3.log`:
+actual controlled PDF record publication selects six independent section views into the source
+runner's owned task. Actual extraction/normalization tasks use protected same-view dependencies.
+After four extraction reports commit, the next two extraction tasks alone are leased while four
+normalizations have satisfied dependencies and remain unclaimed. A later original preparation
+waits for actual native renewal. The reclaim variant ages one lease under the existing fixture
+publisher role, performs actual protected reclaim, refuses old-attempt completion and retains the
+earlier four committed reports. Only mathematical kernels are controlled. Earlier fixture naming,
+immutable-snapshot and clock-role refusals remain under `raw/source-sixviews-attempt-*`.
+
+After adding the optional invocation-owned read-budget port to BoundReader/source-view readers,
+`raw/source-budget-consumers-16.log` passed16 actual native scheduler/claim/SourceView cases.
+Selected references now query only pin fields; projection/observation payload queries preflight
+and charge the supplied budget at their existing SQL owner. The same budget propagates into
+published-record and integrated-context readers. Full budget-path controls require integration
+with the serving worker's reader implementation. Scoped production Ruff passed;
+`raw/source-budget-types.log` records Pyrefly0errors.
+
 ## Records
 
 <!-- evidence-index:start -->

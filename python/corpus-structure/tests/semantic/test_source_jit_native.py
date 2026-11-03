@@ -89,3 +89,214 @@ def test_ready_methods_claim_only_current_batch_and_keep_group_reader(
     with semantic_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id=:run AND status='empty'"),
                            {"run": result.run_id}) == 12
+
+
+def _run_source_view_dependency_case(admin, writer, directory, monkeypatch, *, reclaim):
+    """Six real published views; only mathematical computation is a controlled kernel."""
+    from contextlib import contextmanager
+    from threading import Event
+
+    import pytest
+    from pydantic import BaseModel
+
+    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
+    from corpus_structure.core.method import ObservationDraft, UnitRef
+    from corpus_structure.semantic import claim_lifetime, operations
+    from corpus_structure.semantic.operations import OperationConflict, claim_tasks, complete_task
+
+    class PublicationConfig(BaseModel):
+        pass
+
+    class SchedulerReport(BaseModel):
+        stage: str
+
+    prepared = prepare_operation_scenario(admin, observations=True, evaluation=True)
+    paragraphs = tuple(f"Independently authored section {number}." for number in range(6))
+    original = write_controlled_pdf(directory / "source.pdf", paragraphs)
+    with writer.begin() as conn:
+        document = register_document(
+            conn, project_id="p", source_uri="source.pdf",
+            original_path=str(directory / "source.pdf"), original=original, mime="application/pdf",
+        )
+    native_views, batches, durable_counts, readiness = [], [], [], []
+    readers, preparations, reclaimed = [], [], []
+    slow_original, renewal_during_custody = Event(), Event()
+    actual_read, actual_renew = operations.read_original, claim_lifetime.renew_claim
+    actual_owner = claim_lifetime.maintained_claims
+    original_reads = []
+
+    @contextmanager
+    def frequent_owner(engine, claims, holder, **values):
+        with actual_owner(engine, claims, holder, interval=0.01, **values) as owner:
+            yield owner
+
+    def controlled_slow_read(conn, identity, **values):
+        original_reads.append(identity)
+        if len(original_reads) == 2:
+            slow_original.set()
+            assert renewal_during_custody.wait(5), "earlier custody locks prevented renewal"
+        return actual_read(conn, identity, **values)
+
+    def observed_renewal(conn, **values):
+        actual_renew(conn, **values)
+        if slow_original.is_set():
+            renewal_during_custody.set()
+
+    monkeypatch.setattr(claim_lifetime, "maintained_claims", frequent_owner)
+    monkeypatch.setattr(claim_lifetime, "renew_claim", observed_renewal)
+    monkeypatch.setattr(operations, "read_original", controlled_slow_read)
+
+    class PublishedSource:
+        name, version, family, tier = "pdf.controlled-source", "jit-views-source-1", "ingest", "deterministic"
+        confidence_source, unit_type, Config = None, TaskUnitType.DOCUMENT, PublicationConfig
+        resources = Resources()
+
+        def select(self, run, config):
+            return run.reader.documents(("source.pdf",))
+
+        def input_digest(self, unit, config):
+            return Digest(b"published-six-independent-views")
+
+        def run(self, units, config, ctx):
+            native_views.extend(publish_controlled_pdf_views(
+                writer, prepared=prepared, run_id=ctx.run.run_id, document_id=document,
+                original=original, paragraphs=paragraphs,
+                keys=tuple(f"scheduler-view-{number}" for number in range(6)),
+                source_claim=next(iter(ctx.check_active.active.values())),
+            ))
+            return (UnitResult(ref=units[0].ref, outcome=ObservationOutcome.EMPTY),)
+
+    class ControlledMath:
+        version, tier, confidence_source = "jit-views-math-1", "deterministic", None
+        unit_type, resources = TaskUnitType.SOURCE_VIEW, Resources(batch_size=4)
+
+        def __init__(self, name, family, config):
+            self.name, self.family, self.Config = name, family, config
+
+        def original_recipe(self, config):
+            return b'{"recipe":"scheduler-owned-view-original"}'
+
+        def select(self, run, config):
+            return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key)
+                         for ref in run.reader.source_views())
+
+        def input_digest(self, unit, config):
+            return Digest(f"actual-native-view:{unit.ref.unit_key}".encode())
+
+        def run(self, units, config, ctx):
+            with writer.connect() as conn:
+                rows = conn.execute(text(
+                    "SELECT t.id,t.attempt,t.claimed_by,m.name,t.method_config_id "
+                    "FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id "
+                    "JOIN ops.method m ON m.id=c.method_id "
+                    "WHERE t.run_id=:run AND t.status='running' ORDER BY t.id"
+                ), {"run": ctx.run.run_id}).mappings().all()
+                done = conn.scalar(text(
+                    "SELECT count(*) FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id "
+                    "JOIN ops.method m ON m.id=c.method_id WHERE t.run_id=:run "
+                    "AND m.name='extract.math' AND t.status='done'"
+                ), {"run": ctx.run.run_id})
+                ready = conn.scalar(text(
+                    "SELECT count(*) FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id "
+                    "JOIN ops.method m ON m.id=c.method_id WHERE t.run_id=:run "
+                    "AND m.name='normalize.formula' AND t.status='pending' "
+                    "AND EXISTS(SELECT FROM ops.task_dependency d WHERE d.task_id=t.id) "
+                    "AND NOT EXISTS(SELECT FROM ops.task_dependency d JOIN ops.task p "
+                    "ON p.id=d.dependency_task_id WHERE d.task_id=t.id "
+                    "AND p.status NOT IN ('done','empty','reused'))"
+                ), {"run": ctx.run.run_id})
+            assert len(rows) == len(units) <= 4
+            assert {row['name'] for row in rows} == {self.name}
+            batches.append((self.name, len(units)))
+            durable_counts.append(done)
+            readiness.append(ready)
+            readers.append(ctx.reader)
+            batch = ctx.reader.math_readings_batch
+            batch.bind(ctx.reader)
+            preparations.append(batch)
+            if reclaim and self.name == "extract.math" and done == 4:
+                assert ready == 4
+                victim = rows[0]
+                # Administrative clock control changes only lease age. Reclaim and both
+                # stale/new fences use the actual protected native operations.
+                with ctx.check_active.lock:
+                    with admin.begin() as conn:
+                        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+                        conn.execute(text("UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:id"),
+                                     {"id": victim['id']})
+                    with writer.begin() as conn:
+                        (replacement,) = claim_tasks(
+                            conn, run_id=ctx.run.run_id, config_id=victim['method_config_id'],
+                            holder="source-view-reclaimer", limit=1, prepared=prepared,
+                        )
+                    assert replacement.task_id == victim['id']
+                    assert replacement.attempt == victim['attempt'] + 1
+                    with pytest.raises(OperationConflict), writer.begin() as conn:
+                        complete_task(conn, task_id=victim['id'], attempt=victim['attempt'],
+                                      holder=victim['claimed_by'], prepared=prepared,
+                                      observations=(), outcome="empty")
+                    reclaimed.append((victim, replacement))
+            return tuple(UnitResult(
+                ref=unit.ref, outcome=ObservationOutcome.PRODUCED,
+                observations=(ObservationDraft(
+                    kind="record" if self.name == "extract.math" else "value",
+                    payload=SchedulerReport(stage=self.name), payload_class=SchedulerReport,
+                    payload_version="1", source_view_id=unit.ref.unit_id,
+                ),),
+            ) for unit in units)
+
+    registry = MethodRegistry(
+        [PublishedSource(), ControlledMath("extract.math", "extract", ExtractMathConfig),
+         ControlledMath("normalize.formula", "normalize", NormalizeFormulaConfig)],
+        MethodsFile(configs={"pdf.controlled-source": {"default": {}}, "extract.math": {"default": {}},
+                             "normalize.formula": {"default": {}}}, sections={"math": {}}),
+    )
+    values = dict(
+        project_id="p", prepared=prepared,
+        binding=OperationBinding(prepared.release_id, "z", 0, b"{}"), registry=registry,
+        graph=Graph(((Stage.INGEST, (Step("pdf.controlled-source/default"),)),
+                     (Stage.EXTRACT, (Step("extract.math/default"), Step("normalize.formula/default"))))),
+        method_settings=MethodSettings(data_dir=directory, model_cache=directory),
+    )
+    if reclaim:
+        with pytest.raises(OperationConflict):
+            run_source_methods(writer, **values)
+    else:
+        result = run_source_methods(writer, **values)
+        assert result.status == "source_ready"
+    assert len(native_views) == 6 and len({view.ref.id for view in native_views}) == 6
+    assert renewal_during_custody.is_set()
+    assert batches[:2] == [("extract.math", 4), ("extract.math", 2)]
+    assert durable_counts[:2] == [0, 4] and readiness[1] == 4
+    assert all(reader is readers[0] for reader in readers)
+    assert all(batch is preparations[0] for batch in preparations)
+    with admin.connect() as conn:
+        if reclaim:
+            (victim, replacement), = reclaimed
+            assert conn.scalar(text("SELECT count(*) FROM kb.observation o JOIN ops.task t ON t.id=o.task_id "
+                                    "JOIN ops.method_config c ON c.id=t.method_config_id JOIN ops.method m ON m.id=c.method_id "
+                                    "WHERE t.run_id=:run AND m.name='extract.math' AND t.status='done'"),
+                               {"run": replacement.run_id}) == 4
+            assert conn.scalar(text("SELECT attempt FROM ops.task WHERE id=:id"), {"id": victim['id']}) == replacement.attempt
+        else:
+            assert batches == [("extract.math", 4), ("extract.math", 2),
+                               ("normalize.formula", 4), ("normalize.formula", 2)]
+            assert conn.scalar(text("SELECT count(*) FROM ops.task_dependency d JOIN ops.task t ON t.id=d.task_id "
+                                    "WHERE t.run_id=:run AND d.kind='source_view_interpretation'"),
+                               {"run": result.run_id}) == 6
+            assert conn.scalar(text("SELECT count(*) FROM kb.observation o JOIN ops.task t ON t.id=o.task_id "
+                                    "WHERE t.run_id=:run"), {"run": result.run_id}) == 12
+
+
+def test_six_published_views_keep_current_claims_and_native_dependencies(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    _run_source_view_dependency_case(semantic_db_engine, semantic_writer_engine, tmp_path,
+                                     monkeypatch, reclaim=False)
+
+
+def test_source_view_reclaim_preserves_prior_batch_and_refuses_stale_completion(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    _run_source_view_dependency_case(semantic_db_engine, semantic_writer_engine, tmp_path,
+                                     monkeypatch, reclaim=True)

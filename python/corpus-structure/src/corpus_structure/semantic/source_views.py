@@ -101,11 +101,17 @@ def _ref(row) -> SourceViewRef:
     )
 
 
-def selected_source_views(conn: Connection, run_id: int) -> tuple[SourceViewRef, ...]:
+def selected_source_views(
+    conn: Connection, run_id: int, *, read_budget: Any = None
+) -> tuple[SourceViewRef, ...]:
     view, selection = table("kb.source_view"), table("ops.run_source_view")
     newer = selection.alias("newer")
-    rows = conn.execute(
-        select(view)
+    statement = (
+        select(*(view.c[name] for name in (
+            "id", "key", "document_id", "native_task_id", "native_product_key",
+            "native_content_digest", "section_pointer", "membership", "projection_digest",
+            "recipe_digest", "analysis_eligible",
+        )))
         .join(selection, selection.c.source_view_id == view.c.id)
         .where(
             selection.c.run_id == run_id,
@@ -114,26 +120,39 @@ def selected_source_views(conn: Connection, run_id: int) -> tuple[SourceViewRef,
             .exists(),
         )
         .order_by(selection.c.position, view.c.id)
-    ).mappings()
-    return tuple(_ref(row) for row in rows)
+    )
+    if read_budget is not None:
+        read_budget.preflight(conn, statement)
+    refs = []
+    for row in conn.execute(statement).mappings():
+        if read_budget is not None:
+            read_budget.value(dict(row))
+        refs.append(_ref(row))
+    return tuple(refs)
 
 
 def load_source_view(
-    conn: Connection, source_view_id: int, *, analysis: bool = True
+    conn: Connection, source_view_id: int, *, analysis: bool = True, read_budget: Any = None
 ) -> PreparedSourceView:
     """Hydrate retained fields; analytical mode additionally binds the archived text policy."""
     views = table("kb.source_view")
-    row = conn.execute(select(views).where(views.c.id == source_view_id)).mappings().one()
+    statement = select(views).where(views.c.id == source_view_id)
+    if read_budget is not None:
+        read_budget.preflight(conn, statement)
+    row = conn.execute(statement).mappings().one()
     reference = _ref(row)
     projection = row["projection"]
+    if read_budget is not None:
+        read_budget.value(projection)
     pointers = tuple(dict.fromkeys([*projection["items"], *projection["ancestors"]]))
     from .pdf_record_reader import published_record_reader
     from .published_document import PublishedDocumentBinding
     from .releases import open_release
 
     projection_context = open_release(conn, row["release_id"])
+    budget_options = {} if read_budget is None else {"read_budget": read_budget}
     reader = published_record_reader(
-        conn, reference.native_product, projection_context=projection_context
+        conn, reference.native_product, projection_context=projection_context, **budget_options
     )
     if reader is None:
         raise ValueError("current source view has no published record binding")
@@ -153,6 +172,7 @@ def load_source_view(
         pointers=projection["items"],
         section_pointer=reference.section_pointer,
         membership=reference.membership,
+        **budget_options,
     )
     return PreparedSourceView(
         reference,
