@@ -95,6 +95,7 @@ class RecordPage(BaseModel):
     records: tuple[RecordAnswer, ...]
     reports: tuple[dict[str, JsonValue], ...]
     coverage: tuple[Coverage, ...] = ()
+    coverage_diagnostic: str = "candidate record admission does not establish property coverage"
     report_source_view_ids: dict[int, int]
     matching_records: int
     returned_records: int
@@ -338,4 +339,4 @@ def serve_record_results(conn: Connection, request: RecordRequest) -> RecordPage
             revision=session.binding.data_revision,
         ),
     )
-    return present_record_projection(projection, request, coverage=session.coverage())
+    return present_record_projection(projection, request, coverage=())

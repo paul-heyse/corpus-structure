@@ -11,8 +11,11 @@ from sqlalchemy import Connection, select
 
 from corpus_structure.core.canonical import canonical_json, digest
 from corpus_structure.semantic.continuations import decode_continuation, validate_continuation
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import (
+    Coverage,
+    ReadLimit,
     ReadSession,
     SnapshotBinding,
     bind_completed_result,
@@ -28,7 +31,7 @@ from corpus_structure.semantic.refusals import (
     StaleSnapshot,
     WrongBinding,
 )
-from corpus_structure.serve.protocol import QueryContext, QueryResult, Scope
+from corpus_structure.serve.protocol import QueryContext, QueryResult
 
 PROMOTED = "promoted"
 
@@ -90,17 +93,6 @@ def bind_session(conn: Connection, run_id: int) -> ReadSession:
         raise QueryRefused(str(error)) from error
 
 
-def coverage(ctx: QueryContext, scope: Scope):
-    records = ctx.session.coverage()
-    if scope.kind == "units":
-        return tuple(c for c in records if c.scope in scope.unit_keys or c.scope == "*")
-    if scope.kind == "documents":
-        return tuple(
-            c for c in records if c.scope in {str(d) for d in scope.documents} or c.scope == "*"
-        )
-    return records
-
-
 def params_digest(params: Mapping[str, Any]) -> str:
     from corpus_structure.core.canonical import decimal_of_float
 
@@ -141,10 +133,15 @@ def encode_token(
         "projection": projection,
         "arithmetic": "exact",
     }
-    return base64.urlsafe_b64encode(canonical_json(body)).decode("ascii")
+    token = base64.urlsafe_b64encode(canonical_json(body)).decode("ascii")
+    if len(token.encode("ascii")) > 8192:
+        raise ReadLimit("continuation exceeds 8192 encoded bytes", reason="oversized_item")
+    return token
 
 
 def decode_token(token: str) -> dict[str, Any]:
+    if len(token.encode("utf-8")) > 8192:
+        raise InvalidContinuation("continuation exceeds 8192 encoded bytes")
     return decode_continuation(token, kind="named")
 
 
@@ -159,6 +156,7 @@ def serve_query(
     page_token: str | None = None,
     max_rows: int | None = None,
     max_chars: int | None = None,
+    max_bytes: int = 1024 * 1024,
     projection: Literal["occurrence", "fact", "accepted"] = "accepted",
     origin_query: BoundQuery | None = None,
 ) -> QueryResult:
@@ -189,6 +187,12 @@ def serve_query(
             if run == PROMOTED
             else check_finished(conn, parse_run(run))
         )
+    if max_rows is None:
+        max_rows = 100
+    if type(max_rows) is not int or not 1 <= max_rows <= 1000:
+        raise QueryRefused("max_rows must be between 1 and 1000")
+    if type(max_bytes) is not int or not 1 <= max_bytes <= 8 * 1024 * 1024:
+        raise QueryRefused("max_bytes must be between 1 and 8388608")
     ctx = QueryContext(
         run_id,
         conn,
@@ -232,24 +236,28 @@ def serve_query(
             raise QueryRefused("page bounds must be positive")
     rows: list[dict[str, JsonValue]] = []
     scope = query.scope(ctx, p)
-    cov = ctx.session.coverage()
     family = getattr(p, "predicate", None)
-    if family is not None:
-        cov = tuple(c for c in cov if c.family == ctx.reader.iri(family))
-    complete_cov = False
-    coverage_diagnostic = None
+    requirement = None
     if family is not None:
         members = scope.unit_keys if scope.kind == "units" else scope.documents
         requirement = ctx.session.required_coverage(
             run_id, ctx.reader.iri(family), scope.kind, members
         )
-        coverage_diagnostic = requirement.diagnostic
-        complete_cov = requirement.established_by(cov)
-        if requirement.diagnostic is None:
-            cov = tuple(c for c in cov if c.scope == "*" or c.scope in requirement.members)
+    summary = ctx.session.coverage_summary(requirement)
+    complete_cov = summary.state == "established"
+    coverage_diagnostic = summary.diagnostic
+    coverage_detail = (
+        None
+        if requirement is None
+        else ctx.session.coverage_details(
+            requirement.family, requirement.members | {"*"}, limit=64, max_bytes=max_bytes
+        )
+    )
+    cov = () if coverage_detail is None else tuple(Coverage(**row) for row in coverage_detail.items)
+    coverage_more = coverage_detail is not None and not coverage_detail.population_complete
 
-    # Query-owned cursor: no replay or hydration of a previous page's prefix.
-    def response(more: bool, cursor: JsonValue) -> QueryResult:
+    # Query-owned cursor: bounded walks deliberately replay under their own work bounds.
+    def response(more: bool, cursor: JsonValue, *, with_rows: bool = True) -> QueryResult:
         return QueryResult(
             run_id=run_id,
             binding=binding,
@@ -266,8 +274,11 @@ def serve_query(
             origin_binding=origin_query.reference if origin_query is not None else None,
             params=dumped,
             coverage=cov,
+            coverage_summary=summary,
+            coverage_detail=coverage_detail,
+            coverage_population_complete=not coverage_more,
             coverage_diagnostic=coverage_diagnostic,
-            rows=rows,
+            rows=rows if with_rows else [],
             next_page_token=encode_token(
                 run_id, query, dumped, cursor, binding=binding, projection=projection
             )
@@ -278,30 +289,50 @@ def serve_query(
 
     cursor = position
     iterator = query.rows(ctx, p, after=position)
+    encoded_rows = 0
     try:
         found = next(iterator, None)
         while found is not None:
-            if max_rows is not None and len(rows) >= max_rows:
-                return response(True, cursor)
+            if len(rows) >= max_rows:
+                result = response(True, cursor)
+                if len(canonical_bytes(result.model_dump(mode="json"))) > max_bytes:
+                    raise ReadLimit("complete response exceeds max_bytes", reason="oversized_item")
+                return result
             following = next(iterator, None)
-            # Validate the declared result fields without erasing concrete nested
-            # release-owned models (notably SerializeAsAny qualifications).
             admitted = query.result.model_validate(dict(found.row))
             item = admitted.model_dump(mode="json", serialize_as_any=True)
+            item_bytes = len(canonical_bytes(item))
+            if item_bytes > max_bytes:
+                raise ReadLimit("a complete row exceeds max_bytes", reason="oversized_item")
             rows.append(item)
-            # Reserve the continuation envelope too, even for a last row.
-            if (
+            encoded_rows += item_bytes
+            # Encode rows once; only the small envelope is remeasured for admission.
+            envelope = response(following is not None, found.position, with_rows=False).model_dump(
+                mode="json"
+            )
+            byte_size = len(canonical_bytes(envelope)) + encoded_rows + max(0, len(rows) - 1)
+            chars_over = (
                 max_chars is not None
                 and len(response(following is not None, found.position).model_dump_json())
                 > max_chars
-            ):
+            )
+            if byte_size > max_bytes or chars_over:
                 rows.pop()
+                encoded_rows -= item_bytes
                 if not rows:
-                    raise QueryRefused(
-                        "size limit: a complete row and response envelope do not fit; raise "
-                        "max_chars"
+                    if chars_over:
+                        raise QueryRefused(
+                            "size limit: a complete row and response envelope do not fit; "
+                            "raise max_chars"
+                        )
+                    raise ReadLimit(
+                        "a complete row and response envelope exceed the requested size",
+                        reason="oversized_item",
                     )
-                return response(True, cursor)
+                result = response(True, cursor)
+                if len(canonical_bytes(result.model_dump(mode="json"))) > max_bytes:
+                    raise ReadLimit("complete response exceeds max_bytes", reason="oversized_item")
+                return result
             cursor = found.position
             found = following
     finally:
@@ -309,6 +340,8 @@ def serve_query(
         if close is not None:
             close()
     result = response(False, cursor)
+    if len(canonical_bytes(result.model_dump(mode="json"))) > max_bytes:
+        raise ReadLimit("complete response exceeds max_bytes", reason="oversized_item")
     if max_chars is not None and len(result.model_dump_json()) > max_chars:
         raise QueryRefused("size limit: response envelope does not fit; raise max_chars")
     return result

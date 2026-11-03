@@ -53,7 +53,7 @@ classes:
  Person:
   is_a: Entity
   attributes:
-   name: {range: string}
+   name: {range: string, annotations: {"cs:role": display}}
    exact: {range: decimal}
  Parameter:
   attributes:

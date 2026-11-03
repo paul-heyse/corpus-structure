@@ -10,7 +10,13 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection
 
-from corpus_structure.semantic.query import Coverage, ReadSession, SnapshotBinding
+from corpus_structure.semantic.query import (
+    Coverage,
+    CoverageSummary,
+    InventoryPage,
+    ReadSession,
+    SnapshotBinding,
+)
 from corpus_structure.semantic.query_compatibility import QueryBindingReference
 
 
@@ -79,6 +85,7 @@ class DomainQuery(Protocol):
 
 class QueryResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+    contract_version: Literal[2] = 2
     run_id: int
     binding: SnapshotBinding
     projection: Literal["occurrence", "fact", "accepted"]
@@ -92,6 +99,9 @@ class QueryResult(BaseModel):
     origin_binding: QueryBindingReference | None = None
     params: dict[str, JsonValue]
     coverage: tuple[Coverage, ...]
+    coverage_summary: CoverageSummary | None = None
+    coverage_population_complete: bool = True
+    coverage_detail: InventoryPage | None = None
     knowledge: Literal["observed", "unknown", "absent"]
     coverage_diagnostic: str | None = None
     rows: list[dict[str, JsonValue]]

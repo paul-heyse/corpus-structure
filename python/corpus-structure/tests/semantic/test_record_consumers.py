@@ -327,7 +327,7 @@ def test_atomic_captured_export_keeps_all_released_record_relations(projection, 
     packet = empty_packet(projection.prepared)
     out = tmp_path / format
     manifest = export_packet(packet, out, records=projection, format=format)
-    assert manifest["format"] == "semantic-export-3"
+    assert manifest["format"] == "semantic-export-4"
     assert set(RECORD_ROW_TYPES) <= manifest["relations"].keys()
     assert manifest["record_projection"]["cut_id"] == 9
     assert manifest["record_projection"]["released_projection"]["policy"]["accepted"] is False

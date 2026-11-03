@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from typing import Any
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, exists, false, func, or_, select
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import same_scope_clause, scope_clause
@@ -143,36 +142,33 @@ class Reader:
                 )
             )
         if label is not None:
-            # Labels are semantic property values, never old compiled key normalization.
-            iris = {
-                p.iri
-                for d in self.prepared.definitions
-                for p in d.properties
-                if p.name in {"label", "aliases", "name", "canonical_name"}
-            }
-            folded_classes = {
-                json.loads(row.body)["iri"]
-                for row in self.prepared.registry_rows
-                if row.kind == "operation_class"
-                and json.loads(row.body).get("cs:case") == "casefold"
-            }
+            # Released display roles and per-property case policy own label matching.
             membership = T["membership"]
-            folded = exists(
-                select(1)
-                .where(
-                    self.scope(membership),
-                    membership.c.entity_id == e.c.entity_id,
-                    membership.c.class_id.in_(folded_classes),
+            groups = {}
+            for definition in self.prepared.definitions:
+                for prop in self.prepared.display_properties(definition.iri):
+                    groups.setdefault((prop.iri, prop.case_policy), set()).add(definition.iri)
+            choices = []
+            for (property_iri, case_policy), classes in groups.items():
+                text_match = (
+                    func.casefold(v.c.text_value.collate("pg_unicode_fast")) == label.casefold()
+                    if case_policy == "casefold"
+                    else v.c.text_value == label
                 )
-                .correlate(e)
-            )
-            matches = or_(
-                v.c.text_value == label,
-                and_(
-                    folded,
-                    func.casefold(v.c.text_value.collate("pg_unicode_fast")) == label.casefold(),
-                ),
-            )
+                choices.append(
+                    and_(
+                        f.c.property_id == property_iri,
+                        text_match,
+                        exists(
+                            select(1).where(
+                                self.scope(membership),
+                                membership.c.entity_id == e.c.entity_id,
+                                membership.c.class_id.in_(classes),
+                            )
+                        ).correlate(e),
+                    )
+                )
+            matches = or_(*choices) if choices else false()
             stmt = stmt.where(
                 exists(
                     select(1)
@@ -184,20 +180,21 @@ class Reader:
                     .where(
                         self.scope(f),
                         f.c.subject_id == e.c.entity_id,
-                        f.c.property_id.in_(iris),
                         matches,
                     )
                 )
             )
         return stmt
 
-    def resolve(self, value, class_name=None):
+    def resolve(self, value, class_name=None, limit=None):
         direct = (
-            self.conn.execute(self.entity_ids(key=value, class_name=class_name)).scalars().all()
+            self.conn.execute(self.entity_ids(key=value, class_name=class_name).limit(limit))
+            .scalars()
+            .all()
         )
         return (
             direct
-            or self.conn.execute(self.entity_ids(label=value, class_name=class_name))
+            or self.conn.execute(self.entity_ids(label=value, class_name=class_name).limit(limit))
             .scalars()
             .all()
         )
@@ -209,13 +206,37 @@ class Reader:
             if not isinstance(after, str):
                 raise SemanticRefusal("invalid semantic entity cursor")
             stmt = stmt.where(e.c.entity_id.collate("C") > after)
-        for ids in (
-            self.conn.execute(stmt.order_by(e.c.entity_id.collate("C")))
-            .scalars()
-            .partitions(self.ctx.row_batch)
-        ):
+        while True:
+            page = stmt if after is None else stmt.where(e.c.entity_id.collate("C") > after)
+            ids = (
+                self.conn.execute(
+                    page.order_by(e.c.entity_id.collate("C")).limit(self.ctx.row_batch)
+                )
+                .scalars()
+                .all()
+            )
+            if not ids:
+                break
             entities = self.session.load_entities(set(ids))
-            facts = list(self.claims(subject_id=list(ids)))
+            f = T["fact"]
+            scoped = self.fact_statement(subject_id=list(ids)).subquery()
+            ranked = select(
+                scoped.c.fact_id,
+                scoped.c.subject_id,
+                func.count().over(partition_by=scoped.c.subject_id).label("population"),
+                func.row_number()
+                .over(partition_by=scoped.c.subject_id, order_by=scoped.c.fact_id.collate("C"))
+                .label("rank"),
+            ).subquery()
+            chosen = self.conn.execute(select(ranked).where(ranked.c.rank <= 8)).mappings().all()
+            counts = {row["subject_id"]: row["population"] for row in chosen}
+            facts = list(
+                self.claims(
+                    statement=self.fact_statement().where(
+                        f.c.fact_id.in_([row["fact_id"] for row in chosen])
+                    )
+                )
+            )
             for id_ in ids:
                 properties = tuple(row.fact for row in facts if row.fact.subject.entity_id == id_)
                 nodes = {
@@ -227,11 +248,35 @@ class Reader:
                 yield EntityAnswer(
                     entity=entities[id_],
                     properties=properties,
+                    properties_population_complete=counts.get(id_, 0) <= 8,
+                    properties_query={"query": "claims", "subject": id_}
+                    if counts.get(id_, 0) > 8
+                    else None,
                     values=tuple(nodes[k] for k in sorted(nodes)),
                 )
+
+            if len(ids) < self.ctx.row_batch:
+                break
+            after = ids[-1]
 
     def entities(self, key=None, label=None):
         return list(self.entity_rows(key, label))
 
-    def evidence(self, fact_id):
-        return self.session.explain(fact_id).evidence
+    def evidence(self, fact_id, after=None):
+        from corpus_structure.semantic.query import Evidence
+
+        token = None
+        while True:
+            page = self.session.inventory(
+                fact_id,
+                "evidence",
+                continuation=token,
+                after_identity=after,
+                limit=self.ctx.row_batch,
+            )
+            for row in page.items:
+                if after is None or row["evidence_id"] > after:
+                    yield Evidence(**{key: row[key] for key in Evidence.model_fields if key in row})
+            token = page.next_page_token
+            if token is None:
+                break

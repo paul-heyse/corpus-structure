@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import base64
 import json
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Generator
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from hashlib import sha256
+from itertools import batched
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ from sqlalchemy import (
     literal,
     or_,
     select,
+    tuple_,
 )
 from sqlalchemy.sql import CompoundSelect
 from sqlalchemy.sql.elements import ColumnElement
@@ -44,7 +46,6 @@ from .outcomes import ScientificOutcome
 from .releases import open_release
 from .scientific_evidence_schema import (
     ScientificAssessmentEvidence,
-    parse_scientific_assessment_reason,
 )
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
 
@@ -52,7 +53,7 @@ if TYPE_CHECKING:
     from .ontology import QualifiedGraphProjection
 
 
-from .refusals import SemanticRefusal, WrongRelease
+from .refusals import InvalidContinuation, SemanticRefusal, WrongBinding, WrongRelease
 from .refusals import StaleSnapshot as StaleSnapshot
 
 
@@ -86,12 +87,15 @@ class QuerySpec:
     page_size: int = 100
     arithmetic_profile: Literal["exact"] = "exact"
     coverage_scope: str = "*"
+    max_bytes: int = 1024 * 1024
 
     def __post_init__(self) -> None:
         if self.projection not in {"occurrence", "fact", "accepted"}:
             raise SemanticRefusal("unsupported projection")
         if not 1 <= self.page_size <= 10000:
             raise SemanticRefusal("page_size must be between 1 and 10000")
+        if type(self.max_bytes) is not int or not 1 <= self.max_bytes <= 8 * 1024 * 1024:
+            raise SemanticRefusal("max_bytes must be between 1 and 8388608")
         if self.arithmetic_profile != "exact":
             raise SemanticRefusal("unsupported arithmetic profile")
         if type(self.subject_ids) is not tuple or any(type(s) is not str for s in self.subject_ids):
@@ -158,6 +162,24 @@ class CitationRole(_Envelope):
     role: str
 
 
+class StandingDetail(_Envelope):
+    collection: str
+    availability: Literal["available", "unassessed", "unavailable"] = "available"
+    count: int
+    references: tuple[dict[str, Any], ...] = ()
+    population_complete: bool
+
+
+class FactStanding(_Envelope):
+    """Independent presentation of recorded relations, never an aggregate verdict."""
+
+    release_id: str
+    selection: Literal["selected", "not_selected", "undetermined"]
+    selection_references: tuple[str, ...] = ()
+    assessments: StandingDetail
+    establishments: StandingDetail
+
+
 class QueryRow(_Envelope):
     fact_id: str
     subject: EntityReference
@@ -171,6 +193,7 @@ class QueryRow(_Envelope):
     item: str | None = None
     context: OccurrenceContext | None = None
     citation_roles: tuple[CitationRole, ...] = ()
+    standing: FactStanding | None = None
 
 
 class Coverage(_Envelope):
@@ -183,12 +206,44 @@ class Coverage(_Envelope):
     required_capability: str | None
 
 
+class CoverageSourceCount(_Envelope):
+    source_outcome: str | None
+    count: int
+
+
+class CoverageSummary(_Envelope):
+    state: Literal["established", "not_established"]
+    diagnostic: str | None = None
+    family: str | None = None
+    source_outcomes: tuple[CoverageSourceCount, ...] = ()
+
+
+class InventoryPage(_Envelope):
+    """A bounded, binding-checked selection, separate from source payloads."""
+
+    binding: SnapshotBinding
+    root: str
+    collection: str
+    items: tuple[dict[str, Any], ...]
+    population_complete: bool
+    next_page_token: str | None = None
+
+
+class ReadLimit(SemanticRefusal):
+    def __init__(self, message: str, *, reason: str):
+        self.reason = reason
+        super().__init__(message)
+
+
 class QueryResult(_Envelope):
+    contract_version: Literal[2] = 2
     binding: SnapshotBinding
     projection: Literal["occurrence", "fact", "accepted"]
     rows: tuple[QueryRow, ...]
     values: tuple[ValueNode, ...]
     coverage: tuple[Coverage, ...]
+    coverage_summary: CoverageSummary | None = None
+    coverage_detail: InventoryPage | None = None
     knowledge: Literal["observed", "unknown", "absent"]
     continuation: str | None
     complete: bool
@@ -209,6 +264,8 @@ class SourceCustody(_Envelope):
 
 
 class SourceObservationReport(_Envelope):
+    binding: SnapshotBinding
+    root_fact_id: str
     observation_id: int
     observation_key: str
     payload: dict[str, Any]
@@ -302,17 +359,11 @@ class Assessment(_Envelope):
 
 
 class Explanation(_Envelope):
+    contract_version: Literal[2] = 2
     binding: SnapshotBinding
     fact_id: str
-    supports: tuple[OccurrenceSupport, ...]
-    evidence: tuple[Evidence, ...]
-    derivations: tuple[Derivation, ...]
-    input_supports: tuple[InputFactSupport, ...] = ()
-    source_observations: tuple[SourceObservationReport, ...] = ()
-    alternatives: tuple[AlternativeGroup, ...] = ()
-    assessments: tuple[Assessment, ...] = ()
-    coverage: tuple[Coverage, ...]
-    identity_exclusions: tuple[IdentityExclusion, ...] = ()
+    standing: FactStanding
+    inventories: dict[str, InventoryPage]
 
 
 class _Store(Protocol):
@@ -500,6 +551,7 @@ class ReadSession:
         contexts, citations = self.load_occurrence_contexts(
             tuple(row["occurrence_id"] for row in rows if row.get("occurrence_id") is not None)
         )
+        standing = self.fact_standing({row["fact_id"] for row in rows})
         output = []
         for row in rows:
             memberships = {m.class_iri for m in entities[row["subject_id"]].memberships}
@@ -533,9 +585,144 @@ class ReadSession:
                     item=row.get("item"),
                     context=contexts.get(occurrence),
                     citation_roles=citations.get(occurrence, ()),
+                    standing=standing[row["fact_id"]],
                 )
             )
         return tuple(output), nodes
+
+    def fact_standing(self, fact_ids, *, reference_limit=8):
+        """Three set-shaped reads; window limits bound references per fact before transfer."""
+        if not fact_ids:
+            return {}
+        selected, assessment, occurrence, establishment, derivation = (
+            table("data." + name)
+            for name in (
+                "selection",
+                "assessment",
+                "occurrence",
+                "occurrence_establishment",
+                "derivation",
+            )
+        )
+        members = set(
+            self.connection.execute(
+                select(selected.c.fact_id).where(
+                    self.scope(selected), selected.c.fact_id.in_(fact_ids)
+                )
+            ).scalars()
+        )
+        # A single assessment may name both fact and occurrence. UNION preserves its identity.
+        direct = select(
+            assessment.c.fact_id,
+            assessment.c.assessment_id,
+            assessment.c.operation_id,
+            assessment.c.operation_version,
+            assessment.c.outcome,
+            assessment.c.context_value_id,
+        ).where(self.scope(assessment), assessment.c.fact_id.in_(fact_ids))
+        via_occurrence = select(
+            occurrence.c.fact_id,
+            assessment.c.assessment_id,
+            assessment.c.operation_id,
+            assessment.c.operation_version,
+            assessment.c.outcome,
+            assessment.c.context_value_id,
+        ).join(
+            assessment,
+            and_(
+                _same_scope(occurrence, assessment),
+                occurrence.c.occurrence_id == assessment.c.occurrence_id,
+            ),
+        )
+        related = direct.union(
+            via_occurrence.where(self.scope(occurrence), occurrence.c.fact_id.in_(fact_ids))
+        ).subquery()
+        ranked = select(
+            related,
+            func.count().over(partition_by=related.c.fact_id).label("population"),
+            func.row_number()
+            .over(partition_by=related.c.fact_id, order_by=related.c.assessment_id.collate("C"))
+            .label("rank"),
+        ).subquery()
+        assessments = defaultdict(list)
+        populations = {}
+        for row in self.connection.execute(
+            select(ranked).where(ranked.c.rank <= reference_limit)
+        ).mappings():
+            populations[row["fact_id"]] = row["population"]
+            assessments[row["fact_id"]].append(
+                {
+                    key: row[key]
+                    for key in (
+                        "assessment_id",
+                        "operation_id",
+                        "operation_version",
+                        "outcome",
+                        "context_value_id",
+                    )
+                }
+            )
+        sources = select(
+            occurrence.c.fact_id,
+            occurrence.c.occurrence_id.label("reference_id"),
+            establishment.c.establishment.label("kind"),
+            literal("supports").label("collection"),
+        ).join(
+            establishment,
+            and_(
+                _same_scope(occurrence, establishment),
+                occurrence.c.occurrence_id == establishment.c.occurrence_id,
+            ),
+        )
+        sources = sources.where(self.scope(occurrence), occurrence.c.fact_id.in_(fact_ids))
+        inferred = select(
+            derivation.c.conclusion_fact_id.label("fact_id"),
+            derivation.c.derivation_id.label("reference_id"),
+            literal("inference").label("kind"),
+            literal("derivations").label("collection"),
+        ).where(self.scope(derivation), derivation.c.conclusion_fact_id.in_(fact_ids))
+        origins = sources.union_all(inferred).subquery()
+        ranked_origins = select(
+            origins,
+            func.count().over(partition_by=origins.c.fact_id).label("population"),
+            func.row_number()
+            .over(
+                partition_by=origins.c.fact_id,
+                order_by=(origins.c.collection, origins.c.reference_id.collate("C")),
+            )
+            .label("rank"),
+        ).subquery()
+        establishments = defaultdict(list)
+        origin_counts = {}
+        for row in self.connection.execute(
+            select(ranked_origins).where(ranked_origins.c.rank <= reference_limit)
+        ).mappings():
+            origin_counts[row["fact_id"]] = row["population"]
+            establishments[row["fact_id"]].append(
+                {key: row[key] for key in ("reference_id", "kind", "collection")}
+            )
+        return {
+            key: FactStanding(
+                release_id=self.binding.release_id,
+                selection="selected" if key in members else "not_selected",
+                selection_references=(key,) if key in members else (),
+                assessments=StandingDetail(
+                    collection="assessments",
+                    availability="available" if populations.get(key, 0) else "unassessed",
+                    count=populations.get(key, 0),
+                    references=tuple(assessments[key]),
+                    population_complete=populations.get(key, 0) <= reference_limit,
+                ),
+                establishments=StandingDetail(
+                    collection="establishments",
+                    availability="available" if origin_counts.get(key, 0) else "unavailable",
+                    count=origin_counts.get(key, 0),
+                    references=tuple(establishments[key]),
+                    population_complete=origin_counts.get(key, 0) <= reference_limit,
+                ),
+            )
+            for key in fact_ids
+        }
 
     def resolve_name(self, name):
         if name.startswith(("http:", "https:", "urn:")):
@@ -934,7 +1121,7 @@ class ReadSession:
         return sha256(
             canonical_bytes(
                 {
-                    "format": "semantic-query-1",
+                    "format": "ordinary-answer-coverage-2",
                     "spec": asdict(spec),
                     "ordering": "identity:C:asc",
                 }
@@ -972,11 +1159,40 @@ class ReadSession:
             )
         ).decode()
 
+    def _admit_hydration(self, *statements):
+        """Bound physical scalar transfer before decoding a selected value/entity graph.
+
+        This is an operational transfer limit, separate from canonical result bytes;
+        metadata fields absent from the answer still consume this finite read budget.
+        """
+        sizes = []
+        for stmt in statements:
+            scalar_bytes = sum(
+                (
+                    func.coalesce(func.octet_length(column.cast(Text)), 0)
+                    for column in stmt.selected_columns
+                ),
+                literal(0),
+            )
+            sizes.append(
+                stmt.with_only_columns(
+                    func.coalesce(func.sum(scalar_bytes), 0).label("bytes"),
+                    maintain_column_froms=True,
+                ).order_by(None)
+            )
+        union = sizes[0].union_all(*sizes[1:]).subquery() if len(sizes) > 1 else sizes[0].subquery()
+        size = self.connection.execute(select(func.sum(union.c.bytes))).scalar_one() or 0
+        if size > 8 * 1024 * 1024:
+            raise ReadLimit(
+                "selected value/entity graph exceeds 8 MiB physical hydration budget",
+                reason="work_limit",
+            )
+
     def _entities(self, ids: set[str]) -> dict[str, EntityReference]:
         if not ids:
             return {}
         e, m = table("data.entity"), table("data.membership")
-        rows = self.connection.execute(
+        membership_stmt = (
             select(
                 e.c.entity_id,
                 m.c.class_id,
@@ -988,7 +1204,9 @@ class ReadSession:
                 e.c.entity_id.in_(ids),
             )
             .order_by(e.c.entity_id, m.c.class_id)
-        ).mappings()
+        )
+        self._admit_hydration(membership_stmt)
+        rows = self.connection.execute(membership_stmt).mappings()
         memberships: dict[str, list[Membership]] = defaultdict(list)
         for row in rows:
             items = memberships[row["entity_id"]]
@@ -1006,7 +1224,7 @@ class ReadSession:
             .lateral()
         )
         source_declarations: dict[str, list[EntitySourceReference]] = defaultdict(list)
-        for row in self.connection.execute(
+        declaration_stmt = (
             select(
                 source.c.entity_id,
                 source.c.observation_id,
@@ -1022,7 +1240,9 @@ class ReadSession:
             )
             .where(_scope(self.binding, source), source.c.entity_id.in_(ids))
             .order_by(source.c.entity_id, observation.c.observation_key, source.c.local_id)
-        ).mappings():
+        )
+        self._admit_hydration(declaration_stmt)
+        for row in self.connection.execute(declaration_stmt).mappings():
             source_declarations[row["entity_id"]].append(
                 EntitySourceReference(
                     observation_id=row["observation_id"],
@@ -1045,44 +1265,112 @@ class ReadSession:
     def _values(
         self, roots: set[str], subjects: set[str]
     ) -> tuple[dict[str, Any], tuple[ValueNode, ...], dict[str, EntityReference]]:
-        """One recursive set traversal, two bulk reads; no per-row database queries."""
+        """Bounded adjacency discovery precedes value-body hydration in batches of 64."""
         v, r = table("data.typed_value"), table("data.value_role")
         if not roots:
             return {}, (), self._entities(subjects)
-        closure = (
-            select(v.c.value_id)
-            .where(
-                _scope(self.binding, v),
-                v.c.value_id.in_(roots),
-            )
-            .cte("value_closure", recursive=True)
-        )
-        closure = closure.union(
-            select(r.c.child_value_id)
-            .join(
-                closure,
-                r.c.parent_value_id == closure.c.value_id,
-            )
-            .where(_scope(self.binding, r))
-        )
-        records = {
-            row["value_id"]: row
-            for row in self.connection.execute(
-                select(v).where(
-                    _scope(self.binding, v), v.c.value_id.in_(select(closure.c.value_id))
-                )
-            ).mappings()
-        }
+        max_nodes, max_edges, max_bytes = 100_000, 100_000, 8 * 1024 * 1024
+        pending = deque(sorted(roots))
+        scheduled = set(roots)
+        admitted = []
+        scalar_total = 0
+        examined = 0
         roles: dict[str, list[Any]] = defaultdict(list)
-        for row in self.connection.execute(
-            select(r)
-            .where(
-                _scope(self.binding, r),
-                r.c.parent_value_id.in_(records),
+        if len(scheduled) > max_nodes:
+            raise ReadLimit("value graph node budget exhausted", reason="work_limit")
+
+        def scalar_size(relation):
+            return sum(
+                (func.coalesce(func.octet_length(column.cast(Text)), 0) for column in relation.c),
+                literal(0),
             )
-            .order_by(r.c.role, r.c.position)
-        ).mappings():
-            roles[row["parent_value_id"]].append(row)
+
+        while pending:
+            frontier = [pending.popleft() for _ in range(min(64, len(pending)))]
+            metadata = (
+                self.connection.execute(
+                    select(v.c.value_id, scalar_size(v).label("bytes"))
+                    .where(self.scope(v), v.c.value_id.in_(frontier))
+                    .order_by(v.c.value_id.collate("C"))
+                    .limit(64)
+                )
+                .mappings()
+                .all()
+            )
+            for row in metadata:
+                scalar_total += row["bytes"]
+                if scalar_total > max_bytes:
+                    raise ReadLimit(
+                        "selected value graph exceeds 8 MiB physical hydration budget",
+                        reason="work_limit",
+                    )
+                admitted.append(row["value_id"])
+            if len(metadata) != len(frontier):
+                raise ValueError("selected value graph references an unavailable node")
+            cursor = None
+            while True:
+                # Long mapping keys cannot become unbounded adjacency cursor payloads.
+                stmt = select(
+                    r.c.parent_value_id,
+                    case((func.octet_length(r.c.role) <= 8192, r.c.role), else_=None).label("role"),
+                    r.c.position,
+                    r.c.child_value_id,
+                    scalar_size(r).label("bytes"),
+                ).where(self.scope(r), r.c.parent_value_id.in_(frontier))
+                if cursor is not None:
+                    stmt = stmt.where(
+                        tuple_(
+                            r.c.parent_value_id.collate("C"), r.c.role.collate("C"), r.c.position
+                        )
+                        > cursor
+                    )
+                batch_size = min(64, max_edges - examined + 1)
+                edges = (
+                    self.connection.execute(
+                        stmt.order_by(
+                            r.c.parent_value_id.collate("C"), r.c.role.collate("C"), r.c.position
+                        ).limit(batch_size)
+                    )
+                    .mappings()
+                    .all()
+                )
+                for row in edges:
+                    examined += 1
+                    scalar_total += row["bytes"]
+                    if examined > max_edges or scalar_total > max_bytes or row["role"] is None:
+                        raise ReadLimit(
+                            "value graph edge/key/physical-byte budget exhausted",
+                            reason="work_limit",
+                        )
+                    child = row["child_value_id"]
+                    if child not in scheduled:
+                        if len(scheduled) >= max_nodes:
+                            raise ReadLimit(
+                                "value graph node budget exhausted", reason="work_limit"
+                            )
+                        scheduled.add(child)
+                        pending.append(child)
+                    roles[row["parent_value_id"]].append(row)
+                if len(edges) < batch_size:
+                    break
+                last = edges[-1]
+                cursor = (last["parent_value_id"], last["role"], last["position"])
+        records = {}
+        for keys in batched(admitted, 64, strict=False):
+            records.update(
+                {
+                    row["value_id"]: row
+                    for row in self.connection.execute(
+                        select(v)
+                        .where(self.scope(v), v.c.value_id.in_(keys))
+                        .order_by(v.c.value_id.collate("C"))
+                        .limit(64)
+                    )
+                    .mappings()
+                    .all()
+                }
+            )
+        # Adjacency batches were ordered by parent/role/position, retaining sequence meaning.
         entities = self._entities(
             subjects
             | {row["entity_id"] for row in records.values() if row["entity_id"] is not None}
@@ -1158,6 +1446,484 @@ class ReadSession:
             Coverage(**{key: row[key] for key in Coverage.model_fields})
             for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings()
         )
+
+    def coverage_summary(self, requirement: CoverageRequirement | None = None) -> CoverageSummary:
+        """Inspect only the scoped coverage relation, without hydrating source/value detail."""
+        if requirement is None:
+            return CoverageSummary(
+                state="not_established", diagnostic="no property coverage requirement"
+            )
+        if requirement.diagnostic is not None:
+            return CoverageSummary(
+                state="not_established",
+                family=requirement.family,
+                diagnostic=requirement.diagnostic,
+            )
+        relation = table("data.coverage")
+        scopes = requirement.members | ({"*"} if requirement.global_witness else set())
+        rows = (
+            self.connection.execute(
+                select(
+                    relation.c.scope,
+                    relation.c.source_outcome,
+                    func.count().label("total"),
+                    func.count().filter(relation.c.outcome == "complete").label("complete"),
+                )
+                .where(
+                    self.scope(relation),
+                    relation.c.family == requirement.family,
+                    relation.c.scope.in_(scopes),
+                )
+                .group_by(relation.c.scope, relation.c.source_outcome)
+            )
+            .mappings()
+            .all()
+        )
+        counts = {}
+        source_counts = defaultdict(int)
+        for row in rows:
+            total, complete = counts.get(row["scope"], (0, 0))
+            counts[row["scope"]] = total + row["total"], complete + row["complete"]
+            source_counts[row["source_outcome"]] += row["total"]
+
+        def valid(key):
+            return key in counts and counts[key][0] == counts[key][1]
+
+        established = (
+            requirement.global_witness
+            and valid("*")
+            and all(total == complete for total, complete in counts.values())
+        ) or (bool(requirement.members) and all(valid(key) for key in requirement.members))
+        return CoverageSummary(
+            state="established" if established else "not_established",
+            family=requirement.family,
+            source_outcomes=tuple(
+                CoverageSourceCount(source_outcome=key, count=value)
+                for key, value in sorted(source_counts.items(), key=lambda item: item[0] or "")
+            ),
+        )
+
+    def coverage_page(self, family=None, scopes=None, *, after=None, limit=64):
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise SemanticRefusal("coverage page limit must be between 1 and 1000")
+        relation = table("data.coverage")
+        stmt = select(relation).where(self.scope(relation))
+        if family is not None:
+            stmt = stmt.where(relation.c.family == family)
+        if scopes is not None:
+            stmt = stmt.where(relation.c.scope.in_(scopes))
+        if after is not None:
+            stmt = stmt.where(relation.c.coverage_id.collate("C") > after)
+        rows = (
+            self.connection.execute(
+                stmt.order_by(relation.c.coverage_id.collate("C")).limit(limit + 1)
+            )
+            .mappings()
+            .all()
+        )
+        return tuple(
+            Coverage(**{key: row[key] for key in Coverage.model_fields}) for row in rows[:limit]
+        ), len(rows) > limit
+
+    def coverage_details(
+        self, family, scopes, *, continuation=None, limit=64, max_bytes=1024 * 1024
+    ):
+        """Page only the released requirement's selected scopes under the same binding."""
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 1000
+            or type(max_bytes) is not int
+            or not 1 <= max_bytes <= 8 * 1024 * 1024
+        ):
+            raise SemanticRefusal("unsupported coverage detail page bounds")
+        scopes = tuple(sorted(scopes))
+        identity = {
+            "version": 2,
+            "release": self.binding.release_id,
+            "realization": self.binding.realization_id,
+            "revision": self.binding.data_revision,
+            "family": family,
+            "scopes": sha256(canonical_bytes(scopes)).hexdigest(),
+            "limit": limit,
+            "max_bytes": max_bytes,
+        }
+        after = None
+        if continuation is not None:
+            try:
+                if len(continuation.encode("utf-8")) > 8192:
+                    raise ValueError("oversized token")
+                body = json.loads(base64.b64decode(continuation, altchars=b"-_", validate=True))
+                if set(body) != {*identity, "after"} or not isinstance(body["after"], str):
+                    raise ValueError("invalid coverage cursor")
+                if canonical_bytes({k: body[k] for k in identity}) != canonical_bytes(identity):
+                    raise WrongBinding("coverage continuation differs from the requested binding")
+                after = body["after"]
+            except (ValueError, TypeError) as error:
+                if isinstance(error, WrongBinding):
+                    raise
+                raise InvalidContinuation("invalid coverage continuation") from error
+        rows, more = self.coverage_page(family, scopes, after=after, limit=limit)
+        token = (
+            base64.urlsafe_b64encode(
+                canonical_bytes({**identity, "after": rows[-1].coverage_id})
+            ).decode("ascii")
+            if more
+            else None
+        )
+        if token is not None and len(token.encode("ascii")) > 8192:
+            raise ReadLimit("coverage cursor exceeds 8192 bytes", reason="oversized_item")
+        result = InventoryPage(
+            binding=self.binding,
+            root=family,
+            collection="coverage",
+            items=tuple(row.model_dump(mode="python") for row in rows),
+            population_complete=not more,
+            next_page_token=token,
+        )
+        if len(canonical_bytes(result.model_dump(mode="json"))) > max_bytes:
+            raise ReadLimit(
+                "complete coverage detail envelope exceeds max_bytes", reason="oversized_item"
+            )
+        return result
+
+    def _inventory_statement(self, fact_id, collection):
+        f, s, o, oe, e, a, d = (
+            table("data." + name)
+            for name in (
+                "fact",
+                "support",
+                "occurrence",
+                "occurrence_evidence",
+                "evidence",
+                "assessment",
+                "derivation",
+            )
+        )
+        occurrences = select(s.c.occurrence_id).where(self.scope(s), s.c.fact_id == fact_id)
+        if collection == "supports":
+            return select(o).where(
+                self.scope(o), o.c.occurrence_id.in_(occurrences)
+            ), o.c.occurrence_id
+        if collection == "evidence":
+            evidence_ids = select(oe.c.evidence_id).where(
+                self.scope(oe), oe.c.occurrence_id.in_(occurrences)
+            )
+            return select(e).where(
+                self.scope(e), e.c.evidence_id.in_(evidence_ids)
+            ), e.c.evidence_id
+        if collection == "assessments":
+            return select(a).where(
+                self.scope(a), or_(a.c.fact_id == fact_id, a.c.occurrence_id.in_(occurrences))
+            ), a.c.assessment_id
+        if collection == "derivations":
+            return select(d).where(
+                self.scope(d), d.c.conclusion_fact_id == fact_id
+            ), d.c.derivation_id
+        if collection == "support_evidence":
+            key = (
+                func.jsonb_build_array(oe.c.occurrence_id, oe.c.evidence_id)
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(oe, key).where(self.scope(oe), oe.c.occurrence_id.in_(occurrences)), key
+        if collection == "derivation_premises":
+            premise = table("data.derivation_premise")
+            derivations = select(d.c.derivation_id).where(
+                self.scope(d), d.c.conclusion_fact_id == fact_id
+            )
+            key = (
+                func.jsonb_build_array(premise.c.derivation_id, premise.c.position)
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(premise, key).where(
+                self.scope(premise), premise.c.derivation_id.in_(derivations)
+            ), key
+        if collection in {"alternatives", "alternative_members"}:
+            group, member = table("data.alternative_group"), table("data.alternative_member")
+            groups = select(member.c.group_id).where(
+                self.scope(member), member.c.fact_id == fact_id
+            )
+            if collection == "alternatives":
+                return select(group).where(
+                    self.scope(group), group.c.group_id.in_(groups)
+                ), group.c.group_id
+            key = (
+                func.jsonb_build_array(member.c.group_id, member.c.fact_id)
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(member, key).where(self.scope(member), member.c.group_id.in_(groups)), key
+        if collection == "input_supports":
+            inputs = table("data.fact_input")
+            key = (
+                func.jsonb_build_array(
+                    inputs.c.input_realization_id,
+                    inputs.c.input_data_revision,
+                    inputs.c.input_fact_id,
+                    inputs.c.run_id,
+                )
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(inputs, key).where(self.scope(inputs), inputs.c.fact_id == fact_id), key
+        if collection == "establishments":
+            establishment = table("data.occurrence_establishment")
+            sources = (
+                select(
+                    o.c.occurrence_id.label("reference_id"),
+                    establishment.c.establishment.label("kind"),
+                    literal("supports").label("detail_collection"),
+                )
+                .join(
+                    establishment,
+                    and_(
+                        _same_scope(o, establishment),
+                        o.c.occurrence_id == establishment.c.occurrence_id,
+                    ),
+                )
+                .where(self.scope(o), o.c.occurrence_id.in_(occurrences))
+            )
+            inferred = select(
+                d.c.derivation_id.label("reference_id"),
+                literal("inference").label("kind"),
+                literal("derivations").label("detail_collection"),
+            ).where(self.scope(d), d.c.conclusion_fact_id == fact_id)
+            origins = sources.union_all(inferred).subquery()
+            key = (
+                func.jsonb_build_array(origins.c.detail_collection, origins.c.reference_id)
+                .cast(Text)
+                .label("cursor_identity")
+            )
+            return select(origins, key), key
+        if collection == "identity_exclusions":
+            relation, values, roles = (
+                table("data." + name)
+                for name in ("identity_exclusion", "typed_value", "value_role")
+            )
+            root_fact = select(f).where(self.scope(f), f.c.fact_id == fact_id).subquery()
+            roots = select(root_fact.c.object_value_id).union(
+                select(root_fact.c.qualification_value_id)
+            )
+            closure = (
+                select(values.c.value_id)
+                .where(self.scope(values), values.c.value_id.in_(roots))
+                .cte("inventory_value_closure", recursive=True)
+            )
+            closure = closure.union(
+                select(roles.c.child_value_id)
+                .join(closure, roles.c.parent_value_id == closure.c.value_id)
+                .where(self.scope(roles))
+            )
+            entities = (
+                select(values.c.entity_id)
+                .where(
+                    self.scope(values),
+                    values.c.value_id.in_(select(closure)),
+                    values.c.kind == "entity",
+                )
+                .union(select(root_fact.c.subject_id))
+            )
+            return select(relation).where(
+                self.scope(relation),
+                or_(
+                    relation.c.left_entity_id.in_(entities),
+                    relation.c.right_entity_id.in_(entities),
+                ),
+            ), relation.c.exclusion_id
+        if collection == "source_reports":
+            source, observation = table("data.evidence_source"), table("kb.observation")
+            evidence_ids = select(oe.c.evidence_id).where(
+                self.scope(oe), oe.c.occurrence_id.in_(occurrences)
+            )
+            source_ids = select(source.c.observation_id).where(
+                self.scope(source), source.c.evidence_id.in_(evidence_ids)
+            )
+            return (
+                select(
+                    observation.c.id.label("observation_id"),
+                    observation.c.observation_key,
+                    observation.c.task_id,
+                    observation.c.payload_definition,
+                    observation.c.kind,
+                ).where(observation.c.id.in_(source_ids)),
+                observation.c.observation_key,
+            )
+        raise SemanticRefusal("unsupported evidence inventory collection")
+
+    def inventory(
+        self,
+        fact_id,
+        collection,
+        *,
+        continuation=None,
+        after_identity=None,
+        limit=64,
+        max_bytes=1024 * 1024,
+    ):
+        """Select identity rows before hydration; reports contain references, never bodies."""
+        from pydantic import TypeAdapter
+
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 1000
+            or type(max_bytes) is not int
+            or not 1 <= max_bytes <= 8 * 1024 * 1024
+        ):
+            raise SemanticRefusal("inventory limits exceed the supported range")
+        f = table("data.fact")
+        if (
+            self.connection.execute(
+                select(f.c.fact_id).where(self.scope(f), f.c.fact_id == fact_id)
+            ).scalar_one_or_none()
+            is None
+        ):
+            raise KeyError(fact_id)
+        identity = {
+            "inventory_version": 1,
+            "release": self.binding.release_id,
+            "realization": self.binding.realization_id,
+            "revision": self.binding.data_revision,
+            "root": fact_id,
+            "collection": collection,
+            "limit": limit,
+            "max_bytes": max_bytes,
+            "start_after": after_identity,
+        }
+        after = after_identity
+        if after is not None and not isinstance(after, str):
+            raise InvalidContinuation("invalid inventory identity cursor")
+        if continuation is not None:
+            try:
+                if len(continuation.encode("utf-8")) > 8192:
+                    raise ValueError("oversized token")
+                body = json.loads(base64.b64decode(continuation, altchars=b"-_", validate=True))
+                if set(body) != {*identity, "after"} or not isinstance(body["after"], str):
+                    raise ValueError("invalid inventory cursor")
+                if canonical_bytes({k: body[k] for k in identity}) != canonical_bytes(identity):
+                    raise WrongBinding("inventory continuation differs from the requested binding")
+                after = body["after"]
+            except (ValueError, TypeError) as error:
+                if isinstance(error, WrongBinding):
+                    raise
+                raise InvalidContinuation("invalid inventory continuation") from error
+        stmt, key = self._inventory_statement(fact_id, collection)
+        if after is not None:
+            stmt = stmt.where(key.collate("C") > after)
+        # Transfer identities and scalar lengths before hydrating any metadata row.
+        # Raw scalar UTF-8 lengths are a lower bound on their complete JSON encoding.
+        scalar_bytes = sum(
+            (
+                func.coalesce(func.octet_length(column.cast(Text)), 0)
+                for column in stmt.selected_columns
+            ),
+            literal(0),
+        )
+        selected = (
+            self.connection.execute(
+                stmt.with_only_columns(
+                    key.label("inventory_identity"),
+                    scalar_bytes.label("scalar_bytes"),
+                    maintain_column_froms=True,
+                )
+                .order_by(key.collate("C"))
+                .limit(limit + 1)
+            )
+            .mappings()
+            .all()
+        )
+        if any(row["scalar_bytes"] > max_bytes for row in selected[:limit]):
+            raise ReadLimit("a complete inventory item exceeds max_bytes", reason="oversized_item")
+        if sum(row["scalar_bytes"] for row in selected[:limit]) > max_bytes:
+            raise ReadLimit(
+                "inventory page exceeds max_bytes; request fewer rows", reason="work_limit"
+            )
+        rows = (
+            self.connection.execute(
+                stmt.where(key.in_([row["inventory_identity"] for row in selected[:limit]]))
+                .order_by(key.collate("C"))
+                .limit(limit)
+            )
+            .mappings()
+            .all()
+        )
+        more = len(selected) > limit
+        items: tuple[dict[str, Any], ...] = tuple(
+            {str(k): v for k, v in row.items() if k not in {"release_id", "realization_id"}}
+            for row in rows[:limit]
+        )
+        if collection == "evidence":
+            custody = self._source_custody(tuple(row["evidence_id"] for row in items))
+            items = tuple({**row, "source": custody.get(row["evidence_id"])} for row in items)
+        # Each item is encoded once. The final envelope is checked after admission.
+        encoded = [
+            canonical_bytes(TypeAdapter(dict[str, Any]).dump_python(item, mode="json"))
+            for item in items
+        ]
+        if any(len(item) > max_bytes for item in encoded):
+            raise ReadLimit("a complete inventory item exceeds max_bytes", reason="oversized_item")
+        if sum(map(len, encoded)) > max_bytes:
+            raise ReadLimit(
+                "inventory page exceeds max_bytes; request fewer rows", reason="work_limit"
+            )
+        token = None
+        if more:
+            token = base64.urlsafe_b64encode(
+                canonical_bytes({**identity, "after": rows[-1][key.name]})
+            ).decode("ascii")
+            if len(token.encode("ascii")) > 8192:
+                raise ReadLimit(
+                    "inventory continuation exceeds 8192 bytes", reason="oversized_item"
+                )
+        page = InventoryPage(
+            binding=self.binding,
+            root=fact_id,
+            collection=collection,
+            items=items,
+            population_complete=not more,
+            next_page_token=token,
+        )
+        if len(canonical_bytes(page.model_dump(mode="json"))) > max_bytes:
+            raise ReadLimit(
+                "complete inventory envelope exceeds max_bytes", reason="oversized_item"
+            )
+        return page
+
+    def source_report(self, fact_id, observation_key, *, max_bytes=1024 * 1024):
+        """Explicit immutable report read; a wrong root cannot select another report."""
+        if type(max_bytes) is not int or not 1 <= max_bytes <= 8 * 1024 * 1024:
+            raise SemanticRefusal("source report byte limit exceeds the supported range")
+        stmt, _ = self._inventory_statement(fact_id, "source_reports")
+        observation = table("kb.observation")
+        owned = stmt.where(observation.c.observation_key == observation_key).subquery()
+        row = (
+            self.connection.execute(
+                select(
+                    observation.c.id, observation.c.observation_key, observation.c.payload
+                ).where(
+                    observation.c.id.in_(select(owned.c.observation_id)),
+                    func.octet_length(observation.c.payload.cast(Text)) <= max_bytes * 2,
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            if self.connection.execute(select(owned.c.observation_id)).first() is not None:
+                raise ReadLimit("source report exceeds max_bytes", reason="oversized_item")
+            raise WrongBinding("source report is unavailable under this fact and binding")
+        report = SourceObservationReport(
+            binding=self.binding,
+            root_fact_id=fact_id,
+            observation_id=row["id"],
+            observation_key=row["observation_key"],
+            payload=row["payload"],
+        )
+        if len(canonical_bytes(report.model_dump(mode="json"))) > max_bytes:
+            raise ReadLimit(
+                "complete source report envelope exceeds max_bytes", reason="oversized_item"
+            )
+        return report
 
     def identity_exclusions(self, entity_id: str | None = None) -> tuple[IdentityExclusion, ...]:
         """Source-backed identity constraints from this session's exact snapshot.
@@ -1546,22 +2312,27 @@ class ReadSession:
         rows = self.connection.execute(self._selection(spec, after)).mappings().all()
         more, rows = len(rows) > spec.page_size, rows[: spec.page_size]
         output, nodes = self.hydrate_rows(rows, definition=cls)
-        coverage = self.coverage(prop.iri, spec.coverage_scope)
-        complete_coverage = CoverageRequirement(
+        requirement = CoverageRequirement(
             prop.iri,
             frozenset({spec.coverage_scope}) if spec.coverage_scope != "*" else frozenset(),
-        ).established_by(coverage)
+        )
+        summary = self.coverage_summary(requirement)
+        detail = self.coverage_details(prop.iri, requirement.members | {"*"})
+        coverage = tuple(Coverage(**row) for row in detail.items)
+        complete_coverage = summary.state == "established"
         token = None
         if more:
             token = self._token(
                 spec, rows[-1]["occurrence_id" if spec.projection == "occurrence" else "fact_id"]
             )
-        return QueryResult(
+        result = QueryResult(
             binding=self.binding,
             projection=spec.projection,
             rows=output,
             values=nodes,
             coverage=coverage,
+            coverage_summary=summary,
+            coverage_detail=detail,
             knowledge=(
                 "observed"
                 if output
@@ -1572,227 +2343,43 @@ class ReadSession:
             continuation=token,
             complete=not more,
         )
+        if len(canonical_bytes(result.model_dump(mode="json"))) > spec.max_bytes:
+            raise ReadLimit(
+                "complete primitive query envelope exceeds max_bytes; reduce page_size",
+                reason="oversized_item" if len(output) <= 1 else "work_limit",
+            )
+        return result
 
-    def explain(self, fact_id: str) -> Explanation:
-        """Support and derivation references from this session's same MVCC snapshot."""
-        f = table("data.fact")
-        fact = (
-            self.connection.execute(
-                select(f).where(_scope(self.binding, f), f.c.fact_id == fact_id)
+    def explain(self, fact_id: str, *, limit=64, max_bytes=1024 * 1024) -> Explanation:
+        """Bounded inventories under one snapshot; source report bodies are explicit reads."""
+        pages = {
+            name: self.inventory(fact_id, name, limit=limit, max_bytes=max_bytes)
+            for name in (
+                "supports",
+                "evidence",
+                "assessments",
+                "derivations",
+                "source_reports",
+                "support_evidence",
+                "derivation_premises",
+                "alternatives",
+                "alternative_members",
+                "input_supports",
+                "identity_exclusions",
+                "establishments",
             )
-            .mappings()
-            .one_or_none()
-        )
-        if fact is None:
-            raise KeyError(fact_id)
-        s, o, oe, e = (
-            table("data." + n) for n in ("support", "occurrence", "occurrence_evidence", "evidence")
-        )
-        supports = (
-            self.connection.execute(
-                select(o)
-                .select_from(
-                    s.join(
-                        o,
-                        and_(
-                            _same_scope(s, o),
-                            s.c.occurrence_id == o.c.occurrence_id,
-                        ),
-                    )
-                )
-                .where(_scope(self.binding, s), s.c.fact_id == fact_id)
-                .order_by(o.c.occurrence_id)
-            )
-            .mappings()
-            .all()
-        )
-        contexts, citation_roles = self._occurrence_contexts(
-            tuple(row["occurrence_id"] for row in supports)
-        )
-        links: dict[str, list[str]] = defaultdict(list)
-        evidence: dict[str, Evidence] = {}
-        for row in self.connection.execute(
-            select(oe.c.occurrence_id, *e.c)
-            .select_from(
-                oe.join(
-                    e,
-                    and_(
-                        _same_scope(oe, e),
-                        oe.c.evidence_id == e.c.evidence_id,
-                    ),
-                )
-            )
-            .where(
-                _scope(self.binding, oe),
-                oe.c.occurrence_id.in_([r["occurrence_id"] for r in supports]),
-            )
-            .order_by(oe.c.evidence_id)
-        ).mappings():
-            links[row["occurrence_id"]].append(row["evidence_id"])
-            evidence[row["evidence_id"]] = Evidence(
-                **{k: row[k] for k in Evidence.model_fields if k != "source"}
-            )
-        custody = self._source_custody(tuple(evidence))
-        observation = table("kb.observation")
-        source_observations = tuple(
-            SourceObservationReport(
-                observation_id=row["id"],
-                observation_key=row["observation_key"],
-                payload=row["payload"],
-            )
-            for row in self.connection.execute(
-                select(observation.c.id, observation.c.observation_key, observation.c.payload)
-                .where(observation.c.id.in_({source.observation_id for source in custody.values()}))
-                .order_by(observation.c.observation_key)
-            ).mappings()
-        )
-        evidence = {
-            key: value.model_copy(update={"source": custody.get(key)})
-            for key, value in evidence.items()
         }
-        d, p = table("data.derivation"), table("data.derivation_premise")
-        derivations = (
-            self.connection.execute(
-                select(d)
-                .where(
-                    _scope(self.binding, d),
-                    d.c.conclusion_fact_id == fact_id,
-                )
-                .order_by(d.c.derivation_id)
-            )
-            .mappings()
-            .all()
-        )
-        premises: dict[str, list[str]] = defaultdict(list)
-        for row in self.connection.execute(
-            select(p)
-            .where(
-                _scope(self.binding, p),
-                p.c.derivation_id.in_([r["derivation_id"] for r in derivations]),
-            )
-            .order_by(p.c.position)
-        ).mappings():
-            premises[row["derivation_id"]].append(row["premise_fact_id"])
-        input_relation = table("data.fact_input")
-        input_supports = tuple(
-            InputFactSupport(**{name: row[name] for name in InputFactSupport.model_fields})
-            for row in self.connection.execute(
-                select(input_relation).where(
-                    _scope(self.binding, input_relation), input_relation.c.fact_id == fact_id
-                )
-            ).mappings()
-        )
-        group, member = table("data.alternative_group"), table("data.alternative_member")
-        groups = (
-            self.connection.execute(
-                select(group)
-                .join(
-                    member, and_(_same_scope(group, member), group.c.group_id == member.c.group_id)
-                )
-                .where(_scope(self.binding, group), member.c.fact_id == fact_id)
-                .order_by(group.c.group_id)
-            )
-            .mappings()
-            .all()
-        )
-        members: dict[str, list[str]] = defaultdict(list)
-        for row in self.connection.execute(
-            select(member)
-            .where(
-                _scope(self.binding, member), member.c.group_id.in_([g["group_id"] for g in groups])
-            )
-            .order_by(member.c.group_id, member.c.fact_id)
-        ).mappings():
-            members[row["group_id"]].append(row["fact_id"])
-        assessment = table("data.assessment")
-        assessments = tuple(
-            Assessment(
-                **{
-                    name: row[name]
-                    for name in Assessment.model_fields
-                    if name != "scientific_evidence"
-                },
-                scientific_evidence=(
-                    parse_scientific_assessment_reason(row["reason"])
-                    if row["operation_id"] == "scientific.value_equivalence"
-                    else None
-                ),
-            )
-            for row in self.connection.execute(
-                select(assessment)
-                .where(
-                    _scope(self.binding, assessment),
-                    (assessment.c.fact_id == fact_id)
-                    | assessment.c.occurrence_id.in_(
-                        select(o.c.occurrence_id).where(
-                            _scope(self.binding, o), o.c.fact_id == fact_id
-                        )
-                    ),
-                )
-                .order_by(assessment.c.assessment_id)
-            ).mappings()
-        )
-        value_relation, roles = table("data.typed_value"), table("data.value_role")
-        roots = (fact["object_value_id"], fact["qualification_value_id"])
-        closure = (
-            select(value_relation.c.value_id)
-            .where(_scope(self.binding, value_relation), value_relation.c.value_id.in_(roots))
-            .cte("exclusion_value_closure", recursive=True)
-        )
-        closure = closure.union(
-            select(roles.c.child_value_id)
-            .join(closure, roles.c.parent_value_id == closure.c.value_id)
-            .where(_scope(self.binding, roles))
-        )
-        referenced_entities = (
-            select(value_relation.c.entity_id)
-            .where(
-                _scope(self.binding, value_relation),
-                value_relation.c.value_id.in_(select(closure)),
-                value_relation.c.kind == "entity",
-            )
-            .union(select(literal(fact["subject_id"])))
-        )
-        return Explanation(
-            identity_exclusions=self._identity_exclusions(referenced_entities),
-            alternatives=tuple(
-                AlternativeGroup(
-                    **{
-                        key: row[key]
-                        for key in AlternativeGroup.model_fields
-                        if key != "member_fact_ids"
-                    },
-                    member_fact_ids=tuple(members[row["group_id"]]),
-                )
-                for row in groups
-            ),
-            assessments=assessments,
-            input_supports=input_supports,
+        # The inventory is the authoritative detail product: retaining the old populated
+        # fields would silently imply complete nested evidence/premise populations.
+        result = Explanation(
             binding=self.binding,
             fact_id=fact_id,
-            supports=tuple(
-                OccurrenceSupport(
-                    **{
-                        k: row[k]
-                        for k in OccurrenceSupport.model_fields
-                        if k not in {"evidence_ids", "context", "citation_roles"}
-                    },
-                    evidence_ids=tuple(links[row["occurrence_id"]]),
-                    context=contexts.get(row["occurrence_id"]),
-                    citation_roles=citation_roles.get(row["occurrence_id"], ()),
-                )
-                for row in supports
-            ),
-            evidence=tuple(evidence.values()),
-            source_observations=source_observations,
-            derivations=tuple(
-                Derivation(
-                    derivation_id=row["derivation_id"],
-                    rule=row["rule"],
-                    rule_version=row["rule_version"],
-                    premise_fact_ids=tuple(premises[row["derivation_id"]]),
-                )
-                for row in derivations
-            ),
-            coverage=self.coverage(),
+            standing=self.fact_standing({fact_id})[fact_id],
+            inventories=pages,
         )
+        if len(canonical_bytes(result.model_dump(mode="json"))) > max_bytes:
+            raise ReadLimit(
+                "complete explanation envelope exceeds max_bytes; request inventory pages",
+                reason="oversized_item",
+            )
+        return result

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+from collections import deque
 from itertools import batched
 from typing import Any
 
-from pydantic import BaseModel
-from sqlalchemy import and_, exists, literal, or_, select
+from pydantic import BaseModel, Field, JsonValue
+from sqlalchemy import and_, exists, or_, select
 
-from corpus_structure.semantic.query import _same_scope
+from corpus_structure.core.canonical import canonical_json
+from corpus_structure.semantic.query import ReadLimit, _same_scope
+from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.serve.protocol import Positioned
 from corpus_structure.serve.queries import Params, Query, Row
 from corpus_structure.serve.read import T
@@ -31,6 +34,10 @@ class MappingParams(Construction):
 class Between(Params):
     a: str
     b: str
+    depth: int = Field(default=4, ge=1, le=4, strict=True)
+    max_edges: int = Field(default=100_000, ge=1, le=1_000_000, strict=True)
+    max_frontier: int = Field(default=20_000, ge=1, le=100_000, strict=True)
+    max_state_bytes: int = Field(default=8 * 1024 * 1024, ge=1, le=32 * 1024 * 1024, strict=True)
 
 
 class Where(Params):
@@ -231,21 +238,23 @@ class Transformations(Query):
         family = ids(ctx, p.family)
         candidates = base(ctx, p).where(f.c.property_id == ctx.reader.iri("stat:has_distribution"))
         # The algorithm's decision universe includes all premises; paging selects conclusions only.
-        premises = {
-            r.fact.fact_id: r
-            for r in ctx.reader.claims(
-                statement=ctx.reader.fact_statement(
-                    include_candidates=True, include_suppositions=True
-                ).where(
-                    f.c.property_id == ctx.reader.iri("stat:has_distribution"),
-                    target(ctx, f.c.object_value_id, family),
-                )
-            )
-        }
+        premise_selection = ctx.reader.fact_statement(
+            include_candidates=True, include_suppositions=True
+        ).where(
+            f.c.property_id == ctx.reader.iri("stat:has_distribution"),
+            target(ctx, f.c.object_value_id, family),
+        )
         o, c = T["occurrence"], T["occurrence_context"]
         for batch in batched(
             ctx.reader.claims(statement=candidates, after=after), ctx.row_batch, strict=False
         ):
+            referenced = set().union(*(condition_refs(row) for row in batch))
+            premises = {
+                row.fact.fact_id: row
+                for row in ctx.reader.claims(
+                    statement=premise_selection.where(f.c.fact_id.in_(referenced))
+                )
+            }
             refs_by_fact = {
                 row.fact.fact_id: condition_refs(row) & premises.keys() for row in batch
             }
@@ -310,8 +319,30 @@ class Transformations(Query):
 class Relations(Query):
     result: type[BaseModel]
     name, params, result = "relations_between", Between, RelationAnswer
+    version = "bounded-walks-2"
+
+    def validate_position(self, position):
+        if position is None:
+            return
+        if (
+            not isinstance(position, dict)
+            or set(position) != {"walk_version", "depth", "origin", "path"}
+            or type(position["walk_version"]) is not int
+            or position["walk_version"] != 2
+            or type(position["depth"]) is not int
+            or not 1 <= position["depth"] <= 4
+            or not isinstance(position["origin"], str)
+            or not isinstance(position["path"], list)
+            or len(position["path"]) != position["depth"]
+            or any(not isinstance(key, str) or not key for key in position["path"])
+        ):
+            raise InvalidContinuation(
+                "invalid bounded-walk position", reason="invalid_continuation"
+            )
 
     def rows(self, ctx, p, after=None):
+        """Exact BFS witnesses; replay consumes the same admission as fresh search."""
+        self.validate_position(after)
         f, v = T["fact"], T["typed_value"]
         edges = (
             base(ctx, p)
@@ -326,52 +357,88 @@ class Relations(Query):
                 ),
                 v.c.kind == "entity",
             )
-            .subquery()
         )
-        walk = (
-            select(
-                edges.c.subject_id.label("origin"),
-                edges.c.target,
-                edges.c.fact_id.label("path"),
-                literal(1).label("depth"),
+        roots = sorted(ctx.reader.resolve(p.a, limit=p.max_frontier + 1))
+        targets = set(ctx.reader.resolve(p.b, limit=p.max_frontier + 1))
+        if max(len(roots), len(targets)) > p.max_frontier:
+            raise ReadLimit(
+                "walk root/target population exceeds frontier bound", reason="work_limit"
             )
-            .where(edges.c.subject_id.in_(ids(ctx, p.a)))
-            .cte("semantic_relation_paths", recursive=True)
-        )
-        walk = walk.union_all(
-            select(
-                walk.c.origin,
-                edges.c.target,
-                walk.c.path + literal("|") + edges.c.fact_id,
-                walk.c.depth + 1,
+        queue: deque[tuple[tuple[str, str, tuple[str, ...]], int]] = deque()
+        retained = len(canonical_json(sorted(targets)))
+        for root in roots:
+            state = (root, root, ())
+            size = len(canonical_json(state))
+            retained += size
+            queue.append((state, size))
+        if retained > p.max_state_bytes:
+            raise ReadLimit("walk roots/targets exceed retained-state bytes", reason="work_limit")
+        examined = 0
+        replayed = after is None
+        while queue:
+            (origin, subject, path), state_bytes = queue.popleft()
+            # Retain the current state until its adjacency has been completely examined.
+            edge_after = None
+            while True:
+                available = p.max_edges - examined
+                batch_size = min(ctx.row_batch, 64, available + 1)
+                stmt = edges.where(f.c.subject_id == subject)
+                if edge_after is not None:
+                    stmt = stmt.where(f.c.fact_id.collate("C") > edge_after)
+                rows = (
+                    ctx.conn.execute(stmt.order_by(f.c.fact_id.collate("C")).limit(batch_size))
+                    .mappings()
+                    .all()
+                )
+                for edge in rows:
+                    examined += 1
+                    if examined > p.max_edges:
+                        raise ReadLimit("walk adjacency budget exhausted", reason="work_limit")
+                    witness = (*path, edge["fact_id"])
+                    state = (origin, edge["target"], witness)
+                    position: dict[str, JsonValue] = {
+                        "walk_version": 2,
+                        "depth": len(witness),
+                        "origin": origin,
+                        "path": list(witness),
+                    }
+                    if len(witness) < p.depth:
+                        size = len(canonical_json(state))
+                        if len(queue) + 2 > p.max_frontier or retained + size > p.max_state_bytes:
+                            raise ReadLimit(
+                                "walk retained frontier budget exhausted", reason="work_limit"
+                            )
+                        queue.append((state, size))
+                        retained += size
+                    if edge["target"] in targets:
+                        if not replayed:
+                            if position == after:
+                                replayed = True
+                            continue
+                        # Only the admitted witness is hydrated. Parallel edges/cycles survive.
+                        facts = {
+                            r.fact.fact_id: r
+                            for r in ctx.reader.claims(
+                                statement=ctx.reader.fact_statement(
+                                    include_candidates=True, include_suppositions=True
+                                ).where(f.c.fact_id.in_(witness))
+                            )
+                        }
+                        yield Positioned(
+                            RelationAnswer(
+                                depth=len(witness), claims=tuple(facts[key] for key in witness)
+                            ),
+                            position,
+                        )
+                if len(rows) < batch_size:
+                    break
+                edge_after = rows[-1]["fact_id"]
+            retained -= state_bytes
+        if not replayed:
+            raise InvalidContinuation(
+                "walk position is not a matching witness under this binding",
+                reason="invalid_continuation",
             )
-            .join(edges, edges.c.subject_id == walk.c.target)
-            .where(walk.c.depth < 4)
-        )
-        stmt = select(walk).where(walk.c.target.in_(ids(ctx, p.b)))
-        if after is not None:
-            stmt = stmt.where(walk.c.path.collate("C") > str(after))
-        for batch in (
-            ctx.conn.execute(stmt.order_by(walk.c.path.collate("C")))
-            .mappings()
-            .partitions(ctx.row_batch)
-        ):
-            keys = {key for row in batch for key in row["path"].split("|")}
-            facts = {
-                r.fact.fact_id: r
-                for r in ctx.reader.claims(
-                    statement=ctx.reader.fact_statement(
-                        include_candidates=True, include_suppositions=True
-                    ).where(f.c.fact_id.in_(keys))
-                )
-            }
-            for row in batch:
-                yield Positioned(
-                    RelationAnswer(
-                        depth=row["depth"], claims=tuple(facts[k] for k in row["path"].split("|"))
-                    ),
-                    row["path"],
-                )
 
 
 QUERIES = (

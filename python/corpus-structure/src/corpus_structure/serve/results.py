@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 from corpus_structure.semantic.query import EntityReference, Evidence, QueryRow, ValueNode
 from corpus_structure.serve.native_source import NativeSourceRequest
@@ -15,6 +15,8 @@ class Answer(BaseModel):
 class EntityAnswer(Answer):
     entity: EntityReference
     properties: tuple[QueryRow, ...] = ()
+    properties_population_complete: bool = True
+    properties_query: dict[str, str] | None = None
     values: tuple[ValueNode, ...] = ()
 
 
@@ -60,3 +62,5 @@ class StatementAnswer(Answer):
     statement: EntityReference
     claims: tuple[ClaimAnswer, ...]
     proofs: tuple[ClaimAnswer, ...] = ()
+    population_complete: bool = True
+    claims_query: dict[str, JsonValue] | None = None

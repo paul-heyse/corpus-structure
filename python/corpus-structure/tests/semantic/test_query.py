@@ -295,15 +295,27 @@ def test_archived_new_declarations_native_occurrence_fact_explain(
         assert facts.binding == accepted.binding == occurrences.binding == session.binding
         explanation = session.explain(batch.fact[0].fact_id)
         assert explanation.binding == session.binding
-        assert {s.occurrence_id: s.evidence_ids for s in explanation.supports} == {
+        links = explanation.inventories["support_evidence"].items
+        assert {
+            support["occurrence_id"]: tuple(
+                link["evidence_id"]
+                for link in links
+                if link["occurrence_id"] == support["occurrence_id"]
+            )
+            for support in explanation.inventories["supports"].items
+        } == {
             batch.occurrence[0].occurrence_id: ("evidence-one",),
             batch.occurrence[1].occurrence_id: ("evidence-two",),
         }
-        assert {(e.evidence_id, e.locator) for e in explanation.evidence} == {
+        assert {
+            (e["evidence_id"], e["locator"]) for e in explanation.inventories["evidence"].items
+        } == {
             ("evidence-one", "line:1"),
             ("evidence-two", "line:2"),
         }
-        assert {s.report_qualification_value_id for s in explanation.supports} == {"q-one", "q-two"}
+        assert {
+            s["report_qualification_value_id"] for s in explanation.inventories["supports"].items
+        } == {"q-one", "q-two"}
         relation = session.query(spec(session, "points_to", "accepted"))
         assert relation.rows[0].object == "unresolved-endpoint"
         reference = next(node.entity for node in relation.values if node.kind == "entity")
@@ -317,7 +329,7 @@ def test_archived_new_declarations_native_occurrence_fact_explain(
         ]
         # Source assertions do not invent derivations from unrelated scalar premises.
         # Admitted proof/explanation integration is exercised by test_inference.py.
-        assert session.explain(batch.fact[1].fact_id).derivations == ()
+        assert session.inventory(batch.fact[1].fact_id, "derivations").items == ()
         empty = session.query(spec(session, "absent_note", "fact"))
         assert empty.rows == () and empty.knowledge == "unknown"
         assert empty.coverage[0].outcome == "unanalysed"
@@ -380,7 +392,7 @@ def test_snapshot_continuation_pointer_change_and_revision_refusal(
         )
         assert publish_batch(semantic_writer_engine, changed).data_revision == 2
         assert len(old.query(spec(old, projection="accepted")).rows) == 1
-        assert len(old.explain(batch.fact[0].fact_id).supports) == 2
+        assert len(old.inventory(batch.fact[0].fact_id, "supports").items) == 2
         assert len(old.query(request, continuation=first.continuation).rows) == 1
     with read_session(semantic_reader_engine, Z) as current:
         assert current.binding.data_revision == 2
@@ -469,11 +481,15 @@ def test_release_loaded_once_and_recursive_values_batched(
         event.listen(session.connection, "before_cursor_execute", observe)
         request = spec(session, "readings", "accepted")
         result = session.query(request)
-        assert len(result.values) > len(statements)
-        assert (
-            len(statements) == 6
-        )  # selection, closure, roles, memberships, source declarations, coverage
-        assert sum("WITH RECURSIVE" in statement for statement in statements) == 1
+        assert len(result.values) == 9
+        assert len(statements) <= 32
+        assert not any("WITH RECURSIVE" in statement for statement in statements)
+        graph_reads = [
+            statement
+            for statement in statements
+            if "FROM data.typed_value" in statement or "FROM data.value_role" in statement
+        ]
+        assert graph_reads and all("LIMIT" in statement for statement in graph_reads)
         session.query(spec(session))
         assert loads == [prepared.release_id]
     assert session.connection.closed

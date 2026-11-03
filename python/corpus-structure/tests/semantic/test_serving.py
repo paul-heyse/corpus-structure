@@ -192,21 +192,28 @@ def test_named_semantic_pages_explanations_and_source_search(serving_read_scenar
         )
         explanation = explain(conn, run, "claim", alice_id)
         assert isinstance(explanation.detail, FactExplanation)
-        assert {support.item for support in explanation.detail.supports} == {
+        assert {
+            support["item"] for support in explanation.detail.inventories["supports"].items
+        } == {
             "claims/0",
             "claims/1",
         }
-        assert len({support.source for support in explanation.detail.supports}) == 1
+        assert (
+            len({support["source"] for support in explanation.detail.inventories["supports"].items})
+            == 1
+        )
         linked_evidence = {
-            evidence_id
-            for support in explanation.detail.supports
-            for evidence_id in support.evidence_ids
+            link["evidence_id"] for link in explanation.detail.inventories["support_evidence"].items
         }
         assert linked_evidence
-        assert {evidence.evidence_id for evidence in explanation.detail.evidence} == linked_evidence
-        assert {evidence.source_uri for evidence in explanation.detail.evidence} == {"source.html"}
-        assert explanation.detail.evidence[0].source is not None
-        assert explanation.detail.evidence[0].source.observation_key
+        assert {
+            evidence["evidence_id"] for evidence in explanation.detail.inventories["evidence"].items
+        } == linked_evidence
+        assert {
+            evidence["source_uri"] for evidence in explanation.detail.inventories["evidence"].items
+        } == {"source.html"}
+        assert explanation.detail.inventories["evidence"].items[0]["source"] is not None
+        assert explanation.detail.inventories["evidence"].items[0]["source"].observation_key
         source = explain(conn, run, "unit", locator)
         assert isinstance(source.detail, UnitExplanation)
         assert any(t.included_in_cut for t in source.detail.tasks)
@@ -283,7 +290,7 @@ def test_full_projection_exports_and_cancel_cleanup(serving_read_scenario, tmp_p
         packet = load_packet(session, uri)
     parquet = export_packet(packet, tmp_path / "parquet")
     jsonl = export_packet(packet, tmp_path / "jsonl", format="jsonl")
-    assert set(parquet["relations"]) == set(jsonl["relations"]) == set(SPINE)
+    assert set(parquet["relations"]) == set(jsonl["relations"]) == {*SPINE, "fact_standing_v2"}
     for name, relation in packet.relations.items():
         assert pq.read_table(tmp_path / "parquet" / f"{name}.parquet").equals(
             packet.to_table(name), check_metadata=True

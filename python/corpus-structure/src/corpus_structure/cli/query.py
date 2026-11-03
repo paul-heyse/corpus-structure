@@ -93,6 +93,7 @@ def render_query(result: Any) -> Table:
         "semantic identity",
         "property / class",
         "value",
+        "selection / assessments / establishment",
         title=f"run {result.run_id}: {result.query} ({result.projection})",
     )
     for row in result.rows:
@@ -120,7 +121,23 @@ def render_query(result: Any) -> Table:
         if "claims" in row and "depth" in row:
             identity = " → ".join(claim["fact"]["fact_id"] for claim in row["claims"])
             value = f"{row['depth']} relations"
-        table.add_row(str(identity), str(relation), str(value))
+        standing = fact.get("standing") or {}
+        if "claims" in row and "depth" in row:
+            standing_text = "; ".join(
+                str(c["fact"].get("standing", {}).get("selection", "undetermined"))
+                for c in row["claims"]
+            )
+        else:
+            standing_text = (
+                (
+                    f"{standing.get('selection', 'undetermined')} / "
+                    f"{standing.get('assessments', {}).get('count', 0)} assessments / "
+                    f"{standing.get('establishments', {}).get('availability', 'unavailable')}"
+                )
+                if fact
+                else ""
+            )
+        table.add_row(str(identity), str(relation), str(value), standing_text)
     if not result.coverage or any(c.outcome != "complete" for c in result.coverage):
         table.caption = "Coverage is incomplete or unknown; inspect --json for source outcomes."
     if result.next_page_token:
@@ -138,6 +155,7 @@ def query(
     origin_token: str | None = None,
     max_rows: int | None = None,
     max_chars: int | None = None,
+    max_bytes: int = 1024 * 1024,
     projection: Literal["occurrence", "fact", "accepted"] = "accepted",
     json: JsonOpt = False,
 ) -> None:
@@ -202,6 +220,7 @@ def query(
                 page_token=page_token,
                 max_rows=max_rows,
                 max_chars=max_chars,
+                max_bytes=max_bytes,
                 projection=projection,
                 origin_query=origin_query,
             )

@@ -217,6 +217,54 @@ uncertainty remains, schedule one bounded evidence investigation under AC00/I02 
 selected workload, bounded resources and decision outcome. Keep dependent implementation blocked
 until that outcome is integrated. Plan authoring runs no probe and makes no capacity claim.
 
+**I02 settled for implementation, 2026-11-03 (coordinator decision):** the supported
+walk version is `bounded-walks-2`, breadth first by `(depth, origin entity ID,
+ordered fact-ID witness sequence)`, with C-collated fact-ID adjacency keysets. Default
+and maximum depth are four. The following request bounds include deterministic replay
+and the one matching-witness lookahead needed to establish a successful next page.
+
+| Resource | Default | Maximum | Unit and admission point |
+|---|---:|---:|---|
+| Examined adjacency | 100,000 | 1,000,000 | Fetched edge rows per expanded frontier state; repeated edges and replay count again; check before admitting each row |
+| Live frontier | 20,000 | 100,000 | Pending frontier states, including the currently expanded state; check before retaining a new state |
+| Retained state | 8 MiB | 32 MiB | Sum of canonical UTF-8 encodings of live `(origin, target, fact-ID sequence)` states; check before enqueue |
+| Result envelope | 1 MiB | 8 MiB | Canonical UTF-8 bytes including binding, standing, rows and continuation; complete-envelope check before success |
+| Encoded cursor | 8 KiB | 8 KiB | Complete encoded continuation bytes; refuse before decoding or returning an oversized token |
+| Next adjacency batch | 64 | 64 | At most `min(row_batch, remaining examined-edge budget + 1)` rows; the extra detection row is examined and causes refusal |
+
+A page defaults to 100 output rows, with an upper admission limit of 1,000. The cursor
+position is exactly `{walk_version: 2, depth, origin, path: [fact IDs]}` inside the
+existing release/run/realization/revision/query/implementation/projection/canonical-parameter
+binding. Depth equals witness length. A continuation must name a matching witness actually
+encountered during reconstruction; an invented position refuses `invalid_continuation`.
+All answer-affecting admitted bounds are parameters and therefore bound by the token.
+A successful page ends after its admitted output rows plus one matching witness establishing
+`has_more`, or after complete search exhaustion. It never claims exhaustion from the last
+output row. Later pages reconstruct from roots, counting the whole replay; work/state
+exhaustion returns `work_limit` with no partial page or continuation. A complete individual
+row/envelope/cursor that cannot fit returns `oversized_item`. Malformed, old-order and
+wrong-request cursors refuse through continuation compatibility.
+
+Source reasoning establishes a bounded useful workload rather than a measured capacity claim:
+one origin with branching at most ten through depth four examines at most 11,110 edges,
+with at most 10,000 depth-four witnesses. This fits default edge/frontier admission; actual
+encoded identifiers must also fit the retained-byte budget. A high-degree first vertex is
+fetched in batches of at most 64, so degree cannot bypass admission. Sparse matching output
+may require the complete expansion; later-page replay can exceed the same budget and must
+refuse. Larger branching/many roots/long identifiers are explicitly conditional on all bounds,
+not promised by the example. No latency or universal capacity benefit has been measured.
+The coordinator accepted these values before dependent traversal implementation; no probe
+was needed to resolve a remaining factual uncertainty.
+
+The ordinary-answer v2 hydrator also admits an individual typed graph before transferring
+value bodies: discovery fetches at most 64 node/role metadata rows per batch, at most
+100,000 distinct value nodes and 100,000 examined role edges, and at most 8 MiB of physical
+scalar UTF-8 data across those nodes and roles. Mapping-role cursor keys are limited to
+8 KiB. These are operational read limits (`work_limit`), distinct from canonical result
+bytes and independent of claim acceptance. No incomplete graph is returned as exact.
+Only after complete bounded discovery are value bodies fetched in batches of at most64;
+entity memberships/source-reference metadata receive the same8 MiB physical preflight.
+
 ### Walk meaning and selected physical route
 
 The new `relations_between` contract explicitly asks for **walks**, not reachability or shortest

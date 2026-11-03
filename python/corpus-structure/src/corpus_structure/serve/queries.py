@@ -25,6 +25,7 @@ class Params(BaseModel):
 
 class ClaimParams(Params):
     subject: str | None = None
+    statement: str | None = None
     predicate: str | None = None
     object: str | None = None
     status: str | None = None
@@ -53,7 +54,7 @@ class FindParams(BaseModel):
 
 
 class Query:
-    version = "semantic-1"
+    version = "ordinary-answer-2"
     result: type[BaseModel] = ClaimAnswer
 
     def validate_position(self, position):
@@ -84,6 +85,22 @@ class Claims(Query):
         )
         if p.subject is not None:
             stmt = stmt.where(f.c.subject_id.in_(ctx.reader.resolve(p.subject)))
+        if p.statement is not None:
+            occurrence, context = T["occurrence"], T["occurrence_context"]
+            linked = select(occurrence.c.fact_id).join(
+                context,
+                and_(
+                    same_scope_clause(occurrence, context),
+                    occurrence.c.occurrence_id == context.c.occurrence_id,
+                ),
+            )
+            stmt = stmt.where(
+                f.c.fact_id.in_(
+                    linked.where(
+                        ctx.reader.scope(occurrence), context.c.statement_entity_id == p.statement
+                    )
+                )
+            )
         if p.object is not None:
             targets = ctx.reader.resolve(p.object)
             stmt = stmt.where(
@@ -136,38 +153,74 @@ class Statement(Query):
             )
         if after is not None:
             stmt = stmt.where(context.c.statement_entity_id.collate("C") > str(after))
-        ids = (
-            ctx.conn.execute(stmt.order_by(context.c.statement_entity_id.collate("C")))
-            .scalars()
-            .all()
-        )
-        entities = ctx.session.load_entities(set(ids))
-        for id_ in ids:
-            associated = (
-                select(o.c.fact_id)
-                .join(
-                    context,
-                    and_(
-                        same_scope_clause(o, context), o.c.occurrence_id == context.c.occurrence_id
-                    ),
+        while True:
+            ids = (
+                ctx.conn.execute(
+                    stmt.order_by(context.c.statement_entity_id.collate("C")).limit(ctx.row_batch)
                 )
-                .where(ctx.reader.scope(o), context.c.statement_entity_id == id_)
+                .scalars()
+                .all()
             )
-            selected = ctx.reader.fact_statement(
-                include_candidates=p.include_candidates, include_suppositions=p.include_suppositions
-            ).where(f.c.fact_id.in_(associated))
-            claims = tuple(ctx.reader.claims(statement=selected))
-            proof_ids = set(
-                ctx.conn.execute(associated.where(context.c.statement_role == "proof")).scalars()
-            )
-            yield Positioned(
-                StatementAnswer(
-                    statement=entities[id_],
-                    claims=tuple(c for c in claims if c.fact.fact_id not in proof_ids),
-                    proofs=tuple(c for c in claims if c.fact.fact_id in proof_ids),
-                ),
-                id_,
-            )
+            if not ids:
+                break
+            entities = ctx.session.load_entities(set(ids))
+            for id_ in ids:
+                associated = (
+                    select(o.c.fact_id)
+                    .join(
+                        context,
+                        and_(
+                            same_scope_clause(o, context),
+                            o.c.occurrence_id == context.c.occurrence_id,
+                        ),
+                    )
+                    .where(ctx.reader.scope(o), context.c.statement_entity_id == id_)
+                )
+                selected = ctx.reader.fact_statement(
+                    include_candidates=p.include_candidates,
+                    include_suppositions=p.include_suppositions,
+                ).where(f.c.fact_id.in_(associated))
+                selected_ids = (
+                    ctx.conn.execute(
+                        selected.with_only_columns(f.c.fact_id)
+                        .order_by(f.c.fact_id.collate("C"))
+                        .limit(9)
+                    )
+                    .scalars()
+                    .all()
+                )
+                claims = tuple(
+                    ctx.reader.claims(statement=selected.where(f.c.fact_id.in_(selected_ids[:8])))
+                )
+                proof_ids = set(
+                    ctx.conn.execute(
+                        associated.where(
+                            context.c.statement_role == "proof", o.c.fact_id.in_(selected_ids[:8])
+                        ).distinct()
+                    ).scalars()
+                )
+                yield Positioned(
+                    StatementAnswer(
+                        statement=entities[id_],
+                        claims=tuple(c for c in claims if c.fact.fact_id not in proof_ids),
+                        proofs=tuple(c for c in claims if c.fact.fact_id in proof_ids),
+                        population_complete=len(selected_ids) <= 8,
+                        claims_query={
+                            "query": "claims",
+                            "params": {
+                                "statement": id_,
+                                "include_candidates": p.include_candidates,
+                                "include_suppositions": p.include_suppositions,
+                            },
+                        }
+                        if len(selected_ids) > 8
+                        else None,
+                    ),
+                    id_,
+                )
+            if len(ids) < ctx.row_batch:
+                break
+            stmt = stmt.where(context.c.statement_entity_id.collate("C") > ids[-1])
 
 
 class Evidence(Query):
@@ -175,7 +228,7 @@ class Evidence(Query):
     name, params, result = "evidence", EvidenceParams, EvidenceAnswer
 
     def rows(self, ctx, p, after=None):
-        for evidence in ctx.reader.evidence(p.key):
+        for evidence in ctx.reader.evidence(p.key, after=after):
             if after is None or evidence.evidence_id > str(after):
                 yield Positioned(
                     EvidenceAnswer(fact_id=p.key, evidence=evidence), evidence.evidence_id
@@ -187,11 +240,26 @@ class Unsupported(Query):
     name, params, result = "unsupported", Params, Coverage
 
     def rows(self, ctx, p, after=None):
-        for record in sorted(ctx.session.coverage(), key=lambda c: c.coverage_id):
-            if record.source_outcome == "unsupported" and (
-                after is None or record.coverage_id > str(after)
-            ):
+        relation = T["coverage"]
+        while True:
+            stmt = select(relation).where(
+                ctx.reader.scope(relation), relation.c.source_outcome == "unsupported"
+            )
+            if after is not None:
+                stmt = stmt.where(relation.c.coverage_id.collate("C") > after)
+            rows = (
+                ctx.conn.execute(
+                    stmt.order_by(relation.c.coverage_id.collate("C")).limit(ctx.row_batch)
+                )
+                .mappings()
+                .all()
+            )
+            for row in rows:
+                record = Coverage(**{key: row[key] for key in Coverage.model_fields})
                 yield Positioned(record, record.coverage_id)
+            if len(rows) < ctx.row_batch:
+                break
+            after = rows[-1]["coverage_id"]
 
 
 class Find(Query):
