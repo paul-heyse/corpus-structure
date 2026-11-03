@@ -33,6 +33,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0047](0047-current-only-domain-runtime.md) | Use composed execution and record-backed PDF sources without historical result compatibility | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0046](0046-unified-operation-realization.md) |
 | [ADR-0048](0048-populated-native-scenarios.md) | Read-only serving scenarios clone a session-local populated seed | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0049](0049-m1-qualified-source-records.md) | Release qualified CPU source records through existing semantic authority | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
+| [ADR-0050](0050-source-product-placement.md) | Separate private source-product constraints from knowledge graph realization | 2026-11-03 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

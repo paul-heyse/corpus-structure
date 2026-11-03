@@ -239,6 +239,13 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Accepted target, Proposed until implemented (2026-11-03).** Declared source-product ancestry
+retains complete report schemas while excluding graph applicability/identity lowering. Native graph
+membership/datatype and graph-range fences enforce that distinction; ordinary graph regex
+constraints remain unsupported. Accepted record projections remain derived M1 publication work.
+
+> Decision: [ADR-0050](../adr/0050-source-product-placement.md)
+
 **Accepted unified-operation target, Proposed implementation (2026-11-02).** Model-derived Core and structured PostgreSQL products extend the existing native authoring/admission route. Protected database enforcement and restricted writers remain mandatory; versioned body profiles preserve frozen predecessors.
 
 > Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
@@ -401,6 +408,13 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target, Proposed until implemented (2026-11-03).** Declared source-product ancestry
+retains complete report schemas while excluding graph applicability/identity lowering. Native graph
+membership/datatype and graph-range fences enforce that distinction; ordinary graph regex
+constraints remain unsupported. Accepted record projections remain derived M1 publication work.
+
+> Decision: [ADR-0050](../adr/0050-source-product-placement.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 field roles/states, typed values, evidence membership and interpretation contracts extend
 the same effective release and generated/native boundaries. Unsupported enforcement refuses

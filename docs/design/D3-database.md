@@ -2,6 +2,14 @@
 
 ## M1 record evidence custody
 
+**Accepted target, Proposed until implemented (2026-11-03).** Private source-product schemas
+are enforced at their authenticated report boundary. Protected knowledge validation refuses source
+product memberships and datatypes, including empty/disconnected values. The native ordinary-graph
+regex refusal is retained. Accepted record projections remain a distinct M1-11 obligation derived
+from the same release.
+
+> Decision: [ADR-0050](../adr/0050-source-product-placement.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** Extend the existing observation,
 occurrence/evidence and publication spine with released record occurrences, field evidence sets
 and common membership across lowered assertions. Authenticate selected source/product/projection/

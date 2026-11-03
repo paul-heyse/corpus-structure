@@ -272,7 +272,9 @@ its own owner.
 
 - **M1-00 In progress:** scoped initial target accepted at Proposed strength by the
   [independent combined review](../design_review/reviews/design_review_m1-initial-target_2026-11-03.md).
-  ADR-0049 and D1/D2/D3/D5/D6 record the direction. This is neither assembled implementation
+  ADR-0049 and D1/D2/D3/D5/D6 record the direction. ADR-0050 adds the source-product
+  placement distinction required by native report/graph constraint boundaries, with protected
+  graph membership/datatype/range refusal; no ordinary graph regex waiver. This is neither assembled implementation
   acceptance nor final CPU/publication/consumer qualification. Remaining architectural consumers
   and concrete operation/native decisions stay open as their boundaries are implemented.
 - **M1-01 In progress:** [m1.development-population](../design_review/evidence/2026-11-03_m1-population/records/m1.development-population.json)

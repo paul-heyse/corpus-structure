@@ -2,6 +2,13 @@
 
 ## M1 released record boundaries
 
+**Accepted target, Proposed until implemented (2026-11-03).** `SourceRecordProduct` ancestry
+separates private product constraints from graph realization. Preserve complete generated/archived
+schemas; omit only product graph applicability/identity slots and refuse graph ranges into that
+closure. Native graph membership/datatype fences are required with this placement distinction.
+
+> Decision: [ADR-0050](../adr/0050-source-product-placement.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** The effective release declares
 five-family field roles, field-state and typed-value shapes, occurrence recipes and evidence-set
 contracts. Generated boundaries and owned cross-object validators consume those declarations;
