@@ -21,15 +21,20 @@ export after removing a checkout. Do not copy weights or environments into evide
 The validated2026-10-31 RTX5090/driver615.71.10 launch uses:
 
 ```sh
-VLLM_SERVER_DEV_MODE=1 services/nemotron-parse/.venv/bin/vllm serve services/nemotron-parse/vendor \
-  --served-model-name nemotron-parse --trust-remote-code --dtype bfloat16 \
-  --distributed-executor-backend uni --tensor-parallel-size 1 --data-parallel-size 1 \
-  --max-model-len 16384 --max-num-seqs 4 --max-num-batched-tokens 16384 \
-  --no-enable-prefix-caching --limit-mm-per-prompt '{"image":1}' \
-  --attention-config '{"flash_attn_version":3}' \
-  --chat-template services/nemotron-parse/vendor/chat_template.jinja \
-  --host 127.0.0.1 --port 8035 --gpu-memory-utilization 0.72 --enable-sleep-mode
+services/nemotron-parse/.venv/bin/python services/nemotron-parse/launch.py \
+  --receipts build/recognition-generations
 ```
+
+The controlled launcher verifies the selected weights/tokenizer before startup, records a
+complete export manifest and launch arguments, and embeds a fresh immutable generation in
+that server process. The application admits `/corpus/generation` before reuse/inference and
+every parser request supplies `x-corpus-generation`; the service refuses a mismatched generation
+with409 and binds every response to its executing generation. In-flight responses during graceful
+shutdown retain the old generation; restart requires a new admission. This is trusted local
+startup custody, not cryptographic proof of GPU contents. Treat the export as immutable under
+its operator owner. Never replace bytes in a live export; replacement requires a separately
+verified startup generation. `recognition_assurance: provider_reported` explicitly selects an
+unmanaged endpoint; its configured digests and reported alias never establish verified custody.
 
 The plugin enables trained one-token MTP. On this Blackwell GPU vLLM rejectsFA3 and
 selects effective FlashAttention2; the application recipe records that effective choice.

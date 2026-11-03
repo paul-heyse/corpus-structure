@@ -1,0 +1,6 @@
+{
+  "status": 200,
+  "expected_generation": "8f953e7f071e438da68d58ca079c92e8",
+  "response_generation": "8f953e7f071e438da68d58ca079c92e8",
+  "body": "{\"id\":\"chatcmpl-80bf7081a92c322b\",\"object\":\"chat.completion\",\"created\":1793744670,\"model\":\"nemotron-parse\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\" In Figure 1. A = 2 + 3.\",\"refusal\":null,\"annotations\":null,\"audio\":null,\"function_call\":null,\"reasoning\":null},\"logprobs\":null,\"finish_reason\":\"stop\",\"stop_reason\":null,\"token_ids\":null,\"routed_experts\":null}],\"service_tier\":null,\"system_fingerprint\":\"vllm-0.26.0-861f649e\",\"usage\":{\"prompt_tokens\":60,\"total_tokens\":74,\"completion_tokens\":14,\"prompt_tokens_details\":null},\"prompt_logprobs\":null,\"prompt_token_ids\":null,\"prompt_text\":null,\"kv_transfer_params\":null,\"ec_transfer_params\":null,\"metrics\":null}"
+}

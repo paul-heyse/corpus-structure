@@ -77,6 +77,9 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
         default="34f566e728995769d971fc2707596bfb92c83298d357bc6ec29a7a1d3d12a74a",
         pattern=r"^[0-9a-f]{64}$",
     )
+    recognition_assurance: Literal["trusted_managed_service", "provider_reported"] = (
+        "trusted_managed_service"
+    )
     render_scale: float = Field(default=2.0, gt=0)
     max_regions: int = Field(default=80, ge=1)
     recognition_pages: tuple[int, ...] = ()
@@ -100,6 +103,7 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
         return NemotronRecipe(
             self.weights_digest,
             self.tokenizer_digest,
+            identity_assurance=self.recognition_assurance,
             render_scale=self.render_scale,
             max_regions=self.max_regions,
         )

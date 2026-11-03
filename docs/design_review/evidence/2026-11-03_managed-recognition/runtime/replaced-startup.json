@@ -1,0 +1,5 @@
+{
+  "returncode": 1,
+  "diagnostic": "Traceback (most recent call last):\n  File \"/home/paul/.cache/corpus-ac-source/services/nemotron-parse/launch.py\", line 50, in <module>\n    main()\n  File \"/home/paul/.cache/corpus-ac-source/services/nemotron-parse/launch.py\", line 22, in main\n    manifest = verify_export(root, PINS)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/paul/.cache/corpus-ac-source/services/nemotron-parse/custody.py\", line 27, in verify_export\n    raise ValueError(f\"immutable export digest differs: {name}\")\nValueError: immutable export digest differs: model.safetensors\n",
+  "generation_created": false
+}

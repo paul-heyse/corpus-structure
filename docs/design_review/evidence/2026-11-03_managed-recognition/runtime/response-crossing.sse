@@ -1,0 +1,12 @@
+data: {"id":"chatcmpl-863c0fadd043a4bc","object":"chat.completion.chunk","created":1793744455,"model":"nemotron-parse","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"prompt_token_ids":null,"prompt_text":null}
+
+data: {"id":"chatcmpl-863c0fadd043a4bc","object":"chat.completion.chunk","created":1793744455,"model":"nemotron-parse","choices":[{"index":0,"delta":{"content":" In"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-863c0fadd043a4bc","object":"chat.completion.chunk","created":1793744455,"model":"nemotron-parse","choices":[{"index":0,"delta":{"content":" Figure"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-863c0fadd043a4bc","object":"chat.completion.chunk","created":1793744455,"model":"nemotron-parse","choices":[{"index":0,"delta":{"content":" 1"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-863c0fadd043a4bc","object":"chat.completion.chunk","created":1793744455,"model":"nemotron-parse","choices":[{"index":0,"delta":{"content":""},"logprobs":null,"finish_reason":"abort","stop_reason":null,"token_ids":null}],"system_fingerprint":"vllm-0.26.0-861f649e"}
+
+data: [DONE]
+

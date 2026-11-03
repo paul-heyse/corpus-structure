@@ -1,0 +1,7 @@
+{
+  "services/nemotron-parse/custody.py": "2cce1fbd87e037eafe8dd7171089e4135687ac3c750708b00011da45f1afe766",
+  "services/nemotron-parse/launch.py": "7c618813a6d87feb3904aef8d15a5ef27953bc7803da7f59296a1bf192cea3ef",
+  "services/nemotron-parse/worker.py": "90717b57e2014d4e23e45ae6b578972fff85fc7933f5639863554718a7b71ead",
+  "python/corpus-structure/src/corpus_structure/ingest/pdf_recognition.py": "49cd9ea48d23c60136c0c3e61ded01ddea14c59ea606a2e7224aea57f00ee18c",
+  "python/corpus-structure/src/corpus_structure/ingest/pdf_recognition_methods.py": "8308b332785ed88a85bfc449b3b7b30da215c4c6f5aac57d68c10a3e7b8192f1"
+}

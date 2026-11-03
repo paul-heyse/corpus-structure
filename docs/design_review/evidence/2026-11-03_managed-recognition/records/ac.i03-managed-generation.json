@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "ac.i03-managed-generation",
+  "title": "Actual managed recognition startup and request generation custody",
+  "group": "audit-closure",
+  "package": "AC08",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the dedicated recognition route bind actual inference and reuse to a trusted startup generation rather than an alias or pre-request health check?",
+  "answers": [
+    "AC08",
+    "I03",
+    "DA-051",
+    "ADR-0054"
+  ],
+  "method": "Verify immutable selected export at controlled launch, bind response generation in the executing vLLM process, run actual image inference and application triple parser, then exercise sleep/wake, request across graceful shutdown, fresh restart, stale-generation refusal and actual launcher refusal of replacement bytes.",
+  "commands": [
+    "services/nemotron-parse/.venv/bin/python services/nemotron-parse/launch.py --export /home/paul/corpus-structure/services/nemotron-parse/vendor --runtime /home/paul/corpus-structure/services/nemotron-parse/.venv/bin/vllm --receipts docs/design_review/evidence/2026-11-03_managed-recognition/runtime",
+    "services/nemotron-parse/.venv/bin/python docs/design_review/evidence/2026-11-03_managed-recognition/controls.py",
+    "UV_PROJECT_ENVIRONMENT=/home/paul/.cache/corpus-ac-source/.venv uv run python docs/design_review/evidence/2026-11-03_managed-recognition/application_journey.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "implementation-inputs.json",
+      "role": "production-source-digests",
+      "sha256": "15d8d01e6709a470fd329f3739c23c2a6f626436eb890801775be920543ed99f"
+    },
+    {
+      "path": "controls.py",
+      "role": "provider-control-source",
+      "sha256": "f0d20f540214af5cff7b8928035f6c9b92b6c66d40e7d97a875fc95455837c69"
+    },
+    {
+      "path": "application_journey.py",
+      "role": "application-provider-source",
+      "sha256": "9fe7e1a4f5b37445d47345258ba23e1f3271a9187b9f61a456d5a86c5208cab3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "runtime",
+      "role": "actual-provider-receipts",
+      "sha256": "a960645bfcea7fc6efd85573c40b296d76059426a1bd77beffad25d997fdc2b5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "managed-startups",
+      "value": 2,
+      "of": null,
+      "unit": "service generations",
+      "note": null
+    },
+    {
+      "name": "actual-parser-requests",
+      "value": 2,
+      "of": null,
+      "unit": "successful requests",
+      "note": null
+    },
+    {
+      "name": "stale-generation-after-restart",
+      "value": "refused with HTTP409",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "replacement-export-startup",
+      "value": "refused before generation creation",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The dedicated local managed route establishes trusted startup artifact custody and request-bound executing generation, including graceful shutdown, restart and same-alias replacement refusal. Unmanaged configured/reported identities remain weaker. This is not GPU-content authentication, extraction quality or assembled product qualification. Failed probe attempt is preserved with its actual cleanup error.",
+  "consumed_by": [
+    "AC08",
+    "AC14",
+    "I03",
+    "ADR-0054"
+  ]
+}

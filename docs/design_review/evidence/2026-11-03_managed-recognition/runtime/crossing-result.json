@@ -1,0 +1,9 @@
+{
+  "expected_generation": "cbd7ed4942c44660a9c50d11c7d7f734",
+  "service_pid": 484358,
+  "outcome": "completed",
+  "status": 200,
+  "response_generation": "cbd7ed4942c44660a9c50d11c7d7f734",
+  "shutdown_after_first_response_chunk": true,
+  "chunks": 6
+}

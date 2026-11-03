@@ -18,7 +18,7 @@ from io import BytesIO
 from itertools import groupby
 from pathlib import Path
 from threading import Event, Lock
-from typing import Any
+from typing import Any, Literal
 
 from ..semantic.identity import canonical_bytes
 
@@ -47,6 +47,9 @@ class NemotronRecipe:
 
     weights_digest: str
     tokenizer_digest: str
+    identity_assurance: Literal["trusted_managed_service", "provider_reported"] = (
+        "provider_reported"
+    )
     source_revision: str = NEMOTRON_REVISION
     model: str = "nemotron-parse"
     render_scale: float = 2.0
@@ -120,6 +123,29 @@ class NemotronRecipe:
     @property
     def digest(self) -> str:
         return sha256(self.to_bytes()).hexdigest()
+
+
+def admit_service_generation(endpoint: str, recipe: NemotronRecipe) -> dict[str, Any] | None:
+    """Admit the controlled startup manifest; every later request checks this generation."""
+    if recipe.identity_assurance == "provider_reported":
+        return None
+    import httpx
+
+    base = endpoint.rstrip("/").removesuffix("/v1")
+    response = httpx.get(base + "/corpus/generation", timeout=10)
+    response.raise_for_status()
+    record = response.json()
+    if (record.get("protocol") != "corpus-managed-recognition-1"
+        or record.get("assurance") != "trusted_managed_service"
+        or not isinstance(record.get("generation"), str)
+        or response.headers.get("x-corpus-generation") != record["generation"]):
+        raise ValueError("recognition endpoint has no admitted managed generation")
+    artifacts = record.get("artifacts", {})
+    if (artifacts.get("model.safetensors"), artifacts.get("tokenizer.json")) != (
+        recipe.weights_digest, recipe.tokenizer_digest
+    ):
+        raise ValueError("managed recognition generation differs from configured artifacts")
+    return record
 
 
 @dataclass(frozen=True, slots=True)
@@ -453,6 +479,7 @@ class RecognitionWorker:
                 reuse_failures=reuse_failures,
             )
             return
+        service_binding = admit_service_generation(self.endpoint, recipe)
         with _PDFIUM_LOCK:
             document = pypdfium2.PdfDocument(
                 str(source.original) if isinstance(source.original, Path) else source.original
@@ -500,6 +527,8 @@ class RecognitionWorker:
                 request = dict(
                     image_path=str(image_path.absolute()),
                     endpoint=self.endpoint,
+                    service_binding=service_binding,
+                    identity_assurance=recipe.identity_assurance,
                     model=recipe.model,
                     timeout_seconds=self.timeout_seconds,
                     packages=NEMOTRON_PACKAGES,
@@ -618,6 +647,10 @@ def recognition_observation_values(
                     "skip_special_tokens": False,
                     "requested_model": recipe.model,
                     "response_model": row.get("response_model"),
+                    "identity_assurance": row.get("identity_assurance", "provider_reported"),
+                    "service_generation": row.get("service_generation"),
+                    "configured_weights_digest": recipe.weights_digest,
+                    "configured_tokenizer_digest": recipe.tokenizer_digest,
                     "mtp": recipe.mtp,
                     "attention_backend": recipe.attention_backend,
                     "attention_version": recipe.attention_version,

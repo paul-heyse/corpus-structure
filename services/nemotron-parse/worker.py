@@ -38,6 +38,9 @@ class RecordingBackend:
         self.directory = directory
         self.rows: list[dict[str, Any]] = []
         self.crop: dict[str, Any] | None = None
+        self.binding = request.get("service_binding")
+        if request.get("identity_assurance") == "trusted_managed_service" and not self.binding:
+            raise ValueError("managed recognition requires an admitted startup generation")
         self.client = httpx.Client(timeout=request["timeout_seconds"])
 
     def __call__(self, image: Image.Image, *, prompt: str, stage: str, settings: Any) -> dict:
@@ -59,6 +62,9 @@ class RecordingBackend:
         }
         row = {
             "ordinal": ordinal, "stage": stage, "prompt": prompt,
+            "requested_model": self.request["model"],
+            "identity_assurance": "provider_reported",
+            "service_generation": None if self.binding is None else self.binding["generation"],
             "settings": dataclasses.asdict(settings),
             "width": image.width, "height": image.height,
             "submitted_image": prefix + ".png",
@@ -69,11 +75,21 @@ class RecordingBackend:
         # Durable admission also preserves a request lost to process termination.
         save(self.directory / (prefix + ".json"), encode(row))
         try:
-            reply = self.client.post(self.request["endpoint"].rstrip("/") + "/chat/completions", json=payload)
+            reply = self.client.post(
+                self.request["endpoint"].rstrip("/") + "/chat/completions", json=payload,
+                headers={} if self.binding is None else {
+                    "x-corpus-generation": self.binding["generation"]},
+            )
             row["http_status"] = reply.status_code
             row["http_response"] = prefix + ".http.json"
             save(self.directory / row["http_response"], reply.content)
+            row["response_generation"] = reply.headers.get("x-corpus-generation")
+            save(self.directory / (prefix + ".json"), encode(row))
             reply.raise_for_status()
+            if self.binding is not None:
+                if row["response_generation"] != self.binding["generation"]:
+                    raise ValueError("request crossed a service generation boundary")
+                row["identity_assurance"] = "trusted_managed_service"
             body = reply.json()
             choice = body["choices"][0]
             raw = choice["message"].get("content") or ""

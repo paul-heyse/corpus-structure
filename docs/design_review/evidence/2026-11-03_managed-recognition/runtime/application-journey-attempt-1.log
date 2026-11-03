@@ -1,0 +1,9 @@
+{"outcome": "succeeded", "page": 1, "requests": [{"outcome": "succeeded", "assurance": "trusted_managed_service", "generation": "8f953e7f071e438da68d58ca079c92e8", "response_generation": "8f953e7f071e438da68d58ca079c92e8", "requested_model": "nemotron-parse", "reported_model": "nemotron-parse"}, {"outcome": "succeeded", "assurance": "trusted_managed_service", "generation": "8f953e7f071e438da68d58ca079c92e8", "response_generation": "8f953e7f071e438da68d58ca079c92e8", "requested_model": "nemotron-parse", "reported_model": "nemotron-parse"}]}
+Traceback (most recent call last):
+  File "/home/paul/.cache/corpus-ac-source/docs/design_review/evidence/2026-11-03_managed-recognition/application_journey.py", line 48, in <module>
+    main()
+    ~~~~^^
+  File "/home/paul/.cache/corpus-ac-source/docs/design_review/evidence/2026-11-03_managed-recognition/application_journey.py", line 44, in main
+    worker.close()
+    ^^^^^^^^^^^^
+AttributeError: 'RecognitionWorker' object has no attribute 'close'
