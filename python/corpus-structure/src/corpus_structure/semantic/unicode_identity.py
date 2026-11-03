@@ -221,3 +221,19 @@ def requires_unicode_identity(prepared) -> bool:
         for row in prepared.registry_rows
         if row.kind == "operation_class"
     )
+
+
+def require_unicode_identity_release(connection: Connection, prepared) -> None:
+    """Bind producing recipe and actual database before any current folding operation."""
+    expected = qualified_python_identity_recipe().decode("utf-8")
+    if dict(prepared.library_versions).get("unicode-identity") != expected:
+        raise SemanticOperationRefusal(
+            SemanticReason(
+                "incompatible_bindings",
+                "resolve_identity",
+                prepared.release_id,
+                expected="qualified producing Unicode recipe",
+                actual="missing or incompatible recipe",
+            )
+        )
+    require_current_unicode_pair(connection)

@@ -572,7 +572,7 @@ BEGIN
  END IF;
  SELECT count(DISTINCT data.canonical_json(data.value_meaning(r,z,
   CASE WHEN a.constraint_scope='accepted_value' THEN COALESCE(representative.object_value_id,f.object_value_id)
-       ELSE f.object_value_id END)))) INTO n FROM data.fact f
+       ELSE f.object_value_id END))) INTO n FROM data.fact f
  LEFT JOIN data.scientific_representative selected_view ON selected_view.release_id=r
   AND selected_view.realization_id=z AND selected_view.fact_id=f.fact_id
  LEFT JOIN data.fact representative ON representative.release_id=r AND representative.realization_id=z

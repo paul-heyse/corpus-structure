@@ -22,7 +22,13 @@ _BASE_BYTE_LIBRARIES = (
     "cattrs",
 )
 SCIENTIFIC_LIBRARIES = ("sympy", "rule-engine", "numpy", "lark", "regex")
-BYTE_LIBRARIES = (*_BASE_BYTE_LIBRARIES, "pydantic-core", *SCIENTIFIC_LIBRARIES, "python")
+BYTE_LIBRARIES = (
+    *_BASE_BYTE_LIBRARIES,
+    "pydantic-core",
+    *SCIENTIFIC_LIBRARIES,
+    "python",
+    "unicode-identity",
+)
 BOUNDARY_LIBRARIES = ("python", "pydantic", "pydantic-core", "jsonschema", "cattrs")
 DEPLOYMENT_LIBRARIES = ("sqlalchemy", "psycopg", "pglast", "alembic")
 ANALYSIS_LIBRARIES = ("sqlglot", "sqlalchemy", "linkml-runtime")
@@ -63,6 +69,10 @@ def projection_analysis_runtime(
 
 
 def determinant_version(name: str) -> str:
+    if name == "unicode-identity":
+        from .unicode_identity import qualified_python_identity_recipe
+
+        return qualified_python_identity_recipe().decode("utf-8")
     return sys.version if name == "python" else version(name)
 
 
