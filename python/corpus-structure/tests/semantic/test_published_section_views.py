@@ -168,6 +168,81 @@ def test_selected_constructor_uses_exact_closure_and_original_report_locator():
     assert drafts[0].native_product == reader.reference
 
 
+class FrontierReader(SelectedReader):
+    def __init__(self):
+        super().__init__()
+        self.frontier_requests = []
+        self.frontier_values = {
+            "#/texts/8": dict(self_ref="#/texts/8", content_layer="furniture", text="footer"),
+            "#/texts/9": dict(self_ref="#/texts/9", content_layer="furniture", text="header"),
+        }
+
+    def section_nodes(self, section, membership):
+        rows = super().section_nodes(section, membership)
+        if section == "#/groups/1":
+            for row, pointer in zip(rows, ("#/texts/8", "#/texts/9"), strict=True):
+                native = row["native_json"]
+                assert isinstance(native, dict)
+                children = native["children"]
+                assert isinstance(children, list)
+                children.append({"$ref": pointer})
+        return rows
+
+    def selected_native_items(self, pointers):
+        self.frontier_requests.append(pointers)
+        return self.frontier_values
+
+
+def test_body_projection_qualifies_excluded_native_frontier_in_one_exact_batch():
+    reader = FrontierReader()
+    drafts = published_section_drafts(
+        reader,
+        document_id=1,
+        selections=("Target",),
+        membership="direct",
+        scope=None,
+        consumer_release="consumer",
+    )
+    assert reader.frontier_requests == [("#/texts/8", "#/texts/9")]
+    assert drafts[0].text == "x=1"
+    assert drafts[0].pieces == (
+        dict(start=0, end=3, kind="native_text", item_ref="#/texts/7", source_field="text"),
+    )
+    assert drafts[0].items == ("#/groups/1", "#/texts/7")
+    assert drafts[0].ancestors == ()
+    assert drafts[1].items == ("#/groups/2",)
+    outcomes = drafts[0].health["formula_outcomes"]
+    assert isinstance(outcomes, list) and len(outcomes) == 1
+    outcome = outcomes[0]
+    assert isinstance(outcome, dict) and outcome["pointer"] == "#/texts/7"
+
+
+@pytest.mark.parametrize("fault", ["absent", "extra", "body", "default_body", "identity"])
+def test_body_projection_refuses_unqualified_missing_child_frontier(fault):
+    reader = FrontierReader()
+    if fault == "absent":
+        del reader.frontier_values["#/texts/8"]
+    elif fault == "extra":
+        reader.frontier_values["#/texts/10"] = dict(
+            self_ref="#/texts/10", content_layer="furniture", text="unselected"
+        )
+    elif fault == "body":
+        reader.frontier_values["#/texts/8"]["content_layer"] = "body"
+    elif fault == "default_body":
+        del reader.frontier_values["#/texts/8"]["content_layer"]
+    else:
+        reader.frontier_values["#/texts/8"]["self_ref"] = "#/different"
+    with pytest.raises(ValueError, match="unqualified missing child"):
+        published_section_drafts(
+            reader,
+            document_id=1,
+            selections=("Target",),
+            membership="direct",
+            scope=None,
+            consumer_release="consumer",
+        )
+
+
 def test_selector_preserves_ancestry_through_non_section_containers():
     rows = [
         dict(pointer="#/groups/1", name="Parent", ancestors=["#/body"]),

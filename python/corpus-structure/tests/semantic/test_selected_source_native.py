@@ -7,7 +7,14 @@ import pyarrow as pa
 import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel, TableCell, TableData
+from docling_core.types.doc import (
+    ContentLayer,
+    DocItemLabel,
+    DoclingDocument,
+    GroupLabel,
+    TableCell,
+    TableData,
+)
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -50,7 +57,7 @@ def deploy_selected(engine):
         admit_native(conn, authoring.desired)
 
 
-def publish_selected(engine, build, directory, *, diagnostics=()):
+def publish_selected(engine, build, directory, *, diagnostics=(), furniture=False):
     document = DoclingDocument(name="independently selected source")
     outside = document.add_text(label=DocItemLabel.TEXT, text="omitted sibling body")
     ancestor = document.add_group(label=GroupLabel.CHAPTER, name="Outside ancestor chapter")
@@ -79,6 +86,11 @@ def publish_selected(engine, build, directory, *, diagnostics=()):
         parent=section,
     )
     table.captions = [outside.get_ref(), outside.get_ref()]
+    if furniture:
+        footer = document.add_text(
+            label=DocItemLabel.PAGE_FOOTER, text="Excluded native footer", parent=section
+        )
+        footer.content_layer = ContentLayer.FURNITURE
     result = StreamingPdfResult(
         document, PdfStreamSpool(directory / "pages"), "success", (), b"{}", ()
     )

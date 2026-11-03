@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "id": "um.native-section99",
+  "title": "Native99 selected-section closure source provenance",
+  "group": "unified-domain-model",
+  "package": "UM-07/14/15",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the bounded exact-pin nonbody frontier correction in section projection require only one descriptor input successor, preserving native98 policy and all predecessor bytes?",
+  "answers": [
+    "UM-07",
+    "UM-14",
+    "UM-15",
+    "UM-CA17"
+  ],
+  "method": "Use authenticated PgAdmin-owned disposable databases at native98. Require one descriptor-only transition for the exact approved section-view implementation, unchanged function catalog and no ordinary changes. Rehearse through Alembic Operations, exact admission and empty candidate, then roll back and admit98. Verify the source identity and predecessor file hashes, freeze99, and replay fresh99 with repeated upgrade and empty candidate.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_um-section-closure-forward/author.py author docs/design_review/evidence/2026-11-03_um-section-closure-forward/raw/author-001",
+    "uv run python docs/design_review/evidence/2026-11-03_um-section-closure-forward/freeze.py",
+    "uv run python docs/design_review/evidence/2026-11-03_um-section-closure-forward/author.py replay docs/design_review/evidence/2026-11-03_um-section-closure-forward/raw/replay-001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author.py",
+      "role": "owned authoring and replay procedure",
+      "sha256": "af997de0a3aae54479a6d3de4fdd2f5dc2761a509091be17a2d3a7bd7d2a3cfd"
+    },
+    {
+      "path": "freeze.py",
+      "role": "append-only freezing procedure",
+      "sha256": "80b77bd7ac02323c6ec24195d7b6276e53f71a34e8f4a15b9005bd70fb856958"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "exact candidate/source/predecessor identities, author/freeze/replay outputs and logs",
+      "sha256": "fcd83b9c6029feb7795f87029efacd45b3bcc679536c0bf2fc3dd0b430e87f70"
+    }
+  ],
+  "depends_on": [
+    "2026-11-03_um-native-selector-forward/um.native-selector98"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 1,
+      "of": 86,
+      "unit": null,
+      "note": "execution_contract_descriptor only"
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "changed_inputs",
+      "value": 1,
+      "of": null,
+      "unit": "inputs",
+      "note": "pdf/section-views.py"
+    },
+    {
+      "name": "replay_candidate_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_predecessor_files",
+      "value": 301,
+      "of": 301,
+      "unit": "files",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Frozen99 captures only the section-view implementation correction. The descriptor functions, physical metadata, privileges, ownership and native guard bodies remain exact98. The approved producer source stayed stable, all predecessor migration bytes are unchanged, rehearsal restored admitted98, and fresh99 replay has an empty candidate. This establishes source provenance/admission and replay, not actual section recovery, complete PDF/provider adoption, semantic fidelity or performance.",
+  "consumed_by": [
+    "UM-07",
+    "UM-14",
+    "UM-15",
+    "UM-CA17",
+    "D3"
+  ]
+}

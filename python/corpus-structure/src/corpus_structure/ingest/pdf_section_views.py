@@ -93,6 +93,38 @@ def published_section_drafts(
         nodes = {row["pointer"]: row["native_json"] for row in rows}
         if len(nodes) != len(rows) or section not in members:
             raise ValueError("published section closure is absent or ambiguous")
+        # The relational membership is body-only, while admitted native values keep
+        # their original children, including furniture. Qualify that excluded
+        # frontier under the same immutable pin before the projector follows it;
+        # these values never become selected members or source-frame items.
+        frontier = {
+            child["$ref"]
+            for pointer in members
+            for child in nodes[pointer].get("children", ())
+            if child["$ref"] not in nodes
+            and not (membership == "direct" and child["$ref"] in section_refs)
+        }
+        if frontier:
+            excluded = reader.selected_native_items(tuple(sorted(frontier)))
+            if set(excluded) != frontier:
+                pointer = min(set(excluded).symmetric_difference(frontier))
+                raise ValueError(
+                    f"published section {section} has an unqualified missing child {pointer}: "
+                    "exact frontier selection differs"
+                )
+            for pointer, value in excluded.items():
+                layer = value.get("content_layer", "body")
+                if (
+                    value.get("self_ref") != pointer
+                    or not isinstance(layer, str)
+                    or layer == "body"
+                ):
+                    raise ValueError(
+                        f"published section {section} has an unqualified missing child {pointer}: "
+                        f"identity={value.get('self_ref')!r}, "
+                        f"content_layer={value.get('content_layer', 'body')!r}"
+                    )
+            nodes.update(excluded)
         projection = project_section_nodes(
             nodes,
             reference.content_digest,

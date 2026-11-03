@@ -20,6 +20,44 @@ from .test_pdf_inline_reports import example as inline_report_example
 from .test_selected_source_native import deploy_selected, publish_selected
 
 
+def test_selected_body_closure_qualifies_actual_furniture_without_selecting_it(
+    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    published = publish_selected(
+        semantic_writer_engine, private_build, tmp_path / "source", furniture=True
+    )
+    reference = ProductReference(private_build.task_id, "selected", published.logical_digest)
+    with semantic_reader_engine.connect() as conn:
+        reader = published_record_reader(
+            conn, reference, projection_context=open_release(conn, private_build.release_id)
+        )
+        assert reader is not None
+        rows = reader.section_nodes("#/groups/2", "direct")
+        assert "#/texts/3" not in {row["pointer"] for row in rows}
+        footer = reader.selected_native_items(("#/texts/3",))["#/texts/3"]
+        assert footer["content_layer"] == "furniture"
+        document_id = conn.scalar(
+            text("SELECT unit_id FROM ops.task WHERE id=:task"),
+            dict(task=private_build.task_id),
+        )
+        (draft,) = published_section_drafts(
+            reader,
+            document_id=document_id,
+            selections=("Nested selected section",),
+            membership="direct",
+            scope=None,
+            consumer_release=private_build.release_id,
+        )
+        assert draft.text == "x=1\nx=1\ninside cell"
+        assert "#/texts/3" not in draft.items
+        assert "#/texts/3" not in draft.ancestors
+        assert [
+            (piece["item_ref"], piece["start"], piece["end"])
+            for piece in draft.pieces
+            if piece["kind"] == "native_text"
+        ] == [("#/texts/1", 0, 3), ("#/texts/2", 4, 7), ("#/tables/0", 8, 19)]
+
+
 def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
     private_build, semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):

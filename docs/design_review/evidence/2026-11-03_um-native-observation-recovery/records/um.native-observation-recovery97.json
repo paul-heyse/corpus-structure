@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "id": "um.native-observation-recovery97",
+  "title": "Current protected native observation derivation and terminal read",
+  "group": "unified-domain-model",
+  "package": "UM-14/15",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an exactly qualified retained native observation enter current protected relational publication and remain readable after its observation-only task/container terminates, without relabelling unknown coverage or claiming new inference?",
+  "answers": [
+    "UM-14",
+    "UM-15"
+  ],
+  "method": "Verify exact retained original/native/runtime/recipe witnesses locally, then use the current protected retained-envelope adapter on the explicitly identified application database at frozen native97. Preserve the original helper postcheck failure after committed publication. Check the same immutable published pin with the corrected read-only current reader, including sealed receipt/archive/schema, unchanged health and separately stored formula outcomes. Supplementary compressed functional receipts retain the disjoint final-source applicability account; they do not claim operational provider completion.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_um-native-observation-recovery/recover_native.py --execute --database corpus_pdf_20261102 --database-oid 16934542 --head semantic_um_stdio_20261102 --output build/um-native-recovery-execution-00001",
+    "uv run python docs/design_review/evidence/2026-11-03_um-native-observation-recovery/recover_native.py --read-published build/um-native-recovery-execution-00001 --database corpus_pdf_20261102 --database-oid 16934542 --head semantic_um_stdio_20261102 --output build/um-native-recovery-postread-00001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "recover_native.py",
+      "role": "exact-witness admission, current protected derivation and corrected read-only postcheck",
+      "sha256": "1152fd9de51192744a295e342269693973cc860775c69b945d94b8f2344c9b96"
+    },
+    {
+      "path": "test_recover_native.py",
+      "role": "local witness refusal controls; their prior bounded results are described in README",
+      "sha256": "12ac609f3f533f7b75a4db5bf88f6151ad305dbfb640ffbf3723f83633df7932"
+    },
+    {
+      "path": "results.md.j2",
+      "role": "catalog-derived accepted-result report template",
+      "sha256": "a8e0bd6fa4e73f473bd59262c63b84d7e8196ef9be3135a6e8c239e008c0b554"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "unchanged publication/failure/read receipts, exact schema/runtime qualification, and separately scoped compressed functional union/applicability receipts",
+      "sha256": "640fb2ba844559a4db26b7707cfbf35dcc7771130188b0aec6d44e50d7aa4c5c"
+    }
+  ],
+  "depends_on": [
+    "2026-11-02_um-worker-stdio-forward/um.native-stdio-renewal97"
+  ],
+  "results": [
+    {
+      "name": "pages",
+      "value": 1589,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "native_text_nodes",
+      "value": 44636,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "native_tables",
+      "value": 101,
+      "of": null,
+      "unit": "tables",
+      "note": null
+    },
+    {
+      "name": "retained_formula_outcomes",
+      "value": 6342,
+      "of": null,
+      "unit": "outcomes",
+      "note": "Separate native metadata, unchanged from the exact retained observation; display partial, inline/cell unknown."
+    },
+    {
+      "name": "published_task",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": "Task empty, auxiliary run4 cancelled; published pin remains readable."
+    },
+    {
+      "name": "unfinished_tasks",
+      "value": 0,
+      "of": null,
+      "unit": "tasks",
+      "note": null
+    },
+    {
+      "name": "new_inference",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "knowledge_and_source_views",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On 2026-11-03 the exact retained native observation was derived through current native97 protected append/freeze/validate/seal publication in corpus_pdf_20261102 (OID16934542). Task4/native/5ea04802e046368a609dea84430ba6a672dd87f826057e737d9eb263efe721b7 is readable after task empty and auxiliary container cancelled, with producing archive/sealed receipt/schema, unchanged native health and 6342 separate formula outcomes. The initial helper postcheck failure remains preserved; correction performed no reimport. Candidate-page/OCR-region inventory is absent for this observation; its actual candidate consumer is blocked. This establishes storage derivation and terminal read, not fresh conversion, inference, triple-pass/stock-source integration, knowledge, reference fidelity or grading. Supplementary functional union has zero unresolved required nodes under its explicit source applicability; original failed receipt outcomes remain failed.",
+  "consumed_by": [
+    "UM-14",
+    "UM-15",
+    "D3",
+    "unified-domain-model coordinator"
+  ]
+}

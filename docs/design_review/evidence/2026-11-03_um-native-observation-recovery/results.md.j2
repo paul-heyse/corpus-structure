@@ -1,0 +1,16 @@
+{% set gid = '2026-11-03_um-native-observation-recovery/um.native-observation-recovery97' %}
+{% set r = record(gid) %}
+# Current native observation recovery result
+
+**{{ r.finalized }} · {{ r.outcome }} · Protected native-only derivation and terminal read.**
+
+{{ r.conclusion }}
+
+| Observation | Result |
+|---|---|
+{% for item in query('SELECT name, coalesce(CAST(value_num AS VARCHAR), value_text) AS value, unit FROM record_results WHERE gid = $gid ORDER BY ord', gid=gid) %}
+| {{ item.name }} | {{ item.value }}{% if item.unit %} {{ item.unit }}{% endif %} |
+{% endfor %}
+
+The [record](records/um.native-observation-recovery97.json), [scope and limitations](README.md)
+and [retained-file manifest](raw/retained-files.json) identify the exact original receipts.

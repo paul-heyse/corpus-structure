@@ -165,6 +165,16 @@ fencing retain their existing owners. Integrated intake sends both supplied and 
 native inputs through the same section selector/organizer, without repeating Standard conversion
 for supplied pins. Native98 records these two implementation changes without a schema change.
 
+**Implemented; native and projection controls Tested (2026-11-03).** Body-only selected membership
+retains original child references, including excluded Docling furniture. Section preparation
+resolves a missing child frontier in one existing exact-pin batch, checks complete identity and
+explicit non-body layer, and supplies those values only to temporary text traversal. Furniture
+never enters selected members, source-frame items or body text. A missing/default-body/body-layer
+child or mismatched identity still refuses with its section and target pointer. This preserves
+Docling's layer authority and the existing projector's exclusion semantics without another role,
+policy registry, per-pointer fetch or full-document hydration. Native99 captures the single reader
+implementation change; no schema or native function changes are required.
+
 Private append, freeze, frozen-union validation and final seal reuse existing task/attempt fences.
 Membership cannot change under validation; seal rechecks owner, run/task/input/contract premises.
 Native closure still covers inventories, tree/backpointers/order, frames, occurrences/cells,
