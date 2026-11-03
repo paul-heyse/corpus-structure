@@ -148,6 +148,8 @@ def bind_result(
     result: UnitResult,
     method_confidence_source: str | None = None,
     coverage: Sequence[Mapping[str, str]] = (),
+    records: Sequence[Mapping[str, Any]] = (),
+    record_coordinate_texts: Sequence[Mapping[str, Any]] = (),
 ) -> BaseModel:
     """Validate a recognizer's terminal product under its run's release.
 
@@ -255,6 +257,20 @@ def bind_result(
             *(dict(item) for item in coverage),
         ),
     }
+    if records:
+        from .record_contracts import bind_record_candidates
+
+        if result.outcome.value != "produced":
+            raise ValueError("record candidates require a produced source report")
+        payload["records"] = tuple(
+            record.model_dump(mode="python")
+            for record in bind_record_candidates(
+                prepared,
+                source=source,
+                records=records,
+                coordinate_texts=record_coordinate_texts,
+            )
+        )
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)
     payload["measurements"] = tuple(

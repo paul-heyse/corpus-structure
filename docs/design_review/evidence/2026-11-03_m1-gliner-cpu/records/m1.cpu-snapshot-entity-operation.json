@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-snapshot-entity-operation",
+  "title": "Offline immutable-snapshot CPU entity operation",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [
+    "m1.cpu-entity-operation"
+  ],
+  "superseded_by": null,
+  "question": "Can the exact checkpoint snapshot execute the entity operation on the retained source without remote resolution?",
+  "answers": [],
+  "method": "Hash all five required local snapshot files; run the local snapshot loader with Hub/Transformers offline and check every returned literal interval.",
+  "commands": [
+    "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=4 uv run python docs/design_review/evidence/2026-11-03_m1-gliner-cpu/check_cpu_snapshot.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_cpu_snapshot.py",
+      "role": null,
+      "sha256": "196b028d510419308f62f26dd8a3236cacf4d164be3479d3ca75e2093e080d18"
+    },
+    {
+      "path": "attempt-00002.json",
+      "role": null,
+      "sha256": "e7e862f767d58b88e361d6c0ca7b244458b30785e1b59b31ebb9a3178c2d0a50"
+    },
+    {
+      "path": "attempt-00002.log",
+      "role": null,
+      "sha256": "89b58adb72544211b3b10f92c2938f2c2fbf52ae82bbd6fa961b8aff960ea111"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Offline actual CPU FP32 entity operation passed with file-hashed snapshot and eight reconstructing literal intervals. Supersedes the first attempt exact-profile claim: its repo-name auto-loader did not forward all Hub revision arguments. No family quality, full-record publication, aggregate capacity or release qualification.",
+  "consumed_by": [
+    "M1-07"
+  ]
+}

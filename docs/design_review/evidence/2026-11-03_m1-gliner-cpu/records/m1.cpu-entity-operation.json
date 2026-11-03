@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-entity-operation",
+  "title": "Actual pinned CPU entity operation",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-03",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "m1.cpu-snapshot-entity-operation",
+  "question": "Can the selected exact local checkpoint execute an entity operation on the retained development input?",
+  "answers": [],
+  "method": "Load pinned CPU FP32 checkpoint and execute source-only entity extraction with offsets; check returned literal intervals against the frozen paragraph.",
+  "commands": [
+    "OMP_NUM_THREADS=4 uv run python docs/design_review/evidence/2026-11-03_m1-gliner-cpu/check_cpu.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_cpu.py",
+      "role": null,
+      "sha256": "a3f8ddd749d5834fc6cf7c795d7bb460d10eabf5f5d139c8311d8b83b5a7e177"
+    },
+    {
+      "path": "attempt-00001.json",
+      "role": null,
+      "sha256": "6df32f93ff60b45335405f460fc464907f9a34454f83ee0d4cf4f36f34aad71f"
+    },
+    {
+      "path": "attempt-00001.log",
+      "role": null,
+      "sha256": "6eb9b57befd89670e376c034094f2aca95c68153f51507c39d2ed6d5711d0ce6"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Actual entity operation passed; all eight intervals reconstruct the input. No family accuracy, complete record, publication, aggregate capacity or release qualification claim.",
+  "consumed_by": [
+    "M1-07"
+  ]
+}

@@ -1,6 +1,6 @@
 # First production milestone: qualified CPU semantic assembly
 
-**Status:** Proposed implementation series — coordinator and six companions authored; execution not started.
+**Status:** Active implementation series — initial authority, development population and private record-contract slice underway; no qualified M1 release.
 **Created:** 2026-11-03. **Target claims:** Proposed. This coordinator owns package state,
 shared decisions, execution order and scheduled opportunity/investigation disposition. Companions
 own detailed designs and completion criteria, not competing progress tables.
@@ -137,7 +137,8 @@ experiments. The result constrains dependent work even when it selects an existi
 
 ## Execution queue and readiness
 
-All packages are **Planned**. Dependencies below mean working capability/evidence unless explicitly
+M1-00/01/02/03/07 are **In progress** at the bounded scope below; other packages remain **Planned**.
+Dependencies below mean working capability/evidence unless explicitly
 identified as an early settled contract. Design of consumers may proceed from settled contracts
 while implementation of their required producers is underway. Document order is not a global barrier.
 
@@ -263,13 +264,40 @@ unavailable required reference or failed gate keeps the corresponding release ob
 
 ## Current checkpoint and next work
 
-**Plan-authoring only, 2026-11-03.** No M1 production functionality, environment or database changed;
-no model execution, fitting, numerical probe or runtime qualification was performed. The operator's
-library content remains untouched; its independent commit is recorded above. Independent plan inspection and documentation
-checks establish only document coherence, not acceptance of the enclosing design or implementation.
-The inspection corrected ambiguous fitting-label access, valid negative-infinity log weights and
-optional-comparison wording; no further material issue was identified within that focused scope.
+**Active execution, 2026-11-03.** The operator authorized implementation through a qualified
+**NONDEFAULT** release and concrete adoption/rollback procedure, with combined design reviews.
+No persistent default switch is authorized by this execution. Conditional enhancements remain
+trigger-based. UM functionality/validation remains complete; its agent assessment/follow-up has
+its own owner.
 
-Next: begin M1-00 authority reconciliation and M1-01 population/guideline design when execution is
-authorized; then establish the early M1-02/03/13 shared contracts/reference slice. Existing UM agent
-assessment/follow-up work continues under its own owner without a blanket M1 code dependency.
+- **M1-00 In progress:** scoped initial target accepted at Proposed strength by the
+  [independent combined review](../design_review/reviews/design_review_m1-initial-target_2026-11-03.md).
+  ADR-0049 and D1/D2/D3/D5/D6 record the direction. This is neither assembled implementation
+  acceptance nor final CPU/publication/consumer qualification. Remaining architectural consumers
+  and concrete operation/native decisions stay open as their boundaries are implemented.
+- **M1-01 In progress:** [m1.development-population](../design_review/evidence/2026-11-03_m1-population/records/m1.development-population.json)
+  freezes five views/7310 pieces from one original PDF through read-only existing readers.
+  Entire origin is development-only. Five-family guidance is Proposed. Independent reference
+  acquisition, eligible release/audit populations, adequate isolated source groups and a frozen
+  defensible interval remain open; no family quality gate is established.
+- **M1-02/03 In progress:** logical release declarations, private typed record binding and field
+  evidence/identity controls passed74 focused tests and independent private-slice review;
+  [m1.private-record-contracts](../design_review/evidence/2026-11-03_m1-record-contracts/records/m1.private-record-contracts.json). Native admission,
+  persisted custody, released operations and read/evaluator round trips remain open; optional
+  private records must not imply published support.
+- **M1-07 In progress:** exact `gliner2[local]==2.1.0` added without transitive upgrades;
+  `just ready` passed. [m1.cpu-snapshot-entity-operation](../design_review/evidence/2026-11-03_m1-gliner-cpu/records/m1.cpu-snapshot-entity-operation.json)
+  establishes only one actual CPU FP32 entity operation from a hashed immutable offline snapshot.
+  [m1.cpu-combined-operation](../design_review/evidence/2026-11-03_m1-gliner-cpu/records/m1.cpu-combined-operation.json)
+  additionally executes native grouped records, enums, attributes, content classification and relations.
+  Retained attempt00001 does not establish its weight/tokenizer revision because the auto-loader
+  drops Hub arguments; attempt00002 corrects that custody route. Runtime admission, typed source
+  reports, constrained wrappers, operation-quality and full-record quality remain open. The
+  [installed adapter contract](../design_review/evidence/2026-11-03_m1-gliner-adapter/README.md)
+  records schema, enum, preprocessing and diagnostic limitations; absent diagnostics stay unavailable.
+- **M1-04/05/06/08–15 Planned:** no completion or whole-release qualification claim.
+
+Next: finish and review the private shared contract slice, then extend native/source-context
+custody and dependent operation/runtime consumers. M1-13 reference/scorer work proceeds from
+settled family meanings; M1-14 remains blocked on its required independent evidence even while
+implementation continues. Production defaults, run6/tasks27–31 and existing databases are unchanged.

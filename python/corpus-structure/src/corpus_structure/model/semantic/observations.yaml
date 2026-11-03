@@ -140,7 +140,176 @@ classes:
       observations: {range: SourceObservation, multivalued: true, inlined: true}
       coverage: {range: SourceCoverage, multivalued: true, inlined: true}
       measurements: {range: SourceMeasurement, multivalued: true, inlined: true}
+      records: {range: SourceRecord, multivalued: true, inlined: true}
+  RecordScalar:
+    abstract: true
+    attributes:
+      kind: {required: true}
+  RecordText:
+    is_a: RecordScalar
+    attributes:
+      kind: {equals_string: text}
+      text: {required: true}
+  RecordDecimal:
+    is_a: RecordScalar
+    description: Exact finite decimal/scientific spelling; never a binary float projection.
+    attributes:
+      kind: {equals_string: decimal}
+      lexical: {required: true, pattern: '^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$'}
+  RecordClassification:
+    is_a: RecordScalar
+    attributes:
+      kind: {equals_string: classification}
+      label: {required: true}
+  RecordTextSequence:
+    is_a: RecordScalar
+    description: Ordered original pieces, including a complete table header path, without synthetic separators.
+    attributes:
+      kind: {equals_string: text_sequence}
+      items: {multivalued: true, minimum_cardinality: 1, required: true}
+  RecordNativeLocation:
+    is_a: RecordScalar
+    attributes:
+      kind: {equals_string: native_location}
+      pointer: {required: true}
+  RecordSourcePin:
+    attributes:
+      source: {required: true}
+      native_product_task_id: {range: integer, minimum_value: 1, required: true}
+      product_key: {required: true}
+      product_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      projection_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      source_view_id: {range: integer, minimum_value: 1}
+  RecordCoordinateText:
+    description: Explicit binding input, not persisted evidence or a claim of native authentication.
+    attributes:
+      pin: {range: RecordSourcePin, required: true, inlined: true}
+      space: {range: RecordCoordinateSpace, required: true}
+      pointer: {required: true}
+      text: {required: true}
+  RecordAnchor:
+    attributes:
+      anchor_id: {required: true}
+      pin: {range: RecordSourcePin, required: true, inlined: true}
+      space: {range: RecordCoordinateSpace, required: true}
+      pointer: {required: true}
+      precision: {range: RecordMappingPrecision, required: true}
+      start: {range: integer, minimum_value: 0}
+      end: {range: integer, minimum_value: 0}
+      source_piece: {}
+  RecordEvidenceSet:
+    attributes:
+      set_id: {required: true}
+      role: {required: true}
+      ordering: {range: RecordEvidenceOrdering, required: true}
+      usage: {range: RecordEvidenceUsage, required: true}
+      anchors: {multivalued: true, minimum_cardinality: 1, required: true}
+  RecordFieldAlternative:
+    attributes:
+      alternative_id: {required: true}
+      value: {range: RecordScalar, required: true, inlined: true}
+      evidence_sets: {multivalued: true}
+      reason: {required: true}
+  RecordField:
+    attributes:
+      role: {required: true}
+      kind: {range: RecordFieldKind, required: true}
+      state: {range: RecordFieldState, required: true}
+      meaning_changing: {range: boolean, required: true}
+      evidence_status: {range: RecordEvidenceStatus, required: true}
+      value: {range: RecordScalar, inlined: true}
+      original: {}
+      original_pieces: {multivalued: true}
+      evidence_sets: {multivalued: true}
+      alternatives: {range: RecordFieldAlternative, multivalued: true, inlined: true}
+      reason: {}
+      policy: {}
+      rule: {}
+      premises: {multivalued: true}
+  LiteralRecordField:
+    is_a: RecordField
+    mixins: [MeaningChangingRecordField]
+    attributes:
+      kind: {equals_string: literal}
+  ClassifiedRecordField:
+    is_a: RecordField
+    mixins: [MeaningChangingRecordField]
+    attributes:
+      kind: {equals_string: classified}
+  NativeRecordField:
+    is_a: RecordField
+    mixins: [MeaningChangingRecordField]
+    attributes:
+      kind: {equals_string: native}
+  MeaningChangingRecordField:
+    is_a: RecordField
+    description: An unresolved role prevents accepted standing; this is released meaning, not producer judgment.
+  SupplementalLiteralRecordField:
+    is_a: RecordField
+    attributes:
+      kind: {equals_string: literal}
+  SupplementalClassifiedRecordField:
+    is_a: RecordField
+    attributes:
+      kind: {equals_string: classified}
+  TransformedRecordField:
+    is_a: RecordField
+    attributes:
+      kind: {range: RecordTransformationKind, required: true}
+  RequiredRecordField:
+    is_a: MeaningChangingRecordField
+    description: A released role whose meaning is required for accepted whole records.
+  RequiredLiteralRecordField:
+    is_a: LiteralRecordField
+    mixins: [RequiredRecordField]
+  RequiredClassifiedRecordField:
+    is_a: ClassifiedRecordField
+    mixins: [RequiredRecordField]
+  RequiredNativeRecordField:
+    is_a: NativeRecordField
+    mixins: [RequiredRecordField]
+  SemanticRecordFields:
+    description: Domain subclasses declare their complete role contract using field ranges.
+    attributes:
+      family: {required: true}
+      occurrence_recipe: {required: true}
+  SourceRecord:
+    description: Typed private source record; accepted standing is not native publication admission.
+    attributes:
+      record_id: {required: true}
+      contract: {required: true}
+      family: {required: true}
+      occurrence_recipe: {required: true}
+      pin: {range: RecordSourcePin, required: true, inlined: true}
+      occurrence_anchors: {multivalued: true, minimum_cardinality: 1, required: true}
+      interpretation_id: {required: true}
+      standing: {range: RecordStanding, required: true}
+      policy_version: {required: true}
+      fields: {range: RecordField, multivalued: true, minimum_cardinality: 1, required: true, inlined: true}
+      anchors: {range: RecordAnchor, multivalued: true, minimum_cardinality: 1, required: true, inlined: true}
+      evidence_sets: {range: RecordEvidenceSet, multivalued: true, inlined: true}
+      computation_dependencies: {multivalued: true}
+      assertion_members: {multivalued: true}
 enums:
+  RecordFieldState:
+    permissible_values: {present: {}, unstated: {}, inapplicable: {}, unresolved: {}}
+  RecordFieldKind:
+    permissible_values: {literal: {}, classified: {}, native: {}, normalized: {}, derived: {}}
+  RecordEvidenceStatus:
+    permissible_values: {available: {}, unavailable: {}}
+  RecordStanding:
+    permissible_values: {candidate: {}, accepted: {}, rejected: {}, unresolved: {}}
+  RecordCoordinateSpace:
+    permissible_values: {selected_projection: {}, recognized_text: {}, native: {}, model_context: {}}
+  RecordMappingPrecision:
+    permissible_values: {exact: {}, item: {}, coarse: {}, unavailable: {}}
+  RecordEvidenceOrdering:
+    permissible_values: {ordered: {}, unordered: {}}
+  RecordEvidenceUsage:
+    permissible_values: {literal: {}, classification_cue: {}, native: {}, association: {}, context: {}}
+  RecordTransformationKind:
+    permissible_values: {normalized: {}, derived: {}}
   SourceMetricSubjectKind:
     permissible_values:
       source_view: {}

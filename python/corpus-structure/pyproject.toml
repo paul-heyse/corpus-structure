@@ -43,6 +43,7 @@ dependencies = [
     "pypdfium2==5.14.0",
     "ijson==3.6.0",
     "sqlglot==30.27.0",
+    "gliner2[local]==2.1.0",
 ]
 
 [project.scripts]

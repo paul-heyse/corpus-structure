@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "m1.development-population",
+  "title": "Retained source development population",
+  "group": "M1",
+  "package": "M1-01",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the existing retained source cut be frozen read-only with explicit source groups and limits?",
+  "answers": [],
+  "method": "Read through existing source-view readers in a read-only transaction; freeze exact source pins, deterministic detached snapshot, complete piece inventory and sampling leads.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_m1-population/verify.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "inventory.py",
+      "role": null,
+      "sha256": "ad5163fd68d1c55f4036dd4151fa5df097c859816d96a1a3d997789e32cdb58d"
+    },
+    {
+      "path": "verify.py",
+      "role": null,
+      "sha256": "7105b66e597a88b64486dae7353330a7dcfbe1395323c7945bf692f1ea93ab21"
+    },
+    {
+      "path": "manifest.json",
+      "role": null,
+      "sha256": "7ed0bfede1776868ee1bcab8040433b51d3ba7751e725ed09177e30da4b0636c"
+    },
+    {
+      "path": "sources.json.gz",
+      "role": null,
+      "sha256": "0dada4fe46fdde0e89166eba511d9e8b7fea84d36d55847dbadbd885a18d1dfd"
+    },
+    {
+      "path": "regions.jsonl",
+      "role": null,
+      "sha256": "755db2ef3fc0d1e6f2583b1a480d2da23ddbffe778c6911ddb366589afcd6527"
+    },
+    {
+      "path": "sample.json",
+      "role": null,
+      "sha256": "651c9ea3a2f87ee9a206fc6f0d2b355794be70a04e483814a0b0dfc13ac39410"
+    },
+    {
+      "path": "cpu-source-paragraph.json",
+      "role": null,
+      "sha256": "9bfe3af34539e94cd7e80bd65e9ceeb9446c155a29f0d427f8ae897c3964c514"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Read-only source freeze and detached verification passed. Five views contain 7310 pieces from one original PDF, all development-only. Independent references, eligible release population, isolated groups and release interval remain open.",
+  "consumed_by": [
+    "M1-01"
+  ]
+}

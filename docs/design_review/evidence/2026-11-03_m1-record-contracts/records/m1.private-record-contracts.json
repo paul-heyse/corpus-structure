@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "m1.private-record-contracts",
+  "title": "Private released record contract checks",
+  "group": "M1",
+  "package": "M1-02",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the private generated five-family boundaries enforce released field/evidence and identity meaning before native custody integration?",
+  "answers": [],
+  "method": "Independent source expectations exercise generated preparation/archive reconstruction and source-result binding; independent review challenges literal memberships and typed role invariants.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_prepare.py python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_observations.py -q"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "checks.json",
+      "role": null,
+      "sha256": "291fbb82a2b2d99e8a161e07e8b547fb4028bcf4a71b91ff7763dbf8579134a7"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "74 focused tests, scoped Ruff and scoped Pyrefly passed for the hashed private logical slice. No native source authentication, public record admission, family accuracy or complete M1-02/03 closure.",
+  "consumed_by": [
+    "M1-02",
+    "M1-03"
+  ]
+}

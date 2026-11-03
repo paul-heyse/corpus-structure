@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-03",
+  "baseline": "ae30daba",
+  "scope": "private logical five-family contracts only",
+  "source_sha256": {
+    "domains/statistics/semantic.yaml": "a00b519c67c16534845eadb4b9e16128c094a4e7af51f2c1037152f612bd2aee",
+    "python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml": "b72f5838bb97d4c64f01498213459eba57c6e8c28a315abc53da9499a15c5422",
+    "python/corpus-structure/src/corpus_structure/semantic/observations.py": "371d1a5d1a72f66cae082d9ceb73f2ce371e0998ec5b97926f289f0b425282ee",
+    "python/corpus-structure/src/corpus_structure/semantic/prepare.py": "4cb5c251f95cb874be15a9f9a41527b27e8b2bc1f23491b97e98be350c236584",
+    "python/corpus-structure/src/corpus_structure/semantic/record_contracts.py": "0570a29df3f7444f36b5718a862ca87cf7d2f5f204afd6a3847ef355530e61f0",
+    "python/corpus-structure/tests/semantic/test_record_contracts.py": "974ab9fdfa375201d6a84f611012d762e169ffb9b9f2548c671c7399946a8525"
+  },
+  "checks": [
+    {
+      "command": "uv run pytest python/corpus-structure/tests/semantic/test_prepare.py python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_observations.py -q",
+      "outcome": "passed",
+      "tests": 74
+    },
+    {
+      "command": "uv run ruff check python/corpus-structure/src/corpus_structure/semantic/observations.py python/corpus-structure/src/corpus_structure/semantic/prepare.py python/corpus-structure/src/corpus_structure/semantic/record_contracts.py python/corpus-structure/tests/semantic/test_record_contracts.py",
+      "outcome": "passed"
+    },
+    {
+      "command": "uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic/record_contracts.py python/corpus-structure/src/corpus_structure/semantic/observations.py python/corpus-structure/src/corpus_structure/semantic/prepare.py",
+      "outcome": "passed",
+      "errors": 0
+    }
+  ],
+  "not_run": [
+    "native admission",
+    "publication",
+    "actual record producer",
+    "five-family reference scoring",
+    "full M1 qualification"
+  ]
+}

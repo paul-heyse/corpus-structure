@@ -1,5 +1,18 @@
 # D5 · Consolidation, identity and confidence
 
+## M1 record interpretation and admission
+
+**Accepted target, Proposed until implemented (2026-11-03).** Deterministic assembly and bounded
+uncertain interpretation prepare coherent source-record readings upstream of existing domain
+policy and `consolidate_cut`. Exact event sums describe the retained candidate model; they do not
+establish empirical calibration, source truth or omitted-candidate probability. Complete-record
+acceptance requires the released field/evidence contract and evaluated policy or validated proof
+premises. Preserve shared record membership when lowering into assertions, and retain rejected
+alternatives and computation dependencies for recomputation. Finite rule closure keeps its current
+proof semantics. Release publication remains private/nondefault pending qualification.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below

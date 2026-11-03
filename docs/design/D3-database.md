@@ -1,5 +1,17 @@
 # D3 · Database
 
+## M1 record evidence custody
+
+**Accepted target, Proposed until implemented (2026-11-03).** Extend the existing observation,
+occurrence/evidence and publication spine with released record occurrences, field evidence sets
+and common membership across lowered assertions. Authenticate selected source/product/projection/
+recipe pins and coordinate precision at native admission. Private typed validation is not a
+persisted custody check. A forward native migration and versioned batch/receipt contracts must
+preserve frozen predecessor receipts; never weaken guards or reinterpret old batches to admit M1.
+No operational database is deployed by this target acceptance.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 ## Unified operation realization
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.

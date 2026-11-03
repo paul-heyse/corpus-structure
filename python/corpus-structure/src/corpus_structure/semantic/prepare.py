@@ -742,6 +742,9 @@ def _prepare_release_uncached(
                 bool(cls.abstract),
             )
         )
+    from .record_contracts import validate_record_declarations
+
+    validate_record_declarations(tuple(definitions))
     from .boundary import build_boundary_adapters
     from .statement_types import compile_effective_bindings
 

@@ -1,56 +1,50 @@
 # Status
-_Updated 2026-11-03; native99 implementation and non-Claude source qualification delivered. Remaining UM work is agent assessment and follow-up only._
+_Updated 2026-11-03; M1 implementation active. UM functionality/validation is complete; only its agent assessment/follow-up remains._
 
 ## Current checkpoint
 
+- [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md) owns M1-00–15/O01–O07.
+  ADR-0049 and the scoped combined initial-target review accept the Proposed extension route.
+  Private five-family record/field/evidence contracts are implemented and tested; native custody,
+  publication, related-source integration and assembled acceptance remain open. No qualified M1 release.
+- Actual GLiNER2.1.0 CPU FP32 entity and combined-head operations passed from a hashed immutable
+  offline snapshot. The first repo-name attempt is retained/superseded for incomplete revision custody.
+  [CPU evidence](docs/design_review/evidence/2026-11-03_m1-gliner-cpu/README.md) is operation-only.
+- [Population evidence](docs/design_review/evidence/2026-11-03_m1-population/README.md) freezes five
+  views/7310 pieces from one PDF, all development-only. Release populations, isolated references,
+  family quality, runtime envelope and public consumer journeys remain open. Endpoint is NONDEFAULT;
+  changing defaults awaits review. Operator library reference content is untouched.
 - [UM coordinator](docs/plans/unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
-  owns current scope. UM-CA13/TA01–04 plus actual publication/selection/frontier repairs are integrated
-  through native99 (`7188cafb`, `f536fede`, `b349bf59`, `38cdb8ba`). Frozen predecessors are unchanged.
-- Application `corpus_pdf_20261102`/OID16934542 is on native99 in dedicated18/corpus (5434).
-  The database stays online; other clusters are unchanged. No owned parsing/client process remains.
-  Owned Nemotron8035 is stopped; existing source/queued knowledge work needs no fresh PDF pass.
-- Run6 published `6/integrated/1882a372…` and prepared five intact descendant analysis views1–5.
-  Tasks27–31 await agent work; other source tasks are done/empty, with no failures/running leases.
-  Public status is awaiting_agent; no completed knowledge output or result/default selection exists.
-- [Exact continuation commands](docs/design_review/evidence/2026-11-01_pdf-current-consumers/RUN6.md)
-  cover MCP/queued extraction, current independent reference bundle00003, registration/evaluation
-  and eventual selection. No Claude session, A/B/C authoring or actual grade has run.
-- Current source uses qualified upstream native data and unchanged recognition receipts. Original
-  partial/unknown health and missing candidate/OCR inventory remain explicit; no new perception
-  inference or historical knowledge import is claimed. Failed run3/run5 artifacts remain retained.
-- TA scoped acceptance remains complete at its [coordinator](docs/plans/test-architecture-and-evidence_2026-11-02.md).
-  ADR-0047 current-only compiler14/boundary12/execution23/archive3 remains; no legacy runtime fallback.
-  Unselected improvements and diagnostic audit premises are unchanged.
-
-- **Proposed M1 series, 2026-11-03:** [coordinator](docs/plans/first-production-milestone_2026-11-03.md)
-  owns M1-00–15, O01–O07 and trigger-based expansions from the integrated target/review.
-  No M1 implementation or runtime qualification started; operator library content is preserved.
-  UM code functionality/validation is complete; only its agent assessment/follow-up remains.
+  retains its own scope. Native99 functionality/source qualification and TA scoped acceptance are complete.
+  Application corpus_pdf_20261102/OID16934542 remains online on dedicated18/corpus5434; other clusters
+  unchanged. No owned parsing/client process or Nemotron8035 remains. M1 has not deployed a migration.
+- Run6 product6/integrated/1882a372… and descendant views1–5 remain intact. Tasks27–31 await agent work;
+  public status awaiting_agent, no completed knowledge output or selected result/default.
+  [Continuation commands](docs/design_review/evidence/2026-11-01_pdf-current-consumers/RUN6.md)
+  cover queued extraction, independent reference bundle00003, evaluation and eventual selection.
+- Source partial/unknown health and missing candidate/OCR inventory remain explicit. No new perception
+  inference, historical knowledge import, Claude A/B/C authoring or actual grade is claimed.
 
 ## Verification
 
-- **passed, bounded:**3318 distinct functional nodes/563 native, zero required unresolved and complete
-  provenance. [Final99 account](docs/design_review/evidence/2026-11-03_um-section-closure-qualification/README.md)
-  retains explicit96/97/98/99 applicability; historical failed aggregates are not relabelled.
-- **passed:** actual stock SourceReady; CLI7 calls; external stdio MCP13 operations, real formula PNG
-  and raw-response custody; seven export stages with1819 equal JSONL/Parquet rows and full detached
-  native/integrated roundtrip (1589 pages,183085 texts,107 tables).
-  [Source consumer evidence](docs/design_review/evidence/2026-11-01_pdf-current-consumers/run6-source-ready.md).
-- **passed:** whole warning-inclusive types; whole Ruff before99 plus scoped final99/helper checks.
-  Projection/protocol controls use local scripted children; they establish no provider result.
-- **passed:** final current reference inputs preserve complete frames/quotes/structure and separate
-  the2,227,961-byte provider view from full canonical validation state.
-  [Input preparation evidence](docs/design_review/evidence/2026-11-01_pdf-current-consumers/run6-reference-inputs.md); no context-fit/speed claim.
-- **passed:** native99 author/replay/rollback/empty candidate; native97 concurrency/append protections;
-  prior applicable ready, lint-agents, adr-lint, deps and clippy. Evidence136records/0errors/39warnings.
-- **failed, deferred:** docs-check has existing library-reorganization publication links.
-  Final just turn-end passed; current docs-check reports no owned UM/consumer link error.
-
-- **M1 plan docs, 2026-11-03:** `git diff --check` and `just turn-end` passed; `just docs-check` failed on existing
-  publication links, with no M1 target/review target error. Product checks `not_run` (plan authoring only).
+- **M1 passed, bounded, 2026-11-03:**74 preparation/record/observation tests; scoped Ruff/Pyrefly;
+  `just ready` after exact GLiNER addition; detached population verification; actual offline CPU calls.
+  [Contract evidence](docs/design_review/evidence/2026-11-03_m1-record-contracts/README.md).
+  `just evidence` passed (0errors/39 retained warnings). Full M1 qualification **not_run**:
+  selected functional scope and required independent references remain incomplete.
+- Prior **UM passed, bounded:**3318 distinct functional nodes/563 native, no required unresolved;
+  [final99 applicability account](docs/design_review/evidence/2026-11-03_um-section-closure-qualification/README.md).
+  Actual SourceReady, CLI7, external stdio MCP13 and1819 matching JSONL/Parquet rows retain their
+  [source-consumer scope](docs/design_review/evidence/2026-11-01_pdf-current-consumers/run6-source-ready.md).
+  These receipts do not qualify M1 or establish knowledge-extraction fidelity.
+- Prior **passed:** native99 author/replay/rollback/empty candidate and applicable native97 concurrency;
+  warning-inclusive typing, scoped lint, ready/agents/ADR/deps/clippy remain under their original scope.
+- **Failed, deferred:** docs-check has existing library-reorganization publication links.
+  No product gate follows solely from documentation changes.
 
 ## Next
 
-Complete queued Claude knowledge work and independent references, then run the evaluator and
-assess final result selection using the handoff. UM-14/15 remain open for those actual outputs;
-source readiness and functional coverage do not establish extraction fidelity or full-plan exit.
+M1: authenticate private records through existing native completion and typed reads; integrate
+versioned mapped contexts, then annotation/runtime/assembly/evaluator consumers. M1-14 qualification
+stays open. UM: complete queued agent assessment and references under its own continuation route;
+M1 does not reopen completed UM functionality or validation.

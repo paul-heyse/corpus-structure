@@ -8,6 +8,105 @@ default_range: string
 imports:
 - semantic_core
 classes:
+  MeasurementValueRole:
+    is_a: RecordClassification
+    attributes:
+      kind: {equals_string: measurement_value_role}
+      label: {range: MeasurementValueRoleName, required: true}
+  MeasurementValueRoleField:
+    is_a: RequiredClassifiedRecordField
+    attributes:
+      value: {range: MeasurementValueRole, inlined: true}
+  AssertionPolarity:
+    is_a: RecordClassification
+    attributes:
+      kind: {equals_string: assertion_polarity}
+      label: {range: AssertionPolarityName, required: true}
+  AssertionPolarityField:
+    is_a: ClassifiedRecordField
+    attributes:
+      value: {range: AssertionPolarity, inlined: true}
+  AssertionModality:
+    is_a: RecordClassification
+    attributes:
+      kind: {equals_string: assertion_modality}
+      label: {range: AssertionModalityName, required: true}
+  AssertionModalityField:
+    is_a: ClassifiedRecordField
+    attributes:
+      value: {range: AssertionModality, inlined: true}
+  DefinitionRelation:
+    is_a: RecordClassification
+    attributes:
+      kind: {equals_string: definition_relation}
+      label: {range: DefinitionRelationName, required: true}
+  DefinitionRelationField:
+    is_a: SupplementalClassifiedRecordField
+    attributes:
+      value: {range: DefinitionRelation, inlined: true}
+  DefinitionRecordFields:
+    is_a: SemanticRecordFields
+    attributes:
+      family: {equals_string: definition}
+      occurrence_recipe: {equals_string: source-anchor-membership-1}
+      term: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      defining_text: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      scope: {range: RequiredNativeRecordField, required: true, inlined: true}
+      alias: {range: SupplementalLiteralRecordField, required: true, inlined: true}
+      relation_type: {range: DefinitionRelationField, required: true, inlined: true}
+  AssertionRecordFields:
+    is_a: SemanticRecordFields
+    attributes:
+      family: {equals_string: assertion}
+      occurrence_recipe: {equals_string: source-anchor-membership-1}
+      subject: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      predicate: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      object: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      polarity: {range: AssertionPolarityField, required: true, inlined: true}
+      modality: {range: AssertionModalityField, required: true, inlined: true}
+      attribution: {range: LiteralRecordField, required: true, inlined: true}
+      condition: {range: LiteralRecordField, required: true, inlined: true}
+      quantification: {range: LiteralRecordField, required: true, inlined: true}
+      scope: {range: LiteralRecordField, required: true, inlined: true}
+  MeasurementRecordFields:
+    is_a: SemanticRecordFields
+    attributes:
+      family: {equals_string: measurement}
+      occurrence_recipe: {equals_string: source-anchor-membership-1}
+      referent: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      property: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      original_value: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      value_role: {range: MeasurementValueRoleField, required: true, inlined: true}
+      unit: {range: LiteralRecordField, required: true, inlined: true}
+      comparator: {range: LiteralRecordField, required: true, inlined: true}
+      uncertainty: {range: LiteralRecordField, required: true, inlined: true}
+      reference_quantity: {range: LiteralRecordField, required: true, inlined: true}
+      condition: {range: LiteralRecordField, required: true, inlined: true}
+      normalized_value: {range: TransformedRecordField, required: true, inlined: true}
+  TableRecordFields:
+    is_a: SemanticRecordFields
+    attributes:
+      family: {equals_string: table}
+      occurrence_recipe: {equals_string: source-anchor-membership-1}
+      table: {range: RequiredNativeRecordField, required: true, inlined: true}
+      cell: {range: RequiredNativeRecordField, required: true, inlined: true}
+      row_identity: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      header_path: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      cell_value: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      unit: {range: LiteralRecordField, required: true, inlined: true}
+      note: {range: LiteralRecordField, required: true, inlined: true}
+      caption: {range: LiteralRecordField, required: true, inlined: true}
+  FormulaRecordFields:
+    is_a: SemanticRecordFields
+    attributes:
+      family: {equals_string: formula_context}
+      occurrence_recipe: {equals_string: source-anchor-membership-1}
+      formula: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      scope: {range: RequiredNativeRecordField, required: true, inlined: true}
+      symbol: {range: LiteralRecordField, required: true, inlined: true}
+      meaning: {range: LiteralRecordField, required: true, inlined: true}
+      domain: {range: LiteralRecordField, required: true, inlined: true}
+      assumption: {range: LiteralRecordField, required: true, inlined: true}
   Formula:
     is_a: MathematicalExpression
     attributes:
@@ -477,6 +576,14 @@ slots:
   scope_locator:
     description: Stable source scope locator, never a physical segment id.
 enums:
+  MeasurementValueRoleName:
+    permissible_values: {stated_value: {}, mean: {}, median: {}, dispersion: {}, count: {}, bound: {}}
+  AssertionPolarityName:
+    permissible_values: {positive: {}, negative: {}}
+  AssertionModalityName:
+    permissible_values: {asserted: {}, defined: {}, hypothetical: {}, possible: {}, probable: {}, required: {}}
+  DefinitionRelationName:
+    permissible_values: {definition: {}, alias: {}, abbreviation: {}, subclass: {}, instance: {}}
   ParameterRole:
     description: The role a parameter plays in its family.
     permissible_values:

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-combined-operation",
+  "title": "Offline immutable-snapshot combined GLiNER heads",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the selected exact local checkpoint execute the native combined record, entity-attribute, classification and relation operation?",
+  "answers": [],
+  "method": "Use strict Schema.from_dict admission and one native combined extract call on the retained development paragraph, loading the hashed immutable local snapshot offline.",
+  "commands": [
+    "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=4 uv run python docs/design_review/evidence/2026-11-03_m1-gliner-cpu/check_cpu_combined.py",
+    "just ready"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_cpu_combined.py",
+      "role": null,
+      "sha256": "f1ac0b440148d99af9dcaffe0c7dd5e12ff59b29fd97a2cfda98361a8f3604bf"
+    },
+    {
+      "path": "attempt-00003.json",
+      "role": null,
+      "sha256": "120fa575604ded3557a2cac96142d1f2e9369960b0bf52f808d9d01f155b555e"
+    },
+    {
+      "path": "attempt-00003.log",
+      "role": null,
+      "sha256": "970a5801849b35bf8a49e3b84037106958c75ac14f4003ffd7e6ba2b7a039711"
+    },
+    {
+      "path": "ready-after-dependency.log",
+      "role": null,
+      "sha256": "492bb494aa6edd53928f35d8837e3a7608aaefdb78e19b0376bd8eb59c714f65"
+    }
+  ],
+  "depends_on": [
+    "m1.cpu-snapshot-entity-operation"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All selected combined interfaces ran on CPU and returned decoded payloads. Record grouping, enum classification, entity attributes, multi-label content classification and relations are raw candidates, not complete or accepted source records. Changed schema changes entity outputs; no encoding-reuse, accuracy, overflow-completeness or release claim.",
+  "consumed_by": [
+    "M1-07"
+  ]
+}

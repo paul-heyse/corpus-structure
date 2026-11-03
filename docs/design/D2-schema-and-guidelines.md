@@ -1,5 +1,16 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## M1 released record boundaries
+
+**Accepted target, Proposed until implemented (2026-11-03).** The effective release declares
+five-family field roles, field-state and typed-value shapes, occurrence recipes and evidence-set
+contracts. Generated boundaries and owned cross-object validators consume those declarations;
+family adapters do not independently author requiredness. Optional private observation records
+preserve predecessor report meanings. New declarations do not establish native enforcement,
+reference accuracy or publication admission; those remain M1-02/03/13 obligations.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 ## Unified operation realization
 
 **Accepted target, Proposed until implemented (2026-11-02).** The resolved effective model owns explicit comparison-role projections, operation parameter/result correspondence and admitted invariant/diagnostic bindings. Typed callable and projection products derive from these definitions with versioned archive readers; annotation presence alone does not establish enforcement. Existing implementation claims below retain their scope.

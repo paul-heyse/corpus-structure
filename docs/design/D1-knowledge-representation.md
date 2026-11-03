@@ -1,5 +1,17 @@
 # D1 · Knowledge representation
 
+## M1 qualified source records
+
+**Accepted target, Proposed until implemented · 2026-11-03.**
+The effective semantic release owns complete record occurrences, field/state/evidence-set and
+record-to-assertion membership through existing observation, publication and read authorities.
+Preserve occurrence/fact identity, source precision and classified-versus-literal evidence. A new
+context version can express neighbors/notes/references without weakening existing frame versions.
+Candidate interpretation is distinct from accepted-rule inference. See the [M1 plan](../plans/first-production-milestone_2026-11-03.md)
+for implementation and qualification; this target is not yet implemented.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below

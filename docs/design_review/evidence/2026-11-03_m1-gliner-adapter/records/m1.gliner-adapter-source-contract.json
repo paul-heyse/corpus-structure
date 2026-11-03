@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "id": "m1.gliner-adapter-source-contract",
+  "title": "Installed GLiNER adapter source contracts",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What exact installed loader, combined-schema and diagnostic contracts must the thin native adapter preserve?",
+  "answers": [],
+  "method": "Use Context7 orientation followed by exact installed gliner2 2.1.0 source inspection; hash 21 inspected files and retain decisive module/function citations in the companion README.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "installed-source-sha256.json",
+      "role": null,
+      "sha256": "5b28f8faacf242a071c4db4899a711c8f9ed1cea2868f7f4adad35c3a6af81ff"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Installed-source contract research establishes local snapshot loading route, strict schema admission, literal/classified distinction, wrapper fingerprints and missing high-level diagnostics. It supplies implementation premises only; source inspection does not qualify actual head accuracy, resource fit or native publication.",
+  "consumed_by": [
+    "M1-07"
+  ]
+}

@@ -1,5 +1,17 @@
 # D6 · Orchestration, metrics and policies
 
+## M1 CPU extraction policy
+
+**Accepted target, Proposed until implemented · 2026-11-03.**
+An explicit CPU extraction policy uses registered methods/observations without general LLM
+extraction or hidden hosted fallback. Run-owned bounded admission/resident workers extend existing
+task fences and cancellation; they do not replace global agent/reference workflows. Source/model
+work executes outside publication transactions, and the existing consolidation boundary admits
+qualified records. Delivery is a qualified nondefault release; operational adoption awaits review.
+The [M1 coordinator](../plans/first-production-milestone_2026-11-03.md) owns current execution.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 **Earlier proposed detail (2026-10-28), qualified by the current semantic contracts below.** How a run executes: the stage graph, task lifecycle, caching and
 reuse, debug slices, GPU sharing on the RTX 5090, the metrics every stage records, and the
 policy language that decides which methods run where. Tables are in

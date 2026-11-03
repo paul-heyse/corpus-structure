@@ -6,6 +6,38 @@ This is the living diagnostic account of design principle misalignment, maintain
 owns its place before a design-review engagement. Ordinary implementation reads its plan and
 architectural owners; this collection is not default production-editing context.
 
+<a id="m1-initial-target-refresh"></a>
+
+## M1 initial-target engagement refresh — M1-20261103-r1
+
+**Source-inspected, 2026-11-03.** Baseline `ae30daba41aec5b4b89fc2ce6a7a4872f46f1f56`, initially
+clean. Core3.3, heuristics1.0, code-intelligence1.4; test-assessment1.2 informs verification advice
+without refreshing the separate test-audit account. Independent reviewer refreshed the decisive
+M1 surfaces because UM-20261101-r3 alone cannot establish applicability after source changes.
+
+- observations.py bind_result and observations.yaml provide release/producer/input-bound immutable
+  reports, coverage and measurements; a report system is not absent.
+- publication.py occurrence/evidence/role relations and execution-model.yaml relationships already
+  exist. M1's field sets, states and record-to-assertion membership require an extension; this is
+  new capability, not a defect in completed UM scope. Inspected observation/publication, physical
+  declarations and consumers; no exhaustive representation-absence claim is made.
+- NativeProposalFrame preserves product/projection/recipe pins and distinct direct ancestors.
+  Nonancestor context needs another supported contract, not relaxed ancestry meaning.
+- physical.yaml already declares PDF-native record/membership storage. Those source records are
+  distinct from semantic record occurrences. analysis_contracts.py already owns mathematical
+  interpretation context, assumptions and dependency-sensitive identities; compose with it.
+- run_source_methods binds source execution to released operations and currently requires complete
+  agent mode; phase-0 policy routes agent.opus. This does not establish M1 CPU admission.
+- sentences.py supplies exact atom-preserving layout/resident batching; richer annotations are
+  deliberate new scope because the current default excludes lemmatization.
+
+No new DA identity or inherited-finding closure is warranted by this scoped inspection. UM code
+implementation/validation remains complete by operator direction. Coverage excludes exhaustive
+native guards/ACLs/provider/evaluator/query/lifecycle, test-suite assessment and deployment.
+Tests, database operations, model execution and benchmarks: **not_run**. The
+[initial review](../reviews/design_review_m1-initial-target_2026-11-03.md) consumes this revision;
+publication commit is separate from inspected source. Earlier entries keep their dated limits.
+
 <a id="unified-model-refresh"></a>
 
 ## Current engagement refresh — unified domain model, 2026-11-01
