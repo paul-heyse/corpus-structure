@@ -42,7 +42,7 @@ _Updated 2026-11-03; UM implementation through native99 is integrated; current-s
 - **passed:** spawned logger/native-FD and typed Pipe stdio control; companion transaction controls.
 - **passed:** exact published-native post-read in build/um-native-recovery-postread-00001.
   Original helper-only post-check failure is preserved; no second import was performed.
-- **passed:** just lint-agents adr-lint deps clippy; evidence133records/0errors/39historical warnings.
+- **passed:** just lint-agents adr-lint deps clippy; evidence134records/0errors/39historical warnings.
   **failed, deferred:** just docs-check, existing library-publication links. Final handoff is still due.
 
 ## Next

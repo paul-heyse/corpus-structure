@@ -342,7 +342,6 @@ The coordinator is the sole disposition owner; previous source evidence remains 
 | UM-CA14 — UM-09/13/14 | Implemented and focused Tested under native97: Standard-child FD1 diagnostics route to stderr, preserving pre-bound TableFormer loggers, native writes and typed Pipe replies. Baseline failure and corrected success/error controls are retained. | Current book/CLI acceptance at UM-CA10; `build/um-native-stdio-{baseline,fixed}` and `um.native-stdio-renewal97` bound this correction. |
 | UM-CA15 — UM-09/14 | Implemented and scoped Tested under native97: bounded companion transactions and inventory hashing outside the task fence remove the observed renewal lock contention. Existing model-owned isolation and protected append-only/count checks preserve freeze semantics. | Actual native publication and post-termination read passed. Required36-node selection is closed by `build/um-native97-renewal-union.json`; earlier failed receipts remain failed. No timeout increase or weakened validation. |
 | UM-CA16 — UM-14 | Implemented through native98: supplied raw pins use the canonical organizer; same-task exact published output custody permits organization before source-view selection. All40 affected controls pass, including13 native; author/replay has exactly two source changes and no schema/policy change. | Ordinary five-section consumer acceptance remains active. Preserve selected/declared-input and cross-task/document/source/project refusals. |
-
 | UM-CA17 — UM-03/05/14 | Implemented and scoped Tested under native99: exact-pin batch qualification of the excluded furniture frontier preserves body membership/text/items and strict missing/body/identity refusals. All33 affected controls pass, including12 native; actual run6 passes the former failure and reuses task5’s organized pin. | Complete final integrated publication and five-view/external/provider acceptance at UM-CA10. Diagnostic receipt and all failed run5 artifacts remain; no organization or conversion was repeated for this repair. |
 
 ### UM-CA13 evidence and closure
@@ -418,36 +417,37 @@ predecessor checks retain their limits. Final source must be qualified after bro
 
 ## Current execution checkpoint — 2026-11-02
 
-**Implemented / bounded Tested (2026-11-03); integrated acceptance remains open.**
+**Implemented / bounded Tested (updated2026-11-03); actual consumer/provider acceptance open.**
 Current compiler14/boundary12/execution23/archive3 and ADR-0047 remain the current-only
-architecture. UM-CA13 and UM-TA01–04 implementation is integrated in `7188cafb`. Native96
-records those source changes; native97 adds the qualified freeze/renewal correction and child
-diagnostic routing; native98 records canonical source selection and exact current-task output custody. Frozen predecessors are immutable. The current app database is
-`corpus_pdf_20261102`/OID16934542 on dedicated18/corpus, deployed through98; other clusters
-remain unchanged. The owned Nemotron service is available on8035. Readiness is not inference.
+architecture. `7188cafb` integrates UM-CA13 and UM-TA01–04. Native96 records that provenance;
+`f536fede`/native97 repairs freeze/renewal and child diagnostics; `b349bf59`/native98 unifies source
+selection and exact current-task output custody; `38cdb8ba`/native99 qualifies excluded furniture
+children without changing body membership. Frozen predecessors remain immutable. Application
+`corpus_pdf_20261102`/OID16934542 is deployed through99 on dedicated18/corpus; other clusters
+are unchanged. Owned Nemotron8035 readiness is not inference.
 
-The actual full-book Standard conversion acknowledged1589 pages and performed CodeFormulaVLM
-enrichment, then failed on renewal lock contention during companion adoption. Its cancelled
-run3, private build, native spool, OCR metadata and warnings remain retained. Native97 fixes the
-transaction/fence issue; it does not relabel that attempt as successful. A verified complete
-retained native observation was re-lowered and published through the current protected append/
-freeze/validate/seal route under task4, avoiding another model pass. Its actual post-termination
-read passed in `build/um-native-recovery-postread-00001`. It preserves original native health
-and formula outcomes; an unavailable original OCR-region inventory remains unknown. No historical
-knowledge or organized semantic outputs are imported.
+The failed full-book Standard run3, private spool and OCR metadata remain retained. Qualified
+native task4 was re-lowered through the current protected publication route and passed exact
+post-termination read with unchanged health/6342 formula outcomes. Unknown original candidate/
+OCR-region inventory remains unknown; no historical knowledge or semantic outputs were imported.
+Run5 published its organized product, then failed at the body/furniture closure seam. Native99
+fixes that seam. Run6/task6 now reuses task5's exact organized pin, has passed the former failure,
+and has admitted3441 cached recognition observations without new recognition result files or
+native/organized republication. Its final integrated build is undergoing protected publication;
+five-view source-ready state is not yet established.
 
-The full functional attempt retained3295 passing calls and one failed alias-fixture case; its
-corrected actual-statistics CLI/MCP/advice case passed. Native97's affected36-node union has no
-unresolved required nodes. Current source/provider/reference/evaluator acceptance and the final
-source/context union remain open. The previously interrupted79 math cases have passing evidence;
-no separate rerun is needed. Exact receipt applicability belongs to UM-15.
+The Python functional/native required union is3318 distinct nodes,563 native, zero unresolved,
+with complete provenance and explicit96/97/98/99 applicability. Original failed aggregates stay
+failed. Warning-inclusive whole types and scoped final99 Ruff passed. The bounded durable owner is
+[um.section-closure-qualification99](../design_review/evidence/2026-11-03_um-section-closure-qualification/README.md).
+Formerly interrupted math cases have passing evidence; no separate historical rerun is needed.
+These facts do not establish external consumers, extraction, independent references or grading.
 
-**Next executable work:** finish ordinary run5/task5 source preparation from the exact retained
-native pin and its intact five-section source views, then exercise actual CLI/MCP/export and
-independent automated reference/evaluation
-consumers. The [remaining-execution account](#remaining-execution--2026-11-02) owns detailed
-commands and retained failures. Additional unselected improvement proposals remain unadopted;
-diagnostic audit premises are unchanged.
+**Next executable work:** finish integrated publication and intact five-section preparation in
+run6, then exercise actual CLI/MCP/render/export and independent automated reference/evaluator
+consumers. The [remaining-execution account](#remaining-execution--2026-11-02) retains commands,
+failed receipts and scope limits. Unselected improvement proposals and diagnostic audit premises
+are unchanged.
 
 ### Settled closeout evidence
 

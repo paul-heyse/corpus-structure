@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "id": "um.section-closure-qualification99",
+  "title": "Native99 body-only frontier correction and final functional required union",
+  "group": "unified-domain-model",
+  "package": "UM-14/15/CA17",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current exact-pin section constructor qualify excluded native children without broadening body membership or hiding missing body relationships, and does the declared final99 functional required union have applicable passing evidence?",
+  "answers": [
+    "UM-CA17",
+    "UM-14",
+    "UM-15"
+  ],
+  "method": "Diagnose the five actual selected sections against the immutable task5 organized product in a read-only transaction, using existing Core section/item selectors. Exercise independent mixed-layer, offset, membership and refusal controls plus real protected publication and affected downstream native consumers at native99. Reconcile the new selection with the immutable 3311-node native98 account using the existing receipt classifier, disjoint source applicability and exact non-descriptor native product equality. Retain every attempt unchanged; no tests or database operations ran during this archival step.",
+  "commands": [
+    "uv run python scripts/test_receipts.py run --out-dir build/test-receipts/um-frontier-unit-00001 --python-only -- python/corpus-structure/tests/semantic/test_published_section_views.py -n 0 --basetemp build/tmp/um-frontier-unit-00001",
+    "uv run python scripts/test_receipts.py run --out-dir build/test-receipts/um-frontier-unit-00002 --python-only -- python/corpus-structure/tests/semantic/test_published_section_views.py --basetemp build/tmp/um-frontier-unit-00002",
+    "uv run python scripts/test_receipts.py run --out-dir build/test-receipts/um-frontier-unit-00003 --python-only -- python/corpus-structure/tests/semantic/test_published_section_views.py --basetemp build/tmp/um-frontier-unit-00003",
+    "uv run python scripts/test_receipts.py run --out-dir build/test-receipts/um-native99-final-affected-00001 --python-only -- python/corpus-structure/tests/semantic/test_published_section_views.py python/corpus-structure/tests/semantic/test_published_document_native.py python/corpus-structure/tests/semantic/test_published_operation_reports.py python/corpus-structure/tests/semantic/test_selected_source_native.py python/corpus-structure/tests/semantic/test_pdf_native_consumer_journey.py python/corpus-structure/tests/semantic/test_published_region_artifact.py python/corpus-structure/tests/semantic/test_source_views.py::test_native_source_view_is_real_unit_with_exact_context python/corpus-structure/tests/ingest/test_source_capture.py python/corpus-structure/tests/semantic/test_native_closure.py::test_current_frozen_head_witness_records_current_authoring_provenance python/corpus-structure/tests/semantic/test_native_closure.py::test_model_products_match_frozen_current_native_state python/corpus-structure/tests/semantic/test_native_closure.py::test_restricted_complete_archive_replay_and_immutable_closure python/corpus-structure/tests/semantic/test_native_sql_body.py::test_current_native_sources_own_release_guards_and_record_only_views --basetemp build/tmp/um-native99-final-affected-00001",
+    "just types",
+    "uv run ruff check python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py python/corpus-structure/tests/semantic/test_published_section_views.py python/corpus-structure/tests/semantic/test_published_document_native.py python/corpus-structure/tests/semantic/test_selected_source_native.py",
+    "uv run ruff check python/corpus-structure/src/corpus_structure/semantic/execution_admission.py python/corpus-structure/semantic_alembic/versions/0099_um_section_closure.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "README.md.j2",
+      "role": "readable scope and catalog-derived result figures",
+      "sha256": "369676259b21886548e0b6ea77a45d3accd10c8312b712b76974f9ba176f98e4"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "exact final3318 union/applicability manifests, new99 and unit-attempt receipts, diagnosis and maintenance logs; bounded run6 cache-admission snapshot only",
+      "sha256": "e8aa4de8ad0660da229f828ffd2cc82801c222b8daeaa39962e01e989ae1881a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-03_um-section-closure-forward/um.native-section99",
+    "2026-11-03_um-native-observation-recovery/um.native-observation-recovery97"
+  ],
+  "results": [
+    {
+      "name": "required_python_nodes",
+      "value": 3318,
+      "of": null,
+      "unit": "distinct nodes",
+      "note": null
+    },
+    {
+      "name": "required_native_nodes",
+      "value": 563,
+      "of": 3318,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "unresolved_required_nodes",
+      "value": 0,
+      "of": 3318,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "native99_affected_nodes",
+      "value": 33,
+      "of": 33,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "native99_affected_native_nodes",
+      "value": 12,
+      "of": 33,
+      "unit": "nodes",
+      "note": "Complete item-bound native acquisition provenance."
+    },
+    {
+      "name": "new_required_controls",
+      "value": 7,
+      "of": null,
+      "unit": "nodes",
+      "note": "Six independent frontier controls plus one actual protected mixed-layer publication."
+    },
+    {
+      "name": "diagnosed_sections",
+      "value": 5,
+      "of": 5,
+      "unit": "sections",
+      "note": null
+    },
+    {
+      "name": "diagnosed_excluded_child_references",
+      "value": 101,
+      "of": null,
+      "unit": "references",
+      "note": "All actual targets exist in the same immutable placement with furniture content_layer."
+    },
+    {
+      "name": "whole_warning_inclusive_types",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "scoped_ruff",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Existing worker tool transcript covers the section-view source and three test files; separate native99 log covers only admission pin and migration wrapper. No whole-project Ruff claim."
+    },
+    {
+      "name": "stock_integrated_provider_acceptance",
+      "value": "OPEN",
+      "of": null,
+      "unit": null,
+      "note": "Separate operational obligation; no completion credit from this record."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Bounded Tested on 2026-11-03UTC: native99 qualifies the selected-child frontier with one existing exact-pin item batch per affected section, admits only complete identities with actual nonbody layers, and augments temporary projector nodes only. Body text, Unicode positions, selected/ancestor memberships and source-frame items remain unchanged; absent, extra, wrong-identity, body and default-body frontier values refuse. The 33-node affected endpoint passes, including12 actual-native requirements, alongside warning-inclusive whole-project types and scoped Ruff. The 3318-node declared Python functional union (563 requiring actual native provenance) has zero unresolved obligations under explicit disjoint final-source applicability; original failed/incomplete attempts remain unchanged and the aggregate classifier stays failed. The exact 3311@98 archive remains immutable. The retained run6 cache-admission receipt shows bounded progress beyond the former section failure using task5 organized data, with no new recognition attempt result; final integrated publication, stock-source/provider/consumer acceptance, knowledge, reference fidelity and grading remain OPEN or not_run in their owning operational scope.",
+  "consumed_by": [
+    "UM-CA17",
+    "UM-14",
+    "UM-15",
+    "D3",
+    "unified-domain-model coordinator"
+  ]
+}

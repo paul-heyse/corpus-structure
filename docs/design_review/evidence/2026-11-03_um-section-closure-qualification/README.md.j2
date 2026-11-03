@@ -1,0 +1,94 @@
+{% set gid = '2026-11-03_um-section-closure-qualification/um.section-closure-qualification99' %}
+{% set r = record(gid) %}
+# Selected section frontier qualification
+
+**2026-11-03 UTC · bounded Tested · {{ r.outcome }} for the body-only frontier correction and
+explicitly declared functional required union. Operational acceptance remains separate.**
+
+## Actual failure and correction
+
+Stock run5 successfully published organized task5 but source preparation failed because the
+body-only relational closure omitted valid furniture children retained in the native graph.
+The shared projector requires each child identity before applying its content-layer exclusion.
+The exact product is task5 / `organized` /
+`28d8e22275dc6b069ed42e4e3fa82ed98dddf37801e5e122b069520a7e42b42f`, build
+`311412b381d959f4b52bc198f47633daa3e99ab33a4915583605474b68db140c`.
+
+The [read-only diagnosis](raw/diagnosis/um-selected-closure-diagnosis-00001.json) used the
+existing Core section and item selectors against `corpus_pdf_20261102`, OID16934542. The missing
+child counts were 26/26/8/27/14 for Sets, Functions, Relations, Combinatorial Structures and the
+Normal Distribution. Every referenced target exists in the same immutable placement and has
+`content_layer=furniture`; this was a selective-closure composition defect, not missing product
+rows. For example, Sets parent `#/groups/3458` references excluded footer `#/texts/525`.
+
+The single captured implementation change is
+`python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py`, SHA256
+`4aea4832d6491e7fc7f38d12c5d9e4d6ab8053a43616f13326bc2aa1b1d76fb9`, committed in
+`38cdb8ba`. The existing exact-pin item selector resolves the missing child frontier once per
+section when necessary. Complete returned keys, exact `self_ref` identities and actual nonbody
+layers are required before temporary projector-node augmentation. Body/default-body, absent,
+extra or mismatched identities still refuse with section/target diagnostics. Existing qualified
+direct-section boundaries remain excluded. The shared projector, selected body/ancestor tuples,
+source-view items, `.items`, health and offsets retain their original meaning. There is no
+whole-book hydration, per-pointer fetch, fabricated coverage, new policy registry or native SQL
+shape change. Native99 source authoring/admission is independently recorded in
+[the provenance record](../2026-11-03_um-section-closure-forward/records/um.native-section99.json).
+
+## Accepted result
+
+| Observation | Result |
+|---|---|
+{% for item in query('SELECT name, value_num, value_text, unit FROM record_results WHERE gid = $gid ORDER BY ord', gid=gid) %}
+| {{ item.name }} | {% if item.value_num is not none %}{{ num(item.value_num, 0) }}{% else %}{{ item.value_text }}{% endif %}{% if item.unit %} {{ item.unit }}{% endif %} |
+{% endfor %}
+
+The final native99 endpoint covers selected section construction/refusals, raw and retained
+projection, rich cells/charts, independent mixed-layer body text/positions, actual protected
+mixed-layer publication, selected exports/offline preparation, downstream evidence/region/report
+consumers, source views and current frozen-native custody. Its
+[complete receipt](raw/receipts/um-native99-final-affected-00001/classification.json.gz) has complete
+native provenance. The final warning-inclusive `just types` log is under
+[raw/maintenance](raw/maintenance). The section-view source and three test files passed scoped
+Ruff; [the transcribed existing worker result](raw/maintenance/owned-ruff-transcript.json) retains
+its exact command/output without rerunning it. The separate `um-native99-ruff.log` covers only
+the admission-pin module and new migration wrapper, as its retained
+[scope metadata](raw/maintenance/native99-ruff-scope.json) states. No whole-project Ruff coverage
+is claimed. The initial scoped type run found only new test-value
+narrowing errors; its failed log and corrected passing log remain retained. The final whole
+warning-inclusive run passed after those corrections.
+
+The original unit attempt00001 is **incomplete**: unsupported `-n 0` prevented collection.
+Attempt00002 passed; the final unit attempt00003 passed after the explicit non-string-layer
+guard and test typing corrections. Those receipts remain unchanged under `raw/receipts/`.
+The current 33-node endpoint independently re-exercised all frontier controls on final99 source.
+
+## Declared functional union and limits
+
+The [exact required manifest](raw/functional/um-final99-required-functional.json.gz),
+[complete classifier union](raw/functional/um-final99-functional-union.json.gz) and
+[source applicability](raw/functional/um-final99-functional-applicability.json.gz) retain the
+single qualification account's actual scope. The disjoint groups are 3,214 unchanged native96
+nodes, 36 renewal native97 nodes, 35 unaffected prior98 nodes and 33 affected99 nodes. The corresponding
+actual-native requirements are 514/28/9/12. All non-descriptor frozen native products98 and99 are
+exactly equal. New/changed assertions cannot inherit an old pass solely because the node ID is
+the same. Original failures remain preserved, so the aggregate classifier intentionally remains
+`failed` despite zero unresolved required nodes. Empty Rust selection is not functional Rust
+coverage. The earlier 3311@98 archive and broad/97/98 receipt directories remain immutable in
+[the dependency record](../2026-11-03_um-native-observation-recovery/records/um.native-observation-recovery97.json);
+only the new99/unit receipts and final union are retained here.
+
+Run6 reused the existing task5 organized pin and passed the former failure before completing
+current cached observation admission. The immutable
+[cache-admission receipt](raw/operational-snapshot/attempt-00004/recognition-replay-receipt.json)
+records 3,441 admitted observations with unchanged retained recognition-attempt counts and zero
+new recognition attempt results. Its own conclusion is **final integrated publication pending**,
+with new provider execution `not_claimed`. This establishes bounded recovery progress only.
+Final stock-source, integrated, provider and downstream consumer acceptance remain **OPEN** in
+the UM/PDF operational owner. Knowledge, independent reference fidelity and grading receive no
+completion credit from this record; no full-plan acceptance is claimed here.
+
+[Retained-file manifest](raw/retained-files.json) binds each original path, byte length, SHA256,
+encoding and retained path. Gzip files decompress to the original bytes. Original PDF/native
+values and private spools are not copied. The [source context](raw/source-context.json) ties these
+existing receipts to the final99 source. Retaining/finalizing these artifacts ran no new test,
+probe, database operation, conversion, inference or provider call.
