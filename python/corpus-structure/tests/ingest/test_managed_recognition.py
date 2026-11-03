@@ -91,3 +91,8 @@ def test_backend_retains_generation_mismatch_without_trust_upgrade(
     )
     assert (tmp_path / row["http_response"]).exists()
     backend.client.close()
+
+
+def test_persisted_producer_version_cannot_be_silently_relabelled():
+    with pytest.raises(ValueError, match="persisted producer version"):
+        producer_binding("agent.general", {"model": "configured"}, method_version="semantic-old")

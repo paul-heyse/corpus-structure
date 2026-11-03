@@ -25,12 +25,16 @@ class ProducerBinding:
 
 
 def producer_binding(
-    method: str, configuration: Mapping[str, Any], *, unit: str = TaskUnitType.SOURCE_VIEW
+    method: str, configuration: Mapping[str, Any], *, unit: str = TaskUnitType.SOURCE_VIEW,
+    method_version: str | None = None,
 ) -> ProducerBinding:
+    from corpus_structure.semantic.operations import OperationConflict
     from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
 
+    if method_version is not None and method_version != SEMANTIC_AGENT_VERSION:
+        raise OperationConflict("persisted producer version is not executable by this runtime")
     if method not in SUPPORTED_PRODUCERS:
-        raise ValueError(f"{method}: no implemented proposal producer binding")
+        raise OperationConflict(f"{method}: no implemented proposal producer binding")
     protocol = configuration.get("proposal_protocol", PROPOSAL_PROTOCOL)
     version = configuration.get("proposal_version", SEMANTIC_AGENT_VERSION)
     execution_kind = configuration.get("execution_kind", "agent")
@@ -43,9 +47,11 @@ def producer_binding(
         "agent",
         "extract",
     ):
-        raise ValueError("producer unit/protocol/version/execution kind/mode is not executable")
+        raise OperationConflict(
+            "producer unit/protocol/version/execution kind/mode is not executable"
+        )
     if not isinstance(model, str) or not model.strip():
-        raise ValueError("producer requires an explicitly configured model")
+        raise OperationConflict("producer requires an explicitly configured model")
     return ProducerBinding(method, str(unit), protocol, version, execution_kind, mode, model)
 
 

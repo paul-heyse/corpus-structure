@@ -174,7 +174,8 @@ class SemanticAgentSession:
         admitted_events = []
         with self.lock, self.engine.begin() as conn:
             rows = conn.execute(
-                select(configs.c.id, configs.c.params, methods.c.name.label("method"))
+                select(configs.c.id, configs.c.params, methods.c.name.label("method"),
+                       methods.c.version.label("method_version"))
                 .join(methods, methods.c.id == configs.c.method_id)
                 .join(table("ops.task"), table("ops.task").c.method_config_id == configs.c.id)
                 .where(
@@ -187,7 +188,8 @@ class SemanticAgentSession:
             ).mappings()
             for row in rows:
                 preparation = {}
-                binding = producer_binding(row["method"], row["params"])
+                binding = producer_binding(row["method"], row["params"],
+                                           method_version=row["method_version"])
                 if binding.mode != mode:
                     continue
                 limit = min(max_units or 1, row["params"].get("max_units", 1))

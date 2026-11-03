@@ -82,9 +82,11 @@ def extract_run(
         if not any(state in {"pending", "running", "awaiting_agent"} for state in states):
             return None
         bindings = [
-            producer_binding(row["method"], row["params"])
+            producer_binding(row["method"], row["params"],
+                             method_version=row.get("method_version"))
             for row in conn.execute(
-                select(configs.c.params, methods.c.name.label("method"))
+                select(configs.c.params, methods.c.name.label("method"),
+                       methods.c.version.label("method_version"))
                 .join(tasks, tasks.c.method_config_id == configs.c.id)
                 .join(methods, configs.c.method_id == methods.c.id)
                 .where(

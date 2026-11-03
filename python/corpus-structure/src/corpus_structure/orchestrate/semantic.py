@@ -857,7 +857,8 @@ def agent_packet(
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     row = (
         conn.execute(
-            select(t, c.c.params, m.c.name.label("method"))
+            select(t, c.c.params, m.c.name.label("method"),
+                   m.c.version.label("method_version"))
             .join(c, t.c.method_config_id == c.c.id)
             .join(m, m.c.id == c.c.method_id)
             .where(t.c.id == task_id, t.c.run_id == run_id)
@@ -868,7 +869,8 @@ def agent_packet(
     ref = UnitRef(TaskUnitType(row["unit_type"]), row["unit_id"], row["unit_key"])
     from corpus_structure.methods.llm.producer import producer_binding
 
-    producer_binding(row["method"], row["params"], unit=ref.unit_type)
+    producer_binding(row["method"], row["params"], unit=ref.unit_type,
+                     method_version=row["method_version"])
     from corpus_structure.semantic.proposals import ProposalRefused
 
     try:
