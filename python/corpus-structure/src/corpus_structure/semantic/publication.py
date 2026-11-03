@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from contextlib import nullcontext
-from dataclasses import asdict, astuple, dataclass, field, fields, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any, Protocol
@@ -55,6 +55,7 @@ from .record_projection import (
     RecordReportRow,
     SourceRecordRow,
 )
+from .refusals import SemanticReason, decode_semantic_reason
 from .types import PreparedRelease
 
 
@@ -275,6 +276,7 @@ class AssessmentRow:
     counterpart_occurrence_id: str | None = None
     context_value_id: str | None = None
     comparison_tier: str | None = None
+    semantic_reason: SemanticReason | None = None
 
 
 @dataclass(frozen=True)
@@ -348,6 +350,15 @@ STAGE_TYPES: dict[str, tuple[type, tuple[str, ...]]] = {
     )
     for name, row_type in _ROW_TYPES.items()
 }
+
+
+def publication_row_values(row) -> tuple[Any, ...]:
+    """Preserve the structured object when freezing an immutable reason dataclass."""
+    return tuple(
+        asdict(value) if isinstance(value, SemanticReason) else value
+        for field in fields(row)
+        for value in (getattr(row, field.name),)
+    )
 
 
 @dataclass(frozen=True)
@@ -457,6 +468,20 @@ class PublicationBatch:
             for row in rows:
                 for column in fields(row):
                     value = getattr(row, column.name)
+                    if (
+                        name == "assessment"
+                        and column.name == "semantic_reason"
+                        and value is not None
+                    ):
+                        if (
+                            not isinstance(value, SemanticReason)
+                            or value.release_id != self.release_id
+                        ):
+                            raise ValueError(
+                                "assessment reason requires its trusted release identity"
+                            )
+                        decode_semantic_reason(value)
+                        continue
                     if type(value) not in {str, int, bool, Decimal, type(None)}:
                         raise TypeError(f"{name}.{column.name} must be an immutable scalar")
                     if isinstance(value, Decimal) and not value.is_finite():
@@ -468,7 +493,7 @@ class PublicationBatch:
     def content(self) -> bytes:
         body = {}
         for name in STAGE_TYPES:
-            rows = [list(astuple(row)) for row in getattr(self, name)]
+            rows = [list(publication_row_values(row)) for row in getattr(self, name)]
             # Native receipt encoding uses exact textual numeric representations.
             for row in rows:
                 for index, typ in enumerate(STAGE_TYPES[name][1]):
@@ -682,9 +707,10 @@ def stage_batch(
                 for row in getattr(batch, name):
                     if cancellation is not None:
                         cancellation.check_active()
-                    values = astuple(row)
-                    if name == "typed_value" and values[-1] is not None:
-                        values = (*values[:-1], Jsonb(values[-1]))
+                    values = tuple(
+                        Jsonb(value) if typ == "jsonb" and value is not None else value
+                        for value, typ in zip(publication_row_values(row), types, strict=True)
+                    )
                     copy.write_row(values)
 
 

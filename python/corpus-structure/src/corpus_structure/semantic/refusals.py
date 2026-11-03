@@ -2,12 +2,14 @@
 
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from functools import wraps
+from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Literal, Self
 
 import adbc_driver_manager
 import psycopg
 from psycopg_pool import PoolClosed, PoolTimeout, TooManyRequests
+from pydantic import ConfigDict, TypeAdapter
+from pydantic.dataclasses import dataclass as validated_dataclass
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
@@ -26,7 +28,7 @@ SemanticReasonCode = Literal[
 ]
 
 
-@dataclass(frozen=True)
+@validated_dataclass(frozen=True, config=ConfigDict(strict=True, extra="forbid"))
 class SemanticReason:
     """An operation's expected inability to decide, without interpreting human text."""
 
@@ -40,6 +42,29 @@ class SemanticReason:
 
     def render(self) -> str:
         return self.detail or self.code.replace("_", " ")
+
+
+@cache
+def semantic_reason_adapter() -> TypeAdapter[SemanticReason]:
+    return TypeAdapter(SemanticReason)
+
+
+def decode_semantic_reason(value: object) -> SemanticReason | None:
+    """Decode only the selected structured reason field; historical prose stays prose."""
+    from .identity import canonical_bytes
+
+    if value is None:
+        return None
+    if isinstance(value, SemanticReason):
+        value = asdict(value)
+    return semantic_reason_adapter().validate_json(
+        value if isinstance(value, (str, bytes)) else canonical_bytes(value), strict=True
+    )
+
+
+def semantic_reason_identity(reason: SemanticReason) -> dict[str, Any]:
+    """Human wording is not the identity of an expected semantic inability."""
+    return {key: value for key, value in asdict(reason).items() if key != "detail"}
 
 
 class SemanticOperationRefusal(SemanticRefusal):

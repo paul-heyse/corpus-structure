@@ -7,7 +7,7 @@ projection; lexical decimal and temporal text never cross a lossy native convers
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import astuple, dataclass, field, fields
+from dataclasses import dataclass, field, fields
 from decimal import Decimal
 from hashlib import sha256
 from types import MappingProxyType
@@ -20,7 +20,13 @@ from corpus_structure.core.db.lifetime import BorrowerCancellation
 from .arrow_transfer import ArrowTransferError, ArrowWriteProfile, copy_arrow_stream
 from .identity import canonical_bytes
 from .metadata import PHYSICAL_MODEL_ID
-from .publication import STAGE_TYPES, PublicationBatch, PublicationReceipt, _publish
+from .publication import (
+    STAGE_TYPES,
+    PublicationBatch,
+    PublicationReceipt,
+    _publish,
+    publication_row_values,
+)
 from .query import SnapshotBinding
 
 
@@ -161,6 +167,10 @@ class AppendPublication:
                 ):
                     if pg_type == "numeric" and isinstance(row[column.name], Decimal):
                         row[column.name] = format(row[column.name], "f")
+                    elif pg_type == "jsonb" and row[column.name] is not None:
+                        import json
+
+                        row[column.name] = json.loads(row[column.name])
                 rows.append(list(row.values()))
             body[name] = sorted(rows, key=canonical_bytes)
             frozen[name] = value
@@ -185,7 +195,14 @@ class AppendPublication:
         relations = {}
         for name, (row_type, _) in STAGE_TYPES.items():
             names = [f.name for f in fields(row_type)]
-            rows = [dict(zip(names, astuple(r), strict=True)) for r in getattr(batch, name)]
+            rows = [
+                dict(zip(names, publication_row_values(r), strict=True))
+                for r in getattr(batch, name)
+            ]
+            for row in rows:
+                for column, typ in zip(names, STAGE_TYPES[name][1], strict=True):
+                    if typ == "jsonb" and row[column] is not None:
+                        row[column] = canonical_bytes(row[column]).decode()
             decimals = {}
             if name == "typed_value":
                 for column in ("integer_value", "numeric_value"):

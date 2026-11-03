@@ -1107,6 +1107,13 @@ def _prepare_release_uncached(
             ),
         ),
     )
+    from .refusals import semantic_reason_adapter
+
+    artifacts.append(
+        PreparedArtifact(
+            "semantic_reason.schema.json", canonical_bytes(semantic_reason_adapter().json_schema())
+        )
+    )
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
     if execution is not None:
         artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))

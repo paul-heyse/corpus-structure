@@ -599,8 +599,18 @@ END $fn$;
 
 CREATE OR REPLACE FUNCTION data.validate_entity_source(r text,z text) RETURNS void LANGUAGE plpgsql STABLE
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE source data.entity_source; observation kb.observation; declaration jsonb; decision data.entity_resolution; policy jsonb; provisional text; declaration_ordinal bigint;
+DECLARE source data.entity_source; observation kb.observation; declaration jsonb; decision data.entity_resolution; policy jsonb; provisional text; declaration_ordinal bigint; reason_schema json; assessed data.assessment;
 BEGIN
+ SELECT convert_from(content,'UTF8')::json INTO reason_schema FROM sem.artifact
+  WHERE release_id=r AND artifact_name='semantic_reason.schema.json';
+ FOR assessed IN SELECT * FROM data.assessment WHERE release_id=r AND realization_id=z AND semantic_reason IS NOT NULL LOOP
+  IF reason_schema IS NULL OR NOT public.json_matches_schema(reason_schema,assessed.semantic_reason::json)
+   OR assessed.semantic_reason->>'release_id' IS DISTINCT FROM r OR NOT EXISTS(
+    SELECT FROM sem.registry_row model
+    CROSS JOIN LATERAL jsonb_array_elements(convert_from(model.body,'UTF8')::jsonb->'operations') operation
+    WHERE model.release_id=r AND model.kind='execution_model' AND operation->>'id'=assessed.semantic_reason->>'operation') THEN
+   RAISE EXCEPTION 'assessment semantic reason differs from its released operation contract' USING ERRCODE='23514'; END IF;
+ END LOOP;
  FOR source IN SELECT * FROM data.entity_source WHERE release_id=r AND realization_id=z LOOP
   SELECT * INTO STRICT observation FROM kb.observation WHERE id=source.observation_id;
   IF observation.payload_definition<>'AgentStoredBatch' THEN

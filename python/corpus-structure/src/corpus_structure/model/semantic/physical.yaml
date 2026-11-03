@@ -1642,6 +1642,7 @@ classes:
       comparison_tier:
         range: string
         required: false
+      semantic_reason: {range: json_payload}
     unique_keys:
       primary_key:
         unique_key_slots:

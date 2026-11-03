@@ -45,7 +45,13 @@ from .publication import (
     _publish,
 )
 from .query import SnapshotBinding
-from .refusals import SemanticOperationRefusal, SemanticReason, SemanticReasonCode, SemanticRefusal
+from .refusals import (
+    SemanticOperationRefusal,
+    SemanticReason,
+    SemanticReasonCode,
+    SemanticRefusal,
+    semantic_reason_identity,
+)
 from .releases import open_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
@@ -224,6 +230,86 @@ class CandidateContextIndex:
                 symbol for symbol, owners in self.symbol_owners.items() if owners - {occurrence_id}
             )
         )
+
+
+def _candidate_reading(prepared, candidate, raw, readings):
+    """Translate only owned preparation/reading inability; programming errors propagate."""
+    from corpus_structure.core.evidence import MacroDef
+
+    from .analysis_contracts import prepare_interpretation_context
+    from .grammar_profile import GRAMMAR_KINDS
+    from .rule_views import Reading
+    from .types import PreparationError
+
+    lexical = raw.get("expression")
+    if lexical is None:
+        return None, None
+    if raw.get("language") != "latex":
+        return None, SemanticReason(
+            "unsupported_interpretation",
+            "evaluate",
+            prepared.release_id,
+            (candidate.occurrence_id,),
+            expected="latex",
+            actual=raw.get("language"),
+            detail="scientific expression language has no declared reading operation",
+        )
+    try:
+        macros = {name: MacroDef.model_validate(value) for name, value in candidate.macros.items()}
+        kind = str(raw.get("kind"))
+        context = prepare_interpretation_context(
+            prepared,
+            macros=macros,
+            constants=candidate.constants,
+            bindings=raw.get("bindings", ()),
+            kind="set_expr" if kind == "set" else "any_value",
+            demand="symbolic",
+        )
+        key = (lexical, kind, context.key())
+        if key not in readings:
+            from corpus_structure.methods.math.prepared import PreparedMathInput
+
+            result = PreparedMathInput(context, lexical).symbolic_reading()
+            context.validate_result(
+                produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
+                interpretation=result.status.value,
+                completeness="failed" if result.failure else "complete",
+            )
+            readings[key] = Reading(
+                result.status.value,
+                GRAMMAR_KINDS.get(result.kind or ""),
+                tuple(
+                    sorted(
+                        {
+                            occurrence.name
+                            for occurrence in result.occurrences
+                            if not occurrence.constant
+                        }
+                    )
+                ),
+            )
+        reading = readings[key]
+    except PreparationError as error:
+        return None, SemanticReason(
+            "preparation_failed",
+            "evaluate",
+            prepared.release_id,
+            (candidate.occurrence_id,),
+            expected="prepared interpretation context",
+            actual=",".join(sorted({diagnostic.code for diagnostic in error.diagnostics})),
+            detail=str(error),
+        )
+    if reading.status != "ok":
+        return reading, SemanticReason(
+            "preparation_failed" if reading.status == "failed" else "unsupported_interpretation",
+            "evaluate",
+            prepared.release_id,
+            (candidate.occurrence_id,),
+            expected="ok",
+            actual=reading.status,
+            detail="mathematical reading " + reading.status,
+        )
+    return reading, None
 
 
 @dataclass(frozen=True)
@@ -2731,7 +2817,16 @@ class ReleasedRulesPolicy:
                     "assessment:"
                     + sha256(
                         canonical_bytes(
-                            [VERSION, "value_equivalence", c.occurrence_id, detail, outcome]
+                            [
+                                VERSION,
+                                "value_equivalence",
+                                c.occurrence_id,
+                                semantic_reason_identity(semantic_reason)
+                                if semantic_reason is not None
+                                else detail,
+                                other.occurrence_id,
+                                outcome,
+                            ]
                         )
                     ).hexdigest()
                 )
@@ -2761,6 +2856,7 @@ class ReleasedRulesPolicy:
                         counterpart_occurrence_id=other.occurrence_id,
                         context_value_id=context_by_occurrence[c.occurrence_id],
                         comparison_tier=tier,
+                        semantic_reason=semantic_reason,
                     )
                 )
 
@@ -2856,10 +2952,10 @@ class ReleasedRulesPolicy:
                                         for key in _bindings(value)
                                     )
                                 )
-                                members, relations = comparator._constraints(
+                                member_constraints, relations = comparator._constraints(
                                     list(conditions), variables
                                 )
-                                if len(members) != leaves.count("member") or len(
+                                if len(member_constraints) != leaves.count("member") or len(
                                     relations
                                 ) != leaves.count("cmp"):
                                     raise DomainOperationRefused(
@@ -2890,7 +2986,23 @@ class ReleasedRulesPolicy:
                         continue
                     if comparison.tier is Tier.UNDECIDED:
                         detail = comparison.detail
-                        assessment(a, b, "undecided", detail, "undecided", comparison.evidence)
+                        assessment(
+                            a,
+                            b,
+                            "undecided",
+                            detail,
+                            "undecided",
+                            comparison.evidence,
+                            SemanticReason(
+                                "unsupported_interpretation",
+                                "scientific_policy",
+                                self.prepared.release_id,
+                                (a.occurrence_id, b.occurrence_id),
+                                expected="decisive scientific comparison",
+                                actual=comparison.evidence.numeric,
+                                detail=detail,
+                            ),
+                        )
                         unresolved.update(c.occurrence_id for c in members)
                     elif comparison.equal:
                         assessment(
@@ -3000,13 +3112,11 @@ class ReleasedRulesPolicy:
 
     def evaluate(self, inputs: CutInput, scope: AnalysisScope, fused: pa.Table) -> PolicyDecision:
 
-        from .grammar_profile import GRAMMAR_KINDS
         from .rule_views import (
             BindingView,
             EntityView,
             NodeView,
             QualifiersView,
-            Reading,
             StatementView,
             binding_symbols,
             project_rule_value,
@@ -3071,10 +3181,26 @@ class ReleasedRulesPolicy:
             if kind == "atomic":
                 return [NodeView("pred", None, value["predicate"], None, None)]
             if kind == "escape":
-                raise DomainOperationRefused(
-                    "source condition remains uninterpreted: " + value["reason"]
+                raise SemanticOperationRefusal(
+                    SemanticReason(
+                        "unsupported_interpretation",
+                        "evaluate",
+                        self.prepared.release_id,
+                        expected="admitted condition projection",
+                        actual="escape",
+                        detail="source condition remains uninterpreted: " + value["reason"],
+                    )
                 )
-            raise DomainOperationRefused("condition structure has no admitted rule projection")
+            raise SemanticOperationRefusal(
+                SemanticReason(
+                    "unsupported_interpretation",
+                    "evaluate",
+                    self.prepared.release_id,
+                    expected="admitted condition projection",
+                    actual=kind,
+                    detail="condition structure has no admitted rule projection",
+                )
+            )
 
         gives = {}
         for candidate in candidates:
@@ -3176,7 +3302,9 @@ class ReleasedRulesPolicy:
             value = None
             bindings = []
             unknown = None
+            unknown_reason = None
             reading_note = None
+            reading_reason = None
             if isinstance(c.object, str) and c.object in inputs.entity_metadata:
                 obj = entity(c.object)
                 prop = next(
@@ -3187,56 +3315,12 @@ class ReleasedRulesPolicy:
                 )
             else:
                 raw = c.rule_object if c.rule_object is not None else c.object
-                kind = str(raw.get("kind")) if isinstance(raw, dict) else "text"
-                latex = raw.get("expression") if isinstance(raw, dict) else None
                 reading = None
-                if isinstance(raw, dict) and latex is not None and raw.get("language") != "latex":
-                    reading_note = (
-                        "scientific expression language has no declared reading operation"
-                    )
-                if isinstance(raw, dict) and latex is not None and raw.get("language") == "latex":
-                    from corpus_structure.core.evidence import MacroDef
-
-                    from .analysis_contracts import prepare_interpretation_context
-
-                    macros = {
-                        name: MacroDef.model_validate(value) for name, value in c.macros.items()
-                    }
-                    context = prepare_interpretation_context(
-                        self.prepared,
-                        macros=macros,
-                        constants=c.constants,
-                        bindings=raw.get("bindings", ()),
-                        kind="set_expr" if kind == "set" else "any_value",
-                        demand="symbolic",
-                    )
-                    key = (latex, kind, context.key())
-                    if key not in readings:
-                        from corpus_structure.methods.math.prepared import PreparedMathInput
-
-                        result = PreparedMathInput(context, latex).symbolic_reading()
-                        context.validate_result(
-                            produced=(
-                                "lexical",
-                                "syntax",
-                                "occurrences",
-                                "interpretation",
-                                "symbolic",
-                            ),
-                            interpretation=result.status.value,
-                            completeness="failed" if result.failure else "complete",
-                        )
-                        reading = Reading(
-                            result.status.value,
-                            GRAMMAR_KINDS.get(result.kind or ""),
-                            tuple(sorted({o.name for o in result.occurrences if not o.constant})),
-                        )
-                        readings[key] = reading
-                    reading = readings[key]
-                    if reading.status != "ok":
-                        reading_note = "mathematical reading " + reading.status
-                    for binding in raw.get("bindings", ()):
-                        bindings.append(
+                if isinstance(raw, dict):
+                    reading, reading_reason = _candidate_reading(self.prepared, c, raw, readings)
+                    reading_note = reading_reason.render() if reading_reason is not None else None
+                    if raw.get("language") == "latex":
+                        bindings = [
                             BindingView(
                                 binding["symbol"],
                                 binding["kind"],
@@ -3244,7 +3328,8 @@ class ReleasedRulesPolicy:
                                 binding.get("claim"),
                                 binding.get("parameter"),
                             )
-                        )
+                            for binding in raw.get("bindings", ())
+                        ]
                 prop = next(
                     p for p in self.definitions[c.class_name].properties if p.iri == c.predicate
                 )
@@ -3282,9 +3367,13 @@ class ReleasedRulesPolicy:
                         ).get("condition")
                     )
                 )
-            except DomainOperationRefused as exc:
+            except SemanticOperationRefusal as exc:
                 condition_nodes = ()
-                unknown = str(exc)
+                unknown_reason = replace(
+                    exc.semantic_reason,
+                    references=(c.occurrence_id, *exc.semantic_reason.references),
+                )
+                unknown = unknown_reason.render()
             statement = (
                 StatementView(c.statement, c.statement, c.statement_kind or "")
                 if c.statement
@@ -3330,16 +3419,35 @@ class ReleasedRulesPolicy:
                 setattr(view, name, facts.get((c.occurrence_id, name), ()))
             findings = []
             if c.occurrence_id in incomplete_alternatives:
-                unknown = "source alternative has an unmaterialized member"
-            if c.unresolved_references:
-                unknown = "unresolved declared source endpoint: " + ",".join(
-                    c.unresolved_references
+                unknown_reason = SemanticReason(
+                    "missing_operands",
+                    "evaluate",
+                    self.prepared.release_id,
+                    (c.occurrence_id,),
+                    expected="materialized alternative members",
+                    actual="incomplete alternative",
+                    detail="source alternative has an unmaterialized member",
                 )
+                unknown = unknown_reason.render()
+            if c.unresolved_references:
+                unknown_reason = SemanticReason(
+                    "missing_operands",
+                    "evaluate",
+                    self.prepared.release_id,
+                    (c.occurrence_id, *c.unresolved_references),
+                    expected="bound source endpoints",
+                    actual="unresolved endpoints",
+                    detail="unresolved declared source endpoint: "
+                    + ",".join(c.unresolved_references),
+                )
+                unknown = unknown_reason.render()
             if reading_note:
-                findings.append(("operation.not_checkable", "warning", reading_note))
+                findings.append(
+                    ("operation.not_checkable", "warning", reading_note, reading_reason)
+                )
             if unknown:
                 # Unchecked projection or reading establishes neither a rule pass nor a refutation.
-                findings.append(("operation.not_checkable", "warning", unknown))
+                findings.append(("operation.not_checkable", "warning", unknown, unknown_reason))
             for raw, when, check in self.rules:
                 if not self.applies(raw, c):
                     continue
@@ -3353,13 +3461,24 @@ class ReleasedRulesPolicy:
                             if raw in self.source.get("guideline", ())
                             else raw.get("severity", "error"),
                             raw.get("description", raw["id"]),
+                            None,
                         )
                     )
-            for rule, severity, message in findings:
+            for rule, severity, message, semantic_reason in findings:
                 aid = (
                     "assessment:"
                     + sha256(
-                        canonical_bytes([VERSION, c.occurrence_id, rule, severity, message])
+                        canonical_bytes(
+                            [
+                                VERSION,
+                                c.occurrence_id,
+                                rule,
+                                severity,
+                                semantic_reason_identity(semantic_reason)
+                                if semantic_reason is not None
+                                else message,
+                            ]
+                        )
                     ).hexdigest()
                 )
                 from .operation_results import validate_result_dimension
@@ -3381,6 +3500,7 @@ class ReleasedRulesPolicy:
                         occurrence_id=c.occurrence_id,
                         reason=message,
                         uncertainty=unknown or reading_note,
+                        semantic_reason=semantic_reason,
                     )
                 )
                 if severity == "error":
@@ -3411,6 +3531,7 @@ class ReleasedRulesPolicy:
                     status,
                     occurrence_id=c.occurrence_id,
                     uncertainty=unknown,
+                    semantic_reason=unknown_reason,
                 )
             )
             views[c.occurrence_id] = status
