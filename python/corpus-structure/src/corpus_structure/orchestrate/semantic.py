@@ -543,6 +543,7 @@ def run_source_methods(
                                     from corpus_structure.semantic.pdf_contracts import (
                                         store_pdf_original,
                                     )
+
                                     recipe = original_recipe(config.config)
                                     with engine.begin() as original_conn:
                                         for claimed_task in claimed:
@@ -583,7 +584,9 @@ def run_source_methods(
                                                 task.unit_id
                                                 if task.unit_type == "document"
                                                 else conn.execute(
-                                                    select(table("kb.source_view").c.document_id).where(
+                                                    select(
+                                                        table("kb.source_view").c.document_id
+                                                    ).where(
                                                         table("kb.source_view").c.id == task.unit_id
                                                     )
                                                 ).scalar_one()
@@ -722,9 +725,13 @@ def run_source_methods(
 
                                     with read_snapshot(engine) as preparation_conn:
                                         intent = prepare_unit_completion(
-                                            preparation_conn, task_id=task.task_id,
-                                            attempt=task.attempt, holder=holder,
-                                            prepared=prepared, result=result, method=method,
+                                            preparation_conn,
+                                            task_id=task.task_id,
+                                            attempt=task.attempt,
+                                            holder=holder,
+                                            prepared=prepared,
+                                            result=result,
+                                            method=method,
                                             configuration_hash=config.config_hash,
                                             source=result.ref.unit_key or "run",
                                             records=result.records,
@@ -901,8 +908,13 @@ def queue_agent(
     for ref in units:
         producer_binding(method_name, configuration, unit=ref.unit_type)
     method = OperationDescriptor(
-        producer.method, producer.version, "agent", producer.execution_kind,
-        TaskUnitType(producer.unit), AgentOpusConfig, "agent",
+        producer.method,
+        producer.version,
+        "agent",
+        producer.execution_kind,
+        TaskUnitType(producer.unit),
+        AgentOpusConfig,
+        "agent",
     )
     config_hash = (
         "configuration:"
@@ -968,8 +980,11 @@ def queue_agent(
             packet_hash=None if packet is None else packet.hash,
             agent=True,
             fresh=method_name in fresh_names,
-            trigger={**dict(trigger or {}), "configuration_name": configuration_name,
-                     "producer_binding": producer.values()},
+            trigger={
+                **dict(trigger or {}),
+                "configuration_name": configuration_name,
+                "producer_binding": producer.values(),
+            },
             skip_reason=skip_reason,
         )
         tasks.append(task_id)
@@ -1025,10 +1040,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     unit_views = {}
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
-        if (
-            method.tier != MethodTier.AGENT
-            or entry.unit_type != method.unit_type
-        ):
+        if method.tier != MethodTier.AGENT or entry.unit_type != method.unit_type:
             raise OperationConflict(
                 "semantic propose requires a supported agent method with matching source unit type"
             )

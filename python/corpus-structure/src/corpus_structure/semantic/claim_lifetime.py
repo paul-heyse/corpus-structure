@@ -31,8 +31,10 @@ class ClaimSettlementUncertain(OperationConflict):
         self.claim = claim
         self.holder = holder
         self.completion = completion
-        super().__init__(f"completion uncertain for task {claim.task_id}, attempt {claim.attempt}, "
-                         f"holder {holder}; replay the retained exact completion intent")
+        super().__init__(
+            f"completion uncertain for task {claim.task_id}, attempt {claim.attempt}, "
+            f"holder {holder}; replay the retained exact completion intent"
+        )
 
 
 class ClaimOwner:
@@ -75,7 +77,8 @@ class ClaimOwner:
                     if prior_uncertainty is not None:
                         error.add_note(str(prior_uncertainty))
                     if phase != DatabasePhase.COMMITTING or failure.cause not in {
-                        DatabaseCause.CONNECTION_UNUSABLE, DatabaseCause.IO,
+                        DatabaseCause.CONNECTION_UNUSABLE,
+                        DatabaseCause.IO,
                         DatabaseCause.UNKNOWN_OPERATIONAL,
                     }:
                         if prior_uncertainty is not None and not isinstance(
@@ -87,9 +90,15 @@ class ClaimOwner:
                     self.uncertain[key] = uncertainty
                     if replay:
                         self.uncertain[key] = uncertainty
-                        record_operation_failure(error, DatabaseOperationFailure(
-                            failure, operation_id=f"claim:{claim.task_id}:{claim.attempt}",
-                            remediation="replay_exact_completion", release_id=claim.release_id))
+                        record_operation_failure(
+                            error,
+                            DatabaseOperationFailure(
+                                failure,
+                                operation_id=f"claim:{claim.task_id}:{claim.attempt}",
+                                remediation="replay_exact_completion",
+                                release_id=claim.release_id,
+                            ),
+                        )
                         raise uncertainty from error
             raise AssertionError("unreachable settlement state")
 
@@ -99,8 +108,10 @@ def _deadlines(conn, database):
         ("statement_timeout", database.renewal_statement_timeout_seconds),
         ("lock_timeout", database.renewal_lock_timeout_seconds),
     ):
-        conn.execute(text("SELECT set_config(:setting, :value, true)"),
-                     {"setting": setting, "value": f"{max(1, int(seconds * 1000))}ms"})
+        conn.execute(
+            text("SELECT set_config(:setting, :value, true)"),
+            {"setting": setting, "value": f"{max(1, int(seconds * 1000))}ms"},
+        )
 
 
 @contextmanager

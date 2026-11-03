@@ -55,9 +55,20 @@ def _invocation_event(task_id, attempt, holder, binding, event, **details):
         return
     path = Path(directory) / f"task-{task_id}-attempt-{attempt}-{event}-{uuid4().hex}.json"
     with path.open("x") as stream:
-        json.dump({"invocation_id": invocation, "task_id": task_id, "attempt": attempt,
-                   "holder": holder, "producer_binding": binding, "event": event,
-                   "assurance": "provider_reported", **details}, stream, sort_keys=True)
+        json.dump(
+            {
+                "invocation_id": invocation,
+                "task_id": task_id,
+                "attempt": attempt,
+                "holder": holder,
+                "producer_binding": binding,
+                "event": event,
+                "assurance": "provider_reported",
+                **details,
+            },
+            stream,
+            sort_keys=True,
+        )
         stream.write("\n")
         stream.flush()
         os.fsync(stream.fileno())
@@ -166,10 +177,13 @@ class SemanticAgentSession:
                 select(configs.c.id, configs.c.params, methods.c.name.label("method"))
                 .join(methods, methods.c.id == configs.c.method_id)
                 .join(table("ops.task"), table("ops.task").c.method_config_id == configs.c.id)
-                .where(methods.c.name.in_(SUPPORTED_PRODUCERS),
-                       table("ops.task").c.run_id == self.run_id,
-                       table("ops.task").c.status == "awaiting_agent")
-                .distinct().order_by(configs.c.id)
+                .where(
+                    methods.c.name.in_(SUPPORTED_PRODUCERS),
+                    table("ops.task").c.run_id == self.run_id,
+                    table("ops.task").c.status == "awaiting_agent",
+                )
+                .distinct()
+                .order_by(configs.c.id)
             ).mappings()
             for row in rows:
                 preparation = {}
@@ -219,8 +233,14 @@ class SemanticAgentSession:
                 if out:
                     break
         for task, binding, packet_hash in admitted_events:
-            _invocation_event(task.task_id, task.attempt, self.holder, binding.values(),
-                              "leased", packet_hash=packet_hash)
+            _invocation_event(
+                task.task_id,
+                task.attempt,
+                self.holder,
+                binding.values(),
+                "leased",
+                packet_hash=packet_hash,
+            )
         return service.QueueNext(tasks=out)
 
 
@@ -622,8 +642,14 @@ def build_semantic_server(
                     ],
                 )
             session.sessions.pop(task_id, None)
-            _invocation_event(task_id, active.attempt, active.holder, {}, "completed",
-                              receipt=result.completion.receipt.model_dump(mode="json"))
+            _invocation_event(
+                task_id,
+                active.attempt,
+                active.holder,
+                {},
+                "completed",
+                receipt=result.completion.receipt.model_dump(mode="json"),
+            )
             data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()
             return submission.SubmissionResult(
                 task_id=task_id,

@@ -135,14 +135,17 @@ def admit_service_generation(endpoint: str, recipe: NemotronRecipe) -> dict[str,
     response = httpx.get(base + "/corpus/generation", timeout=10)
     response.raise_for_status()
     record = response.json()
-    if (record.get("protocol") != "corpus-managed-recognition-1"
+    if (
+        record.get("protocol") != "corpus-managed-recognition-1"
         or record.get("assurance") != "trusted_managed_service"
         or not isinstance(record.get("generation"), str)
-        or response.headers.get("x-corpus-generation") != record["generation"]):
+        or response.headers.get("x-corpus-generation") != record["generation"]
+    ):
         raise ValueError("recognition endpoint has no admitted managed generation")
     artifacts = record.get("artifacts", {})
     if (artifacts.get("model.safetensors"), artifacts.get("tokenizer.json")) != (
-        recipe.weights_digest, recipe.tokenizer_digest
+        recipe.weights_digest,
+        recipe.tokenizer_digest,
     ):
         raise ValueError("managed recognition generation differs from configured artifacts")
     return record

@@ -77,7 +77,9 @@ def test_invocation_retains_raw_output_for_success_failure_and_timeout(tmp_path,
         ["awaiting_agent"],
         ["done"],
     ]
-    execute.return_value.mappings.return_value = [{"method": "agent.opus", "params": {"model": "fixture-model"}}]
+    execute.return_value.mappings.return_value = [
+        {"method": "agent.opus", "params": {"model": "fixture-model"}}
+    ]
     settings = Settings(paths={"data_dir": tmp_path, "model_cache": tmp_path / "cache"})
     if mode == "success":
         result = automated.extract_run(engine, settings, 17)

@@ -151,12 +151,16 @@ class ProposalSession:
         from corpus_structure.semantic.observations import source_value
 
         configurations, methods = table("ops.method_config"), table("ops.method")
-        frozen = conn.execute(
-            select(configurations.c.params, methods.c.name.label("method"))
-            .join(tasks, tasks.c.method_config_id == configurations.c.id)
-            .join(methods, methods.c.id == configurations.c.method_id)
-            .where(tasks.c.id == self.task_id)
-        ).mappings().one()
+        frozen = (
+            conn.execute(
+                select(configurations.c.params, methods.c.name.label("method"))
+                .join(tasks, tasks.c.method_config_id == configurations.c.id)
+                .join(methods, methods.c.id == configurations.c.method_id)
+                .where(tasks.c.id == self.task_id)
+            )
+            .mappings()
+            .one()
+        )
         producer = producer_binding(frozen["method"], frozen["params"], unit="source_view")
         import os
 
@@ -164,7 +168,9 @@ class ProposalSession:
         diagnostic = {
             "execution_identity": {
                 "binding": producer.values(),
-                "task_id": self.task_id, "attempt": self.attempt, "holder": self.holder,
+                "task_id": self.task_id,
+                "attempt": self.attempt,
+                "holder": self.holder,
                 "assurance": "provider_reported" if invocation_id else "manual_operator",
                 "invocation_id": invocation_id,
                 "provider_reported_model": None,

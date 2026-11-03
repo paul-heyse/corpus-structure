@@ -38,7 +38,10 @@ def producer_binding(
     model = configuration.get("model")
     if (str(unit), protocol, version, execution_kind, mode) != (
         TaskUnitType.SOURCE_VIEW.value,
-        PROPOSAL_PROTOCOL, SEMANTIC_AGENT_VERSION, "agent", "extract",
+        PROPOSAL_PROTOCOL,
+        SEMANTIC_AGENT_VERSION,
+        "agent",
+        "extract",
     ):
         raise ValueError("producer unit/protocol/version/execution kind/mode is not executable")
     if not isinstance(model, str) or not model.strip():

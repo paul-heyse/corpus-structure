@@ -87,8 +87,11 @@ def extract_run(
                 select(configs.c.params, methods.c.name.label("method"))
                 .join(tasks, tasks.c.method_config_id == configs.c.id)
                 .join(methods, configs.c.method_id == methods.c.id)
-                .where(tasks.c.run_id == run_id, methods.c.name.in_(SUPPORTED_PRODUCERS),
-                       tasks.c.status != "skipped")
+                .where(
+                    tasks.c.run_id == run_id,
+                    methods.c.name.in_(SUPPORTED_PRODUCERS),
+                    tasks.c.status != "skipped",
+                )
             ).mappings()
         ]
         models = [binding.configured_model for binding in bindings]
@@ -313,13 +316,14 @@ def extract_run(
             f"raw receipts: {receipt}"
         )
     metadata = json.loads((receipt / "invocation.json").read_text())
-    metadata.update(provider_session=response.get("session_id"),
-                    provider_reported_model=response.get("model"),
-                    provider_reported_model_usage=response.get("modelUsage"),
-                    reported_identity_available=(
-                        isinstance(response.get("model"), str)
-                        or isinstance(response.get("modelUsage"), dict)
-                    ))
+    metadata.update(
+        provider_session=response.get("session_id"),
+        provider_reported_model=response.get("model"),
+        provider_reported_model_usage=response.get("modelUsage"),
+        reported_identity_available=(
+            isinstance(response.get("model"), str) or isinstance(response.get("modelUsage"), dict)
+        ),
+    )
     (receipt / "invocation.json").write_text(json.dumps(metadata, indent=2) + "\n")
     with engine.connect() as conn:
         states = list(

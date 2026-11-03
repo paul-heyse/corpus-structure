@@ -370,7 +370,10 @@ def _source_guard_predecessors(connection):
         # Frozen0017 executes its routine suffix under the publisher in the Python
         # wrapper (0017_entity_source.py), outside the SQL file's own role statements.
         # Carry that declared context when this existing guard first becomes managed.
-        if source == "semantic_0017_entity_source.sql" and signature == "data.validate_entity_source(text,text)":
+        if (
+            source == "semantic_0017_entity_source.sql"
+            and signature == "data.validate_entity_source(text,text)"
+        ):
             facts = {**facts, "owner": "corpus_sem_publisher"}
         definition = definition_from_sql(
             connection,
