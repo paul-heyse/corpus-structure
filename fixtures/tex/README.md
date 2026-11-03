@@ -20,3 +20,11 @@ side that changes is recorded. Replace this file only together with a new proven
 environment, 7 spans with sizing commands and 3 with text-mode arguments. The rules these rows do not
 reach (arguments, optional defaults, the depth and size bounds, delimiter edge cases) are covered by
 the module's own tests.
+
+A deliberate change example is a new rule for an argument-bearing macro: write the proposed
+old/new token forms and source macro definition, decide the meaning under D1 §6.2 independently
+of `core/tex.py`, and select a new versioned reference for the affected `tests/core/test_tex.py`
+consumer. A product rerun supplies a candidate diff, not its adjudication. Preserve this frozen
+918-row witness and its provenance. An exact dependency pin is not an oracle hold; add a
+`docs/pins.md` hold only when a concrete active comparison requires that version, with a revisit
+condition.

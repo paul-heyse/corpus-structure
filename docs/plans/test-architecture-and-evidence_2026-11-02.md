@@ -1,7 +1,7 @@
 # Test architecture and evidence
 
-**Status:** Proposed implementation series; plan authoring complete, execution not started.
-**Created:** 2026-11-02. **Target claims:** Proposed unless explicitly identified as source-inspected.
+**Status:** Complete under operator-selected verification,2026-11-02; full head95 qualification is not claimed.
+**Created:** 2026-11-02. **Claims:** Implemented; bounded Tested where the receipts below apply. Benefits remain unmeasured.
 This coordinator owns TA package state and scheduled DTA disposition; the audit owns diagnosis.
 
 ## Outcome, scope and baseline
@@ -77,8 +77,9 @@ inferred from library installation authority. Installation alone needs no new AD
 
 ## Package queue and working dependencies
 
-TA-01–04 are **Complete; bounded Tested** (2026-11-02). Other packages
-remain **Planned**; TA-00 native prerequisites are reconciled, with its wider scope still open.
+TA-00–11 are **Complete implementation; bounded Tested** (2026-11-02). TA-12 is
+**Accepted under operator-selected verification**: the initial broad run plus correction/rerun of
+its four failures is sufficient by explicit operator direction. No full95/native-union claim follows.
 This table and the execution checkpoint below own current state. Dependencies name usable products rather than entire companion documents.
 
 | Package | Required working input | Delivered behavior / completion boundary |
@@ -95,7 +96,7 @@ This table and the execution checkpoint below own current state. Dependencies na
 | TA-09 | Supported reference meanings and TA-05 builders | Current counterpart journeys, declared reference authority/update route and justified holds; obsolete support prose corrected |
 | TA-10 | TA-03 endpoint propagation and current composed native fixtures | Complete real stdio journey and child settlement, retaining existing in-memory/native controls |
 | TA-11 | Current PublishedPdfReader and native fixture | Production chunk-bound/stream lifetime evidence with exact output and failure controls |
-| TA-12 | All selected functional changes and migrated consumers | Integrated design/target review, final-source required-union qualification, applicable hygiene and handoff |
+| TA-12 | All selected functional changes and migrated consumers | Integrated review, operator-accepted failed-case rerun, applicable hygiene and handoff; no full95 qualification claim |
 
 TA-00/01 lead because lifecycle selection can change support interfaces. TA-03, claim clarification,
 identity/reference analysis and TA-11 can progress independently. Agreement alone does not satisfy
@@ -110,25 +111,25 @@ its bounded investigation, not a presumption that every cited example requires a
 
 | Item | Responsible component / package | Disposition and intended outcome | Closure evidence |
 |---|---|---|---|
-| [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) | Native assertions / TA-07 | Open: separate intended guard from confounding rejection | Valid baseline plus exact expected native cause and no partial effects |
+| [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) | Native assertions / TA-07 | Closed2026-11-02: intended native causes and rollback discriminate confounding refusals | Exact SQLSTATE/constraint or primary message, accepted baseline and committed-state preservation in publication/Arrow/PDF controls |
 | [DTA-002](../design_review/test-audit/execution-and-qualification.md#dta-002) | Native ownership / TA-01/02 | Closed2026-11-02: authenticated cluster-effect recovery implemented and qualified | Interrupted acquisition and ordinary/failing cleanup preserve unrelated/live resources |
 | [DTA-003](../design_review/test-audit/execution-and-qualification.md#dta-003) | Qualification context / TA-04 | Closed2026-11-02: observed identity/provenance and required-union compatibility qualified | Actual clone/revision/principal associations and missing-context classification |
-| [DTA-004](../design_review/test-audit/retirement-transfer.md#dta-004) | Reference counterparts / TA-09 | Open investigation: select surviving authored obligations, then integrate their actuals | Independent positive/negative served outcomes; unresolved semantic differences explicitly settled |
-| [DTA-005](../design_review/test-audit/support-structure.md#dta-005) | Product composition / TA-05/08/09 | Open: assembled product claims consume production composition | Actual pack wiring change detected; isolated synthetic cases retain their scope |
-| [DTA-006](../design_review/test-audit/evidence-and-discrimination.md#dta-006) | Preservation assertions / TA-07 | Open: exactness only where preservation is promised | Extra/missing/wrong support causes failure under independently expected results |
-| [DTA-007](../design_review/test-audit/evidence-and-discrimination.md#dta-007) | Compiler evidence / TA-06 | Open: separate cold compilation from warm read/cache claims | Cold independent preparation and warm compatibility/refusal controls |
+| [DTA-004](../design_review/test-audit/retirement-transfer.md#dta-004) | Reference counterparts / TA-09 | Closed scoped2026-11-02: selected current counterparts implemented; unsupported meanings explicitly disposed | Toy/inspection/T1–T4 served controls; Notice and T3-D1 boundaries and triggers in the semantic companion |
+| [DTA-005](../design_review/test-audit/support-structure.md#dta-005) | Product composition / TA-05/08/09 | Closed scoped2026-11-02: product claims use production pack composition | prepare_packs-based serving and current statistics/toy native journeys; synthetic kernel scope retained |
+| [DTA-006](../design_review/test-audit/evidence-and-discrimination.md#dta-006) | Preservation assertions / TA-07 | Closed scoped2026-11-02: selected preservation assertions specify independent exact members | Serving/source/support and occurrence assertions; native broad results below |
+| [DTA-007](../design_review/test-audit/evidence-and-discrimination.md#dta-007) | Compiler evidence / TA-06 | Closed2026-11-02: cold compilation distinguished from warm reuse | Fresh-interpreter artifact obligations, warm/cache/archive and changed-runtime controls in test_prepare |
 | [DTA-008](../design_review/test-audit/support-structure.md#dta-008) | Fixture contracts / TA-00 | Closed diagnosis: specific descriptor fields corrected before this series | Audit source/AST evidence at reconciled baseline; existing malformed-input controls retained |
-| [DTA-009](../design_review/test-audit/support-structure.md#dta-009) | Scenario owners / TA-05 | Open: narrow support modules and explicit meaningful variations | All affected imports migrated; focused scenario unaffected by unrelated defaults |
-| [DTA-010](../design_review/test-audit/evidence-and-discrimination.md#dta-010) | Catalog/diagnostics / TA-07 | Open: stable mutation subjects and expected diagnostic correspondence | Reordering cannot change case target; unintended generic code does not satisfy assertion |
-| [DTA-011](../design_review/test-audit/evidence-and-discrimination.md#dta-011) | Semantic identity / TA-08 | Open: independently authored full key assembly expectations | Known bytes/digests and scope/qualification changes in Python/native consumers |
-| [DTA-012](../design_review/test-audit/support-structure.md#dta-012) | Historical macro policy / TA-09 | Open investigation: declare frozen versus current authority | Correct owner prose and independent historical/current-policy controls as selected |
-| [DTA-013](../design_review/test-audit/evidence-and-discrimination.md#dta-013) | Property/assertion scope / TA-07 | Open: eliminate genuine empty-subset/work-spy gaps; keep restricted property meaning | Nonempty intended subjects and positive observation; no invented parser-coverage floor |
+| [DTA-009](../design_review/test-audit/support-structure.md#dta-009) | Scenario owners / TA-05 | Closed implementation2026-11-02: selected shared hubs and all importing consumers migrated | Six support owners, no selected host imports, typing/collection; late PDF extraction source-reviewed rather than separately rerun |
+| [DTA-010](../design_review/test-audit/evidence-and-discrimination.md#dta-010) | Catalog/diagnostics / TA-07 | Closed2026-11-02: mutation subjects and diagnostics have stable identities | Contract-ID cases and independently expected diagnostics in contract/projection controls |
+| [DTA-011](../design_review/test-audit/evidence-and-discrimination.md#dta-011) | Semantic identity / TA-08 | Closed2026-11-02: complete independent semantic key vectors | Literal preimages/digests, scope/value/qualification distinctions and self-owned native publication/read journey |
+| [DTA-012](../design_review/test-audit/support-structure.md#dta-012) | Historical macro policy / TA-09 | Closed2026-11-02: historical macro ownership is explicit | Math/LLM helper prose declares frozen independent configuration, not a mirror of the current pack |
+| [DTA-013](../design_review/test-audit/evidence-and-discrimination.md#dta-013) | Property/assertion scope / TA-07 | Closed scoped2026-11-02: positive subjects/work observations precede universal/no-noise assertions | Statistics workset and hydration controls; restricted math property retains its existing meaning |
 | [DTA-014](../design_review/test-audit/retirement-transfer.md#dta-014) | Retained reference contracts / TA-00 | Superseded diagnosis: broad dormancy claim withdrawn | Audit challenge and current scientific adapter/frozen-vector evidence; no deletion package |
-| [DTA-015](../design_review/test-audit/evidence-and-discrimination.md#dta-015) | Alias composition / TA-08 | Open: current regression and bounded correction; link X2-01 | Same supported authored alias resolves in product composition and actual entity mapping |
-| [DTA-016](../design_review/test-audit/support-structure.md#dta-016) | Wire/serializer / TA-10/11 | Open: promised properties exercise actual implementations | Post-initialize subprocess tool journey and production emitted-chunk assertions |
+| [DTA-015](../design_review/test-audit/evidence-and-discrimination.md#dta-015) | Alias composition / TA-08 | Closed bounded2026-11-02: one released full-IRI alias policy and actual product regression | Statistics aliases, collision/profile/refusal controls and native95 provenance successor; broader X2-01 remains at phase0 |
+| [DTA-016](../design_review/test-audit/support-structure.md#dta-016) | Wire/serializer / TA-10/11 | Closed scoped2026-11-02: actual SDK stdio and production formatter boundaries exercised | Four wire modes, real emitted chunks and cursor closure; later exact payload/logical-identity assertions are source-reviewed |
 | [DTA-017](../design_review/test-audit/execution-and-qualification.md#dta-017) | Test target isolation / TA-03 | Closed2026-11-02: refused application defaults and explicit native target propagation qualified | Independent sentinel target control without breaking explicit clone/purpose credentials |
-| [DTA-018](../design_review/test-audit/execution-and-qualification.md#dta-018) | Scenario preparation / TA-01/05 | Open: remove unnecessary repeated preparation where validity permits | Isolation and changed-input refusal preserved; source-established work removal stated honestly |
-| [DTA-019](../design_review/test-audit/evidence-and-discrimination.md#dta-019) | Reference governance / TA-09 | Open: current support prose, provenance and deliberate-change ownership | Reference-specific adjudication/holds or explicit historical witness role |
+| [DTA-018](../design_review/test-audit/execution-and-qualification.md#dta-018) | Scenario preparation / TA-01/05 | Closed scoped2026-11-02: named repeated publication removed with fresh clones | ADR-0048 serving seed; changed-recipe refusal, two-clone isolation and partial-build cleanup controls |
+| [DTA-019](../design_review/test-audit/evidence-and-discrimination.md#dta-019) | Reference governance / TA-09 | Closed2026-11-02: retained references declare authority and deliberate evolution | Existing builders/READMEs name provenance, adjudication, supported current versus historical roles and unchanged originals |
 | [DTA-020](../design_review/test-audit/evidence-and-discrimination.md#dta-020) | Current-only archives / TA-00/09 | Superseded historical-success premise | ADR-0047; current custody/refusal retained; stale fixture README addressed under019 |
 
 X2-01 at phase0 §11 remains the owner of its broader authored→prefixed obligation. TA-08 owns this
@@ -136,6 +137,10 @@ series' bounded alias deliverable and returns evidence there; it does not copy X
 acceptance remains external. Other DA findings retain their existing homes.
 
 ## Integrated completion and current next work
+
+The default qualification route below is bounded for this finish by the operator's explicit
+failed-cases-only acceptance; the remaining-increment section records the actual source/context
+and limits. It does not reinterpret the retained failed broad receipt as a full95 pass.
 
 During execution, compile and focused functional checks match each coherent changed capability;
 substantial typing/lint diagnostics belong at those endpoints. After all selected functional scope,
@@ -207,8 +212,71 @@ runtime/harness files unchanged. DTA-002/003/017 close for the scoped contracts 
 transport/provider or semantic claim. **Not_run:** broad `just test-all`/`just hygiene`, Rust and
 provider campaigns: TA-12/full-series scope remains separately open.
 
-**Next:** continue the separately owned TA-05–12 queue and remaining TA-00 obligations. UM/provider
-acceptance remains external.
+**Next at that checkpoint:** the then-open TA-05–12 queue. Its final disposition is below;
+UM/provider acceptance remains external.
+
+## Remaining increment acceptance — 2026-11-02
+
+**Implemented; bounded Tested.** TA-00 reconciled current-only contracts, preserved closed and
+superseded diagnoses, and returned bounded alias evidence to phase0 X2-01. TA-05/06 extracted
+six scenario owners and selected only the repeated default serving population for sealed
+session-local reuse. Cold compilation, distinct query-pack/coverage scenarios and native producer
+lifecycles remain independent. TA-07–09 strengthen discriminating evidence, full semantic keys,
+released alias meaning and selected current references. TA-10/11 exercise the real SDK stdio
+client and production formatter/cursor lifetime. The companions describe exact scope and reference
+boundaries. No provider campaign, persistent cache, plugin lifecycle replacement or speed claim follows.
+
+The [combined review](../design_review/reviews/design_review_ta-remaining-increment_2026-11-02.md)
+retains **Accept scoped** after five resolved corrections and exact native95 artifact review.
+[ADR-0048](../adr/0048-populated-native-scenarios.md) records the populated-source choice inside
+ADR-0032. Native95 changes only execution descriptor provenance for the tracked alignment source;
+its85-object desired catalog otherwise matches94. Frozen94 is unchanged. The bounded accepted
+record is [ta.native-policy-provenance95](../design_review/evidence/2026-11-02_ta-native-policy-provenance/README.md).
+Application database adoption and regenerated operational results remain outside this increment.
+
+**Failed, retained:** `CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all` selected3274 Python nodes:
+3270passed and4failed in `build/test-receipts/qualification/20261103T004851Z-1898834`.
+The failures were one obsolete unversioned alias fixture and three current-native provenance
+checks. Native95 and the declared-class/current-policy fixture correct those causes.
+Rust selection was empty: **not_run**, no functional coverage. No required Python case was skipped.
+
+**Passed:** only those four failed cases were rerun on final formatted95 source through
+`uv run python scripts/test_receipts.py run --python-only --out-dir
+build/test-receipts/ta-remaining/failed-rerun-20261103 -- <the four node IDs in invocation.json>`.
+The receipt records4passed, complete provenance for its2native nodes, and0unresolved under its
+selected-node manifest (`build/ta-remaining-four-required.json`). The exact four tests are the
+alias compatibility case, both native-closure failures, and controlled current-head reauthoring.
+Author/replay native probes passed with one descriptor-only transition, zero ordinary changes,
+post-rollback predecessor admission, repeated95 upgrade and empty candidate.
+
+**Operator acceptance boundary:** the final instruction explicitly accepts correction and rerun
+of failing tests as sufficient; no second full suite or all-native95 campaign was run. Most broad
+results precede95. Late PDF helper extraction and stronger literal trace, stored-wire-payload and
+formatter logical-identity assertions were source-reviewed and typing/collection checked; those
+late edits were not separately functionally rerun. Do not describe this as a fresh final-source
+3274-node pass or assembled UM/PDF acceptance.
+
+**Reporting limit:** the retained broad receipt has six unassociated native acquisitions in
+unmodified db store/lifetime tests despite passing node outcomes; its native provenance is
+incomplete. The exact node IDs remain in that receipt's `native_provenance.unresolved`. The earlier
+TA-04 closure remains bounded to its qualified increment; this does not silently close that broader
+association gap. No additional reporting repairs were made under the operator's focused finish.
+
+**Passed:** independent review, `just ready`, integrated warning-inclusive typing/Ruff, applicable
+hygiene checks other than the documentation publication baseline, and final ADR lint. The initial
+ADR link failure was repaired in §B4 and its passing rerun is retained. `just docs-check` still
+**failed** on pre-existing library-publication links (`build/ta-remaining-docs-final.log`), with no
+TA-owned link failure; no unrelated correction was made. Full hygiene output is retained at
+`build/ta-remaining-hygiene.log`. Rule scan/test are not applicable because no rules exist.
+
+TA-12 accepts this declared verification scope by operator direction. UM-CA13, PDF/provider
+acceptance, broader X2-01, the broad reporting association gap and unrelated documentation links
+remain at their existing owners/boundaries. No further TA implementation or test rerun is queued.
+
+Implementation/owners/evidence landed as `c1621682`. Its whitespace diagnostic is retained at
+`build/ta-remaining-frozen-whitespace.log`: Markdown hard line breaks and generated frozen SQL
+trailing spaces. Byte-bound native artifacts are preserved. Final handoff/document maintenance
+does not change the passing rerun's runtime/harness source.
 
 ## Authoring verification — 2026-11-02
 

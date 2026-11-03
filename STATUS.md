@@ -1,60 +1,51 @@
 # Status
-_Updated 2026-11-02; [UM/TA reconciliation](docs/plans/unified-domain-model_2026-11-01.md#test-architecture-reconciliation--2026-11-02) selects custody/runtime corrections, alias-impact and typed-support amendments; implementation and assembled acceptance remain open._
+_Updated 2026-11-02; [TA acceptance](docs/plans/test-architecture-and-evidence_2026-11-02.md#remaining-increment-acceptance--2026-11-02) completes the test-architecture implementation under the operator-selected failed-case rerun boundary._
 
 ## Current checkpoint
 
-- UM-CA13 cancellation and UM-TA01/03 query custody/analysis-runtime corrections remain open.
-  [Improvement review](docs/plan_improvement_reviews/unified-domain-model_2026-11-02.md) proposes
-  provider lifecycle/deadline/pipelining and general generation refinements remain separate proposals.
-
-- [Test architecture/evidence](docs/plans/test-architecture-and-evidence_2026-11-02.md#native-increment-execution--2026-11-02):
-  TA-01–04 complete:212required passed; review/types/lint passed. TA-05–12 remain planned.
-
-- ADR-0047 selects current composed execution and record PDF publications. Compiler14, boundary12,
-  execution23/archive3, recursive typed identifiers and separate model-owned read shapes landed.
-- Historical runtime/compiler/base fallbacks, installed registries/executors, aggregate/rendition/
-  HTML persistence and the legacy test engine are retired.36 old relations are dropped;119 current
-  stored tables remain. Source locators, scientific math, rule/cascade, exact values and semantic
-  alignment remain. Pure schema/boundary generation and exact artifact archiving grant no execution.
-- Configured ADBC capture/export, typed native catalogs, server-bound candidate authoring, SQLGlot
-  profile2, actual graph reports, contextual failures and regeneration impact advice are integrated.
-- Native91–94 are frozen and rehearsed with no-op/empty-candidate, exact catalogs, source/ACL drift
-  refusals, restoration and rollback. Predecessors are immutable. The accepted bounded record is
-  [um.current-only-forward94](docs/design_review/evidence/2026-11-02_um-current-only-forward/README.md).
-- All seven authorized5434 result databases were removed after ownership/liveness checks, reclaiming
-  24,341,479,424bytes. Eight named result trees reclaimed6,226,903,040bytes. SourcePDFs, frozen
-  migrations, model caches, evidence, test receipts and unrelated/shared databases remain.
-- Fresh corpus_pdf_20261102/OID16934542 is deployed through94. Actual restricted admitter/read/writer
-  entry controls passed; statistics release866ee50a binds executionefa313d4. Defaults select
-  siegrist-pdf in this database. No completed result is selected.
-- Intake1 found an OCR empty-list contract mismatch, fixed in bda30a8b with unknown/partial health
-  preserved. Its cancelled state/process cleanup is retained. Intake2 failed before conversion on
-  unavailable Nemotron API. Recognition and five-section knowledge acceptance remain unestablished.
-- All implementation worktrees are integrated/deleted. All owned Nemotron processes are stopped;
-  unrelated GPU processes and caches are preserved. Temporary authentication files/roles restored
-  exactly. Current generic test fixtures use the sealed semantic head and authenticated cleanup.
+- [Test architecture/evidence](docs/plans/test-architecture-and-evidence_2026-11-02.md): TA-00–11
+  implemented; TA-12 accepted under the explicit focused-verification instruction. Scenario support,
+  sealed populated serving seeds, cold compilation, exact semantic/native assertions, released
+  class-IRI aliases, current references, real stdio and production formatter controls are integrated.
+- ADR-0048 extends preparation inside ADR-0032; fresh committed clones and actual purpose logins remain.
+  The independent combined review retains scoped acceptance. Findings have one disposition owner
+  at the TA coordinator; original plans, references and failed receipts remain retained.
+- Frozen native95 records only the tracked alignment implementation's descriptor provenance.
+  Native94 and all predecessors remain unchanged. Author/replay admission, rollback restoration,
+  repeated upgrade and empty candidate passed; fixture head is95. Application databases/results
+  were not migrated or activated by this work. The bounded record is
+  [ta.native-policy-provenance95](docs/design_review/evidence/2026-11-02_ta-native-policy-provenance/README.md).
+- Concurrent [UM/TA reconciliation](docs/plans/unified-domain-model_2026-11-01.md#test-architecture-reconciliation--2026-11-02)
+  is preserved. UM-CA13 cancellation and UM-TA01/03 query custody/analysis-runtime corrections
+  remain open; selected UM-TA02/04 alias-impact/typed-support extensions remain Proposed.
+  [General improvement proposals](docs/plan_improvement_reviews/unified-domain-model_2026-11-02.md)
+  retain their separate adoption boundary.
+- ADR-0047 current-only execution remains compiler14/boundary12/execution23/archive3. Historical
+  runtime/base/HTML fallbacks remain retired. Exact archives alone grant no execution authority.
+- Existing product checkpoint: corpus_pdf_20261102/OID16934542 remains through94, statistics
+  release866ee50a/executionefa313d4, siegrist-pdf defaults, no selected completed result.
+  Intake2's Nemotron API prerequisite and full recognition/five-section knowledge acceptance remain open.
 
 ## Verification
 
-- **passed:** just types (warning-inclusive, no diagnostics) and just ruff; receipts
-  build/um-current-closeout-{types,ruff}-final.log, with scoped passing checks for later fixtures.
-  Earlier failed diagnostics are fixed and retained.
-- **passed, bounded:** actual native smoke11 across original/affected receipts;54 current fixture
-  controls;27 OCR controls (1native deselected); analytical/resource, ABI/invariant/scope and source
-  CLI/reader repairs. These selections overlap and do not establish full series qualification.
-- **passed:** just evidence finalize and just evidence:126records,0errors,39historical warnings.
-- **failed, retained:** earlier product/parallel qualification receipts. The final94 baseline union
-  had2806passing nodes/3191required before repairs;214 native setups exhausted shared locks.
-  All232 surviving targeted native cases now have passing evidence, with0 unresolved; four current
-  child-graph preparation cases passed separately.79 math nodes remain unqualified.
-- All owned test groups and fixture databases are absent; no further work is queued.
-- **passed:** audit publication git diff --check / just turn-end; no new product tests/types run.
-- **failed:** review `just docs-check` stops at concurrent ADR-0048/§B4 decision link; prior library failures retained.
-- Full-PDF actual-provider recognition, five-section knowledge/query/report/export/evaluation and
-  complete applicable functional/nonfunctional qualification remain open at the coordinator.
+- **failed, retained:** CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all:3270passed/4failed;
+  build/test-receipts/qualification/20261103T004851Z-1898834. Rust selection empty: not_run.
+- **passed:** the four failed cases only, after alias-fixture/native95 corrections; receipt
+  build/test-receipts/ta-remaining/failed-rerun-20261103, complete provenance for its2native nodes.
+  Reclassification against its selected manifest passed. No second full suite was run, per operator.
+- Broad native reporting has six unassociated acquisitions in otherwise passing unmodified db
+  store/lifetime cases. This remains explicit at the TA coordinator. No full95/native-union,
+  actual-provider, original-HTML recognition or complete assembled UM/PDF claim follows.
+- **passed:** independent scoped review, just ready, warning-inclusive types/Ruff, applicable
+  hygiene checks except existing docs publication links; ADR-0048/§B4 linkage was repaired.
+  Evidence128records/0errors/39historical warnings; final turn-end passed. Frozen generated SQL
+  whitespace diagnostics remain recorded without changing byte-bound migration artifacts.
+- **failed, unrelated:** just docs-check reports existing library-publication links; no TA-owned
+  link failure. Earlier failed utility, probe, diagnostic and qualification attempts are retained.
 
 ## Next
 
-Repair UM-TA01/03 and UM-CA13 through existing owners; deliver selected UM-TA02/04 extensions.
-Fresh PDF/provider and full acceptance remain open. Reuse
-applicable receipts; formatting/lint alone do not invalidate typing or functional results.
+No further TA implementation or test rerun is queued. Repair UM-TA01/03 and UM-CA13 through their
+existing owners; deliver selected UM-TA02/04 extensions separately. Fresh PDF/provider and full
+product acceptance remain open. Native95 adoption in an application database uses its normal
+forward migration and regenerated/admitted release route, not fixture qualification.

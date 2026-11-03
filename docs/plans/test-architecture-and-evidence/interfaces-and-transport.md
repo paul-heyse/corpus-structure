@@ -1,6 +1,7 @@
 # Actual interfaces and transport
 
-**Status:** Proposed; [coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-10/11 and DTA-016 disposition.
+**Status:** Implemented; operator-selected verification accepted2026-11-02. The
+[coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-10/11 and DTA-016 disposition.
 
 ## Foundation and target
 
@@ -72,3 +73,18 @@ Context7 and installed fastmcp/client/transports/stdio.py:25–95,218 confirm th
 API/lifetime surface; that is Interface-checked, not an actual stdio run. Preserve current server
 lifespan and native context contracts. The native companion owns acquisition/recovery; this one
 owns client/consumer lifetime. TA-12 judges their assembled interaction independently.
+
+## Implementation boundary — 2026-11-02
+
+`test_current_cli_stdio_journey_and_settlement` runs the installed CLI with SDK `StdioTransport`
+against explicit owned native coordinates. Four modes cover exact accepted proposal/observation
+release, early exit, a post-initialize wrong-task refusal, and cancellation. It observes the actual
+child PID, restricted PostgreSQL session and their settlement before clone disposal. Existing
+same-process controls remain independently useful.
+
+`test_native_export_uses_one_ordered_sql_cursor` now consumes the production formatter directly.
+Its large Unicode scalar exceeds the promised chunk bound; every emitted byte chunk is checked
+before aggregation. Exact reconstructed content/negative zero and one ordered SQL cursor remain
+asserted. Real SQLAlchemy result closure is observed after normal completion, generator close,
+consumer error and borrower cancellation. The substituted scalar replay is explicitly a reference
+control. This is bounded formatter/resource evidence, not a memory or throughput measurement.

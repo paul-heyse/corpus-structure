@@ -1,6 +1,7 @@
 # Semantic evidence and references
 
-**Status:** Proposed; [coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-07–09 and scheduled DTA state.
+**Status:** Implemented; operator-selected verification accepted2026-11-02. The
+[coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-07–09 and scheduled DTA state.
 
 ## Target and useful foundations
 
@@ -120,3 +121,39 @@ of plans/evidence follows. Report unresolved meaning with a trigger instead of d
 
 Changes that only strengthen tests need focused checks; changed production alias/diagnostic semantics
 also require affected generation, native enforcement and consumers. TA-12 owns integrated acceptance.
+
+## Implementation and reference dispositions — 2026-11-02
+
+Catalog mutations address stable contract IDs. Publication/Arrow/PDF refusals identify native
+SQLSTATE plus the exact constraint or primary diagnostic and preserve the committed baseline.
+Served preservation checks name independent members; filtered statistics and hydration checks
+assert positive subjects/work before universal or no-noise claims. The restricted math property
+retains its existing meaning without an invented admission quota.
+
+`test_identity_vectors.py` pins independently authored full preimages/digests and carries a
+minimal explicitly declared model through native publication/read. `alias_policy.py` compiles one
+full-IRI policy for both execution and evaluation. Its input/output profiles enter release identity;
+ambiguous namespaces/conflicts refuse, and archived nonempty unversioned execution requires
+regeneration. Archive reading and explicit neutral policy remain distinct from execution admission.
+
+| Reference obligation | Current disposition / consumer |
+|---|---|
+| Statistics Normal/Gamma aliases | Actual product composition, proposals, consolidation, query and occurrence/source support in `test_reference_counterparts.py` |
+| Toy organization case/identity, Alpha/Beta attribution, filing fusion, compared share, ambiguity and time answers | Current controlled PDF paragraph and independent exact served expectations in `test_reference_counterparts.py`; original HTML/counts retained as witnesses |
+| Nested inspection roles, endpoint contrast, quantity lexical form, unit/basis/date and citations | Two original inspection quotes; current native query/explain and occurrence/source expectations in `test_reference_counterparts.py` |
+| T1 construction versus distribution family; positive scale domain | Current authored construction/profile journey in `test_trace_counterparts.py`; nested schema Formula rule-view projection corrected generically |
+| T2 respectively pairing and parameter ownership | Current authored distribution/profile journey in `test_trace_counterparts.py` |
+| T3 supposed premise, parameter/expression bindings and condition | Current authored statement/profile journey in `test_trace_counterparts.py`; D1's specific derivation remains deferred until its rule is admitted |
+| T4 no invented parameter identity or derived lognormal mean | Independent positive/negative current query expectations in `test_trace_counterparts.py` |
+| Original Notice exclusion | Historical ingress witness only: current selected PDF SourceViews expose unknown semantic kind/bearing; source-view selection owner must adopt classification before this can become a current exclusion claim |
+| Math/macro/binder and TeX references | Frozen independent oracle/configuration with source-backed adjudication at existing owners; not a mirror of today's pack |
+| LLM/ingest/locator snapshots | Existing independent outputs with provenance builders; obsolete temporary-copy wording removed and deliberate-change ownership stated |
+| Semantic archives | Current compiler14 custody/read/refusal controls; no restored historical runtime or fabricated old-archive execution pass |
+
+Controlled counterpart paragraphs do not establish original-HTML recognition or full original
+negative-set replay. Original artifacts remain unchanged. Unsupported Notice classification and
+T3-D1 are explicit semantic boundaries, not manufactured passing outcomes. Their revisit triggers
+and affected owners are stated above and beside the original references. A deliberate reference
+change must document and independently adjudicate its source-backed meaning before selecting a
+new version; regenerated production output is comparison evidence. No additional dependency hold
+was justified solely by this clarification.

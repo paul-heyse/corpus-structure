@@ -147,3 +147,20 @@ F3-02 is reconciled for the deterministic trace journey:
   source text and locations rather than requiring identical choice of evidence between authors.
 - T1's lead-in unsupported items are separate coverage information, outside the trace's positive
   claim list. They remain subject to the generic unsupported-query acceptance.
+
+## Current counterpart scope and deliberate changes
+
+The TA-09 counterpart journey transfers the independently authored T1–T4 target distinctions,
+questions and supported `must_not` obligations through current source-view publication and
+served queries. Historical locators/renditions remain coordinate witnesses; their successful
+reading does not establish current PDF recognition. T3's deferred D1 derivation remains a future
+witness until that specific rule is admitted, with disposition in the test-architecture plan.
+
+An intentional segmentation or parameter-meaning change needs an independently adjudicated
+source/target difference and an explicit affected-consumer list. Keep these original targets
+and provenance; select a versioned counterpart rather than regenerating an oracle from current
+production results. A type/locator check alone cannot close a negative/query obligation.
+
+Current controlled paragraphs are newly authored semantic counterparts, with independently
+stated positive/negative answers. They do not claim recognition or byte replay of the original
+HTML. Original target/quote and coordinate witnesses remain retained for their declared scope.

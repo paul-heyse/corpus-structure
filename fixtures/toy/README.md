@@ -17,3 +17,34 @@ stated here independently of consolidation and serving:
 There are nine materialized ownership claims including the two ambiguous members. Ordinary
 accepted-only queries return seven; at 2020-07-01 the 2020 interval applies and the 2022 interval
 does not, while claims without validity remain unknown. No derivation or scoring is premised.
+
+## Current counterpart and deliberate changes
+
+The counts and HTML paths above describe this independently authored historical witness;
+current counterpart tests transfer the named meanings, not an assumed nine/seven row shape.
+The current model treats attribution as meaning-bearing, filing references as provenance, and
+`share` as compared qualification. The TA-09 current source-view journey exercises those
+obligations through current publication/query contracts without restoring an HTML writer.
+
+For an intentional comparison change, state the source-backed before/after meaning first,
+identify the affected qualifier and query consumers, and independently adjudicate the difference.
+Preserve this witness and its original payloads; add/select a versioned current counterpart.
+A regenerated production batch is comparison evidence, not authority to change the expected
+meaning. The test-architecture coordinator owns outstanding counterpart obligations; the domain
+model and D1 own the current semantic contract.
+
+### Transfer boundaries
+
+The current native counterpart in `test_reference_counterparts.py` uses a newly authored
+controlled PDF paragraph to challenge the ownership meanings above. It is not original-HTML
+replay or recognition accuracy. The nested inspection counterpart selects the two original quotes
+from `semantic-inspection-reference.json`; exact lexical quantity belongs to occurrence/source
+provenance when canonical fact meaning normalizes equivalent decimals.
+
+The original Notice bullet remains a historical ingress witness. Current selected native PDF
+SourceViews deliberately expose unknown `statement_kind`/`claim_bearing`: local recognized blocks
+do not determine whole-section semantics. Toy routing admits that unknown case. Native source-view
+journeys and statement-anchor tests cover their own current custody/routing contracts; they do
+not re-establish the old HTML notice exclusion. Revisit only if the source-view selection owner
+adopts a declared semantic-kind classification contract. This is not permission to infer absence
+from unknown metadata or restore the retired HTML writer.

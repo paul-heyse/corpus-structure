@@ -1,6 +1,7 @@
 # Scenario composition and preparation
 
-**Status:** Proposed; [coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-05/06 and DTA-005/007/009/018 state.
+**Status:** Implemented; operator-selected verification accepted2026-11-02. The
+[coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-05/06 and DTA-005/007/009/018 state.
 
 ## Target and foundation
 
@@ -84,3 +85,24 @@ structural variation, not default replacements for small hand-written examples.
 TA-01's selected native mechanism constrains only database reuse, not extraction of pure support.
 Quantified speed benefit remains unmeasured. Source-established removal of repeated preparation
 must name what was removed and which independent guarantees remain.
+
+## Implementation boundary — 2026-11-02
+
+`agent_scenarios`, `domain_scenarios`, `operation_scenario_support`, `pdf_staging_support`,
+`pdf_integration_support` and `serving_scenarios` now own the shared mechanics. Maintained
+consumers no longer import the selected initial test hosts for those builders. Report count and
+Person identity scope are separate
+`build_domain_case` inputs. Pack-serving scenarios use production `prepare_packs`; isolated
+synthetic scenarios retain their declared scope.
+
+[ADR-0048](../../adr/0048-populated-native-scenarios.md) selects only the repeated default completed
+serving population for session-local reuse. Three read consumers clone its sealed source instead
+of repeating proposals/finalization. OID, policy, client absence, recipe and prepared manifest are
+checked before cloning; purpose connections observe the actual fresh clone. Existing receipt
+events carry seed origin separately. Query-pack/coverage variants and producer/lifecycle tests
+remain cold. Isolation, changed-recipe refusal and partial-build cleanup have dedicated native
+controls; no persistent cache, shared mutable result, second janitor or performance claim follows.
+
+Cold semantic artifact obligations run in a fresh interpreter in `test_prepare.py`; warm identity,
+archive custody and changed-runtime refusals remain separate controls. The coordinator records
+final-source qualification and any unavailable required obligations.
