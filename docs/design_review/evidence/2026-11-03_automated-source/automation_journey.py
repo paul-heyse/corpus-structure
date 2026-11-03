@@ -9,21 +9,33 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-ROOT = Path(__file__).resolve().parents[4]
-sys.path[:0] = [str(ROOT / "scripts"), str(ROOT / "python/corpus-structure/tests")]
-
-from sqlalchemy import text
-
-from conftest import settings_for_native_clone
-from native_test_support import PgAdmin, principal_engine, semantic_principals, server_url
-from semantic.agent_scenarios import build_resubmission_case
-
-from corpus_structure.intervene.automated import extract_run
-from corpus_structure.settings import Settings
+DEFAULT_CHECKOUT = Path(__file__).resolve().parents[4]
 
 
-def run():
-    receipt_root = (Path(__file__).resolve().parent / "runtime" /
+def run(checkout: Path = DEFAULT_CHECKOUT, receipts: Path | None = None):
+    checkout = checkout.resolve()
+    sys.path[:0] = [str(checkout / "scripts"), str(checkout / "python/corpus-structure/tests")]
+    from sqlalchemy import text
+
+    from conftest import settings_for_native_clone
+    from native_test_support import PgAdmin, principal_engine, semantic_principals, server_url
+    from semantic.agent_scenarios import build_resubmission_case
+
+    from corpus_structure.intervene.automated import extract_run
+    from corpus_structure.semantic import operations
+    from corpus_structure.settings import Settings
+
+    imported = Path(operations.__file__).resolve()
+    if not imported.is_relative_to(checkout):
+        raise RuntimeError(f"wrong import provenance: {imported} is outside {checkout}")
+    context = {
+        "checkout": str(checkout), "operations_import": str(imported),
+        "commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
+        ).strip(),
+    }
+    receipts = receipts or Path(__file__).resolve().parent / "runtime"
+    receipt_root = (receipts.resolve() /
                     ("attempt-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:8]))
     receipt_root.mkdir(parents=True, exist_ok=True)
     status = json.loads(subprocess.check_output(["claude", "auth", "status"], text=True))
@@ -40,7 +52,7 @@ def run():
     server.check()
     server.check_roles(semantic_principals())
     suffix = f"{os.getpid()}_{uuid4().hex[:10]}"
-    result = {"outcome": "failed", "at": datetime.now(UTC).isoformat()}
+    result = {"outcome": "failed", "at": datetime.now(UTC).isoformat(), "source_context": context}
     try:
         with server.semantic_template("cs_sem_head_" + suffix) as template:
             with server.database("cs_sem_test_" + suffix, template.name, policy=template.policy) as admin:
@@ -89,4 +101,10 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--checkout", type=Path, default=DEFAULT_CHECKOUT)
+    parser.add_argument("--receipts", type=Path)
+    arguments = parser.parse_args()
+    run(arguments.checkout, arguments.receipts)

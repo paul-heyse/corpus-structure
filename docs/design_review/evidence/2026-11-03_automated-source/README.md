@@ -8,8 +8,10 @@ provider-reported identity, invocation/session and exact native task/attempt/hol
 separate in receipts. Raw refused, failed or interrupted attempts remain evidence; a script
 exit or textual model answer alone does not establish native completion.
 
-Run with the checkout's local environment: `uv run python automation_journey.py` (absolute
-script path), from the repository root. The root coordinator owns final source/context and
+Run with the selected checkout's normal environment: `uv run python <absolute-script-path>
+--checkout <checkout> --receipts <evidence-runtime-directory>`, from that checkout. The probe
+refuses if the imported operation owner is outside the selected checkout and records its commit
+and import path before acquiring resources. The root coordinator owns final source/context and
 assembled qualification; this retained probe establishes only the actual journey it records.
 
 **Tested · 2026-11-03:** the initial actual authenticated journey reached native task completion,
