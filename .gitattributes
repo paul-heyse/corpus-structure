@@ -53,6 +53,7 @@ docs/design_review/evidence/2026-11-03_m1-attributed-evidence/candidate-attempt-
 docs/design_review/evidence/2026-11-03_m1-attributed-evidence/create-attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-public-record-projection/native-author-attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-public-record-projection/*.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_m1-public-record-projection/*.patch filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-record-consumers/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-record-consumers/*.patch filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-record-references/*.log filter=lfs diff=lfs merge=lfs -text

@@ -135,3 +135,12 @@ exports and MCP source journeys still work. Actual five-family CPU publication, 
 admission, routing/coverage/gap completeness, quality/calibration gains and final M1 gate
 claims remain with their owning packages. The record projection cannot establish source
 absence or family-routing completeness from a missing report alone.
+
+## Integrated isolation snapshot
+
+The completed isolated contribution was integrated into main at `db9c5a25` and its temporary
+worktree removed. Its dirty source/evidence state and exact baseline are preserved in the
+[verified snapshot](../2026-11-03_m1-public-record-projection/raw/integrated-worktrees/record-consumers.tar.gz).
+Historical isolated-path commands require restoring that baseline and snapshot. Current machinery
+uses the main-tree commands in the [integrated evidence](../2026-11-03_m1-public-record-projection/README.md);
+this does not promote historical receipts to final native or release qualification.

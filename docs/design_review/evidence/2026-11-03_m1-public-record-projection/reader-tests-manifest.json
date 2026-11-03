@@ -1,0 +1,14 @@
+{
+  "changed_file": "python/corpus-structure/tests/semantic/test_record_publication_native.py",
+  "base_sha256": "6cdaa57ffb66ca322a6509753dabf0e346c19eb03a267f85b366526119800138",
+  "final_sha256": "08950bf4c1cab6e8f10a013cbd82b1a386ab9eeac9ce59a5b2965cb495dfa16f",
+  "patch": "reader-tests.patch",
+  "patch_sha256": "c82c72ec9d8e8be7256b8b90f22d1011493add30e7907470f90b1ca4f530d7a1",
+  "readonly_dependency": "python/corpus-structure/src/corpus_structure/semantic/record_queries.py",
+  "readonly_dependency_sha256": "fc164494bb51ac681e90489d399601a9b8eb66c285a52754c70647fedc4f09d0",
+  "native_execution": "not_run",
+  "collection": "passed 10 functions",
+  "ruff": "passed",
+  "pyrefly": "passed 0 errors",
+  "archive_fixture_pure_preparation": "blocked: current main analysis implementation not yet runtime-bound before final native101"
+}

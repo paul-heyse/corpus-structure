@@ -275,3 +275,12 @@ MAIN already supplied the coordinator-owned pinned `threadpoolctl==3.7.0` enviro
 this worker did not edit dependency declarations. Full `test-all`, native database
 journeys, hygiene, `turn-end` and assembled M1 qualification are **not_run** here.
 The coordinator owns their applicable completion boundary.
+
+## Integrated isolation snapshot
+
+The completed isolated contribution was integrated into main at `db9c5a25` and its temporary
+worktree removed. Its dirty source/evidence state and exact baseline are preserved in the
+[verified snapshot](../2026-11-03_m1-public-record-projection/raw/integrated-worktrees/pipeline.tar.gz).
+Historical isolated-path commands require restoring that baseline and snapshot. Current machinery
+uses the main-tree commands in the [integrated evidence](../2026-11-03_m1-public-record-projection/README.md);
+this does not promote historical receipts to final native or release qualification.

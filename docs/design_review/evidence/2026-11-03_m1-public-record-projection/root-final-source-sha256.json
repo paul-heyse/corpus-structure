@@ -1,7 +1,7 @@
 {
   "baseline": "0046d5ceab5f2fd10c7f86c918c27af67c94e7ff",
   "date": "2026-11-03",
-  "scope": "integrated dirty M1 code, tests and explicit supporting inputs; native deployment unqualified",
+  "scope": "Integrated M1 code/tests and supporting inputs; runtime/test hashes unchanged by subsequent archive storage metadata; native deployment unqualified",
   "files": [
     {
       "path": "domains/statistics/m1-guideline.md",
@@ -309,7 +309,7 @@
     },
     {
       "path": ".gitattributes",
-      "sha256": "d99efdb536332a7949394e0a74b4967c535ac0be785ea786d5af784ff0a3ea4c"
+      "sha256": "43b6c1701e109fbcf9032f977223ce149de987dbe5475b2e5433a6ebcfc0291a"
     }
   ]
 }

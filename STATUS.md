@@ -50,6 +50,8 @@ _Updated 2026-11-03; M1 integration active. UM functionality/validation remains 
 - **Failed, retained:** development fixture/type/integration attempts remain in dated evidence.
   Existing docs-check library-reorganization links remain deferred; no unrelated corrections.
 
+Five integrated temporary worktrees are archived and removed; recovery links are in the evidence.
+
 ## Next
 
 Approve the pending fitting-only host operation, then author/freeze the coherent forward native

@@ -30,3 +30,12 @@ calibration or statistical release claim follows. Credible origin sufficiency st
 owned operation effect profiles; corrected11 pack/composition/compiler controls passed in attempt2.
 A later initial reader concept omitted required model attributes; its refusal is retained and
 corrected in the subsequent reader attempt. The exact deployment fence has not been weakened.
+
+## Integrated isolation snapshot
+
+The completed isolated contribution was integrated into main at `db9c5a25` and its temporary
+worktree removed. Its dirty source/evidence state and exact baseline are preserved in the
+[verified snapshot](../2026-11-03_m1-public-record-projection/raw/integrated-worktrees/record-references.tar.gz).
+Historical isolated-path commands require restoring that baseline and snapshot. Current machinery
+uses the main-tree commands in the [integrated evidence](../2026-11-03_m1-public-record-projection/README.md);
+this does not promote historical receipts to final native or release qualification.
