@@ -1,5 +1,12 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## Audit-closure target
+
+**Accepted target; implementation and qualification Proposed (2026-11-03).** Protected split publication atomically retains actual policy, seed, population, prior-assignment basis, reasons and algorithm version. Exact replay preserves the original receipt; historical unrecoverable provenance stays unavailable. M1 origin/sample metadata remains distinct.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
+
 ## M1 independent record references
 
 **Accepted target, Proposed until native qualification (2026-11-03).** A distinct released

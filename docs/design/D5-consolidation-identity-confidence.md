@@ -1,5 +1,12 @@
 # D5 · Consolidation, identity and confidence
 
+## Audit-closure target
+
+**Accepted target; implementation and qualification Proposed (2026-11-03).** Identity assignments retain explicit resolution decisions. Source attributes retain their own qualifications and evidence. Storage, display and scientific representatives have separate policies. Shared candidate indexes and delta inference preserve complete direct witnesses inside atomic publication.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
+
 ## M1 record interpretation and admission
 
 **Accepted target, Proposed until implemented (2026-11-03).** Deterministic assembly and bounded

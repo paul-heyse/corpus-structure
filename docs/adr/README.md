@@ -37,6 +37,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0051](0051-m1-attributed-source-evidence.md) | Preserve attributed source bindings and captured recognition coordinates | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0052](0052-m1-independent-record-references.md) | Freeze source-only record references before extraction and isolate fitting access | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0053](0053-m1-sol-reference-assessment.md) | Use GPT-6.1 Sol for M1 reference authoring and adjudication | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0054](0054-audit-closure-contracts.md) | Bind audit closure to released semantics, owned effects and bounded readers | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B3](../design/DESIGN.md#section-b3), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 
 ## Superseded, still in the tree
 

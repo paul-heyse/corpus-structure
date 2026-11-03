@@ -183,51 +183,87 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         connection.execute(_context_normalization_statement(work))
         rules = _rules(connection, r)
 
-        def conclusions(rule: dict[str, Any]):
-            a, b = work.alias("a"), work.alias("b")
+        names = ("subject", "predicate", "object", "context", "qualification", "context_key")
+        frontier = [dict(row) for row in connection.execute(select(work)).mappings()]
+
+        def conclusions(rule: dict[str, Any], delta):
+            a, b = delta, work.alias("accumulated")
             kind, p = rule["kind"], rule["predicate"]
             target = rule.get("target") or p
-            key = func.encode(func.sha256(func.convert_to(a.c.context, "UTF8")), "hex")
             if kind == "subproperty":
                 return select(
-                    a.c.subject, literal(target), a.c.object, a.c.context, a.c.qualification, key
+                    a.c.subject,
+                    literal(target),
+                    a.c.object,
+                    a.c.context,
+                    a.c.qualification,
+                    a.c.context_key,
                 ).where(a.c.predicate == p)
             if kind in {"inverse", "symmetric"}:
                 return select(
-                    a.c.object, literal(target), a.c.subject, a.c.context, a.c.qualification, key
+                    a.c.object,
+                    literal(target),
+                    a.c.subject,
+                    a.c.context,
+                    a.c.qualification,
+                    a.c.context_key,
                 ).where(a.c.predicate == p)
             if kind == "transitive":
-                return (
-                    select(a.c.subject, literal(p), b.c.object, a.c.context, a.c.qualification, key)
+                # A new edge can enable either side of a previously impossible join.
+                forward = (
+                    select(
+                        a.c.subject,
+                        literal(p),
+                        b.c.object,
+                        a.c.context,
+                        a.c.qualification,
+                        a.c.context_key,
+                    )
                     .select_from(
-                        a.join(b, and_(a.c.object == b.c.subject, a.c.context == b.c.context))
+                        a.join(
+                            b, and_(a.c.object == b.c.subject, a.c.context_key == b.c.context_key)
+                        )
                     )
                     .where(a.c.predicate == p, b.c.predicate == p)
                 )
+                backward = (
+                    select(
+                        b.c.subject,
+                        literal(p),
+                        a.c.object,
+                        b.c.context,
+                        b.c.qualification,
+                        b.c.context_key,
+                    )
+                    .select_from(
+                        b.join(
+                            a, and_(b.c.object == a.c.subject, b.c.context_key == a.c.context_key)
+                        )
+                    )
+                    .where(a.c.predicate == p, b.c.predicate == p)
+                )
+                return forward.union(backward)
             raise ValueError(f"unsupported inference rule {kind}")
 
-        while True:
-            added = 0
+        while frontier:
+            # One JSONB parameter avoids PostgreSQL's parameter-count limit for large
+            # frontiers. The native workspace remains the accumulated indexed authority;
+            # no second temporary-table lifecycle or publication transaction is introduced.
+            delta = (
+                func.jsonb_to_recordset(literal(frontier, type_=JSONB()))
+                .table_valued(*(column(name, Text()) for name in names))
+                .render_derived(name="frontier", with_types=True)
+            )
+            next_frontier = []
             for rule in rules:
                 stmt = (
                     pg_insert(work)
-                    .from_select(
-                        [
-                            "subject",
-                            "predicate",
-                            "object",
-                            "context",
-                            "qualification",
-                            "context_key",
-                        ],
-                        conclusions(rule).distinct(),
-                    )
+                    .from_select(list(names), conclusions(rule, delta))
                     .on_conflict_do_nothing()
-                    .returning(work.c.subject)
+                    .returning(*work.c)
                 )
-                added += len(connection.execute(stmt).all())
-            if not added:
-                break
+                next_frontier.extend(dict(row) for row in connection.execute(stmt).mappings())
+            frontier = next_frontier
         rows = connection.execute(select(work)).mappings().all()
         existing = set(
             connection.execute(

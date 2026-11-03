@@ -173,6 +173,19 @@ it. Changing one needs an ADR and a design/target review.
 
 <a id="section-b1"></a>
 
+### Audit-closure contract qualification
+
+**Accepted target; implementation and qualification Proposed (2026-11-03).**
+The audit-closure correction qualifies §B1/§B2/§B3/§B5/§B6 with attributed source
+attributes, complete versioned rule values, separate representative policies, executable policy
+applicability, owned reader operations, compatible producer bindings and truthful trust strength.
+Ordinary answers retain independent standing and scoped coverage; evidence/payload retrieval and
+walk execution are bounded and pinned. Split effects retain actual immutable decision provenance.
+Existing native fencing, per-task durability, original occurrences and historical reading remain.
+The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remaining work.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves

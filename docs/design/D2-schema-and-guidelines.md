@@ -1,5 +1,12 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Audit-closure target
+
+**Accepted target; implementation and qualification Proposed (2026-11-03).** Released subsets, behavioral memberships, contextual display policy, method dimensions and versioned rule-value products govern generated and native boundaries. Current executable compiler and reader owners govern present-tense compatibility; older numbered descriptions are historical until reconciled by AC13.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
+
 ## M1 released record boundaries
 
 **Accepted target, Proposed until implemented (2026-11-03).** Released source-binding variants

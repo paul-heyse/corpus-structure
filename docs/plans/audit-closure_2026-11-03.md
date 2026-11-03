@@ -1,6 +1,6 @@
 # Audit closure: semantic contracts, owned execution and bounded consumers
 
-**Status:** Proposed execution series; plan authoring complete, implementation not started.
+**Status:** Proposed execution series; implementation in progress; complete qualification remains open.
 **Created:** 2026-11-03. **Target behavior:** Proposed. Operator accepted RC01–RC12 as planning
 decisions on2026-11-03. This document owns new review-derived package state, shared decisions,
 dependencies and combined acceptance. Writing the series does not authorize product implementation.
@@ -246,3 +246,24 @@ ambiguities were corrected. Product tests, provider calls, native operations and
 were not_run for authoring. `just docs-check` failed on62 unresolved targets outside the new series;
 no new-series target was diagnosed. Existing plans/links were not repaired or rewritten. Final root
 maintenance and staged whitespace checks are reported with the publication commit.
+
+## 11. Execution checkpoint — 2026-11-03
+
+Operator authorized the complete series and retirement in its affected footprint. Execution
+starts at clean main `1240f9b7`, replacing the authoring-time dirty101 premise. Native101 is
+frozen from100; bounded M1 receipts remain historical prerequisite evidence, not AC qualification.
+ADR-0054 realizes RC01–RC12 at existing owners. Root owns shared products, forward-native
+chain and integration; isolated semantic/source/serving workers own coherent capability changes.
+AC00/AC13 are in progress. All other packages remain Planned until implemented and verified.
+I04 must confirm applicable author/install/admit readiness for the new forward transition.
+Existing plans, application selections and the live native99 corpus remain unchanged.
+
+### AC09 inference slice
+
+**Implemented; bounded Tested, 2026-11-03.** `semantic/inference.py` now uses the returned
+new-insertion frontier for unary and both transitive join orientations, retaining the existing
+private accumulated native workspace, atomic publication and post-fixed-point direct witnesses.
+One typed JSONB frontier parameter avoids a parameter-count-dependent ABI. The full accumulated
+rescan loop is removed. `uv run pytest python/corpus-structure/tests/semantic/test_inference.py -q`
+passed all13 native cases. This closes only the inference slice; shared candidate indexes and
+final applicability against AC02–04 changes remain open. No speed/capacity claim is made.

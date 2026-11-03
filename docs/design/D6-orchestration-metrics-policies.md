@@ -1,5 +1,12 @@
 # D6 · Orchestration, metrics and policies
 
+## Audit-closure target
+
+**Accepted target; implementation and qualification Proposed (2026-11-03).** Executable applicability is distinct from authored policy validity. Methods use owned reads. Claims remain owned through preparation, provider work and durable synchronized terminal retirement. One compatible producer binding governs actual queue and submission paths; trust strength is explicit. Model/provider preparation runs outside publication locks; finite rule inference retains atomic publication.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
+
 ## M1 CPU extraction policy
 
 **Accepted target, Proposed until implemented · 2026-11-03.**

@@ -1,5 +1,12 @@
 # D8 · Agent and query interfaces
 
+## Audit-closure target
+
+**Accepted target; implementation and qualification Proposed (2026-11-03).** Answers distinguish selection, assessment and establishment. Coverage selects before hydration. Evidence references page separately from explicit immutable payload reads. Versioned bounded walks retain cycles and parallel edges, with exact-or-refuse deterministic replay. Producer and recognition generation bindings retain truthful configured/reported/manual/verified meanings.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
+
 ## Unified operation realization
 
 **Accepted target, Proposed until implemented (2026-11-02).** Ordinary callers use concrete typed domain operations with generated bindings/materializers. Named queries resolve producing and installed implementation compatibility before plugin import and carry it through continuation/evidence journeys. CLI/MCP operation explanations, semantic impact and located diagnostics share domain functions; preflight observations never authorize later effects.
