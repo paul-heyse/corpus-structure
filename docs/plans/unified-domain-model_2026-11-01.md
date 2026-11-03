@@ -1,6 +1,6 @@
 # Unified domain model: typed operations and generated realization
 
-**Status:** Active — completion audit confirms substantive implementation; UM-CA13 cancellation, UM-TA01/03 custody/preparation corrections and UM-CA10 assembled acceptance remain open (2026-11-02).
+**Status:** Active — model implementation integrated through native99; assembled qualification and current PDF/provider acceptance remain open (2026-11-03).
 **Created:** 2026-11-01. **Target claims:** Substantial implementation with the bounded gaps below; Tested only within
 recorded receipt scopes. Historical evidence retains its original source and scope. This coordinator alone owns package state,
 execution queue and source-review disposition for the new series.
@@ -159,18 +159,18 @@ admission/consumer closure are deliberately separate.
 | UM-00 | Implemented; qualification open | Confirmed decisions and current owner/source snapshot | Architecture/rule amendments, explicit supported versions and source-to-consumer baseline for this series; no new audit |
 | UM-01 | Implemented; qualification open | Effective property definitions and current comparison policy | Checked comparison context/meaning/evidence projection, used by scientific decisions without changing fact identity |
 | UM-02 | Implemented; qualification open | Current invariant/enforcer/operation definitions | Observable versus descriptive invariant contract and qualified diagnostic mapping consumed by real enforcers |
-| UM-03 | Implemented; UM-TA04 typed-support extension planned; qualification open | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
-| UM-04 | Partial — UM-TA01; qualification open | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
+| UM-03 | Implemented; UM-TA04 typed-support extension implemented; qualification open | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
+| UM-04 | Implemented; qualification open | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
 | UM-05 | Implemented; qualification open | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
 | UM-06 | Implemented; qualification open | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
 | UM-07 | Implemented; qualification open | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
-| UM-08 | Partial — UM-TA03; qualification open | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
-| UM-09 | Partial — UM-CA13; qualification open | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
-| UM-10 | Partial — UM-CA13; qualification open | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
+| UM-08 | Implemented; qualification open | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
+| UM-09 | Implemented through native97; actual publication/qualification open | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
+| UM-10 | Implemented; qualification open | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
 | UM-11 | Implemented; qualification open | Operation/state/binding contracts plus actual owner checks | CLI/MCP operation/prerequisite explanations; effects recheck atomically |
-| UM-12 | Implemented; UM-TA02 alias-impact extension planned; qualification open | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
+| UM-12 | Implemented; UM-TA02 alias-impact extension implemented; qualification open | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
 | UM-13 | Implemented; qualification open | Existing validator outputs and an early shared diagnostic contract | Model/path/operation/scope-located diagnostic consumers preserving failure categories |
-| UM-14 | Partial — UM-CA13; adoption/qualification open | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
+| UM-14 | Implemented through native99; actual adoption/qualification open | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
 | UM-15 | In progress | All selected functional scope and UM-14 final-source integration | Required functional/native/provider/nonfunctional union has applicable evidence; honest unresolved/benefit limits |
 
 Useful order: begin UM-00 and shared contract definition; UM-04 and UM-09 can progress independently.
@@ -329,7 +329,7 @@ The coordinator is the sole disposition owner; previous source evidence remains 
 | UM-CA01 — UM-03/04/14 | Authorized retirement implemented: current archive3 custody and producing/installed query compatibility remain; old compiler readers explicitly refuse. | Required-union qualification at UM-CA10; no restoration of obsolete formats. |
 | UM-CA02 — UM-03/14 | Current composed run/project/cancellation/hold paths replace base execution; source guards and native91 retire obsolete storage. | Current consumer acceptance at UM-CA10. |
 | UM-CA03 — UM-06/07/14 | Pure derive and sole server-bound native-candidate route are implemented; frozen91–94 replay/empty-candidate/refusal/rollback receipts exist. | No unbound deployment authority; retain actual native qualification limits. |
-| UM-CA04 — UM-09/14 | Configured driver now reaches `companion_export.py:129–134`; snapshot import and batch hints are actual consumers. | Driver omission corrected; cancellation continuity is separately open as UM-CA13. |
+| UM-CA04 — UM-09/14 | Configured driver now reaches `companion_export.py:129–134`; snapshot import and batch hints are actual consumers. | Driver omission corrected; UM-CA13 now has bounded metadata/handoff/bulk closure. |
 | UM-CA05 — UM-08/12/13 | `projection_analysis.py:267–349` executes strict qualification/type/scope/lineage and relational clause dependencies; actual impact consumes the archive product. | Unknown helper/body semantics remain explicit; not universal semantic equivalence. |
 | UM-CA06 — UM-13/14 | `ontology.py:985–1018` returns the shared located graph report and raw validation; shape/execution/nonconformance distinctions remain. | Broader actual-provider/consumer qualification at UM-CA10. |
 | UM-CA07 — UM-13/14 | Invocation-local FailureContext carries known release/model/operation through CLI/MCP translation; structured native invariant bindings preserve cause. | No claim that every library error is normalized or every invariant has a qualified observer. |
@@ -338,9 +338,23 @@ The coordinator is the sole disposition owner; previous source evidence remains 
 | UM-CA11 — UM-12/14 | `cli/regenerate.py:230–249` actually consumes shared impact/advice; class/helper gaps report unknown. | Richer known dependency closure is optional improvement I05, not a false-success defect. |
 | UM-CA12 — UM-03/14 | Generated semantic NewTypes and nested completion IDs reach strict scalar/JSON materialization. | Static and runtime controls remain complementary. |
 | UM-CA10 — UM-14/15 | Open qualification/adoption, not an implementation-complete series exit. Live observer coverage and stale-preflight controls retain their stated boundaries. | Complete exact applicable functional/provider/nonfunctional union and actual PDF/knowledge/query/report/export acceptance. Reuse independent reference obligations through their existing owners. |
-| UM-CA13 — UM-09/10/14 | **Open implementation gap:** caller cancellation is registered only in ADBC; SQLAlchemy snapshot/source inspection and snapshot export are unregistered. | Coordinate backend-specific cancellation under one operation owner; qualify in-flight metadata, handoff and bulk cancellation with full settlement and no destination publication. |
+| UM-CA13 — UM-09/10/14 | Implemented and focused Tested: one sticky operation owner registers PostgreSQL metadata/snapshot and ADBC work, including capture. | Metadata/handoff pass in `um-native96-cancellation-observation-001`, bulk in `-002`; capture-binding pass in `um-native96-closure-001`. Retain broader UM-CA10 acceptance and separate publication-fidelity evidence. |
+| UM-CA14 — UM-09/13/14 | Implemented and focused Tested under native97: Standard-child FD1 diagnostics route to stderr, preserving pre-bound TableFormer loggers, native writes and typed Pipe replies. Baseline failure and corrected success/error controls are retained. | Current book/CLI acceptance at UM-CA10; `build/um-native-stdio-{baseline,fixed}` and `um.native-stdio-renewal97` bound this correction. |
+| UM-CA15 — UM-09/14 | Implemented and scoped Tested under native97: bounded companion transactions and inventory hashing outside the task fence remove the observed renewal lock contention. Existing model-owned isolation and protected append-only/count checks preserve freeze semantics. | Actual native publication and post-termination read passed. Required36-node selection is closed by `build/um-native97-renewal-union.json`; earlier failed receipts remain failed. No timeout increase or weakened validation. |
+| UM-CA16 — UM-14 | Implemented through native98: supplied raw pins use the canonical organizer; same-task exact published output custody permits organization before source-view selection. All40 affected controls pass, including13 native; author/replay has exactly two source changes and no schema/policy change. | Ordinary five-section consumer acceptance remains active. Preserve selected/declared-input and cross-task/document/source/project refusals. |
+
+| UM-CA17 — UM-03/05/14 | Implemented and scoped Tested under native99: exact-pin batch qualification of the excluded furniture frontier preserves body membership/text/items and strict missing/body/identity refusals. All33 affected controls pass, including12 native; actual run6 passes the former failure and reuses task5’s organized pin. | Complete final integrated publication and five-view/external/provider acceptance at UM-CA10. Diagnostic receipt and all failed run5 artifacts remain; no organization or conversion was repeated for this repair. |
 
 ### UM-CA13 evidence and closure
+
+**Implemented / scoped Tested, 2026-11-03.** The original gap below motivated the composed
+operation owner in `core/db/cancellation.py`. Metadata, snapshot/capture and ADBC borrowers now
+register with the same sticky request; final atomic publication is linearized against cancellation.
+Actual metadata/handoff/bulk controls and capture binding passed in the receipts named above.
+Backend-specific settlement and original-versus-cleanup errors remain distinct. This closes the
+cancellation seam, not PDF publication fidelity or UM-15's enclosing qualification.
+
+**Original audit evidence at `fb84eb8f`:**
 
 `serve/companion_export.py:87,92–93` accepts/polls ADBCBorrowerCancellation, but
 `:109–110` calls read_snapshot without its SQLAlchemy cancellation argument; `:112–122` omits
@@ -372,7 +386,7 @@ was not selected. Small semantic serialization visitors preserve supplied/refere
 These are justified scope decisions, not missing library adoption. Model-owned external boundary
 checks remain necessary even when Arrow physical validation or generated annotations succeed.
 
-**Next:** resolve UM-CA13 through existing resource/transport owners; complete UM-CA10 without
+**Next:** finish current UM-CA10 qualification and operational acceptance without
 promoting targeted receipts to assembled acceptance. The separate improvement review's I01–I05
 are proposals requiring adoption, not automatic changes to this plan. Provider improvements also
 name the existing PDF owner; they do not transfer every PDF obligation into UM.
@@ -404,61 +418,40 @@ predecessor checks retain their limits. Final source must be qualified after bro
 
 ## Current execution checkpoint — 2026-11-02
 
-**Implemented / bounded Tested, with UM-CA13 open.** Current semantic
-compiler14/boundary12/execution23/archive3 is integrated; the audit above identifies the remaining
-cancellation integration gap. ADR-0047's retirement removes historical readers/base runtime, installed registries,
-old compiler/executor paths, aggregate/rendition/HTML persistence and the legacy test engine.
-Generic database test fixtures now clone the current sealed semantic head; independent resource,
-rollback, COPY/ADBC, extension, owner and cancellation expectations remain. Current locators,
-scientific interpretation, rule/cascade, alignment and exact-value capabilities remain.
-Schema-only compilation/boundary generation and exact artifact archiving remain non-executable;
-execution and analytical operations require their bound model. No installed analytical-policy
-fallback remains. Current query compatibility across retained current-format results remains.
+**Implemented / bounded Tested (2026-11-03); integrated acceptance remains open.**
+Current compiler14/boundary12/execution23/archive3 and ADR-0047 remain the current-only
+architecture. UM-CA13 and UM-TA01–04 implementation is integrated in `7188cafb`. Native96
+records those source changes; native97 adds the qualified freeze/renewal correction and child
+diagnostic routing; native98 records canonical source selection and exact current-task output custody. Frozen predecessors are immutable. The current app database is
+`corpus_pdf_20261102`/OID16934542 on dedicated18/corpus, deployed through98; other clusters
+remain unchanged. The owned Nemotron service is available on8035. Readiness is not inference.
 
-Native91 retires36 relations and replaces their dependents before dropping tables. Native92 binds
-the regenerated report-schema artifact. Native93 corrects retained empty OCR inventories and six
-source-derived kernel bodies; native94 binds the final analytical source. All predecessors are
-immutable. [Forward evidence](../design_review/evidence/2026-11-02_um-current-only-forward/README.md)
-retains failed attempts and passing82→94 replay, no-op, empty candidate, exact catalog, source/ACL
-refusal, restoration and caller-owned rollback. Rehearsal roles remain distinct from actual LOGIN.
+The actual full-book Standard conversion acknowledged1589 pages and performed CodeFormulaVLM
+enrichment, then failed on renewal lock contention during companion adoption. Its cancelled
+run3, private build, native spool, OCR metadata and warnings remain retained. Native97 fixes the
+transaction/fence issue; it does not relabel that attempt as successful. A verified complete
+retained native observation was re-lowered and published through the current protected append/
+freeze/validate/seal route under task4, avoiding another model pass. Its actual post-termination
+read passed in `build/um-native-recovery-postread-00001`. It preserves original native health
+and formula outcomes; an unavailable original OCR-region inventory remains unknown. No historical
+knowledge or organized semantic outputs are imported.
 
-Fresh owned corpus_pdf_20261102/OID16934542 is deployed through94. Actual admitter LOGIN archived
-and admitted the statistics release; actual writer initialized siegrist-pdf; actual reader opened
-its operation explanation. Defaults select this database/project; no completed result is selected.
-Receipts: build/um-current-fresh-bootstrap. Full-PDF attempt1 exposed the incorrect nonempty OCR
-inventory constraint; its cancelled state and settled processes are retained. The model correction
-preserves [] versus absent/null in Arrow and preserves unknown/partial health;27 focused controls
-passed. Attempt2 refused before conversion because the owned Nemotron endpoint was unavailable.
-The restarted service has been shut down and its process group is absent. Fresh recognition and
-five-section knowledge/query/report/export acceptance are not established by API readiness.
+The full functional attempt retained3295 passing calls and one failed alias-fixture case; its
+corrected actual-statistics CLI/MCP/advice case passed. Native97's affected36-node union has no
+unresolved required nodes. Current source/provider/reference/evaluator acceptance and the final
+source/context union remain open. The previously interrupted79 math cases have passing evidence;
+no separate rerun is needed. Exact receipt applicability belongs to UM-15.
 
-Four obsolete historical success cases were retired: populated0032 compiler10 reconstruction,
-two native-closure old-head backfills, and aggregate-PDF historical backfill through an exported
-old runtime. Frozen migrations, source fixtures and evidence remain; current archive/replay,
-unsupported-ABI, native guard and independent semantic expectations remain. Other affected tests
-were ported to current composed profiles, exact published pins and record readers. Invalid native
-inputs retain independent expectations rather than weakening production guards.
-
-**Verification:** warning-inclusive just types and whole-repository just ruff passed at
-build/um-current-closeout-{types,ruff}-final.log, supplemented by scoped passing checks for the
-last fixture repairs. Targeted analytical/resource, ABI/invariant/scope
-and source CLI/reader checks passed; their receipts retain exact selections. The baseline final94
-collection selected3191 nodes; the existing classifier recorded2806 passed and385 unresolved before
-closeout repairs. Concurrent native cold bootstraps exhausted shared locks; their214 setup failures
-were followed by serialized targeted checks with repaired native cases. The interrupted math shard leaves79 nodes
-without a passing call. Original failed/interrupted receipts are preserved; package counts overlap
-and are not summed. The last whole collection selected3187 nodes before two retired child checks were replaced by
-four pure preparation cases; full required-union qualification remains open. The targeted closeout result is recorded below.
-
-**Next executable work:** start the owned Nemotron service, verify its actual API/control readiness,
-then run one fresh corrected full-PDF intake; resume the existing five-section knowledge workflow,
-exercise actual query/report/export/evaluation consumers and complete the outstanding required
-union. Reuse applicable final-source receipts; do not repeat passing checks merely after lint or
-formatting. Additional PDF provider/evaluator/default acceptance retains its existing coordinator.
+**Next executable work:** finish ordinary run5/task5 source preparation from the exact retained
+native pin and its intact five-section source views, then exercise actual CLI/MCP/export and
+independent automated reference/evaluation
+consumers. The [remaining-execution account](#remaining-execution--2026-11-02) owns detailed
+commands and retained failures. Additional unselected improvement proposals remain unadopted;
+diagnostic audit premises are unchanged.
 
 ### Settled closeout evidence
 
-The serialized targeted batch selected234 nodes:203 passed and31 failed. The two obsolete JSON
+**Historical bounded checkpoint at native94; current state is above.** The serialized targeted batch selected234 nodes:203 passed and31 failed. The two obsolete JSON
 publisher/plan nodes were replaced with four independently specified current preparation cases,
 which passed. Repairs preserved method/configuration/packet binding, exact published custody,
 owned batch preparation, binary-profile refusal, evaluator privileges and query semantics.
@@ -506,11 +499,11 @@ This table alone owns the new UM amendment state; source-review IDs remain quali
 
 | ID / package | Current disposition | Required outcome and closure |
 |---|---|---|
-| UM-TA01 — UM-04/03/14; review I05 | Open implementation correction | Include exact-object lowering's `consolidation.plain` and required delegates in existing finite query source custody. Cover pre-imported helpers, changed files after load and refusal before incompatible named-query/continuation execution. Frozen products remain immutable. |
-| UM-TA02 — UM-12/13/14; review I01 | Planned functional extension | Compare released alias profiles by class/member, separate origin from normalization changes, retain known consumer kinds and unknown dynamic closure through actual CLI/MCP/advice. Use existing report products and versioned model/implementation bindings, not another registry. |
-| UM-TA03 — UM-08/03/12/14; review I06 | Open preparation correction | SQLGlot is already captured; qualify required captured/runtime analysis determinants before preparation/cache reuse. Refuse mismatch with reacquisition advice; supported immutable archives remain readable. Independent cold semantic-2 contents/dependency/type expectations complement warm/refusal controls. |
-| UM-TA04 — UM-03/05/14; review I07 | Planned typed-support extension | Type shared scenario resource/identity/result ports with existing domain types, migrate actual callers, and retain raw malformed construction and independent expected data. No universal scenario model. |
-| Review I02/I03/I04 — UM-01–15 at affected owners | Acceptance amendments selected; qualification open | Reuse independent key/reference, cold/warm, native cause, explicit principal, stdio and formatter evidence only within their real scope; do not duplicate TA work or promote its partial evidence. UM-CA13 remains open, including focused capture continuity inventory. |
+| UM-TA01 — UM-04/03/14; review I05 | Implemented; qualification in progress | Include exact-object lowering's `consolidation.plain` and required delegates in existing finite query source custody. Cover pre-imported helpers, changed files after load and refusal before incompatible named-query/continuation execution. Frozen products remain immutable. |
+| UM-TA02 — UM-12/13/14; review I01 | Implemented; actual CLI/MCP/advice control passed | Compare released alias profiles by class/member, separate origin from normalization changes, retain known consumer kinds and unknown dynamic closure through actual CLI/MCP/advice. Use existing report products and versioned model/implementation bindings, not another registry. |
+| UM-TA03 — UM-08/03/12/14; review I06 | Implemented; focused cold/persist/cache checks passed | SQLGlot is already captured; qualify required captured/runtime analysis determinants before preparation/cache reuse. Refuse mismatch with reacquisition advice; supported immutable archives remain readable. Independent cold semantic-2 contents/dependency/type expectations complement warm/refusal controls. |
+| UM-TA04 — UM-03/05/14; review I07 | Implemented; static controls passed | Type shared scenario resource/identity/result ports with existing domain types, migrate actual callers, and retain raw malformed construction and independent expected data. No universal scenario model. |
+| Review I02/I03/I04 — UM-01–15 at affected owners | Acceptance amendments selected; qualification open | Reuse independent key/reference, cold/warm, native cause, explicit principal, stdio and formatter evidence only within their real scope; do not duplicate TA work or promote its partial evidence. UM-CA13 focused capture/metadata/handoff/bulk controls passed; assembled acceptance remains UM-CA10. |
 
 UM-00/01/02 retain implemented authority/comparison/invariant foundations; consume the new released
 policy and independent key/meaning controls. UM-03/04 carry typed ports and query custody; UM-05
@@ -542,3 +535,132 @@ at the concurrent ADR-0048/§B4 decision-link lint before the publisher could ru
 in-progress TA authority edit was not repaired here. Product tests/types, native/provider checks
 and broad qualification were not_run for this documentation-only engagement. These results do
 not close any implementation or acceptance obligation.
+
+
+## Remaining execution — 2026-11-02
+
+**Implemented; qualification in progress.** The execution baseline was clean `7d1ade1a` after
+TA completion. UM-TA01 extends finite query custody to exact-object lowering. UM-TA03 qualifies
+SQLGlot/SQLAlchemy/LinkML-runtime inputs before preparation and analyzer cache reuse, preserving
+retained-artifact reads. UM-TA02 compares released alias normalization and origins, preserves
+actual implementation/profile consumer kinds and unknown dynamic closure, and reaches existing
+report/advice consumers. UM-TA04 types shared scenario resource/identity/result ports and their
+callers without replacing malformed inputs. UM-CA13 composes one sticky operation cancellation
+request across existing Psycopg/ADBC owners and atomic publication. No new semantic authority,
+provider lifecycle framework or historical compatibility layer is introduced.
+
+Native96 freezes one descriptor transition, with no ordinary schema/catalog-policy change;
+292 predecessor files remain unchanged. Authoring, outer rollback/prior admission, fresh replay,
+repeated upgrade and empty candidate passed. The existing app database `corpus_pdf_20261102`,
+OID16934542, was migrated through96; this does not itself admit a new result. The bounded owner is
+[um.native-closure96](../design_review/evidence/2026-11-02_um-completion-forward/README.md).
+
+**Passed, bounded:** warning-inclusive `just types`, corrected `just ruff`, `just ready`, focused
+query/analysis/cache and cold semantic-2 checks, typed scenario static controls, pure cancellation
+and alias controls. Six actual Store checkout controls passed with complete item-bound provenance
+(`build/test-receipts/um-store-observation-001`). The latest TA broad receipt contains passing
+calls for all79 formerly interrupted math nodes; their source/context applicability remains
+separate from full current qualification. No separate historical math rerun is required.
+
+**Failed, retained:** the first native96 selection (62 nodes,10passed/52failed) and fresh intake
+exposed a scoped-analysis manifest mismatch at exact release persistence. Producer, persistence
+and full verification now share the determinant owner; actual native96 persistence/full verification
+and changed-runtime/archive-read controls passed in `um-scoped-persist-00001`. Exact validation
+is not weakened. New cancellation controls also exposed cross-role monitoring visibility, repaired
+using the actual reader principal without new grants or relaxed deadlines. Original receipts remain
+under `build/test-receipts/um-native96-closure-001` and
+`build/um-final-intake-20261103-attempt-00001`.
+
+UM-CA10 and UM-15 remain open until the repaired real consumers, complete required union and configured
+PDF/provider/reference/evaluator journeys have applicable evidence. Earlier improvement proposals
+remain unadopted except the already selected alias extension. No diagnostic audit premises changed.
+
+
+### Actual qualification and worker stdio follow-up
+
+The full functional attempt `20261103T021214Z-2310775` finished with3295passed/1failed,
+complete native provenance and no missing acquired-context nodes. Rust selected no tests
+(not_run). The one failure was the new alias integration test assuming its minimal report fixture
+contained domain-rule inputs. Its corrected actual-statistics setup passed real CLI/MCP/advice
+in `um-alias-served-corrected-002`; the intermediate invalid minimal-rule fixture remains failed
+in `-001`. This is scoped correction, not a relabelled fresh full-suite pass.
+
+Actual Standard conversion exposed UM-CA14: TableFormer diagnostics reached CLI stdout. Its
+spawned regression reproduces the defect and checks typed Pipe success/error replies plus native
+FD writes. The fixed child routes diagnostics to stderr without suppression. Native97 freezes its
+source provenance alongside UM-CA15: bounded companion transactions and inventory hashing outside
+the task fence. The actual renewal failure was55P03, not an arbitrary processing deadline; guards,
+leases and timeouts remain enforced. Native97 author/replay and the affected36-node union passed.
+Independent review of `7188cafb` found no material issue; it ran no tests or provider calls.
+
+The failed full-book run3 remains cancelled with its private spool/OCR metadata and real formula
+work retained. Native task4 instead re-lowered the verified actual native observation from the
+prior rebuild. It published pin `4/native/5ea04802e046368a609dea84430ba6a672dd87f826057e737d9eb263efe721b7`.
+The original helper's post-check compared formula metadata against the health wrapper incorrectly;
+publication itself completed. That failed receipt is retained. Corrected read-only recheck passed
+in `build/um-native-recovery-postread-00001`: exact schema/archive/receipt, unchanged native health,
+6342 formula outcomes, terminal producer task and cancelled auxiliary container with no unfinished
+tasks. No second import, new inference, synthetic knowledge or OCR inventory was introduced.
+
+UM-CA16 also includes current-task output custody: after ordinary organization, the exact newly
+published child must be readable within its own still-running claimed document task, before source
+views exist. Existing selected/exact-input custody remains; this requires an explicit same-task,
+same-document/project/source check, not an arbitrary same-source bypass. Both fixes proceed through
+the existing reader/selector and a source-only forward descriptor. Current five-section knowledge,
+external consumers, independent references and grading remain open until their actual receipts.
+
+### Final functional union at native98 — 2026-11-03
+
+**Passed required-node coverage, bounded to Python functional/native scope.**
+`build/um-final-required-functional.json` declares3311 distinct nodes, including562 native.
+`build/um-final-functional-union.json` has zero required unresolved nodes and complete native
+provenance. Applicability is explicit in `build/um-final-functional-applicability.json`:
+3235 unchanged96 nodes,36 renewal97 nodes and40 affected98 nodes form disjoint groups. The97
+freeze product is byte-equal at98; new98 guard assertions have their own98 passing evidence.
+Do not substitute an older node-ID pass for a changed assertion.
+
+The40-node98 selection first passed39 and failed one new native fixture setup after its actual
+positive custody checks had passed. Writing its required second original PDF corrected that setup;
+the exact native case then passed in `um-native98-final-affected-00002`. Both receipts remain.
+The aggregate classifier intentionally remains failed because it retains original failed campaigns;
+zero unresolved required nodes is not a relabelled all-green broad run. Whole warning-inclusive
+`just types` and `just ruff` passed (`build/um-final-types-003.log`, `build/um-final-ruff-004.log`).
+Ruff reordered two test imports only; no result is invalidated solely by that formatting.
+
+This union does not establish actual full-book integration, external consumers, provider authoring,
+extraction, independent references or evaluator acceptance. Run5/task5 is executing the ordinary
+source preparation path on native98; those remaining obligations retain UM-CA10/UM-15 ownership.
+
+### Retained organized-product recovery — 2026-11-03
+
+Run5/task5 failed after successful protected organized publication and before recognition or source
+views. `build/um-final-intake-20261103-attempt-00003` preserves exit1, exact stdout/stderr,
+`organized.publication.json`, `organized.pin.json` and settled task/run state. The published pin is
+`5/organized/28d8e22275dc6b069ed42e4e3fa82ed98dddf37801e5e122b069520a7e42b42f`.
+The next preparation must consume that pin after UM-CA17's reader correction; repeating book
+conversion or organization is unnecessary. The3311-node functional union above retains its scope;
+this actual consumer defect adds a required obligation and prevents assembled acceptance.
+Static independent review of `b349bf59` found no material selector/custody issue; it performed no
+runtime operations and does not override this actual failure.
+
+### Final functional union at native99 — 2026-11-03
+
+**Passed required-node coverage, bounded to Python functional/native scope.** The updated required
+set is3318 distinct nodes, including563 actual-native requirements, with zero unresolved required
+nodes and complete native provenance. `build/um-final99-functional-applicability.json` partitions
+3214 unchanged96,36 renewal97,35 unaffected98 and33 requalified99 nodes; seven new frontier
+obligations are included. All non-descriptor native products are exact98↔99. The prior3311-node
+account and its archived receipts remain immutable. Original failed aggregates remain failed.
+
+The33-node actual99 endpoint passed in `um-native99-final-affected-00001`, covering independent
+mixed-layer publication, frontier refusals, membership/text offsets/items/health, selected and
+offline consumers, evidence/regions/reports and current native custody. Warning-inclusive
+`just types` passed in `build/um-frontier-final-types-00001.log`; scoped Ruff passed. Source bytes
+have not changed since99 freezing. No whole-suite rerun is justified solely by safe formatting.
+
+The actual diagnosis confirmed every missing target in all five sections exists in the same
+published placement with `content_layer=furniture`. Body-only SQL membership and original native
+child references therefore need explicit frontier qualification, not relaxed missing-reference
+checks. Run6/task6 now consumes the exact task5 organized pin and has advanced into cached
+recognition admission without a new native/organized build. Its final integrated publication,
+five-view source-ready state and actual provider/reference/evaluator acceptance remain open.

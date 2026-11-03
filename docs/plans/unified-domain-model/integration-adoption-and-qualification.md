@@ -1,13 +1,13 @@
 # Integration, adoption and qualification
 
-> Current execution (2026-11-02): implementation is substantially integrated, with UM-CA13 open, under
+> Current execution (2026-11-02): implementation is integrated under
 > [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
 > [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
 > owns current disposition and open acceptance. Historical compatibility/repair statements below
 > retain their dated baseline; obsolete runtime formats are retired, while current archive custody
 > and query compatibility remain supported. Final assembled qualification is open.
 
-**Status:** Partial implementation — UM-CA13 cancellation integration remains open; current-only targeted closeout and assembled acceptance remain with the coordinator.
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator.
 
 ## Baseline and preservation contract
 
@@ -209,8 +209,8 @@ accepted mechanisms and limits. New improvement proposals are separately publish
 
 ## Test-architecture reconciliation — 2026-11-02
 
-**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
-scope. The coordinator owns state; this section does not close TA or UM qualification.
+**Selected amendment:** Current implementation and qualification are owned by the coordinator.
+TA foundations retain their declared scope; their completion does not itself qualify UM.
 
 Consume [I01–I07](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md) through the existing package owners. Before assembled acceptance,
 close newly exposed query-helper custody (UM-TA01), qualify projection preparation/runtime reuse

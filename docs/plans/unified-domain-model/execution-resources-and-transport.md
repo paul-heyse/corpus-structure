@@ -1,13 +1,13 @@
 # Execution resources, ownership and directional transport
 
-> Current execution (2026-11-02): implementation is substantially integrated, with UM-CA13 open, under
+> Current execution (2026-11-02): implementation is integrated under
 > [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
 > [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
 > owns current disposition and open acceptance. Historical compatibility/repair statements below
 > retain their dated baseline; obsolete runtime formats are retired, while current archive custody
 > and query compatibility remain supported. Final assembled qualification is open.
 
-**Status:** Partial implementation — UM-CA13 cancellation integration remains open; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
 is bounded below, with no measured speedup or universal memory claim.
 The [coordinator](../unified-domain-model_2026-11-01.md) owns
 package state, source disposition and assembled acceptance. This companion owns UM-09/UM-10
@@ -247,8 +247,8 @@ accepted mechanisms and limits. New improvement proposals are separately publish
 
 ## Test-architecture reconciliation — 2026-11-02
 
-**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
-scope. The coordinator owns state; this section does not close TA or UM qualification.
+**Selected amendment:** Current implementation and qualification are owned by the coordinator.
+TA foundations retain their declared scope; their completion does not itself qualify UM.
 
 [Review I04](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I04) sharpens UM-CA13 closure. Compose one sticky operation cancellation
 request over existing `BorrowerCancellation.borrow()`/Psycopg `cancel_safe`, token-aware
@@ -265,3 +265,13 @@ bulk registration, and actual ADBC work. Observe settlement and no publication i
 TA's post-list-tools stdio cancellation and formatter result-close controls do not satisfy these
 cross-backend cases. Reuse explicit owned-clone targeting and actual purpose sessions, not ambient
 defaults or a second lifecycle/receipt framework.
+
+
+### Current composed cancellation realization
+
+**Implemented; focused Tested, 2026-11-02.** `OperationCancellation` composes the existing
+Psycopg and ADBC handles. Companion export and analytical capture register metadata/snapshot and
+bulk work under that operation; `read_session` accepts the PostgreSQL child explicitly. Borrower
+retirement, rollback and reader closure remain with their native owners. Atomic publication is
+linearized against cancellation. Metadata/handoff/bulk and capture-binding controls passed; see
+UM-CA13 at the coordinator for exact receipts and remaining assembled acceptance.

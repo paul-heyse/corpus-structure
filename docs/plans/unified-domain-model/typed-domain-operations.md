@@ -247,8 +247,8 @@ accepted mechanisms and limits. New improvement proposals are separately publish
 
 ## Test-architecture reconciliation — 2026-11-02
 
-**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
-scope. The coordinator owns state; this section does not close TA or UM qualification.
+**Selected amendment:** Current implementation and qualification are owned by the coordinator.
+TA foundations retain their declared scope; their completion does not itself qualify UM.
 
 Use the actual TA preparation and reference foundations described in [I02/I03](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I02).
 Production constructors may supply valid setup, but wrong parameter/result/semantic-ID cases

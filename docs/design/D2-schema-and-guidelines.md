@@ -7,6 +7,15 @@
 > Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 
+**Implemented; bounded Tested (2026-11-02; UM assembled acceptance remains open).**
+Projection-analysis production qualifies its captured SQLGlot/SQLAlchemy/LinkML-runtime tuple
+before preparation or recipe-analysis cache reuse. One determinant owner supplies preparation,
+exact persistence and full verification; the tuple applies only when the release produces that
+analysis. Immutable archived-analysis reading does not re-run today's analyzer. Released alias
+policy remains the single normalization input; impact distinguishes normalization members from
+origin-only provenance using full class IRIs and qualified existing consumer references.
+
+
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below

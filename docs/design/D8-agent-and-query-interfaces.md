@@ -561,6 +561,15 @@ New exports use semantic-export-2 logical and physical digests; historical forma
 original meaning. Capture close defers disposal until active scopes/readers close; explicit exports
 own their destination. CLI/MCP boundaries retain explicit archive and resource lifetimes.
 
+
+**Implemented; bounded Tested (2026-11-02).** Companion export and analytical capture use one
+sticky `OperationCancellation` spanning the metadata/snapshot Psycopg borrower and ADBC reader.
+The backend handles retain dispatch and retirement ownership; the operation thread owns rollback,
+reader closure and snapshot settlement. Pre-publication cancellation refuses atomic output;
+publication already linearized remains a completed effect. Cancellation-request timeout does not
+promise complete-operation shutdown. Focused actual metadata/handoff/bulk controls complement
+publication/schema fidelity controls; final assembled qualification belongs to UM-15.
+
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 
 ## Runtime initialization

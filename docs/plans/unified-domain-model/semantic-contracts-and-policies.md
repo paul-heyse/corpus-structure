@@ -183,8 +183,8 @@ accepted mechanisms and limits. New improvement proposals are separately publish
 
 ## Test-architecture reconciliation — 2026-11-02
 
-**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
-scope. The coordinator owns state; this section does not close TA or UM qualification.
+**Selected amendment:** Current implementation and qualification are owned by the coordinator.
+TA foundations retain their declared scope; their completion does not itself qualify UM.
 
 Released alias policy and independent semantic expectations are now foundations, not missing
 UM implementation. Reuse TA's compiled full-class-IRI policy in consolidation and alignment;
