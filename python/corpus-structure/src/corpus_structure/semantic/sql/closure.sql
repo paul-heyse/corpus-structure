@@ -643,6 +643,29 @@ BEGIN
       (SELECT min(member.fact_id COLLATE "C") FROM data.scientific_representative member
        WHERE member.release_id=r AND member.realization_id=z AND member.component_id=rep.component_id))) THEN
   RAISE EXCEPTION 'scientific representative differs from accepted component minimum' USING ERRCODE='23514'; END IF;
+ IF EXISTS(
+  WITH RECURSIVE edges(left_fact,right_fact) AS (
+   SELECT COALESCE(a.fact_id,o.fact_id),a.counterpart_fact_id FROM data.assessment a
+   LEFT JOIN data.occurrence o ON o.release_id=a.release_id AND o.realization_id=a.realization_id
+    AND o.occurrence_id=a.occurrence_id
+   WHERE a.release_id=r AND a.realization_id=z AND a.operation_id='scientific.value_equivalence'
+    AND a.outcome='equivalent' AND a.counterpart_fact_id IS NOT NULL
+  ), undirected(left_fact,right_fact) AS (
+   SELECT left_fact,right_fact FROM edges WHERE left_fact IS NOT NULL
+   UNION SELECT right_fact,left_fact FROM edges WHERE left_fact IS NOT NULL
+  ), reached(root,member) AS (
+   SELECT fact_id,fact_id FROM data.scientific_representative WHERE release_id=r AND realization_id=z
+   UNION SELECT reached.root,edge.right_fact FROM reached JOIN undirected edge ON edge.left_fact=reached.member
+  ), component AS (
+   SELECT reached.root,jsonb_agg(reached.member ORDER BY reached.member COLLATE "C") AS members,
+    min(reached.member COLLATE "C") FILTER(WHERE EXISTS(SELECT FROM data.selection selected
+     WHERE selected.release_id=r AND selected.realization_id=z AND selected.fact_id=reached.member)) AS representative
+   FROM reached GROUP BY reached.root
+  ) SELECT FROM data.scientific_representative rep JOIN component ON component.root=rep.fact_id
+   WHERE rep.release_id=r AND rep.realization_id=z AND
+    (rep.representative_fact_id IS DISTINCT FROM component.representative OR rep.component_id IS DISTINCT FROM
+     'component:'||encode(sha256(convert_to(data.canonical_json(component.members),'UTF8')),'hex'))
+ ) THEN RAISE EXCEPTION 'scientific representative component differs from admitted equivalence evidence' USING ERRCODE='23514'; END IF;
 END $fn$;
 
 CREATE OR REPLACE FUNCTION eval.create_reference_set(p_project text,p_release text,p_run bigint,p_label text,p_split text,p_guideline text,p_sampling jsonb) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
