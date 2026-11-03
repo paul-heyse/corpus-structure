@@ -25,7 +25,12 @@ class SemanticRefusal(ValueError):
 class SemanticReason:
     """An operation's expected inability to decide, without interpreting human text."""
 
-    code: Literal["missing_operands", "unsupported_interpretation", "incompatible_bindings", "preparation_failed"]
+    code: Literal[
+        "missing_operands",
+        "unsupported_interpretation",
+        "incompatible_bindings",
+        "preparation_failed",
+    ]
     operation: str
     release_id: str | None
     references: tuple[str, ...] = ()

@@ -1,9 +1,9 @@
 # Status
-_Updated 2026-11-03; active M1 qualification increment closed. No qualified M1 release._
+_Updated 2026-11-03; audit-closure implementation in progress. No qualified M1 release._
 
 ## Current checkpoint
 
-- [Audit-closure series](docs/plans/audit-closure_2026-11-03.md) authored; RC01–12 accepted for planning 2026-11-03; AC00–14 Planned, implementation not started. Existing plans unchanged; docs-check failed outside series.
+- [Audit-closure series](docs/plans/audit-closure_2026-11-03.md): implementation in progress under ADR-0054. Delta inference, first semantic contracts and owned reads integrated; native/consumer migration and final qualification remain open. Existing plans unchanged.
 - [Broad audit](docs/design_review/audit/README.md) refreshed 2026-11-03 at fe67cc8+identified dirty M1; DA-053 claim-lifetime diagnosis; static only. `just docs-check` failed on links outside audit.
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md#qualification-increment-closeout--2026-11-03)
   owns package/finding disposition and remaining work. No whole package is complete. Current
@@ -47,6 +47,6 @@ _Updated 2026-11-03; active M1 qualification increment closed. No qualified M1 r
 
 ## Next
 
-Continue M1's remaining policy/producer/population/reference and operational qualification scope
-from the coordinator when resumed. The endpoint remains a qualified NONDEFAULT five-family release
+Complete audit closure and its qualification, revise the M1 coordinator and affected companions,
+then resume M1's remaining scope. The endpoint remains a qualified NONDEFAULT five-family release
 plus adoption/rollback procedure. Application data/defaults and other clusters were not changed.

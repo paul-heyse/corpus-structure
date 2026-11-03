@@ -115,24 +115,24 @@ and maintained readers remain explicit; no universal historical-runtime promise 
 
 ## 5. Package queue and dependencies
 
-All statuses here are **Planned**. No authoring inspection or historical receipt marks code done.
+The table owns current package state. An in-progress package includes unintegrated worker scope; no authoring inspection or historical receipt marks code done.
 
 | Package | Delivered behavior | Prerequisite capability / completion boundary |
 |---|---|---|
-| AC00 | Freeze execution baseline, settle I04 readiness, realize accepted rule decisions at owners, establish contract/version ownership | No product claim; required ADR/owner changes precede dependent meaning changes |
-| AC01 | One released subset/role/method-dimension authority consumed by admission/behavior | AC00 affected decisions; generated/native/Python/display consumers integrated |
-| AC02 | One complete rule-value projection and mechanical source-address owner | AC01 required roles/ranges; new ABI and actual rule/evaluator consumers migrate |
-| AC03 | Typed identity decisions and qualified normalization compatibility | AC01 products; I01 settles runtime support before Unicode parity claims |
-| AC04 | Attribute-specific support and explicit representatives | AC01 source subset/roles; RC01/03 realized; source/native/consolidation/read consumers integrated |
-| AC05 | Operation-owned machine-readable reasons | Existing failure/invariant boundary; revised operations and CLI/MCP/storage consumers migrate |
-| AC06 | Executable policy applicability, owned read operations and truthful CLI/status | AC00 RC04/05/11; existing pinned task/read contracts; need not wait for all semantic work |
-| AC07 | JIT claims owned through preparation and synchronized fenced terminal retirement | AC00 native claim baseline; retain per-task durability, receipt/reclaim/cancel semantics |
-| AC08 | Shared producer binding and truthful configured/reported/verified/manual attribution | AC06 applicability seam and AC07 usable attempt-lifetime slice; I03 and affected AC01/05 dimensions; actual current producers migrate |
-| AC09 | Shared candidate indexes and delta fixed point with complete direct witnesses | AC02 rule meaning and relevant AC04 policy; inference stays inside atomic publication |
-| AC10 | Selective coverage and batch-hydrated independent standing dimensions | AC01/03/04/05 relevant products and AC06 owned-read slice; ordinary primitive/named/CLI/MCP/export migrations |
-| AC11 | Bounded evidence inventory/source reads and versioned exact bounded walks | AC10 pin/standing products; I02 settled before traversal implementation |
-| AC12 | Immutable split decision inputs/results with honest legacy provenance | AC00 RC10; existing evaluator/forward-native mechanism; independent of AC11 |
-| AC13 | Coherent forward native/release/query transitions and retirement across capabilities | Participates as each changed contract integrates; no final catch-all consumer deferral |
+| AC00 — In progress | Freeze execution baseline, settle I04 readiness, realize accepted rule decisions at owners, establish contract/version ownership | No product claim; required ADR/owner changes precede dependent meaning changes |
+| AC01 — In progress | One released subset/role/method-dimension authority consumed by admission/behavior | AC00 affected decisions; generated/native/Python/display consumers integrated |
+| AC02 — In progress | One complete rule-value projection and mechanical source-address owner | AC01 required roles/ranges; new ABI and actual rule/evaluator consumers migrate |
+| AC03 — In progress | Typed identity decisions and qualified normalization compatibility | AC01 products; I01 settles runtime support before Unicode parity claims |
+| AC04 — In progress | Attribute-specific support and explicit representatives | AC01 source subset/roles; RC01/03 realized; source/native/consolidation/read consumers integrated |
+| AC05 — In progress | Operation-owned machine-readable reasons | Existing failure/invariant boundary; revised operations and CLI/MCP/storage consumers migrate |
+| AC06 — In progress | Executable policy applicability, owned read operations and truthful CLI/status | AC00 RC04/05/11; existing pinned task/read contracts; need not wait for all semantic work |
+| AC07 — In progress | JIT claims owned through preparation and synchronized fenced terminal retirement | AC00 native claim baseline; retain per-task durability, receipt/reclaim/cancel semantics |
+| AC08 — In progress | Shared producer binding and truthful configured/reported/verified/manual attribution | AC06 applicability seam and AC07 usable attempt-lifetime slice; I03 and affected AC01/05 dimensions; actual current producers migrate |
+| AC09 — In progress | Shared candidate indexes and delta fixed point with complete direct witnesses | AC02 rule meaning and relevant AC04 policy; inference stays inside atomic publication |
+| AC10 — In progress | Selective coverage and batch-hydrated independent standing dimensions | AC01/03/04/05 relevant products and AC06 owned-read slice; ordinary primitive/named/CLI/MCP/export migrations |
+| AC11 — In progress | Bounded evidence inventory/source reads and versioned exact bounded walks | AC10 pin/standing products; I02 settled before traversal implementation |
+| AC12 — In progress | Immutable split decision inputs/results with honest legacy provenance | AC00 RC10; existing evaluator/forward-native mechanism; independent of AC11 |
+| AC13 — In progress | Coherent forward native/release/query transitions and retirement across capabilities | Participates as each changed contract integrates; no final catch-all consumer deferral |
 | AC14 | Complete applicable functional/provider/nonfunctional union and M1 impact handoff | All selected functional scope integrated; final source and evidence applicability reconciled |
 
 An early contract agreement can permit dependent design; runtime integration requires the working
@@ -254,7 +254,7 @@ starts at clean main `1240f9b7`, replacing the authoring-time dirty101 premise. 
 frozen from100; bounded M1 receipts remain historical prerequisite evidence, not AC qualification.
 ADR-0054 realizes RC01–RC12 at existing owners. Root owns shared products, forward-native
 chain and integration; isolated semantic/source/serving workers own coherent capability changes.
-AC00/AC13 are in progress. All other packages remain Planned until implemented and verified.
+AC00–AC13 are in progress across integrated slices and isolated worker assignments; none is complete. AC14 remains Planned.
 I04 must confirm applicable author/install/admit readiness for the new forward transition.
 Existing plans, application selections and the live native99 corpus remain unchanged.
 
@@ -267,3 +267,28 @@ One typed JSONB frontier parameter avoids a parameter-count-dependent ABI. The f
 rescan loop is removed. `uv run pytest python/corpus-structure/tests/semantic/test_inference.py -q`
 passed all13 native cases. This closes only the inference slice; shared candidate indexes and
 final applicability against AC02–04 changes remain open. No speed/capacity claim is made.
+
+### Integrated semantic contract slice
+
+`1e22a724` integrates the first AC01–05 declarations/prepared products, rule-value ABI2,
+explicit source attribute shape and resolution/representative publication rows. The worker's
+bounded checks passed before integration; final assembled applicability remains open. New
+physical products require the next frozen forward transition and current native source
+attribution guards before activation. No source/default database is upgraded by this commit.
+
+### AC12 preparation and I04 checks
+
+Frozen split-decision preparation retains actual policy ordering, seed origin, complete selected
+population, prior rows and assignments. Its three independent tests and four existing split
+checks passed (`uv run pytest python/corpus-structure/tests/evaluate/test_split_decisions.py
+python/corpus-structure/tests/evaluate/golden/test_split.py -q`). Protected atomic publication,
+native basis validation and consumer migration are still open; AC12 is not complete.
+
+`uv run pytest python/corpus-structure/tests/semantic/test_native_inventory.py
+python/corpus-structure/tests/semantic/test_record_migration_native.py -q` passed four bounded
+native controls. The current-head reauthoring-stability node failed because the candidate was
+nonempty; it is not recorded as readiness success. Candidate inspection002 succeeded on owned
+frozen-head/template clones and lists forward operations in the linked evidence folder.
+Inspection001 crossed a source integration and failed with mixed metadata; retain it as failed,
+not applicable baseline evidence. An initial index fixture omitted explicit USING btree in its
+expected SQL and failed; the corrected independent SQL expectation passed.

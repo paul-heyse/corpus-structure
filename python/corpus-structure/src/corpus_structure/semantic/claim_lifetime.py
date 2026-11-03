@@ -31,8 +31,10 @@ class ClaimSettlementUncertain(OperationConflict):
         self.claim = claim
         self.holder = holder
         self.completion = completion
-        super().__init__(f"completion uncertain for task {claim.task_id}, attempt {claim.attempt}, "
-                         f"holder {holder}; replay the retained exact completion intent")
+        super().__init__(
+            f"completion uncertain for task {claim.task_id}, attempt {claim.attempt}, "
+            f"holder {holder}; replay the retained exact completion intent"
+        )
 
 
 class ClaimOwner:
@@ -60,28 +62,34 @@ class ClaimOwner:
             for replay in range(2):
                 phase = DatabasePhase.ACQUIRING
                 try:
-                    with self.engine.connect() as conn:
-                        with conn.begin():
-                            phase = DatabasePhase.EXECUTING
-                            _deadlines(conn, self.database)
-                            result = completion(conn)
-                            phase = DatabasePhase.COMMITTING
+                    with self.engine.connect() as conn, conn.begin():
+                        phase = DatabasePhase.EXECUTING
+                        _deadlines(conn, self.database)
+                        result = completion(conn)
+                        phase = DatabasePhase.COMMITTING
                         # Never retire until commit succeeds or an exact replay commits.
                     del self.active[key]
                     return result
                 except Exception as error:
                     failure = classify_error(error, phase=phase)
                     if phase != DatabasePhase.COMMITTING or failure.cause not in {
-                        DatabaseCause.CONNECTION_UNUSABLE, DatabaseCause.IO,
+                        DatabaseCause.CONNECTION_UNUSABLE,
+                        DatabaseCause.IO,
                         DatabaseCause.UNKNOWN_OPERATIONAL,
                     }:
                         raise
                     uncertainty = ClaimSettlementUncertain(claim, self.holder, completion)
                     if replay:
                         self.uncertain[key] = uncertainty
-                        record_operation_failure(error, DatabaseOperationFailure(
-                            failure, operation_id=f"claim:{claim.task_id}:{claim.attempt}",
-                            remediation="replay_exact_completion", release_id=claim.release_id))
+                        record_operation_failure(
+                            error,
+                            DatabaseOperationFailure(
+                                failure,
+                                operation_id=f"claim:{claim.task_id}:{claim.attempt}",
+                                remediation="replay_exact_completion",
+                                release_id=claim.release_id,
+                            ),
+                        )
                         raise uncertainty from error
             raise AssertionError("unreachable settlement state")
 
@@ -91,8 +99,10 @@ def _deadlines(conn, database):
         ("statement_timeout", database.renewal_statement_timeout_seconds),
         ("lock_timeout", database.renewal_lock_timeout_seconds),
     ):
-        conn.execute(text("SELECT set_config(:setting, :value, true)"),
-                     {"setting": setting, "value": f"{max(1, int(seconds * 1000))}ms"})
+        conn.execute(
+            text("SELECT set_config(:setting, :value, true)"),
+            {"setting": setting, "value": f"{max(1, int(seconds * 1000))}ms"},
+        )
 
 
 @contextmanager

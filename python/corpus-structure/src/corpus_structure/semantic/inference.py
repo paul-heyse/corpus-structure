@@ -183,6 +183,9 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         connection.execute(_context_normalization_statement(work))
         rules = _rules(connection, r)
 
+        for rule in rules:
+            if rule["kind"] not in {"subproperty", "inverse", "symmetric", "transitive"}:
+                raise ValueError(f"unsupported inference rule {rule['kind']}")
         names = ("subject", "predicate", "object", "context", "qualification", "context_key")
         frontier = [dict(row) for row in connection.execute(select(work)).mappings()]
 
@@ -221,7 +224,12 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
                     )
                     .select_from(
                         a.join(
-                            b, and_(a.c.object == b.c.subject, a.c.context_key == b.c.context_key)
+                            b,
+                            and_(
+                                a.c.object == b.c.subject,
+                                a.c.context_key == b.c.context_key,
+                                a.c.context == b.c.context,
+                            ),
                         )
                     )
                     .where(a.c.predicate == p, b.c.predicate == p)
@@ -237,7 +245,12 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
                     )
                     .select_from(
                         b.join(
-                            a, and_(b.c.object == a.c.subject, b.c.context_key == a.c.context_key)
+                            a,
+                            and_(
+                                b.c.object == a.c.subject,
+                                b.c.context_key == a.c.context_key,
+                                b.c.context == a.c.context,
+                            ),
                         )
                     )
                     .where(a.c.predicate == p, b.c.predicate == p)

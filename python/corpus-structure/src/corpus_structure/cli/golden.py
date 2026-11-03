@@ -317,6 +317,7 @@ def status_command(
     from corpus_structure.semantic.metadata import table
 
     with reference_session(ctx, project, json=json) as (conn, pid):
+        provenance = references.split_provenance_summary(conn, pid)
         s = table("eval.reference_set")
         q = select(s).where(s.c.project_id == pid)
         if label is not None:
@@ -324,6 +325,7 @@ def status_command(
         result = [
             {
                 **references.golden_set_status(conn, row.id),
+                "split_provenance": provenance,
                 "label": row.label,
                 "split": row.split,
                 "release_id": row.release_id,

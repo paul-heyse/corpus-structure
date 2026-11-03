@@ -363,7 +363,6 @@ class Reader(Protocol):
         ...
 
 
-
 @dataclass(frozen=True, slots=True)
 class RunView:
     """The run a method works in: its identity and versions, its resolved options and the reader.

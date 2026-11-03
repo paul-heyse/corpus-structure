@@ -1,0 +1,222 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_actual_override_reason_replay_and_immutable_provenance __________
+
+semantic_db_engine = Engine(postgresql+psycopg:///cs_sem_test_524458_052f864e9840?host=%2Fvar%2Frun%2Fpostgresql&port=5434)
+semantic_writer_engine = Engine(postgresql+psycopg://corpus_sem_writer@/cs_sem_test_524458_052f864e9840?host=%2Fvar%2Frun%2Fpostgresql&port=5434)
+semantic_evaluator_engine = Engine(postgresql+psycopg://corpus_sem_evaluator@/cs_sem_test_524458_052f864e9840?host=%2Fvar%2Frun%2Fpostgresql&port=5434)
+tmp_path = PosixPath('/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-1141/test_actual_override_reason_re0')
+
+    def test_actual_override_reason_replay_and_immutable_provenance(
+        semantic_db_engine, semantic_writer_engine, semantic_evaluator_engine, tmp_path,
+    ):
+>       release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+python/corpus-structure/tests/semantic/test_split_decisions_native.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+python/corpus-structure/tests/semantic/test_split_decisions_native.py:24: in prepare
+    Operations(MigrationContext.configure(conn)).invoke(operation)
+.venv/lib/python3.14/site-packages/alembic/operations/base.py:445: in invoke
+    fn = self._to_impl.dispatch(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <alembic.util.langhelpers.Dispatcher object at 0x7679c7c0a120>
+obj = <alembic.operations.ops.ModifyTableOps object at 0x76762e4cfe90>
+qualifier = 'default'
+
+    def dispatch(self, obj: Any, qualifier: str = "default") -> Any:
+        if isinstance(obj, str):
+            targets: Sequence[Any] = [obj]
+        elif isinstance(obj, type):
+            targets = obj.__mro__
+        else:
+            targets = type(obj).__mro__
+    
+        if qualifier != "default":
+            qualifiers = [qualifier, "default"]
+        else:
+            qualifiers = ["default"]
+    
+        for spcls in targets:
+            for qualifier in qualifiers:
+                if (spcls, qualifier) in self._registry:
+                    return self._registry[(spcls, qualifier)]
+        else:
+>           raise ValueError("no dispatch function for object: %s" % obj)
+E           ValueError: no dispatch function for object: <alembic.operations.ops.ModifyTableOps object at 0x76762e4cfe90>
+
+.venv/lib/python3.14/site-packages/alembic/util/langhelpers.py:340: ValueError
+------------------------------ Captured log call -------------------------------
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: source https://corpus-structure.dev/execution/source
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: multivalued https://corpus-structure.dev/execution/multivalued
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: nullable https://corpus-structure.dev/execution/nullable
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: nullable https://corpus-structure.dev/execution/nullable
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: multivalued https://corpus-structure.dev/execution/multivalued
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: source https://corpus-structure.dev/execution/source
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: source https://corpus-structure.dev/execution/source
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: multivalued https://corpus-structure.dev/execution/multivalued
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: name https://corpus-structure.dev/execution/name
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: id https://corpus-structure.dev/execution/id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: source https://corpus-structure.dev/execution/source
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: source https://corpus-structure.dev/execution/source
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+WARNING  linkml.generators.owlgen:owlgen.py:1052 Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+_____________ test_changed_outputs_refuse_without_orphan_decision ______________
+
+semantic_db_engine = Engine(postgresql+psycopg:///cs_sem_test_524458_73e48ffb57c8?host=%2Fvar%2Frun%2Fpostgresql&port=5434)
+semantic_writer_engine = Engine(postgresql+psycopg://corpus_sem_writer@/cs_sem_test_524458_73e48ffb57c8?host=%2Fvar%2Frun%2Fpostgresql&port=5434)
+semantic_evaluator_engine = Engine(postgresql+psycopg://corpus_sem_evaluator@/cs_sem_test_524458_73e48ffb57c8?host=%2Fvar%2Frun%2Fpostgresql&port=5434)
+tmp_path = PosixPath('/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-1141/test_changed_outputs_refuse_wi0')
+
+    def test_changed_outputs_refuse_without_orphan_decision(
+        semantic_db_engine, semantic_writer_engine, semantic_evaluator_engine, tmp_path,
+    ):
+        from corpus_structure.evaluate.split import SplitDocument
+        from corpus_structure.evaluate.split_decisions import prepare_split_decision
+    
+>       release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+python/corpus-structure/tests/semantic/test_split_decisions_native.py:68: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+python/corpus-structure/tests/semantic/test_split_decisions_native.py:24: in prepare
+    Operations(MigrationContext.configure(conn)).invoke(operation)
+.venv/lib/python3.14/site-packages/alembic/operations/base.py:445: in invoke
+    fn = self._to_impl.dispatch(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <alembic.util.langhelpers.Dispatcher object at 0x7679c7c0a120>
+obj = <alembic.operations.ops.ModifyTableOps object at 0x76762eba4b30>
+qualifier = 'default'
+
+    def dispatch(self, obj: Any, qualifier: str = "default") -> Any:
+        if isinstance(obj, str):
+            targets: Sequence[Any] = [obj]
+        elif isinstance(obj, type):
+            targets = obj.__mro__
+        else:
+            targets = type(obj).__mro__
+    
+        if qualifier != "default":
+            qualifiers = [qualifier, "default"]
+        else:
+            qualifiers = ["default"]
+    
+        for spcls in targets:
+            for qualifier in qualifiers:
+                if (spcls, qualifier) in self._registry:
+                    return self._registry[(spcls, qualifier)]
+        else:
+>           raise ValueError("no dispatch function for object: %s" % obj)
+E           ValueError: no dispatch function for object: <alembic.operations.ops.ModifyTableOps object at 0x76762eba4b30>
+
+.venv/lib/python3.14/site-packages/alembic/util/langhelpers.py:340: ValueError
+=============================== warnings summary ===============================
+python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_actual_override_reason_replay_and_immutable_provenance
+python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_changed_outputs_refuse_without_orphan_decision
+  /home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/native_candidate.py:1201: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "data.batch, data.project, data.realization, ops.completed_result, ops.input_cut, ops.run", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    new_tables = [item for item in target_metadata.sorted_tables if item.fullname not in existing]
+
+python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_actual_override_reason_replay_and_immutable_provenance
+  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sssom/util.py:111: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
+    pd.options.mode.copy_on_write = True
+
+python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_actual_override_reason_replay_and_immutable_provenance
+  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/oaklib/datamodels/ontology_metadata.py:20: DeprecationWarning: The LinkML dataclass extension patch is deprecated and will be removed in a future release.
+  If you're currently using Python < 3.13, where this patch still applies, you should:
+    • Upgrade your LinkML tooling to version >= 1.9.0 (which no longer needs this patch), OR
+    • Migrate to Pydantic models if you're using LinkML's generated classes at runtime.
+  
+    from linkml_runtime.utils.dataclass_extensions_376 import dataclasses_init_fn_with_kwargs
+
+python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_actual_override_reason_replay_and_immutable_provenance
+python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_changed_outputs_refuse_without_orphan_decision
+  /home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/native_candidate.py:1251: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "data.batch, data.project, data.realization, ops.completed_result, ops.input_cut, ops.run", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    candidate = produce_migrations(context, target_metadata)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_actual_override_reason_replay_and_immutable_provenance
+FAILED python/corpus-structure/tests/semantic/test_split_decisions_native.py::test_changed_outputs_refuse_without_orphan_decision

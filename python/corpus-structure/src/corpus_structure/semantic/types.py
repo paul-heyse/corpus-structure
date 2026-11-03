@@ -160,21 +160,18 @@ class ClassPreview:
     abstract: bool
 
 
-
-def _enum_members(vocabularies, registry_rows, name: str, subset: str | None = None) -> frozenset[str]:
+def _enum_members(
+    vocabularies, registry_rows, name: str, subset: str | None = None
+) -> frozenset[str]:
     """Shared effective closed membership and authored contextual metadata resolution."""
     import json
 
     vocabulary = next(v for v in vocabularies if v.enum == name)
     if subset is None:
         return frozenset(m.value for m in vocabulary.members)
-    definitions = {
-        r.name: json.loads(r.body) for r in registry_rows if r.kind == "enum_definition"
-    }
+    definitions = {r.name: json.loads(r.body) for r in registry_rows if r.kind == "enum_definition"}
 
-    def properties(
-        expression: dict[str, Any], stack: tuple[str, ...]
-    ) -> dict[str, dict[str, Any]]:
+    def properties(expression: dict[str, Any], stack: tuple[str, ...]) -> dict[str, dict[str, Any]]:
         # Membership has already been resolved by the ontology/value-set compiler. This
         # resolves authored member metadata only, in the same seed/override order.
         result: dict[str, dict[str, Any]] = {}
@@ -193,7 +190,6 @@ def _enum_members(vocabularies, registry_rows, name: str, subset: str | None = N
         for m in vocabulary.members
         if subset in members.get(m.value, {}).get("in_subset", ())
     )
-
 
 
 @dataclass(frozen=True)
@@ -336,11 +332,16 @@ class PreparedRelease:
             for body in (json.loads(row.body),)
             if body["class"] == definition.name
         }
-        return tuple(sorted(
-            (prop for prop in definition.properties
-             if "display" in self.index.property_roles.get((definition.iri, prop.iri), ())),
-            key=lambda prop: (int(metadata[prop.iri].get("cs:display_order", "0")), prop.iri),
-        ))
+        return tuple(
+            sorted(
+                (
+                    prop
+                    for prop in definition.properties
+                    if "display" in self.index.property_roles.get((definition.iri, prop.iri), ())
+                ),
+                key=lambda prop: (int(metadata[prop.iri].get("cs:display_order", "0")), prop.iri),
+            )
+        )
 
     def entity_keys(
         self,

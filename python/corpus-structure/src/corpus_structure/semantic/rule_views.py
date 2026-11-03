@@ -141,7 +141,11 @@ class ValueView:
 
     @cached_property
     def defined_symbol(self) -> str | None:
-        return defined_symbol(self.latex) if self.expression_form == "formula" or self.t == "formula" else None
+        return (
+            defined_symbol(self.latex)
+            if self.expression_form == "formula" or self.t == "formula"
+            else None
+        )
 
     @property
     def parse(self) -> str | None:
@@ -224,17 +228,32 @@ def project_rule_value(
     if isinstance(value, Mapping):
         kind = value["kind"]
         lexical = value.get("expression")
-        scalar = next((value[name] for name in (
-            "text", "number", "boolean", "date", "instant", "lexical", "target"
-        ) if name in value), None)
-        form = value.get("form") or (kind if kind in {"formula", "set", "relation", "membership", "list"} else None)
+        scalar = next(
+            (
+                value[name]
+                for name in ("text", "number", "boolean", "date", "instant", "lexical", "target")
+                if name in value
+            ),
+            None,
+        )
+        form = value.get("form") or (
+            kind if kind in {"formula", "set", "relation", "membership", "list"} else None
+        )
     else:
         kind = "entity" if declared in prepared.index.definitions else "text"
         lexical, scalar, form = None, value, None
     if isinstance(scalar, date):
         scalar = scalar.isoformat()
-    return ValueView(str(kind), lexical, None if scalar is None else str(scalar),
-                     enum, declared, reading, declared, form)
+    return ValueView(
+        str(kind),
+        lexical,
+        None if scalar is None else str(scalar),
+        enum,
+        declared,
+        reading,
+        declared,
+        form,
+    )
 
 
 def build_rule_language(
@@ -402,8 +421,10 @@ def build_rule_language(
                 ):
                     parent = prepared.index.properties[spec.source_class, spec.source_property]
                     entry_binding = prepared.index.properties[parent.range, "value"]
-                    value = {key: project_rule_value(prepared, entry_binding, member)
-                             for key, member in value.items()}
+                    value = {
+                        key: project_rule_value(prepared, entry_binding, member)
+                        for key, member in value.items()
+                    }
                 else:
                     entries = list(value.values()) if isinstance(value, Mapping) else value
                     projected = {}
@@ -419,11 +440,29 @@ def build_rule_language(
                 # Native schema fields also occur inside keyed records. Logical rule-view
                 # fields already hold projected Values and have no source_class.
                 value = (
-                    {key: project_rule_value(prepared, prepared.index.properties[spec.source_class, spec.source_property], v) for key, v in value.items()}
+                    {
+                        key: project_rule_value(
+                            prepared,
+                            prepared.index.properties[spec.source_class, spec.source_property],
+                            v,
+                        )
+                        for key, v in value.items()
+                    }
                     if spec.collection == "mapping"
-                    else tuple(project_rule_value(prepared, prepared.index.properties[spec.source_class, spec.source_property], v) for v in value)
+                    else tuple(
+                        project_rule_value(
+                            prepared,
+                            prepared.index.properties[spec.source_class, spec.source_property],
+                            v,
+                        )
+                        for v in value
+                    )
                     if spec.collection == "array"
-                    else project_rule_value(prepared, prepared.index.properties[spec.source_class, spec.source_property], value)
+                    else project_rule_value(
+                        prepared,
+                        prepared.index.properties[spec.source_class, spec.source_property],
+                        value,
+                    )
                 )
         if spec.collection == "array" and isinstance(value, list):
             value = tuple(value)

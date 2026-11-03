@@ -250,6 +250,7 @@ def _release_guard_definitions(connection, sql, *, source):
 _RETIRED_SOURCE_FUNCTIONS = frozenset(
     {
         ("kb", "check_offsets"),
+        ("eval", "assign_document_split"),
         *(
             ("eval", name)
             for name in (
@@ -536,6 +537,17 @@ def series_native_definitions(connection, *, include_selected=True):
         Path(__file__).with_name("sql").joinpath("record_publication.sql").read_text()
     )
     reference_sql = Path(__file__).with_name("sql").joinpath("record_references.sql").read_text()
+    split_sql = Path(__file__).with_name("sql").joinpath("split_decisions.sql").read_text()
+    definitions.append(
+        _task_call_definition(
+            connection,
+            split_sql,
+            name="assign_document_split_decision",
+            source="split decisions:forward",
+            schema="eval",
+            grants=(("corpus_sem_evaluator", "EXECUTE", False),),
+        )
+    )
     reference_roles = {
         "assign_record_reference_origin": ("corpus_sem_evaluator",),
         "record_reference_source_binding": ("corpus_sem_evaluator",),

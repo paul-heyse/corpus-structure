@@ -10,7 +10,6 @@ import json
 from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass, replace
-from datetime import date, datetime
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
@@ -35,12 +34,12 @@ from .publication import (
     AlternativeMemberRow,
     AssessmentRow,
     CoverageRow,
+    EntityResolutionRow,
     EvidenceRow,
     EvidenceSourceRow,
-    EntityResolutionRow,
-    ScientificRepresentativeRow,
     PublicationBatch,
     PublicationReceipt,
+    ScientificRepresentativeRow,
     SelectionRow,
     _publish,
 )
@@ -52,7 +51,7 @@ RULE_INPUT = "operation/domain-rules.yaml"
 VERSION = "semantic-domain-3"
 
 
-from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
+from .refusals import SemanticRefusal
 
 
 class DomainOperationRefused(SemanticRefusal):
@@ -1016,7 +1015,13 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                 attrs.setdefault("scope_locator", e["scope"]["locator"])
                 extra[oid, e["id"]] = {"scope_locator": e["scope"]["locator"]}
             groups = [g for g in definition.identity_groups if g != definition.identity_slots]
-            basis = "declared_key" if groups else "global_label" if meta.get(definition.name, {}).get("cs:scope") == "global" else "source_local"
+            basis = (
+                "declared_key"
+                if groups
+                else "global_label"
+                if meta.get(definition.name, {}).get("cs:scope") == "global"
+                else "source_local"
+            )
             outcome = "resolved"
             relevant = ()
             if groups and all(all(name in attrs for name in g) for g in groups):
@@ -1046,9 +1051,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                 relevant = tuple(sorted(soft_ids[node] for node in members if node[0] == "known"))
                 if len(relevant) > 1:
                     outcome = "ambiguous_anchor"
-            elif groups:
-                outcome = "incomplete_key"
-            elif basis == "global_label":
+            elif groups or basis == "global_label":
                 outcome = "incomplete_key"
             decisions[oid, e["id"]] = (basis, outcome, relevant, groups, dependencies)
             # An absent/incomplete semantic key never licenses a label merge for a keyed class.
@@ -1080,15 +1083,29 @@ def _entity_mappings(prepared, observations, output, known, contexts):
         decisions[oid, local] = ("declared_key", "ungrounded_cycle", (), groups, ())
     rows = tuple(
         EntityResolutionRow(
-            oid, local, mappings[oid][local], basis, outcome,
+            oid,
+            local,
+            mappings[oid][local],
+            basis,
+            outcome,
             canonical_bytes(relevant).decode(),
-            canonical_bytes({"groups": groups, "class": next(e[2].iri for e in entries if e[0]["id"] == oid and e[1]["id"] == local),
-                             "folding": "unicode-default-casefold-no-normalization"}).decode(),
+            canonical_bytes(
+                {
+                    "groups": groups,
+                    "class": next(
+                        e[2].iri for e in entries if e[0]["id"] == oid and e[1]["id"] == local
+                    ),
+                    "folding": "unicode-default-casefold-no-normalization",
+                }
+            ).decode(),
             canonical_bytes(dependencies).decode(),
             "declared_identity" if outcome == "resolved" else outcome,
-            "resolve_identity", VERSION,
+            "resolve_identity",
+            VERSION,
         )
-        for (oid, local), (basis, outcome, relevant, groups, dependencies) in sorted(decisions.items())
+        for (oid, local), (basis, outcome, relevant, groups, dependencies) in sorted(
+            decisions.items()
+        )
     )
     return mappings, extra, parsed, rows
 
@@ -1529,38 +1546,80 @@ def _project_cut(
                     if citation.get("outcome") != "located":
                         continue
                     start, end = citation["start"], citation["end"]
-                    if not 0 <= start < end <= len(_evidence_source_text(descriptor, citation["locator"])):
-                        raise DomainOperationRefused("attribute evidence lies outside its cited source")
-                    eid = "evidence:" + sha256(canonical_bytes(
-                        [source, "entities", local, "attributes", index, ordinal, citation]
-                    )).hexdigest()
-                    located.append(EvidenceRow(
-                        eid, descriptor["source_uri"],
-                        canonical_bytes({"locator": citation["locator"], "start": start,
-                                         "end": end, "role": citation["role"]}).decode(),
-                        descriptor["provider"], descriptor["version"],
-                    ))
+                    if (
+                        not 0
+                        <= start
+                        < end
+                        <= len(_evidence_source_text(descriptor, citation["locator"]))
+                    ):
+                        raise DomainOperationRefused(
+                            "attribute evidence lies outside its cited source"
+                        )
+                    eid = (
+                        "evidence:"
+                        + sha256(
+                            canonical_bytes(
+                                [source, "entities", local, "attributes", index, ordinal, citation]
+                            )
+                        ).hexdigest()
+                    )
+                    located.append(
+                        EvidenceRow(
+                            eid,
+                            descriptor["source_uri"],
+                            canonical_bytes(
+                                {
+                                    "locator": citation["locator"],
+                                    "start": start,
+                                    "end": end,
+                                    "role": citation["role"],
+                                }
+                            ).decode(),
+                            descriptor["provider"],
+                            descriptor["version"],
+                        )
+                    )
                     evidence_roles[eid] = citation["role"]
-                    source_links[eid] = _evidence_link(observation, descriptor, start, end, citation["locator"])
+                    source_links[eid] = _evidence_link(
+                        observation, descriptor, start, end, citation["locator"]
+                    )
                 if not located:
-                    coverage_row("attribute", f"{source}/entities/{local}/attributes/{index}",
-                                 "partial", "attribute lacks located support")
+                    coverage_row(
+                        "attribute",
+                        f"{source}/entities/{local}/attributes/{index}",
+                        "partial",
+                        "attribute lacks located support",
+                    )
                     continue
                 value = _property_value(
-                    prepared, definition, prop,
+                    prepared,
+                    definition,
+                    prop,
                     bind_expression_context(attribute["value"], macros),
-                    {**mapping, **statement_ids}, claim_refs,
+                    {**mapping, **statement_ids},
+                    claim_refs,
                 )
                 qualification = _reference(
-                    prepared, qualification_class,
+                    prepared,
+                    qualification_class,
                     bind_expression_context(_plain(attribute["qualification"]), macros),
-                    {**mapping, **statement_ids}, claim_refs,
+                    {**mapping, **statement_ids},
+                    claim_refs,
                 )
-                items.append(SourceItem(
-                    subject, definition.name, prop.name, value, qualification, source,
-                    f"entities/{local}/attributes/{index}", attribute["establishment"],
-                    tuple(located), qualification_class,
-                ))
+                items.append(
+                    SourceItem(
+                        subject,
+                        definition.name,
+                        prop.name,
+                        value,
+                        qualification,
+                        source,
+                        f"entities/{local}/attributes/{index}",
+                        attribute["establishment"],
+                        tuple(located),
+                        qualification_class,
+                    )
+                )
         for claim, item in claim_rows:
             statement = statements.get(claim.get("statement"))
             if statement is not None and statement["kind"] != "outside":
@@ -2535,7 +2594,11 @@ class ReleasedRulesPolicy:
         from .identity import _meaning
         from .operation_results import validate_result_dimension
         from .scientific_evidence import EvidenceTier as Tier
-        from .scientific_evidence import (SemanticComparator, ScientificInterpretationUnavailable, grammar_name)
+        from .scientific_evidence import (
+            ScientificInterpretationUnavailable,
+            SemanticComparator,
+            grammar_name,
+        )
 
         groups = defaultdict(list)
         rows = []
@@ -2749,13 +2812,17 @@ class ReleasedRulesPolicy:
                                 left, right, conditions, ref_eq=lambda x, y: x == y
                             )
                         except (DomainOperationRefused, ScientificInterpretationUnavailable) as exc:
-                            reason = canonical_bytes({"semantic_reason": {
-                                "code": "unsupported_interpretation",
-                                "operation": "scientific_policy",
-                                "release_id": self.prepared.release_id,
-                                "references": [a.occurrence_id, b.occurrence_id],
-                                "detail": str(exc),
-                            }}).decode()
+                            reason = canonical_bytes(
+                                {
+                                    "semantic_reason": {
+                                        "code": "unsupported_interpretation",
+                                        "operation": "scientific_policy",
+                                        "release_id": self.prepared.release_id,
+                                        "references": [a.occurrence_id, b.occurrence_id],
+                                        "detail": str(exc),
+                                    }
+                                }
+                            ).decode()
                     if comparison is None:
                         assessment(
                             a,
@@ -2799,10 +2866,7 @@ class ReleasedRulesPolicy:
             for component in components.values():
                 if len(component) > 1:
                     equivalent_components.append(
-                        tuple(
-                            c.fact_id
-                            for c in sorted(component, key=lambda c: c.fact_id)
-                        )
+                        tuple(c.fact_id for c in sorted(component, key=lambda c: c.fact_id))
                     )
         return generated, unresolved, equivalent_components, assessments
 
@@ -2883,7 +2947,6 @@ class ReleasedRulesPolicy:
 
         from .grammar_profile import GRAMMAR_KINDS
         from .rule_views import (
-            project_rule_value,
             _BARE,
             MAX_SYMBOL,
             BindingView,
@@ -2892,6 +2955,7 @@ class ReleasedRulesPolicy:
             QualifiersView,
             Reading,
             StatementView,
+            project_rule_value,
         )
 
         errors = set()
@@ -2964,10 +3028,14 @@ class ReleasedRulesPolicy:
             param_map = props.get("cs:param_map")
             entries = candidate.qualification.get(param_map, ()) if param_map else ()
             symbols = set()
-            if self.prepared.member_has_behavior("StatementRole", candidate.statement_role, "supplies_binding_symbol"):
+            if self.prepared.member_has_behavior(
+                "StatementRole", candidate.statement_role, "supplies_binding_symbol"
+            ):
                 for entry in entries.values() if isinstance(entries, dict) else entries:
                     value = entry.get("value", entry)
-                    if value.get("kind") == "formula" or (value.get("kind") == "expression" and value.get("form") == "formula"):
+                    if value.get("kind") == "formula" or (
+                        value.get("kind") == "expression" and value.get("form") == "formula"
+                    ):
                         symbol = value["expression"].strip().lstrip("\\")
                         if len(symbol) <= MAX_SYMBOL and _BARE.fullmatch(symbol):
                             symbols.add(symbol)
@@ -3119,7 +3187,9 @@ class ReleasedRulesPolicy:
                                 binding.get("parameter"),
                             )
                         )
-                prop = next(p for p in self.definitions[c.class_name].properties if p.iri == c.predicate)
+                prop = next(
+                    p for p in self.definitions[c.class_name].properties if p.iri == c.predicate
+                )
                 value = project_rule_value(self.prepared, prop, raw, reading)
             # Multiple located reports of the same proposition are support, not competing
             # scientific claims. The kernels preserve occurrence addresses for source
@@ -3185,8 +3255,15 @@ class ReleasedRulesPolicy:
                             o.occurrence_id
                             for o in candidates
                             if o.occurrence_id != c.occurrence_id
-                            and self.prepared.member_has_behavior("StatementRole", o.statement_role, "participates_as_premise")
-                            and (o.statement == c.statement or self.prepared.member_has_behavior("StatementKind", o.statement_kind, "global_premise_context"))
+                            and self.prepared.member_has_behavior(
+                                "StatementRole", o.statement_role, "participates_as_premise"
+                            )
+                            and (
+                                o.statement == c.statement
+                                or self.prepared.member_has_behavior(
+                                    "StatementKind", o.statement_kind, "global_premise_context"
+                                )
+                            )
                         }
                     )
                 ),
@@ -3334,14 +3411,21 @@ class ReleasedRulesPolicy:
             accepted = sorted(set(component) & selected)
             if not accepted:
                 continue
-            component_id = "component:" + sha256(canonical_bytes(sorted(set(component)))).hexdigest()
+            component_id = (
+                "component:" + sha256(canonical_bytes(sorted(set(component)))).hexdigest()
+            )
             representative_rows.extend(
                 ScientificRepresentativeRow(fact, accepted[0], "min-fact-id-1", component_id)
                 for fact in accepted
             )
             covered.update(accepted)
         representative_rows.extend(
-            ScientificRepresentativeRow(fact, fact, "min-fact-id-1", "component:" + sha256(canonical_bytes([fact])).hexdigest())
+            ScientificRepresentativeRow(
+                fact,
+                fact,
+                "min-fact-id-1",
+                "component:" + sha256(canonical_bytes([fact])).hexdigest(),
+            )
             for fact in sorted(selected - covered)
         )
         return PolicyDecision(

@@ -12,8 +12,13 @@ from sqlalchemy import text
 
 from corpus_structure.semantic import claim_lifetime
 from corpus_structure.semantic.operations import (
-    OperationBinding, OperationConflict, claim_tasks, complete_task, create_run,
-    create_task, record_method,
+    OperationBinding,
+    OperationConflict,
+    claim_tasks,
+    complete_task,
+    create_run,
+    create_task,
+    record_method,
 )
 
 from .operation_scenario_support import prepare_operation_scenario
@@ -26,20 +31,48 @@ class Config(BaseModel):
 def claims(admin, writer, count=1):
     prepared = prepare_operation_scenario(admin)
     with writer.begin() as conn:
-        run = create_run(conn, project_id="p", binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
-                         kind="full", options={}, code_commit="test")
-        method = SimpleNamespace(name="owned", version="1", family="profile", tier="deterministic",
-                                 confidence_source=None, unit_type="run", Config=Config)
+        run = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="test",
+        )
+        method = SimpleNamespace(
+            name="owned",
+            version="1",
+            family="profile",
+            tier="deterministic",
+            confidence_source=None,
+            unit_type="run",
+            Config=Config,
+        )
         config = record_method(conn, method, "default", {}, "owned-config")
         for n in range(count):
-            create_task(conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash=f"owned-{n}", unit_key=f"{n}")
+            create_task(
+                conn,
+                run_id=run,
+                config_id=config,
+                stage="ingest",
+                unit_type="run",
+                input_hash=f"owned-{n}",
+                unit_key=f"{n}",
+            )
         tasks = claim_tasks(conn, run_id=run, config_id=config, holder="owner", limit=count)
     return prepared, tasks
 
 
 def completion(prepared, claim):
-    return lambda conn: complete_task(conn, task_id=claim.task_id, attempt=claim.attempt,
-                                     holder=claim.holder, prepared=prepared, observations=(), outcome="empty")
+    return lambda conn: complete_task(
+        conn,
+        task_id=claim.task_id,
+        attempt=claim.attempt,
+        holder=claim.holder,
+        prepared=prepared,
+        observations=(),
+        outcome="empty",
+    )
 
 
 def test_renewal_is_serialized_through_terminal_commit_and_retirement(
@@ -58,7 +91,9 @@ def test_renewal_is_serialized_through_terminal_commit_and_retirement(
         actual(conn, **values)
 
     monkeypatch.setattr(claim_lifetime, "renew_claim", delayed)
-    with claim_lifetime.maintained_claims(semantic_writer_engine, [claim], "owner", interval=0.01) as owner:
+    with claim_lifetime.maintained_claims(
+        semantic_writer_engine, [claim], "owner", interval=0.01
+    ) as owner:
         assert entered.wait(5)
         with ThreadPoolExecutor(1) as pool:
             pending = pool.submit(owner.settle, claim, completion(prepared, claim))
@@ -83,6 +118,7 @@ def test_lost_commit_response_replays_exact_completion_before_retirement(
         @contextmanager
         def connect(self):
             with semantic_writer_engine.connect() as conn:
+
                 class Connection:
                     @contextmanager
                     def begin(self):
@@ -94,27 +130,47 @@ def test_lost_commit_response_replays_exact_completion_before_retirement(
 
                     def __getattr__(self, name):
                         return getattr(conn, name)
+
                 yield Connection()
 
-    owner = claim_lifetime.ClaimOwner(ResponseLost(), [claim], "owner",
-                                     claim_lifetime.DatabaseSettings(), lambda: None)
+    owner = claim_lifetime.ClaimOwner(
+        ResponseLost(), [claim], "owner", claim_lifetime.DatabaseSettings(), lambda: None
+    )
     result = owner.settle(claim, completion(prepared, claim))
     assert result.transaction == "replay" and result.receipt.attempt == claim.attempt
     assert not owner.active
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": claim.task_id}) == "empty"
-        assert conn.scalar(text("SELECT count(*) FROM kb.observation WHERE task_id=:id"), {"id": claim.task_id}) == 0
+        assert (
+            conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": claim.task_id})
+            == "empty"
+        )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM kb.observation WHERE task_id=:id"), {"id": claim.task_id}
+            )
+            == 0
+        )
 
 
-def test_later_failure_preserves_earlier_durable_completion(semantic_db_engine, semantic_writer_engine):
+def test_later_failure_preserves_earlier_durable_completion(
+    semantic_db_engine, semantic_writer_engine
+):
     prepared, owned = claims(semantic_db_engine, semantic_writer_engine, 2)
     first, second = owned
     with pytest.raises(OperationConflict, match="later task failed"):
         with claim_lifetime.maintained_claims(semantic_writer_engine, owned, "owner") as owner:
             owner.settle(first, completion(prepared, first))
+
             def fail(conn):
                 raise OperationConflict("later task failed")
+
             owner.settle(second, fail)
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": first.task_id}) == "empty"
-        assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": second.task_id}) == "running"
+        assert (
+            conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": first.task_id})
+            == "empty"
+        )
+        assert (
+            conn.scalar(text("SELECT status FROM ops.task WHERE id=:id"), {"id": second.task_id})
+            == "running"
+        )

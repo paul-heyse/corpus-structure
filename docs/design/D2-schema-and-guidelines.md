@@ -1,5 +1,19 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Current compiler and compatibility owner
+
+**Accepted target; implementation in progress (2026-11-03).**
+`semantic.types.SEMANTIC_COMPILER_VERSION` declares the sole current producing compiler;
+`READABLE_COMPILER_VERSIONS` declares supported immutable product reading. Native execution
+projection admission requires the current compiler and exact implementation binding. Product
+reading does not reconstruct with today's compiler or authorize archived-runtime execution.
+Rule-value, ordinary-answer, continuation and export ABIs retain their own explicit versions;
+a compiler number alone does not establish their compatibility. AC13 owns the coherent forward
+transition and final applicability evidence. Older numbered compiler descriptions below record
+their dated realization only and do not select a competing present runtime.
+
+> Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
 ## Audit-closure target
 
 **Accepted target; implementation and qualification Proposed (2026-11-03).** Released subsets, behavioral memberships, contextual display policy, method dimensions and versioned rule-value products govern generated and native boundaries. Current executable compiler and reader owners govern present-tense compatibility; older numbered descriptions are historical until reconciled by AC13.
@@ -60,9 +74,9 @@ origin-only provenance using full class IRIs and qualified existing consumer ref
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
-occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
-remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
-migrates their consumers. They do not constrain new releases or require historical compatibility.
+occurrence/fact identity, ontology and preparation contracts. The detailed earlier shapes below are historical realizations. The current compiler and
+compatibility owner above governs execution; those shapes do not select a runtime or require
+arbitrary historical execution compatibility.
 SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
 to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
 instance authority and consolidation ownership.

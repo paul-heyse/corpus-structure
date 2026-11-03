@@ -241,7 +241,16 @@ classes:
         registry_rows=(
             *prepared.registry_rows,
             RegistryRow(
-                "operation_property", "params", canonical_bytes({"cs:param_map": "params", "class": "Qualification", "property": "https://example.org/params", "name": "params"})
+                "operation_property",
+                "params",
+                canonical_bytes(
+                    {
+                        "cs:param_map": "params",
+                        "class": "Qualification",
+                        "property": "https://example.org/params",
+                        "name": "params",
+                    }
+                ),
             ),
         ),
     )

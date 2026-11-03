@@ -58,7 +58,9 @@ def proposal_inputs(
     ):
         raise ValueError("agent operation needs an explicit Qualification class or subclass")
     module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
-    module["classes"]["SourceAttributeAssertion"]["attributes"]["qualification"]["range"] = qualification_class
+    module["classes"]["SourceAttributeAssertion"]["attributes"]["qualification"]["range"] = (
+        qualification_class
+    )
     entities = [
         d
         for d in candidate.classes
@@ -83,15 +85,18 @@ def proposal_inputs(
         **{name: {} for name in sorted(candidate.enum_members(statement_enum))},
         "outside": {"description": "An explicitly unresolved external statement reference."},
     }
-    for contextual, canonical in (("AgentStatementRole", "StatementRole"),
-                                  ("AgentEvidenceRole", "EvidenceRole")):
+    for contextual, canonical in (
+        ("AgentStatementRole", "StatementRole"),
+        ("AgentEvidenceRole", "EvidenceRole"),
+    ):
         module["enums"][contextual]["permissible_values"] = {
             name: {} for name in sorted(candidate.enum_members(canonical))
         }
     # Resolve the effective member metadata through the ordinary release preparer, rather
     # than reproducing LinkML inheritance/include semantics in the producer.
     module["enums"]["SourceEstablishment"]["permissible_values"] = {
-        name: {} for name in sorted(candidate.enum_members("Establishment", subset="source_admissible"))
+        name: {}
+        for name in sorted(candidate.enum_members("Establishment", subset="source_admissible"))
     }
     module["enums"]["AgentClassIRI"]["permissible_values"] = {d.iri: {} for d in entities}
     module["enums"]["AgentPropertyIRI"]["permissible_values"] = {
@@ -890,9 +895,7 @@ def locate_proposal(
                     locator=sentences[found.sentence].locator,
                     start=found.start,
                     end=found.end,
-                    outcome="coarse"
-                    if found.step in {Step.TOKENS, Step.CHARACTERS}
-                    else "located",
+                    outcome="coarse" if found.step in {Step.TOKENS, Step.CHARACTERS} else "located",
                 )
             if row["outcome"] != "located":
                 issues.append(

@@ -727,6 +727,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     *expressions,
                     postgresql_where=text(declaration["where"]) if "where" in declaration else None,
                     postgresql_using=declaration.get("using", "btree"),
+                    postgresql_include=declaration.get("include"),
                 )
                 if "expression" in declaration:
                     table.append_constraint(index)

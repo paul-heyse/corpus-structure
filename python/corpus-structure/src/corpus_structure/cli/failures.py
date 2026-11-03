@@ -61,7 +61,11 @@ def failure_boundary(
         from corpus_structure.semantic.types import PreparationError
 
         if json:
-            detail: dict[str, Any] = {"code": type(error).__name__, "message": str(error), **semantic_failure_fields(error)}
+            detail: dict[str, Any] = {
+                "code": type(error).__name__,
+                "message": str(error),
+                **semantic_failure_fields(error),
+            }
             if getattr(error, "reason", None) is not None:
                 detail["reason"] = error.reason
             detail["validation"] = (

@@ -225,6 +225,8 @@ def create_reference_set(
     result = _completed(conn, source_run_id, project_id)
     release = open_release(conn, result["release_id"])
     require_bound_operation(release, "reference_set")
+    if split not in release.reference_splits():
+        raise ReferenceError("reference split is unavailable for executable reference sets")
     config = evaluation_config(conn, release.release_id)
     split_documents(conn, project_id, config.split, release_id=release.release_id)
     pool = _source_units(conn, source_run_id)
@@ -525,6 +527,20 @@ def golden_set_status(conn: Connection, set_id: int) -> dict[str, Any]:
     return {"set_id": set_id, "units": len(units), "status": dict(counts)}
 
 
+def split_provenance_summary(conn: Connection, project_id: str) -> dict[str, int]:
+    """Availability of recorded decisions; historical rows do not inherit current inputs."""
+    from sqlalchemy import func
+
+    splits = table("eval.document_split")
+    row = conn.execute(
+        select(
+            func.count().filter(splits.c.decision_id.is_not(None)).label("recorded"),
+            func.count().filter(splits.c.decision_id.is_(None)).label("legacy_unavailable"),
+        ).where(splits.c.project_id == project_id)
+    ).one()
+    return {"recorded": row.recorded, "legacy_unavailable": row.legacy_unavailable}
+
+
 def split_documents(
     conn: Connection,
     project_id: str,
@@ -535,7 +551,8 @@ def split_documents(
 ) -> dict[str, Any]:
     from corpus_structure.core.vocab import DocumentSplit
 
-    from .split import Assignment, SplitDocument, assign
+    from .split import Assignment, SplitDocument
+    from .split_decisions import prepare_split_decision
 
     if config is None:
         release_id = release_id or conn.scalar(
@@ -579,23 +596,26 @@ def split_documents(
         for d in docs
         if d.source_uri in previous
     }
-    new = assign(docs, config, existing, seed)
+    decision = prepare_split_decision(project_id, release_id, docs, config, existing, seed)
+    intent = json.loads(decision.intent)
+    receipt = _call(
+        conn,
+        "SELECT eval.assign_document_split_decision(:p,:r,CAST(:intent AS jsonb))",
+        p=project_id,
+        r=release_id,
+        intent=decision.intent.decode("utf-8"),
+    ).scalar_one()
     by_id = {d.id: d.source_uri for d in docs}
-    fresh = {by_id[row.document_id]: row for row in new}
-    for uri, row in fresh.items():
-        _call(
-            conn,
-            "SELECT eval.assign_document_split(:p,:u,:s)",
-            p=project_id,
-            u=uri,
-            s=row.split.value,
-        )
-    totals = Counter({**previous, **{uri: row.split.value for uri, row in fresh.items()}}.values())
+    fresh = {by_id[row["document_id"]]: row for row in intent["assignments"]}
+    totals = Counter({**previous, **{uri: row["split"] for uri, row in fresh.items()}}.values())
     return {
         "project_id": project_id,
-        "seed": config.seed if seed is None else seed,
-        "added": dict(Counter(r.split.value for r in fresh.values())),
+        "seed": intent["seed"],
+        "added": dict(Counter(r["split"] for r in fresh.values())),
         "total": dict(totals),
+        "decision_id": receipt["decision_id"],
+        "outcome": receipt["outcome"],
+        "provenance": "recorded",
     }
 
 

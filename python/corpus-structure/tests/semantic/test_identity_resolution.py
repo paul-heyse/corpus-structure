@@ -77,8 +77,11 @@ def source(*, keyed=False, located=True):
     }
     for entity in entities:
         for attribute in entity["attributes"]:
-            attribute.update(qualification={"modality": "asserted", "polarity": True},
-                             establishment="stated", evidence=[dict(evidence)])
+            attribute.update(
+                qualification={"modality": "asserted", "polarity": True},
+                establishment="stated",
+                evidence=[dict(evidence)],
+            )
     return {
         "id": 9,
         "observation_key": "observation:stable",
@@ -119,7 +122,9 @@ def test_required_key_identity_refuses_exclusion_and_retains_structured_endpoint
 
 
 def test_uncertain_exclusion_does_not_authorize_identity_constraint():
-    mappings, _, _, _ = _entity_mappings(release(), [source(located=False)], "out", {}, {9: ({}, ())})
+    mappings, _, _, _ = _entity_mappings(
+        release(), [source(located=False)], "out", {}, {9: ({}, ())}
+    )
     assert len(set(mappings[9].values())) == 1
 
 

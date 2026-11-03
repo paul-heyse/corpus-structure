@@ -635,20 +635,35 @@ class PreparedUnitCompletion:
 
         lock_complete_unit_run(conn, run_id=self.run_id)
         tasks = table("ops.task")
-        task = conn.execute(
-            select(tasks).where(tasks.c.id == self.task_id).with_for_update()
-        ).mappings().one()
+        task = (
+            conn.execute(select(tasks).where(tasks.c.id == self.task_id).with_for_update())
+            .mappings()
+            .one()
+        )
         if task["attempt"] != self.attempt or task["claimed_by"] != self.holder:
             raise OperationConflict("recognizer attempt lost")
         if task["status"] == "running":
             for position, draft in enumerate(self.source_views):
-                store_source_view(conn, run_id=self.run_id, task_id=self.task_id,
-                                  attempt=self.attempt, holder=self.holder,
-                                  draft=draft, position=position)
-        return complete_task(conn, task_id=self.task_id, attempt=self.attempt,
-                             holder=self.holder, prepared=self.prepared,
-                             observations=self.rows, outcome=self.outcome,
-                             error=self.error, envelope=self.envelope)
+                store_source_view(
+                    conn,
+                    run_id=self.run_id,
+                    task_id=self.task_id,
+                    attempt=self.attempt,
+                    holder=self.holder,
+                    draft=draft,
+                    position=position,
+                )
+        return complete_task(
+            conn,
+            task_id=self.task_id,
+            attempt=self.attempt,
+            holder=self.holder,
+            prepared=self.prepared,
+            observations=self.rows,
+            outcome=self.outcome,
+            error=self.error,
+            envelope=self.envelope,
+        )
 
 
 def prepare_unit_completion(
@@ -722,8 +737,15 @@ def prepare_unit_completion(
         )
     outcome = {"produced": "done", "empty": "empty", "failed": "failed"}[result.outcome.value]
     return PreparedUnitCompletion(
-        prepared, task_id, attempt, holder, RunId(task["run_id"]), tuple(rows),
-        outcome, {"message": result.error} if result.error else None, envelope,
+        prepared,
+        task_id,
+        attempt,
+        holder,
+        RunId(task["run_id"]),
+        tuple(rows),
+        outcome,
+        {"message": result.error} if result.error else None,
+        envelope,
         tuple(result.source_views),
     )
 
@@ -743,9 +765,16 @@ def complete_unit_result(
 ) -> CompletionResult:
     """Prepare and apply on the caller's transaction; source execution prepares before fencing."""
     return prepare_unit_completion(
-        conn, task_id=task_id, attempt=attempt, holder=holder, prepared=prepared,
-        result=result, method=method, configuration_hash=configuration_hash,
-        source=source, records=records,
+        conn,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        prepared=prepared,
+        result=result,
+        method=method,
+        configuration_hash=configuration_hash,
+        source=source,
+        records=records,
     ).apply(conn)
 
 
@@ -1309,8 +1338,11 @@ class BoundReader:
         rows = self.conn.execute(
             select(documents.c.id, documents.c.key)
             .join(runs, runs.c.project_id == documents.c.project_id)
-            .where(runs.c.id == self.run_id, documents.c.key.in_(keys),
-                   documents.c.source_uri.in_(originals))
+            .where(
+                runs.c.id == self.run_id,
+                documents.c.key.in_(keys),
+                documents.c.source_uri.in_(originals),
+            )
             .order_by(documents.c.key)
         ).all()
         return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
@@ -1328,7 +1360,6 @@ class BoundReader:
             .order_by(documents.c.id)
         ).all()
         return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
-
 
 
 def run_view(
