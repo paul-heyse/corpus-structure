@@ -22,6 +22,8 @@ _Updated 2026-11-03; M1 implementation active. UM functionality/validation is co
   public status awaiting_agent, no completed knowledge output or selected result/default.
   [Continuation commands](docs/design_review/evidence/2026-11-01_pdf-current-consumers/RUN6.md)
   cover queued extraction, independent reference bundle00003, evaluation and eventual selection.
+  After M1 determinant changes, queued UM execution requires its matching archived runtime; frozen
+  source reading remains available. Exact matching is preserved; run6 is not migrated.
 - Source partial/unknown health and missing candidate/OCR inventory remain explicit. No new perception
   inference, historical knowledge import, Claude A/B/C authoring or actual grade is claimed.
 

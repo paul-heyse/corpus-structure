@@ -175,6 +175,12 @@ it. Changing one needs an ADR and a design/target review.
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted target, Proposed until implemented (2026-11-03).** M1 extends the released occurrence model with source-record identity, named field evidence sets
+and common record membership across lowered assertions. Private candidate validation does not
+establish admitted knowledge, source fidelity or scientific truth.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 **Proposed · accepted target, 2026-10-29.** Source occurrences preserve independent evidence,
 conditions, modality, polarity, attribution and typed values. Semantic facts group compatible
 occurrences under a release-scoped meaning key; confidence/support do not erase occurrences.
@@ -186,6 +192,12 @@ uses its frozen claim form until scheduled consumer migration.
 <a id="section-b2"></a>
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Accepted target, Proposed until implemented (2026-11-03).** M1 adds an explicit CPU extraction route producing private source observations and record
+candidates. Existing policy/consolidation remains the sole knowledge publication owner; uncertain
+interpretation remains upstream of finite rule closure.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
 
 **Accepted operation target (2026-10-29).** Bound operations retain source occurrences, typed
 assessments and immutable effective-input cuts. Finite positive inference preserves exact
@@ -390,6 +402,12 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Accepted target, Proposed until implemented (2026-11-03).** M1 field roles/states, typed values, evidence membership and interpretation contracts extend
+the same effective release and generated/native boundaries. Unsupported enforcement refuses
+admission; an opaque record payload does not establish public field-addressable support.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
+
 **Accepted unified-operation target, Proposed implementation (2026-11-02).** Resolved semantic contracts govern comparison roles, typed operation binds/results, relationship endpoints and qualified implementation compatibility. Generated structural representations share those inputs; specialized algorithms remain admitted implementations.
 
 > Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
@@ -518,6 +536,12 @@ The currently selected installed projection remains until its dependent packages
 <a id="section-b6"></a>
 
 ### §B6 Escalation is routed by versioned policies over measurements
+
+**Accepted target, Proposed until implemented (2026-11-03).** M1 selects a separate CPU extraction allowlist and run-owned resident admission policy,
+retaining parent task fencing, cancellation and database custody. A qualified NONDEFAULT release
+and adoption/rollback procedure precede any later reviewed operational default switch.
+
+> Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
 
 **Interface-checked** in spike S4 (2026-10-28: the rule syntax compiles and refuses errors at compile
 time); accepted, routing not yet built. Ordered policy chains compiled to

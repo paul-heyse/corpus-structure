@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "m1.private-source-contexts",
+  "title": "Private native context mapping checks",
+  "group": "M1",
+  "package": "M1-05",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the selected private mapped context boundary preserve source coordinates and adjacent contract meaning?",
+  "answers": [],
+  "method": "Run independently specified context tests and static diagnostics; retain the root adjacent attempt and its moving-source limitation.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "checks.json",
+      "role": null,
+      "sha256": "6299b3a1d95300671de2054adeead6f8acc1ef87fac7e041ecd6d471c374ef9b"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "37 focused context tests and scoped Ruff/Pyrefly passed. Independent private-slice review has no unresolved material finding. No retrieval/routing/native custody or full M1-05 closure.",
+  "consumed_by": [
+    "M1-05",
+    "M1-03"
+  ]
+}

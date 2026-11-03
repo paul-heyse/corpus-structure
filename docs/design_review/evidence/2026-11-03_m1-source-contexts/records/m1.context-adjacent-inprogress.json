@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "m1.context-adjacent-inprogress",
+  "title": "Adjacent checks against moving native determinants",
+  "group": "M1",
+  "package": "M1-05",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the selected private mapped context boundary preserve source coordinates and adjacent contract meaning?",
+  "answers": [],
+  "method": "Run independently specified context tests and static diagnostics; retain the root adjacent attempt and its moving-source limitation.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "adjacent-inprogress-failure.json",
+      "role": null,
+      "sha256": "1d436d1eba25e1102391b0d5c85437358fad7d186275e28cd49ec5491d3cab9b"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "failed",
+  "conclusion": "13 nodes failed exact implementation-input preparation during active edits. No stable source snapshot or final qualification conclusion; affected adjacent scope remains due at the native endpoint.",
+  "consumed_by": [
+    "M1-05",
+    "M1-03"
+  ]
+}

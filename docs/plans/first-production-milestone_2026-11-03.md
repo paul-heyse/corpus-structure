@@ -137,7 +137,7 @@ experiments. The result constrains dependent work even when it selects an existi
 
 ## Execution queue and readiness
 
-M1-00/01/02/03/07 are **In progress** at the bounded scope below; other packages remain **Planned**.
+M1-00/01/02/03/04/05/07/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
 Dependencies below mean working capability/evidence unless explicitly
 identified as an early settled contract. Design of consumers may proceed from settled contracts
 while implementation of their required producers is underway. Document order is not a global barrier.
@@ -172,7 +172,7 @@ are logically independent. Package IDs are not fixed worker roles or required co
 
 | Existing owner | Boundary for this series |
 | --- | --- |
-| [Unified model](unified-domain-model_2026-11-01.md) | Implemented/validated code is a baseline. UM owns remaining agent assessment and follow-up. M1 neither inherits an open code-validation task nor closes that assessment by producing CPU records. |
+| [Unified model](unified-domain-model_2026-11-01.md) | Implemented/validated code is a baseline. UM owns remaining agent assessment and follow-up. M1 neither inherits an open code-validation task nor closes that assessment by producing CPU records. Exact implementation matching means queued predecessor preparation/execution uses its matching archived runtime after M1 changes operation determinants; frozen `analysis=False` source/BoundReader reading remains available. Do not weaken matching or migrate run6 to hide that boundary. |
 | [PDF pipeline](pdf-docling-pipeline_2026-10-31.md) | Consume available pinned selected products. Existing provider/current-book and other acceptance dispositions stay there; request only a specifically unavailable consumed contract/evidence item, not completion of the whole series. |
 | [Test architecture](test-architecture-and-evidence_2026-11-02.md) | Reuse applicable scenario/preparation/lifecycle mechanisms and independent expectations; M1 owns new evaluator semantics and release evidence. |
 | Other active/finished plans | Preserve their files, accepted scope, findings and receipt meanings. Link package/evidence IDs rather than copying live state. |
@@ -295,7 +295,15 @@ its own owner.
   reports, constrained wrappers, operation-quality and full-record quality remain open. The
   [installed adapter contract](../design_review/evidence/2026-11-03_m1-gliner-adapter/README.md)
   records schema, enum, preprocessing and diagnostic limitations; absent diagnostics stay unavailable.
-- **M1-04/05/06/08–15 Planned:** no completion or whole-release qualification claim.
+- **M1-04/05 In progress:** [m1.private-source-contexts](../design_review/evidence/2026-11-03_m1-source-contexts/records/m1.private-source-contexts.json)
+  establishes bounded private context serialization/mapping (37 focused tests, scoped Ruff/Pyrefly,
+  independent review), separate from live selection/routing, annotation or native authentication.
+  Rich linguistic preparation is in progress. A failed adjacent check against actively edited
+  native determinants is retained; repeat that scope at the coherent native endpoint.
+- **M1-13 In progress:** early private five-family comparison is being implemented from settled
+  field contracts; protected reference passes, published prediction binding and sufficient release
+  references are open.
+- **M1-06/08–12/14/15 Planned:** no completion or whole-release qualification claim.
 
 Next: finish and review the private shared contract slice, then extend native/source-context
 custody and dependent operation/runtime consumers. M1-13 reference/scorer work proceeds from

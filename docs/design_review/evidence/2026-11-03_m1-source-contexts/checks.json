@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-03",
+  "scope": "private mapped context serialization only",
+  "source_sha256": {
+    "python/corpus-structure/src/corpus_structure/semantic/source_contexts.py": "1ce23085ed4104ddaf33c2fb0e97d23a3db2d0602a08cd9a8806b9e58366e0ee",
+    "python/corpus-structure/tests/semantic/test_source_contexts.py": "0c24738e914749c8536ab67db3bac09eddccbd6798aeac06889a8d2560dc6e7c"
+  },
+  "checks": [
+    {
+      "command": "uv run pytest python/corpus-structure/tests/semantic/test_source_contexts.py -q",
+      "outcome": "passed",
+      "tests": 37
+    },
+    {
+      "command": "uv run ruff check python/corpus-structure/src/corpus_structure/semantic/source_contexts.py python/corpus-structure/tests/semantic/test_source_contexts.py",
+      "outcome": "passed"
+    },
+    {
+      "command": "uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic/source_contexts.py",
+      "outcome": "passed",
+      "errors": 0
+    }
+  ],
+  "review": "Independent source review found no unresolved material issue in identified private slice."
+}

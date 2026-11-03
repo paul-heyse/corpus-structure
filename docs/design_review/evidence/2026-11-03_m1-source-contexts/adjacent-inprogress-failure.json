@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-03",
+  "command": "uv run pytest python/corpus-structure/tests/semantic/test_source_contexts.py python/corpus-structure/tests/semantic/test_proposals.py python/corpus-structure/tests/semantic/test_source_frame_admission.py -q",
+  "outcome": "failed",
+  "failed_nodes": 13,
+  "failure": "PreparationError: analysis_implementation_inputs: supply the exact grammar/transformer implementation input set",
+  "scope": "Root broadened adjacent checks during active native-worker determinant/catalog edits. Source was not stable and its complete snapshot is not retained; this is not final qualification or a conclusion of a stable regression.",
+  "next": "Repeat affected proposal/source-frame checks at coherent final native/determinant endpoint; preserve this failed attempt."
+}
