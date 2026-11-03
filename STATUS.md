@@ -2,7 +2,7 @@
 _Updated 2026-11-03; bounded M1 completion audit recorded. UM functionality/validation remains complete._
 
 ## Current checkpoint
-- [Audit-closure target review](docs/design_review/reviews/design_review_audit-closure-target_2026-11-03.md) published Proposed; all audit IDs addressed, RC01–12 await planning/confirmation. Static review; docs-check failed outside review.
+- [Audit-closure series](docs/plans/audit-closure_2026-11-03.md) authored; RC01–12 accepted for planning2026-11-03; AC00–14 Planned, implementation not started. Existing plans unchanged; docs-check failed outside series.
 - [Broad audit](docs/design_review/audit/README.md) refreshed 2026-11-03 at fe67cc8+identified dirty M1; DA-053 claim-lifetime diagnosis; static only. `just docs-check` failed on links outside audit.
 
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md) owns package/finding
@@ -56,7 +56,6 @@ _Updated 2026-11-03; bounded M1 completion audit recorded. UM functionality/vali
 
 ## Next
 
-Approve the pending fitting-only host operation, then author/freeze the coherent forward native
-candidate and run actual publication/reference/fitting controls. Continue accepted-policy,
-interpretation/producer integration and independent references before final M1 qualification.
-The authorized endpoint remains a qualified NONDEFAULT release plus adoption/rollback procedure.
+Begin audit-closure AC00 when implementation is authorized. Complete/qualify that series first;
+then revise the M1 coordinator and affected companions from its impact handoff, then resume M1.
+M1's remaining native/reference/producer/population and release obligations stay with its owner.
