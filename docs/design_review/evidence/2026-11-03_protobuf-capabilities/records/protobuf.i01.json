@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "id": "protobuf.i01",
+  "title": "Native projection and wire fidelity boundaries",
+  "group": "protobuf-capabilities",
+  "package": null,
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can native LinkML protobuf generation and the host toolchain preserve the current interface semantics without additional policy?",
+  "answers": [
+    "protobuf review O01",
+    "protobuf review O02"
+  ],
+  "method": "Installed source inspection and bounded synthetic/native-core generation and wire experiments; expected candidate refusals remain retained.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_protobuf-capabilities/probe.py",
+    "uv run python docs/design_review/evidence/2026-11-03_protobuf-capabilities/product_probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "77f1a375e5209d8ea60c171767a6751e30e13ae42c339013366e6651f672a0ba"
+    },
+    {
+      "path": "product_probe.py",
+      "role": null,
+      "sha256": "c4a2b634fb2112f77415fed98e4188dc43c2238527ee8d1ba170eba4d9dd30c0"
+    },
+    {
+      "path": "raw/results.json",
+      "role": null,
+      "sha256": "490fd1219d8c1cf771fede94f780136eaf889dde2ccec0159bb84c635ae4bb4d"
+    },
+    {
+      "path": "raw/product-results.json",
+      "role": null,
+      "sha256": "aec371c8c1a75b9bf34ec3682262c1d606771fb5b4e6cf8699de98b031ba5649"
+    },
+    {
+      "path": "raw/source-manifest.json",
+      "role": null,
+      "sha256": "1a0a5aba7bd2ff6d7f3fa002942d6265285e87b3e4a42e317041029cce238c20"
+    },
+    {
+      "path": "raw/probe-attempt1.log",
+      "role": null,
+      "sha256": "cf3f99168d5b4e38be11cb494d32e29b66d058b1e017efc1860dc1f59b287fcb"
+    },
+    {
+      "path": "raw/probe.log",
+      "role": null,
+      "sha256": "490fd1219d8c1cf771fede94f780136eaf889dde2ccec0159bb84c635ae4bb4d"
+    },
+    {
+      "path": "raw/product-probe.log",
+      "role": null,
+      "sha256": "5b6af35f6d7a0a0642a5a5b34fcb28651e4c18f55c11c14e067bd1eee89674a9"
+    },
+    {
+      "path": "raw/v1",
+      "role": null,
+      "sha256": "f5efc132f6f5c42760c63afafd8fdd2b1f6d14420187d3be379cddff07611b0e"
+    },
+    {
+      "path": "raw/v2",
+      "role": null,
+      "sha256": "097bd3bb06ee051d701cf558276be016fa3a6a5e91e6314d3ed8bdc1ef42eed4"
+    },
+    {
+      "path": "raw/core.proto",
+      "role": null,
+      "sha256": "41f30ce0ec19fad9eb554e5ed0b19fe485f8cd4891d8eab31e181d8e0e685db6"
+    },
+    {
+      "path": "raw/core.pb",
+      "role": null,
+      "sha256": "cb982f85bd55265bd347b21f1332680ed644ccbf3741ae4507f076f875aec900"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Native core projection compiles and dynamic decoding works for the bounded fixture. Reorder changes tags/enums, scalar presence/requiredness and integer width differ, JSON loses unknown fields, and host-generated Python fails the locked runtime import. Production fidelity, alternate validators, RPC/client and extraction journeys remain untested; recommendations are conditional.",
+  "consumed_by": [
+    "protobuf review O01",
+    "protobuf review O02",
+    "protobuf review O03"
+  ]
+}

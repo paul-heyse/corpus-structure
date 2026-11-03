@@ -3,6 +3,7 @@ _Updated 2026-11-03; audit-closure implementation in progress. No qualified M1 r
 
 ## Current checkpoint
 
+- [Protobuf capability review](docs/functional_reviews/protobuf-capabilities_2026-11-03.md): Proposed conditional discovery/SDK/research directions; bounded generator/wire probes passed with candidate incompatibilities retained. No product adoption; audit-closure target consumed, logging plan excluded.
 - [Audit-closure series](docs/plans/audit-closure_2026-11-03.md): implementation in progress under ADR-0054. Delta inference, first semantic contracts and owned reads integrated; native/consumer migration and final qualification remain open. Existing plans unchanged.
 - [Broad audit](docs/design_review/audit/README.md) refreshed 2026-11-03 at fe67cc8+identified dirty M1; DA-053 claim-lifetime diagnosis; static only. `just docs-check` failed on links outside audit.
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md#qualification-increment-closeout--2026-11-03)

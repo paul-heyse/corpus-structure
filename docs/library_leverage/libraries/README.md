@@ -36,6 +36,12 @@ Neither is a comparative preference. Choosing between options belongs to
 the major ones likely to address the audit's opportunities. Libraries that are not adopted get light
 treatment, and only where an opportunity points squarely at them.
 
+## Protobuf ecosystem extension assessment
+
+The [2026-11-03 protobuf assessment](protobuf-ecosystem_2026-11-03.md) covers reusable runtime,
+validation, descriptor, RPC and research capabilities plus contextual applicability. It has its
+own baseline and does not refresh the older assessments below.
+
 ## Researched libraries
 
 | Library | Realization | Tier | Account | Probe evidence |
