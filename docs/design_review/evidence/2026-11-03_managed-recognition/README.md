@@ -51,6 +51,26 @@ cases. Earlier failed attempts remain: nested shell activation refused the unrev
 invalidated a process-cached implementation binding during consumer setup. Those failures were
 corrected without weakening admission. The root owns final source/context and AC14 union accounting.
 
+Method-dimension follow-through (AC01/AC06–08), 2026-11-03: `raw/method-dimensions-component-62.log`,
+`method-dimensions-lifetime-27.log` and `method-dimensions-policy-46.log` retain overlapping scoped
+passes. The native controls install the prospective owned task/completion guards on an isolated
+committed clone, then independently refuse wrong metadata, report family, borrowed task outcome
+and confidence provenance, and persist the valid report once. Archive setup precedes prospective
+adoption because the working tree intentionally retains the frozen archive descriptor until the
+root authors its forward transition. Earlier failed setup attempts remain. `method-dimensions-types.log`
+records the scoped Pyrefly pass. These controls do not replace forward installation, integrated
+model regeneration, final source/context accounting or the complete AC14 union.
+
+The later existing-consumer selection retained one failed fixture admission in
+`raw/method-dimensions-consumers-attempt-1.log`: the intentional `read` fixture's
+`author_markup` report was absent from its literal declaration. The declaration now includes it;
+production admission was unchanged. After splitting batch original custody into owned reads and
+per-task publication transactions, `raw/source-custody-consumers-26.log` passed26 reader,
+operation and native claim cases. Its actual native slow-custody control pauses preparation of the
+later original until the earlier task renews, then durably settles both. Scoped Ruff passed and
+`raw/source-custody-types.log` records Pyrefly0 errors. This is bounded functional evidence, not
+assembled scheduler/provider qualification.
+
 ## Records
 
 <!-- evidence-index:start -->

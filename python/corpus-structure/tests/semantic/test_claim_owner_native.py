@@ -264,3 +264,70 @@ def test_uncertain_intent_cannot_be_suppressed_on_normal_owner_exit(
         with claim_lifetime.maintained_claims(semantic_writer_engine, [claim], "owner") as owner:
             intent = claim_lifetime.ClaimSettlementUncertain(claim, "owner", lambda conn: None)
             owner.uncertain[(claim.task_id, claim.attempt, "owner")] = intent
+
+
+def test_slow_later_original_does_not_hold_earlier_task_custody_lock(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    from corpus_structure.orchestrate.semantic import _retain_source_originals
+    from corpus_structure.semantic import operations
+
+    prepared = prepare_operation_scenario(semantic_db_engine, observations=True)
+    method = SimpleNamespace(
+        name="owned", version="custody-control", family="profile", tier="deterministic",
+        confidence_source=None, unit_type="document", Config=Config,
+        original_recipe=lambda config: b'{"recipe":"owned-custody-control"}',
+    )
+    with semantic_writer_engine.begin() as conn:
+        run = create_run(
+            conn, project_id="p", binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+            kind="full", options={}, code_commit="custody-control",
+        )
+        config = record_method(conn, method, "default", {}, "custody-config", prepared=prepared)
+        documents = []
+        for number in range(2):
+            path = tmp_path / f"custody-{number}.pdf"
+            original = f"%PDF-1.7\nindependent original {number}".encode()
+            path.write_bytes(original)
+            identity = operations.register_document(
+                conn, project_id="p", source_uri=f"custody-{number}.pdf",
+                original_path=str(path), original=original, mime="application/pdf",
+            )
+            documents.append(identity)
+            create_task(
+                conn, run_id=run, config_id=config, stage="ingest", unit_type="document",
+                unit_id=identity, unit_key=f"custody-{number}", input_hash=f"custody-{number}",
+            )
+        owned = claim_tasks(conn, run_id=run, config_id=config, holder="owner", limit=2)
+    first = next(task for task in owned if task.unit_id == documents[0])
+    later_read, renewed_first = Event(), Event()
+    actual_read, actual_renew = operations.read_original, claim_lifetime.renew_claim
+
+    def slow_read(conn, identity, **values):
+        if identity == documents[1]:
+            later_read.set()
+            # Renewal must finish while the later original is still being prepared.
+            assert renewed_first.wait(5)
+        return actual_read(conn, identity, **values)
+
+    def observed_renewal(conn, **values):
+        actual_renew(conn, **values)
+        if later_read.is_set() and values["task_id"] == first.task_id:
+            renewed_first.set()
+
+    monkeypatch.setattr(operations, "read_original", slow_read)
+    monkeypatch.setattr(claim_lifetime, "renew_claim", observed_renewal)
+    with claim_lifetime.maintained_claims(
+        semantic_writer_engine, owned, "owner", interval=0.01
+    ) as owner:
+        _retain_source_originals(
+            semantic_writer_engine, owned, method, Config(), "owner", prepared, owner
+        )
+        assert renewed_first.is_set()
+        for claim in owned:
+            owner.settle(claim, completion(prepared, claim))
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM ops.source_build WHERE task_id = ANY(:ids)"),
+                           {"ids": [claim.task_id for claim in owned]}) == 2
+        assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id=:run AND status='empty'"),
+                           {"run": run}) == 2

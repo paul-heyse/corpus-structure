@@ -127,6 +127,16 @@ def run_source_methods(
             method, _, default = step.config.partition("/")
             name = configurations.get(method, default or "default")
             configs[method] = registry.resolve(method, name)
+    from corpus_structure.semantic.operation_results import validate_method_dimension
+
+    for method_name in configs:
+        descriptor = registry.method(method_name)
+        validate_method_dimension(prepared, method_name, "family", str(descriptor.family))
+        validate_method_dimension(prepared, method_name, "tier", str(descriptor.tier))
+        validate_method_dimension(
+            prepared, method_name, "confidence_source",
+            str(descriptor.confidence_source) if descriptor.confidence_source is not None else None,
+        )
     if "enrich.pdf_math" in configs:
         from corpus_structure.semantic.contracts import require_database_operation
 
@@ -536,46 +546,10 @@ def run_source_methods(
                             from corpus_structure.semantic.claim_lifetime import maintained_claims
 
                             with maintained_claims(engine, claimed, holder) as check_active:
-                                # Commit original custody under this owner before inference.
-                                original_recipe = getattr(method, "original_recipe", None)
-                                if original_recipe is not None:
-                                    from corpus_structure.semantic.operations import read_original
-                                    from corpus_structure.semantic.pdf_contracts import (
-                                        store_pdf_original,
-                                    )
-
-                                    recipe = original_recipe(config.config)
-                                    with engine.begin() as original_conn:
-                                        for claimed_task in claimed:
-                                            document_id = claimed_task.unit_id
-                                            if claimed_task.unit_type == "source_view":
-                                                view_table = table("kb.source_view")
-                                                document_id = original_conn.execute(
-                                                    select(view_table.c.document_id).where(
-                                                        view_table.c.id == claimed_task.unit_id
-                                                    )
-                                                ).scalar_one()
-                                            if document_id is None or (
-                                                claimed_task.unit_type
-                                                not in {"document", "source_view"}
-                                            ):
-                                                raise OperationConflict(
-                                                    "original preparation requires "
-                                                    "an original-bound task"
-                                                )
-                                            original = read_original(
-                                                original_conn,
-                                                DocumentId(document_id),
-                                                prepared=prepared,
-                                            )
-                                            store_pdf_original(
-                                                original_conn,
-                                                task_id=claimed_task.task_id,
-                                                attempt=claimed_task.attempt,
-                                                holder=holder,
-                                                original=original,
-                                                recipe_bytes=recipe,
-                                            )
+                                _retain_source_originals(
+                                    engine, claimed, method, config.config, holder, prepared,
+                                    check_active,
+                                )
                                 with engine.connect() as conn:
                                     bound_reader.conn = conn
                                     bound_reader.bind_source_tasks(
@@ -584,9 +558,7 @@ def run_source_methods(
                                                 task.unit_id
                                                 if task.unit_type == "document"
                                                 else conn.execute(
-                                                    select(
-                                                        table("kb.source_view").c.document_id
-                                                    ).where(
+                                                    select(table("kb.source_view").c.document_id).where(
                                                         table("kb.source_view").c.id == task.unit_id
                                                     )
                                                 ).scalar_one()
@@ -725,13 +697,9 @@ def run_source_methods(
 
                                     with read_snapshot(engine) as preparation_conn:
                                         intent = prepare_unit_completion(
-                                            preparation_conn,
-                                            task_id=task.task_id,
-                                            attempt=task.attempt,
-                                            holder=holder,
-                                            prepared=prepared,
-                                            result=result,
-                                            method=method,
+                                            preparation_conn, task_id=task.task_id,
+                                            attempt=task.attempt, holder=holder,
+                                            prepared=prepared, result=result, method=method,
                                             configuration_hash=config.config_hash,
                                             source=result.ref.unit_key or "run",
                                             records=result.records,
@@ -777,6 +745,37 @@ def run_source_methods(
         except BaseException as cleanup_error:
             exc.add_note(f"source run cleanup failed: {cleanup_error}")
         raise
+
+
+def _retain_source_originals(engine, claimed, method, config, holder, prepared, active):
+    """Prepare owned originals without holding another task's publication lock."""
+    original_recipe = getattr(method, "original_recipe", None)
+    if original_recipe is None:
+        return
+    from corpus_structure.semantic.operations import read_original
+    from corpus_structure.semantic.pdf_contracts import store_pdf_original
+    from corpus_structure.semantic.query import read_snapshot
+
+    recipe = original_recipe(config)
+    for task in claimed:
+        active()
+        with read_snapshot(engine) as conn:
+            document_id = task.unit_id
+            if task.unit_type == "source_view":
+                document_id = conn.execute(
+                    select(table("kb.source_view").c.document_id).where(
+                        table("kb.source_view").c.id == task.unit_id
+                    )
+                ).scalar_one()
+            if document_id is None or task.unit_type not in {"document", "source_view"}:
+                raise OperationConflict("original preparation requires an original-bound task")
+            original = read_original(conn, DocumentId(document_id), prepared=prepared)
+        active()
+        with engine.begin() as conn:
+            store_pdf_original(
+                conn, task_id=task.task_id, attempt=task.attempt, holder=holder,
+                original=original, recipe_bytes=recipe,
+            )
 
 
 def _retained_claim(ref, claimed_tasks, active):
@@ -910,13 +909,8 @@ def queue_agent(
     for ref in units:
         producer_binding(method_name, configuration, unit=ref.unit_type)
     method = OperationDescriptor(
-        producer.method,
-        producer.version,
-        "agent",
-        producer.execution_kind,
-        TaskUnitType(producer.unit),
-        AgentOpusConfig,
-        "agent",
+        producer.method, producer.version, "agent", producer.execution_kind,
+        TaskUnitType(producer.unit), AgentOpusConfig, "agent",
     )
     config_hash = (
         "configuration:"
@@ -982,11 +976,8 @@ def queue_agent(
             packet_hash=None if packet is None else packet.hash,
             agent=True,
             fresh=method_name in fresh_names,
-            trigger={
-                **dict(trigger or {}),
-                "configuration_name": configuration_name,
-                "producer_binding": producer.values(),
-            },
+            trigger={**dict(trigger or {}), "configuration_name": configuration_name,
+                     "producer_binding": producer.values()},
             skip_reason=skip_reason,
         )
         tasks.append(task_id)
@@ -1042,7 +1033,10 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     unit_views = {}
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
-        if method.tier != MethodTier.AGENT or entry.unit_type != method.unit_type:
+        if (
+            method.tier != MethodTier.AGENT
+            or entry.unit_type != method.unit_type
+        ):
             raise OperationConflict(
                 "semantic propose requires a supported agent method with matching source unit type"
             )
