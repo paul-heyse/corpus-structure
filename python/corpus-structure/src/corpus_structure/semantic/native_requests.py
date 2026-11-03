@@ -20,7 +20,6 @@ from .operations import (
     OperationDescriptor,
     binding_of,
     claim_tasks,
-    complete_unit_result,
     create_run,
     create_task,
     end_source_run,
@@ -332,29 +331,47 @@ def request_source_view(
             holder=holder,
             prepared=prepared,
         )[0]
-        region: dict[str, Any] | None = None
-        original = None
-        if demand == "render":
-            from .pdf_record_reader import published_record_reader
-
-            published = published_record_reader(
-                conn, view.ref.native_product, projection_context=prepared
-            )
-            if published is None:
-                raise ValueError("current rendering requires a published record-backed source")
-            if pointer is None or region_index is None:
-                raise ValueError("render requires an exact published pointer and region index")
-            region = published.region(pointer, region_index)
-            build, artifact = table("ops.source_build"), table("kb.source_artifact")
-            original = bytes(
-                conn.execute(
-                    select(artifact.c.content)
-                    .join(build, build.c.artifact_digest == artifact.c.artifact_digest)
-                    .where(build.c.task_id == view.ref.native_product.task_id)
-                ).scalar_one()
-            )
     try:
-        with maintained_claims(engine, (claim,), holder):
+        with maintained_claims(engine, (claim,), holder) as owner:
+            from .operations import prepare_unit_completion
+            from .query import read_snapshot
+
+            with read_snapshot(engine) as conn:
+                region: dict[str, Any] | None = None
+                original = None
+                if demand == "render":
+                    from .pdf_record_reader import published_record_reader
+
+                    published = published_record_reader(
+                        conn, view.ref.native_product, projection_context=prepared
+                    )
+                    if published is None:
+                        raise ValueError(
+                            "current rendering requires a published record-backed source"
+                        )
+                    if pointer is None or region_index is None:
+                        raise ValueError(
+                            "render requires an exact published pointer and region index"
+                        )
+                    region = published.region(pointer, region_index)
+                    build, artifact = table("ops.source_build"), table("kb.source_artifact")
+                    original = bytes(
+                        conn.execute(
+                            select(artifact.c.content)
+                            .join(build, build.c.artifact_digest == artifact.c.artifact_digest)
+                            .where(build.c.task_id == view.ref.native_product.task_id)
+                        ).scalar_one()
+                    )
+
+            def terminal_intent(result):
+                with read_snapshot(engine) as preparation_conn:
+                    return prepare_unit_completion(
+                        preparation_conn, task_id=task_id, attempt=claim.attempt,
+                        holder=holder, prepared=prepared, result=result, method=method,
+                        configuration_hash=digest, source=view.ref.key,
+                    )
+
+            owner()
             artifact_bytes = None
             if demand == "render":
                 from corpus_structure.serve.native_regions import render_pdf_region
@@ -377,111 +394,95 @@ def request_source_view(
                     ancestor_declarations=declarations,
                     ancestor_context_issues=issues,
                 )
-        failure = analysis_failure(analysis)
-        if failure is not None and analysis is not None:
-            failed = UnitResult(
+            owner()
+            failure = analysis_failure(analysis)
+            if failure is not None and analysis is not None:
+                failed = UnitResult(
+                    ref=UnitRef(
+                        TaskUnitType.SOURCE_VIEW, source_view_id, "native-request:" + digest
+                    ),
+                    outcome=ObservationOutcome.FAILED,
+                    error=failure,
+                    parse_detail={"native_analysis": analysis.model_dump(mode="json")},
+                )
+                owner.settle(claim, terminal_intent(failed).apply)
+                with engine.begin() as conn:
+                    end_source_run(
+                        conn,
+                        RunId(run_id),
+                        failure={
+                            "message": failure,
+                            "native_analysis": analysis.model_dump(mode="json"),
+                        },
+                        prepared=prepared,
+                    )
+                return NativeRequestResult(
+                    run_id,
+                    task_id,
+                    None,
+                    "failed",
+                    source_view_id,
+                    result=analysis.model_dump(mode="json"),
+                    error=failure,
+                )
+            observations = (
+                ()
+                if analysis is None
+                else (
+                    ObservationDraft(
+                        kind=ObservationKind.RECORD,
+                        payload=analysis,
+                        payload_class=type(analysis),
+                        payload_version="1",
+                        source_view_id=source_view_id,
+                        native_pointer=pointer,
+                    ),
+                )
+            )
+            result = UnitResult(
                 ref=UnitRef(TaskUnitType.SOURCE_VIEW, source_view_id, "native-request:" + digest),
-                outcome=ObservationOutcome.FAILED,
-                error=failure,
-                parse_detail={"native_analysis": analysis.model_dump(mode="json")},
-            )
-            with engine.begin() as conn:
-                complete_unit_result(
-                    conn,
-                    task_id=task_id,
-                    attempt=claim.attempt,
-                    holder=holder,
-                    prepared=prepared,
-                    result=failed,
-                    method=method,
-                    configuration_hash=digest,
-                    source=view.ref.key,
-                )
-                end_source_run(
-                    conn,
-                    RunId(run_id),
-                    failure={
-                        "message": failure,
-                        "native_analysis": analysis.model_dump(mode="json"),
-                    },
-                    prepared=prepared,
-                )
-            return NativeRequestResult(
-                run_id,
-                task_id,
-                None,
-                "failed",
-                source_view_id,
-                result=analysis.model_dump(mode="json"),
-                error=failure,
-            )
-        observations = (
-            ()
-            if analysis is None
-            else (
-                ObservationDraft(
-                    kind=ObservationKind.RECORD,
-                    payload=analysis,
-                    payload_class=type(analysis),
-                    payload_version="1",
-                    source_view_id=source_view_id,
-                    native_pointer=pointer,
-                ),
-            )
-        )
-        result = UnitResult(
-            ref=UnitRef(TaskUnitType.SOURCE_VIEW, source_view_id, "native-request:" + digest),
-            outcome=ObservationOutcome.PRODUCED if observations else ObservationOutcome.EMPTY,
-            observations=observations,
-            coverage=(
-                CoverageDraft(
-                    family=method.name,
-                    scope=view.ref.key,
-                    outcome=analysis_coverage(analysis),
-                    required_capability=demand,
-                    reason=None
-                    if analysis_coverage(analysis) == "complete"
-                    else (
-                        "native demand coverage is incomplete; inspect the retained item "
-                        "diagnostics"
+                outcome=ObservationOutcome.PRODUCED if observations else ObservationOutcome.EMPTY,
+                observations=observations,
+                coverage=(
+                    CoverageDraft(
+                        family=method.name,
+                        scope=view.ref.key,
+                        outcome=analysis_coverage(analysis),
+                        required_capability=demand,
+                        reason=None
+                        if analysis_coverage(analysis) == "complete"
+                        else (
+                            "native demand coverage is incomplete; inspect the retained item "
+                            "diagnostics"
+                        ),
                     ),
                 ),
-            ),
-        )
-        with engine.begin() as conn:
-            artifact_digest = None
-            if artifact_bytes is not None:
-                selection = dict(
-                    view.ref.native_product.values(), pointer=pointer, region_index=region_index
-                )
-                recipe = canonical_bytes(
-                    dict(
-                        recipe="pdf-region-render-v2",
-                        selection=selection,
-                        scale=scale,
-                        renderer=renderer,
-                    )
-                )
-                artifact_digest = store_region_artifact(
-                    conn,
-                    task_id=task_id,
-                    attempt=claim.attempt,
-                    holder=holder,
-                    selection=selection,
-                    recipe_bytes=recipe,
-                    content=artifact_bytes,
-                )
-            complete_unit_result(
-                conn,
-                task_id=task_id,
-                attempt=claim.attempt,
-                holder=holder,
-                prepared=prepared,
-                result=result,
-                method=method,
-                configuration_hash=digest,
-                source=view.ref.key,
             )
+            with engine.begin() as conn:
+                artifact_digest = None
+                if artifact_bytes is not None:
+                    selection = dict(
+                        view.ref.native_product.values(), pointer=pointer, region_index=region_index
+                    )
+                    recipe = canonical_bytes(
+                        dict(
+                            recipe="pdf-region-render-v2",
+                            selection=selection,
+                            scale=scale,
+                            renderer=renderer,
+                        )
+                    )
+                    artifact_digest = store_region_artifact(
+                        conn,
+                        task_id=task_id,
+                        attempt=claim.attempt,
+                        holder=holder,
+                        selection=selection,
+                        recipe_bytes=recipe,
+                        content=artifact_bytes,
+                    )
+            owner.settle(claim, terminal_intent(result).apply)
+        with engine.begin() as conn:
             cut = seal_cut(conn, run_id, "native-request-source", final=True)
             body = conn.execute(
                 select(table("ops.task_result").c.body).where(
@@ -499,13 +500,16 @@ def request_source_view(
             analysis.model_dump(mode="json") if analysis is not None else None,
         )
     except BaseException as error:
-        with engine.begin() as conn:
-            end_source_run(
-                conn,
-                RunId(run_id),
-                failure={"message": str(error), "exception": type(error).__name__},
-                prepared=prepared,
-            )
+        try:
+            with engine.begin() as conn:
+                end_source_run(
+                    conn,
+                    RunId(run_id),
+                    failure={"message": str(error), "exception": type(error).__name__},
+                    prepared=prepared,
+                )
+        except BaseException as cleanup:
+            error.add_note("native request failure settlement failed: " + repr(cleanup))
         raise
 
 

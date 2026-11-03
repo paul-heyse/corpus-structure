@@ -55,7 +55,7 @@ def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request)
             unit_type="document",
             Config=create_model("PdfStageFixture"),
         )
-        config = record_method(conn, method, "default", {}, "pdf-stage")
+        config = record_method(conn, method, "default", {}, "pdf-stage", prepared=prepared)
         document = register_document(
             conn,
             project_id="p",

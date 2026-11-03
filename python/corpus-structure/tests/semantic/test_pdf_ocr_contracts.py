@@ -467,7 +467,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
             "default",
             {},
             "ocr-fixture",
-        )
+        prepared=prepared)
         document = register_document(
             conn,
             project_id="p",

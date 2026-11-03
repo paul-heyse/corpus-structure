@@ -134,7 +134,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
             unit_type="document",
             Config=create_model("PdfFixture"),
         )
-        config = record_method(conn, method, "default", {}, "pdf-fixture")
+        config = record_method(conn, method, "default", {}, "pdf-fixture", prepared=prepared)
         if not captured_page:
             source_path.write_bytes(original)
         document_id = register_document(

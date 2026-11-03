@@ -100,7 +100,15 @@ classes:
     if composed or evaluation:
         from corpus_structure.semantic.composed import composed_dependencies
 
-        dependencies = composed_dependencies(dependencies)
+        from .method_dimensions_support import fixture_execution_inputs
+
+        dependencies = composed_dependencies(dependencies, fixture_execution_inputs(
+            "read", "owned", "agent", "agent-disposition", "contract-unit", "custom.agent",
+            "native-binding", "native.packet-fixture", "native.region-frame", "coverage.witness",
+            "pdf.stage.fixture", "pdf13.fixture", "pdf.adoption-fixture", "pdf.consumer-fixture",
+            "pdf.controlled-retained-fixture", "pdf.controlled-source", "pdf.fixture",
+            "pdf.inline-fixture", "pdf.ocr-fixture", "pdf.view-fixture",
+        ))
         profile = PreparationProfile(version="semantic-2")
     p = prepare_release(bundle, dependencies, profile)
     with engine.begin() as c:

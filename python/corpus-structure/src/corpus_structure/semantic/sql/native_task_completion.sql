@@ -3,6 +3,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_te
 DECLARE t ops.task; r ops.run; item jsonb; ids bigint[] := '{}'; oid bigint; digest text; native_input jsonb; origin kb.observation; view kb.source_view; ancestor kb.source_view;
  source_record jsonb; record_anchor jsonb; record_fields jsonb; record_schema json;
  record_pointer text; record_cell integer; record_node jsonb; record_text text; record_placement ops.pdf_published_revision;
+ method ops.method; dimensions jsonb; model_product jsonb; observation_outcome text; provenance text;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  SELECT * INTO STRICT r FROM ops.run WHERE id=t.run_id FOR SHARE;
@@ -17,8 +18,30 @@ BEGIN
  IF p_outcome NOT IN ('done','empty','failed') OR (p_outcome='done')<>(jsonb_array_length(p_rows)>0) OR (p_outcome='failed')<>(p_error<>'null'::jsonb) THEN
    RAISE EXCEPTION 'inconsistent terminal outcome';
  END IF;
+ SELECT m.* INTO STRICT method FROM ops.method m JOIN ops.method_config config ON config.method_id=m.id WHERE config.id=t.method_config_id;
+ SELECT convert_from(body,'UTF8')::jsonb INTO STRICT model_product FROM sem.registry_row
+ WHERE release_id=t.release_id AND kind='execution_model';
+ SELECT jsonb_object_agg(d->>'id',domain->'values') INTO dimensions
+ FROM jsonb_array_elements(model_product->'operations') operation,
+ LATERAL jsonb_array_elements(operation->'result_dimensions') d,
+ jsonb_array_elements(model_product->'outcome_domains') domain
+ WHERE operation->>'id'='configure_method' AND domain->>'id'=d->>'outcome_domain';
+ IF p_envelope ? 'outcome' AND NOT coalesce(dimensions->(method.name||'/result.outcome') ? (p_envelope->>'outcome'),false) THEN
+  RAISE EXCEPTION 'method result outcome is not admitted by its release' USING ERRCODE='23514'; END IF;
  -- {source_record_guard}
  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
+   observation_outcome:=coalesce(item->>'outcome','produced');
+   IF NOT coalesce(dimensions->(method.name||'/observation.family') ? (item->>'kind'),false)
+      OR NOT coalesce(dimensions->(method.name||'/observation.outcome') ? observation_outcome,false) THEN
+    RAISE EXCEPTION 'observation family/outcome is not admitted by its method release' USING ERRCODE='23514'; END IF;
+   IF item->>'payload_definition'='SourceObservation' THEN
+    IF item->'payload'->>'family' IS DISTINCT FROM item->>'kind'
+       OR item->'payload'->>'outcome' IS DISTINCT FROM observation_outcome THEN
+     RAISE EXCEPTION 'observation dimensions differ from its bound report' USING ERRCODE='23514'; END IF;
+    provenance:=item->'payload'->>'confidence_source';
+    IF provenance IS NOT NULL AND NOT coalesce(dimensions->(method.name||'/observation.confidence_source') ? provenance,false) THEN
+     RAISE EXCEPTION 'observation confidence provenance is not admitted by its method release' USING ERRCODE='23514'; END IF;
+   END IF;
    IF t.unit_type='source_view' AND (item->>'source_view_id')::bigint IS DISTINCT FROM t.unit_id THEN
     RAISE EXCEPTION 'native observation differs from producing source-view task unit' USING ERRCODE='23514'; END IF;
    IF item->>'rendition_id' IS NOT NULL OR item->>'segment_id' IS NOT NULL OR item->>'span_id' IS NOT NULL THEN

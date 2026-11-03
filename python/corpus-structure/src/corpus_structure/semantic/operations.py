@@ -22,7 +22,7 @@ from corpus_structure.core.method import (
     SourceObservationReference,
     UnitResult,
 )
-from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, RunKind, TaskUnitType
+from corpus_structure.core.vocab import RunKind, TaskUnitType
 
 from ._operation_calls import ReleasedClaim as ReleasedClaim
 from ._operation_ids import (
@@ -150,8 +150,17 @@ def record_method(
     from . import _operation_calls as calls
     from .contracts import require_bound_operation
 
-    if prepared is not None:
-        require_bound_operation(prepared, "configure_method")
+    if prepared is None:
+        raise OperationConflict("method configuration requires an explicit released binding")
+    require_bound_operation(prepared, "configure_method")
+    from .operation_results import validate_method_dimension
+
+    validate_method_dimension(prepared, method.name, "family", str(method.family))
+    validate_method_dimension(prepared, method.name, "tier", str(method.tier))
+    validate_method_dimension(
+        prepared, method.name, "confidence_source",
+        str(method.confidence_source) if method.confidence_source is not None else None,
+    )
     m = table("ops.method")
     c = table("ops.method_config")
     request = calls.prepare_method_definition(
@@ -392,6 +401,16 @@ def complete_task(
     binding = binding_of(conn, task["run_id"])
     if prepared.release_id != binding.release_id:
         raise OperationConflict("wrong producer release")
+    from .operation_results import validate_method_dimension
+
+    method_name = conn.execute(
+        select(table("ops.method").c.name)
+        .join(
+            table("ops.method_config"),
+            table("ops.method_config").c.method_id == table("ops.method").c.id,
+        )
+        .where(table("ops.method_config").c.id == task["method_config_id"])
+    ).scalar_one()
     rows = []
     for ordinal, raw in enumerate(observations):
         data = dict(raw)
@@ -409,6 +428,19 @@ def complete_task(
         supplied_key = data.pop("observation_key", None)
         if definition == "SourceObservation" and supplied_key != payload["observation_key"]:
             raise OperationConflict("source observation identity differs from bound report")
+        validate_method_dimension(prepared, method_name, "observation.family", data["kind"])
+        validate_method_dimension(
+            prepared, method_name, "observation.outcome", data.get("outcome", "produced")
+        )
+        if definition == "SourceObservation":
+            if payload["family"] != data["kind"] or (
+                payload["outcome"] != data.get("outcome", "produced")
+            ):
+                raise OperationConflict("observation dimensions differ from its bound report")
+            validate_method_dimension(
+                prepared, method_name, "observation.confidence_source",
+                payload.get("confidence_source"),
+            )
         rows.append(
             dict(
                 data,
@@ -794,14 +826,14 @@ class BoundRunView:
 class SourceObservationView:
     id: int
     task_id: int
-    kind: ObservationKind
+    kind: str
     rendition_id: int | None
     segment_id: int | None
     span_id: int | None
     payload: Mapping[str, JsonValue]
     payload_hash: str
     score: float | None
-    outcome: ObservationOutcome
+    outcome: str
     observation_key: str
     release_id: str
     input_refs: tuple[SourceObservationReference, ...] = ()
@@ -1169,13 +1201,12 @@ class BoundReader:
             raise ValueError("source task binding requires real document/task identities")
         self.source_tasks = dict(tasks)
 
-    def source_observations(self, source_view_id: int, method: str, kind: ObservationKind):
+    def source_observations(self, source_view_id: int, method: str, kind: str):
         self.source_view(source_view_id)
         return self._observations(source_view_id, method, kind)
 
-    def _observations(self, source_id: int, method: str, kind: ObservationKind):
+    def _observations(self, source_id: int, method: str, kind: str):
         from corpus_structure.core.method import payload_hash
-        from corpus_structure.core.vocab import ObservationKind, ObservationOutcome
 
         from .observations import source_python
 
@@ -1215,14 +1246,14 @@ class BoundReader:
                 SourceObservationView(
                     row["id"],
                     row["task_id"],
-                    ObservationKind(row["kind"]),
+                    row["kind"],
                     row["rendition_id"],
                     row["segment_id"],
                     row["span_id"],
                     payload,
                     payload_hash(payload),
                     float(row["score"]) if row["score"] is not None else None,
-                    ObservationOutcome(row["outcome"]),
+                    row["outcome"],
                     row["observation_key"],
                     row["release_id"],
                     tuple(

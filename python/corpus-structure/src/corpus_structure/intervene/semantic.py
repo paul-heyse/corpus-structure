@@ -254,6 +254,7 @@ class ProposalSession:
             "item_key": payload["item_key"] if isinstance(checked, RefusedProposal) else "proposal",
             "kind": kind,
             "payload": payload,
+            "outcome": payload["outcome"] if definition == "SourceObservation" else "produced",
         }
         if key is not None:
             observation["observation_key"] = key

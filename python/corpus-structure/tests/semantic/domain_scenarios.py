@@ -158,7 +158,9 @@ def build_domain_case(
     bundle, deps = analytical_inputs(bundle, deps)
     from corpus_structure.semantic.composed import composed_dependencies
 
-    deps = composed_dependencies(deps)
+    from .method_dimensions_support import fixture_execution_inputs
+
+    deps = composed_dependencies(deps, fixture_execution_inputs('pdf.controlled-source', 'coverage.witness'))
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
@@ -254,7 +256,7 @@ def build_domain_case(
             "extract",
             {"math": math} if math is not None else {},
             "config",
-        )
+        prepared=prepared)
         sentence_offsets = (("s1", 0, 14),) + ((("s2", 15, 29),) if duplicate else ())
         frame = native_source_frame(view, sentence_offsets)
         from corpus_structure.semantic.proposals import proposal_packet
@@ -496,7 +498,7 @@ def build_domain_case(
                     ),
                 },
                 "config-second",
-            )
+            prepared=prepared)
             second_task = create_task(
                 conn,
                 run_id=run,

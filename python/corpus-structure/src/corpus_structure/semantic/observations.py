@@ -156,7 +156,13 @@ def bind_result(
     Item ordinals are inside the stable input, never database task/attempt identities. Equal
     reports at two positions stay separate; replaying a terminal product gives the same keys.
     The operational repository still fences and persists this product atomically with the task.
+    Base-schema construction remains pure; every current effect owner separately requires the
+    composed execution binding and its method dimensions before publication.
     """
+    from .operation_results import validate_method_dimension
+
+    if prepared.execution_model_id is not None:
+        validate_method_dimension(prepared, method, "result.outcome", result.outcome.value)
     unit_key = result.ref.unit_key
     if not all(
         (
@@ -172,7 +178,7 @@ def bind_result(
         raise ValueError("a source report requires complete source, unit and operation identity")
     observations = []
     for ordinal, draft in enumerate(result.observations):
-        item_key = f"{draft.kind.value}/{ordinal}"
+        item_key = f"{draft.kind!s}/{ordinal}"
         identity = [
             prepared.release_id,
             source,
@@ -187,7 +193,7 @@ def bind_result(
         row: dict[str, Any] = {
             "observation_key": "observation:" + sha256(canonical_bytes(identity)).hexdigest(),
             "item_key": item_key,
-            "family": draft.kind.value,
+            "family": str(draft.kind),
             "payload": source_value(
                 draft.payload.model_dump(mode="json", by_alias=True, serialize_as_any=True)
             ),
@@ -197,7 +203,7 @@ def bind_result(
                 {"observation_key": ref.observation_key, "role": ref.role}
                 for ref in draft.input_refs
             )
-        row["outcome"] = draft.outcome.value
+        row["outcome"] = str(draft.outcome)
         if draft.score is not None:
             row["score"] = source_value(draft.score)
         confidence = (
@@ -227,6 +233,12 @@ def bind_result(
                 row["projected_start"], row["projected_end"] = draft.projected_span
             if draft.recognized_span is not None:
                 row["recognized_start"], row["recognized_end"] = draft.recognized_span
+        if prepared.execution_model_id is not None:
+            validate_method_dimension(prepared, method, "observation.family", row["family"])
+            validate_method_dimension(prepared, method, "observation.outcome", row["outcome"])
+            validate_method_dimension(
+                prepared, method, "observation.confidence_source", row.get("confidence_source")
+            )
         observations.append(row)
     payload: dict[str, object] = {
         "release_id": prepared.release_id,

@@ -424,7 +424,7 @@ def create_run(
 
 
 METHOD_DEFINITION_CONTRACT_DIGEST = (
-    "3b89bab4571ef842004dcd7fc2a7feff2e8b8d52d628ad4b5a2879ba66e72ac7"
+    "ba21fbc400515fa728f561a1fefb694423bfe8576ba00064a033073e64d147cb"
 )
 
 
@@ -458,7 +458,7 @@ def prepare_method_definition(
     family: str,
     tier: str,
     confidence_source: str | None,
-    projection_context: PreparedRelease | None = None,
+    projection_context: PreparedRelease,
 ) -> _method_definitionRequest:
     _request = _method_definitionRequest(
         name=name,
@@ -469,13 +469,12 @@ def prepare_method_definition(
         tier=tier,
         confidence_source=confidence_source,
     )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "configure_method",
-            "method_definition",
-            METHOD_DEFINITION_CONTRACT_DIGEST,
-        )
+    require_call_context(
+        projection_context,
+        "configure_method",
+        "method_definition",
+        METHOD_DEFINITION_CONTRACT_DIGEST,
+    )
     return _request
 
 
@@ -8449,4 +8448,4 @@ def record_direction(
         return materialize_record_direction(row)
 
 
-CALL_CONTRACT_DIGEST = "dd3d9a36c44b5f181c5af164b5f71eec4319a67b09b8d9df6c181c196215c8d1"
+CALL_CONTRACT_DIGEST = "2576cc01538b5e3f4f349d9b83eaf3d6569ff3b9be277be2a022b62847c52d9b"

@@ -37,10 +37,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from corpus_structure.core.canonical import canonical_json, decimal_of_float
 from corpus_structure.core.payloads import Cost
 from corpus_structure.core.vocab import (
-    ConfidenceSource,
     MeasurementScope,
-    MethodFamily,
-    MethodTier,
     ObservationKind,
     ObservationOutcome,
     RunKind,
@@ -241,7 +238,7 @@ class ObservationReading(Protocol):
     @property
     def task_id(self) -> int: ...
     @property
-    def kind(self) -> ObservationKind: ...
+    def kind(self) -> str: ...
     @property
     def rendition_id(self) -> int | None: ...
     @property
@@ -255,7 +252,7 @@ class ObservationReading(Protocol):
     @property
     def score(self) -> float | None: ...
     @property
-    def outcome(self) -> ObservationOutcome: ...
+    def outcome(self) -> str: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,7 +320,7 @@ class Reader(Protocol):
     ) -> CandidatePageSource: ...
 
     def source_observations(
-        self, source_view_id: int, method: str, kind: ObservationKind
+        self, source_view_id: int, method: str, kind: str
     ) -> Sequence[StableObservationReading]: ...
 
     def source_view_coverage(
@@ -427,7 +424,7 @@ class ObservationDraft[P: BaseModel]:
     its version (so O1 writes the row with that class's `payload_schema_id`; coordinator decision
     19), the score and outcome, and its `ConfidenceSource` (the method's unless set)."""
 
-    kind: ObservationKind
+    kind: str
     payload: P
     payload_class: type[P]
     payload_version: str
@@ -435,8 +432,8 @@ class ObservationDraft[P: BaseModel]:
     segment_id: int | None = None
     span: tuple[int, int] | None = None  # [start, end) in the rendition's canonical text
     score: float | None = None
-    outcome: ObservationOutcome = ObservationOutcome.PRODUCED
-    confidence_source: ConfidenceSource | Literal[_Source.METHOD] | None = METHOD_SOURCE
+    outcome: str = ObservationOutcome.PRODUCED
+    confidence_source: str | Literal[_Source.METHOD] | None = METHOD_SOURCE
     input_refs: tuple[SourceObservationReference, ...] = ()
     source_view_id: int | None = None
     native_pointer: str | None = None
@@ -468,7 +465,7 @@ class ObservationDraft[P: BaseModel]:
             if extent is not None and not 0 <= extent[0] < extent[1]:
                 raise ValueError("native observation extent is empty or reversed")
 
-    def source(self, method: Method[Any]) -> ConfidenceSource | None:
+    def source(self, method: Method[Any]) -> str | None:
         """The draft's confidence source: its own, or else the method's."""
         if self.confidence_source is METHOD_SOURCE:
             return method.confidence_source
@@ -736,10 +733,13 @@ class Method[C: BaseModel](Protocol):
 
     name: str
     version: str
-    family: MethodFamily
+    @property
+    def family(self) -> str: ...
     unit_type: TaskUnitType
-    tier: MethodTier
-    confidence_source: ConfidenceSource | None
+    @property
+    def tier(self) -> str: ...
+    @property
+    def confidence_source(self) -> str | None: ...
     Config: type[C]
     resources: Resources
 

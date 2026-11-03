@@ -113,7 +113,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
             "default",
             {},
             "config:one",
-        )
+        prepared=prepared)
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
         )
@@ -212,7 +212,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
             "default",
             {},
             "agent",
-        )
+        prepared=prepared)
         task = create_task(
             conn,
             run_id=run,
@@ -288,7 +288,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         pytest.fail("lease loss was not exposed to in-flight private computation")
 
 
-def test_method_version_binds_unit_and_configuration_schema(semantic_writer_engine):
+def test_method_version_binds_unit_and_configuration_schema(semantic_db_engine, semantic_writer_engine):
     from types import SimpleNamespace
 
     from pydantic import BaseModel
@@ -307,11 +307,14 @@ def test_method_version_binds_unit_and_configuration_schema(semantic_writer_engi
         unit_type="span",
         Config=Config,
     )
+    from .operation_scenario_support import prepare_operation_scenario
+
+    prepared = prepare_operation_scenario(semantic_db_engine)
     with semantic_writer_engine.begin() as conn:
-        record_method(conn, method, "default", {}, "method-config")
+        record_method(conn, method, "default", {}, "method-config", prepared=prepared)
     method.unit_type = "segment"
     with semantic_writer_engine.begin() as conn, pytest.raises(OperationConflict):
-        record_method(conn, method, "default", {}, "method-config")
+        record_method(conn, method, "default", {}, "method-config", prepared=prepared)
 
 
 @pytest.mark.parametrize("release_before_end", [False, True])
@@ -361,7 +364,7 @@ def test_held_progress_survives_cancel_and_fail(
             "default",
             {},
             "agent",
-        )
+        prepared=prepared)
         task = create_task(
             conn,
             run_id=run,
@@ -443,7 +446,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
             "default",
             {},
             "read",
-        )
+        prepared=prepared)
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
         )
@@ -576,7 +579,7 @@ def test_invocation_effect_enforces_agent_packet_disposition(
             "default",
             {},
             "configuration:disposition",
-        )
+        prepared=prepared)
 
         def insert():
             return create_task(

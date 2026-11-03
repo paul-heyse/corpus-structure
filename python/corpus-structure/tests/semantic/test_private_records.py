@@ -123,7 +123,9 @@ def private_source(semantic_db_engine, semantic_writer_engine, tmp_path):
     )
     dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
     bundle, dependencies = analytical_inputs(bundle, dependencies)
-    dependencies = composed_dependencies(dependencies)
+    from .method_dimensions_support import fixture_execution_inputs
+
+    dependencies = composed_dependencies(dependencies, fixture_execution_inputs('private.source', 'private.records'))
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
@@ -191,7 +193,7 @@ def private_source(semantic_db_engine, semantic_writer_engine, tmp_path):
             unit_type="document",
             Config=create_model("PrivateSourceConfig"),
         )
-        config = record_method(conn, method, "default", {}, "private-source-config")
+        config = record_method(conn, method, "default", {}, "private-source-config", prepared=prepared)
         path = tmp_path / "source.pdf"
         path.write_bytes(original)
         document = register_document(
@@ -320,7 +322,7 @@ def private_source(semantic_db_engine, semantic_writer_engine, tmp_path):
             unit_type=TaskUnitType.SOURCE_VIEW,
             Config=create_model("PrivateRecordConfig"),
         )
-        record_config = record_method(conn, record_method_, "default", {}, "private-config")
+        record_config = record_method(conn, record_method_, "default", {}, "private-config", prepared=prepared)
         task = create_task(
             conn,
             run_id=run,

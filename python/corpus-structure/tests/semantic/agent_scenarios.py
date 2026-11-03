@@ -82,7 +82,9 @@ def build_resubmission_case(
     profile = PreparationProfile(version="semantic-2")
     from corpus_structure.semantic.composed import composed_dependencies
 
-    deps = composed_dependencies(deps)
+    from .method_dimensions_support import fixture_execution_inputs
+
+    deps = composed_dependencies(deps, fixture_execution_inputs('pdf.controlled-source', 'coverage.witness'))
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)

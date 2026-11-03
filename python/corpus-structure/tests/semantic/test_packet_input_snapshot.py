@@ -90,19 +90,19 @@ def test_native_task_configuration_matches_frozen_params_and_version(
             },
             code_commit="test",
         )
-        good = record_method(conn, operation(), "default", {}, "good")
-        wrong_params = record_method(conn, operation(), "different", {"different": True}, "bad")
-        wrong_version = record_method(conn, operation(version="2"), "default", {}, "good")
+        good = record_method(conn, operation(), "default", {}, "good", prepared=prepared)
+        wrong_params = record_method(conn, operation(), "different", {"different": True}, "bad", prepared=prepared)
+        wrong_version = record_method(conn, operation(version="2"), "default", {}, "good", prepared=prepared)
         agent_good = record_method(
             conn,
             operation("custom.agent", "5", True),
             "old-alias",
             {"model": "allowed"},
             "agent-good",
-        )
+        prepared=prepared)
         agent_bad = record_method(
             conn, operation("custom.agent", "5", True), "other", {"model": "other"}, "agent-bad"
-        )
+        , prepared=prepared)
     for config in (wrong_params, wrong_version, agent_bad):
         with pytest.raises(DBAPIError, match="immutable run snapshot"), engine.begin() as conn:
             create_task(

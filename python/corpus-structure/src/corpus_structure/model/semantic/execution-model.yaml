@@ -5470,6 +5470,193 @@ operations:
   implementation: method
   transitions: []
   projections: []
+  result_dimensions:
+  - id: ingest.pdf/family
+    field: family
+    outcome_domain: method_family_ingest
+  - id: ingest.pdf/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: ingest.pdf/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: ingest.pdf_integrated/family
+    field: family
+    outcome_domain: method_family_ingest
+  - id: ingest.pdf_integrated/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: ingest.pdf_integrated/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: enrich.pdf_math/family
+    field: family
+    outcome_domain: method_family_ingest
+  - id: enrich.pdf_math/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: enrich.pdf_math/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: segment.sentences/family
+    field: family
+    outcome_domain: method_family_ingest
+  - id: segment.sentences/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: segment.sentences/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: profile.segments/family
+    field: family
+    outcome_domain: method_family_profile
+  - id: profile.segments/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: profile.segments/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: extract.math/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: extract.math/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: extract.math/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: extract.math/observation.family
+    field: observations.family
+    outcome_domain: report_family_extract_math
+  - id: extract.math/observation.outcome
+    field: observations.outcome
+    outcome_domain: observation_outcome
+  - id: normalize.formula/family
+    field: family
+    outcome_domain: method_family_normalize
+  - id: normalize.formula/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: normalize.formula/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: normalize.formula/observation.family
+    field: observations.family
+    outcome_domain: report_family_normalize_formula
+  - id: normalize.formula/observation.outcome
+    field: observations.outcome
+    outcome_domain: observation_outcome
+  - id: resolve.symbol_scope/family
+    field: family
+    outcome_domain: method_family_resolve
+  - id: resolve.symbol_scope/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: resolve.symbol_scope/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: resolve.symbol_scope/observation.family
+    field: observations.family
+    outcome_domain: report_family_resolve_symbol_scope
+  - id: resolve.symbol_scope/observation.outcome
+    field: observations.outcome
+    outcome_domain: observation_outcome
+  - id: agent.opus/family
+    field: family
+    outcome_domain: method_family_agent
+  - id: agent.opus/tier
+    field: tier
+    outcome_domain: method_tier_agent
+  - id: agent.opus/confidence_source
+    field: confidence_source
+    outcome_domain: confidence_provenance_agent
+  - id: agent.opus/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: agent.opus/observation.family
+    field: observations.family
+    outcome_domain: report_family_agent_opus
+  - id: agent.opus/observation.outcome
+    field: observations.outcome
+    outcome_domain: observation_outcome
+  - id: agent.opus/observation.confidence_source
+    field: observations.confidence_source
+    outcome_domain: confidence_provenance_agent
+  - id: agent.general/family
+    field: family
+    outcome_domain: method_family_agent
+  - id: agent.general/tier
+    field: tier
+    outcome_domain: method_tier_agent
+  - id: agent.general/confidence_source
+    field: confidence_source
+    outcome_domain: confidence_provenance_agent
+  - id: agent.general/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: agent.general/observation.family
+    field: observations.family
+    outcome_domain: report_family_agent_general
+  - id: agent.general/observation.outcome
+    field: observations.outcome
+    outcome_domain: observation_outcome
+  - id: agent.general/observation.confidence_source
+    field: observations.confidence_source
+    outcome_domain: confidence_provenance_agent
+  - id: consolidate.claims/family
+    field: family
+    outcome_domain: method_family_consolidate
+  - id: consolidate.claims/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: consolidate.claims/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: validate.rules/family
+    field: family
+    outcome_domain: method_family_validate
+  - id: validate.rules/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: validate.rules/confidence_source
+    field: confidence_source
+    outcome_domain: confidence_provenance_rules
+  - id: validate.rules/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: evaluate.score/family
+    field: family
+    outcome_domain: method_family_eval
+  - id: evaluate.score/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: evaluate.score/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: extract.m1_candidates/family
+    field: family
+    outcome_domain: method_family_extract
+  - id: extract.m1_candidates/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: extract.m1_candidates/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: native.source_request/family
+    field: family
+    outcome_domain: method_family_normalize
+  - id: native.source_request/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: native.source_request/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: native.source_request/observation.family
+    field: observations.family
+    outcome_domain: report_family_native_source_request
+  - id: native.source_request/observation.outcome
+    field: observations.outcome
+    outcome_domain: observation_outcome
   calls:
   - id: method_definition
     symbol: semantic.operations.record_method
@@ -5526,7 +5713,7 @@ operations:
     ordered: false
     order_by: []
     backend: core
-    requires_context: false
+    requires_context: true
     result_class: RecordedMethod
   - id: method_configuration
     symbol: semantic.operations.record_method
@@ -12909,6 +13096,104 @@ outcome_domains:
   - stale_revision
   - stale_version
   - unavailable_result
+- id: method_family_ingest
+  authority: code
+  values:
+  - ingest
+- id: method_tier_encoder
+  authority: code
+  values:
+  - encoder
+- id: source_result_outcome
+  authority: code
+  values:
+  - produced
+  - empty
+  - failed
+- id: method_tier_deterministic
+  authority: code
+  values:
+  - deterministic
+- id: method_family_profile
+  authority: code
+  values:
+  - profile
+- id: method_family_extract
+  authority: code
+  values:
+  - extract
+- id: report_family_extract_math
+  authority: code
+  values:
+  - mention
+  - relation
+  - record
+- id: observation_outcome
+  authority: code
+  values:
+  - produced
+  - empty
+  - failed
+- id: method_family_normalize
+  authority: code
+  values:
+  - normalize
+- id: report_family_normalize_formula
+  authority: code
+  values:
+  - value
+- id: method_family_resolve
+  authority: code
+  values:
+  - resolve
+- id: report_family_resolve_symbol_scope
+  authority: code
+  values:
+  - scope
+  - author_markup
+  - record
+- id: method_family_agent
+  authority: code
+  values:
+  - agent
+- id: method_tier_agent
+  authority: code
+  values:
+  - agent
+- id: confidence_provenance_agent
+  authority: code
+  values:
+  - agent
+- id: report_family_agent_opus
+  authority: code
+  values:
+  - claim_proposal
+  - semantic_proposal_refused
+- id: report_family_agent_general
+  authority: code
+  values:
+  - claim_proposal
+  - semantic_proposal_refused
+- id: method_family_consolidate
+  authority: code
+  values:
+  - consolidate
+- id: method_family_validate
+  authority: code
+  values:
+  - validate
+- id: confidence_provenance_rules
+  authority: code
+  values:
+  - rules
+- id: method_family_eval
+  authority: code
+  values:
+  - eval
+- id: report_family_native_source_request
+  authority: code
+  values:
+  - record
 outcome_translations:
 - source_domain: source_coverage
   source: complete

@@ -51,7 +51,7 @@ def test_native_hold_fences_cancellation_and_refuses_forged_error_seed(
             "default",
             {},
             "agent-cfg",
-        )
+        prepared=prepared)
         task = create_task(
             conn,
             run_id=run,

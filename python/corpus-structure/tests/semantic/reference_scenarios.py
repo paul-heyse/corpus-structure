@@ -42,7 +42,11 @@ def publish_reference_case(
         raise ValueError("reference journeys use one independently authored source paragraph")
     # Production preparation reuse is keyed by exact acquired inputs. A domain-name
     # cache here would conceal a changed pack or query implementation in this process.
-    bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
+    from .method_dimensions_support import prepare_fixture_pack
+
+    bundle, deps, profile, prepared = prepare_fixture_pack(
+        DOMAINS / domain, "pdf.controlled-source", "coverage.witness"
+    )
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="reference"))

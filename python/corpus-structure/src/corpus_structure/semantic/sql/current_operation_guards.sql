@@ -3,11 +3,26 @@
 -- Forward source from semantic_0025_methods.sql; current-only execution admission.
 CREATE OR REPLACE FUNCTION ops.guard_task_method_contract() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE declaration ops.method;
+DECLARE declaration ops.method; dimensions jsonb; model_product jsonb; dimension text; actual text;
 BEGIN
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  SELECT m.* INTO STRICT declaration FROM ops.method m JOIN ops.method_config c ON c.method_id=m.id
  WHERE c.id=NEW.method_config_id;
+ SELECT convert_from(body,'UTF8')::jsonb INTO STRICT model_product FROM sem.registry_row
+ WHERE release_id=NEW.release_id AND kind='execution_model';
+ SELECT jsonb_object_agg(d->>'id',domain->'values') INTO dimensions
+ FROM jsonb_array_elements(model_product->'operations') operation,
+ LATERAL jsonb_array_elements(operation->'result_dimensions') d,
+ jsonb_array_elements(model_product->'outcome_domains') domain
+ WHERE operation->>'id'='configure_method' AND domain->>'id'=d->>'outcome_domain';
+ FOR dimension,actual IN SELECT * FROM (VALUES
+ ('family',declaration.family),('tier',declaration.tier),
+ ('confidence_source',declaration.confidence_source)) fields(dimension,actual) LOOP
+  IF (actual IS NULL AND dimensions ? (declaration.name||'/'||dimension)) OR
+     (actual IS NOT NULL AND NOT coalesce(dimensions->(declaration.name||'/'||dimension) ? actual,false)) THEN
+   RAISE EXCEPTION 'method % dimension % is not admitted by the task release',declaration.name,dimension USING ERRCODE='23514';
+  END IF;
+ END LOOP;
  IF declaration.unit_type IS NULL OR declaration.configuration_schema_digest IS NULL
   OR declaration.unit_type IS DISTINCT FROM NEW.unit_type THEN
   RAISE EXCEPTION 'task unit/configuration contract is unresolved or incompatible' USING ERRCODE='23514';

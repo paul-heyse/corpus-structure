@@ -120,7 +120,7 @@ def build_completed_serving_case(
             confidence_source=None,
         )
         with writer.begin() as conn:
-            config = record_method(conn, method, "default", {}, "coverage-witness")
+            config = record_method(conn, method, "default", {}, "coverage-witness", prepared=prepared)
             task_id = create_task(
                 conn,
                 run_id=run,

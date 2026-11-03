@@ -49,7 +49,7 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
             "default",
             {},
             "config:one",
-        )
+        prepared=p)
         task = create_task(
             c, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -157,7 +157,7 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
             "default",
             {},
             "config:one",
-        )
+        prepared=p)
         task = create_task(
             c, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -223,7 +223,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             options={},
             code_commit="test",
         )
-        cfg = record_method(c, method, "default", {}, "config")
+        cfg = record_method(c, method, "default", {}, "config", prepared=p)
         task = create_task(
             c,
             run_id=run,
@@ -432,7 +432,7 @@ def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writ
             options={},
             code_commit="test",
         )
-        cfg = record_method(c, method, "default", {}, "config")
+        cfg = record_method(c, method, "default", {}, "config", prepared=p)
         return run, cfg
 
     with e.begin() as c:
@@ -596,7 +596,7 @@ def test_native_role_cannot_forge_reuse_binding(
             options={},
             code_commit="test",
         )
-        cfg = record_method(c, method, "default", {}, "config")
+        cfg = record_method(c, method, "default", {}, "config", prepared=p)
         origin = create_task(
             c, run_id=origin_run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -658,7 +658,7 @@ def test_native_role_cannot_forge_reuse_binding(
             code_commit="test",
         )
         if difference == "configuration":
-            cfg = record_method(c, method, "other", {"other": True}, "other")
+            cfg = record_method(c, method, "other", {"other": True}, "other", prepared=p)
         target = create_task(
             c,
             run_id=run,
@@ -727,7 +727,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
             "default",
             {},
             "config",
-        )
+        prepared=p)
         task = create_task(
             c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -840,7 +840,7 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
             options={},
             code_commit="test",
         )
-        cfg = record_method(c, method, "default", {}, "config")
+        cfg = record_method(c, method, "default", {}, "config", prepared=p)
         first = create_task(
             c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -917,7 +917,7 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
             "default",
             {},
             "config",
-        )
+        prepared=p)
         task = create_task(
             c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -968,7 +968,7 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
             "default",
             {},
             "cfg",
-        )
+        prepared=p)
         task = create_task(
             c, run_id=run, config_id=cfg, stage="read", unit_type="run", input_hash="input"
         )

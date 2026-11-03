@@ -118,3 +118,25 @@ def validate_task_result_dimension(
     validate_product_result_dimension(
         bytes(content), operation, dimension, value, field="disposition"
     )
+
+
+def validate_method_dimension(prepared, method: str, dimension: str, value: str | None) -> None:
+    """Consume the method's declared dimension from its archived configure-method contract."""
+    from .contracts import bound_execution_model
+
+    key = f"{method}/{dimension}"
+    definitions = bound_execution_model(prepared).operation("configure_method").result_dimensions
+    declared = any(item.id == key for item in definitions)
+    # An absent confidence channel is distinct from an asserted provenance value.
+    if value is None and (
+        dimension == "observation.confidence_source"
+        or (dimension == "confidence_source" and not declared)
+    ):
+        return
+    if value is None:
+        raise ValueError(f"{method}/{dimension}: a declared value is required")
+    field = {"family": "family", "tier": "tier", "confidence_source": "confidence_source",
+             "result.outcome": "outcome", "observation.family": "observations.family",
+             "observation.outcome": "observations.outcome",
+             "observation.confidence_source": "observations.confidence_source"}[dimension]
+    validate_result_dimension(prepared, "configure_method", key, value, field=field)

@@ -149,7 +149,11 @@ def seed_retained_integrated_product(
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    bundle, dependencies, profile, prepared = prepare_pack(domains / domain)
+    from semantic.method_dimensions_support import prepare_fixture_pack
+
+    bundle, dependencies, profile, prepared = prepare_fixture_pack(
+        domains / domain, "pdf.controlled-retained-fixture"
+    )
     source_id = f"source:acceptance:{prepared.release_id}"
     with open_runtime_engine(settings, "acceptance-native-admit", purpose="admit") as engine:
         with engine.begin() as conn:
@@ -209,7 +213,7 @@ def seed_retained_integrated_product(
                 unit_type="document",
                 Config=create_model("ControlledRetainedPdfConfig"),
             )
-            config = record_method(conn, method, "default", {}, "controlled-retained-pdf")
+            config = record_method(conn, method, "default", {}, "controlled-retained-pdf", prepared=prepared)
             task = create_task(
                 conn,
                 run_id=run,
@@ -444,6 +448,7 @@ def publish_controlled_pdf_views(
             "default",
             {},
             "controlled-source-config",
+            prepared=prepared,
         )
         task = create_task(
             conn,

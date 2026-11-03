@@ -134,7 +134,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             "extract",
             {},
             "config",
-        )
+        prepared=prepared)
         task = create_task(
             conn,
             run_id=run,

@@ -156,7 +156,7 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
             "default",
             {},
             "region-frame",
-        )
+        prepared=prepared)
         agent_task = create_task(
             conn,
             run_id=task.run_id,
