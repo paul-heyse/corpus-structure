@@ -21,7 +21,6 @@ from typing import Any, Literal
 
 import numpy as np
 import sympy
-from pydantic import BaseModel, ConfigDict, NonNegativeInt
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.tex import token_form
@@ -29,6 +28,10 @@ from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 
 from .identity import canonical_bytes
+from .scientific_evidence_schema import ScientificAssessmentEvidence as ScientificAssessmentEvidence
+from .scientific_evidence_schema import (
+    parse_scientific_assessment_reason as parse_scientific_assessment_reason,
+)
 
 SIMPLIFY_SECONDS = 5.0
 NUMERIC_POINTS = 12
@@ -309,27 +312,6 @@ class ScientificDecision:
     policy: str = CONSOLIDATION_PROFILE
 
 
-class ScientificAssessmentEvidence(BaseModel):
-    """Versioned persisted explanation for the scientific assessment constructor."""
-
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    abi: Literal["scientific-assessment-evidence-1"] = "scientific-assessment-evidence-1"
-    policy: Literal[
-        "consolidation-evidence-1",
-        "reference-evidence-1",
-        "consolidation-evidence-2",
-        "reference-evidence-2",
-    ]
-    tier: Literal["canonical", "symbolic", "numeric", "undecided"]
-    numeric: Literal["not_run", "inconclusive", "agreement", "counterexample"]
-    valid_points: NonNegativeInt
-    grammar: str
-    mechanism: str
-    operands: tuple[str, str] | None
-    context: str
-    detail: str
-
-
 def scientific_assessment_reason(
     evidence: ScientificEvidence | None, *, detail: str, context: Any
 ) -> str:
@@ -348,22 +330,6 @@ def scientific_assessment_reason(
         detail=detail,
     )
     return canonical_bytes(envelope.model_dump(mode="json")).decode()
-
-
-def parse_scientific_assessment_reason(reason: str | None) -> ScientificAssessmentEvidence | None:
-    if reason is None:
-        return None
-    try:
-        document = json.loads(reason)
-    except json.JSONDecodeError:
-        if "scientific-assessment-evidence-" in reason:
-            raise ValueError("malformed scientific assessment evidence envelope") from None
-        return None
-    if not isinstance(document, dict) or not str(document.get("abi", "")).startswith(
-        "scientific-assessment-evidence-"
-    ):
-        return None
-    return ScientificAssessmentEvidence.model_validate_json(reason)
 
 
 @lru_cache(maxsize=1)

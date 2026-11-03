@@ -42,7 +42,10 @@ from .identity import canonical_bytes
 from .metadata import table
 from .outcomes import ScientificOutcome
 from .releases import open_release
-from .scientific_evidence import ScientificAssessmentEvidence, parse_scientific_assessment_reason
+from .scientific_evidence_schema import (
+    ScientificAssessmentEvidence,
+    parse_scientific_assessment_reason,
+)
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
 
 if TYPE_CHECKING:

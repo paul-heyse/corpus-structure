@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from corpus_structure.cli.golden import output, reference_session
+from corpus_structure.cli.golden import output, reference_protocol, reference_session
 from corpus_structure.cli.output import JsonOpt
 
 eval_app = typer.Typer(
@@ -23,10 +23,16 @@ def evaluate(
     json: JsonOpt = False,
 ):
     """Persist core, qualified-full and evidence P/R/F1 with exact pass-C snapshots."""
-    from corpus_structure.evaluate.semantic import reference_evaluate
+    from corpus_structure.evaluate import record_references, semantic
 
     with reference_session(ctx, project, json=json) as (conn, pid):
-        result = reference_evaluate(conn, project_id=pid, run_id=run, set_id=set_id)
+        protocol = reference_protocol(conn, set_id, pid)
+        evaluator = (
+            record_references.reference_evaluate
+            if protocol == record_references.PROTOCOL
+            else semantic.reference_evaluate
+        )
+        result = evaluator(conn, project_id=pid, run_id=run, set_id=set_id)
     output(result, json)
 
 

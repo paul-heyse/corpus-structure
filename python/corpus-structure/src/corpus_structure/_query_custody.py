@@ -33,6 +33,7 @@ QUERY_SOURCES = (
     "semantic/value_codec.py",
     "semantic/types.py",
     "semantic/scientific_evidence.py",
+    "semantic/scientific_evidence_schema.py",
     "semantic/outcomes.py",
     "semantic/analysis_contracts.py",
     "semantic/identity.py",

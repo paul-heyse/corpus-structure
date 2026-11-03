@@ -481,6 +481,8 @@ class PublicationInput(Protocol):
 
 def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[str, Any]]:
     """Prepare native datatype and exact bound lowerings once per release projection."""
+    from .record_contracts import record_product_classes
+
     primitives = {
         "string",
         "integer",
@@ -513,8 +515,11 @@ def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[
         resolved[name] = resolve(parent, path | {name})
         return resolved[name]
 
+    products = record_product_classes(prepared.definitions)
     result = {}
     for definition in prepared.definitions:
+        if definition.name in products:
+            continue
         for prop in definition.properties:
             constraints = asdict(prop)
             constraints["native_range"] = resolve(prop.range)
