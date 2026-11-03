@@ -512,3 +512,22 @@ Checked recipes actually lower to typed Core binds/JSON/CTE/join/set DML. SQLGlo
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+[Review I06](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I06) selects a bounded preparation correction. Captured `libraries.json`
+already includes SQLGlot; validate its required producer/runtime tuple before new projection
+preparation and before warm cache reuse. Extend the existing determinant owner and relevant
+cache keys with analysis runtime identity; incompatible/missing required provenance refuses
+with deliberate reacquisition/new-release advice. Supported archived products remain readable
+without rerunning or installing their original analyzer. Do not widen every runtime boundary.
+
+Use the existing MappingSchema → strict qualification → type annotation → scope → lineage
+composition. A cold composed semantic-2 recipe case must independently expect output types,
+value versus WHERE dependencies and exact retained analysis contents, with changed-source and
+captured/runtime mismatch controls before warm reuse. Preserve the existing semantic-1 cold
+case and read-only archived-analysis paths. This work does not change Core execution ownership,
+SQLGlot authority, native enforcement or procedural-generation support.

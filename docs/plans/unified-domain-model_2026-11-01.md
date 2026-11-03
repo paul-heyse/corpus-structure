@@ -1,6 +1,6 @@
 # Unified domain model: typed operations and generated realization
 
-**Status:** Active — completion audit confirms substantive implementation; UM-CA13 cancellation integration and UM-CA10 assembled acceptance remain open (2026-11-02).
+**Status:** Active — completion audit confirms substantive implementation; UM-CA13 cancellation, UM-TA01/03 custody/preparation corrections and UM-CA10 assembled acceptance remain open (2026-11-02).
 **Created:** 2026-11-01. **Target claims:** Substantial implementation with the bounded gaps below; Tested only within
 recorded receipt scopes. Historical evidence retains its original source and scope. This coordinator alone owns package state,
 execution queue and source-review disposition for the new series.
@@ -159,16 +159,16 @@ admission/consumer closure are deliberately separate.
 | UM-00 | Implemented; qualification open | Confirmed decisions and current owner/source snapshot | Architecture/rule amendments, explicit supported versions and source-to-consumer baseline for this series; no new audit |
 | UM-01 | Implemented; qualification open | Effective property definitions and current comparison policy | Checked comparison context/meaning/evidence projection, used by scientific decisions without changing fact identity |
 | UM-02 | Implemented; qualification open | Current invariant/enforcer/operation definitions | Observable versus descriptive invariant contract and qualified diagnostic mapping consumed by real enforcers |
-| UM-03 | Implemented; qualification open | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
-| UM-04 | Implemented; qualification open | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
+| UM-03 | Implemented; UM-TA04 typed-support extension planned; qualification open | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
+| UM-04 | Partial — UM-TA01; qualification open | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
 | UM-05 | Implemented; qualification open | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
 | UM-06 | Implemented; qualification open | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
 | UM-07 | Implemented; qualification open | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
-| UM-08 | Implemented; qualification open | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
+| UM-08 | Partial — UM-TA03; qualification open | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
 | UM-09 | Partial — UM-CA13; qualification open | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
 | UM-10 | Partial — UM-CA13; qualification open | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
 | UM-11 | Implemented; qualification open | Operation/state/binding contracts plus actual owner checks | CLI/MCP operation/prerequisite explanations; effects recheck atomically |
-| UM-12 | Implemented; qualification open | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
+| UM-12 | Implemented; UM-TA02 alias-impact extension planned; qualification open | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
 | UM-13 | Implemented; qualification open | Existing validator outputs and an early shared diagnostic contract | Model/path/operation/scope-located diagnostic consumers preserving failure categories |
 | UM-14 | Partial — UM-CA13; adoption/qualification open | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
 | UM-15 | In progress | All selected functional scope and UM-14 final-source integration | Required functional/native/provider/nonfunctional union has applicable evidence; honest unresolved/benefit limits |
@@ -485,3 +485,60 @@ error reported. Types and Ruff passed before the last assertion-only repair; aff
 files also passed scoped typing/lint. No result is invalidated solely by safe formatting.
 The79-node math remainder, fresh PDF/provider journeys and final complete qualification remain
 open. No implementation completion claim is promoted to full pipeline or benefit qualification.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Selected amendments, Proposed; source-inspected foundations only.** The operator authorized
+combined design/assurance review and revision of this series, against a recorded snapshot with
+one affected-change refresh. The [review](../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md)
+consumes `af567228` plus ongoing TA production/tests/support/owner changes. TA's coordinator
+retains DTA disposition and TA-12 qualification; Phase0 X2-01 and PDF/provider owners are unchanged.
+No production implementation, native/provider run, dependency change or new architectural rule
+is authorized by publishing these amendments. RC01–RC04 remain unchanged.
+
+The review confirms useful deeper model penetration: compiled full-class-IRI alias policy shared
+by consolidation/evaluation, current independent semantic counterparts, fresh committed scenario
+clones and observed native acquisition. Reuse these foundations rather than implement a second
+fixture/validator/catalog/receipt framework. Known unsupported Notice classification and T3-D1
+inference remain explicit; current authored counterparts do not prove original ingress recognition.
+
+This table alone owns the new UM amendment state; source-review IDs remain qualified by review path.
+
+| ID / package | Current disposition | Required outcome and closure |
+|---|---|---|
+| UM-TA01 — UM-04/03/14; review I05 | Open implementation correction | Include exact-object lowering's `consolidation.plain` and required delegates in existing finite query source custody. Cover pre-imported helpers, changed files after load and refusal before incompatible named-query/continuation execution. Frozen products remain immutable. |
+| UM-TA02 — UM-12/13/14; review I01 | Planned functional extension | Compare released alias profiles by class/member, separate origin from normalization changes, retain known consumer kinds and unknown dynamic closure through actual CLI/MCP/advice. Use existing report products and versioned model/implementation bindings, not another registry. |
+| UM-TA03 — UM-08/03/12/14; review I06 | Open preparation correction | SQLGlot is already captured; qualify required captured/runtime analysis determinants before preparation/cache reuse. Refuse mismatch with reacquisition advice; supported immutable archives remain readable. Independent cold semantic-2 contents/dependency/type expectations complement warm/refusal controls. |
+| UM-TA04 — UM-03/05/14; review I07 | Planned typed-support extension | Type shared scenario resource/identity/result ports with existing domain types, migrate actual callers, and retain raw malformed construction and independent expected data. No universal scenario model. |
+| Review I02/I03/I04 — UM-01–15 at affected owners | Acceptance amendments selected; qualification open | Reuse independent key/reference, cold/warm, native cause, explicit principal, stdio and formatter evidence only within their real scope; do not duplicate TA work or promote its partial evidence. UM-CA13 remains open, including focused capture continuity inventory. |
+
+UM-00/01/02 retain implemented authority/comparison/invariant foundations; consume the new released
+policy and independent key/meaning controls. UM-03/04 carry typed ports and query custody; UM-05
+retains set-based recipe ownership; UM-06/07 retain actual cold/frozen/native independent checks.
+UM-08 qualifies analysis production; UM-09/10 preserve two-backend operation ownership; UM-11/13
+require their own served explanation/diagnostic controls; UM-12 delivers the alias extension.
+UM-14 migrates actual affected consumers and UM-15 owns evidence applicability and final union.
+No package becomes qualified merely because TA improves its fixture infrastructure.
+
+**Execution order:** repair UM-TA01 and UM-TA03 with their affected consumers; UM-TA04 is independent
+once its scenario contracts are stable. UM-TA02 reuses working released policy and report contracts.
+UM-CA13 proceeds independently through existing backend lifetime owners; include capture_packet's
+actual SQLAlchemy/ADBC continuity, preserving snapshot lifetime and atomic output. Add only missing
+UM-specific cold/admission/consumer checks; no all-TA-complete barrier or blanket full rerun follows.
+
+**Evidence:** prior TA212-node/native and UM232-node receipts retain their original source/context;
+new stdio/formatter/counterpart cases cannot inherit those passes. Use existing source_identity,
+record_native_context and required-node classifier, with explicit restricted-operation/session
+observations and human applicability judgment. Original failures remain. UM-CA10, the math
+remainder and actual-provider/assembled acceptance are not closed by this source review.
+The earlier improvement review's I01–I05 remain proposals except this explicitly selected,
+bounded alias-impact extension overlaps its general I05 direction; no provider scope is adopted.
+
+**Publication verification (2026-11-02):** scoped `git diff --check` passed; root `just turn-end`
+passed with735 Python files unchanged. A read-only local-target check covered this coordinator,
+eight companions and the new review with no missing source targets. Independent challenge found
+one omitted UM-TA04 integration reference, corrected before publication. `just docs-check` failed
+at the concurrent ADR-0048/§B4 decision-link lint before the publisher could run; that unrelated
+in-progress TA authority edit was not repaired here. Product tests/types, native/provider checks
+and broad qualification were not_run for this documentation-only engagement. These results do
+not close any implementation or acceptance obligation.

@@ -309,3 +309,20 @@ pglast CreateFunctionStmt.sql_body/RawStream are actual candidate products; nati
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+Apply [I02/I03](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I02) without generating expected enforcement results from the same
+native metadata/rendering under test. Stable contract IDs select mutations; a valid committed
+baseline followed by the intended invalid change must expose the exact native cause and absence
+of partial effects. SQLSTATE alone cannot identify every guard. Existing low-level SQL, invalid
+fixtures and independent native observations retain their purpose; ordinary scenario setup uses
+owned operations rather than duplicate publication semantics.
+
+Reuse TA's sealed deployment and authenticated fresh-clone/purpose/policy mechanics. The named
+populated serving seed is for read-mostly setup, not migration/publication/race evidence. Frozen
+forward deployment, catalog drift, rollback, cold replay and native before/after admission remain
+real. No additional database owner, pgTAP adoption or procedural DSL is selected by this amendment.

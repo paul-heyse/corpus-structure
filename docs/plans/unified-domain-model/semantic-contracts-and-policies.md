@@ -180,3 +180,20 @@ Effective comparison roles and strict contextual projections reach scientific co
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+Released alias policy and independent semantic expectations are now foundations, not missing
+UM implementation. Reuse TA's compiled full-class-IRI policy in consolidation and alignment;
+never infer a second policy from compact spellings. Preserve comparison versus fact identity,
+attribution versus evidence and ordered rewrites. The [review I01/I03](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I01) binds their impact
+and independent reference obligations. TA's deliberate native primary-message checks do not replace
+UM-02's admitted invariant/diagnostic mapping. Unmapped failures retain their cause.
+
+Qualification must use independent complete key preimages/digests, wrong/extra/missing support,
+model-selected qualification roles and actual query/explain. Current toy/trace counterparts do
+not certify original ingress/provider recognition. Notice classification and T3-D1 derivation
+retain their existing unsupported boundaries and revisit owners; this amendment does not adopt them.

@@ -1,11 +1,11 @@
 # Status
-_Updated 2026-11-02; [UM completion audit](docs/plans/unified-domain-model_2026-11-01.md#completion-audit--2026-11-02) confirms substantive implementation with an open cancellation integration gap and assembled acceptance._
+_Updated 2026-11-02; [UM/TA reconciliation](docs/plans/unified-domain-model_2026-11-01.md#test-architecture-reconciliation--2026-11-02) selects custody/runtime corrections, alias-impact and typed-support amendments; implementation and assembled acceptance remain open._
 
 ## Current checkpoint
 
-- Completion audit: UM-CA13 keeps UM-09/10/14 partial (SQLAlchemy→ADBC cancellation seam).
+- UM-CA13 cancellation and UM-TA01/03 query custody/analysis-runtime corrections remain open.
   [Improvement review](docs/plan_improvement_reviews/unified-domain-model_2026-11-02.md) proposes
-  provider lifecycle/deadline/pipelining and generation/impact refinements; none adopted.
+  provider lifecycle/deadline/pipelining and general generation refinements remain separate proposals.
 
 - [Test architecture/evidence](docs/plans/test-architecture-and-evidence_2026-11-02.md#native-increment-execution--2026-11-02):
   TA-01–04 complete:212required passed; review/types/lint passed. TA-05–12 remain planned.
@@ -49,12 +49,12 @@ _Updated 2026-11-02; [UM completion audit](docs/plans/unified-domain-model_2026-
   child-graph preparation cases passed separately.79 math nodes remain unqualified.
 - All owned test groups and fixture databases are absent; no further work is queued.
 - **passed:** audit publication git diff --check / just turn-end; no new product tests/types run.
-- **failed, deferred:** just docs-check: existing library links; no UM-plan/new-review error.
+- **failed:** review `just docs-check` stops at concurrent ADR-0048/§B4 decision link; prior library failures retained.
 - Full-PDF actual-provider recognition, five-section knowledge/query/report/export/evaluation and
   complete applicable functional/nonfunctional qualification remain open at the coordinator.
 
 ## Next
 
-Plan the UM-CA13 structural cancellation repair at existing transport/resource owners; consider the
-new improvement proposals separately. Fresh PDF/provider and full acceptance remain open. Reuse
+Repair UM-TA01/03 and UM-CA13 through existing owners; deliver selected UM-TA02/04 extensions.
+Fresh PDF/provider and full acceptance remain open. Reuse
 applicable receipts; formatting/lint alone do not invalidate typing or functional results.

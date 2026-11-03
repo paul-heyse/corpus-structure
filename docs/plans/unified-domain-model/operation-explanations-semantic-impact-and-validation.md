@@ -344,3 +344,26 @@ Actual CLI/MCP explanations/diffs, regeneration advice and located graph/native/
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+**Selected extension planned: [review I01](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I01), coordinator UM-TA02.**
+Extend `compare_semantic_releases` to compare released `operation/alias-policy.json` by profile
+and full class IRI. Reuse the compiled product, existing `_changed_members` and generated
+SemanticImpactReport. Separate normalization changes (including rewrite order) from origin-only
+provenance changes; added/removed policy and missing/incompatible profile remain explicit.
+Do not parse live pack YAML or treat absent unknown policy as an empty supported policy.
+
+Use existing versioned model/implementation dependency bindings to identify actual entity-mapping
+and semantic-alignment consumer kinds; do not invent operation IDs for non-operation consumers
+or maintain a parallel editable registry. Unknown dynamic closure remains unknown. Feed the
+same result into CLI/MCP diff and regeneration advice. If report contracts change, generate and
+admit their versioned schema through the existing forward route; frozen revisions stay immutable.
+
+Independent alias-only, ordered-rewrite, origin-only, added/removed and unknown-profile cases
+must reach actual served reports/advice with unchanged class shapes. Keep producing-release
+meaning stable. I05/I06 custody/runtime corrections precede claims relying on those respective
+boundaries; TA's single accepted stdio tool journey does not qualify all O01/O02/O03 consumers.

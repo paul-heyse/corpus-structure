@@ -186,3 +186,22 @@ Producing query/plugin custody, explicit trusted compatibility and continuation 
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+**Implementation correction planned; UM-TA01 at the coordinator owns state.**
+[Review I05](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I05) identifies a new answer determinant: exact-object filtering calls
+`semantic.consolidation.plain`, absent from the finite `QUERY_SOURCES` bundle. Include the
+containing module and its required answer-affecting delegates through existing source custody.
+Capture both already imported helper bytes and newly acquired files; source editing after import
+must not let stale objects pass as current implementation. No recursive import tracer or arbitrary
+archived-code execution is introduced. Preserve frozen products and explicit compatibility/refusal.
+
+Closure uses helper-only edits before acquisition, after import and after loading, with independent
+nested-object and omitted/null expectations through actual named query, continuation and explanation.
+Reuse TA's actual query/reference setup and explicit purpose targeting; synthetic fixture success
+is not proof of Statistics composition or provider recognition. Do not close UM-04 until this
+newly exposed custody obligation and its applicable controls are satisfied.

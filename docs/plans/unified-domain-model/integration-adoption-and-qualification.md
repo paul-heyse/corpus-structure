@@ -206,3 +206,35 @@ The current-only consumer migration has substantive implementation and232 distin
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+Consume [I01–I07](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md) through the existing package owners. Before assembled acceptance,
+close newly exposed query-helper custody (UM-TA01), qualify projection preparation/runtime reuse
+(UM-TA03), deliver alias impact/advice (UM-TA02), and close UM-CA13 including the actual affected
+two-backend consumers. TA DTA dispositions and Phase0 X2-01 remain external owners.
+UM-TA04 migrates shared typed scenario ports and all affected callers, with focused wrong-ID/
+resource typing controls and real positive/invalid-boundary cases; raw negative setup remains usable.
+
+Reuse the existing native settings captured before ambient-target refusal, owned PgAdmin clones,
+purpose credentials and `record_native_context` event stream. Acquired database/OID/principal,
+server lifetime and policy/deployment references are required provenance for relevant native
+claims. An item-associated maintenance event alone does not prove the operation ran under its
+restricted application principal: observe actual SQLAlchemy/ADBC/child sessions where claimed.
+
+The current semantic-1 cold test, hand-authored identity vectors, source-authored counterpart
+journeys, stdio proposal/refusal and real formatter byte/cursor controls have different scopes.
+The formatter's minimal tables/stub publication and ScalarReader overrides do not establish full
+native admission, ADBC transfer or memory/throughput. Post-list-tools cancellation does not
+establish active-operation cancellation. Keep separate independent semantic-2 cold, query-helper
+edit, alias-only impact, actual native publication and metadata/handoff/bulk controls where needed.
+
+Use existing receipt `source_identity` and selected-node/required-union classification, then
+adjudicate changed source, harness, deployment and principal premises. Reuse applicable receipts;
+rerun only unresolved or affected obligations. Never add overlapping counts, infer new-test passes
+from the earlier212-node TA native increment, or retrofit old provenance. TA-12 qualification and
+UM product/provider acceptance remain distinct. Notice/T3-D1 retain their unsupported meanings;
+current controlled proposals are not original-document recognition. Final UM acceptance remains open.

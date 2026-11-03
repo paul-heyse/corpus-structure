@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Unified domain model after test architecture](unified-domain-model-test-architecture_2026-11-02.md):
+  selected UM amendments for query-helper custody, captured analysis runtime, alias-policy impact,
+  typed scenario ports and scoped independent/observed acceptance; TA disposition stays with TA.
+
 - [Unified domain model — completion-linked improvement review](unified-domain-model_2026-11-02.md):
   proposed provider lifecycle/deadline/pipelining, report dependency closure and impact knowledge
   improvements; completion gap UM-CA13 stays owned by the UM coordinator.

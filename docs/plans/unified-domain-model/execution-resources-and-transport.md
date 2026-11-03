@@ -244,3 +244,24 @@ Directional profiles, configured driver acquisition, same-session Psycopg/pgpq w
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+[Review I04](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I04) sharpens UM-CA13 closure. Compose one sticky operation cancellation
+request over existing `BorrowerCancellation.borrow()`/Psycopg `cancel_safe`, token-aware
+`read_snapshot` and `inspect_native_source`, and the separate `owned_adbc_read` handle. Keep
+backend-specific dispatch and synchronized registration/return; check handoff and pre-publication
+cancellation. Preserve exporter snapshot lifetime until ADBC settles, independent cleanup failures,
+atomic no-replace destination publication and harmless late requests after registration retirement.
+A cancel-request timeout is not a complete-operation shutdown guarantee.
+
+Include maintained `capture_packet`/`read_session` in the same focused continuity inventory:
+its current ADBC handle does not itself register SQLAlchemy work. Settle its actual supported
+contract before UM-09/10 closure. Interrupt actual blocked metadata, between snapshot export and
+bulk registration, and actual ADBC work. Observe settlement and no publication independently.
+TA's post-list-tools stdio cancellation and formatter result-close controls do not satisfy these
+cross-backend cases. Reuse explicit owned-clone targeting and actual purpose sessions, not ambient
+defaults or a second lifecycle/receipt framework.

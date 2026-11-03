@@ -244,3 +244,27 @@ Generated semantic identifiers, nested completion IDs, typed arguments/Core bind
 See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
 for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
 accepted mechanisms and limits. New improvement proposals are separately published and unadopted.
+
+## Test-architecture reconciliation — 2026-11-02
+
+**Target amendment:** Proposed; inspected TA foundations are implemented only within their stated
+scope. The coordinator owns state; this section does not close TA or UM qualification.
+
+Use the actual TA preparation and reference foundations described in [I02/I03](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I02).
+Production constructors may supply valid setup, but wrong parameter/result/semantic-ID cases
+must exercise generated callable products and retain independent expected values. Add one
+materially distinct cold semantic-2 operation/projection product case where the semantic-1
+cold example does not exercise it. Keep positive and negative Pyrefly cases, actual malformed
+server-result admission, and exact object/presence/nested-reference semantics complementary.
+
+New object-query lowering uses the shared semantic projection rather than another serializer;
+[I05](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I05) requires its answer-affecting bytes in query custody. Reuse current preparation,
+materializers and model-owned codecs; do not add a test-only schema, walker or generic dispatcher.
+
+[Review I07](../../plan_improvement_reviews/unified-domain-model-test-architecture_2026-11-02.md#I07)
+selects UM-TA04: annotate the shared operation/agent/domain/reference scenario resource and
+identity/result ports using existing Engine/Path/PreparedRelease/RunId/TaskId/CutId types and
+small ordinary results. Follow their actual consumer imports in the same slice. Focused negative
+type cases must catch exchanged IDs/resources; valid scenarios still use production operations,
+and raw malformed cases still reach their intended validator/native boundary. This is a bounded
+consumer migration, not another fixture schema or mandatory typing of every test dictionary.
