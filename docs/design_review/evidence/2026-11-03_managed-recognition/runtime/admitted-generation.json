@@ -1,12 +1,3 @@
-{
-  "status": 200,
-  "headers": {
-    "date": "Tue, 03 Nov 2026 22:20:30 GMT",
-    "server": "uvicorn",
-    "content-length": "677",
-    "content-type": "application/json",
-    "vary": "Origin",
-    "x-corpus-generation": "cbd7ed4942c44660a9c50d11c7d7f734"
-  },
-  "body": "{\"id\":\"chatcmpl-b26e0bfb7337b21b\",\"object\":\"chat.completion\",\"created\":1793744430,\"model\":\"nemotron-parse\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\" In Figure 1. A = 2 + 3.\",\"refusal\":null,\"annotations\":null,\"audio\":null,\"function_call\":null,\"reasoning\":null},\"logprobs\":null,\"finish_reason\":\"stop\",\"stop_reason\":null,\"token_ids\":null,\"routed_experts\":null}],\"service_tier\":null,\"system_fingerprint\":\"vllm-0.26.0-861f649e\",\"usage\":{\"prompt_tokens\":60,\"total_tokens\":74,\"completion_tokens\":14,\"prompt_tokens_details\":null},\"prompt_logprobs\":null,\"prompt_token_ids\":null,\"prompt_text\":null,\"kv_transfer_params\":null,\"ec_transfer_params\":null,\"metrics\":null}"
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:3a866fe54d7a8131e2fb2486c250e877f294ad398a63418c53604e16c89aeb11
+size 1032

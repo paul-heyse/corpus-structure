@@ -190,7 +190,7 @@ def maintained_claims(
     thread.start()
     try:
         yield owner
-        check_active()
+        owner()
     finally:
         primary = sys.exception()
         stop.set()
@@ -204,4 +204,4 @@ def maintained_claims(
                 "renewal cancellation request failed", cancellation.cleanup_failures
             )
         if primary is None:
-            check_active()
+            owner()

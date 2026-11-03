@@ -161,3 +161,14 @@ def test_owned_reader_selection_snapshot_and_references_survive_closure(
             original=path.read_bytes(), mime="application/pdf"))
     assert registration.value.orig.sqlstate == "25006"
     assert reader.documents(("selected.pdf",)) == selected  # Connection owner restored after failure.
+
+
+def test_uncertain_intent_cannot_be_suppressed_on_normal_owner_exit(
+    semantic_db_engine, semantic_writer_engine, monkeypatch
+):
+    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    del prepared
+    with pytest.raises(claim_lifetime.ClaimSettlementUncertain):
+        with claim_lifetime.maintained_claims(semantic_writer_engine, [claim], "owner") as owner:
+            intent = claim_lifetime.ClaimSettlementUncertain(claim, "owner", lambda conn: None)
+            owner.uncertain[(claim.task_id, claim.attempt, "owner")] = intent

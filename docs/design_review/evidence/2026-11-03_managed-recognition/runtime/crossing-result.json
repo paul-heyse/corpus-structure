@@ -1,9 +1,3 @@
-{
-  "expected_generation": "cbd7ed4942c44660a9c50d11c7d7f734",
-  "service_pid": 484358,
-  "outcome": "completed",
-  "status": 200,
-  "response_generation": "cbd7ed4942c44660a9c50d11c7d7f734",
-  "shutdown_after_first_response_chunk": true,
-  "chunks": 6
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:33c6d587fd3d38d959786cc706feb9fe36e66eb3627202f2110fff12109f8733
+size 255
