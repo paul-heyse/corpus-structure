@@ -14,6 +14,24 @@ from .publication import STAGE_TYPES
 _SQL = Path(__file__).with_name("sql")
 
 
+def stage_verification_sql(name: str) -> str:
+    """One native staging-shape check for publication, disposal and scoped readers."""
+    row_type, types = STAGE_TYPES[name]
+    columns = [field.name for field in fields(row_type)]
+    signatures = ",".join("'" + column + ":" + kind + "'" for column, kind in zip(columns, types, strict=True))
+    return (
+        "IF NOT EXISTS(SELECT FROM pg_catalog.pg_class c WHERE "
+        f"c.relnamespace=pg_my_temp_schema() AND c.relname='sp_{name}' "
+        "AND c.relkind='r' AND c.relpersistence='t' "
+        "AND c.relowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=current_user) "
+        "AND (SELECT array_agg(a.attname||':'||format_type(a.atttypid,a.atttypmod) "
+        "ORDER BY a.attnum) FROM pg_catalog.pg_attribute a "
+        "WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)="
+        f"ARRAY[{signatures}]) THEN "
+        f"RAISE EXCEPTION 'untrusted staging relation sp_{name}'; END IF;"
+    )
+
+
 def _transport_sql(
     writer: str, *, relation_order: tuple[str, ...] | None = None
 ) -> tuple[str, str, str, str]:
@@ -79,18 +97,7 @@ def _transport_sql(
             f"CREATE TEMP TABLE sp_{name}({definition}) ON COMMIT DROP; "
             f"GRANT INSERT ({names}) ON pg_temp.sp_{name} TO {writer};"
         )
-        signatures = ",".join("'" + c + ":" + t + "'" for c, t in zip(columns, types, strict=True))
-        verify.append(
-            "IF NOT EXISTS(SELECT FROM pg_catalog.pg_class c WHERE "
-            f"c.relnamespace=pg_my_temp_schema() AND c.relname='sp_{name}' "
-            "AND c.relkind='r' AND c.relpersistence='t' "
-            "AND c.relowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=current_user) "
-            "AND (SELECT array_agg(a.attname||':'||format_type(a.atttypid,a.atttypmod) "
-            "ORDER BY a.attnum) FROM pg_catalog.pg_attribute a "
-            "WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)="
-            f"ARRAY[{signatures}]) THEN "
-            f"RAISE EXCEPTION 'untrusted staging relation sp_{name}'; END IF;"
-        )
+        verify.append(stage_verification_sql(name))
         expressions = [
             f'"{c}"::text' if types[columns.index(c)] == "numeric" else f'"{c}"' for c in columns
         ]
@@ -139,26 +146,8 @@ def stage_disposal_sql(
     if not optional.issubset(STAGE_TYPES):
         raise ValueError("unknown optional transport relation")
     clauses = []
-    for name, (row_type, types) in STAGE_TYPES.items():
-        columns = [field.name for field in fields(row_type)]
-        signatures = ",".join(
-            "'" + column + ":" + kind + "'" for column, kind in zip(columns, types, strict=True)
-        )
-        verify = (
-            "IF NOT EXISTS(SELECT FROM pg_class c WHERE c.relnamespace=pg_my_temp_schema() "
-            "AND c.relname='sp_"
-            f"{name}"
-            "' AND c.relkind='r' AND c.relpersistence='t' AND c.relowner=current_user::regr"
-            "ole AND (SELECT array_agg(a.attname||':'||format_type(a.atttypid,a.atttypmod) "
-            "ORDER BY a.attnum) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 A"
-            "ND NOT a.attisdropped)=ARRAY["
-            f"{signatures}"
-            "]) THEN RAISE EXCEPTION 'untrusted staging relation sp_"
-            f"{name}"
-            "'; END IF; DROP TABLE pg_temp.sp_"
-            f"{name}"
-            ";"
-        )
+    for name in STAGE_TYPES:
+        verify = stage_verification_sql(name) + f" DROP TABLE pg_temp.sp_{name};"
         if name in optional:
             verify = f"IF to_regclass('pg_temp.sp_{name}') IS NOT NULL THEN " + verify + " END IF;"
         clauses.append(verify)

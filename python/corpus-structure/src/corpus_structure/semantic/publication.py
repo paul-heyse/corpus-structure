@@ -549,6 +549,8 @@ def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[
             continue
         for prop in definition.properties:
             constraints = asdict(prop)
+            if (definition.name == "Entity" or "Entity" in definition.ancestors) and prop.name in definition.identity_slots:
+                constraints["structural_identifier"] = True
             constraints["native_range"] = resolve(prop.range)
             if constraints["native_range"] in {"float", "double"} and (
                 prop.minimum is not None or prop.maximum is not None

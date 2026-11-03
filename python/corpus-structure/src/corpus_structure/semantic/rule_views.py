@@ -23,6 +23,7 @@ from corpus_structure.core.vocab import MathKind, ParseOutcome
 from corpus_structure.schema.rulelang import Language
 
 from .types import PreparedRelease, PropertyDefinition
+from .refusals import SemanticOperationRefusal, SemanticReason
 
 RULE_VIEW_INPUT = "operation/rule-view.yaml"
 RULE_VIEW_ABI = "semantic-rule-view-2"
@@ -279,10 +280,16 @@ def build_rule_language(
 
     artifact = next((a for a in prepared.artifacts if a.kind == RULE_VIEW_INPUT), None)
     if artifact is None:
-        raise ValueError("release lacks its archived semantic rule-view recipe")
+        raise SemanticOperationRefusal(SemanticReason(
+            "preparation_failed", "evaluate", prepared.release_id,
+            references=(RULE_VIEW_INPUT,), detail="release lacks its archived semantic rule-view recipe",
+        ))
     document = yaml.safe_load(artifact.content)
     if document.get("version") != RULE_VIEW_ABI:
-        raise ValueError("unsupported semantic rule-view ABI; derive a supported release")
+        raise SemanticOperationRefusal(SemanticReason(
+            "incompatible_bindings", "evaluate", prepared.release_id,
+            expected=RULE_VIEW_ABI, actual=document.get("version"),
+        ))
     schema = yaml_loader.loads(artifact.content.decode(), target_class=SchemaDefinition)
     if not isinstance(schema, SchemaDefinition):
         raise ValueError("archived semantic rule-view is not a LinkML schema")

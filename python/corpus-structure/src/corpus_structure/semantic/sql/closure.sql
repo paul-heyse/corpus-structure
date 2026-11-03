@@ -213,7 +213,9 @@ BEGIN
   first_offset:=(address->>'start')::bigint;last_offset:=(address->>'end')::bigint;
   SELECT EXISTS(SELECT FROM jsonb_array_elements(
     COALESCE(observation.payload->'claims','[]'::jsonb)||COALESCE(observation.payload->'unsupported','[]'::jsonb)||
-    COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)) item
+    COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)||
+    COALESCE((SELECT jsonb_agg(attribute) FROM jsonb_array_elements(COALESCE(observation.payload->'entities','[]')) entity
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(entity->'attributes','[]')) attribute),'[]'::jsonb)) item
    CROSS JOIN LATERAL jsonb_array_elements(item->'evidence') citation
    JOIN ops.native_source_frame_sentence supplied ON supplied.task_id=observation.task_id
     AND supplied.source_view_id=native_view.id AND supplied.sentence_id=citation->>'sentence' AND supplied.locator=citation->>'locator'
@@ -240,8 +242,15 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
 DECLARE o data.occurrence; context data.occurrence_context; observation kb.observation;
  edge data.occurrence_evidence; citation_role data.occurrence_evidence_role;
  source data.evidence_source; claim jsonb; statement jsonb; expected_statement text;
- expected_role text; source_rendition_key text; synthesis jsonb;
+ expected_role text; source_rendition_key text; synthesis jsonb; attribute jsonb; declaration jsonb; attribute_index integer; src data.entity_source; establishment text;
 BEGIN
+ IF EXISTS(SELECT FROM data.occurrence_establishment e
+  WHERE e.release_id=r AND e.realization_id=z
+   AND EXISTS(SELECT FROM sem.vocabulary_member v WHERE v.release_id=r AND v.vocabulary_id='Establishment')
+   AND NOT EXISTS(SELECT FROM sem.registry_row contract
+    WHERE contract.release_id=r AND contract.kind='semantic_contract' AND contract.name='released-semantics-1'
+     AND (convert_from(contract.body,'UTF8')::jsonb->'source_establishments') ? e.establishment)) THEN
+  RAISE EXCEPTION 'source establishment is outside released source-admissible subset' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.occurrence_context c WHERE c.release_id=r AND c.realization_id=z
    AND c.statement_role IS NOT NULL AND NOT EXISTS(SELECT FROM sem.vocabulary_member v
      WHERE v.release_id=r AND v.vocabulary_id='StatementRole' AND v.value=c.statement_role)) THEN
@@ -295,6 +304,28 @@ BEGIN
         AND role.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
           o.source,'claims',split_part(o.item,'/',2)::bigint,citation.position-1,citation.value)),'UTF8')),'hex'))) THEN
     RAISE EXCEPTION 'occurrence citation role differs from bound source citation' USING ERRCODE='23514'; END IF;
+  ELSIF observation.payload_definition='AgentStoredBatch' AND o.item LIKE 'entities/%/attributes/%' THEN
+   SELECT source.* INTO STRICT src FROM data.entity_source source
+    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=source.entity_id
+    WHERE source.release_id=r AND source.realization_id=z AND source.observation_id=observation.id
+     AND starts_with(o.item,'entities/'||source.local_id||'/attributes/');
+   SELECT value INTO STRICT declaration FROM jsonb_array_elements(observation.payload->'entities') WHERE value->>'id'=src.local_id;
+   attribute_index:=substring(o.item FROM length('entities/'||src.local_id||'/attributes/')+1)::integer;
+   attribute:=declaration->'attributes'->attribute_index;
+   SELECT e.establishment INTO establishment FROM data.occurrence_establishment e
+    WHERE e.release_id=r AND e.realization_id=z AND e.occurrence_id=o.occurrence_id;
+   IF attribute IS NULL OR attribute_index<0 OR context.occurrence_id IS NOT NULL OR
+    attribute->>'establishment' IS DISTINCT FROM establishment OR
+    NOT EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id
+      AND f.subject_id=src.entity_id AND f.property_id=attribute->>'predicate') THEN
+    RAISE EXCEPTION 'attribute occurrence differs from its own source assertion' USING ERRCODE='23514'; END IF;
+   IF EXISTS(SELECT FROM jsonb_array_elements(attribute->'evidence') WITH ORDINALITY citation(value,position)
+     WHERE citation.value->>'outcome'='located' AND NOT EXISTS(
+      SELECT FROM data.occurrence_evidence support
+      WHERE support.release_id=r AND support.realization_id=z AND support.occurrence_id=o.occurrence_id
+       AND support.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+         o.source,'entities',src.local_id,'attributes',attribute_index,citation.position-1,citation.value)),'UTF8')),'hex'))) THEN
+    RAISE EXCEPTION 'attribute support differs from its own source evidence' USING ERRCODE='23514'; END IF;
   ELSIF context.occurrence_id IS NOT NULL THEN
    RAISE EXCEPTION 'occurrence context has no declared source claim' USING ERRCODE='23514';
   END IF;
@@ -313,27 +344,27 @@ BEGIN
    RAISE EXCEPTION 'occurrence citation belongs to another source report' USING ERRCODE='23514'; END IF;
   expected_role:=NULL;
   IF observation.payload_definition='AgentStoredBatch' THEN
-   SELECT citation.value->>'role' INTO expected_role
+   IF o.item LIKE 'entities/%/attributes/%' THEN
+    SELECT citation.value->>'role' INTO expected_role
+    FROM data.entity_source src
+    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=src.entity_id
+    CROSS JOIN LATERAL jsonb_array_elements(observation.payload->'entities') entity
+    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(entity->'attributes','[]')) WITH ORDINALITY attr(value,position)
+    CROSS JOIN LATERAL jsonb_array_elements(attr.value->'evidence') WITH ORDINALITY citation(value,position)
+    WHERE src.release_id=r AND src.realization_id=z AND src.observation_id=observation.id
+     AND entity->>'id'=src.local_id
+     AND o.item='entities/'||src.local_id||'/attributes/'||(attr.position-1)::text
+     AND f.property_id=attr.value->>'predicate' AND citation.value->>'outcome'='located'
+     AND edge.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+       o.source,'entities',src.local_id,'attributes',attr.position-1,citation.position-1,citation.value)),'UTF8')),'hex');
+   ELSE
+    SELECT citation.value->>'role' INTO expected_role
     FROM jsonb_array_elements(observation.payload->'claims') WITH ORDINALITY candidate(value,position)
     CROSS JOIN LATERAL jsonb_array_elements(candidate.value->'evidence') WITH ORDINALITY citation(value,position)
     WHERE citation.value->>'outcome'='located'
      AND (o.item !~ '^claims/[0-9]+$' OR candidate.position-1=split_part(o.item,'/',2)::integer)
      AND edge.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
        o.source,'claims',candidate.position-1,citation.position-1,citation.value)),'UTF8')),'hex');
-   IF NOT FOUND AND o.item LIKE 'entities/%/attributes/%' THEN
-    SELECT citation.value->>'role' INTO expected_role
-    FROM jsonb_array_elements(coalesce(observation.payload->'identity_exclusions','[]')) candidate
-    CROSS JOIN LATERAL jsonb_array_elements(candidate->'evidence') WITH ORDINALITY citation(value,position)
-    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id
-    JOIN data.entity_source src ON src.release_id=r AND src.realization_id=z AND src.observation_id=observation.id AND src.entity_id=f.subject_id
-    WHERE starts_with(o.item,'entities/'||src.local_id||'/attributes/')
-     AND substring(o.item FROM length('entities/'||src.local_id||'/attributes/')+1) ~ '^[0-9]+$'
-     AND ((candidate->'left'->>'kind'='local' AND candidate->'left'->>'target'=src.local_id)
-       OR (candidate->'right'->>'kind'='local' AND candidate->'right'->>'target'=src.local_id))
-     AND citation.value->>'outcome'='located'
-     AND EXISTS(SELECT FROM jsonb_array_elements(candidate->'evidence') primary_citation WHERE primary_citation->>'outcome'='located' AND primary_citation->>'role'='primary')
-     AND edge.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-       o.source,'identity_exclusions',candidate->>'id',citation.position-1,citation.value)),'UTF8')),'hex');
    END IF;
    IF expected_role IS NULL THEN RAISE EXCEPTION 'occurrence citation is outside bound source claim' USING ERRCODE='23514'; END IF;
   ELSIF observation.payload_definition='SourceObservation' AND observation.kind='author_markup' THEN
@@ -379,7 +410,7 @@ BEGIN
  document:=convert_from(archived.prepared_bytes,'UTF8')::jsonb;
  manifest:=convert_from(archived.manifest_bytes,'UTF8')::jsonb;
  IF archived.profile NOT IN ('semantic-1','semantic-2') OR document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'
- OR COALESCE(manifest->'profile'->>'compiler_version','') NOT IN ('14','15')
+ OR COALESCE(manifest->'profile'->>'compiler_version','') NOT IN ('14','15','16')
  OR archived.release_id<>'release:'||encode(sha256(archived.manifest_bytes),'hex')
  OR archived.content_digest<>encode(sha256(archived.prepared_bytes),'hex')
  OR document->'products'->>'release_id' IS DISTINCT FROM r
@@ -533,6 +564,12 @@ BEGIN
  END LOOP;
  -- Cardinality counts semantic values, never evidence occurrences.
  FOR a IN SELECT m.entity_id,pa.* FROM data.membership m JOIN sem.property_applicability pa ON pa.release_id=m.release_id AND pa.class_id=m.class_id WHERE m.release_id=r AND m.realization_id=z LOOP
+ IF a.constraints->>'structural_identifier'='true' THEN
+  IF EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND f.subject_id=a.entity_id
+   AND f.property_id=a.property_id AND data.value_meaning(r,z,f.object_value_id)<>jsonb_build_array('string',a.entity_id)) THEN
+   RAISE EXCEPTION 'structural identifier contradicts assigned entity identity' USING ERRCODE='23514'; END IF;
+  CONTINUE;
+ END IF;
  SELECT count(DISTINCT data.canonical_json(data.value_meaning(r,z,f.object_value_id))) INTO n FROM data.fact f
  WHERE f.release_id=r AND f.realization_id=z AND f.subject_id=a.entity_id AND f.property_id=a.property_id
  AND (a.constraint_scope='shape' OR EXISTS(SELECT FROM data.selection s WHERE (s.release_id,s.realization_id,s.fact_id)=(f.release_id,f.realization_id,f.fact_id)));
@@ -542,8 +579,8 @@ BEGIN
  IF EXISTS(
  WITH key_parts AS (
  SELECT m.entity_id,m.class_id,i.group_id,i.position,
- count(DISTINCT data.canonical_json(CASE WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS count_values,
- min(data.canonical_json(CASE WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS part
+ count(DISTINCT data.canonical_json(CASE WHEN pa.constraints->>'structural_identifier'='true' THEN jsonb_build_array('string',m.entity_id) WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS count_values,
+ min(data.canonical_json(CASE WHEN pa.constraints->>'structural_identifier'='true' THEN jsonb_build_array('string',m.entity_id) WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS part
  FROM data.membership m JOIN sem.identity_slot i ON i.release_id=r AND i.class_id=m.class_id
  JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=i.class_id AND pa.property_id=i.property_id
  LEFT JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.subject_id=m.entity_id AND f.property_id=i.property_id AND (pa.constraint_scope='shape' OR EXISTS(SELECT FROM data.selection sel WHERE (sel.release_id,sel.realization_id,sel.fact_id)=(f.release_id,f.realization_id,f.fact_id)))
@@ -552,4 +589,58 @@ BEGIN
  keys AS(SELECT entity_id,class_id,group_id,string_agg(part,',' ORDER BY position) AS value,bool_and(count_values=1) AS complete FROM key_parts GROUP BY entity_id,class_id,group_id)
  SELECT FROM keys GROUP BY class_id,group_id,value HAVING count(*)>1 OR NOT bool_and(complete)
  ) THEN RAISE EXCEPTION 'missing, multivalued or nonunique entity identity' USING ERRCODE='23514'; END IF;
+END $fn$;
+
+CREATE OR REPLACE FUNCTION data.validate_entity_source(r text,z text) RETURNS void LANGUAGE plpgsql STABLE
+SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE source data.entity_source; observation kb.observation; declaration jsonb; decision data.entity_resolution; policy jsonb; provisional text; declaration_ordinal bigint;
+BEGIN
+ FOR source IN SELECT * FROM data.entity_source WHERE release_id=r AND realization_id=z LOOP
+  SELECT * INTO STRICT observation FROM kb.observation WHERE id=source.observation_id;
+  IF observation.payload_definition<>'AgentStoredBatch' THEN
+   RAISE EXCEPTION 'entity source is not a released agent entity declaration' USING ERRCODE='23514'; END IF;
+  SELECT value INTO declaration FROM jsonb_array_elements(observation.payload->'entities')
+   WHERE value->>'id'=source.local_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'entity source local id is outside source declarations' USING ERRCODE='23514'; END IF;
+  IF EXISTS(SELECT FROM data.membership existing WHERE existing.release_id=r AND existing.realization_id=z AND existing.entity_id=source.entity_id) AND NOT EXISTS(SELECT FROM data.membership m WHERE m.release_id=r AND m.realization_id=z
+    AND m.entity_id=source.entity_id AND (m.class_id=declaration->>'class_iri' OR EXISTS(
+      SELECT FROM sem.class_hierarchy h WHERE h.release_id=r AND h.class_id=m.class_id
+       AND h.ancestor_id=declaration->>'class_iri'))) THEN
+   RAISE EXCEPTION 'entity source class is incompatible with published membership' USING ERRCODE='23514'; END IF;
+  IF NOT EXISTS(SELECT FROM ops.run job JOIN ops.input_cut cut ON cut.run_id=job.id AND cut.final
+    JOIN ops.cut_task task ON task.cut_id=cut.id AND task.origin_task_id=observation.task_id
+    WHERE job.release_id=r AND job.result_realization_id=z AND job.sealed
+     AND job.status IN ('consolidating','finished')) THEN
+   RAISE EXCEPTION 'entity source is outside the bound final observation cut' USING ERRCODE='23514'; END IF;
+  SELECT * INTO decision FROM data.entity_resolution d WHERE d.release_id=r AND d.realization_id=z
+   AND d.observation_id=source.observation_id AND d.local_id=source.local_id;
+  IF NOT FOUND OR decision.entity_id<>source.entity_id OR decision.operation_id<>'resolve_identity' THEN
+   RAISE EXCEPTION 'entity source lacks its typed resolution decision' USING ERRCODE='23514'; END IF;
+  SELECT operation.value INTO policy FROM sem.registry_row model
+   CROSS JOIN LATERAL jsonb_array_elements(convert_from(model.body,'UTF8')::jsonb->'operations') operation(value)
+   WHERE model.release_id=r AND model.kind='execution_model' AND operation.value->>'id'='resolve_identity';
+  IF decision.operation_version IS DISTINCT FROM policy->>'policy_version' OR
+   jsonb_typeof(decision.candidates::jsonb)<>'array' OR jsonb_typeof(decision.dependencies::jsonb)<>'array' OR
+   jsonb_typeof(decision.key_policy::jsonb)<>'object' THEN
+   RAISE EXCEPTION 'resolution decision differs from its released operation' USING ERRCODE='23514'; END IF;
+  SELECT position-1 INTO STRICT declaration_ordinal
+   FROM jsonb_array_elements(observation.payload->'entities') WITH ORDINALITY entity(value,position)
+   WHERE value->>'id'=source.local_id;
+  provisional:='entity:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+    r,z,observation.observation_key,'entities',declaration_ordinal,source.local_id)),'UTF8')),'hex');
+  IF (decision.basis='source_local' OR decision.outcome<>'resolved') AND decision.entity_id<>provisional THEN
+   RAISE EXCEPTION 'provisional identity falsely claims global resolution' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT FROM data.entity_resolution decision WHERE decision.release_id=r AND decision.realization_id=z
+   AND NOT EXISTS(SELECT FROM data.entity_source source WHERE source.release_id=r AND source.realization_id=z
+    AND source.observation_id=decision.observation_id AND source.local_id=decision.local_id AND source.entity_id=decision.entity_id)) THEN
+  RAISE EXCEPTION 'resolution decision lacks its source declaration' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM data.scientific_representative rep WHERE rep.release_id=r AND rep.realization_id=z
+   AND (rep.policy_id<>'min-fact-id-1' OR NOT EXISTS(SELECT FROM data.selection selected WHERE
+     selected.release_id=r AND selected.realization_id=z AND selected.fact_id=rep.fact_id) OR
+    NOT EXISTS(SELECT FROM data.selection selected WHERE selected.release_id=r AND selected.realization_id=z
+     AND selected.fact_id=rep.representative_fact_id) OR rep.representative_fact_id IS DISTINCT FROM
+      (SELECT min(member.fact_id COLLATE "C") FROM data.scientific_representative member
+       WHERE member.release_id=r AND member.realization_id=z AND member.component_id=rep.component_id))) THEN
+  RAISE EXCEPTION 'scientific representative differs from accepted component minimum' USING ERRCODE='23514'; END IF;
 END $fn$;

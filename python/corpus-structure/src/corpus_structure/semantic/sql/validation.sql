@@ -58,6 +58,12 @@ BEGIN
  END LOOP;
  -- Cardinality counts semantic values, never evidence occurrences.
  FOR a IN SELECT m.entity_id,pa.* FROM data.membership m JOIN sem.property_applicability pa ON pa.release_id=m.release_id AND pa.class_id=m.class_id WHERE m.release_id=r AND m.realization_id=z LOOP
+ IF a.constraints->>'structural_identifier'='true' THEN
+  IF EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND f.subject_id=a.entity_id
+   AND f.property_id=a.property_id AND data.value_meaning(r,z,f.object_value_id)<>jsonb_build_array('string',a.entity_id)) THEN
+   RAISE EXCEPTION 'structural identifier contradicts assigned entity identity' USING ERRCODE='23514'; END IF;
+  CONTINUE;
+ END IF;
  SELECT count(DISTINCT data.canonical_json(data.value_meaning(r,z,f.object_value_id))) INTO n FROM data.fact f
  WHERE f.release_id=r AND f.realization_id=z AND f.subject_id=a.entity_id AND f.property_id=a.property_id
  AND (a.constraint_scope='shape' OR EXISTS(SELECT FROM data.selection s WHERE (s.release_id,s.realization_id,s.fact_id)=(f.release_id,f.realization_id,f.fact_id)));
@@ -67,8 +73,8 @@ BEGIN
  IF EXISTS(
  WITH key_parts AS (
  SELECT m.entity_id,m.class_id,i.group_id,i.position,
- count(DISTINCT data.canonical_json(CASE WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS count_values,
- min(data.canonical_json(CASE WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS part
+ count(DISTINCT data.canonical_json(CASE WHEN pa.constraints->>'structural_identifier'='true' THEN jsonb_build_array('string',m.entity_id) WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS count_values,
+ min(data.canonical_json(CASE WHEN pa.constraints->>'structural_identifier'='true' THEN jsonb_build_array('string',m.entity_id) WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS part
  FROM data.membership m JOIN sem.identity_slot i ON i.release_id=r AND i.class_id=m.class_id
  JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=i.class_id AND pa.property_id=i.property_id
  LEFT JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.subject_id=m.entity_id AND f.property_id=i.property_id AND (pa.constraint_scope='shape' OR EXISTS(SELECT FROM data.selection sel WHERE (sel.release_id,sel.realization_id,sel.fact_id)=(f.release_id,f.realization_id,f.fact_id)))

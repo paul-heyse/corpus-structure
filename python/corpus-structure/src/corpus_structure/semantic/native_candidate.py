@@ -297,6 +297,8 @@ _CURRENT_SOURCE_GUARDS = {
     ("data", "publish_derived_batch_v2"): "derived_publication.sql",
     ("data", "check_evidence_source"): "closure.sql",
     ("data", "validate_occurrence_context"): "closure.sql",
+    ("data", "validate_entity_source"): "closure.sql",
+    ("data", "validate_pre_inference_state"): "closure.sql",
     ("data", "validate_identity_exclusions"): "exclusions.sql",
     ("ops", "guard_task_lifecycle"): "execution_guards.sql",
     ("ops", "guard_execution_run"): "execution_guards.sql",
@@ -410,6 +412,10 @@ def _current_source_guard_definitions(connection):
             from .routines import stage_disposal_sql
 
             sql = path.read_text().replace("{transport_disposal}", stage_disposal_sql())
+        elif key == ("data", "validate_pre_inference_state"):
+            from .routines import stage_verification_sql
+
+            sql = path.read_text().replace("{typed_value_stage_verify}", stage_verification_sql("typed_value"))
         elif path.name == "derived_publication.sql":
             from .native_products import derived_publication_sql
 

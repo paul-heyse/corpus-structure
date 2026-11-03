@@ -1083,6 +1083,16 @@ def _prepare_release_uncached(
         RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
         for name, enum in sorted(view.all_enums().items())
     )
+    from .types import _enum_members
+
+    rows += (RegistryRow("semantic_contract", "released-semantics-1", canonical_bytes({
+        "abi": "released-semantics-1",
+        "source_establishments": sorted(_enum_members(vocabularies, rows, "Establishment", "source_admissible"))
+            if any(v.enum == "Establishment" for v in vocabularies) else [],
+        "executable_reference_splits": sorted(_enum_members(vocabularies, rows, "ReferenceSplit", "executable"))
+            if any(v.enum == "ReferenceSplit" for v in vocabularies) else [],
+        "scientific_representative_policy": "min-fact-id-1",
+    })),)
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
     if execution is not None:
         artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))

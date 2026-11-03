@@ -9,5 +9,5 @@ rules:
       A formula or set object parses under its slot's declared kind; the grammar's reading of a
       different kind (a set in a Formula slot, a relation where a formula belongs) is a warning,
       and the value is kept as written. Reads the grammar's parse, so it runs at finalize only.
-    when: "(claim.value&.slot_kind ?? '') in ['formula', 'set']"
-    check: "claim.value&.math_kind == null or claim.value&.math_kind == claim.value&.slot_kind"
+    when: "(claim.value&.expression_form ?? '') in ['formula', 'set']"
+    check: "claim.value&.math_kind == null or claim.value&.math_kind == claim.value&.expression_form"
