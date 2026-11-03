@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import os
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -48,6 +49,10 @@ class PdfWorkerError(RuntimeError):
 def _native_child(
     connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None
 ) -> None:
+    # Replies have their own Pipe; inherited stdout belongs to the parent CLI's
+    # structured output. Redirect the descriptor so prebound logging handlers and
+    # native FD writes retain their diagnostics on stderr as well.
+    os.dup2(2, 1)
     converter = PdfConverter(recipe, assets=assets)
     try:
         while True:

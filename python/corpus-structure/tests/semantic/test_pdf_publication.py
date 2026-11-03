@@ -1,5 +1,6 @@
 """Independent frozen visibility, reference and replay controls on actual PostgreSQL."""
 
+import psycopg
 import pyarrow as pa
 import pytest
 from docling_core.types.doc import DocItemLabel, DoclingDocument, Size
@@ -231,6 +232,127 @@ def test_preparation_does_not_hold_task_lease_lock(private_build, semantic_write
             renew_claim(
                 heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
             )
+
+
+@pytest.mark.parametrize("concurrent_append", [False, True])
+def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
+    private_build, semantic_writer_engine, semantic_db_engine, tmp_path, concurrent_append
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from time import monotonic, sleep
+
+    from corpus_structure.semantic.operations import renew_claim
+
+    build = private_build
+    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    entered = Event()
+    backend = []
+    # The family list orders artifact parts first and references last. Blocking the
+    # final read permits a committed append to an already captured earlier family.
+    relation = "ops.pdf_stage_reference" if concurrent_append else "ops.pdf_stage_artifact_part"
+
+    def freeze():
+        with semantic_writer_engine.begin() as conn:
+            conn.exec_driver_sql("SET LOCAL statement_timeout='15s'")
+            backend.append(conn.scalar(text("SELECT pg_backend_pid()")))
+            entered.set()
+            return freeze_pdf_build(conn, build, kind="native")
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        with semantic_db_engine.begin() as blocker:
+            blocker.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+            blocker.exec_driver_sql("LOCK TABLE " + relation + " IN ACCESS EXCLUSIVE MODE")
+            future = executor.submit(freeze)
+            assert entered.wait(5)
+            deadline = monotonic() + 5
+            while True:
+                if future.done():
+                    future.result()
+                    pytest.fail("freeze completed while its inventory table was locked")
+                with semantic_db_engine.connect() as observer:
+                    waiting = observer.scalar(text(
+                        "SELECT count(*) FROM pg_locks WHERE pid=:pid "
+                        "AND locktype='relation' AND relation=to_regclass(:relation) "
+                        "AND NOT granted"
+                    ), {"pid": backend[0], "relation": relation})
+                if waiting:
+                    break
+                assert monotonic() < deadline, "freeze did not reach the inventory read"
+                sleep(0.01)
+            with semantic_writer_engine.begin() as heartbeat:
+                heartbeat.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
+                renew_claim(
+                    heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
+                )
+            if concurrent_append:
+                with semantic_writer_engine.begin() as appender:
+                    adopt_pdf_companion_batch(
+                        appender, build, "health",
+                        [{"conversion": "success", "source_scope": "whole_document",
+                          "display_coverage": "unknown", "inline_coverage": "unknown",
+                          "cell_coverage": "unknown"}],
+                        "concurrent-health", start_ordinal=1,
+                    )
+        if concurrent_append:
+            with pytest.raises(DBAPIError, match="freeze inventory changed") as caught:
+                future.result(timeout=10)
+            assert isinstance(caught.value.orig, psycopg.Error)
+            assert caught.value.orig.sqlstate == "40001"
+            with semantic_db_engine.connect() as conn:
+                conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+                assert conn.scalar(text(
+                    "SELECT state FROM ops.pdf_stage_build WHERE build_id=:build"
+                ), {"build": build.build_id}) == "open"
+                assert conn.scalar(text(
+                    "SELECT count(*) FROM ops.pdf_frozen_build WHERE build_id=:build"
+                ), {"build": build.build_id}) == 0
+        else:
+            assert len(future.result(timeout=10).frozen_digest) == 64
+
+
+def test_freeze_refuses_stale_transaction_snapshots(
+    private_build, semantic_writer_engine, tmp_path
+):
+    stage_complete_native(semantic_writer_engine, private_build, tmp_path)
+    connection = semantic_writer_engine.connect().execution_options(
+        isolation_level="REPEATABLE READ"
+    )
+    with (
+        connection as conn,
+        conn.begin(),
+        pytest.raises(DBAPIError, match="freeze requires READ COMMITTED") as caught,
+    ):
+        freeze_pdf_build(conn, private_build, kind="native")
+    assert isinstance(caught.value.orig, psycopg.Error)
+    assert caught.value.orig.sqlstate == "25000"
+
+
+def test_freeze_count_witness_relies_on_protected_append_only_stage_rows(
+    private_build, semantic_writer_engine
+):
+    # Independent expected inventory: ordinary writers cannot replace/delete rows
+    # while the freeze candidate is being hashed without holding the task fence.
+    relations = (
+        "ops.pdf_stage_document", "ops.pdf_stage_native", "ops.pdf_stage_membership",
+        "ops.pdf_stage_reference", "ops.pdf_stage_artifact_stream", "ops.pdf_stage_artifact_part",
+        "ops.pdf_stage_companion", "ops.pdf_stage_endpoint", "ops.pdf_stage_companion_field",
+    )
+    with semantic_writer_engine.connect() as conn:
+        for relation in relations:
+            assert conn.execute(text(
+                "SELECT has_table_privilege(current_user,:relation,'UPDATE'), "
+                "has_table_privilege(current_user,:relation,'DELETE')"
+            ), {"relation": relation}).one() == (False, False)
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError) as caught,
+    ):
+        conn.execute(text(
+            "UPDATE ops.pdf_stage_companion SET body='{}'::jsonb WHERE product_id=:build"
+        ), {"build": private_build.build_id})
+    assert isinstance(caught.value.orig, psycopg.Error)
+    assert caught.value.orig.sqlstate == "42501"
 
 
 def test_encoded_page_adoption_retains_original_ipc_bytes(

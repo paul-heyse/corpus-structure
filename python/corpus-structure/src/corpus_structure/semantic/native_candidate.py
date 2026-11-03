@@ -60,6 +60,9 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
     {
         "adopt_pdf_batch",
         "prepare_pdf_build",
+        # Freeze owns the publication fence; source changes must reach the same
+        # frozen0065 backfill and exact forward admission as the other PDF kernels.
+        "freeze_pdf_build",
         "resume_pdf_build",
         "adopt_pdf_companion",
         "read_pdf_frozen_rows",

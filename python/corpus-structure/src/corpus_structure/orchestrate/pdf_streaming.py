@@ -54,6 +54,73 @@ def _pdf_transaction(engine: Engine, cancellation: BorrowerCancellation) -> Gene
         cancellation.check_active()
 
 
+def adopt_pdf_companions(
+    engine: Engine,
+    build: PdfBuildRef,
+    family: str,
+    records: Iterable[Mapping[str, Any]],
+    replay_key: str,
+    *,
+    check_active: Callable[[], None],
+    cancellation: BorrowerCancellation,
+    start_ordinal: int = 0,
+) -> None:
+    """Prepare bounded row chunks before acquiring each protected append transaction.
+
+    Arrow IPC batches are transport units, not lease-fence units. A source iterator may
+    decode an arbitrarily large replay, but no checkout/task row lock spans that work.
+    Absolute offsets keep receipts stable across retry; individual content identities
+    remain the native companion/field identities, independently of chunking.
+    """
+    import json
+
+    from corpus_structure.semantic.pdf_payloads import EncodedPagePayload
+    from corpus_structure.semantic.pdf_publication import (
+        COMPANION_BATCH_BYTES,
+        COMPANION_BATCH_ROWS,
+        adopt_pdf_companion_batch,
+    )
+
+    pending: list[Mapping[str, Any]] = []
+    size = 0
+    delivered = start_ordinal
+
+    def flush() -> None:
+        nonlocal size, delivered
+        if not pending:
+            return
+        check_active()
+        with _pdf_transaction(engine, cancellation) as connection:
+            adopt_pdf_companion_batch(
+                connection,
+                build,
+                family,
+                pending,
+                replay_key=f"{replay_key}:rows:{delivered}",
+                start_ordinal=delivered,
+                cancellation=cancellation,
+            )
+        delivered += len(pending)
+        pending.clear()
+        size = 0
+        check_active()
+
+    for row in records:
+        check_active()
+        row_size = (
+            len(row["value"].content) + 256
+            if isinstance(row.get("value"), EncodedPagePayload)
+            else len(json.dumps(dict(row), ensure_ascii=False, allow_nan=False).encode())
+        )
+        if pending and (
+            len(pending) >= COMPANION_BATCH_ROWS or size + row_size > COMPANION_BATCH_BYTES
+        ):
+            flush()
+        pending.append(row)
+        size += row_size
+    flush()
+
+
 def run_private_pdf_build(
     engine: Engine,
     claim: ClaimedTask,
@@ -301,9 +368,6 @@ def run_private_native_pdf_build(
                     if replay.family == "companion:occurrence":
                         import json
 
-                        from corpus_structure.semantic.pdf_publication import (
-                            adopt_pdf_companion_batch,
-                        )
                         from corpus_structure.semantic.pdf_record_model import record_arrow_schema
 
                         with pa.memory_map(str(replay.path), "r") as source:
@@ -320,16 +384,16 @@ def run_private_native_pdf_build(
                                     for body in batch.column("body"):
                                         yield json.loads(body.as_py())
 
-                                with _pdf_transaction(engine, cancellation) as connection:
-                                    adopt_pdf_companion_batch(
-                                        connection,
-                                        build,
-                                        "occurrence",
-                                        occurrences(),
-                                        replay_key=f"ipc-companion:{replay.digest}:{ordinal}",
-                                        start_ordinal=batch.column("ordinal")[0].as_py(),
-                                        cancellation=cancellation,
-                                    )
+                                adopt_pdf_companions(
+                                    engine,
+                                    build,
+                                    "occurrence",
+                                    occurrences(),
+                                    replay_key=f"ipc-companion:{replay.digest}:{ordinal}",
+                                    start_ordinal=batch.column("ordinal")[0].as_py(),
+                                    check_active=check_active,
+                                    cancellation=cancellation,
+                                )
                         return
                     if replay.family not in STAGE_FAMILIES:
                         raise ValueError("unknown private PDF replay family")
@@ -505,15 +569,11 @@ def publish_pdf_record_draft(
     no connection is retained while lowering or executing native validation. A
     failure leaves authenticated private progress and original custody available.
     """
-    import json
     from hashlib import sha256
     from uuid import uuid4
 
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
-        COMPANION_BATCH_BYTES,
-        COMPANION_BATCH_ROWS,
-        adopt_pdf_companion_batch,
         freeze_pdf_build,
         inspect_pdf_build,
         prepare_pdf_build,
@@ -660,46 +720,15 @@ def publish_pdf_record_draft(
         ),
     )
     for family, records in companions.items():
-        pending: list[Mapping[str, Any]] = []
-        size = 0
-        ordinal = 0
-        delivered = 0
-
-        def flush(family=family, pending=pending) -> None:
-            nonlocal size, ordinal, delivered
-            if not pending:
-                return
-            check_active()
-            with _pdf_transaction(engine, cancellation) as connection:
-                adopt_pdf_companion_batch(
-                    connection,
-                    build,
-                    family,
-                    pending,
-                    replay_key=f"companion:{family}:{ordinal}",
-                    start_ordinal=delivered,
-                    cancellation=cancellation,
-                )
-            ordinal += 1
-            delivered += len(pending)
-            pending.clear()
-            size = 0
-
-        for row in records:
-            from corpus_structure.semantic.pdf_payloads import EncodedPagePayload
-
-            row_size = (
-                len(row["value"].content) + 256
-                if isinstance(row.get("value"), EncodedPagePayload)
-                else len(json.dumps(row, ensure_ascii=False, allow_nan=False).encode())
-            )
-            if pending and (
-                len(pending) >= COMPANION_BATCH_ROWS or size + row_size > COMPANION_BATCH_BYTES
-            ):
-                flush()
-            pending.append(row)
-            size += row_size
-        flush()
+        adopt_pdf_companions(
+            engine,
+            build,
+            family,
+            records,
+            replay_key=f"companion:{family}",
+            check_active=check_active,
+            cancellation=cancellation,
+        )
     if draft.retained_serialization is not None:
         _adopt_retained_serialization(
             engine, build, draft.retained_serialization, check_active, cancellation=cancellation

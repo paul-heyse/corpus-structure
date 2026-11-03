@@ -1,0 +1,33 @@
+# Unified-model completion provenance successor
+
+**Passed, bounded Tested, 2026-11-02.** The integrated UM implementation changes produce an
+append-only execution descriptor provenance successor. Frozen95 and every predecessor retain
+their exact bytes. Physical metadata, privileges and native guard policy are unchanged.
+
+The authenticated PgAdmin procedure owns disposable databases on the dedicated project cluster.
+`author.py author <fresh-output>` requires one descriptor-only transition, checks unchanged
+catalog policy, rehearses Alembic Operations invocation and empty candidate, then independently
+admits95 after outer rollback. `freeze.py` verifies the current model identity against that
+reviewed result before writing96 artifacts and updating the existing admission pin.
+`author.py replay <fresh-output>` checks fresh96 replay, repeated upgrade, empty candidate and
+post-rollback exact native admission. Author mode deliberately refuses the now-changed head;
+its original output remains immutable.
+
+Exact changed implementation names are retained in the author result, not inferred from Git
+filenames. The record owns the figures below. This probe does not establish application database
+adoption, complete UM behavioral qualification, provider results or performance. The UM
+coordinator remains the current disposition and acceptance owner. Existing LinkML ambiguous-slot
+warnings and SQLAlchemy cycle warnings were retained in build/um-native96-{author,replay}-001.log;
+they did not change the exact catalog comparison or broaden this result.
+
+## Accepted result
+
+{% set gid = '2026-11-02_um-completion-forward/um.native-closure96' %}
+{% set accepted = record(gid) %}
+Outcome: **{{ accepted.outcome }}**.
+
+| Result | Value |
+|---|---|
+{% for item in query('SELECT name, value_num, value_text FROM record_results WHERE gid = $gid ORDER BY name', gid=gid) %}
+| {{ item.name | replace('_', ' ') }} | {% if item.value_num is not none %}{{ item.value_num | int }}{% else %}{{ item.value_text }}{% endif %} |
+{% endfor %}

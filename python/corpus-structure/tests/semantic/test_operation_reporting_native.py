@@ -279,7 +279,10 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
 
     from corpus_structure.semantic.operation_reporting import compatibility_advice
 
-    bundle, deps, profile = report_inputs()
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.regeneration import prepare_pack
+
+    bundle, deps, profile, _ = prepare_pack(DOMAINS / "statistics")
     path = "operation/domain-rules.yaml"
     source = next(item for item in deps.artifacts if item.name == path)
     policy = yaml.safe_load(source.content)
@@ -327,8 +330,9 @@ def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
     )
     assert result.exit_code == 0, result.output
     report = json.loads(result.stdout)
-    alias = next(c for c in report["changes"] if c["aspect"] == "alias_normalization")
-    assert alias["model_ref"] == "alias_policy:https://example.org/Thing"
+    expected_ref = "alias_policy:https://corpus-structure.dev/domains/statistics/DistributionFamily"
+    alias = next(c for c in report["changes"] if c["model_ref"] == expected_ref)
+    assert alias["aspect"] == "alias_normalization"
     assert "implementation:resolve_identity" in alias["consumers"]
     assert "analysis_profile:mathematical-interpretation/alignment_policy" in alias["consumers"]
     assert alias["members"][0]["model_path"].endswith("/classes/rewrites")

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "um.native-stdio-renewal97",
+  "title": "Native97 PDF freeze renewal and diagnostic-stream boundary",
+  "group": "unified-domain-model",
+  "package": "UM-07/14/15",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the bounded PDF freeze owner-fence and diagnostic-stream corrections use canonical frozen-source forward authoring, preserving actual predecessor identity and all catalog policy while deploying the required freeze body?",
+  "answers": [
+    "UM-07",
+    "UM-14",
+    "UM-15"
+  ],
+  "method": "Use authenticated PgAdmin-owned disposable databases. Bring the existing freeze function into the selected native lifecycle using the canonical frozen0065 predecessor backfill, authorized by its exact frozen96 descriptor. Compare full catalog properties and the old declared body digest, rehearse the freeze and descriptor transitions with Alembic Operations, require an empty candidate and rollback restoration. Freeze byte-bound97, preserve every predecessor and replay fresh97 with repeated upgrade.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_um-worker-stdio-forward/author.py author docs/design_review/evidence/2026-11-02_um-worker-stdio-forward/raw/author-006",
+    "uv run python docs/design_review/evidence/2026-11-02_um-worker-stdio-forward/freeze.py",
+    "uv run python docs/design_review/evidence/2026-11-02_um-worker-stdio-forward/author.py replay docs/design_review/evidence/2026-11-02_um-worker-stdio-forward/raw/replay-001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author.py",
+      "role": "owned authoring and replay procedure",
+      "sha256": "449bb357827c39145d71ef03ddaa04c97ab81c86929e92bf81938cf806192a68"
+    },
+    {
+      "path": "freeze.py",
+      "role": "append-only freezing procedure",
+      "sha256": "fd636c8230d93a8a5dc1f72d4c609f7d0b6b24688cbda7ab7cea1d05b872ea80"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "retained failed assertions, exact candidate/predecessor identities, frozen receipts, inventory source and replay",
+      "sha256": "cd2f545aea18fddb6cddc968325c1f32096969407ba8ff66a7c770f8c5818f8c"
+    }
+  ],
+  "depends_on": [
+    "2026-11-02_um-completion-forward/um.native-closure96"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 2,
+      "of": 86,
+      "unit": null,
+      "note": "freeze_pdf_build and execution_contract_descriptor"
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "changed_inputs",
+      "value": 3,
+      "of": null,
+      "unit": "inputs",
+      "note": "worker, stream-orchestration and publication-native"
+    },
+    {
+      "name": "replay_candidate_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_predecessor_files",
+      "value": 295,
+      "of": 295,
+      "unit": "files",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Frozen97 deploys the PDF freeze hash-before-final-owner-fence implementation and captures bounded companion transactions plus child-only diagnostic redirection. The omitted freeze function now uses the existing managed inventory and immutable0065 backfill; its actual old body matches frozen96 exactly. Ownership, ACLs, signature, volatility, security and search path remain unchanged. The descriptor adds qualified catalog details for that existing function, changes only its body digest and three implementation inputs, and fresh97 has an empty candidate. This establishes native authoring/admission and replay, not concurrency semantics, complete PDF publication, actual provider behavior or semantic fidelity.",
+  "consumed_by": [
+    "UM-07",
+    "UM-14",
+    "UM-15",
+    "D3"
+  ]
+}

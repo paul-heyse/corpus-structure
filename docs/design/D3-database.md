@@ -171,6 +171,20 @@ all projections while holding the task fence. Stale unfinished receipts refuse w
 fresh-current-rebuild action. Published replay retains its original producing release and identity.
 Semantic PDF schema identity, projection identity and validation identity remain separate fields.
 
+**Implemented; scoped concurrency controls Tested (2026-11-03).** Companion transport batches
+are decoded and split before checkout; each bounded chunk uses a short caller-owned protected
+append transaction, with stable absolute row ordinals for replay. A large IPC batch no longer
+holds the task fence across decoding and every companion write. Freeze computes the inventory
+without the task/build locks, then reacquires the existing task→build fence, checks the live
+attempt/lease and unchanged per-family counts, and freezes atomically. Protected stage rows are
+append-only: exact replay is neutral; concurrent append requires retry. The existing model-owned
+READ COMMITTED policy also governs freeze, so its final checks see current committed rows.
+Repeatable-read and serializable snapshots refuse before hashing. Native97 advances only the
+freeze body and execution descriptor; predecessor bodies and privileges remain immutable.
+The [UM coordinator](../plans/unified-domain-model_2026-11-01.md#remaining-execution--2026-11-02)
+owns actual publication and enclosing acceptance; concurrency controls alone do not establish
+book/provider success.
+
 Typed outer COPY profiles distinguish Arrow transfer bytes from PostgreSQL native value extents.
 Reference preparation uses existing native-address keys and a materialized streamed-address
 candidate set; ambiguity and source-graph scope remain enforced. Ownership counts are aggregated

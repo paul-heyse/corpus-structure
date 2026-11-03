@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "um.native-closure96",
+  "title": "Descriptor-only native96 for unified operation closure",
+  "group": "unified-domain-model",
+  "package": "UM-07/14/15",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the integrated operation/cancellation, alias reporting and analysis preparation changes require only an append-only descriptor provenance transition, preserving native policy and replaying to an empty current candidate?",
+  "answers": [
+    "UM-07",
+    "UM-14",
+    "UM-15"
+  ],
+  "method": "Use authenticated PgAdmin-owned disposable databases. Rehearse the single descriptor transition and exact native admission inside an outer rollback; compare unchanged catalog policy and hash every predecessor. Freeze byte-bound successor96 without editing predecessors; replay a fresh96 deployment, repeated upgrade, and empty candidate.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_um-completion-forward/author.py author docs/design_review/evidence/2026-11-02_um-completion-forward/raw/author-001",
+    "uv run python docs/design_review/evidence/2026-11-02_um-completion-forward/freeze.py",
+    "uv run python docs/design_review/evidence/2026-11-02_um-completion-forward/author.py replay docs/design_review/evidence/2026-11-02_um-completion-forward/raw/replay-001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author.py",
+      "role": "owned authoring and replay procedure",
+      "sha256": "af34bb35aa0679042d9b576a655b9c7eea776dc7f881b98796967c660bf4f676"
+    },
+    {
+      "path": "freeze.py",
+      "role": "append-only freezing procedure",
+      "sha256": "89fe01f262d93b321a9c4f03f3e34664ed72435a4348144a09a0203eaf9ef435"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/author-001",
+      "role": "candidate, predecessor identities and rollback rehearsal",
+      "sha256": "58063519ae1373057afc344a42b54aad871f433dba4ac4cb4761e26005925b9a"
+    },
+    {
+      "path": "raw/freeze-001.json",
+      "role": "frozen artifact and admission-pin identities",
+      "sha256": "257919681743e0165a8ba3dfc1a862a325ddfcaf5b658b23a4c9e14ce2b9c131"
+    },
+    {
+      "path": "raw/replay-001/result.json",
+      "role": "current-head replay and empty candidate",
+      "sha256": "46d589ad8a14d53ecea83d56408e4dd333464efb28cfd4ed427f17549514f7fd"
+    }
+  ],
+  "depends_on": [
+    "2026-11-02_ta-native-policy-provenance/ta.native-policy-provenance95"
+  ],
+  "results": [
+    {
+      "name": "native_transitions",
+      "value": 1,
+      "of": 85,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ordinary_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "changed_inputs",
+      "value": 9,
+      "of": null,
+      "unit": "inputs",
+      "note": "Exact names and hashes are retained in author-001"
+    },
+    {
+      "name": "replay_candidate_operations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_predecessor_files",
+      "value": 292,
+      "of": 292,
+      "unit": "files",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Frozen96 changes only execution_contract_descriptor model/input provenance for the integrated UM implementations. Catalog properties, privileges and guard policy are unchanged; all predecessor files retain their exact bytes. Exact admission holds before/after rollback and fresh96 replay has an empty candidate. This establishes bounded native provenance, not operational database adoption, cancellation behavioral qualification, PDF/provider acceptance or performance.",
+  "consumed_by": [
+    "UM-07",
+    "UM-14",
+    "UM-15",
+    "D3"
+  ]
+}

@@ -401,19 +401,34 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.freeze_pdf_build(p_build text,p_task bigint,p_attempt \
 bigint,p_holder text,p_kind text)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; f text; state_ bytea:=ops.pdf_identity_fold_start('pdf-frozen-inve\
-ntory-v1');
+DECLARE b ops.pdf_stage_build; job ops.task; run_ ops.run; f text;
+ state_ bytea:=ops.pdf_identity_fold_start('pdf-frozen-inventory-v1');
  row_ record; payload bytea; count_ bigint:=0; total_ bigint:=0;
+ family_count_ bigint; inventory_ jsonb:='{}'::jsonb;
 BEGIN
- PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- SELECT * INTO STRICT b FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task FOR \
-UPDATE;
+ IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
+ RAISE EXCEPTION '{pdf_freeze_isolation_message}' USING ERRCODE='25000'; END IF;
+ -- Inspect before expensive work; acquire the owner fence again at freeze commit.
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT run_ FROM ops.run WHERE id=job.run_id;
+ IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder
+ OR job.status<>'running' OR job.lease_until IS NULL OR job.lease_until<=clock_timestamp()
+ OR run_.sealed OR run_.status NOT IN ('created','running') THEN
+ RAISE EXCEPTION 'stale private PDF build owner' USING ERRCODE='P0004'; END IF;
+ SELECT * INTO STRICT b FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task;
  IF b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder OR \
 b.state='abandoned' THEN
  RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
  SELECT frozen_digest INTO f FROM ops.pdf_frozen_build WHERE build_id=p_build;
- IF FOUND THEN IF p_kind IS DISTINCT FROM (SELECT kind FROM ops.pdf_frozen_build WHERE \
-build_id=p_build) THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF; RETURN f; END IF;
+ IF FOUND THEN
+ PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ SELECT * INTO STRICT b FROM ops.pdf_stage_build
+ WHERE build_id=p_build AND task_id=p_task FOR UPDATE;
+ IF b.attempt IS DISTINCT FROM p_attempt OR b.holder IS DISTINCT FROM p_holder
+ OR b.state='abandoned'
+ THEN RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
+ IF p_kind IS DISTINCT FROM (SELECT kind FROM ops.pdf_frozen_build WHERE build_id=p_build)
+ THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF; RETURN f; END IF;
  PERFORM sem.require_execution_operation(b.release_id,'freeze_pdf_build');
 """
     )
@@ -426,16 +441,44 @@ build_id=p_build) THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF
     for family, relation in sorted(stage.items()):
         keys = ",".join(metadata.tables[relation].primary_key.columns.keys())
         sql += f"""
+ family_count_:=0;
  FOR row_ IN SELECT to_jsonb(t) body FROM {relation} t WHERE product_id=p_build ORDER BY {keys} LOOP
  payload:=convert_to(row_.body::text,'UTF8');
  state_:=ops.pdf_identity_fold_step(state_,count_,convert_to('{family}:','UTF8')||sha256(payload));
  count_:=count_+1; total_:=total_+octet_length(payload);
+ family_count_:=family_count_+1;
  END LOOP;
+ inventory_:=inventory_||jsonb_build_object('{family}',family_count_);
 """
     sql += """
  IF NOT EXISTS(SELECT FROM ops.pdf_stage_document WHERE product_id=p_build) THEN
  RAISE EXCEPTION 'PDF freeze has no native document header' USING ERRCODE='23514'; END IF;
  f:=encode(ops.pdf_identity_fold_finish(state_,count_,total_),'hex');
+ -- Stage rows are append-only through protected operations. Exact replay is
+ -- neutral; changed family cardinality invalidates this candidate. Retain the
+ -- ordinary task -> build lock order, after hashing payloads without either lock.
+ run_:=ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ SELECT * INTO STRICT b FROM ops.pdf_stage_build
+ WHERE build_id=p_build AND task_id=p_task FOR UPDATE;
+ IF b.release_id IS DISTINCT FROM run_.release_id OR b.attempt IS DISTINCT FROM p_attempt
+ OR b.holder IS DISTINCT FROM p_holder OR b.state='abandoned' THEN
+ RAISE EXCEPTION 'PDF freeze owner differs' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM ops.pdf_frozen_build WHERE build_id=p_build) THEN
+ IF p_kind IS DISTINCT FROM (SELECT kind FROM ops.pdf_frozen_build WHERE build_id=p_build)
+ THEN RAISE EXCEPTION 'frozen publication kind differs'; END IF;
+ RETURN (SELECT frozen_digest FROM ops.pdf_frozen_build WHERE build_id=p_build);
+ END IF;
+ IF b.state<>'open' THEN
+ RAISE EXCEPTION 'PDF freeze build is not open' USING ERRCODE='23514'; END IF;
+"""
+    for family, relation in sorted(stage.items()):
+        sql += f"""
+ SELECT count(*) INTO family_count_ FROM {relation} WHERE product_id=p_build;
+ IF family_count_ IS DISTINCT FROM (inventory_->>'{family}')::bigint THEN
+ RAISE EXCEPTION 'PDF freeze inventory changed; retry from the current private build'
+ USING ERRCODE='40001'; END IF;
+"""
+    sql += """
  INSERT INTO ops.pdf_frozen_build VALUES(p_build,f,p_kind);
  UPDATE ops.pdf_stage_build SET state='frozen' WHERE build_id=p_build;
  RETURN f;
@@ -1098,6 +1141,10 @@ END $$;
         .replace(
             "'{pdf_projection_isolation_message}'",
             _quote("PDF projection admission requires " + ", ".join(levels).upper()),
+        )
+        .replace(
+            "'{pdf_freeze_isolation_message}'",
+            _quote("PDF freeze requires " + ", ".join(levels).upper()),
         )
         .replace("{pdf_projection_profile_digest}", policy_digest)
         .replace("{pdf_integrated_metadata_policy_digest}", metadata_policy_digest)
