@@ -1,6 +1,6 @@
 """`ci status [RUN]`: run progress (orchestration §3.13, P0-O-1) and the resolved settings
 (foundations). Progress is the run's task counts per stage by status and reason, its cut and final
-M19 task once sealed, agent tasks unresolved as of the cut, and the orphaned runs; the latest run
+M19 task once sealed and agent tasks unresolved as of the cut; the latest run
 by default. Without a reachable database the settings are still reported, with the reason."""
 
 from __future__ import annotations
@@ -64,6 +64,8 @@ def _render_status(result: BaseModel) -> RenderableType:
         for c in run.stages:
             stages.add_row(c.stage, c.status, c.reason or "", str(c.count))
         parts += [head, stages]
+    if progress is not None and progress.orphaned is None:
+        parts.append(Text("orphan assessment: not assessed"))
     if progress is not None and progress.orphaned:
         orphaned = ", ".join(map(str, progress.orphaned))
         parts.append(Text(f"orphaned runs: {orphaned} (`ci run cancel RUN`)", style="yellow"))

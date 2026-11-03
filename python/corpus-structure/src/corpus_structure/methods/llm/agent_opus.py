@@ -14,9 +14,8 @@ the MCP server's `propose_claims`.
 - **`select`**: the run's admitted, scoped native source views, by stable source-view key.
 - **`input_digest`** assembles the packet once per unit (cached) and returns
   `Digest(bytes, packet_hash)`; the bytes are the canonical JSON of the packet hash, the prompt-part
-  hashes, the artifact hashes and the declared model. Under `agent_reuse: by_unit` the guideline
-  input is `parts.by_unit_guideline` for the unit instead of the guideline part's hash. Task ids
-  never enter it.
+  hashes, the artifact hashes and the declared model. Current execution hashes the complete
+  immutable packet; task ids never enter it.
 """
 
 from __future__ import annotations
@@ -47,6 +46,7 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 from corpus_structure.ingest.sentences import SentenceConfig
+from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
 
 VERSION = "6"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -67,6 +67,9 @@ class MathSection(BaseModel):
 class AgentOpusConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    proposal_protocol: Literal["semantic-claims"] = "semantic-claims"
+    proposal_version: str = SEMANTIC_AGENT_VERSION
+    execution_kind: Literal["agent"] = "agent"
     mode: Literal["extract", "adjudicate"] = "extract"
     role: Literal["live", "expectation"] = "live"
     examples: Literal["reference"] = "reference"
@@ -123,3 +126,9 @@ class AgentOpus:
             "agent.opus tasks are completed by the session through propose_claims (D4 M24); "
             "no worker runs them"
         )
+
+
+class AgentGeneral(AgentOpus):
+    """A second producer identity using the same implemented proposal protocol."""
+
+    name = "agent.general"

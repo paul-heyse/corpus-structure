@@ -176,7 +176,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             project_id="native-consumer",
             binding=OperationBinding(prepared.release_id, "native-input", 0, b"{}"),
             kind="full",
-            options={"agent_configs": {"extract": configuration}},
+            options={"agent_configs": {"agent.opus/extract": configuration}},
             code_commit="native-consumer-test",
         )
         config = record_method(

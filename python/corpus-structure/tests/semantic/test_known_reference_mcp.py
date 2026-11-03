@@ -125,7 +125,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             project_id="known",
             binding=OperationBinding(prepared.release_id, "input", 1, b"{}"),
             kind="full",
-            options={"agent_configs": {"extract": configuration}},
+            options={"agent_configs": {"agent.opus/extract": configuration}},
             code_commit="native-known",
         )
         document = register_document(

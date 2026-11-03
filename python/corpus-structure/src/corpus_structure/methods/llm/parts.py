@@ -14,13 +14,10 @@ covers the `$id`, so a new model revision is a new part). Parts are served in pa
 `PAGE_CHARS` characters, cut at line ends.
 
 **Sections.** A guideline section is a `## <id> <title>` heading and its text up to the next such
-heading. The `<!-- core -->` tag beside the heading puts it in the `guideline` part. A declaration
-`<!-- applies: <feature>=<value>, … -->` beside the heading states the unit features it applies
-to (`by_unit`, D2 §10): each feature a member of `UnitFeatureKind`, refused otherwise. A unit's
-features come from its unit segment: its kind, and its hint's `statement_kind` and
-`claim_bearing`. A section applies to a unit when it declares nothing, when the unit has one of
-its declared values, or when the unit records no value for a declared feature (it cannot exclude
-it).
+heading. The `<!-- core -->` tag beside the heading puts it in the `guideline` part.
+Declarations of `<!-- applies: <feature>=<value>, … -->` are retained as authored
+metadata and checked against `UnitFeatureKind`. Current execution serves and hashes every core
+section; it does not execute per-unit guideline reuse.
 """
 
 from __future__ import annotations
@@ -28,13 +25,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import resources
 from typing import Any
 
-from corpus_structure.core.canonical import canonical_json, digest
-from corpus_structure.core.evidence import Segment
+from corpus_structure.core.canonical import canonical_json
 from corpus_structure.core.vocab import UnitFeatureKind
 
 PAGE_CHARS = 24_000
@@ -118,42 +114,6 @@ def sections(guideline: str) -> list[Section]:
 def core_guideline(guideline: str) -> str:
     """The `guideline` part: the core sections, whole, in order."""
     return "\n".join(s.text for s in sections(guideline) if s.core)
-
-
-def hint_of(segment: Segment) -> Mapping[str, Any]:
-    """A segment's source hint (`attrs.hint`), or an empty mapping."""
-    hint = (segment.attrs or {}).get("hint")
-    return hint if isinstance(hint, dict) else {}
-
-
-def unit_features(segment: Segment) -> dict[str, str]:
-    """The unit's recorded features (module doc), as strings."""
-    hint = hint_of(segment)
-    out = {UnitFeatureKind.SEGMENT_KIND.value: segment.kind.value}
-    if hint.get("statement_kind"):
-        out[UnitFeatureKind.STATEMENT_KIND.value] = str(hint["statement_kind"])
-    if "claim_bearing" in hint:
-        out[UnitFeatureKind.CLAIM_BEARING.value] = str(bool(hint["claim_bearing"])).lower()
-    return out
-
-
-def applies(section: Section, features: Mapping[str, str]) -> bool:
-    if not section.applies:
-        return True
-    return any(features.get(f) in (None, v) for f, v in section.applies)
-
-
-def mapping_hash(all_sections: Sequence[Section]) -> str:
-    return digest({s.id: [list(p) for p in s.applies] for s in all_sections if s.applies})
-
-
-def by_unit_guideline(guideline: str, segment: Segment) -> str:
-    """`by_unit`'s guideline input: the applicable core sections' ids and texts with the
-    mapping's hash."""
-    found = sections(guideline)
-    features = unit_features(segment)
-    chosen = [[s.id, s.text] for s in found if s.core and applies(s, features)]
-    return digest({"sections": chosen, "mapping": mapping_hash(found)})
 
 
 # --- The parts --------------------------------------------------------------------------------

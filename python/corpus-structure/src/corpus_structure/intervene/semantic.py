@@ -147,9 +147,28 @@ class ProposalSession:
         ).one()
         if task.packet_hash != self.packet.hash or task.unit_key != self.packet.frame.unit_ref:
             raise ProposalRefused("served packet does not match the recorded task input")
+        from corpus_structure.methods.llm.producer import producer_binding
         from corpus_structure.semantic.observations import source_value
 
+        configurations, methods = table("ops.method_config"), table("ops.method")
+        frozen = conn.execute(
+            select(configurations.c.params, methods.c.name.label("method"))
+            .join(tasks, tasks.c.method_config_id == configurations.c.id)
+            .join(methods, methods.c.id == configurations.c.method_id)
+            .where(tasks.c.id == self.task_id)
+        ).mappings().one()
+        producer = producer_binding(frozen["method"], frozen["params"], unit="source_view")
+        import os
+
+        invocation_id = os.environ.get("CORPUS_AGENT_INVOCATION_ID")
         diagnostic = {
+            "execution_identity": {
+                "binding": producer.values(),
+                "task_id": self.task_id, "attempt": self.attempt, "holder": self.holder,
+                "assurance": "provider_reported" if invocation_id else "manual_operator",
+                "invocation_id": invocation_id,
+                "provider_reported_model": None,
+            },
             "packet_hash": self.packet.hash,
             "schema_hash": self.packet.schema_hash,
             "unit_ref": self.packet.frame.unit_ref,

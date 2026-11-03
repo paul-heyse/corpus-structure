@@ -8,7 +8,6 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.core.vocab import SegmentKind
 from corpus_structure.methods.llm import parts as parts_
 
 REPO = Path(__file__).resolve().parents[4]
@@ -35,12 +34,6 @@ Never served.
 """
 
 
-def unit_segment(kind: SegmentKind, hint: dict[str, Any]) -> Any:
-    from corpus_structure.core.evidence import Segment
-
-    return Segment(kind=kind, start=0, end=1, attrs={"hint": hint} if hint else {})
-
-
 def test_core_sections_and_their_declarations() -> None:
     found = parts_.sections(GUIDELINE)
     assert [(s.id, s.core, s.applies) for s in found] == [
@@ -53,39 +46,6 @@ def test_core_sections_and_their_declarations() -> None:
     assert "## 10.3 Everything" in core and "Not core" not in core
     with pytest.raises(parts_.GuidelineError, match="unit_colour"):
         parts_.sections(GUIDELINE.replace("claim_bearing=true", "unit_colour=red"))
-
-
-def test_a_section_applies_by_feature_or_when_the_unit_cannot_exclude_it() -> None:
-    found = {s.id: s for s in parts_.sections(GUIDELINE)}
-    definition = parts_.unit_features(
-        unit_segment(SegmentKind.UNIT, {"statement_kind": "definition", "claim_bearing": True})
-    )
-    theorem = parts_.unit_features(
-        unit_segment(SegmentKind.UNIT, {"statement_kind": "theorem", "claim_bearing": True})
-    )
-    unhinted = parts_.unit_features(unit_segment(SegmentKind.PARAGRAPH, {}))
-    assert parts_.applies(found["10.1"], definition)
-    assert not parts_.applies(found["10.1"], theorem)
-    assert parts_.applies(found["10.1"], unhinted)  # no recorded statement kind: cannot exclude
-    assert all(parts_.applies(found["10.3"], f) for f in (definition, theorem, unhinted))
-
-
-def test_by_unit_guideline_input_moves_only_where_an_edit_applies() -> None:
-    definition = unit_segment(
-        SegmentKind.UNIT, {"statement_kind": "definition", "claim_bearing": True}
-    )
-    theorem = unit_segment(SegmentKind.UNIT, {"statement_kind": "theorem", "claim_bearing": True})
-    edited = GUIDELINE.replace("annotated as such", "annotated with care")
-    assert parts_.by_unit_guideline(edited, theorem) == parts_.by_unit_guideline(GUIDELINE, theorem)
-    assert parts_.by_unit_guideline(edited, definition) != parts_.by_unit_guideline(
-        GUIDELINE, definition
-    )
-    everyone = GUIDELINE.replace("Every unit.", "Every single unit.")
-    for unit in (definition, theorem):
-        assert parts_.by_unit_guideline(everyone, unit) != parts_.by_unit_guideline(GUIDELINE, unit)
-    remapped = GUIDELINE.replace("statement_kind=definition", "statement_kind=theorem")
-    for unit in (definition, theorem):  # a mapping change asks again for every unit
-        assert parts_.by_unit_guideline(remapped, unit) != parts_.by_unit_guideline(GUIDELINE, unit)
 
 
 def test_parts_page_at_line_ends_within_the_bound() -> None:

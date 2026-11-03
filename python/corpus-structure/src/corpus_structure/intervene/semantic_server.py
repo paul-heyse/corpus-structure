@@ -42,6 +42,27 @@ class ProposalTaskNotOpen(ProposalRefused):
     """The submitted attempt cannot append source results."""
 
 
+def _invocation_event(task_id, attempt, holder, binding, event, **details):
+    """Link the actual leased attempt and native receipt to the automation's retained invocation."""
+    import json
+    import os
+    from pathlib import Path
+    from uuid import uuid4
+
+    directory = os.environ.get("CORPUS_AGENT_RECEIPTS")
+    invocation = os.environ.get("CORPUS_AGENT_INVOCATION_ID")
+    if directory is None or invocation is None:
+        return
+    path = Path(directory) / f"task-{task_id}-attempt-{attempt}-{event}-{uuid4().hex}.json"
+    with path.open("x") as stream:
+        json.dump({"invocation_id": invocation, "task_id": task_id, "attempt": attempt,
+                   "holder": holder, "producer_binding": binding, "event": event,
+                   "assurance": "provider_reported", **details}, stream, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
 @dataclass
 class SemanticAgentSession:
     engine: Engine
@@ -129,6 +150,7 @@ class SemanticAgentSession:
             )
 
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
+        from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
         from corpus_structure.orchestrate.semantic import agent_packet
         from corpus_structure.semantic.metadata import table
         from corpus_structure.semantic.operations import claim_tasks
@@ -138,15 +160,21 @@ class SemanticAgentSession:
         if max_units is not None and max_units < 1:
             raise ProposalRefused("max_units must be positive")
         out = []
+        admitted_events = []
         with self.lock, self.engine.begin() as conn:
             rows = conn.execute(
-                select(configs.c.id, configs.c.params)
+                select(configs.c.id, configs.c.params, methods.c.name.label("method"))
                 .join(methods, methods.c.id == configs.c.method_id)
-                .where(methods.c.name == "agent.opus")
+                .join(table("ops.task"), table("ops.task").c.method_config_id == configs.c.id)
+                .where(methods.c.name.in_(SUPPORTED_PRODUCERS),
+                       table("ops.task").c.run_id == self.run_id,
+                       table("ops.task").c.status == "awaiting_agent")
+                .distinct().order_by(configs.c.id)
             ).mappings()
             for row in rows:
                 preparation = {}
-                if row["params"].get("mode", "extract") != mode:
+                binding = producer_binding(row["method"], row["params"])
+                if binding.mode != mode:
                     continue
                 limit = min(max_units or 1, row["params"].get("max_units", 1))
                 leased = claim_tasks(
@@ -170,6 +198,7 @@ class SemanticAgentSession:
                         prepared, packet, task.task_id, task.attempt, self.holder
                     )
                     self.sessions[task.task_id] = session
+                    admitted_events.append((task, binding, packet.hash))
                     pages = packet.part_pages(
                         next(part for part in packet.parts() if part.name == "unit")
                     )
@@ -189,6 +218,9 @@ class SemanticAgentSession:
                     )
                 if out:
                     break
+        for task, binding, packet_hash in admitted_events:
+            _invocation_event(task.task_id, task.attempt, self.holder, binding.values(),
+                              "leased", packet_hash=packet_hash)
         return service.QueueNext(tasks=out)
 
 
@@ -590,6 +622,8 @@ def build_semantic_server(
                     ],
                 )
             session.sessions.pop(task_id, None)
+            _invocation_event(task_id, active.attempt, active.holder, {}, "completed",
+                              receipt=result.completion.receipt.model_dump(mode="json"))
             data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()
             return submission.SubmissionResult(
                 task_id=task_id,

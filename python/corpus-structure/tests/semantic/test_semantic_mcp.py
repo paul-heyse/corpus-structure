@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import anyio
+import pytest
 from fastmcp import Client
 from mcp.types import TextContent
 from sqlalchemy import insert, select
@@ -31,8 +32,9 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
 
 
+@pytest.mark.parametrize("producer_method", ["agent.opus", "agent.general"])
 def test_native_tool_queue_read_schema_and_fenced_rich_submission(
-    semantic_db_engine, semantic_writer_engine, tmp_path
+    semantic_db_engine, semantic_writer_engine, tmp_path, producer_method
 ):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = proposal_inputs(
@@ -109,7 +111,7 @@ classes:
             project_id="mcp",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={"agent_configs": {"extract": configuration}},
+            options={"agent_configs": {f"{producer_method}/extract": configuration}},
             code_commit="native-mcp",
             guideline="Extract only what the source states.",
         )
@@ -138,6 +140,7 @@ classes:
             run_id=run,
             prepared=prepared,
             configuration=configuration,
+            method_name=producer_method,
             units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
         )
     session = SemanticAgentSession(engine, run)
@@ -328,6 +331,8 @@ classes:
                 table("ops.task_result").c.task_id == refused_tasks[0]
             )
         ).scalar_one()
+        assert envelope["result"]["execution_identity"]["binding"]["method"] == producer_method
+        assert envelope["result"]["execution_identity"]["assurance"] == "manual_operator"
         assert (
             envelope["coverage"][0]["outcome"] == "failed"
             and envelope["first_result"]["result"]["issues"]

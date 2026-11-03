@@ -20,7 +20,6 @@ from corpus_structure.semantic.operations import (
     OperationBinding,
     OperationConflict,
     claim_tasks,
-    complete_unit_result,
     create_run,
     create_task,
     record_method,
@@ -117,6 +116,10 @@ def run_source_methods(
         if invocation_input.release_id != prepared.release_id:
             raise OperationConflict("invocation preparation belongs to another release")
     registry = registry.bind_release(prepared)
+    if graph.policy_propose and policy_source is not None:
+        from .policy import admit_source_policy
+
+        admit_source_policy(policy_source, registry, prepared)
     configurations = dict(configurations or {})
     configs = {}
     for _, steps in graph.stages:
@@ -124,6 +127,11 @@ def run_source_methods(
             method, _, default = step.config.partition("/")
             name = configurations.get(method, default or "default")
             configs[method] = registry.resolve(method, name)
+    if "enrich.pdf_math" in configs:
+        from corpus_structure.semantic.contracts import require_database_operation
+
+        with engine.connect() as admission_conn:
+            require_database_operation(admission_conn, prepared.release_id, "enrich_pdf_math")
     native_source = any(
         registry.method(name).name in {"ingest.pdf", "ingest.pdf_integrated"}
         or registry.method(name).unit_type == TaskUnitType.SOURCE_VIEW
@@ -153,7 +161,9 @@ def run_source_methods(
     from corpus_structure.core.method import ArtifactRef, ConfigRef, PackSection, config_references
 
     for method_name, config_name in registry.named():
-        if method_name != "agent.opus":
+        from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
+
+        if method_name not in SUPPORTED_PRODUCERS:
             continue
         config = registry.overlay(method_name, config_name)
         raw = config.model_dump(mode="json")
@@ -185,7 +195,8 @@ def run_source_methods(
         for path, marker in markers.items():
             if isinstance(marker, ArtifactRef):
                 values.pop(path[0], None)
-        agent_configs[config_name] = values
+        producer_binding(method_name, values)
+        agent_configs[f"{method_name}/{config_name}"] = values
         operation_versions[method_name] = SEMANTIC_AGENT_VERSION
     with engine.begin() as conn:
         d = table("kb.document")
@@ -449,6 +460,11 @@ def run_source_methods(
                                         conn, view, method, config, cid, ref
                                     )
                         scheduled.append((method, config, cid))
+                    shared_math_batch = None
+                    if len(group) > 1:
+                        from corpus_structure.methods.math.methods import MathReadingsBatch
+
+                        shared_math_batch = MathReadingsBatch()
                     while True:
                         # Child identity is formed only after its declared parent outputs exist.
                         # Ancestor context does not queue agent work or force math values.
@@ -488,6 +504,14 @@ def run_source_methods(
                                     registered[(cid, ref.unit_id)] = task_id
                                     ready.append(entry)
                                 deferred = [entry for entry in deferred if entry not in ready]
+                        with engine.connect() as conn:
+                            view = run_view(conn, rid, prepared)
+                            bound_reader = view.reader
+                            if not isinstance(bound_reader, BoundReader):
+                                raise TypeError(
+                                    "source execution requires the bound database adapter"
+                                )
+                            bound_reader.math_readings_batch = shared_math_batch
                         work = []
                         for method, config, cid in scheduled:
                             with engine.begin() as conn:
@@ -501,105 +525,91 @@ def run_source_methods(
                                 )
                             if claimed:
                                 work.append((method, config, claimed))
+                                break
                         if not work:
                             if deferred:
                                 raise OperationConflict(
                                     "required native ancestor context is not ready"
                                 )
                             break
-                        # The original/recipe commit precedes native inference. Read-only method
-                        # connections are rolled back and cannot own this durable custody boundary.
                         for method, config, claimed in work:
-                            original_recipe = getattr(method, "original_recipe", None)
-                            if original_recipe is not None:
-                                from corpus_structure.semantic.operations import read_original
-                                from corpus_structure.semantic.pdf_contracts import (
-                                    store_pdf_original,
-                                )
-
-                                recipe = original_recipe(config.config)
-                                with engine.begin() as original_conn:
-                                    for claimed_task in claimed:
-                                        document_id = claimed_task.unit_id
-                                        if claimed_task.unit_type == "source_view":
-                                            view_table = table("kb.source_view")
-                                            document_id = original_conn.execute(
-                                                select(view_table.c.document_id).where(
-                                                    view_table.c.id == claimed_task.unit_id
-                                                )
-                                            ).scalar_one()
-                                        if document_id is None or claimed_task.unit_type not in {
-                                            "document",
-                                            "source_view",
-                                        }:
-                                            raise OperationConflict(
-                                                "original preparation requires "
-                                                "an original-bound task"
-                                            )
-                                        original = read_original(
-                                            original_conn,
-                                            DocumentId(document_id),
-                                            prepared=prepared,
-                                        )
-                                        store_pdf_original(
-                                            original_conn,
-                                            task_id=claimed_task.task_id,
-                                            attempt=claimed_task.attempt,
-                                            holder=holder,
-                                            original=original,
-                                            recipe_bytes=recipe,
-                                        )
-                        completed = []
-                        with engine.connect() as conn:
-                            view = run_view(conn, rid, prepared)
-                            bound_reader = view.reader
-                            if not isinstance(bound_reader, BoundReader):
-                                raise TypeError(
-                                    "source execution requires the bound database adapter"
-                                )
-                            if len(group) > 1:
-                                from corpus_structure.methods.math.methods import MathReadingsBatch
-
-                                bound_reader.math_readings_batch = MathReadingsBatch()
-                        for method, config, claimed in work:
-                            with engine.connect() as conn:
-                                bound_reader.conn = conn
-                                bound_reader.bind_source_tasks(
-                                    {
-                                        int(
-                                            task.unit_id
-                                            if task.unit_type == "document"
-                                            else conn.execute(
-                                                select(table("kb.source_view").c.document_id).where(
-                                                    table("kb.source_view").c.id == task.unit_id
-                                                )
-                                            ).scalar_one()
-                                        ): task.task_id
-                                        for task in claimed
-                                        if task.unit_type in {"document", "source_view"}
-                                        and task.unit_id is not None
-                                    }
-                                )
-                                units = [
-                                    _unit(
-                                        conn,
-                                        view,
-                                        UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
-                                    )
-                                    for t in claimed
-                                ]
-                            from dataclasses import replace
-
-                            from .source_reader import ScopedSourceReader
-
-                            scoped_reader = ScopedSourceReader(engine, bound_reader)
-                            method_view = replace(view, reader=scoped_reader)
-                            units = [replace(unit, run=method_view) for unit in units]
-                            from corpus_structure.semantic.claim_lifetime import (
-                                maintained_claims,
-                            )
+                            from corpus_structure.semantic.claim_lifetime import maintained_claims
 
                             with maintained_claims(engine, claimed, holder) as check_active:
+                                # Commit original custody under this owner before inference.
+                                original_recipe = getattr(method, "original_recipe", None)
+                                if original_recipe is not None:
+                                    from corpus_structure.semantic.operations import read_original
+                                    from corpus_structure.semantic.pdf_contracts import (
+                                        store_pdf_original,
+                                    )
+                                    recipe = original_recipe(config.config)
+                                    with engine.begin() as original_conn:
+                                        for claimed_task in claimed:
+                                            document_id = claimed_task.unit_id
+                                            if claimed_task.unit_type == "source_view":
+                                                view_table = table("kb.source_view")
+                                                document_id = original_conn.execute(
+                                                    select(view_table.c.document_id).where(
+                                                        view_table.c.id == claimed_task.unit_id
+                                                    )
+                                                ).scalar_one()
+                                            if document_id is None or (
+                                                claimed_task.unit_type
+                                                not in {"document", "source_view"}
+                                            ):
+                                                raise OperationConflict(
+                                                    "original preparation requires "
+                                                    "an original-bound task"
+                                                )
+                                            original = read_original(
+                                                original_conn,
+                                                DocumentId(document_id),
+                                                prepared=prepared,
+                                            )
+                                            store_pdf_original(
+                                                original_conn,
+                                                task_id=claimed_task.task_id,
+                                                attempt=claimed_task.attempt,
+                                                holder=holder,
+                                                original=original,
+                                                recipe_bytes=recipe,
+                                            )
+                                with engine.connect() as conn:
+                                    bound_reader.conn = conn
+                                    bound_reader.bind_source_tasks(
+                                        {
+                                            int(
+                                                task.unit_id
+                                                if task.unit_type == "document"
+                                                else conn.execute(
+                                                    select(table("kb.source_view").c.document_id).where(
+                                                        table("kb.source_view").c.id == task.unit_id
+                                                    )
+                                                ).scalar_one()
+                                            ): task.task_id
+                                            for task in claimed
+                                            if task.unit_type in {"document", "source_view"}
+                                            and task.unit_id is not None
+                                        }
+                                    )
+                                    units = [
+                                        _unit(
+                                            conn,
+                                            view,
+                                            UnitRef(
+                                                TaskUnitType(t.unit_type), t.unit_id, t.unit_key
+                                            ),
+                                        )
+                                        for t in claimed
+                                    ]
+                                from dataclasses import replace
+
+                                from .source_reader import ScopedSourceReader
+
+                                scoped_reader = ScopedSourceReader(engine, bound_reader)
+                                method_view = replace(view, reader=scoped_reader)
+                                units = [replace(unit, run=method_view) for unit in units]
 
                                 def retain_pdf_observation(
                                     ref,
@@ -704,24 +714,24 @@ def run_source_methods(
                                         retain_pdf_observation=retain_pdf_observation,
                                     ),
                                 )
-                            completed.append((method, config, claimed, results))
-                        for method, config, claimed, results in completed:
-                            for task, result in zip(claimed, results, strict=True):
-                                with engine.begin() as conn:
-                                    complete_unit_result(
-                                        conn,
-                                        task_id=task.task_id,
-                                        attempt=task.attempt,
-                                        holder=holder,
-                                        prepared=prepared,
-                                        result=result,
-                                        method=method,
-                                        configuration_hash=config.config_hash,
-                                        source=result.ref.unit_key or "run",
-                                        records=result.records,
+                                for task, result in zip(claimed, results, strict=True):
+                                    from corpus_structure.semantic.operations import (
+                                        prepare_unit_completion,
                                     )
-                                if result.error is not None:
-                                    raise OperationConflict(result.error)
+                                    from corpus_structure.semantic.query import read_snapshot
+
+                                    with read_snapshot(engine) as preparation_conn:
+                                        intent = prepare_unit_completion(
+                                            preparation_conn, task_id=task.task_id,
+                                            attempt=task.attempt, holder=holder,
+                                            prepared=prepared, result=result, method=method,
+                                            configuration_hash=config.config_hash,
+                                            source=result.ref.unit_key or "run",
+                                            records=result.records,
+                                        )
+                                    check_active.settle(task, intent.apply)
+                                    if result.error is not None:
+                                        raise OperationConflict(result.error)
         finally:
             import sys
 
@@ -837,17 +847,21 @@ def agent_packet(
     conn: Any, run_id: int, task_id: int, prepared: Any, *, preparation: dict | None = None
 ):
     """Rebuild exactly the packet hashed by queue_agent; no active release lookup."""
-    t, c = table("ops.task"), table("ops.method_config")
+    t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     row = (
         conn.execute(
-            select(t, c.c.params)
+            select(t, c.c.params, m.c.name.label("method"))
             .join(c, t.c.method_config_id == c.c.id)
+            .join(m, m.c.id == c.c.method_id)
             .where(t.c.id == task_id, t.c.run_id == run_id)
         )
         .mappings()
         .one()
     )
     ref = UnitRef(TaskUnitType(row["unit_type"]), row["unit_id"], row["unit_key"])
+    from corpus_structure.methods.llm.producer import producer_binding
+
+    producer_binding(row["method"], row["params"], unit=ref.unit_type)
     from corpus_structure.semantic.proposals import ProposalRefused
 
     try:
@@ -870,6 +884,7 @@ def queue_agent(
     configuration: Mapping[str, Any],
     units: Any,
     configuration_name: str = "extract",
+    method_name: str = "agent.opus",
     trigger: Mapping[str, Any] | None = None,
     skip_reason: str | None = None,
     preparation: dict | None = None,
@@ -877,34 +892,23 @@ def queue_agent(
     """Queue policy-selected source units under the same packet definition used by MCP."""
     from hashlib import sha256
 
-    from corpus_structure.semantic.operations import OperationDescriptor
-    from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
-
-    if not configuration.get("model"):
-        raise ValueError("agent configuration declares its model")
     from corpus_structure.methods.llm.agent_opus import AgentOpusConfig
+    from corpus_structure.methods.llm.producer import producer_binding
+    from corpus_structure.semantic.operations import OperationDescriptor
 
+    units = tuple(units)
+    producer = producer_binding(method_name, configuration)
+    for ref in units:
+        producer_binding(method_name, configuration, unit=ref.unit_type)
     method = OperationDescriptor(
-        "agent.opus",
-        SEMANTIC_AGENT_VERSION,
-        "agent",
-        "agent",
-        TaskUnitType.SOURCE_VIEW,
-        AgentOpusConfig,
-        "agent",
+        producer.method, producer.version, "agent", producer.execution_kind,
+        TaskUnitType(producer.unit), AgentOpusConfig, "agent",
     )
     config_hash = (
         "configuration:"
         + sha256(canonical_bytes([method.name, method.version, dict(configuration)])).hexdigest()
     )
     preparation = {} if preparation is None else preparation
-    recorded = preparation.setdefault("configurations", {})
-    key = (configuration_name, config_hash)
-    if key not in recorded:
-        recorded[key] = record_method(
-            conn, method, configuration_name, configuration, config_hash, prepared=prepared
-        )
-    config_id = recorded[key]
     if "view" not in preparation:
         preparation["view"] = run_view(conn, run_id, prepared)
     view = preparation["view"]
@@ -912,10 +916,18 @@ def queue_agent(
     snapshot = view.options.get("agent_configs", {})
     if (
         not isinstance(snapshot, dict)
-        or configuration_name not in snapshot
-        or canonical_bytes(snapshot[configuration_name]) != canonical_bytes(dict(configuration))
+        or f"{method_name}/{configuration_name}" not in snapshot
+        or canonical_bytes(snapshot[f"{method_name}/{configuration_name}"])
+        != canonical_bytes(dict(configuration))
     ):
         raise OperationConflict("agent configuration differs from immutable run snapshot")
+    recorded = preparation.setdefault("configurations", {})
+    key = (method_name, configuration_name, config_hash)
+    if key not in recorded:
+        recorded[key] = record_method(
+            conn, method, configuration_name, configuration, config_hash, prepared=prepared
+        )
+    config_id = recorded[key]
     fresh_names = view.options.get("fresh", [])
     if not isinstance(fresh_names, list) or any(not isinstance(name, str) for name in fresh_names):
         raise OperationConflict("run fresh selector is not a string list")
@@ -955,8 +967,9 @@ def queue_agent(
             input_hash=digest,
             packet_hash=None if packet is None else packet.hash,
             agent=True,
-            fresh="agent.opus" in fresh_names,
-            trigger={**dict(trigger or {}), "configuration_name": configuration_name},
+            fresh=method_name in fresh_names,
+            trigger={**dict(trigger or {}), "configuration_name": configuration_name,
+                     "producer_binding": producer.values()},
             skip_reason=skip_reason,
         )
         tasks.append(task_id)
@@ -983,16 +996,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     configs = TypeAdapter(dict[str, dict[str, JsonValue]]).validate_python(
         view.options.get("agent_configs")
     )
-    names = policy.registry_configs(registry)
-    from corpus_structure.semantic.statement_types import statement_kinds
-
-    language = policy.unit_language(
-        statement_kinds(prepared),
-        names,
-        nullable_claim_bearing=True,
-        native_unit_kinds=(TaskUnitType.SOURCE_VIEW.value,),
-    )
-    rules = policy.compile_policy(policy.parse_policy(policy_source), language, names)
+    rules = policy.admit_source_policy(policy_source, registry, prepared)
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     origin = t.alias("origin")
     from sqlalchemy import func
@@ -1022,8 +1026,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
         if (
-            entry.method != "agent.opus"
-            or method.tier != MethodTier.AGENT
+            method.tier != MethodTier.AGENT
             or entry.unit_type != method.unit_type
         ):
             raise OperationConflict(
@@ -1066,17 +1069,12 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                 "phase": view.phase,
                 "iteration": 0,
                 "unit": SimpleNamespace(kind=unit_kind, statement_kind=kind, claim_bearing=bearing),
-                "target": SimpleNamespace(kind=None, size=None, max_confidence=None, margin=None),
-                "budget": SimpleNamespace(agent_packets_left=None, llm_tokens_left=None),
                 "ran": lambda name: outcome(name) is not None,
                 "outcome": outcome,
-                "judged_by": lambda name: False,
-                "decision": lambda name: None,
-                "confidence": lambda name: None,
             }
             if entry.key not in {match.key for match in rules.matches(PolicyChain.PROPOSE, thing)}:
                 continue
-            identity = (entry.method, canonical_bytes(configs[config_name]), ref.unit_key)
+            identity = (entry.method, canonical_bytes(configs[entry.entry.do.method]), ref.unit_key)
             if identity in scheduled:
                 continue
             scheduled.add(identity)
@@ -1105,12 +1103,12 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                 "limit": entry.entry.do.limit,
                 "position": counts[entry.key],
             }
-            decisions.append((ref, config_name, trigger, reason))
+            decisions.append((ref, entry.method, config_name, trigger, reason))
             if reason is None:
                 counts[entry.key] += 1
-    for ref, config_name, trigger, reason in decisions:
+    for ref, method_name, config_name, trigger, reason in decisions:
         preparation = preparations.setdefault(
-            config_name,
+            (method_name, config_name),
             {
                 "view": view,
                 "units": unit_views,
@@ -1120,9 +1118,10 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             conn,
             run_id=run_id,
             prepared=prepared,
-            configuration=configs[config_name],
+            configuration=configs[f"{method_name}/{config_name}"],
             units=[ref],
             configuration_name=config_name,
+            method_name=method_name,
             trigger=trigger,
             skip_reason=reason,
             preparation=preparation,

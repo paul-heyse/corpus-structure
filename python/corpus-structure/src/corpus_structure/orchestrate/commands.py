@@ -45,7 +45,7 @@ class RunProgress(BaseModel):
 
 class StatusReport(BaseModel):
     run: RunProgress | None
-    orphaned: list[int]
+    orphaned: list[int] | None = None
     settings: dict[str, str] = {}
 
 
@@ -396,7 +396,7 @@ def bound_status(
 
     run = _bound_run_id(conn, run_id, project_id)
     if run is None:
-        return StatusReport(run=None, orphaned=[])
+        return StatusReport(run=None, orphaned=None)
     r, t, c, m, cut = map(
         table, ("ops.run", "ops.task", "ops.method_config", "ops.method", "ops.input_cut")
     )
@@ -438,5 +438,5 @@ def bound_status(
             stages=[StageCount.model_validate(dict(x)) for x in counts],
             unresolved_agent_tasks=unresolved,
         ),
-        orphaned=[],
+        orphaned=None,
     )

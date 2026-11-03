@@ -72,6 +72,8 @@ def extract_run(
     Interruption leaves native run/task/attempt identities intact. The caller resumes this run;
     native claim/reclaim owns retries, and this process adds no retry loop.
     """
+    from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
+
     tasks, configs, methods = table("ops.task"), table("ops.method_config"), table("ops.method")
     with engine.connect() as conn:
         states = list(
@@ -79,19 +81,17 @@ def extract_run(
         )
         if not any(state in {"pending", "running", "awaiting_agent"} for state in states):
             return None
-        models = [
-            row.get("model")
+        bindings = [
+            producer_binding(row["method"], row["params"])
             for row in conn.execute(
-                select(configs.c.params)
+                select(configs.c.params, methods.c.name.label("method"))
                 .join(tasks, tasks.c.method_config_id == configs.c.id)
                 .join(methods, configs.c.method_id == methods.c.id)
-                .where(
-                    tasks.c.run_id == run_id,
-                    methods.c.name == "agent.opus",
-                    tasks.c.status != "skipped",
-                )
-            ).scalars()
+                .where(tasks.c.run_id == run_id, methods.c.name.in_(SUPPORTED_PRODUCERS),
+                       tasks.c.status != "skipped")
+            ).mappings()
         ]
+        models = [binding.configured_model for binding in bindings]
     declared = set(models)
     if len(declared) != 1 or None in declared:
         raise OperationConflict("automated extraction requires one explicitly configured model")
@@ -140,6 +140,13 @@ def extract_run(
         "Continue until queue_next returns no tasks; report any refusal honestly."
     )
     with tempfile.TemporaryDirectory(prefix="corpus-semantic-agent-") as directory:
+        receipt = (
+            settings.paths.data_dir
+            / "automated-extraction"
+            / f"run-{run_id}"
+            / (datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:12])
+        )
+        receipt.mkdir(parents=True, mode=0o700, exist_ok=False)
         config = Path(directory) / "mcp.json"
         config.write_text(
             json.dumps(
@@ -160,7 +167,11 @@ def extract_run(
                                 "--semantic-run",
                                 str(run_id),
                             ],
-                            "env": {"CORPUS_DATABASE__URL": settings.database.url},
+                            "env": {
+                                "CORPUS_DATABASE__URL": settings.database.url,
+                                "CORPUS_AGENT_INVOCATION_ID": receipt.name,
+                                "CORPUS_AGENT_RECEIPTS": str(receipt.resolve()),
+                            },
                         }
                     }
                 }
@@ -169,13 +180,6 @@ def extract_run(
         )
         config.chmod(0o600)
         environment = _provider_environment()
-        receipt = (
-            settings.paths.data_dir
-            / "automated-extraction"
-            / f"run-{run_id}"
-            / (datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:12])
-        )
-        receipt.mkdir(parents=True, mode=0o700, exist_ok=False)
         process = subprocess.Popen(
             [
                 command,
@@ -250,7 +254,11 @@ def extract_run(
                 json.dumps(
                     dict(
                         run_id=run_id,
+                        configured_model=model,
                         model=model,
+                        assurance="provider_reported",
+                        producer_bindings=[binding.values() for binding in bindings],
+                        invocation_id=receipt.name,
                         returncode=process.returncode,
                         process_outcome="interrupted"
                         if failure is not None
@@ -304,13 +312,22 @@ def extract_run(
             f"automated provider refused run {run_id}: {response.get('result')}; "
             f"raw receipts: {receipt}"
         )
+    metadata = json.loads((receipt / "invocation.json").read_text())
+    metadata.update(provider_session=response.get("session_id"),
+                    provider_reported_model=response.get("model"),
+                    provider_reported_model_usage=response.get("modelUsage"),
+                    reported_identity_available=(
+                        isinstance(response.get("model"), str)
+                        or isinstance(response.get("modelUsage"), dict)
+                    ))
+    (receipt / "invocation.json").write_text(json.dumps(metadata, indent=2) + "\n")
     with engine.connect() as conn:
         states = list(
             conn.execute(
                 select(tasks.c.status)
                 .join(configs, tasks.c.method_config_id == configs.c.id)
                 .join(methods, configs.c.method_id == methods.c.id)
-                .where(tasks.c.run_id == run_id, methods.c.name == "agent.opus")
+                .where(tasks.c.run_id == run_id, methods.c.name.in_(SUPPORTED_PRODUCERS))
             ).scalars()
         )
     if any(state in {"pending", "running", "awaiting_agent"} for state in states):

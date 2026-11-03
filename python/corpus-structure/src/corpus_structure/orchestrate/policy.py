@@ -190,6 +190,46 @@ def unit_language(
     )
 
 
+def source_propose_language(statement_kinds: Collection[str], methods: Collection[str]) -> Language:
+    """Executable source context: nullable classification exists; judgments/budgets do not."""
+    from dataclasses import replace
+
+    authored = unit_language(statement_kinds, methods, nullable_claim_bearing=True,
+                             native_unit_kinds=(TaskUnitType.SOURCE_VIEW.value,))
+    available = {"phase", "iteration", "unit", "ran", "outcome"}
+    return replace(authored,
+                   objects={"Unit": authored.objects["Unit"]},
+                   symbols={k: v for k, v in authored.symbols.items() if k in available},
+                   values={k: v for k, v in authored.values.items()
+                           if k[0] == "Unit" or k == (CALL, "outcome")},
+                   arguments={k: v for k, v in authored.arguments.items() if k in available})
+
+
+def admit_source_policy(source: str, registry: Any, prepared: Any) -> CompiledPolicy:
+    """Refuse unsupported execution before a run/task or source-registration effect."""
+    from corpus_structure.methods.llm.producer import producer_binding
+    from corpus_structure.semantic.statement_types import statement_kinds
+
+    file = parse_policy(source)
+    problems = [f"chain {chain}: not executable by source PROPOSE"
+                for chain in file.chains if chain != PolicyChain.PROPOSE]
+    for entry in file.chains.get(PolicyChain.PROPOSE, ()):
+        method_name, config_name = entry.do.method.split("/", 1)
+        try:
+            method = registry.method(method_name)
+            config = registry.overlay(method_name, config_name)
+            producer_binding(method_name, config.model_dump(mode="json"),
+                             unit=entry.unit_type or TaskUnitType.SOURCE_VIEW)
+            if method.unit_type != (entry.unit_type or TaskUnitType.SOURCE_VIEW):
+                raise ValueError("action unit differs from its method")
+        except (KeyError, ValueError) as error:
+            problems.append(f"{entry.key}: {error}")
+    if problems:
+        raise PolicyError(problems)
+    names = registry_configs(registry)
+    return compile_policy(file, source_propose_language(statement_kinds(prepared), names), names)
+
+
 # --- Compiling -------------------------------------------------------------------------------
 
 

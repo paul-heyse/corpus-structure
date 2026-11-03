@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import BaseModel
@@ -137,8 +137,13 @@ def run(
     slice: Annotated[str | None, typer.Option(help="Run a named slice.")] = None,
     scope: Annotated[str | None, typer.Option(help="Propose within a named scope.")] = None,
     corpus: Annotated[str | None, typer.Option(help="Ingest a named corpus slice.")] = None,
-    agent_mode: Annotated[AgentMode | None, typer.Option(help="wait or complete.")] = None,
-    agent_reuse: Annotated[AgentReuse | None, typer.Option(help="full or by_unit.")] = None,
+    agent_mode: Annotated[
+        Literal["complete"] | None,
+        typer.Option(help="complete (return after source preparation)."),
+    ] = None,
+    agent_reuse: Annotated[
+        Literal["full"] | None, typer.Option(help="full (complete immutable packet reuse).")
+    ] = None,
     gpu_mode: Annotated[GpuMode | None, typer.Option(help="The GPU mode.")] = None,
     fresh: Annotated[list[str] | None, typer.Option(help="A method not to reuse.")] = None,
     semantic_release: Annotated[

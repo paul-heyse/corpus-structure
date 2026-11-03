@@ -118,7 +118,7 @@ def build_resubmission_case(
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
             options={
-                "agent_configs": {"extract": config},
+                "agent_configs": {"agent.opus/extract": config},
                 **({"domain": domain} if domain is not None else {}),
             },
             code_commit="test",

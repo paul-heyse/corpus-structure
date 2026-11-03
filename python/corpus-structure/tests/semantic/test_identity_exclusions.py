@@ -179,7 +179,7 @@ def test_known_input_exclusions_follow_participating_endpoints(
             .mappings()
             .one()
         )
-        config = previous["options"]["agent_configs"]["extract"]
+        config = previous["options"]["agent_configs"]["agent.opus/extract"]
         run = create_run(
             conn,
             project_id="resubmit",
@@ -187,7 +187,7 @@ def test_known_input_exclusions_follow_participating_endpoints(
                 prepared.release_id, first.realization_id, first.data_revision, b"{}"
             ),
             kind="full",
-            options={"agent_configs": {"extract": config}},
+            options={"agent_configs": {"agent.opus/extract": config}},
             code_commit="test",
         )
         from pathlib import Path

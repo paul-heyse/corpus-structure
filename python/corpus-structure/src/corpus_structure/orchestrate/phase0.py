@@ -31,7 +31,7 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 from corpus_structure.ingest import methods as ingest_methods
-from corpus_structure.methods.llm.agent_opus import AgentOpus
+from corpus_structure.methods.llm.agent_opus import AgentGeneral, AgentOpus
 from corpus_structure.methods.math import methods as math_methods
 from corpus_structure.orchestrate.domain_methods import ConsolidateMethod, RulesMethod
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
@@ -92,6 +92,7 @@ METHODS: tuple[Any, ...] = (
     *ingest_methods.METHODS,
     *math_methods.METHODS,
     AgentOpus(),
+    AgentGeneral(),
     ConsolidateMethod(),
     RulesMethod(),
     EvaluateStub(),

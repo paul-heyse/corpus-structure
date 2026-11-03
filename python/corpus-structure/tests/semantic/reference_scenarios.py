@@ -72,7 +72,7 @@ def publish_reference_case(
             project_id="reference",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={"agent_configs": {"extract": config}, "domain": domain},
+            options={"agent_configs": {"agent.opus/extract": config}, "domain": domain},
             code_commit="authored-current-reference",
         )
         document = register_document(
