@@ -140,3 +140,82 @@ V_joint,e2e − V_union =
 Control each comparison's candidate universe and downstream policy before interpreting a term. Remove ontology factors at fixed evidence to examine compatibility, and compare dependence handling on precision, coverage and calibration to distinguish gain from overconfidence. Fixed-evidence ablation can mask reusable observations if their inputs and candidate universe stay fixed. A component removal that changes mentions, labels, preprocessing, context windows or retrieval must recompute dependent observations and candidates for an end-to-end result.
 
 The reference harness specifies exact subset enumeration up to 12 groups. Eight functional groups give 256 subsets, and adding corpus and LLM yields 1,024. The target considers Monte Carlo permutation sampling for finer within-group contributions. Bootstrap at document or source-family level, keeping dependent passages and editions together. Consider prediction-powered inference for aggregate quality only with an independently adjudicated, representative audit and an appropriate dependence-aware sampling design. Report candidate recall, complete-record precision and coverage, qualifier attachment, abstentions and resource costs before reporting attribution summaries. Use the stronger simpler method where coupling fails to produce a sufficient benefit. [Measuring the synergy](https://app.notion.com/p/40b141b58369815e898fd46f2b34bfdd), [Rollout and evaluation](rollout-and-evaluation.md)
+
+
+## M1 numerical realization
+
+**Proposed · 2026-11-03; [review O04](../functional_reviews/m1-target-design_2026-11-03.md#O04).**
+Keep domain decisions in the existing semantic operation model. NumPy arrays are the bounded
+physical representation; SciPy supplies numerical kernels, not an independent interpretation
+policy. The product already pins SciPy 1.18.1 and NetworkX 3.7; this review changes neither.
+
+1. Assign stable finite domains, including unresolved and genuine local/new identity alternatives.
+   Declare all factor scopes, evidence-dependence scopes and constraints before forming components.
+   `networkx.connected_components` can partition this dependency graph. Shared release metadata
+   alone does not couple variables; a real shared factor or global constraint does.
+2. Enumerate bounded assignment blocks, evaluate feasibility under selected meanings, and accumulate
+   log potentials. An infeasible assignment has log weight negative infinity. Reject invalid model
+   inputs/nonfinite potentials explicitly. If feasible positive support is empty, return infeasible
+   rather than a uniform distribution or a successful empty extraction.
+3. Use `scipy.special.logsumexp` for the partition and record-event sums. With log weights `a` and
+   event mask `M`, compute `exp(logsumexp(a[M]) - logsumexp(a))`. Repeated derivations of the same
+   event do not count an assignment twice. The event includes every meaning-changing qualifier.
+4. Normalize over complete enumerated support before reducing to displayed alternatives. Record
+   probabilities are conditional on the declared retained-candidate model. Candidates never
+   generated have unknown omitted mass, not a computed probability of being wrong. Keep candidate
+   recall, inference exactness and empirical calibration separate.
+5. Return coherent alternatives, event probability/score standing, useful marginals, dependencies
+   and feasibility/search/limit diagnostics. A state limit, elapsed limit and numerical failure
+   have different outcomes. No marginal product, silent split or MAP fallback substitutes for the
+   requested record-event sum.
+
+Sources: [SciPy §12.1](../libraries/scientific_compute/scipy.md),
+[logsumexp](https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.logsumexp.html),
+[NetworkX §3](../libraries/scientific_compute/networkx.md).
+
+### Factorized and optimized alternatives
+
+pgmpy `DiscreteMarkovNetwork` plus `DiscreteFactor` matches undirected compatibility potentials.
+Evaluate `VariableElimination` or junction-tree inference only for a concrete workload where
+factorization/repeated queries improve the complete route. Preserve variable/state ordering and
+hard zeros, establish a positive finite partition, and explicitly normalize the returned factor
+where the selected route does not. Current upstream Markov-network query paths do not share all
+normalization behavior of Bayesian/junction-tree branches; pin and inspect the selected version.
+Probability-space factor products also require stability qualification. An arbitrary `FactorGraph`
+query route is not assumed supported from a base-class signature.
+
+Elimination order and intermediate factors can defeat a small output bound. Requesting a full joint
+can reproduce enumeration's output size. Require small independent expected cases for event sums,
+zero support, state permutations and extreme log weights before substitution. Exact inference
+still says nothing about empirical calibration. Sources: [pgmpy §§5, 10](../libraries/scientific_compute/pgmpy.md),
+[exact-inference source](https://pgmpy.org/_modules/pgmpy/inference/ExactInference.html).
+
+Z3 satisfiability/unsat explanations and SciPy `milp` or CVXPY constrained optimization remain
+options for a demonstrated constraint/best-assignment problem. None by itself supplies a partition
+function or posterior marginals. Approximate inference needs its own error/status policy and a
+separately evaluated reason to replace the exact supported subset.
+
+### Fitting, calibration and population uncertainty
+
+Fit grouped evidence features first; assess/calibrate final record-event predictions after
+constraints and coupling; then choose family thresholds on development data and freeze before
+final assessment. Head calibration does not survive arbitrary factor addition by assumption.
+A regularized logistic `Pipeline` and `CalibratedClassifierCV` are focused scikit-learn candidates
+when isolated labels support fitting; use explicit group-separated index splits. Sparse fitting
+data warrants provisional scores, not an unsupported calibrated label.
+
+For paired comparisons, resample independent source groups and recompute aggregate complete-record
+ratios from each group's contributions. SciPy `stats.bootstrap` supplies resampling machinery;
+`paired=True` does not infer clusters or fix the sampling design. A zero-error sample can make a
+naive percentile/BCa interval degenerate; it cannot automatically establish the proposed precision
+lower bound. Few source groups limit generalization even with many records. Freeze a suitable
+sampling/interval procedure before final assessment; insufficiency keeps the gate unestablished.
+Statsmodels GEE and prediction-powered inference are later population-analysis options with their
+own estimands and assumptions, not per-record certification.
+
+Sources: [SciPy §8](../libraries/scientific_compute/scipy.md),
+[bootstrap](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.bootstrap.html),
+[scikit-learn calibration](https://scikit-learn.org/stable/modules/calibration.html),
+[statsmodels](../libraries/scientific_compute/statsmodels.md),
+[PPI](../libraries/scientific_compute/ppi_py.md). No fitting, calibration or numerical execution
+was performed for this design review.

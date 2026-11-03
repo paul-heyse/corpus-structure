@@ -2,6 +2,18 @@
 
 The [first production milestone](first-production-milestone.md) begins at the repository's selected, published Docling + Nemotron PDF product. Prepare linguistic and source-context views once, load the pinned domain release, and run routed GLiNER2.5 operations and deterministic parsers over those views. Preserve their observations, input identities and source addresses for assembly and interpretation. The larger CPU stack and wave schedule below describe expansion candidates and their dependencies. See the [target design index](README.md) and [Notion section 3](https://app.notion.com/p/40a141b5836981e8bea1fef28ec39471).
 
+## Reviewed M1 foundation
+
+**Proposed · 2026-11-03.** The [detailed M1 contracts](first-production-milestone.md#owned-model-and-operation-contracts)
+select shared sentence/linguistic preparation, loss-aware contexts and field-addressable evidence
+on the existing semantic spine. The source baseline is now `b8e1a020`; the wider streams below
+remain expansion leads rather than additional M1 dependencies. Statistics is the initial release
+population; engineering scenarios assess reusable contracts without asserting release coverage.
+LinkML and prepared Pydantic boundaries retain domain authority. Arrow/DuckDB scopes realize
+bulk candidate joins and audits, NumPy/SciPy realize bounded numerical components, and the
+existing publication owner admits qualified records. No new store, generic workflow engine or
+parallel ontology authority is selected. See [review O01–O07](../functional_reviews/m1-target-design_2026-11-03.md#O01).
+
 ## L0 · Published form, PDF and recognition
 
 **Standing.** The 31 October 2026 Notion decision selects PDF as the only pipeline input, with Docling as the structural front end. How each source reaches its published form, how it is rendered, and how its lost structure is carried forward are Proposed. Repository [ADR-0040](../adr/0040-forward-pdf-only-contracts.md) is the accepted go-forward authority for integrated Docling/RapidOCR and Nemotron 3.5. It places source-to-PDF conversion upstream of repository ingestion. The earlier Notion Nemotron options remain design evidence. [Notion L0](https://app.notion.com/p/40a141b58369811b8cd1dc6d9da943b3), [PDF-only decision](https://app.notion.com/p/40b141b583698124bc73ee1447273e70).

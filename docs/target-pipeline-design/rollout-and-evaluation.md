@@ -101,3 +101,42 @@ The earlier rollout builds shared machinery at stage 1, then adds typed decision
 The three reference prototypes run with generation disabled. P1, quantities and conditions, completes at stage 5. P2 spans stages 3–4 and jointly resolves clusters, type, links and relations. P3 assembles tables at stage 4. The source's 20-document labelled harness, passage recall sample and manual counts are historical design parameters. M1 sizes the assessment to its gate evidence needs. Reference stress tests include duplicated evidence, removed clues, flipped negation, moved conditions and plausible incorrect ontology expectations. [Stages register](registers/stages.md) · [Prototype plan](https://app.notion.com/p/40b141b583698119a17ad60732732306)
 
 The longer-term loop writes versioned observations, generates candidates plus unresolved, performs bounded joint resolution and deterministic closure, accepts at evaluated thresholds, targets retrieval or reprocessing, records corpus support/conflict and reviews ontology proposals. The earlier plan envisages EVI-based escalation through targeted extraction, local CPU LLM and review, plus a post-stage-5 LLM comparison. It also envisages eight stream groups (layout, parse, mentions, quantities, identity, conditions, tables, ontology) and 256 subset evaluations, with corpus and LLM as later groups. Exact group Shapley/Möbius and paired interactions, within-group permutation sampling and fresh audit estimates are analytical extensions. Compute them against a fixed population and policy, with end-to-end dependency replay when measuring components. Model changes re-run affected evidence and a frozen benchmark. Review utility per CPU-second, per-family precision, candidate recall and calibration. Treat attribution as a diagnostic for further controlled experiments. [Finished loop and release checks](https://app.notion.com/p/40b141b5836981939830fb1a4f1aa16a) · [Mathematics](mathematics.md)
+
+
+## Reviewed M1 evaluation and adoption boundary
+
+**Proposed · 2026-11-03; [review O07](../functional_reviews/m1-target-design_2026-11-03.md#O07).**
+Extend the existing protected evaluator beyond its current `agent_claims` family rather than
+creating another scorer. Family guidelines must describe which core/full/evidence comparisons
+apply, occurrence versus fact counting, qualifier applicability and field-to-anchor matching.
+References are independently authored from sources; production validators establish conformance,
+not reference correctness. A strict validator rejecting both sides is not evidence of fidelity.
+
+The population is the statistics source cut with explicit supported subsets. Source-region audits
+supply recall denominators, including eligible regions producing nothing. The larger original-page
+coverage audit accounts for absent/unreadable intake and unrepresentable knowledge separately.
+Engineering transfer cases must exercise the same shared operations with another domain profile;
+they are contract challenges, not an engineering release or a population estimate.
+
+Keep development, fitting, final-event calibration and final assessment isolated by credible
+source-origin groups. Use explicit group splits for fitting tools. For paired comparisons,
+resample groups and recompute aggregate ratios; pairing rows alone is insufficient. Do not let a
+degenerate all-correct bootstrap certify the precision lower bound. Sampling and interval choice,
+independent-group sufficiency and actual candidate component sizes remain pre-release prerequisites.
+See [numerical evaluation details](mathematics.md#m1-numerical-realization). Working gate targets
+above remain unchanged and unestablished by this review.
+
+Required consumer challenges are the definition/alias, pressure ambiguity, table-note, scoped
+formula, no-output/search-limit and invalidation/interruption cases in the
+[milestone](first-production-milestone.md#worked-contract-challenges). Exercise actual extraction,
+publication, pinned CLI/MCP inspection and export with general LLM extraction disabled. A mock
+model or static walkthrough cannot establish the corresponding provider or release outcome.
+Qualification also covers extreme numeric weights, empty feasible support, complete-record events
+and state-order changes independently of production expectations.
+
+Record aggregate CPU/thread settings and process RSS as well as engine settings. DuckDB's
+`memory_limit` is not a process memory guarantee, and Arrow batch rows/readahead do not bound bytes.
+Profile dense/long contexts and actual whole-record output before claiming the initial envelope.
+Maintain the original failed/interrupted results and the prior accepted cut for rollback.
+Broader O08–O11 opportunities stay in the review with promotion conditions; no all-stream ablation,
+new specialist, runtime probe or benchmark campaign is required merely to finish this design.

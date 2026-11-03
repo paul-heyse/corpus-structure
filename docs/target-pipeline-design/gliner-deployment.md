@@ -65,3 +65,35 @@ Begin with coherent source-aware windows covering definitions, sentence groups, 
 Key observations by source and effective context, schema, operation, weights/adapter, tokenizer, normalization and configuration. Preserve dependency identities for repeated text. Hidden state reuse requires compatible encodings, masks and query construction. Version schema edits and replay affected work. Repair descriptions, anchors, overlap policy, budgets and context before adding another model. Compare supervised or LoRA adaptation against the base only after a systematic gap has suitable references. Use explicit span supervision for repeated strings, negative labels and nesting. Isolate concurrent requests with incompatible mutable adapter state.
 
 Run real retained source examples across all selected operations. Verify exact mappings, grouping with several anchors, nested/long spans, and explicit empty, failed, infeasible, truncated and over-budget outcomes. Audit absent output and missed routing in independent source samples. Compare base/small, combined/separate, broad/routed, native/outer assembly and independent/JointIE where applicable using full records, evidence alignment, CPU and peak memory. A decoder score is an input to calibration and acceptance. Each released family requires its own evaluated subset. [Deployment acceptance](https://app.notion.com/p/40d141b58369811aa70ddcc1d75473ac) · [Release gates](rollout-and-evaluation.md#release-gates)
+
+
+## Reviewed M1 operation profile
+
+**Proposed · 2026-11-03; [review O02/O05](../functional_reviews/m1-target-design_2026-11-03.md#O02).**
+Use the base FP32 CPU checkpoint as the reference and small as the resource challenger. Verify
+actual package/checkpoint/tokenizer/relation-head support before activation. Tagged v2.1.0
+[tutorials](https://github.com/fastino-ai/GLiNER2/tree/v2.1.0/tutorial) support the operation choices;
+local inference remains unqualified. Rich record cardinality/ambiguity signatures and the
+explicit-span bridge require exact-source confirmation; unavailable documentation is not proof
+of capability absence.
+
+Schema registry entries bind native serialized schema, domain release, applicability, descriptions,
+span conventions, occurrence anchor, limits, required evidence and examples. Derive shape from
+owned domain definitions, with authored model descriptions as versioned extraction policy.
+Round-trip the selected supported schema representation before reuse; do not create a second
+independently mutable family schema. The extraction adapter returns native diagnostics plus
+source-bound observations through existing result binding, never directly accepted facts.
+
+Run compatible combined heads over one context where useful, but compare with separate packs
+when context or recall differs. Retain per-window outputs before merging. Use explicit
+`Classifier` infeasibility handling and preserve `JointIE` candidate/feasibility diagnostics;
+shared scores or repeated decoding remain one evidence lineage. Native long APIs cannot create
+cross-window edges. A required field without located evidence remains incomplete regardless of
+cardinality constraints. Mention attributes cannot recover a suppressed mention or establish
+negation scope on their own.
+
+Keep model initialization resident and batch through one run-owned CPU admission route initially.
+The source runner does not yet implement the proposed coordinated scheduler. Reuse task fencing,
+cancellation and scoped ownership; implement CPU admission and worker supervision as delivery work. No hidden hosted fallback, model swap or adaptive candidate reduction
+may silently preserve the same computation identity. Pin any output-affecting batch/precision
+behavior and keep retry attempts distinct from logical observation identity.

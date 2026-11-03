@@ -22,6 +22,11 @@ _Updated 2026-11-03; native99 implementation and non-Claude source qualification
   ADR-0047 current-only compiler14/boundary12/execution23/archive3 remains; no legacy runtime fallback.
   Unselected improvements and diagnostic audit premises are unchanged.
 
+- **Proposed design, 2026-11-03:** [M1 target](docs/target-pipeline-design/first-production-milestone.md)
+  now integrates the [functional review](docs/functional_reviews/m1-target-design_2026-11-03.md):
+  five statistics-first CPU record families, concrete library mechanisms and staged extensions.
+  Implementation selection and M1 runtime/release qualification remain separate.
+
 ## Verification
 
 - **passed, bounded:**3318 distinct functional nodes/563 native, zero required unresolved and complete
@@ -40,6 +45,9 @@ _Updated 2026-11-03; native99 implementation and non-Claude source qualification
   prior applicable ready, lint-agents, adr-lint, deps and clippy. Evidence136records/0errors/39warnings.
 - **failed, deferred:** docs-check has existing library-reorganization publication links.
   Final just turn-end passed; current docs-check reports no owned UM/consumer link error.
+
+- **M1 docs, 2026-11-03:** `git diff --check` passed; `just docs-check` failed on existing
+  publication links, with no M1 target/review target error. Product checks `not_run` (design only).
 
 ## Next
 

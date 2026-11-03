@@ -55,3 +55,11 @@ owns [O01 operation applicability](../design_review/reviews/design_review_unifie
 [O03 actionable validation](../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#O03).
 This engagement uses one principal report rather than duplicate opportunity text. These are
 Proposed model-centered extensions; selection and implementation planning remain separate.
+
+
+## First production milestone — 2026-11-03
+
+The [M1 target-design review](m1-target-design_2026-11-03.md) develops O01–O07 for the proposed
+five-family CPU-first release and stages O08–O11 as conditional or broader opportunities.
+The [target package](../target-pipeline-design/README.md) holds the integrated detailed proposal.
+These documents establish neither accepted implementation scope nor runtime qualification.
