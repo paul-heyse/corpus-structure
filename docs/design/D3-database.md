@@ -2,6 +2,15 @@
 
 ## M1 record evidence custody
 
+**Implemented; bounded Tested (2026-11-03, native100 private author/test scope).** Protected
+completion authenticates exact selected source/product/projection/recipe and native/cell/text
+coordinates for same-pin private records. It refuses accepted whole-record standing. The pinned
+run/cut reader revalidates relationships, distinguishing predecessor absence from explicit empty.
+Source-product memberships and all product datatypes refuse graph publication, retaining all
+three predecessor validators. [123 focused checks](../design_review/evidence/2026-11-03_m1-private-records/README.md)
+cover this boundary; accepted record projections/cross-view custody remain open. Live native99
+application and defaults are unchanged.
+
 **Accepted target, Proposed until implemented (2026-11-03).** Private source-product schemas
 are enforced at their authenticated report boundary. Protected knowledge validation refuses source
 product memberships and datatypes, including empty/disconnected values. The native ordinary-graph

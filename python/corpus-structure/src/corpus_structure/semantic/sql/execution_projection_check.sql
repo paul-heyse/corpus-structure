@@ -28,6 +28,7 @@ BEGIN
  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived scientific_decision_rule projection differs' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (WITH declarations AS (SELECT d FROM jsonb_array_elements(document->'products'->'definitions') d), props AS (
  SELECT d,p FROM declarations CROSS JOIN LATERAL jsonb_array_elements(d->'properties') p
+ WHERE d->>'name'<>'SourceRecordProduct' AND NOT (d->'ancestors' ? 'SourceRecordProduct')
  ) SELECT DISTINCT r release_id,d->>'iri' class_id,p->>'iri' property_id,roles.role
  FROM props CROSS JOIN LATERAL (
  SELECT 'identity' role WHERE EXISTS(SELECT FROM jsonb_array_elements(d->'identity_groups') g CROSS JOIN LATERAL jsonb_array_elements_text(g) member WHERE member.value=p->>'name')

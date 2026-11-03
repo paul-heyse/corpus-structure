@@ -274,6 +274,7 @@ _RETIRED_SOURCE_FUNCTIONS = frozenset(
     }
 )
 _CURRENT_SOURCE_GUARDS = {
+    ("data", "validate_state"): "source_record_graph.sql",
     ("eval", "guard_scientific_decisions"): "execution_projection.sql",
     ("sem", "require_execution_operation"): "execution_projection.sql",
     ("ops", "guard_task_method_contract"): "current_operation_guards.sql",

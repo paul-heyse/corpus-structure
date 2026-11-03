@@ -164,8 +164,10 @@ def _validate_manifest(
 
 def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]]]:
     from .publication import native_constraints
+    from .record_contracts import record_product_classes
 
     constraints = native_constraints(prepared)
+    products = record_product_classes(prepared.definitions)
     rid = prepared.release_id
     rows: dict[str, list[dict[str, Any]]] = {
         name: []
@@ -191,6 +193,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
     }
     properties: dict[str, str] = {}
     class_ids = {cls.name: cls.iri for cls in prepared.definitions}
+    product_iris = {class_ids[name] for name in products}
     for cls in prepared.definitions:
         rows["class_definition"].append(
             {
@@ -207,6 +210,8 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         )
         for prop in cls.properties:
             properties.setdefault(prop.iri, prop.name)
+            if cls.name in products:
+                continue
             rows["property_applicability"].append(
                 {
                     "release_id": rid,
@@ -221,7 +226,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
                     "constraints": constraints[cls.iri, prop.iri],
                 }
             )
-        for group_id, group in enumerate(cls.identity_groups):
+        for group_id, group in enumerate(cls.identity_groups if cls.name not in products else ()):
             rows["identity_slot"].extend(
                 {
                     "release_id": rid,
@@ -255,6 +260,8 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         if artifact.kind != "conditional_rules_native.json":
             continue
         for rule in json.loads(artifact.content):
+            if rule["class_id"] in product_iris:
+                continue
             rows["conditional_rule"].append(
                 {
                     "release_id": rid,
@@ -344,6 +351,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
     rows["operation_property_role"] = [
         {"release_id": rid, "class_id": cls, "property_id": prop, "role": role}
         for (cls, prop), roles in sorted(prepared.index.property_roles.items())
+        if cls not in product_iris
         for role in sorted(roles)
     ]
     for artifact in prepared.artifacts:

@@ -4674,7 +4674,7 @@ invariants:
   implementation: publish_source_view
   observable: true
   diagnostics:
-  - {operation: complete, kind: guard, sqlstate: '23514', guard: native_source_address, guard_version: '1'}
+  - {operation: complete, kind: guard, sqlstate: '23514', guard: native_source_address, guard_version: '2'}
   - {operation: publish_source_view, kind: constraint, sqlstate: '23503', schema_name: kb, table_name: source_view, constraint_name: fk_source_view_native_build_id_native_task_id_native_pr_bef7}
   - {operation: publish_source_view, kind: constraint, sqlstate: '23503', schema_name: kb, table_name: source_view, constraint_name: fk_source_view_native_build_id_native_revision_id_secti_79ff}
   - {operation: publish_source_view, kind: constraint, sqlstate: '23514', schema_name: kb, table_name: source_view, constraint_name: ck_source_view_physical_73dfcc4ba8}
@@ -9990,7 +9990,7 @@ implementations:
 - id: bind_report
   owner: semantic.observations
   symbol: bind_result
-  version: '1'
+  version: '2'
   placement: pure
   input_concepts: *id058
   result_concepts: *id059
@@ -12510,7 +12510,7 @@ outcome_translations:
 native_guards:
 - id: native_source_address
   symbol: ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)
-  version: '1'
+  version: '2'
   invariants: [published_document_address]
 - id: execution_edge
   symbol: ops.execution_edge(text,text,text)

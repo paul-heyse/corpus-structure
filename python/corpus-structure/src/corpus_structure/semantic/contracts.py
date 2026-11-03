@@ -63,6 +63,11 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("pdf/native-consumer-native.py", "semantic/native_consumer_native.py"),
     ("pdf/source-view-native.py", "semantic/source_view_native.py"),
     ("pdf/native-task-completion.sql", "semantic/sql/native_task_completion.sql"),
+    ("records/source-record-completion.sql", "semantic/sql/source_record_completion.sql"),
+    ("records/graph-validation.sql", "semantic/sql/source_record_graph.sql"),
+    ("records/release-projection.py", "semantic/releases.py"),
+    ("records/graph-publication.py", "semantic/publication.py"),
+    ("records/execution-projection-check.sql", "semantic/sql/execution_projection_check.sql"),
 )
 
 
@@ -500,7 +505,7 @@ class NativeGuardBinding:
 _APPROVED_NATIVE_GUARDS = {
     "execution_edge": ("ops.execution_edge(text,text,text)", "1"),
     "execution_task": ("ops.guard_execution_task()", "2"),
-    "native_source_address": ("ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)", "1"),
+    "native_source_address": ("ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)", "2"),
     "execution_run": ("ops.guard_execution_run()", "1"),
     "conditional_kernel": ("data.validate_conditions(text,text)", "1"),
     "completed_result": ("data.finish_evaluation(bigint,text,text)", "1"),
@@ -919,6 +924,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("invocation/server.py", "intervene/semantic_server.py"),
                 ("invocation/method.py", "core/method.py"),
                 ("invocation/operations.py", "semantic/operations.py"),
+                ("records/records.py", "semantic/records.py"),
+                ("records/record-contracts.py", "semantic/record_contracts.py"),
+                ("records/observations.py", "semantic/observations.py"),
                 ("capture/storage.py", "semantic/capture_storage.py"),
                 ("publication/arrow.py", "semantic/arrow_publication.py"),
                 ("graph/ontology.py", "semantic/ontology.py"),
@@ -1464,6 +1472,9 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "invocation/automated.py",
         "invocation/source_frames.py",
         "invocation/proposals.py",
+        "records/records.py",
+        "records/record-contracts.py",
+        "records/observations.py",
         "invocation/source_search.py",
         "pdf/native_source.py",
         "invocation/server.py",

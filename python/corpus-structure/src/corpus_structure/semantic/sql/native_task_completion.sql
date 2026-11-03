@@ -1,6 +1,8 @@
 CREATE OR REPLACE FUNCTION ops.complete_task(p_task bigint,p_attempt bigint,p_holder text,p_rows jsonb,p_outcome text,p_error jsonb,p_envelope jsonb DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; r ops.run; item jsonb; ids bigint[] := '{}'; oid bigint; digest text; native_input jsonb; origin kb.observation; view kb.source_view; ancestor kb.source_view;
+ source_record jsonb; record_anchor jsonb; record_fields jsonb; record_schema json;
+ record_pointer text; record_cell integer; record_node jsonb; record_text text; record_placement ops.pdf_published_revision;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  SELECT * INTO STRICT r FROM ops.run WHERE id=t.run_id FOR SHARE;
@@ -15,6 +17,7 @@ BEGIN
  IF p_outcome NOT IN ('done','empty','failed') OR (p_outcome='done')<>(jsonb_array_length(p_rows)>0) OR (p_outcome='failed')<>(p_error<>'null'::jsonb) THEN
    RAISE EXCEPTION 'inconsistent terminal outcome';
  END IF;
+ -- {source_record_guard}
  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
    IF t.unit_type='source_view' AND (item->>'source_view_id')::bigint IS DISTINCT FROM t.unit_id THEN
     RAISE EXCEPTION 'native observation differs from producing source-view task unit' USING ERRCODE='23514'; END IF;
@@ -39,11 +42,11 @@ BEGIN
       RAISE EXCEPTION 'native observation input differs from its declared source relation' USING ERRCODE='23514'; END IF;
     END LOOP;
     IF item->'payload'->>'native_pointer' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.pdf_record_access n WHERE n.product_id=view.native_build_id AND n.revision_id=view.native_revision_id AND n.pointer=item->'payload'->>'native_pointer' AND view.projection->'items' ? n.pointer) THEN
-     RAISE EXCEPTION 'native observation pointer outside selected view' USING ERRCODE='23514', DETAIL='{"protocol":"corpus-invariant-1","guard":"native_source_address","version":"1","invariant":"published_document_address"}'; END IF;
+     RAISE EXCEPTION 'native observation pointer outside selected view' USING ERRCODE='23514', DETAIL='{"protocol":"corpus-invariant-1","guard":"native_source_address","version":"2","invariant":"published_document_address"}'; END IF;
     IF num_nonnulls(item->'payload'->>'projected_start',item->'payload'->>'projected_end') NOT IN (0,2)
       OR num_nonnulls(item->'payload'->>'recognized_start',item->'payload'->>'recognized_end') NOT IN (0,2)
       OR (item->'payload'->>'recognized_start' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.pdf_record_access n WHERE n.product_id=view.native_build_id AND n.revision_id=view.native_revision_id AND n.pointer=item->'payload'->>'native_pointer' AND 0<=(item->'payload'->>'recognized_start')::bigint AND (item->'payload'->>'recognized_start')::bigint<(item->'payload'->>'recognized_end')::bigint AND (item->'payload'->>'recognized_end')::bigint<=char_length(n.text))) THEN
-     RAISE EXCEPTION 'native observation extent is not a qualified native/projected range' USING ERRCODE='23514', DETAIL='{"protocol":"corpus-invariant-1","guard":"native_source_address","version":"1","invariant":"published_document_address"}'; END IF;
+     RAISE EXCEPTION 'native observation extent is not a qualified native/projected range' USING ERRCODE='23514', DETAIL='{"protocol":"corpus-invariant-1","guard":"native_source_address","version":"2","invariant":"published_document_address"}'; END IF;
     IF item->'payload'->>'projected_start' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.source_view v WHERE v.id=(item->>'source_view_id')::bigint AND 0<=(item->'payload'->>'projected_start')::bigint AND (item->'payload'->>'projected_start')::bigint<(item->'payload'->>'projected_end')::bigint AND (item->'payload'->>'projected_end')::bigint<=char_length(v.projection->>'text')) THEN
      RAISE EXCEPTION 'native projected observation outside text' USING ERRCODE='23514'; END IF;
    END IF;

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "m1.native-private-record-custody",
+  "title": "Native100 private source-record custody",
+  "group": "M1",
+  "package": "M1-03",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can private source records be persisted/read under authenticated source custody while preserving predecessor native graph guards and refusing accepted graph use?",
+  "answers": [],
+  "method": "Author native100 from frozen99 in owned disposable databases, retain all attempts, then run final123 focused preparation/record/native/publication controls against final009 artifacts and compare exact source hashes.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_prepare.py python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_observations.py python/corpus-structure/tests/semantic/test_private_records.py python/corpus-structure/tests/semantic/test_proposals.py python/corpus-structure/tests/semantic/test_source_frame_admission.py python/corpus-structure/tests/semantic/test_execution_native.py::test_conditional_kernel_reaches_protected_publication python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[reason] python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[missing_primary] -q --tb=short",
+    "sha256sum --check docs/design_review/evidence/2026-11-03_m1-private-records/final009-source-sha256.txt"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "final009-source-sha256.txt",
+      "role": null,
+      "sha256": "b3fd73fe2376e2ce4f14be9f5fbd3080508a31a8deae6f605c9aec26fa9f9d28"
+    },
+    {
+      "path": "focused-final-tests-attempt-002.txt",
+      "role": null,
+      "sha256": "612f63376a19d089037fe701a21c623b04bb7a336a6e0e11b571788352a39faf"
+    },
+    {
+      "path": "report-schema-refresh.json",
+      "role": null,
+      "sha256": "d2ab11f704f0b78203c5f6986b1cc4e4645452417075297e706ba7abe23068d2"
+    },
+    {
+      "path": "attempt-009",
+      "role": null,
+      "sha256": "5619649a5c79595894445d0ad6ccf0dc398da216656b91475c91b5cc2a2d2fc6"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Native100 private custody authoring and123 focused tests passed; full pins/text/cells, typed reader, replay, absence/empty distinction, product conditional schema and graph fences enforced. All3 predecessor graph validator bodies preserved. Live application/default not migrated; accepted field-addressable record publication, cross-view admission, actual producer integration and complete M1 remain open.",
+  "consumed_by": [
+    "M1-02",
+    "M1-03",
+    "M1-11"
+  ]
+}

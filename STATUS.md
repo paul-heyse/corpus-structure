@@ -5,8 +5,9 @@ _Updated 2026-11-03; M1 implementation active. UM functionality/validation is co
 
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md) owns M1-00–15/O01–O07.
   ADR-0049 and the scoped combined initial-target review accept the Proposed extension route.
-  Private five-family record/field/evidence contracts are implemented and tested; native custody,
-  publication, related-source integration and assembled acceptance remain open. No qualified M1 release.
+  Private five-family contracts and same-pin native100 candidate custody/read are implemented and
+  tested in disposable databases. Public publication, related-source integration and assembled
+  acceptance remain open. No qualified M1 release; live application stays native99.
 - Actual GLiNER2.1.0 CPU FP32 entity and combined-head operations passed from a hashed immutable
   offline snapshot. The first repo-name attempt is retained/superseded for incomplete revision custody.
   [CPU evidence](docs/design_review/evidence/2026-11-03_m1-gliner-cpu/README.md) is operation-only.
@@ -29,7 +30,7 @@ _Updated 2026-11-03; M1 implementation active. UM functionality/validation is co
 
 ## Verification
 
-- **M1 passed, bounded, 2026-11-03:**74 preparation/record/observation tests;37 mapped-context tests;
+- **M1 passed, bounded, 2026-11-03:**123 final native/private/adjacent tests;37 mapped-context tests;
   75 annotation/sentence/private-comparison tests; scoped Ruff/Pyrefly;
   `just ready` after exact GLiNER addition; detached population verification; actual offline GLiNER
   and richer spaCy CPU calls. Annotation/native display identity is preserved independently of POS.
@@ -48,7 +49,7 @@ _Updated 2026-11-03; M1 implementation active. UM functionality/validation is co
 
 ## Next
 
-M1: authenticate private records through existing native completion and typed reads; integrate
-versioned mapped contexts, then annotation/runtime/assembly/evaluator consumers. M1-14 qualification
+M1: integrate resident CPU execution with mapped contexts, annotation and actual producers; deliver
+family assembly/publication/evaluator consumers. Cross-view custody remains open. M1-14 qualification
 stays open. UM: complete queued agent assessment and references under its own continuation route;
 M1 does not reopen completed UM functionality or validation.

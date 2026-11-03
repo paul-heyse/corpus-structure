@@ -626,6 +626,7 @@ def complete_unit_result(
     method: Method[Any] | OperationDescriptor,
     configuration_hash: str,
     source: str,
+    records: Sequence[Mapping[str, Any]] | None = None,
 ) -> CompletionResult:
     """The actual recognizer terminal boundary: binding, source storage and one native fence."""
     from .contracts import require_bound_operation
@@ -645,6 +646,16 @@ def complete_unit_result(
     )
     if task["attempt"] != attempt or task["claimed_by"] != holder:
         raise OperationConflict("recognizer attempt lost")
+    record_coordinates = ()
+    if records is not None:
+        from .records import authenticated_coordinate_texts
+
+        require_bound_operation(prepared, "bind_report")
+        if (result.ref.unit_key, result.ref.unit_id) != (task["unit_key"], task["unit_id"]):
+            raise OperationConflict("private record result differs from its exact task unit")
+        record_coordinates = authenticated_coordinate_texts(
+            conn, prepared, dict(task), source, records
+        )
     bound = bind_result(
         prepared,
         source=source,
@@ -657,6 +668,8 @@ def complete_unit_result(
         method_confidence_source=str(method.confidence_source)
         if method.confidence_source is not None
         else None,
+        records=records,
+        record_coordinate_texts=record_coordinates,
     )
     # Native completion receives JSON, while complete_task admits each typed
     # observation through the Python boundary. Keep those representations separate.
@@ -766,6 +779,11 @@ class BoundReader:
         from .pdf_contracts import pdf_context_for_release
 
         return pdf_context_for_release(self.conn, self.prepared).boundary
+
+    def source_record_report(self, task_id: int):
+        from .records import read_private_record_report
+
+        return read_private_record_report(self, task_id)
 
     def source_views(self):
         cached = getattr(self, "_native_view_refs", None)

@@ -137,7 +137,7 @@ experiments. The result constrains dependent work even when it selects an existi
 
 ## Execution queue and readiness
 
-M1-00/01/02/03/04/05/07/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
+M1-00/01/02/03/04/05/06/07/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
 Dependencies below mean working capability/evidence unless explicitly
 identified as an early settled contract. Design of consumers may proceed from settled contracts
 while implementation of their required producers is underway. Document order is not a global barrier.
@@ -284,9 +284,13 @@ its own owner.
   defensible interval remain open; no family quality gate is established.
 - **M1-02/03 In progress:** logical release declarations, private typed record binding and field
   evidence/identity controls passed74 focused tests and independent private-slice review;
-  [m1.private-record-contracts](../design_review/evidence/2026-11-03_m1-record-contracts/records/m1.private-record-contracts.json). Native admission,
-  persisted custody, released operations and read/evaluator round trips remain open; optional
-  private records must not imply published support.
+  [m1.private-record-contracts](../design_review/evidence/2026-11-03_m1-record-contracts/records/m1.private-record-contracts.json).
+  [m1.native-private-record-custody](../design_review/evidence/2026-11-03_m1-private-records/records/m1.native-private-record-custody.json)
+  establishes same-pin private completion/read custody and graph product fences on native100,
+  123 focused tests and final-source hash verification. All three predecessor graph validators
+  remain. No live database/default was migrated. Cross-view admission, actual producer integration,
+  accepted structural publication and evaluator round trips remain open; optional private records
+  must not imply published support.
 - **M1-07 In progress:** exact `gliner2[local]==2.1.0` added without transitive upgrades;
   `just ready` passed. [m1.cpu-snapshot-entity-operation](../design_review/evidence/2026-11-03_m1-gliner-cpu/records/m1.cpu-snapshot-entity-operation.json)
   establishes only one actual CPU FP32 entity operation from a hashed immutable offline snapshot.
@@ -310,7 +314,11 @@ its own owner.
   versions. [m1.private-annotation-and-comparison](../design_review/evidence/2026-11-03_m1-annotations/records/m1.private-annotation-and-comparison.json)
   records75 combined focused tests and scoped Ruff/Pyrefly. Protected reference passes, published
   prediction binding, clustered intervals and sufficient release references remain open.
-- **M1-06/08–12/14/15 Planned:** no completion or whole-release qualification claim.
+- **M1-06 In progress:** detached serial resident CPU worker is implemented in an isolated
+  increment; independent review corrections cover pack lineage, duplicate fields, loader closure,
+  operational path identity and complete finite IPC frames. Integration/aggregate admission remains
+  open; no whole-runtime qualification follows from cold/warm probe calls.
+- **M1-08–12/14/15 Planned:** no completion or whole-release qualification claim.
 
 Next: finish and review the private shared contract slice, then extend native/source-context
 custody and dependent operation/runtime consumers. M1-13 reference/scorer work proceeds from

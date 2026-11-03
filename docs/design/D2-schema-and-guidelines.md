@@ -2,6 +2,14 @@
 
 ## M1 released record boundaries
 
+**Implemented; bounded Tested (2026-11-03, native100 private author/test scope).** The declared
+source-product closure retains all schemas/registry definitions and generated shape conditions.
+Graph projections omit its applicability/identity slots and dependent graph operation-role/
+conditional rows; exact native correspondence uses the same archived closure. Private report
+JSONSchema validation retains those shape conditions. Ordinary graph enforcement is unchanged.
+See [native custody evidence](../design_review/evidence/2026-11-03_m1-private-records/README.md).
+This does not establish accepted-record publication or live database deployment.
+
 **Accepted target, Proposed until implemented (2026-11-03).** `SourceRecordProduct` ancestry
 separates private product constraints from graph realization. Preserve complete generated/archived
 schemas; omit only product graph applicability/identity slots and refuse graph ranges into that

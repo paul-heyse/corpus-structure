@@ -5,6 +5,9 @@ prefixes:
 default_prefix: csobs
 default_range: string
 classes:
+  SourceRecordProduct:
+    abstract: true
+    description: Private operation product, validated through released report boundaries; not a knowledge graph class or datatype.
   SourceValue:
     abstract: true
     attributes:
@@ -124,6 +127,7 @@ classes:
       value: {range: SourceMeasurementValue, required: true, inlined: true}
       detail: {range: SourceObject, required: true, inlined: true}
   SourceObservationBatch:
+    is_a: SourceRecordProduct
     attributes:
       release_id: {required: true}
       invocation_key: {required: true}
@@ -142,6 +146,7 @@ classes:
       measurements: {range: SourceMeasurement, multivalued: true, inlined: true}
       records: {range: SourceRecord, multivalued: true, inlined: true}
   RecordScalar:
+    is_a: SourceRecordProduct
     abstract: true
     attributes:
       kind: {required: true}
@@ -173,6 +178,7 @@ classes:
       kind: {equals_string: native_location}
       pointer: {required: true}
   RecordSourcePin:
+    is_a: SourceRecordProduct
     attributes:
       source: {required: true}
       native_product_task_id: {range: integer, minimum_value: 1, required: true}
@@ -182,6 +188,7 @@ classes:
       recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       source_view_id: {range: integer, minimum_value: 1}
   RecordCoordinateText:
+    is_a: SourceRecordProduct
     description: Explicit binding input, not persisted evidence or a claim of native authentication.
     attributes:
       pin: {range: RecordSourcePin, required: true, inlined: true}
@@ -189,6 +196,7 @@ classes:
       pointer: {required: true}
       text: {required: true}
   RecordAnchor:
+    is_a: SourceRecordProduct
     attributes:
       anchor_id: {required: true}
       pin: {range: RecordSourcePin, required: true, inlined: true}
@@ -199,6 +207,7 @@ classes:
       end: {range: integer, minimum_value: 0}
       source_piece: {}
   RecordEvidenceSet:
+    is_a: SourceRecordProduct
     attributes:
       set_id: {required: true}
       role: {required: true}
@@ -206,12 +215,14 @@ classes:
       usage: {range: RecordEvidenceUsage, required: true}
       anchors: {multivalued: true, minimum_cardinality: 1, required: true}
   RecordFieldAlternative:
+    is_a: SourceRecordProduct
     attributes:
       alternative_id: {required: true}
       value: {range: RecordScalar, required: true, inlined: true}
       evidence_sets: {multivalued: true}
       reason: {required: true}
   RecordField:
+    is_a: SourceRecordProduct
     attributes:
       role: {required: true}
       kind: {range: RecordFieldKind, required: true}
@@ -270,11 +281,13 @@ classes:
     is_a: NativeRecordField
     mixins: [RequiredRecordField]
   SemanticRecordFields:
+    is_a: SourceRecordProduct
     description: Domain subclasses declare their complete role contract using field ranges.
     attributes:
       family: {required: true}
       occurrence_recipe: {required: true}
   SourceRecord:
+    is_a: SourceRecordProduct
     description: Typed private source record; accepted standing is not native publication admission.
     attributes:
       record_id: {required: true}

@@ -553,11 +553,15 @@ def _admit_inference(prepared: PreparedRelease) -> None:
 def admit_release(prepared: PreparedRelease, *, connection: Connection | None = None) -> None:
     """Refuse required semantics outside the currently implemented native lowering."""
     from .execution_admission import admit_execution_release
+    from .record_contracts import record_product_classes
 
     admit_execution_release(prepared, connection=connection)
     native_constraints(prepared)
     _admit_inference(prepared)
+    products = record_product_classes(prepared.definitions)
     for definition in prepared.definitions:
+        if definition.name in products:
+            continue
         for prop in definition.properties:
             if prop.constraint_scope not in {"shape", "accepted_value"}:
                 raise ValueError(f"unsupported native constraint scope {prop.constraint_scope}")

@@ -18,9 +18,34 @@ from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, PreparedRelease
 
 
+def record_product_classes(definitions: tuple[ClassDefinition, ...]) -> frozenset[str]:
+    """Released private product placement, shared by graph lowering and admission."""
+    return frozenset(
+        definition.name
+        for definition in definitions
+        if definition.name == "SourceRecordProduct" or "SourceRecordProduct" in definition.ancestors
+    )
+
+
 def validate_record_declarations(definitions: tuple[ClassDefinition, ...]) -> None:
     """Refuse unsupported family semantics before generating or archiving a release."""
     classes = {definition.name: definition for definition in definitions}
+    products = record_product_classes(definitions)
+    for definition in definitions:
+        if definition.name in products:
+            continue
+        for prop in definition.properties:
+            if prop.range in products:
+                raise PreparationError(
+                    (
+                        Diagnostic(
+                            "record_product_placement",
+                            definition.name + "/" + prop.name,
+                            "knowledge graph property cannot range into a private record product",
+                            "unsupported",
+                        ),
+                    )
+                )
     families = set()
     for definition in definitions:
         if "SemanticRecordFields" not in definition.ancestors:

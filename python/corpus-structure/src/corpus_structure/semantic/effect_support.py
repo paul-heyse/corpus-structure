@@ -160,7 +160,7 @@ SUPPORTED_EFFECTS = {
         "effects": (),
         "implementation": "bind_report",
         "transitions": {},
-        "version": "1",
+        "version": "2",
     },
     "capture_analytics": {
         "effects": ("materialize_same_snapshot_before_source_close",),

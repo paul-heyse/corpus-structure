@@ -18,4 +18,8 @@ def native_task_completion_sql(context=None) -> str:
             "-- {native_input_shape_guard}",
             record_shape_guards(context.boundary, "PdfNativeObservationInput", "native_input"),
         )
+        .replace(
+            "-- {source_record_guard}",
+            Path(__file__).with_name("sql").joinpath("source_record_completion.sql").read_text(),
+        )
     )
