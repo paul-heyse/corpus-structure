@@ -290,7 +290,9 @@ its own owner.
   123 focused tests and final-source hash verification. All three predecessor graph validators
   remain. No live database/default was migrated. Cross-view admission, actual producer integration,
   accepted structural publication and evaluator round trips remain open; optional private records
-  must not imply published support.
+  must not imply published support. Staged whitespace check failed on two generated admission
+  lines; verified frozen bytes and the failed formatting receipt are preserved independently of
+  the123 functional passes.
 - **M1-07 In progress:** exact `gliner2[local]==2.1.0` added without transitive upgrades;
   `just ready` passed. [m1.cpu-snapshot-entity-operation](../design_review/evidence/2026-11-03_m1-gliner-cpu/records/m1.cpu-snapshot-entity-operation.json)
   establishes only one actual CPU FP32 entity operation from a hashed immutable offline snapshot.
@@ -315,9 +317,12 @@ its own owner.
   records75 combined focused tests and scoped Ruff/Pyrefly. Protected reference passes, published
   prediction binding, clustered intervals and sufficient release references remain open.
 - **M1-06 In progress:** detached serial resident CPU worker is implemented in an isolated
-  increment; independent review corrections cover pack lineage, duplicate fields, loader closure,
-  operational path identity and complete finite IPC frames. Integration/aggregate admission remains
-  open; no whole-runtime qualification follows from cold/warm probe calls.
+  increment, now integrated; independent review corrections cover pack lineage, duplicate fields,
+  loader closure, operational path identity and complete finite IPC frames.
+  [m1.cpu-mapped-source-operation](../design_review/evidence/2026-11-03_m1-gliner-runtime/records/m1.cpu-mapped-source-operation.json)
+  establishes actual retained-source mapping and cold/warm CPU operation;68 focused runtime/context
+  checks pass. Released packs, producer/policy registration and aggregate admission remain open;
+  no whole-runtime qualification follows from these probe calls.
 - **M1-08–12/14/15 Planned:** no completion or whole-release qualification claim.
 
 Next: finish and review the private shared contract slice, then extend native/source-context

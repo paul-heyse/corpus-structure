@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-resident-worker-operation",
+  "title": "Detached offline GLiNER CPU worker cold and warm operation",
+  "group": "M1",
+  "package": "M1-06/M1-07",
+  "finalized": "2026-11-03",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "m1.cpu-resident-worker-reviewed-operation",
+  "question": "Can the thin detached native CPU worker execute a probe-only combined pack on the retained paragraph, reuse its resident model and join cleanly?",
+  "answers": [],
+  "method": "Strict Schema.from_dict and native preprocessing preflight followed by batch_extract in one spawned offline local-snapshot CPU FP32 child. Controlled children separately test lifecycle semantics.",
+  "commands": [
+    "PYTHONPATH=/home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src uv run python /home/paul/.cache/corpus-structure-m1-gliner/docs/design_review/evidence/2026-11-03_m1-gliner-runtime/check_runtime.py --attempt 4",
+    "PYTHONPATH=/home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src:/home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests uv run pytest /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests/methods/test_gliner.py",
+    "uv run ruff check /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner_worker.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests/methods",
+    "uv run pyrefly check -c /home/paul/corpus-structure/pyproject.toml --site-packages-path /home/paul/corpus-structure/.venv/lib/python3.14/site-packages --search-path /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src --search-path /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner_worker.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests/methods"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_runtime.py",
+      "role": null,
+      "sha256": "4fabac78fb680b46a35d1f592e72cf8ded67ab029f2703e85244c80373e30788"
+    },
+    {
+      "path": "attempt-00004.json",
+      "role": null,
+      "sha256": "163c57b3e1ab893c733d28e946bcd532e5c3411c8e8204c4a9ce5f67d8fb7537"
+    },
+    {
+      "path": "attempt-00004.log",
+      "role": null,
+      "sha256": "0e04ac0eb64e9fdd856145df73e9e739784f4b737fab1bb1538d4e054b4c1c68"
+    },
+    {
+      "path": "pytest-final.log",
+      "role": null,
+      "sha256": "025be36ac2ed4eb90469072dcea34f80977c3b4c8af0e147fd05c9b21ff38327"
+    },
+    {
+      "path": "ruff-final.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "pyrefly-final.log",
+      "role": null,
+      "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+    }
+  ],
+  "depends_on": [
+    "2026-11-03_m1-gliner-cpu/m1.cpu-combined-operation"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Actual probe-only cold/warm combined extraction completed through the same native CPU child, returned per-context raw payloads and joined. Fourteen scoped controls passed. No released-schema, actual retained-context mapping, quality, aggregate-resource-fit, credential isolation, CPU policy or assembled M1 completion claim.",
+  "consumed_by": [
+    "M1-06",
+    "M1-07"
+  ]
+}

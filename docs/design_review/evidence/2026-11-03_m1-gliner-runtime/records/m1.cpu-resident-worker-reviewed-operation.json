@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-resident-worker-reviewed-operation",
+  "title": "Reviewed finite-frame GLiNER CPU worker cold and warm operation",
+  "group": "M1",
+  "package": "M1-06/M1-07",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [
+    "m1.cpu-resident-worker-operation"
+  ],
+  "superseded_by": null,
+  "question": "Do the corrected pack binding, exact snapshot closure, duplicate-field rejection, location-neutral identity and complete frame bounds preserve actual retained-paragraph CPU cold/warm operation?",
+  "answers": [],
+  "method": "Thirty-one focused controls plus actual offline local-snapshot CPU FP32 combined extraction through one resident spawned child, preserving raw per-context output and exact final source hashes.",
+  "commands": [
+    "PYTHONPATH=/home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src uv run python /home/paul/.cache/corpus-structure-m1-gliner/docs/design_review/evidence/2026-11-03_m1-gliner-runtime/check_runtime.py --attempt 5",
+    "PYTHONPATH=/home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src:/home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests uv run pytest /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests/methods/test_gliner.py",
+    "uv run ruff check /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner_worker.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests/methods",
+    "uv run pyrefly check -c /home/paul/corpus-structure/pyproject.toml --site-packages-path /home/paul/corpus-structure/.venv/lib/python3.14/site-packages --search-path /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src --search-path /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/src/corpus_structure/methods/gliner_worker.py /home/paul/.cache/corpus-structure-m1-gliner/python/corpus-structure/tests/methods"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_runtime.py",
+      "role": null,
+      "sha256": "4fabac78fb680b46a35d1f592e72cf8ded67ab029f2703e85244c80373e30788"
+    },
+    {
+      "path": "attempt-00005.json",
+      "role": null,
+      "sha256": "cb9b6a2fe354bcd9ccdc753410124fec51a6e18a551cb164bb224a94f9b6612d"
+    },
+    {
+      "path": "attempt-00005.log",
+      "role": null,
+      "sha256": "8ade34ec4b8db04728b2b299911e730b8ee102c238a979ff521f89a28fe2e916"
+    },
+    {
+      "path": "pytest-review-fixes.log",
+      "role": null,
+      "sha256": "3885df7f121afd64067344d5f8af427119975b64d27c4f5d700083ca3db3167c"
+    },
+    {
+      "path": "ruff-review-fixes.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "pyrefly-review-fixes.log",
+      "role": null,
+      "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+    }
+  ],
+  "depends_on": [
+    "2026-11-03_m1-gliner-cpu/m1.cpu-combined-operation"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Corrected final source completed actual probe-only cold/warm combined extraction through the same CPU child and joined cleanly. Thirty-one scoped controls passed, including schema lineage, duplicate fields, exact five-file closure, copied-file/location-neutral identity and complete IPC bounds. No released-schema, retained-context provider mapping, quality, aggregate-resource-fit, credential isolation, CPU policy or assembled M1 completion claim. Original attempts and their scoped successful operation evidence remain retained.",
+  "consumed_by": [
+    "M1-06",
+    "M1-07"
+  ]
+}

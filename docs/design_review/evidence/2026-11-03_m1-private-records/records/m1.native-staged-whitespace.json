@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "m1.native-staged-whitespace",
+  "title": "Frozen generated admission staged-format exception",
+  "group": "M1",
+  "package": "M1-03",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Did the staged native100 generated admission artifact satisfy the whitespace diff check?",
+  "answers": [],
+  "method": "Run git diff --cached --check after staging final artifacts; preserve the failed output and exact frozen bytes.",
+  "commands": [
+    "git diff --cached --check"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "staged-format-failure.txt",
+      "role": null,
+      "sha256": "55527c165fcec4d6419ab84f9df9fa2186b9f7f8a09f1ceac9a6a3dbb63a4bdd"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "failed",
+  "conclusion": "Two generated admission lines have trailing whitespace. Root committed before handling the failed check; verified frozen artifact bytes remain unchanged. This does not alter123 independent native/private functional results and is not relabelled passed.",
+  "consumed_by": [
+    "M1-03"
+  ]
+}

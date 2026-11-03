@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-mapped-source-operation",
+  "title": "Actual retained source-context CPU literal mapping",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does an actual retained source context survive native CPU extraction and map literal fields back without promoting classified offsets?",
+  "answers": [],
+  "method": "Read native99 SourceView5 through existing reader in READ ONLY transaction; construct versioned mapped context, close source connection, execute actual cold/warm combined CPU worker and map declared literal paths through context owner while refusing choices.",
+  "commands": [
+    "CORPUS_DATABASE__URL='postgresql://corpus_sem_writer@/corpus_pdf_20261102?host=/var/run/postgresql&port=5434' uv run python docs/design_review/evidence/2026-11-03_m1-gliner-runtime/check_mapped_runtime.py --attempt 1",
+    "uv run pytest python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/semantic/test_source_contexts.py -q"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_mapped_runtime.py",
+      "role": null,
+      "sha256": "f364ff122b49226ca3467a80ae7a0d3c22757a8662abe38458da1bacb5c24de7"
+    },
+    {
+      "path": "mapped-attempt-00001.json",
+      "role": null,
+      "sha256": "2716437efd9a235bee581c658b9cd8416d6410fdffd0a9d0f7b4346fdd434eec"
+    },
+    {
+      "path": "mapped-context-00001.json",
+      "role": null,
+      "sha256": "e4e3da9d6c82696a51f5b790bea655cfda40ef52d82ec370529f9688b9fdf58d"
+    },
+    {
+      "path": "mapped-attempt-00001.log",
+      "role": null,
+      "sha256": "f60207f9cd5a1b0fd69647002c3983e02dac6622e33459a07ef617ee02a1bebe"
+    },
+    {
+      "path": "integrated-runtime-context-tests.log",
+      "role": null,
+      "sha256": "9ee20c71942e691226904f5b10ee3ec2cbef509fceddb28ac17de8dc7e2e5b55"
+    }
+  ],
+  "depends_on": [
+    "m1.cpu-resident-worker-reviewed-operation"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Actual source read/context/CPU/mapping passed: read-only on, six literal fields mapped and three classified-literal refusals per call, same resident child joined.68 focused runtime/context tests plus scoped Ruff/Pyrefly passed after integration. Schema is probe-only; no record reading accuracy, published observation, accepted record, aggregate fit or released family claim.",
+  "consumed_by": [
+    "M1-05",
+    "M1-06",
+    "M1-07"
+  ]
+}

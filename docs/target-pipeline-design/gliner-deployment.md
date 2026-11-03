@@ -1,5 +1,29 @@
 # GLiNER2.5 deployment
 
+## Implemented private adapter constraints
+
+**Implemented; bounded Tested, 2026-11-03.** The
+[private runtime evidence](../design_review/evidence/2026-11-03_m1-gliner-runtime/README.md)
+establishes one exact local combined CPU profile and retained-context literal mapping. It does
+not establish released packs, family quality, aggregate fit or an assembled M1 release.
+
+- Load the verified immutable local snapshot directory. Installed AutoExtractor does not forward
+  Hub revision options to every loader; the first repo-name attempt is retained with narrowed custody.
+- Bind the exact loader file closure. Additional tokenizer files can alter loading; the initial
+  profile admits only the five qualified artifacts and encoder configuration directory.
+- Reject duplicate structure field names before native compilation, and require report/pack
+  fingerprint equality before field interpretation. Native schema admission alone permits a
+  duplicate-name classification/literal mismatch.
+- Keep cache paths and native `_name_or_path` out of computation identity while retaining them in
+  provenance. Canonicalize named artifact hashes; preserve schema order that conditions extraction.
+- Delegate preprocessing to the native transformer and retain its actual synthetic suffix and
+  distinct word/schema-conditioned-token limits. Source mapping refuses synthetic material.
+- Bound metadata and complete finite request/reply frames, not just text/raw output. The current
+  serial owner admits one live batch and zero queued batches, with fail-fast saturation. Aggregate
+  spaCy/Torch/DuckDB admission remains a separate integration obligation.
+- High-level pool/count/null/suppression diagnostics remain unavailable. Classified values do not
+  become literal quotes merely because native output contains offsets.
+
 **Proposed for M1 · 2026-11-03.** Use one governed adapter and versioned schema registry for GLiNER2.5 boundary extraction, classification, mention attributes, relations, grouped records and local constrained decoding. The [repository capability reference](../libraries/parsing/gliner2.md) covers package `gliner2` 2.1.0 and the 2.5 model family. Treat that version as the reviewed reference. Pin the actual package, checkpoint revision, tokenizer, operation signatures and dependencies in the deployment manifest. [Notion deployment design](https://app.notion.com/p/40d141b58369811aa70ddcc1d75473ac)
 
 ## Checkpoint and execution policy
