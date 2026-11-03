@@ -175,6 +175,13 @@ it. Changing one needs an ADR and a design/target review.
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves
+per-anchor selected-view or captured-recognition attribution, distinct text/provider precision and
+versioned real-piece readings across permitted whitespace. Native enforcement and prepared context
+composition adopt the same released meanings; old frames and native100 remain frozen.
+
+> Decision: [ADR-0051](../adr/0051-m1-attributed-source-evidence.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** M1 extends the released occurrence model with source-record identity, named field evidence sets
 and common record membership across lowered assertions. Private candidate validation does not
 establish admitted knowledge, source fidelity or scientific truth.
@@ -408,6 +415,13 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves
+per-anchor selected-view or captured-recognition attribution, distinct text/provider precision and
+versioned real-piece readings across permitted whitespace. Native enforcement and prepared context
+composition adopt the same released meanings; old frames and native100 remain frozen.
+
+> Decision: [ADR-0051](../adr/0051-m1-attributed-source-evidence.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** Declared source-product ancestry
 retains complete report schemas while excluding graph applicability/identity lowering. Native graph

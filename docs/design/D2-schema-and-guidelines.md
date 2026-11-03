@@ -2,6 +2,15 @@
 
 ## M1 released record boundaries
 
+**Accepted target, Proposed until implemented (2026-11-03).** Released source-binding variants
+and relation/reading policies govern related-view and captured-recognition evidence. Exact captured
+text coordinates do not promote provider geometry. The context owner prepares immutable source
+partitions/indexes once per bounded lifetime and composes selected slices; no separate cache or
+semantic authority follows. Existing adapters and cross-object/native guards adopt these meanings
+together; old releases remain pinned.
+
+> Decision: [ADR-0051](../adr/0051-m1-attributed-source-evidence.md)
+
 **Implemented; bounded Tested (2026-11-03, native100 private author/test scope).** The declared
 source-product closure retains all schemas/registry definitions and generated shape conditions.
 Graph projections omit its applicability/identity slots and dependent graph operation-role/

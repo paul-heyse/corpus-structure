@@ -2,6 +2,15 @@
 
 ## M1 record evidence custody
 
+**Accepted target, Proposed until implemented (2026-11-03).** Expanded record custody authenticates
+each related selected view against run membership/placement and each recognition text address
+against exact retained occurrence and admitted selected-output lineage. Compose existing sealed
+record selectors and recognition bodies; caller coordinate proofs do not authorize native ingress.
+OCR decoded-address admission remains unsupported. Preserve private accepted-standing refusal,
+graph fences and native100; a forward migration owns new enforcement.
+
+> Decision: [ADR-0051](../adr/0051-m1-attributed-source-evidence.md)
+
 **Implemented; bounded Tested (2026-11-03, native100 private author/test scope).** Protected
 completion authenticates exact selected source/product/projection/recipe and native/cell/text
 coordinates for same-pin private records. It refuses accepted whole-record standing. The pinned

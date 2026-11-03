@@ -6,6 +6,43 @@ This is the living diagnostic account of design principle misalignment, maintain
 owns its place before a design-review engagement. Ordinary implementation reads its plan and
 architectural owners; this collection is not default production-editing context.
 
+<a id="m1-source-evidence-refresh"></a>
+
+## M1 source-evidence engagement refresh — M1-20261103-r2
+
+**Source-inspected, 2026-11-03.** Baseline `1c56a68fa58565d3de783adb3ef7d6a5978ac9ed`,
+initially clean. Core3.3, heuristics1.0, code-intelligence1.4; test-assessment1.2 informs future
+verification advice without refreshing the separate test-audit account. Independent reviewer
+reexamined the decisive private-record, source-context and retained-recognition boundaries.
+Subsequent family-assembly additions were excluded; they do not establish new source custody.
+
+Paths below are relative to `python/corpus-structure/src/corpus_structure/`:
+
+- `semantic/records.py:25`, `record_contracts.py:145`, `model/semantic/observations.yaml:180`
+  and `semantic/sql/source_record_completion.sql:1` establish same-selected-pin private custody,
+  shape/coordinate binding and accepted-standing refusal. The Python/native `recognized_text`
+  branch resolves canonical selected native text; it does not authenticate recognition-input text.
+- `semantic/source_contexts.py:1`, `proposals.py:135` and `source_views.py:121` preserve exact
+  product/projection/recipe pins and typed nonancestor context. Context1 permits only the same
+  native product, rejects all synthetic crossings and reparses the full frame during construction.
+  Old frames2/3 retain their direct-ancestor meaning.
+- `semantic/pdf_storage.py:440` and `:740`, `pdf_record_reader.py:755`,
+  `pdf_record_reader_native.py:17` and `semantic/sql/pdf_record_context.sql:1` provide bounded
+  product/occurrence reading and selected-output→retained-input lineage. Selected output endpoints
+  use protected record selectors/contexts; not all live in legacy occurrence tables. Integrated
+  companions identify inputs/endpoints but do not materialize recognition text.
+- `semantic/pdf_integrated.py:100` and `:475` distinguish provider coarse/block/unknown precision
+  from exact ranges. A captured occurrence string can support its own text-slice coordinates;
+  that cannot promote provider geometry. `pdf_ocr_contracts.py:77` and authenticated payload
+  readers retain OCR line/word data, but external IPC authentication alone does not establish
+  native SQL custody of a cited OCR substring. Actual retained-book OCR availability is unknown.
+
+No new DA ID or inherited-finding closure follows: these are newly requested M1 capabilities
+beyond the explicit supported private subset. This refresh excludes broad graph/ACL/publication,
+test-suite architecture, database/provider execution and benchmarks. All such checks **not_run**.
+The [source-evidence target review](../reviews/design_review_m1-source-evidence_2026-11-03.md)
+consumes this revision; its publication is separate from the inspected baseline.
+
 <a id="m1-initial-target-refresh"></a>
 
 ## M1 initial-target engagement refresh — M1-20261103-r1

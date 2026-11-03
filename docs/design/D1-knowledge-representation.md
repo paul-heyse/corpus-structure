@@ -2,6 +2,15 @@
 
 ## M1 qualified source records
 
+**Accepted target, Proposed until implemented (2026-11-03).** Related selected-view evidence
+retains its own pin and declared relation; primary occurrence identity remains explicit. Captured
+recognition text uses a distinct product/occurrence/text-slice address, separate from original
+provider geometry. A versioned whitespace reading preserves ordered real pieces and gap diagnostics,
+without inventing literal characters. OCR decoded-address admission stays unsupported until native
+authentication exists. Old frames/context1 retain their meanings.
+
+> Decision: [ADR-0051](../adr/0051-m1-attributed-source-evidence.md)
+
 **Accepted target, Proposed until implemented · 2026-11-03.**
 The effective semantic release owns complete record occurrences, field/state/evidence-set and
 record-to-assertion membership through existing observation, publication and read authorities.
