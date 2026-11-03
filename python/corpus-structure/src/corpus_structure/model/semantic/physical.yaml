@@ -669,7 +669,7 @@ classes:
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"},
         {"columns": ["realization_id", "release_id", "object_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
         {"columns": ["realization_id", "release_id", "qualification_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
-      ph:indexes: '[["realization_id", "release_id", "property_id", "subject_id"], ["realization_id", "release_id", "property_id", "object_value_id"], {"expression": "release_id, realization_id, subject_id, fact_id COLLATE \"C\"", "name": "ix_fact_scoped_adjacency", "include": ["property_id", "object_value_id"]}]'
+      ph:indexes: '[["realization_id", "release_id", "property_id", "subject_id"], ["realization_id", "release_id", "property_id", "object_value_id"], {"name": "ix_fact_scoped_adjacency", "include": ["property_id", "object_value_id"], "columns": ["release_id", "realization_id", "subject_id", "fact_id"], "collations": {"fact_id": "C"}}]'
   occurrence:
     in_subset:
     - data
@@ -2274,6 +2274,7 @@ classes:
       primary_key: {unique_key_slots: [decision_id]}
     annotations:
       ph:immutability: intrinsic
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns": ["release_id"], "target": "sem.release.release_id"}]'
 
   document_split:

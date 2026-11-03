@@ -217,6 +217,7 @@ classes:
       cs:scope: local
       cs:extract: mention
       cs:case: preserve
+      cs:role: display
   Concept:
     is_a: Entity
     description: 'A defined mathematical term that is not a distribution family, construction
@@ -335,6 +336,7 @@ slots:
       its case (OPEN-D1-3), so the slot preserves case.'
     annotations:
       cs:case: preserve
+      cs:role: display
   symbol:
     description: The symbol or expression that denotes the random variable, as written.
   has_distribution:

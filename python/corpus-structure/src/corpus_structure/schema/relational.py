@@ -720,7 +720,12 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                 expressions = (
                     (text(declaration["expression"]),)
                     if "expression" in declaration
-                    else tuple(table.c[c] for c in declaration["columns"])
+                    else tuple(
+                        table.c[c].collate(declaration["collations"][c])
+                        if c in declaration.get("collations", {})
+                        else table.c[c]
+                        for c in declaration["columns"]
+                    )
                 )
                 index = Index(
                     declaration.get("name"),

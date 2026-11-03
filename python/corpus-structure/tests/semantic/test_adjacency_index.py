@@ -23,12 +23,14 @@ classes:
       fact_id: {range: string}
       property_id: {range: string}
     annotations:
-      ph:indexes: '[{"name":"ix_edge_adjacency","expression":"subject, fact_id COLLATE \\"C\\"","include":["property_id"]}]'
+      ph:indexes: >-
+        [{"name":"ix_edge_adjacency","columns":["subject","fact_id"],
+          "collations":{"fact_id":"C"},"include":["property_id"]}]
 """
     metadata = compile_metadata(SchemaView(schema), target="semantic")
     (index,) = metadata.tables["data.edge"].indexes
     sql = str(CreateIndex(index).compile(dialect=postgresql.dialect()))
     assert sql == (
         "CREATE INDEX ix_edge_adjacency ON data.edge USING btree "
-        '(subject, fact_id COLLATE "C") INCLUDE (property_id)'
+        '(subject, (fact_id COLLATE "C")) INCLUDE (property_id)'
     )
