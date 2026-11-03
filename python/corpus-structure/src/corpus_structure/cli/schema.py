@@ -319,6 +319,7 @@ def native_candidate_(
                     conn,
                     series_native_definitions(conn),
                     authoring.desired,
+                    retire=frozenset(item.identity for item in native if item.after is None),
                     predecessor_state=predecessor_state,
                 )
                 products = {
