@@ -483,6 +483,14 @@ def reference_evaluate(
         ).as_dict()
         aligned["producer_reports"] = list(outcomes)
         aligned["origin_group"] = populations[unit["unit_key"]]["origin_group"]
+        aligned["gap_evidence"] = _call(
+            conn,
+            "SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)",
+            r=run_id,
+            u=unit["id"],
+            p=frozen["pass_id"],
+            f=frozen["frame_id"],
+        ).scalar_one()
         reports.append(aligned)
     tiers = {
         tier: TierCounts(

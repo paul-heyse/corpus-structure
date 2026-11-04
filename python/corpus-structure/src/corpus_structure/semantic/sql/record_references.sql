@@ -333,6 +333,86 @@ END $$;
 REVOKE ALL ON FUNCTION eval.record_source_record_reference_pass(bigint,text,text,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.record_source_record_reference_pass(bigint,text,text,bytea,jsonb) TO corpus_sem_evaluator;
 
+-- Protected gap evidence is derived, never authored as free-form writer labels.
+-- Keep expected values in C. These rows link source anchors and actual immutable
+-- invocation diagnostics; missing diagnostics never establish a failed stage.
+CREATE OR REPLACE FUNCTION eval.source_record_gap_evidence(p_run bigint,p_unit bigint,p_pass bigint,p_frame bigint)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE unit eval.reference_unit; reference_set eval.reference_set; completed ops.completed_result;
+ payload jsonb; tasks jsonb; predictions jsonb; expected jsonb; actual jsonb;
+ readings jsonb; reading_roles jsonb; evidence_roles jsonb; gaps jsonb:='[]'; kind text;
+BEGIN
+ SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit;
+ SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=unit.set_id;
+ SELECT * INTO STRICT completed FROM ops.completed_result WHERE run_id=p_run AND release_id=reference_set.release_id;
+ PERFORM sem.require_execution_operation(reference_set.release_id,'reference_record_grade');
+ IF NOT EXISTS(SELECT FROM ops.run WHERE id=p_run AND project_id=reference_set.project_id) THEN
+  RAISE EXCEPTION 'gap evidence crosses the reference project' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(p.authored,'UTF8')::jsonb INTO STRICT payload FROM eval.reference_pass p
+ JOIN eval.reference_frame f ON f.pass_id=p.id WHERE p.id=p_pass AND p.unit_id=p_unit AND p.pass_kind='C' AND f.id=p_frame;
+ SELECT COALESCE(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+  'selected_task_id',selected.id,'origin_task_id',origin.id,'method',method.name,'operation_version',method.version,
+  'configuration_hash',config.config_hash,'input_hash',selected.input_hash,'outcome',selected.status,
+  'result_present',result.task_id IS NOT NULL,'coverage_present',COALESCE(result.body ? 'coverage',false),
+  'coverage',COALESCE(result.body->'coverage','[]'::jsonb),'parse_detail',result.body->'parse_detail','error',result.body->'error',
+  'dependency_task_ids',COALESCE((SELECT jsonb_agg(dependency_task_id ORDER BY dependency_task_id)
+    FROM ops.task_dependency WHERE task_id=selected.id),'[]'::jsonb),
+  'dependent_task_ids',COALESCE((SELECT jsonb_agg(task_id ORDER BY task_id)
+    FROM ops.task_dependency WHERE dependency_task_id=selected.id),'[]'::jsonb))) ORDER BY selected.id),'[]'::jsonb)
+ INTO tasks FROM ops.cut_task ct JOIN ops.task selected ON selected.id=ct.task_id
+ JOIN ops.task origin ON origin.id=ct.origin_task_id JOIN ops.method_config config ON config.id=selected.method_config_id
+ JOIN ops.method method ON method.id=config.method_id LEFT JOIN ops.task_result result ON result.task_id=origin.id
+ WHERE ct.cut_id=completed.cut_id AND selected.unit_type='source_view' AND selected.unit_id=unit.source_view_id;
+ -- Use exactly the authoritative resolver/raw source selection used by grading.
+ WITH selected AS (
+  SELECT value FROM jsonb_array_elements(tasks) WHERE value->>'method'=CASE
+   WHEN EXISTS(SELECT FROM jsonb_array_elements(tasks) t WHERE t->>'method'='resolve.m1_readings') THEN 'resolve.m1_readings'
+   WHEN EXISTS(SELECT FROM jsonb_array_elements(tasks) t WHERE t->>'method'='extract.m1_candidates') THEN 'extract.m1_candidates'
+   ELSE value->>'method' END),
+ published AS (
+  SELECT DISTINCT record,admission.decision FROM selected t
+  JOIN data.record_report_member member ON member.selected_task_id=(t.value->>'selected_task_id')::bigint
+   AND member.release_id=completed.release_id AND member.realization_id=completed.output_realization_id
+  JOIN data.record_admission admission ON admission.release_id=member.release_id AND admission.realization_id=member.realization_id
+   AND admission.record_id=member.record_id AND admission.interpretation_id=member.interpretation_id
+  JOIN ops.task_result result ON result.task_id=(t.value->>'origin_task_id')::bigint
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(result.body->'records','[]')) record
+  WHERE record->>'record_id'=member.record_id AND record->>'interpretation_id'=member.interpretation_id)
+ SELECT COALESCE(jsonb_agg(record||jsonb_build_object('standing',decision)
+  ORDER BY record->>'record_id',record->>'interpretation_id'),'[]'::jsonb) INTO predictions FROM published;
+ FOR expected IN SELECT value FROM jsonb_array_elements(payload->'records') ORDER BY value->>'record_id' LOOP
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('interpretation_id',value->>'interpretation_id','standing',value->>'standing')
+   ORDER BY value->>'interpretation_id'),'[]'::jsonb) INTO readings
+   FROM jsonb_array_elements(predictions) WHERE value->>'record_id'=expected->>'record_id';
+  SELECT value INTO actual FROM jsonb_array_elements(predictions)
+   WHERE value->>'record_id'=expected->>'record_id' AND value->>'standing'='accepted';
+  reading_roles:='[]'; evidence_roles:='[]';
+  IF actual IS NOT NULL THEN
+   SELECT COALESCE(jsonb_agg(ref->>'role' ORDER BY ref->>'role'),'[]'::jsonb) INTO reading_roles
+    FROM jsonb_array_elements(expected->'fields') ref LEFT JOIN LATERAL
+     (SELECT value FROM jsonb_array_elements(actual->'fields') WHERE value->>'role'=ref->>'role') pred ON true
+    WHERE eval.record_policy_field_meaning(ref) IS DISTINCT FROM eval.record_policy_field_meaning(pred.value);
+   SELECT COALESCE(jsonb_agg(ref->>'role' ORDER BY ref->>'role'),'[]'::jsonb) INTO evidence_roles
+    FROM jsonb_array_elements(expected->'fields') ref LEFT JOIN LATERAL
+     (SELECT value FROM jsonb_array_elements(actual->'fields') WHERE value->>'role'=ref->>'role') pred ON true
+    WHERE eval.record_policy_field_evidence(ref) IS DISTINCT FROM eval.record_policy_field_evidence(pred.value);
+   IF reading_roles='[]' AND evidence_roles='[]' THEN CONTINUE; END IF;
+   kind:='mismatched';
+  ELSIF readings<>'[]' THEN kind:='unaccepted';
+  ELSIF predictions='[]' THEN kind:='no_output';
+  ELSE kind:='missing'; END IF;
+  gaps:=gaps||jsonb_build_array(jsonb_build_object('reference_record_id',expected->>'record_id','family',expected->>'family',
+   'reference_anchor_ids',COALESCE((SELECT jsonb_agg(a->>'anchor_id' ORDER BY a->>'anchor_id')
+     FROM jsonb_array_elements(expected->'anchors') a),'[]'::jsonb),
+   'kind',kind,'earliest_failed_stage','unknown','reading_roles',reading_roles,'evidence_roles',evidence_roles,'predictions',readings));
+ END LOOP;
+ RETURN jsonb_build_object('unit_id',p_unit,'pass_id',p_pass,'frame_id',p_frame,'source_view_id',unit.source_view_id,
+  'source_run_id',reference_set.source_run_id,'source_cut_id',(reference_set.sampling->>'source_cut_id')::bigint,
+  'run_id',p_run,'cut_id',completed.cut_id,'cohort',reference_set.sampling->>'cohort','tasks',tasks,'gaps',gaps);
+END $$;
+REVOKE ALL ON FUNCTION eval.source_record_gap_evidence(bigint,bigint,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.source_record_gap_evidence(bigint,bigint,bigint,bigint) TO corpus_sem_evaluator;
+
 CREATE OR REPLACE FUNCTION eval.validate_source_record_reference_evaluation(p_project text,p_run bigint,p_set bigint,p_snapshot jsonb,p_result jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE source_release text; item jsonb; payload jsonb; frozen jsonb; report_schema json;
@@ -380,6 +460,11 @@ BEGIN
   SELECT convert_from(authored,'UTF8')::jsonb INTO STRICT payload FROM eval.reference_pass WHERE id=(item->>'pass_id')::bigint;
   SELECT source_frame INTO STRICT frozen FROM eval.reference_frame WHERE id=(item->>'frame_id')::bigint AND pass_id=(item->>'pass_id')::bigint;
   PERFORM eval.validate_source_record_reference_frame((item->>'unit_id')::bigint,payload,frozen);
+  IF (SELECT reported->'gap_evidence' FROM jsonb_array_elements(p_result->'units') reported
+   JOIN eval.reference_unit u ON u.id=(item->>'unit_id')::bigint AND reported->>'unit'=u.unit_key)
+   IS DISTINCT FROM eval.source_record_gap_evidence(p_run,(item->>'unit_id')::bigint,
+    (item->>'pass_id')::bigint,(item->>'frame_id')::bigint) THEN
+   RAISE EXCEPTION 'record gaps differ from complete independent C/native publication evidence' USING ERRCODE='23514'; END IF;
   IF EXISTS(SELECT FROM jsonb_array_elements(frozen->'source_views') v WHERE NOT EXISTS(
     SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=(v->>'id')::bigint))
    OR (EXISTS(SELECT FROM ops.completed_result target JOIN ops.cut_task ct ON ct.cut_id=target.cut_id

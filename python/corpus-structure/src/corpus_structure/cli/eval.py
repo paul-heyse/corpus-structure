@@ -123,5 +123,39 @@ def record_policy_fit(
     output(result, json)
 
 
+@eval_app.command("gaps")
+def record_gaps(
+    ctx: typer.Context,
+    evaluation: Annotated[int, typer.Option()],
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Inspect protected source-grounded gaps and exact invocation/replay evidence."""
+    from corpus_structure.evaluate.record_gaps import inspect_gaps, read_evaluation
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        result = inspect_gaps(read_evaluation(conn, project_id=pid, evaluation_id=evaluation))
+    output(result, json)
+
+
+@eval_app.command("compare")
+def compare_record_evaluations(
+    ctx: typer.Context,
+    baseline: Annotated[int, typer.Option()],
+    revised: Annotated[int, typer.Option()],
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Compare immutable grades on one cohort; run separately for gap and regression sets."""
+    from corpus_structure.evaluate.record_gaps import compare_evaluations, read_evaluation
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        result = compare_evaluations(
+            read_evaluation(conn, project_id=pid, evaluation_id=baseline),
+            read_evaluation(conn, project_id=pid, evaluation_id=revised),
+        )
+    output(result, json)
+
+
 def register(app):
     app.add_typer(eval_app, name="eval")

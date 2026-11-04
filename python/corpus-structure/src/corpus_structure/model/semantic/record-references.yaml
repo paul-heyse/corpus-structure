@@ -228,6 +228,61 @@ classes:
         minimum_cardinality: 0
       origin_group:
         required: true
+      gap_evidence:
+        range: ReferenceRecordGapEvidence
+        inlined: true
+        required: true
+  ReferenceRecordGapPrediction:
+    is_a: SourceRecordProduct
+    attributes:
+      interpretation_id: {required: true}
+      standing: {range: RecordStanding, required: true}
+  ReferenceRecordGap:
+    is_a: SourceRecordProduct
+    description: Protected links into independent C and native publication, without copied reference labels.
+    attributes:
+      reference_record_id: {required: true}
+      family: {required: true}
+      reference_anchor_ids: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      kind: {range: ReferenceRecordGapKind, required: true}
+      earliest_failed_stage:
+        description: Unknown unless evidence establishes an earliest failure. Aggregate coverage alone cannot locate an occurrence failure.
+        required: true
+        equals_string: unknown
+      reading_roles: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      evidence_roles: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      predictions: {range: ReferenceRecordGapPrediction, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  ReferenceRecordGapTask:
+    is_a: SourceRecordProduct
+    attributes:
+      selected_task_id: {range: integer, required: true}
+      origin_task_id: {range: integer, required: true}
+      method: {required: true}
+      operation_version: {required: true}
+      configuration_hash: {required: true}
+      input_hash: {required: true}
+      outcome: {required: true}
+      result_present: {range: boolean, required: true}
+      coverage_present: {range: boolean, required: true}
+      coverage: {range: SourceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      parse_detail: {range: SourceObject, inlined: true}
+      error: {}
+      dependency_task_ids: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      dependent_task_ids: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  ReferenceRecordGapEvidence:
+    is_a: SourceRecordProduct
+    attributes:
+      unit_id: {range: integer, required: true}
+      pass_id: {range: integer, required: true}
+      frame_id: {range: integer, required: true}
+      source_view_id: {range: integer, required: true}
+      source_run_id: {range: integer, required: true}
+      source_cut_id: {range: integer, required: true}
+      run_id: {range: integer, required: true}
+      cut_id: {range: integer, required: true}
+      cohort: {required: true}
+      tasks: {range: ReferenceRecordGapTask, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      gaps: {range: ReferenceRecordGap, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   ReferenceRecordEvaluationReport:
     is_a: SourceRecordProduct
     attributes:
@@ -278,6 +333,12 @@ classes:
         required: true
         equals_string: not_established
 enums:
+  ReferenceRecordGapKind:
+    permissible_values:
+      missing: {}
+      no_output: {}
+      unaccepted: {}
+      mismatched: {}
   RecordReferencePartition:
     permissible_values:
       development: {}

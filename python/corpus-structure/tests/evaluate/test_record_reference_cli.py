@@ -336,6 +336,26 @@ def test_eval_routes_from_stored_protocol(cli, monkeypatch, reference_connection
     other.assert_not_called()
 
 
+def test_protected_gap_inspection_and_comparison_share_reference_session(
+    cli, monkeypatch, reference_connection
+):
+    from corpus_structure.evaluate import record_gaps
+
+    read = MagicMock(side_effect=lambda conn, **kw: {"id": kw["evaluation_id"]})
+    inspect = MagicMock(return_value={"units": []})
+    compare = MagicMock(return_value={"quality_claim": "not_established"})
+    monkeypatch.setattr(record_gaps, "read_evaluation", read)
+    monkeypatch.setattr(record_gaps, "inspect_gaps", inspect)
+    monkeypatch.setattr(record_gaps, "compare_evaluations", compare)
+    inspected = cli("eval", "gaps", "--evaluation", "8", "--json")
+    assert inspected.exit_code == 0, (inspected.output, inspected.exception)
+    inspect.assert_called_once_with({"id": 8})
+    read.assert_called_with(reference_connection, project_id="selected", evaluation_id=8)
+    compared = cli("eval", "compare", "--baseline", "8", "--revised", "9", "--json")
+    assert compared.exit_code == 0, (compared.output, compared.exception)
+    compare.assert_called_once_with({"id": 8}, {"id": 9})
+
+
 @pytest.mark.parametrize("pass_kind", ["A", "B", "C"])
 def test_packet_routes_c_separately_and_preserves_retained_json(
     cli, monkeypatch, reference_connection, pass_kind

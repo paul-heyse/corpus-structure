@@ -533,6 +533,21 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             sampling_digest=digest,
             quality_claim="not_established",
         )
+        frozen_by_unit = {value["unit_id"]: value for value in snapshot}
+        for scored_unit, source_unit in ((scored, unit), (empty_scored, secondary)):
+            frozen = frozen_by_unit[source_unit["id"]]
+            scored_unit["gap_evidence"] = conn.scalar(
+                text("SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)"),
+                dict(r=target, u=source_unit["id"], p=frozen["pass_id"], f=frozen["frame_id"]),
+            )
+        gap_evidence = scored["gap_evidence"]
+        assert len(gap_evidence["gaps"]) == 1
+        gap = gap_evidence["gaps"][0]
+        assert gap["reference_record_id"] == row["record_id"]
+        assert gap["kind"] == "no_output" and gap["earliest_failed_stage"] == "unknown"
+        assert gap["predictions"] == []
+        assert set(gap["reference_anchor_ids"]) == {a["anchor_id"] for a in row["anchors"]}
+        assert empty_scored["gap_evidence"]["gaps"] == []
         statement = text(
             "SELECT eval.record_source_record_reference_evaluation("
             "'private-records',:r,:s,CAST(:n AS jsonb),CAST(:v AS jsonb))"
@@ -554,6 +569,28 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
                 )
             )
             assert stored["tiers"]["full"] == one
+            assert gap_evidence["tasks"] == []
+            for change in ("omit", "foreign_reference", "invent_stage", "source_cut", "fake_task"):
+                invalid = deepcopy(result)
+                evidence = invalid["units"][0]["gap_evidence"]
+                if change == "omit":
+                    evidence["gaps"] = []
+                elif change == "foreign_reference":
+                    evidence["gaps"][0]["reference_record_id"] = "foreign-reference"
+                elif change == "invent_stage":
+                    evidence["gaps"][0]["kind"] = "missing"
+                elif change == "source_cut":
+                    evidence["source_cut_id"] += 1
+                else:
+                    evidence["tasks"] = [dict(selected_task_id=999)]
+                with pytest.raises(DBAPIError), conn.begin_nested():
+                    conn.execute(statement, dict(parameters, v=canonical_bytes(invalid).decode()))
+            with case.writer.connect() as producer:
+                with pytest.raises(DBAPIError) as refusal, producer.begin_nested():
+                    producer.scalar(text("SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)"),
+                        dict(r=target, u=unit["id"], p=frozen_by_unit[unit["id"]]["pass_id"],
+                             f=frozen_by_unit[unit["id"]]["frame_id"]))
+                assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
             changes = [
                 ("unit", "foreign-unit"),
                 ("origin_group", "foreign-origin"),
