@@ -205,7 +205,11 @@ def prepare_source(
             else "paragraph"
         )
         pieces = tuple(
-            ProjectedPiece(**piece) for piece in view.pieces[indices[0] : indices[-1] + 1]
+            ProjectedPiece(
+                item_ref=piece.get("item_ref"),
+                **{key: value for key, value in piece.items() if key != "item_ref"},
+            )
+            for piece in view.pieces[indices[0] : indices[-1] + 1]
         )
         inputs.append(AnnotationInput(pin, block_id, kind, block, layout, pieces))
     products = list(persisted_annotations or ())

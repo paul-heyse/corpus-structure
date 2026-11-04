@@ -236,6 +236,10 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
     pack.mkdir()
     for name in ("m1-methods.yaml", "m1-guideline.md"):
         (pack / name).write_bytes((ROOT / "domains/statistics" / name).read_bytes())
+    (pack / "slices.yaml").write_text(
+        "default_scope: phase0-only\nslices:\n  phase0-only:\n"
+        "    - native_sections: [Unrelated heading]\n"
+    )
     conn = MagicMock()
     conn.execute.return_value.mappings.return_value.one.return_value = dict(
         release_id="release", data_revision=1
@@ -278,6 +282,7 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         assert commands.start_bound_run(engine, **kwargs) == "candidate-source-result"
         result = started.call_args.kwargs
         assert result["corpus_record"]["documents"] == ["other-book"]
+        assert result["scope_record"] is None
         assert result["graph"].stages[1][1][1].config == f"extract.m1_candidates/{configuration}"
         assert result["configurations"] == (
             {"extract.m1_candidates": "described"} if configuration == "described" else None

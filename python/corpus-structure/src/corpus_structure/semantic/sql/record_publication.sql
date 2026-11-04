@@ -137,7 +137,7 @@ BEGIN
     RAISE EXCEPTION 'unfitted source record cannot obtain evaluated admission' USING ERRCODE='23514'; END IF;
    CONTINUE;
   END IF;
-  binding:=a.binding_json;
+  binding:=a.binding_json::jsonb;
   IF NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(convert_from(entry.dependencies,'UTF8')::jsonb->'record_acceptance','[]')) b
     WHERE b=binding) THEN
    RAISE EXCEPTION 'record admission instance is outside frozen run dependencies' USING ERRCODE='23514'; END IF;

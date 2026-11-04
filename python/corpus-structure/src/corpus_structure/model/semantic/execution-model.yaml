@@ -5655,7 +5655,7 @@ operations:
     field: tier
     outcome_domain: method_tier_deterministic
   - id: resolve.m1_readings/result.outcome
-    field: result.outcome
+    field: outcome
     outcome_domain: source_result_outcome
   - id: extract.m1_candidates/family
     field: family

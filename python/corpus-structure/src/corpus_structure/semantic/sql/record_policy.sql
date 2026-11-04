@@ -235,8 +235,10 @@ BEGIN
   coverage:=coverage||jsonb_build_array(jsonb_build_object('unit_id',unit->'unit_id',
    'source_view_id',unit->'source_view_id','reports',coverage_reports));
  END LOOP;
- SELECT count(DISTINCT value->>'origin_group') INTO origin_count FROM jsonb_array_elements(input->'units')
-  WHERE EXISTS(SELECT FROM jsonb_array_elements(value->'reports') report WHERE jsonb_array_length(report->'records')>0);
+ SELECT count(DISTINCT source_unit.value->>'origin_group') INTO origin_count
+  FROM jsonb_array_elements(input->'units') AS source_unit(value)
+  WHERE EXISTS(SELECT FROM jsonb_array_elements(source_unit.value->'reports') AS selected_report(value)
+   WHERE jsonb_array_length(selected_report.value->'records')>0);
  exact_bytes:=p_product->>'event_frame_canonical_json';
  IF count_members=0 OR members IS DISTINCT FROM p_product->'event_members'
   OR count_members<>(SELECT count(DISTINCT value->>'interpretation_id') FROM jsonb_array_elements(members))

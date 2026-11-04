@@ -59,9 +59,9 @@ refining implementation requirements; do not introduce new approval steps for th
 ## Current M1 execution checkpoint — 2026-11-04
 
 **Implemented with bounded Tested results; no whole M1 package complete.** Native106 source
-preparation remains frozen. Forward107–111 add whole-reading overlays, direct sealed field/set/
-anchor custody, protected finite policy products and operation-scoped reuse.149 native objects
-are managed. Persistent corpus_structure_dev is at111 with its retained source population.
+preparation remains frozen. Forward107–120 add whole-reading overlays, direct sealed field/set/
+anchor custody, protected finite policy products and operation-scoped reuse.150 native objects
+are managed. Persistent corpus_structure_dev is at120 with its retained source population.
 Rollback-only authoring at109 reports zero native and zero ordinary changes. Native functional
 qualification remains in progress; failed attempts are retained in the
 [policy/admission evidence](../design_review/evidence/2026-11-04_m1-policy-admission/README.md).
@@ -81,13 +81,13 @@ exports and grading. LinkML owns persisted policy products, with numerical DTOs 
 feature fitting/calibration uses immutable evaluation rows, complete predeclared scored frames and
 separate source-origin partitions. Independent structural scoring is replayed in Python and SQL.
 `ci eval record-policy-fit` exports finite runtime parameters; it creates no authority when support
-is inadequate. Actual protected fit/calibration/publication qualification is still open.
+is inadequate. Controlled native fit→held-out calibration→exact binding→accepted publication passed at117, including parameter/score refusals. This establishes the synthetic table machinery, not actual source quality or all-family qualification.
 
 Passed focused pure checks cover the producer/resolver, finite numerical engine, reading lowerer,
 consumers, policy binding and reference adapters. The archived-JSON array regression passes15
 lowerer tests. Full current typing and Ruff passed. Native attempts found real integration defects
 below; concurrent independent bootstrap attempts also exhausted transaction locks before assertions.
-Native bootstraps now run serially. None of these bounded results establishes whole-M1 qualification.
+Full historical native bootstraps run serially; normal persistent development operations do not require disposable databases. None of these bounded results establishes whole-M1 qualification.
 
 Real intake remains27 frozen excerpt pages from Grinstead–Snell, Forbes and NIST, with11 native106
 analysis views and retained partial/unknown formula/cell health. The
@@ -108,11 +108,13 @@ Implementation review and native findings stay in this owning plan:
 | M1-INT-F03 | Runtime parameter binding selects one coherent subset and refuses mixed subsets, avoiding silent `not_run` scoring. Integrated runtime journey pending. |
 | M1-INT-F04 | Plain graph append cannot bypass reading admission by omitting record rows; exact direct record occurrence/evidence support is required without fabricated Agent observations. Native controls pending. |
 | M1-INT-F05 | Native publication used a nonexistent selection boolean and ambiguous JSON subtraction. Forward108/109 correct the set-valued selection and JSON operators. Rerun targeted native publication before closure. |
-| M1-INT-F08 | Protected fitting now normalizes JSON candidate/reference arrays through their released boundary before strict coordinate/meaning checks; raw frame bytes remain bound. Controlled native test remains in progress. |
-| M1-INT-F07 | Python/native task completion treated only observation rows as output, rejecting valid records-only CPU results. Forward110 now accounts for the authenticated record envelope; controlled native fitting test will verify it. |
-| M1-INT-F06 | Actual archived JSON arrays were rejected by strict Python tuple validation, silently suppressing reading assertions. The owned JSON boundary now normalizes wire values before family validation.15 lowerer cases passed; actual native round trip pending. |
+| M1-INT-F08 | Protected fitting now normalizes JSON candidate/reference arrays through their released boundary before strict coordinate/meaning checks; raw frame bytes remain bound. Controlled native fit/calibration passed at117. |
+| M1-INT-F07 | Records-only Python/native completion now accounts for authenticated records; actual controlled fitting/calibration/accepted publication passed at117. |
+| M1-INT-F06 | Actual archived JSON arrays were rejected by strict Python tuple validation, silently suppressing reading assertions. The owned JSON boundary now normalizes wire values before family validation.15 lowerer cases and actual direct-support native publication passed (113); final all-family runtime remains open. |
 
-Next complete native policy/publication tests, actual CPU extraction and operation reuse, then freeze
+Actual retained-source runs also corrected: distinct version2 for retained PDF configuration; no inherited phase0 filter for explicit M1 products; omitted synthetic-separator references decode as None (11 preparation tests passed). Archive24 decoding retains actual native106 PDF reads while current analysis/source execution remain refused. Publication binds canonical JSON text so numeric spelling survives frozen transport; native validation still enforces the typed policy object.
+
+Next complete actual CPU extraction and operation reuse plus the remaining consumer/gap seams, then freeze
 the executable release/reference inputs before fresh Sol6.1 high A/B/C. Actual source-only references,
 protected fit/calibration, coupled-template benefit disposition, five-family gates, CPU/RSS envelope,
 consumer/recovery journeys and NONDEFAULT release acceptance remain open. Prior UM standing and

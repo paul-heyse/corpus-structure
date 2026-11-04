@@ -3823,7 +3823,7 @@ classes:
       evaluation_id: {range: integer, required: false}
       evaluation_digest: {range: string, required: false}
       probability_lexical: {range: string, required: false}
-      binding_json: {range: json_payload, required: false}
+      binding_json: {range: string, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id]}
     annotations:

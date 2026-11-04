@@ -167,6 +167,7 @@ def bind_retained_document(registry, document: RetainedDocument):
 class RetainedIntegratedPdf(IngestPdfIntegrated):
     """The retained branch of the existing producer, with conversion refused."""
 
+    version = "2"
     Config = RetainedIntegratedConfig
 
     def original_recipe(self, cfg):

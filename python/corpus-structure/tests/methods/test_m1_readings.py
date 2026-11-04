@@ -140,3 +140,19 @@ def test_finite_feature_instance_scores_final_reading_without_repeating_extracti
     assert sha256(canonical.encode()).hexdigest() == event["feature_input_digest"]
     assert "record-feature-instance:" + instance.digest in row["computation_dependencies"]
     assert row["standing"] == "candidate"
+
+
+def test_resolver_decodes_archived_source_product_json_before_completion(monkeypatch):
+    import json
+
+    unit, ctx, upstream, worker = retained_fixture(monkeypatch)
+    wire = json.loads(canonical_bytes(upstream))
+    ctx.reader.source_result = lambda *_: wire
+    before = len(worker.calls)
+    (result,) = M1Readings().run((unit,), M1ReadingConfig(), ctx)
+    assert result.records
+    row = result.records[0]
+    validated = ctx.reader.prepared.validate_python("SourceRecord", row)
+    assert upstream["records"] is not None
+    assert validated.record_id == upstream["records"][0]["record_id"]
+    assert len(worker.calls) == before

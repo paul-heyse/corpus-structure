@@ -26,6 +26,8 @@ from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
 EXECUTION_COMPILER_VERSION = "25"
+# 24 and25 have the same immutable product shape; execution fences remain current-only.
+_READABLE_EXECUTION_COMPILERS = frozenset({"24", EXECUTION_COMPILER_VERSION})
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -69,6 +71,7 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("records/source-record-coordinates.sql", "semantic/sql/source_record_coordinates.sql"),
     ("records/record-projection.py", "semantic/record_projection.py"),
     ("records/publication.sql", "semantic/sql/record_publication.sql"),
+    ("records/finalization.sql", "semantic/sql/native_finalization.sql"),
     ("records/read.py", "semantic/record_queries.py"),
     ("records/references.py", "evaluate/record_references.py"),
     ("records/reference-alignment.py", "evaluate/record_alignment.py"),
@@ -879,11 +882,12 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
         _fail("contract_product", model_id, "execution product and inputs must be objects")
     compiler = data["inputs"].get("compiler_version")
-    if compiler != EXECUTION_COMPILER_VERSION:
+    if compiler not in _READABLE_EXECUTION_COMPILERS:
         _fail(
             "unsupported_execution_abi",
             model_id,
-            "execution product requires current compiler 24; regenerate the release",
+            f"execution product requires current compiler {EXECUTION_COMPILER_VERSION}; "
+            "regenerate the release",
         )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")

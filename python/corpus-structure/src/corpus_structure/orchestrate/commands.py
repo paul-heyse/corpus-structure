@@ -164,7 +164,7 @@ def start_bound_run(
             if (pack / "slices.yaml").exists()
             else {}
         )
-        if slice is None and scope is None:
+        if extraction_policy == "phase0" and slice is None and scope is None:
             scope = data.get("default_scope")
         corpus_record, scope_record = records(
             docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus

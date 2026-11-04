@@ -147,7 +147,9 @@ class M1Readings:
             records, events = [], []
             for original in upstream.get("records", ()):
                 ctx.check_active()
-                row = dict(original)
+                row = ctx.reader.prepared.validate_json(
+                    "SourceRecord", canonical_bytes(original)
+                ).model_dump(mode="python", exclude_unset=True)
                 if row["standing"] != "candidate":
                     raise ValueError("reading resolution requires private upstream candidates")
                 instance = next(

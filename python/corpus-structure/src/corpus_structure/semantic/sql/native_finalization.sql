@@ -19,7 +19,14 @@ BEGIN
     JOIN kb.observation observation ON observation.id=es.observation_id
     JOIN ops.cut_task ct ON ct.origin_task_id=observation.task_id AND ct.cut_id=p_cut
     WHERE (oe.release_id,oe.realization_id,oe.occurrence_id)=(o.release_id,o.realization_id,o.occurrence_id)
-      AND (es.span_id IS NOT NULL OR (es.source_view_id IS NOT NULL AND es.native_address IS NOT NULL AND ops.native_source_address(es.source_view_id,es.native_address)=es.native_address)))) THEN
+      AND (es.span_id IS NOT NULL OR (es.source_view_id IS NOT NULL AND es.native_address IS NOT NULL AND ops.native_source_address(es.source_view_id,es.native_address)=es.native_address)))
+  AND NOT EXISTS(SELECT FROM data.occurrence_evidence oe
+   JOIN data.record_assertion_support support ON
+    (support.release_id,support.realization_id,support.occurrence_id,support.evidence_id)=
+    (oe.release_id,oe.realization_id,oe.occurrence_id,oe.evidence_id)
+   JOIN ops.cut_task selected ON selected.cut_id=p_cut AND selected.origin_task_id=support.origin_task_id
+   WHERE (oe.release_id,oe.realization_id,oe.occurrence_id)=(o.release_id,o.realization_id,o.occurrence_id)
+    AND data.has_record_assertion_support(job.release_id,p_output,o.occurrence_id,oe.evidence_id))) THEN
   RAISE EXCEPTION 'source occurrence has no located evidence in sealed cut'; END IF;
  IF EXISTS(SELECT FROM data.occurrence o JOIN data.occurrence_evidence oe
    ON (oe.release_id,oe.realization_id,oe.occurrence_id)=(o.release_id,o.realization_id,o.occurrence_id)
@@ -29,5 +36,10 @@ BEGIN
    WHERE o.release_id=job.release_id AND o.realization_id=p_output AND
    NOT EXISTS(SELECT FROM ops.cut_task ct WHERE ct.cut_id=p_cut AND ct.origin_task_id=observation.task_id)) THEN
   RAISE EXCEPTION 'evaluation evidence is outside sealed observation cut'; END IF;
+ IF EXISTS(SELECT FROM data.record_assertion_support support
+  WHERE support.release_id=job.release_id AND support.realization_id=p_output
+   AND NOT EXISTS(SELECT FROM ops.cut_task selected
+    WHERE selected.cut_id=p_cut AND selected.origin_task_id=support.origin_task_id)) THEN
+  RAISE EXCEPTION 'reading evidence is outside sealed source cut'; END IF;
  UPDATE ops.run SET result_realization_id=p_output,status='finished' WHERE id=job.id;
 END $fn$;

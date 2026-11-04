@@ -117,8 +117,11 @@ def test_reference_atom_identity_survives_preparation(controlled):
     assert result.regions[0].families == prep.PROSE_FAMILIES
 
 
-def test_native_inline_children_share_one_coherent_context_and_annotation(controlled):
-    view = source("Mean is average.", labels=("text",))
+@pytest.mark.parametrize("separator", ["", "\n"])
+def test_native_inline_children_share_one_coherent_context_and_annotation(controlled, separator):
+    view = replace(
+        source("Mean is average.", labels=("text",)), text="Mean is " + separator + "average."
+    )
     nodes = (
         dict(self_ref="#/texts/parent", label="text", children=[{"$ref": "#/groups/inline"}]),
         dict(self_ref="#/groups/inline", label="inline", parent={"$ref": "#/texts/parent"}),
@@ -127,7 +130,10 @@ def test_native_inline_children_share_one_coherent_context_and_annotation(contro
     )
     pieces = (
         dict(kind="native_text", item_ref="#/texts/0", start=0, end=8),
-        dict(kind="native_text", item_ref="#/texts/1", start=8, end=16),
+        *((dict(kind="synthetic_separator", start=8, end=9),) if separator else ()),
+        dict(
+            kind="native_text", item_ref="#/texts/1", start=8 + len(separator), end=len(view.text)
+        ),
     )
     projection = dict(
         text=view.text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
@@ -140,7 +146,7 @@ def test_native_inline_children_share_one_coherent_context_and_annotation(contro
     )
     result = prep.prepare_source(view)
     assert len(controlled) == 1
-    assert controlled[0].block.text == "Mean is average."
+    assert controlled[0].block.text == view.text
     assert len(result.selections) == 1
     assert result.selections[0].region == "#/texts/parent"
     assert [region.selections for region in result.regions] == [(0,), (0,), (0,), (0,)]
@@ -192,6 +198,7 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
         "ingest.pdf_integrated",
         "extract.m1_annotations",
         "extract.m1_candidates",
+        "resolve.m1_readings",
     }
     assert M1.policy_propose is False
     steps = M1.stages[1][1]

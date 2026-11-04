@@ -301,6 +301,7 @@ _CURRENT_SOURCE_GUARDS = {
     ("data", "validate_occurrence_context"): "closure.sql",
     ("data", "validate_entity_source"): "closure.sql",
     ("data", "validate_pre_inference_state"): "closure.sql",
+    ("data", "finish_pre_context_evaluation"): "native_finalization.sql",
     ("data", "validate_identity_exclusions"): "exclusions.sql",
     ("ops", "guard_task_lifecycle"): "execution_guards.sql",
     ("ops", "guard_execution_run"): "execution_guards.sql",

@@ -332,6 +332,7 @@ def run_source_methods(
     holder = f"semantic-source:{rid}"
     try:
         try:
+            registered = {}
             for stage, steps in graph.stages:
                 for group in _source_step_groups(steps, configs, prepared):
                     scheduled = []
@@ -395,7 +396,6 @@ def run_source_methods(
                         return task_id
 
                     deferred = []
-                    registered = {}
                     for step in group:
                         name = step.config.split("/", 1)[0]
                         method = registry.method(name)
