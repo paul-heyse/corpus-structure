@@ -1,0 +1,22 @@
+{
+  "at": "2026-11-04T18:08:57.742820+00:00",
+  "outcome": "passed",
+  "authorization": "operator explicitly approved clearing downloaded APT packages",
+  "command": [
+    "sudo",
+    "-n",
+    "/usr/bin/apt-get",
+    "clean"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": "",
+  "cache": "/var/cache/apt/archives",
+  "before_bytes": 2545260940,
+  "after_bytes": 0,
+  "removed_cache_bytes": 2545260940,
+  "filesystem_free_before": 23275466752,
+  "filesystem_free_after": 25964728320,
+  "scope": "downloaded package cache only; installed software, project databases, evidence and models unchanged",
+  "limit": "filesystem free-space delta includes concurrent unrelated workloads; cache byte delta names this operation"
+}

@@ -26,8 +26,8 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 - Implemented: reusable annotation/raw/resolution operations, released field/state/identity
   contracts, protected finite policy fitting/calibration, native overlays/direct custody and
   bounded query/CLI/registered MCP/export/support consumers.
-- Native129 passes all16affected reference/policy native cases;200related pure/authoring cases,
-  typing/Ruff, ready and empty-head authoring pass. Failed/interrupted predecessors are retained.
+- Native130 passes26publication/support,16reference/policy and11reuse cases;147focused method
+  cases, globaltypes and empty-head authoring pass. Earlier200pure/authoring/ready/Ruff retain scope. Failed/interrupted predecessors are retained.
   Actual preparation21, protected fitting reads/evaluation2 and paired comparison preserve original
   C23/24across releases and all270readings; intentional0predictions yield270no_outputgaps.
 - Source-only snapshots11–13 and protected sets1–3 retain27pages/11views across three origins.
@@ -45,7 +45,7 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 - Policy6/native pack-v2 adds exact definition fragments, latent assertions and shared prose routing.
  147focused controls/globaltypes pass; independent review found no material issues. Actual3long CPU
   calls/warm request cancellation settle; internal phase/distributed cancellation remain unqualified.
-- Run20 ENOSPC/cancellation receipts remain; cluster/space recovered. APT cache was not cleared.
+- Run20 ENOSPC/cancellation retained; cluster recovered. Approved APT cache cleanup removed2.37GiB.
 - Fixed-schema native positive/zero training step passes numerical checks; isolated checkpoint,
   no efficacy claim. Correct production-profile004 passes261examples/reloads covering239/270decoder
   readings (226primary-custody/13neighbor-only);31exclusions remain. One fresh-base epoch is active.

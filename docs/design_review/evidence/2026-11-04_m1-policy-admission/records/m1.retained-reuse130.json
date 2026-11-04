@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "m1.retained-reuse130",
+  "title": "Current130 retained source reuse native controls",
+  "group": "M1",
+  "package": "M1-06",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current130runtime preserve native retained-source custody and selective reuse refusals?",
+  "answers": [
+    "M1-INT-F21"
+  ],
+  "method": "Serial current native retained-source reuse test file; controlled fixtures, no model/PDF execution.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_retained_source_reuse_native.py --junitxml=docs/design_review/evidence/2026-11-04_m1-policy-admission/native-retained-reuse130.xml"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-native-retained-reuse130.log",
+      "role": null,
+      "sha256": "e26fa52d9c68f911b6a5606d048eb7ead7952272cef80764e7cf7175db4dd22f"
+    },
+    {
+      "path": "native-retained-reuse130.xml",
+      "role": null,
+      "sha256": "a2901fc2bec9330374e4e35ca5a17c1e4a32466605805e8a5f028c2ac3b55b9a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-policy-admission/m1.record-frontends130"
+  ],
+  "results": [
+    {
+      "name": "Current retained-source native controls",
+      "value": 11,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All11retained-source native controls pass under current130. They establish native source-view selection/custody, exact declared product reuse and refusal guards at the controlled scope; actual125run19recovery retains its earlier source boundary. No new model, interruption-inside-inference, source quality or whole-M1 qualification is inferred.",
+  "consumed_by": [
+    "M1-06",
+    "M1-07",
+    "M1-14"
+  ]
+}

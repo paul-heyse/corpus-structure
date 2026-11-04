@@ -65,9 +65,9 @@ anchor custody, protected finite policy products, operation-scoped reuse and com
 applicability and policy6/native pack-v2.160 native objects are managed. Persistent
 corpus_structure_dev is at130 with its retained source population. Rollback-only
 `current-head-038` reports zero native and zero ordinary changes.26current130publication,
-closure, alternative and support native controls pass. Root `just types` passes; the earlier
-16reference/policy native results retain their129source boundary. Native125 retains11passing reuse controls. All16affected reference/policy native cases
-pass at129;200related pure/authoring cases, typing and scoped Ruff pass separately. The127broader
+closure, alternative and support native controls pass, followed by all16affected reference/policy
+native cases at130. All11retained-source reuse native controls also pass at130. Root `just types` passes;
+200related pure/authoring cases and scoped Ruff pass at their original source boundaries. The127broader
 run was interrupted by ENOSPC;128passed14/16 and exposed a no-report alias regression corrected
 by129. Retain those failures and incomplete receipts. Environment `just ready` passes after
 capacity recovery. Runtime changes rotate the executable

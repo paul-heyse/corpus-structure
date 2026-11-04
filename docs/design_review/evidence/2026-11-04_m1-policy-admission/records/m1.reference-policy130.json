@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "m1.reference-policy130",
+  "title": "Current130 protected reference and policy regression controls",
+  "group": "M1",
+  "package": "M1-10",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do protected reference/fitting/calibration controls remain valid with the current130runtime descriptor?",
+  "answers": [
+    "M1-INT-F24"
+  ],
+  "method": "Serial native reference, policy fitting/calibration and authority test files on current130; actual test providers remain controlled, no real model or source quality assessment.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/evaluate/test_record_policy_authority_native.py python/corpus-structure/tests/evaluate/test_record_policy_native.py python/corpus-structure/tests/evaluate/test_record_references_native.py --junitxml=docs/design_review/evidence/2026-11-04_m1-policy-admission/native-reference-policy130.xml"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-native-reference-policy130.log",
+      "role": null,
+      "sha256": "134053bbcd2f483546c041897c4b4c2297efd52d279eb1c6bd2190c8e1a9109a"
+    },
+    {
+      "path": "native-reference-policy130.xml",
+      "role": null,
+      "sha256": "b6f3516c866ea3643acc24595ac26cfbfd38da1a00692df16ac430c9455a05ee"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-policy-admission/m1.reference-applicability129",
+    "2026-11-04_m1-policy-admission/m1.record-frontends130"
+  ],
+  "results": [
+    {
+      "name": "Current native reference/policy controls",
+      "value": 16,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All16current130protected reference/policy cases pass, including compatible successor source custody, no-output denominators, fit/calibration authority and changed source/policy/alias refusals. This updates the targeted mechanism source boundary only; it supplies no real-model fidelity, fitted-source policy, heldout evidence or whole-M1 qualification.",
+  "consumed_by": [
+    "M1-10",
+    "M1-13",
+    "M1-14"
+  ]
+}
