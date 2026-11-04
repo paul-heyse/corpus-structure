@@ -88,3 +88,60 @@ integration and independent-reference quality qualification remain separate.
 Scoped Pyrefly and Ruff passed for the changed production/test files; the replay
 script passed scoped syntax/import lint. Root maintenance and assembled native
 qualification remain with the coordinator.
+
+## Rich-cell native assembly
+
+**Tested bounded native-table repair, 2026-11-04.** Rich cells retain their actual
+child literal pointers, for example `#/texts/…`, while occurrence identity retains
+the separate native parent table/cell anchors. The assembler appends a cell suffix
+only for an actual flat `#/tables/N` `cell_text` coordinate. It never invents
+`#/texts/N/data/table_cells/M` or derives native cell existence from a child piece.
+
+`native_table_cell_projection` in the existing source-preparation owner supplies
+the canonical rich-cell projection. Assembly checks its complete ordered native
+piece pointer/field/text signatures against the selected context. Rich-cell
+summary text does not substitute for the child projection. Actual discontinuous
+words remain a literal text sequence with separately addressed evidence; internal
+synthetic separators never become source words. Missing, foreign, partial or
+unsupported native projections leave the path unresolved.
+
+An unresolved structural row/header field can retain a separately located actual
+raw model proposal through the existing typed alternative and coherent value
+branch. Present canonical structural values remain unchanged. Native table/cell
+identity remains the same across both candidate readings, and unmarked first
+data columns are not promoted to native row headers.
+
+The actual retained source probe passed without annotation/model/PDF/provider
+execution or publication:
+
+```bash
+uv run python docs/design_review/evidence/2026-11-04_m1-capture-repair/probe_rich_table_assembly.py \
+  --out docs/design_review/evidence/2026-11-04_m1-capture-repair/rich-table-001
+```
+
+`rich-table-001/result.json` retains all selected contexts and candidate records;
+`source-inputs.json` retains actual source/configuration and already stored
+annotation inputs. Under preparation policy 3, all 182 eligible targets in 26
+bounded contexts produced 182 native candidate occurrences. Complete declared
+header paths were located for 156; no native row identities were declared, so
+those remain unresolved. The 572 unresolved-field diagnostics are retained.
+These are source-bound candidate assembly observations, not independently correct
+record counts or a quality gate.
+
+The final stored decoder replay is `replay-004`, preserving `replay-003`. Its
+purpose remains exact old-report reassembly under the old context recipe, not
+application of new table routing or a new model run. The final executed assembler
+bytes and digest are retained alongside its result.
+It retains the same 50 definition candidates across 20 occurrences, with 112
+unlocated groups still visible. Additional actual proposals beside unresolved
+structural fields are now retained: its unresolved-value-proposal count is 56 and
+unlocated-value-proposal count is 70; the earlier replay's counts remain preserved.
+
+The combined assembly/readings/source-preparation suite passed 56 tests. Added
+controls cover authentic rich child pointers and native parent cell identity,
+complete text sequences, missing/foreign/synthetic child replacement, and raw
+alternatives beside unresolved structural fields without overriding present
+native fields. Scoped typing/lint passed. The standalone
+`test_record_alternative_publication_native.py` adds a candidate alternative
+publication roundtrip using existing fixtures; native execution is `not_run`
+pending the coordinator's successor deployment.

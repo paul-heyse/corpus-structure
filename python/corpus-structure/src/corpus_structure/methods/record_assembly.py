@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from typing import Any
 
@@ -131,6 +131,22 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
         for role in roles:
             kind = field_kind(prepared, role)
             if role.name in fields:
+                structural = fields[role.name]
+                if (
+                    structural.state == "unresolved"
+                    and kind in {"literal", "classified"}
+                    and raw.get(role.name) is not None
+                ):
+                    # Unresolved native geometry does not disprove a separately
+                    # located model proposal. Keep the structural reading intact
+                    # and allow the same explicit alternative path as inspection.
+                    fields[role.name] = replace(
+                        structural,
+                        dependencies=(
+                            *structural.dependencies,
+                            _digest("source-inspection", [INSPECTION_POLICY, role.name, raw]),
+                        ),
+                    )
                 continue
             state = raw.get(role.name + "__state")
             state = state.get("text", state.get("label")) if isinstance(state, dict) else state
@@ -255,11 +271,9 @@ def _native_pointers(context: NativeSourceContext) -> set[str]:
     for item in (*native["items"], *native["ancestors"]):
         pointer = item.get("self_ref", item.get("pointer"))
         pointers.add(pointer)
-        for index, _ in enumerate(item.get("data", {}).get("table_cells", ())):
-            pointers.add(f"{pointer}/data/table_cells/{index}")
-    for piece in native["pieces"]:
-        if piece.get("source_field") == "cell_text" and piece.get("cell_index") is not None:
-            pointers.add(f"{piece['item_ref']}/data/table_cells/{piece['cell_index']}")
+        if isinstance(pointer, str) and re.fullmatch(r"#/tables/(0|[1-9][0-9]*)", pointer):
+            for index, _ in enumerate(item.get("data", {}).get("table_cells", ())):
+                pointers.add(f"{pointer}/data/table_cells/{index}")
     return pointers
 
 
@@ -376,7 +390,11 @@ def _assemble(
                             "alternate/recognized source space is unsupported by this assembler"
                         )
                     pointer = json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
-                    if piece.cell_index is not None:
+                    if (
+                        piece.cell_index is not None
+                        and piece.source_field == "cell_text"
+                        and re.fullmatch(r"#/tables/(0|[1-9][0-9]*)", pointer)
+                    ):
                         pointer += f"/data/table_cells/{piece.cell_index}"
                     row = dict(
                         pin=piece_pin,
@@ -644,8 +662,8 @@ def _assemble(
                         index, role.name,
                         "state_value_conflict" if state in {"unstated", "inapplicable"}
                         else "unresolved_value_proposal",
-                        "actual native value/cue and independent state proposal retained; "
-                        "inspection and coherent value hypotheses remain candidates",
+                        "actual native value/cue and unresolved inspection/structural "
+                        "reading retained; coherent value hypothesis remains candidate",
                     ))
                 except (ValueError, TypeError, KeyError) as error:
                     diagnostics.append(AssemblyDiagnostic(
@@ -909,17 +927,46 @@ def _item_spans(
     *,
     cell_index: int | None = None,
     source_view_id: int | None = None,
+    cell_projection: Any = None,
 ) -> tuple[LiteralSpan, ...]:
     """Lift retained native piece positions, never search equal source strings."""
     _require_canonical_context(context)
     identity = context.primary.source_view_id if source_view_id is None else source_view_id
-    return tuple(
-        LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
+    expected = (
+        tuple(
+            (piece.item_ref, piece.source_field, cell_projection.text[piece.start : piece.end])
+            for piece in cell_projection.pieces
+            if piece.kind == "native_text" and piece.start < piece.end
+        )
+        if cell_projection is not None
+        else None
+    )
+    members = {(item, field) for item, field, _ in expected} if expected is not None else None
+    rows = tuple(
+        row
         for row in context.intervals
         if isinstance(row, SourceInterval)
         and row.source.source_view_id == identity
-        and json.loads(row.item_locator.removeprefix("pdf:"))["pointer"] == pointer
         and row.cell_index == cell_index
+        and (
+            (json.loads(row.item_locator.removeprefix("pdf:"))["pointer"], row.source_field)
+            in members
+            if members is not None
+            else json.loads(row.item_locator.removeprefix("pdf:"))["pointer"] == pointer
+        )
+    )
+    if expected is not None and tuple(
+        (
+            json.loads(row.item_locator.removeprefix("pdf:"))["pointer"],
+            row.source_field,
+            context.text[row.model_start : row.model_end],
+        )
+        for row in rows
+    ) != expected:
+        return ()
+    return tuple(
+        LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
+        for row in rows
     )
 
 
@@ -951,6 +998,10 @@ def native_table_groups(
     if table is None or "table_cells" not in table.get("data", {}):
         raise GlinerRefused("selected native table cell structure is unavailable")
     native_cells = table["data"]["table_cells"]
+    nodes = {item["self_ref"]: item for item in (*native["items"], *native["ancestors"])}
+    from .source_preparation import native_table_cell_projection
+
+    projections = {}
     inherited = inherited or {}
     groups = []
     caption_spans = []
@@ -981,14 +1032,21 @@ def native_table_groups(
                     inspected_pointer=table_pointer,
                     reason="native structural path references a missing cell",
                 )
-            cell = native_cells[index]
-            located = _item_spans(context, table_pointer, cell_index=index)
-            if not located or "".join(piece.text for piece in located) != cell.get("text"):
+            try:
+                if index not in projections:
+                    projections[index] = native_table_cell_projection(table, index, nodes)
+                located = _item_spans(
+                    context, table_pointer, cell_index=index, cell_projection=projections[index]
+                )
+            except (ValueError, KeyError, TypeError):
+                located = ()
+            if not located:
                 return RoleInput(
                     role,
                     state="unresolved",
                     inspected_pointer=table_pointer,
-                    reason="complete native cell text is not located in this selected context",
+                    reason="complete canonical native cell pieces are unavailable or not "
+                    "located in this selected context",
                 )
             spans.extend(located)
         return RoleInput(role, spans=tuple(spans))
@@ -1010,7 +1068,7 @@ def native_table_groups(
             )
             continue
         cell_pointer = f"{table_pointer}/data/table_cells/{index}"
-        text = native_cells[index].get("text")
+        cell = native_cells[index]
         value = (
             RoleInput(
                 "cell_value",
@@ -1018,7 +1076,7 @@ def native_table_groups(
                 inspected_pointer=cell_pointer,
                 reason="native table cell text is explicitly blank",
             )
-            if text == ""
+            if cell.get("ref") is None and cell.get("text") == ""
             else reading("cell_value", (index,))
         )
         additional = inherited.get(index, ())
