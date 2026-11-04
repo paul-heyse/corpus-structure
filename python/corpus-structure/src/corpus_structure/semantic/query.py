@@ -890,12 +890,12 @@ class ReadSession:
 
     def required_coverage(self, run_id, family, scope_kind="run", scope_members=()):
         """Lift requested scopes over producer-bound units of the frozen completed cut."""
-        recipe = coverage_recipe()
         artifact = next(
             (a for a in self.prepared.artifacts if a.kind == "query_coverage.json"), None
         )
         if artifact is not None:
-            if json.loads(artifact.content) != recipe:
+            recipe = json.loads(artifact.content)
+            if recipe not in (coverage_recipe(), coverage_recipe(version=3)):
                 raise SemanticRefusal("unsupported archived query coverage recipe")
         else:
             raise SemanticRefusal("release lacks its query coverage recipe")
@@ -911,7 +911,7 @@ class ReadSession:
         run, origin = table("ops.run"), logical.alias("coverage_origin")
         config, method = table("ops.method_config"), table("ops.method")
         source_view = table("kb.source_view")
-        source = self.connection.execute(
+        source_query = (
             select(run.c.dependencies)
             .join(completed, completed.c.run_id == run.c.id)
             .where(
@@ -919,7 +919,11 @@ class ReadSession:
                 completed.c.release_id == self.binding.release_id,
                 completed.c.output_realization_id == self.binding.realization_id,
             )
-        ).scalar_one_or_none()
+        )
+        current_recipe = recipe["abi"] == "semantic-query-coverage-4"
+        if current_recipe:
+            self._admit_hydration(source_query)
+        source = self.connection.execute(source_query).scalar_one_or_none()
         if source is None:
             return unknown("completed result differs from the bound coverage snapshot")
         dependencies = json.loads(bytes(source))
@@ -928,7 +932,36 @@ class ReadSession:
             agent_property = family in self.prepared.enum_members(recipe["agent_properties"])
         except StopIteration:
             agent_property = False
-        if agent_property:
+        configured_agent = agent_property and current_recipe
+        declarations = {}
+        if configured_agent:
+            from corpus_structure.methods.llm.producer import producer_binding
+
+            from .operations import OperationConflict
+
+            snapshot = dependencies.get("agent_configurations")
+            if not isinstance(snapshot, dict) or not snapshot:
+                return unknown("coverage lacks immutable configured proposal producers")
+            for name, parameters in snapshot.items():
+                if not isinstance(name, str) or "/" not in name or not isinstance(parameters, dict):
+                    return unknown("coverage has an invalid proposal producer declaration")
+                producer_name, configuration_name = name.split("/", 1)
+                if producer_name not in recipe["agent_methods"] or not configuration_name:
+                    return unknown("coverage has an unsupported declared proposal producer")
+                try:
+                    binding = producer_binding(
+                        producer_name,
+                        parameters,
+                        unit=recipe["agent_unit"],
+                        method_version=recipe["agent_protocol"],
+                    )
+                except OperationConflict:
+                    return unknown("coverage has an incompatible declared proposal binding")
+                if binding.protocol != recipe["proposal_protocol"]:
+                    return unknown("coverage proposal protocol differs from its released recipe")
+                declarations[name] = parameters
+            producer = None
+        elif agent_property:
             producer = recipe["agent_method"]
         elif family in operations:
             producer = family
@@ -964,12 +997,59 @@ class ReadSession:
                 completed.c.run_id == run_id,
                 completed.c.release_id == self.binding.release_id,
                 completed.c.output_realization_id == self.binding.realization_id,
-                method.c.name == producer,
+                method.c.name.in_(recipe["agent_methods"])
+                if configured_agent
+                else method.c.name == producer,
             )
         )
+        if configured_agent:
+            stmt = stmt.add_columns(
+                method.c.name.label("method_name"),
+                method.c.unit_type.label("method_unit"),
+                origin.c.unit_type.label("unit_type"),
+                config.c.id.label("config_id"),
+                config.c.name.label("configuration_name"),
+            )
+        if current_recipe:
+            stmt = stmt.limit(100001)
+            self._admit_hydration(stmt)
         rows = self.connection.execute(stmt).all()
+        if current_recipe and len(rows) > 100000:
+            raise ReadLimit("coverage required universe exceeds 100000 units", reason="work_limit")
         binding = operations.get(producer)
-        if binding is not None:
+        if configured_agent and rows:
+            configs = (
+                select(config.c.id, config.c.params)
+                .where(config.c.id.in_({row.config_id for row in rows}))
+                .limit(10001)
+            )
+            self._admit_hydration(configs)
+            parameters = dict(self.connection.execute(configs).all())
+            if len(parameters) > 10000:
+                raise ReadLimit(
+                    "coverage producer configurations exceed 10000", reason="work_limit"
+                )
+            for row in rows:
+                values = parameters[row.config_id]
+                declared = declarations.get(f"{row.method_name}/{row.configuration_name}")
+                expected_hash = (
+                    "configuration:"
+                    + sha256(canonical_bytes([row.method_name, row.version, values])).hexdigest()
+                )
+                if (
+                    declared is None
+                    or canonical_bytes(values) != canonical_bytes(declared)
+                    or row.version != recipe["agent_protocol"]
+                    or row.unit_type != recipe["agent_unit"]
+                    or row.method_unit != recipe["agent_unit"]
+                    or row.config_hash != expected_hash
+                ):
+                    return unknown(
+                        "cut proposal producer differs from its archived configured binding"
+                    )
+        elif configured_agent:
+            pass
+        elif binding is not None:
             if any(
                 row.version != binding["version"]
                 or row.config_hash != binding["configuration_hash"]
