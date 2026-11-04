@@ -1,13 +1,11 @@
 # M1 publication and consumer adoption
 
-**Proposed · planned work · 2026-11-03.** Companion to the
-[M1 coordinator](../first-production-milestone_2026-11-03.md), the sole current package and
-opportunity-disposition owner. This document develops M1-11/M1-12. Source baseline `4a929aba`
-and operator GLiNER reference blob `3daefdd5af8a3118f4767d9a558da4bc712cbacd` inform the plan;
-the initially dirty reference was committed unchanged in `4720b9a7`. Prior UM functional
-implementation and validation are complete
-by operator clarification on 2026-11-03; its remaining agent assessment/followup does not create
-an M1 code-repair or revalidation prerequisite.
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+owns the detailed design and completion conditions for M1-11/12. The
+[coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
+dependencies, findings and assembled acceptance. Implemented foundations below are source
+inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+qualification is Planned. This revision changes plans, not production code or deployments.
 
 ## Target and responsibility
 
@@ -34,13 +32,16 @@ insufficient to authorize selection. Current
 [`ReadSession`](../../../python/corpus-structure/src/corpus_structure/semantic/query.py) and
 `SnapshotBinding` own pinned reads, evidence and coverage. Existing
 [CLI export](../../../python/corpus-structure/src/corpus_structure/cli/export.py) captures a
-completed result inside `read_snapshot`, then exports a detached packet. These are working
-foundations; they do not already establish M1 family/evidence views or five-family export.
+completed result inside `read_snapshot`, then exports a detached packet. The finite M1 record projection,
+`record_queries.read_completed_record_projection`, `serve/record_results.py`, CLI/MCP adapters
+and `serve/record_export.py` already supply candidate family/evidence views and faithful detached
+export. Their source integration is a foundation; evaluated accepted lowering and actual all-family
+CPU/publication/consumer release journeys remain open.
 
 <a id="M1-11"></a>
 ## M1-11 — Released record publication and migration
 
-**Proposed.** The complete package depends on
+**Remaining target.** Reuse the existing finite record publication projection; the complete package depends on
 [M1-03's evidence/observation implementation](semantic-contracts-and-evidence.md),
 [M1-08's family records and M1-10's acceptance/dependency contract](record-assembly-and-bounded-interpretation.md).
 M1-02 must first settle the
@@ -49,8 +50,8 @@ publication validation and a fixture journey alongside assemblers; this allows M
 develop against the target contract without treating mocks as provider qualification. Actual
 publication integration needs real completed reports, located fields and evaluated policy results.
 
-Extend effective domain declarations, prepared bindings, physical projections and the common
-publication lowering together. Each record has its own family/source-occurrence identity and
+Finish evaluated accepted-assertion lowering through the existing domain declarations, prepared
+bindings, physical projection and common publication boundary together. Each record has its own family/source-occurrence identity and
 explicit record membership across lowered assertions. Preserve every role's state and named
 anchor set, including discontinuous text, cell/header/note and formula/declaration coordinates.
 Source precision must survive transport: native-item grounding cannot become a fictitious exact
@@ -80,9 +81,17 @@ origins in a ledger. Author modality, interpretation confidence, reliability and
 remain separate; consolidation neither estimates scientific truth nor silently adopts ontology
 proposals. Global identity/ontology changes require their existing review/version route.
 
+The current baseline is frozen native102, semantic compiler16/readers14–16, execution24 and
+RuleValue ABI2. Reuse attributed assertions and complete rule views inside the existing atomic
+consolidation/delta-inference route. New accepted record semantics must not turn generated
+structural assignments into source assertions or count one field's evidence for another. Preserve
+separate storage/display/scientific representative policies and stored semantic reasons.
+AC improvement I01 requires actual consumer scenarios, including nondefault/historical boundaries.
+
 ### Release boundary and cutover
 
-Publish a new semantic release for changed record/evidence/interpretation schemas. M1's release
+Use the current release for unchanged meanings; prepare a new semantic release when the remaining
+record/evidence/interpretation work changes those meanings. M1's release
 manifest names English/statistics, PDF/selected native views, supported subsets of each family,
 unsupported strata, operation/schema/checkpoint/tokenizer/configuration and splitter versions,
 acceptance/calibration standing, resource bounds and source/recipe/cut lineage. A changed model
@@ -101,6 +110,13 @@ publication, query, export, evaluator and reporting consumers in the same releas
 Remove replaced M1-local flattening or duplicate interpretation paths once their consumers move.
 Do not retire predecessor data or unrelated workflows merely to simplify a test. A new release
 can exist without being default-selected while consumers and evidence are incomplete.
+
+Any native change after frozen102 uses a new forward successor, preserving immutable predecessor
+bytes, sidecar hashes, existing supported archive readers and the live native99 application.
+AC improvement I03 separates fresh installation, predecessor-forward and current-head reauthoring
+controls. Run full-chain installs serially on the dedicated cluster, and retain actual-catalog
+collation drift detection. Retirement follows registered operations, generated bindings and archived
+consumers as well as direct callers; do not remove live `complete_unit_result` or reference adjudication.
 
 ### Failure, interruption and recovery
 
@@ -126,14 +142,15 @@ actual extraction quality and final gate/adoption evidence remain M1-14.
 <a id="M1-12"></a>
 ## M1-12 — Pinned CLI, MCP, query and export journeys
 
-**Proposed.** Define presentation/read contracts with M1-02/M1-03 and M1-11 early so family
+**Remaining target.** Reuse the implemented completed-result reader and registered CLI/MCP/export
+adapters with M1-02/M1-03 and M1-11 so family
 producers and references use the same record identifiers and field roles. Complete against actual
 published M1-11 results. Extend the current domain read operations and their CLI/MCP adapters;
 do not introduce a dashboard, second consumer schema or an agent-only family interpretation.
 
 Use the existing snapshot/continuation owners for every stage of a journey. Bind release,
 realization/revision, record/projection, query version, normalized parameters and relevant profile.
-Evidence links, source retrieval, resources and continuations retain that binding even if a new
+Evidence links, source retrieval and supported tool continuations retain that binding even if a new
 release activates or the project's selected result changes. Wrong release, stale revision, missing
 result and malformed continuation retain explicit typed refusals. Bounded pagination cannot
 claim the whole family was inspected when underlying coverage is partial.
@@ -145,6 +162,22 @@ Operation names and exact CLI syntax are local implementation choices under D8. 
 the same pinned domain result on CLI, MCP and query APIs; presentation adapters must not reconstruct
 acceptance or reinterpret a raw model score as confidence.
 
+Keep `source-record-journey-1`, ordinary-answer2, continuation2 and native source/search4 as distinct
+compatibility products; do not relabel one version as another. The completed record reader selects
+roots before hydration and returns a pinned finite projection; its page completeness does not
+establish source/property coverage. Consume coverage recipe4's immutable compatible-producer
+population and preserve recipe3's exact historical meaning. Independent standing dimensions remain
+separate from list/detail/source-payload operations.
+
+AC improvement I02 distinguishes raw/row transfer admission from the complete encoded response.
+Apply full-envelope limits to actual interactive tools, including base64/duplicate presentation
+and metadata overhead. Rendering can commit an artifact before inline delivery refuses; retain its
+artifact reference and allow later bounded retrieval. Explicit streamed export keeps its own
+snapshot/iterator lifetime rather than inheriting an interactive whole-response limit. Exercise
+registered tools and continuations; no MCP resource workflow is currently registered or required.
+AC-CA01 must refuse unsupported queue modes even for an empty project before they can be relied on
+as truthful queue outcomes.
+
 | Journey | Required observable behavior |
 | --- | --- |
 | Definition/alias | Inspect defined term and defining passage separately, local scope and later reuse. See an unresolved identity or ontology proposal without a hidden global merge. |
@@ -154,7 +187,7 @@ acceptance or reinterpret a raw model score as confidence.
 | No output/search limit | Distinguish inspected-empty, no route, suppressed candidate, infeasible, numerical failure, truncated/limited and failed work. Show coverage/gaps without requiring an accepted record. |
 | Invalidation/interruption | Inspect prior accepted cut while a note/countercandidate change or cancellation leaves a new run incomplete; follow resumed results and their exact input versions. |
 
-Extend the detached export's common projection to include grouped records and role/state values,
+Finish the detached export's accepted-record path using the existing common projection of grouped records and role/state values,
 all required evidence links and source addresses, original/normalized/derived standing, decision
 and calibration status, coherent alternatives, coverage/routing/gaps, dependencies and the complete
 release/source/recipe manifest. Export carries accepted and candidate dispositions explicitly;
@@ -186,6 +219,13 @@ release slice; logical package readiness does not grant concurrent file ownershi
 Completion requires migrated actual consumers, pinned field evidence and correct empty/unknown
 semantics, coherent versioned publication and repeatable export. M1-14 retains final-source union
 qualification, family gate decisions and default/adopted release status. Source inspection was the
-only activity performed for this companion: extraction, publication, database migration, runtime,
+only activity performed for this revision; existing bounded native/consumer receipts remain with
+the coordinator and do not qualify the whole milestone. New extraction, publication, database migration, runtime,
 CLI/MCP and export checks are **not_run**. Future focused checks precede full-scope qualification;
 failed/interrupted records and predecessor accepted cuts remain retained.
+
+The [AC improvement review](../../plan_improvement_reviews/audit-closure_2026-11-03.md) I01–I03
+and [AC completion audit](../audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+constrain the reused foundation. The coordinator alone owns their M1 dependency impact and
+current evidence applicability. New checks are selected for unresolved obligations; historical
+passes are not promoted to final-source or whole-milestone qualification.

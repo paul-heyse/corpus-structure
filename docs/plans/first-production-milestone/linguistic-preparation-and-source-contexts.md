@@ -1,21 +1,22 @@
 # M1 linguistic preparation and source contexts
 
-**Proposed design and Planned work · 2026-11-03.** This companion develops M1-04 and M1-05.
-The [coordinator](../first-production-milestone_2026-11-03.md) owns package state, opportunity
-disposition, cross-package dependencies and assembled completion. Local conditions below describe
-what the packages must deliver; they do not report implementation progress.
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+owns the detailed design and completion conditions for M1-04/05. The
+[coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
+dependencies, findings and assembled acceptance. Implemented foundations below are source
+inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+qualification is Planned. This revision changes plans, not production code or deployments.
 
 ## Basis and current foundations
 
 The [M1 proposal](../../target-pipeline-design/first-production-milestone.md),
 [review O01/O05/O06](../../functional_reviews/m1-target-design_2026-11-03.md#O01) and
 [GLiNER deployment](../../target-pipeline-design/gliner-deployment.md) supply the selected design.
-Source inspected: `4a929aba`, including the operator-owned GLiNER reference at blob
-`3daefdd5af8a3118f4767d9a558da4bc712cbacd` without changing it. Initially dirty, those same bytes
-were committed externally as `4720b9a7` during authoring. By operator direction on
-2026-11-03, prior UM functionality implementation and validation are complete; its remaining agent
-assessment/followup stays outside this M1 work. M1's new annotations, contexts and routes still
-need implementation and their own evidence.
+The source baseline is now `75db93e1`, consuming the amended AC target and its adopted I01–I03.
+`ingest/annotations.py`, `methods/source_preparation.py` and `semantic/source_contexts.py` already
+supply richer detached annotations, mapped contexts and routing dispositions. M1 finishes their
+persisted/operation adoption and retained-source CPU evidence. Prior UM functionality/validation
+remains complete; original source-review provenance is retained by the coordinator.
 
 The [semantic contract companion](semantic-contracts-and-evidence.md) owns shared field/anchor
 meaning; [GLiNER/runtime](gliner-execution-and-cpu-runtime.md) consumes mapped contexts and admits
@@ -32,8 +33,8 @@ views from the existing Docling/Nemotron path remain inputs. This work adds no a
 
 | Existing seam | Foundation conclusion and M1 change |
 | --- | --- |
-| [sentences.py](../../../python/corpus-structure/src/corpus_structure/ingest/sentences.py), `SentenceConfig`, `pipeline`, `TextLayout`, `prepare_layout`, `make_doc`, `split` | Reuse exact reconstruction, atom-preserving words/spaces, pinned model and process-resident loading. The current default excludes `ner` and `lemmatizer`; `split` returns sentence extents, not the proposed reusable annotation columns. |
-| [proposals.py](../../../python/corpus-structure/src/corpus_structure/semantic/proposals.py), `NativeFrameSource`, `NativeProposalFrame`, `native_frame_entries` | Retain source/product/projection/recipe pins and separate source spaces. The frame presently restricts extra sources to distinct direct ancestors of the same product. Neighbors, captions, notes and arbitrary references need an explicit versioned extension rather than violating that validator. |
+| [sentences.py](../../../python/corpus-structure/src/corpus_structure/ingest/sentences.py), `SentenceConfig`, `pipeline`, `TextLayout`, `prepare_layout`, `make_doc`, `split` | Reuse exact reconstruction, atom-preserving words/spaces, pinned model and process-resident loading. Sentence-only `split` keeps its narrow contract; `annotations.annotate` already streams richer `AnnotationProduct` columns and explicit availability through the resident pinned pipeline. Finish persisted/operation adoption and source-level qualification. |
+| [proposals.py](../../../python/corpus-structure/src/corpus_structure/semantic/proposals.py), `NativeFrameSource`, `NativeProposalFrame`, `native_frame_entries` | Retain source/product/projection/recipe pins and separate source spaces. The original frame preserves its ancestor restriction. `source_contexts.NativeSourceContext` and typed related-source retrieval already express neighbor/header/caption/note/declaration/reference relations. Reuse that extension with independently pinned same-product sources; do not relabel relations as ancestors. |
 | [analytics.py](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), `CapturedPacket`, `AnalysisScope` | Reuse scoped analytical input/Arrow ownership for bulk context relations and routing audits. Do not hydrate the whole corpus in Python to select small contexts. |
 | [semantic.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), `run_source_methods` | Preserve run/cut/source binding and terminal results. M1-06 supplies CPU admission; context construction does not create another task engine or its own pool. |
 
@@ -46,13 +47,14 @@ of semantic truth.
 
 ## M1-04: one reusable linguistic product
 
-**Proposed.** Consume M1-02's settled linguistic/operation contract and the source/guideline pins
+**Remaining target.** Reuse `AnnotationProfile`, `AnnotationInput`, `AnnotationProduct` and
+`annotate`; consume M1-02's settled linguistic/operation contract and the source/guideline pins
 from M1-00/01. Producer integration waits for the admitted release; annotation design may proceed
 once the fields and precision semantics are settled. M1-04 does not wait for every assembler or
 the full context retrieval implementation.
 
-Extend `SentenceConfig` or its release-bound profile into explicit sentence-only and richer
-annotation selections. The richer profile enables/version-pins needed lemmatizer, tagger,
+Use the implemented `SentenceConfig` / `AnnotationProfile` sentence-only and richer
+annotation selections; finish their release-bound persisted product/operation integration. The richer profile enables/version-pins needed lemmatizer, tagger,
 morphology and dependency components; do not assume annotations exist because a `Doc` object
 exists. Record component/model/package versions, source/layout recipe and availability per needed
 annotation. Model/package mismatch refuses deterministically, following existing `pipeline`.
@@ -95,7 +97,8 @@ sentence-only consumers retain their declared behavior, a missing component is e
 replay consumes the same source/profile identities. Native formula identity must survive a wrong
 linguistic label. Boundary validation alone cannot establish linguistic accuracy.
 
-Run the selected actual local spaCy model on retained statistics passages for annotation availability,
+The recorded detached local operation establishes availability only for its retained paragraph.
+Extend actual local spaCy evidence to retained statistics passages for annotation availability,
 coordinate behavior and batching in the M1 preparation environment. This is a local provider check,
 separate from deterministic layout tests and from GLiNER inference. Measure only claims needed for
 the supported workload; no speed gain is established by using `pipe` alone. Stanza remains a
@@ -103,7 +106,7 @@ conditional comparison after a source-grounded annotation/attachment gap, not a 
 
 ## M1-05: bounded typed contexts, reversible maps and coverage-aware routing
 
-**Proposed.** Consume M1-03's working anchor/observation contract and M1-04's working annotations;
+**Remaining target.** Reuse the implemented mapped context/routing path; consume M1-03's working anchor/observation contract and M1-04's working annotations;
 use M1-01 source regions and supported family subsets. Settle context and routing shapes early
 with M1-02. M1-07 later supplies model role observations; a structural/rule route can be designed
 and tested before the model runs. Do not create a circular requirement that routing cannot exist
@@ -113,9 +116,8 @@ A context request supplies a selected source pin, family/pack purpose, initial n
 missing roles/retrieval reason and released widening policy. The selector returns ordered source
 pieces, source-view/native addresses and individual coordinate ranges, explicit synthetic pieces,
 candidate/retrieval scope, exclusions and terminal selection reason. Preserve ancestry, selected
-product/recipe digests and recognition health. Reuse the existing qualified frame interfaces where
-their contract holds; extend them through a new supported frame/context version for non-ancestor
-sources. Do not weaken the old direct-ancestor meaning or reinterpret a neighbor as an ancestor.
+product/recipe digests and recognition health. Reuse `NativeSourceContext` and typed related-source interfaces for non-ancestor
+sources, retaining their existing qualification rules. Do not weaken the old direct-ancestor meaning or reinterpret a neighbor as an ancestor.
 
 The normal access path selects structural relations in set-oriented queries before expensive
 model calls. Project only needed columns; carry shared source references and compact annotation
@@ -138,6 +140,14 @@ and absence within a searched scope may affect acceptance and therefore particip
 Stop when required roles and faithful-reading conditions are established or the supported bound
 is reached. Never silently use whole-document context after a failed bounded search. Missing
 scope, conflicting candidates, unsupported source, resource limit and no match remain distinguishable.
+
+Use the owned `Reader` operations and `ScopedSourceReader` for source preparation; no caller
+receives a raw reader connection. Thread invocation-owned `PublishedReadBudget` through selected
+metadata, view bodies, labels and related sources before hydration. The native source/search API
+version4 is separate from context2 and `NativeSourcePin` versions2/3. An API upgrade must not
+reinterpret those coordinate products. AC improvement I02 requires full encoded-envelope admission
+for interactive delivery; a row or inner-body bound alone is insufficient. An explicit streamed
+export has a separate lifetime and demand contract.
 
 ### Coordinate contract
 
@@ -201,6 +211,13 @@ end-to-end omissions on the admitted population and cannot replace them with can
 
 No general coreference model, multilingual pipeline, alternative intake, generative extractor or
 custom tokenizer is selected. New source/family capabilities must declare their source pieces,
-required annotation profile and routing semantics under the existing owners. All tests and local
-provider checks here are **Planned**; for plan authoring, inference, product tests and database
+required annotation profile and routing semantics under the existing owners. Remaining tests and local
+provider checks here are **Planned**; existing bounded receipts retain their coordinator-owned scope.
+For this revision, inference, product tests and database
 operations are **not_run**. Current states and future receipt links belong to the coordinator.
+
+The [AC improvement review](../../plan_improvement_reviews/audit-closure_2026-11-03.md) I01–I03
+and [AC completion audit](../audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+constrain the reused foundation. The coordinator alone owns their M1 dependency impact and
+current evidence applicability. New checks are selected for unresolved obligations; historical
+passes are not promoted to final-source or whole-milestone qualification.

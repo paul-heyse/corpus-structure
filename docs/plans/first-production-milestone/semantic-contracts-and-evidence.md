@@ -1,22 +1,22 @@
 # M1 semantic contracts and field evidence
 
-**Proposed design and Planned work · 2026-11-03.** This companion develops M1-02 and M1-03.
-The [coordinator](../first-production-milestone_2026-11-03.md) owns package state, dependencies,
-opportunity disposition and assembled completion. This document defines the local target and
-completion conditions; it is not a second progress ledger. Plan authoring authorizes no product
-changes or deployment.
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+owns the detailed design and completion conditions for M1-02/03. The
+[coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
+dependencies, findings and assembled acceptance. Implemented foundations below are source
+inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+qualification is Planned. This revision changes plans, not production code or deployments.
 
 ## Basis and foundation assessment
 
 Consume the [M1 proposal](../../target-pipeline-design/first-production-milestone.md),
 [functional review O03/O07](../../functional_reviews/m1-target-design_2026-11-03.md#O03), and
-[GLiNER deployment contract](../../target-pipeline-design/gliner-deployment.md). The inspected
-source baseline is `4a929aba`, with the operator-owned GLiNER reference at blob
-`3daefdd5af8a3118f4767d9a558da4bc712cbacd` left unchanged. Initially dirty, those same bytes were
-committed externally as `4720b9a7` during authoring. The operator's 2026-11-03 direction
-establishes that prior UM functionality implementation and validation are complete; its remaining
-agent assessment/followup stays with that owner and is not an M1 functional prerequisite.
-M1's new contracts and consumers still require their own implementation and qualification.
+[GLiNER deployment contract](../../target-pipeline-design/gliner-deployment.md). The original
+review inputs remain those recorded by the coordinator. The current foundation is the
+[amended AC target](../audit-closure_2026-11-03.md#13-adopted-targeted-amendments-and-next-execution):
+semantic compiler16, immutable readers14–16, execution24 and RuleValue ABI2, with frozen native102.
+AC14 qualification and AC-CA01 retirement remain open. Prior UM functionality/validation is
+complete under the operator's ruling; M1 does not reopen it.
 
 The [assembly/interpretation companion](record-assembly-and-bounded-interpretation.md) consumes
 these contracts; [publication/consumers](publication-and-consumer-adoption.md) migrates their served
@@ -27,29 +27,31 @@ each other's operations or completion claims.
 [D1](../../design/D1-knowledge-representation.md), [D2](../../design/D2-schema-and-guidelines.md),
 [D3](../../design/D3-database.md) and [D5](../../design/D5-consolidation-identity-confidence.md)
 remain the semantic, release, persistence and publication owners. Their applicable decisions,
-including ADR-0024/0027/0047, govern extension. M1-00 resolves authority changes before dependent
+including ADR-0024/0027/0047 and AC contract decision ADR-0054, govern extension. M1-00 resolves authority changes before dependent
 effects; this companion does not amend accepted decisions by implication.
 
 The useful existing spine is concrete:
 
 | Existing producer/consumer | Reuse and required M1 extension |
 | --- | --- |
-| [observations.yaml](../../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), `SourceObservationBatch`, `SourceObservation`, `SourceCoverage` | Immutable producer-bound source reports, linked inputs, terminal outcomes and measurements. A single location per observation is insufficient for field-to-many-anchor evidence and does not define a qualified whole record. |
+| [observations.yaml](../../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), `SourceObservationBatch`, `SourceObservation`, `SourceCoverage` | Immutable producer-bound reports, typed record candidates, field evidence and coverage exist. Finish actual attributed producer/accepted-publication integration; do not replace them with a single passage citation. |
 | [observations.py](../../../python/corpus-structure/src/corpus_structure/semantic/observations.py), `bind_result` | Release validation and deterministic report identities already exclude task/attempt IDs. Extend this boundary rather than bypassing it with an untyped JSON store. Preserve native-versus-rendition coordinate exclusion. |
-| [publication.py](../../../python/corpus-structure/src/corpus_structure/semantic/publication.py), `OccurrenceRow`, `OccurrenceEvidenceRow`, `OccurrenceEvidenceRoleRow`, `PublicationBatch` | Reuse many-to-many occurrence evidence and role relations. Add the missing released field/set/grouping semantics and native projections; a role string alone does not enforce a field contract. |
+| [publication.py](../../../python/corpus-structure/src/corpus_structure/semantic/publication.py), `OccurrenceRow`, `OccurrenceEvidenceRow`, `OccurrenceEvidenceRoleRow`, `PublicationBatch` | Reuse occurrence evidence plus the existing finite `record_projection.py` relations for fields, anchors, evidence sets, dependencies, admission and assertions. Finish accepted lowering under the released policy; a candidate projection is not accepted knowledge. |
 | [domain_operations.py](../../../python/corpus-structure/src/corpus_structure/semantic/domain_operations.py), `consolidate_cut` | Existing domain policy, cut binding and atomic publication remain the only admission route. Candidate interpretation prepares records privately and supplies a declared publication product. |
 | [execution-model.yaml](../../../python/corpus-structure/src/corpus_structure/model/semantic/execution-model.yaml), release preparation and generated boundaries | Extend the effective model and its invariant/operation/projection bindings coherently; do not add independently editable family schemas or a parallel validation engine. |
 
-The foundation change is a versioned representation of complete record occurrences with
-field-addressable evidence and honest outcome meanings. It is warranted because the consumer
+The versioned record declarations, `record_contracts.bind_record_candidates`, and private/native
+custody already represent complete candidate occurrences with field-addressable evidence. The
+remaining change carries these meanings through evaluated acceptance and actual producer/publication
+journeys, preserving AC attribute-specific support and machine-readable operation reasons. It is warranted because the consumer
 must distinguish a measurement's value evidence from its header, unit and condition, and because
 one record may lower to several qualified assertions. Existing many-to-many evidence is retained;
-its current existence does not establish those new meanings. A separate family database or one
+candidate storage alone does not establish evaluated acceptance of those meanings. A separate family database or one
 opaque passage-cited JSON payload would duplicate custody or leave the consumer to guess.
 
 ## M1-02: released record, field and outcome model
 
-**Proposed.** Consume M1-00's authority decisions and M1-01's family guidelines, supported subsets
+**Remaining target.** Reuse implemented declarations and bound products; consume M1-00's authority decisions and M1-01's family guidelines, supported subsets
 and population identities. Settle the shared contracts early enough for preparation, extraction,
 assemblers, interpretation and evaluation to design against them. Working integration requires
 the admitted new release and its generated/enforced products, not only agreement on names.
@@ -98,13 +100,20 @@ Identity follows the operation being represented:
   when its effective inputs are unchanged. Changed input, schema or policy creates the appropriate
   new computation identity rather than overwriting immutable reports.
 
-Implement through the existing LinkML declarations and prepared Pydantic boundary adapters,
-then operation/invariant/projection bindings. [D2 release preparation](../../design/D2-schema-and-guidelines.md#semantic-release-preparation-entry-point)
+Extend the implemented LinkML record declarations, `record_contracts.py` identities/validation,
+`record_projection.py` and prepared Pydantic adapters and their operation/invariant/projection bindings rather than rebuilding these boundaries. [D2 release preparation](../../design/D2-schema-and-guidelines.md#semantic-release-preparation-entry-point)
 and [review O03](../../functional_reviews/m1-target-design_2026-11-03.md#O03) provide the concrete
 mechanism. Family schema shape derives from those definitions; authored extraction descriptions
 remain versioned policy under the same owner. Unknown required constructs refuse instead of
 being silently omitted. Freeze predecessor observations; do not relabel old single anchors as
 new multi-anchor records or require historical backfill to activate M1.
+
+Operational vocabularies such as reference splits come from the exact bound execution product
+(`ExecutionModelProducts.reference_splits`), independently of domain extraction classes. Domain
+roles/subsets come from the producing semantic release. A domain collision must not override an
+operational subset. I01 of the adopted AC improvement review requires nondefault and historical
+consumer cases, not another registry. Keep RuleValue ABI2 as the shared rule projection: a record
+adapter must not reconstruct a partial rule view or equate a shape-valid value with supported evidence.
 
 ### Completion conditions for M1-02
 
@@ -118,8 +127,9 @@ consumer packages; M1-02 exposes their required typed contracts without claiming
 
 ## M1-03: field evidence, observation binding and native lowering
 
-**Proposed.** Consume M1-02's admitted contracts. Extend the source-report/binding and publication
-spine as one change, including projections readers use. Context design may proceed against settled
+**Remaining target.** Consume M1-02's implemented admitted contracts. Reuse the current
+source-report binding, authenticated coordinates and finite publication projection as one spine;
+finish the attributed producer and evaluated accepted-assertion route with its reader/evaluator consumers. Context design may proceed against settled
 anchor meaning while working mapping integration waits for this implemented contract.
 
 An evidence set names its record field/role and contains ordered or explicitly unordered located
@@ -138,9 +148,10 @@ offsets in serialized input. A multi-piece match crossing synthetic text either 
 separate genuine source pieces under the field's contract or remains unresolved/refused. No
 synthetic separator or appended punctuation obtains a source locator.
 
-The extension to `bind_result` accepts source-bound family candidates plus these evidence sets,
-provenance/diagnostics and actual inspected scope, validates them through the prepared release,
-and preserves immutable raw reports. Native payload alternatives remain inspectable even when
+The existing `bind_result` / `bind_record_candidates` path accepts source-bound family candidates
+with these evidence sets. Complete the producers using that path: retain provenance/diagnostics
+and actual inspected scope, validate them through the prepared release and preserve immutable
+raw reports. Native payload alternatives remain inspectable even when
 publication rejects them. Provenance includes operation/package/checkpoint/tokenizer identities,
 effective schema/configuration/context/normalization, ontology/calibration versions actually
 consumed, window identity and dependency groups, feasibility/violations and available suppression
@@ -170,6 +181,13 @@ infeasible interpretation, a missing qualifier or publication conflict. A change
 withdrawn rejected alternative invalidates affected interpretations even when winning value
 evidence is unchanged. Preserve earlier accepted cuts and record the new computation.
 
+AC source assertions are attribute-specific: support for a numeric value cannot establish its
+unit, role, condition or a different field. Structural assignments and derived values keep their
+different authority and premises. Carry machine reasons from actual operations into persisted
+assessments and CLI/MCP/evaluator responses; human explanation changes must not change semantic
+identity. Storage, class-display and scientific representatives remain separate policies, with
+original occurrences and qualified alternatives preserved.
+
 ### Completion conditions for M1-03
 
 Focused implementation checks extend the relevant observation/publication/native-context tests
@@ -191,12 +209,19 @@ the mapper's deterministic semantics, but fabricated candidates cannot qualify G
 
 No new semantic store, evidence service, generic validator registry or historical migration is
 selected. Local class/table names and whether compact field data share an existing value object
-are implementation choices. The consequential unresolved placement question is which existing
-occurrence/role projections can express field-set and record membership without losing precision.
-During M1-02/03, inspect their effective model and native constraints and demonstrate the table
-round trip. Reuse if faithful; extend the owned model/projections if not. Do not accept opaque
+are implementation choices. The implemented finite record
+projection now owns field-set and record membership; do not reopen placement as a greenfield
+choice. Extend that owner only for a demonstrated missing meaning, and demonstrate the accepted
+table/header/note round trip. Any native change after frozen102 uses a new forward successor
+under AC review I03, never a rewrite of historical migration bytes. Do not accept opaque
 payload-only persistence that strands query/export/evaluator consumers.
 
-All verification above is **Planned**. For this plan-writing contribution, product tests, database
+Remaining acceptance checks above are **Planned**; the coordinator retains scoped existing results. For this plan-writing contribution, product tests, database
 operations, provider inference and qualification are **not_run**. Package states and any future
 evidence receipts belong only to the coordinator.
+
+The [AC improvement review](../../plan_improvement_reviews/audit-closure_2026-11-03.md) I01–I03
+and [AC completion audit](../audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+constrain the reused foundation. The coordinator alone owns their M1 dependency impact and
+current evidence applicability. New checks are selected for unresolved obligations; historical
+passes are not promoted to final-source or whole-milestone qualification.

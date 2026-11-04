@@ -1,54 +1,46 @@
 # Released semantic contracts and projections
 
-**Accepted planning direction, 2026-11-03; implementation and qualification Proposed.**
+**Accepted planning direction, 2026-11-03; source integrated; complete qualification open.**
 This companion develops AC01, AC02 and AC05 of the
 [audit-closure coordinator](../audit-closure_2026-11-03.md). The coordinator alone owns package
 status, execution queue and new-review-work disposition. Source DA findings keep their existing
 disposition owner; the correspondence below supplies implementation routes, not copied status.
 
 The operator accepted principal-review RC01–RC12 on 2026-11-03. No reapproval is needed.
-AC00 schedules the applicable ADR and architectural-owner changes before dependent meaning changes;
+ADR-0054 realizes the accepted changes at their architectural owners;
 this document neither changes accepted ADRs nor applies the target to production.
-The series completes before the M1 plan is updated and M1 resumes.
+M1 documentation is reconciled after the completion audit and targeted amendments; resumed execution retains AC prerequisites.
 
 ## Basis and focused foundation assessment
 
-Consume the [principal review](../../design_review/reviews/design_review_audit-closure-target_2026-11-03.md)
-at `fd4ea601`, especially §§2–4, 7 and 11, and its
-[semantic contracts](../../design_review/reviews/audit-closure-target/semantic-contracts.md).
-The source baseline inspected for this plan is HEAD `fd4ea601` plus concurrent dirty M1 work,
-2026-11-03. Applicable criteria are core/template 3.3, heuristics 1.0, code-intelligence 1.4
-and test-assessment 1.2, selected by `standard.toml`; this is focused plan foundation assessment,
-not a new audit or a claim of enclosing architectural conformance.
+**Implemented source, inspected 2026-11-03 at `75db93e1`; assembled qualification open.**
+The principal review at `fd4ea601` supplies the accepted target; its original source diagnoses
+are historical inputs rather than a description of today's missing implementation. ADR-0054
+realizes RC01–RC12 through D2/D5/D6/D7/D8. The coordinator owns the current audit conclusion.
+Paths below are relative to `python/corpus-structure/src/corpus_structure/`.
 
-The authoritative architectural route is [D1](../../design/D1-knowledge-representation.md),
+`semantic/types.py`, `property_roles.py`, `statement_types.py` and `prepare.py` now carry released
+source subsets, display/behavior roles and method dimensions into preparation, admission and
+consumers. Semantic compiler16 and readers14–16 have distinct production/reading responsibilities.
+The bound execution24 product owns operational `reference_splits`; a domain-only release uses
+its explicitly declared vocabulary. An operational vocabulary need not be imported into the domain
+namespace. `rule_views.py` supplies complete RuleValue ABI2 and shared source addressing;
+operation-owned reasons reach actual reading/condition/comparison/preparation assessments.
+Programming, infrastructure and native admission errors retain their failure meanings.
+
+Retain the target and counterexamples below as acceptance requirements. Remaining work is to
+account for their assembled native/provider/consumer applicability, including independently authored
+subset overrides and stored-reason consumption; existing source integration is not work to rebuild.
 [D2](../../design/D2-schema-and-guidelines.md) and
-[D5](../../design/D5-consolidation-identity-confidence.md), through their current decision lines
-(notably ADR-0024, ADR-0031, ADR-0035 and ADR-0045). In paths below, `semantic/`, `model/`,
-`serve/` and `evaluate/` are under `python/corpus-structure/src/corpus_structure/`.
-
-**Implemented baseline, inspected 2026-11-03:** `PreparedRelease.enum_members(name, subset=...)`
-in `semantic/types.py:279` already resolves released closed membership and member metadata.
-`property_roles.py:13` derives effective identity/required/display roles; `statement_types.py:54`
-compiles contextual reference and statement bindings. `operation_results.py:25` validates finite
-dimensions through cached strict adapters bound to the archived execution model. Extend these
-products instead of creating another schema catalogue, YAML walker or mutable behavior registry.
-
-The gaps remain observable in source: `model/semantic/agent.yaml:93` binds AgentClaim to all
-Establishment values; its statement/evidence role lists are independently authored. `serve/read.py:147`
-selects display properties by spelling. `domain_operations.py:3020,3253` classifies premise/symbol
-behavior through literals. Rule projection still uses `semantic-rule-view-1`, sets enum to None,
-uses value kind as slot kind, and only derives a defined symbol for `t == 'formula'`
-(`rule_views.py:28,129,189`); `domain_operations.py:3194` builds another view.
-`refusals.py` already preserves invocation-local FailureContext and native database cause/effects,
-but `domain_operations.py:2807` can reduce broad ValueError failures to undecided prose.
-
-Dirty M1 `records.py`, publication/report-presence SQL and forward101 work preserve separate
-source-record admission and explicit report absence. They do not implement these missing semantic
-contracts. Reconcile their latest bytes before touching shared model/native surfaces; do not
-freeze M1 quality repairs or treat them as audit-closure qualification.
+[D5](../../design/D5-consolidation-identity-confidence.md) remain architectural owners.
 
 ## AC01 — Effective subsets, roles, display policy and method dimensions
+
+**Adopted refinement I01:** composed operational vocabularies come from the bound execution
+product, not a same-named domain enum. Carry supplied-subset and domain-collision cases through
+actual native/reference consumers. For AC05, inspect the stored assessment and consuming response,
+not only reason types or serializer round trips. See the [targeted review](../../plan_improvement_reviews/audit-closure_2026-11-03.md#I01).
+
 
 **Correspondence:** DA-002/003/012/040. This is completion of existing released semantic authority;
 AC00 supplies any necessary current-owner/version routes, rather than requiring a new approval.
@@ -131,7 +123,7 @@ Version the archived view schema, rule compiler and dependent authored rules tog
 chooses a supported ABI explicitly and refuses incompatible callers/releases. Do not read old
 archives under new defaults or add a universal old-runtime compatibility promise. AC13 packages
 the resulting artifact/compiler identity and native changes; exact migration names remain execution
-choices after the current dirty M1 baseline is reconciled.
+choices now bound by frozen102 and the coordinator’s current source/compatibility account.
 
 The selected mechanism remains rule-engine **5.1.0** `DataType.OBJECT(name, attributes, accessor)`,
 `OBJECT.reference`, `ARRAY`, `MAPPING` and `NULLABLE`, plus existing Language/Context/compiled Rule.

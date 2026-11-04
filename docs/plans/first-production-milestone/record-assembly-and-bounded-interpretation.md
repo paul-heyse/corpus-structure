@@ -1,15 +1,11 @@
 # M1 record assembly and bounded interpretation
 
-**Proposed · planned work · 2026-11-03.** Companion to the
-[M1 coordinator](../first-production-milestone_2026-11-03.md), which alone owns current package
-state, opportunity disposition and the execution queue. This document develops M1-08–M1-10;
-it does not report implementation or qualification. Source baseline: `4a929aba`, with the
-operator-owned GLiNER reference blob `3daefdd5af8a3118f4767d9a558da4bc712cbacd` preserved.
-That initially dirty reference was subsequently committed unchanged in `4720b9a7`; the coordinator
-records the current provenance.
-The operator's 2026-11-03 clarification treats prior UM functional implementation and validation
-as complete; remaining UM agent assessment/followup stays with its owner. These are new M1
-capabilities, not a route to reopen UM work.
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+owns the detailed design and completion conditions for M1-08/09/10. The
+[coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
+dependencies, findings and assembled acceptance. Implemented foundations below are source
+inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+qualification is Planned. This revision changes plans, not production code or deployments.
 
 ## Target and existing seams
 
@@ -27,8 +23,8 @@ policy selections, not confidence cutoffs. Existing
 include occurrence evidence, evidence roles, assessments, alternatives and derivation premises.
 These are foundations to extend under M1-02/M1-03, rather than five independent stores.
 [`derive`](../../../python/corpus-structure/src/corpus_structure/semantic/inference.py) computes
-finite rule closure over admitted premises. Candidate-level probabilistic interpretation needs
-a distinct domain operation: routing uncertain candidates through `derive` would conflate
+finite rule closure over admitted premises. `semantic/record_interpretation.py` already supplies the distinct bounded domain operation
+`interpret_records` with three templates. Complete its producer/policy integration: routing uncertain candidates through `derive` would conflate
 interpretation with established entailment. D1/D2 own meanings; D4 owns method realization;
 [D5](../../design/D5-consolidation-identity-confidence.md) owns interpretation, source identity
 and publication policy. The coordinator schedules durable authority changes before dependent work.
@@ -45,7 +41,8 @@ cardinality do not decide whether the source stated a role.
 <a id="M1-08"></a>
 ## M1-08 — Five deterministic family assemblers
 
-**Proposed.** Consume M1-03 bound candidate observations/evidence,
+**Remaining target.** Reuse `methods/record_assembly.py` common assembly, native table/formula
+grouping and candidate reconciliation; consume M1-03 bound candidate observations/evidence,
 [M1-05 typed contexts](linguistic-preparation-and-source-contexts.md) and the implemented
 [M1-07 CPU producer profile](gliner-execution-and-cpu-runtime.md).
 M1-02 must supply the released family roles, field states
@@ -53,7 +50,8 @@ and occurrence identity recipe. M1-01 supplies guideline conventions before asse
 what constitutes a complete record. An agreed interface permits early fixture development; an
 actual producer and coordinate mapping are required before claiming assembled integration.
 
-Build family operations around common located candidates and domain-specific attachment rules.
+Finish the existing five-family operations around common located candidates and domain-specific
+attachment rules, using retained wrong-association outcomes as counterevidence to shape-valid success.
 Use native GLiNER natural grouping with an explicit anchor and native same-field assignment where
 the selected pack supports it. Deterministic span assembly is the baseline comparator and the
 route for established keys; do not recreate native within-group matching as a second generic
@@ -95,10 +93,18 @@ with the assembler being tested. Finish M1-08 when each family has a usable dete
 actual bound producer/context integration and located candidates on retained sources. Release
 precision, provider quality and all-family adoption remain M1-13/M1-14 obligations.
 
+AC integration changes the assembly inputs without granting scientific authority. Consume the
+released behavioral roles and complete RuleValue ABI2, and retain attribute-specific evidence for
+each qualifier. Typed identity outcomes must remain visible; storage representatives do not
+choose the class display or scientific-view representative. Persist operation-owned reasons on
+actual assessments and verify their consumer presentation. AC improvement I01 supplies the
+nondefault/producer-bound integration cases; it does not replace independent source readings.
+
 <a id="M1-09"></a>
 ## M1-09 — Three bounded interpretation templates
 
-**Proposed.** Start after the M1-08 deterministic baseline can expose actual ambiguity and provide
+**Remaining target.** The pure numerical operation is implemented. Finish actual producer and
+acceptance integration after the M1-08 deterministic baseline can expose actual ambiguity and provide
 a fixed candidate comparison. Develop numerical fixtures alongside M1-02/M1-03 contracts. Enable
 coupling for a supported template only after comparison with deterministic joins and a fitted
 independent/stacking baseline demonstrates worthwhile complete-record gain or error reduction.
@@ -108,7 +114,8 @@ predictions. Sparse fitting evidence keeps scores provisional and never licenses
 The templates are value–property–referent–condition; mention identity–type–relation; and table
 header–row identity–cell value–unit–note. Definitions/formula records reuse these decisions with
 their native contexts. Do not build a universal solver language or corpus-wide latent-truth model.
-Expose a typed domain operation whose input names decisions, finite candidate domains, factor
+Use the existing `InterpretationRequest` / `InterpretationResult` operation whose input names
+decisions, finite candidate domains, factor
 scopes, hard constraints, policy/ontology inputs, search settings and all computation dependencies.
 Every uncertain decision retains unresolved and a reason; identity also permits genuine local/new.
 Search scope, exclusions, candidate truncation and retrieval limits are part of its result.
@@ -120,7 +127,7 @@ survive until unit meaning, antecedent and condition scope are jointly evaluated
 duration cannot pre-prune the pressure interpretation. Preserve delivered/rated flow distinctions
 and the modal “may” and “below this pressure” qualification on cavitation.
 
-The selected numerical baseline is [M1 numerical realization](../../target-pipeline-design/mathematics.md#m1-numerical-realization):
+The implemented numerical baseline is [M1 numerical realization](../../target-pipeline-design/mathematics.md#m1-numerical-realization):
 bounded NumPy assignment blocks with SciPy `special.logsumexp`. Declare real factor/dependence scopes
 before component partitioning; `networkx.connected_components` can identify independent components.
 Shared release metadata alone creates no coupling. Begin with a configurable 65,536-state guard
@@ -170,7 +177,7 @@ semantics automatically; the coordinator owns their current disposition.
 <a id="M1-10"></a>
 ## M1-10 — Acceptance, calibration, dependence and invalidation
 
-**Proposed.** Consume M1-09 template results, deterministic proofs from M1-08 and independently
+**Remaining target, not established by the pure operation.** Consume M1-09 template results, deterministic proofs from M1-08 and independently
 authored M1-13 development/fitting references. Author the acceptance contract early so producers
 retain necessary dependencies; complete fitted acceptance after there are sufficient held-out
 labels. M1-11 must not publish model-resolved output as accepted merely because a shape validator
@@ -211,7 +218,9 @@ Qualification cases withdraw a rejected alternative, change a table note, change
 acceptance policy, duplicate a window and interrupt before publication. Verify selective recomputation,
 retained immutable observations and idempotent resume. Independent references determine whether
 the resulting readings and acceptance decisions are faithful. Few independent source groups,
-even with many records, can leave calibration or the precision lower bound unestablished.
+even with many records, can leave calibration or generalization unestablished. The selected
+finite-cut precision gate follows ADR-0053 and the evaluation companion’s census/SRS procedure;
+few origins alone do not invalidate that bound.
 
 M1-10 supplies M1-11 acceptance standing, component dependencies and replay scope. M1-14 owns
 final threshold/gate evidence and operating/adoption claims. Corpus-wide truth probability,
@@ -225,5 +234,12 @@ publication inputs, focused independent checks, explicit unsupported/limited out
 invalidation dependencies. It does not mean the five families are released. The coordinator owns
 the combined required qualification union and final source applicability. During future execution,
 run focused functional checks after coherent slices; broad qualification follows complete functional
-scope under M1-14. This authoring performed source inspection only: runtime, model, numerical,
+scope under M1-14. This revision performed source inspection only. Existing assembly and pure numerical receipts
+remain bounded at their original source; new runtime, model, numerical,
 calibration and consumer checks are **not_run**.
+
+The [AC improvement review](../../plan_improvement_reviews/audit-closure_2026-11-03.md) I01–I03
+and [AC completion audit](../audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+constrain the reused foundation. The coordinator alone owns their M1 dependency impact and
+current evidence applicability. New checks are selected for unresolved obligations; historical
+passes are not promoted to final-source or whole-milestone qualification.

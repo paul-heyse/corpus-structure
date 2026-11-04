@@ -1,6 +1,6 @@
 # Serving and evidence journeys
 
-**Proposed implementation target · 2026-11-03.** This companion defines the AC10 and
+**Accepted target; source integrated; complete qualification open · 2026-11-03.** This companion defines the AC10 and
 AC11 contracts of the [audit-closure coordinator](../audit-closure_2026-11-03.md).
 The coordinator alone owns new-series package state, review-obligation conclusions, sequencing
 and completion. Existing plans retain their scheduled DA dispositions; this companion does not
@@ -11,43 +11,28 @@ at `fd4ea601`, especially DA-035/036/039 and its
 [consumer contracts](../../design_review/reviews/audit-closure-target/consumer-contracts.md),
 read with the [semantic](../../design_review/reviews/audit-closure-target/semantic-contracts.md)
 and [runtime](../../design_review/reviews/audit-closure-target/runtime-boundaries.md) contributions.
-Source grounding is that revision plus the identified concurrent dirty M1 tree inspected on
-2026-11-03; those edits are preserved, not qualification evidence. Core 3.3, its efficient
-architecture companion, code-intelligence 1.4 and the test-assessment companion guide the target.
-All future checks below are planned, not run for plan authoring.
+The original grounding was that review revision plus concurrent M1 work. Current source grounding
+is `75db93e1`, 2026-11-03. Core3.3, heuristics1.0, code-intelligence1.4 and test-assessment1.2 guide
+the amended target. Existing bounded receipts and remaining qualification are owned by the coordinator.
 
 ## Purpose and existing foundations
 
-An answer must let a caller distinguish what was selected, what was assessed, what established
-a fact, what source work covered the question, and whether an inventory has more pages. Those
-are separate meanings. The same release/result/query binding must govern the entire answer,
-evidence, source retrieval and export journey.
+**Implemented source, inspected 2026-11-03 at `75db93e1`; assembled qualification open.**
+D8 and ADR-0054 own independent standing, coverage and explicit evidence access. Ordinary-answer2,
+continuation2 and native source/search4 bind their own compatibility meanings; coverage4 uses the
+shared compatible producer population while recipe3 retains exact historical interpretation.
+`semantic/query.py`, `pdf_record_reader.py:PublishedReadBudget` and actual serving/intervention
+consumers select metadata before payload hydration and account for invocation row/byte limits.
+Rendered-image admission and complete-envelope checks retain a committed artifact reference when
+response egress refuses. Explicit streamed export has its own lifetime and completion contract.
 
-The architectural owners are [D8](../../design/D8-agent-and-query-interfaces.md),
-[D1](../../design/D1-knowledge-representation.md),
-[D3](../../design/D3-database.md) and
-[D5](../../design/D5-consolidation-identity-confidence.md). AC00 schedules the ADR/owner route for
-accepted RC08 and RC09 before dependent implementation. Their explicit operator acceptance on
-2026-11-03 is planning authority; this companion neither edits those authorities nor claims the
-new result contracts already exist.
-
-Source paths in this document are relative to `python/corpus-structure/src/corpus_structure/`
-unless qualified. Current `semantic/query.py` provides `SnapshotBinding`, strict `QueryRow`,
-`ReadSession.coverage(family, scope)`, scoped Core predicates, exact value nodes and read snapshots.
-`serve/read.py:claims` already uses keyset batches to avoid keeping a cursor open during hydration.
-`serve/journey.py:serve_query` resolves a completed run, enforces producing/installed query
-compatibility and uses query-owned positions. These are foundations to extend.
-
-The missing composition is visible in `serve/journey.py:235–261`: all coverage is hydrated before
-family/universe selection. `semantic/query.py:explain` and `serve/explain.py:explain` collect full
-supports, derivations, assessments, task results and observation payloads. `serve/read.py:evidence`
-builds an explanation before extracting evidence. `QueryRow` currently lacks fact standing.
-Top-level `domains/statistics/queries.py:Relations.rows` uses `UNION ALL`, depth four and an outer
-lexical path-string sort; client partitions do not bound its recursive expansion or sort.
-
-M1's dirty `semantic/record_queries.py` already has `RecordReadSelection`, finite row/record/byte
-budgets, source/report distinctions and whole-result refusal. Preserve that separate candidate
-record contract. A candidate-admission label must never be translated to accepted claim standing.
+Indexed bounded walks retain deterministic exact-or-refuse behavior, cycles and parallel facts.
+A small output does not establish bounded examined work, and protective refusal does not establish
+measured ordinary-workload capacity. These implementations are foundations to qualify through
+actual registered CLI/MCP/export routes; no MCP resource workflow is implied where none is registered.
+The target below preserves semantic and resource guarantees; the coordinator owns current state,
+source/evidence applicability and remaining AC14 acceptance. Paths below are relative to
+`python/corpus-structure/src/corpus_structure/`.
 
 ## Shared answer contract
 
@@ -150,6 +135,16 @@ release/reader/export descriptors, preserving current-only execution and frozen 
 
 ## AC11 — bounded evidence, explicit payloads and relation walks
 
+**Adopted refinements I01/I02:** current producer-neutral coverage derives immutable compatible
+bindings, with recipe3 archive meaning preserved. Qualify general-only, missing mixed-unit and
+binding-drift cases through remaining consumers. Interactive source/packet/inventory demand admits
+rows/raw bytes before hydration and the complete encoded envelope before egress. Rendering may
+already have committed: an inline-size refusal retains the artifact reference and does not claim
+rollback. Explicit streamed export owns stream lifetime/completion instead of inheriting a single
+interactive-envelope limit. Exercise actual registered MCP tools and continuations; do not invent
+resource registrations. See the [review](../../plan_improvement_reviews/audit-closure_2026-11-03.md#I02).
+
+
 AC11 consumes AC10's answer/binding shapes and AC06's owned readers. Its walk implementation also
 depends on I02 below and the released edge/universe/standing definitions from AC01–05. Evidence
 inventory work may proceed while the walk budget decision is being settled; the complete AC11
@@ -177,7 +172,7 @@ and a final complete-envelope size check. Compute each row's encoding once rathe
 the entire growing response for each candidate. Version any replacement of the current
 `max_chars` meaning; do not silently reinterpret existing tokens/options. AC11 migrates both
 primitive and named evidence queries, `serve/explain`, CLI explanation/source reads, exports'
-explicit payload decisions, MCP source/resource response schemas and their actual consumers.
+explicit payload decisions, MCP source/tool response schemas and their actual consumers.
 Detached exports may intentionally request full inventories through bounded batches; interactive
 limits do not silently truncate their declared full-relation contract.
 
@@ -342,7 +337,7 @@ successful pages retain their original scope; they do not establish that a later
 completed. This contract removes ambiguity without requiring durable jobs.
 
 AC11 includes `domains/statistics/queries.py`, query protocol/compatibility and cursor codecs,
-`serve/read`/result products, real CLI output and token follow-up, affected source MCP/resource
+`serve/read`/result products, real CLI output and token follow-up, affected source MCP/tool
 consumers and independent fixtures. AC00 routes RC09/D8 authority and RC08 payload/result changes;
 AC13 assembles release/native/query artifacts after those migrations, rather than postponing them.
 

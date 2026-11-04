@@ -1,58 +1,44 @@
 # Evaluation split-decision provenance
 
-**Proposed implementation target · 2026-11-03.** This companion defines AC12 of the
+**Accepted target; source integrated; complete qualification open · 2026-11-03.** This companion defines AC12 of the
 [audit-closure coordinator](../audit-closure_2026-11-03.md), which alone owns new-series package
 state, review-obligation conclusions and completion. Existing plans retain scheduled DA
 dispositions; this companion neither transfers nor duplicates them. It consumes DA-037 in the
 [principal review](../../design_review/reviews/design_review_audit-closure-target_2026-11-03.md)
 at `fd4ea601` and its [consumer/evaluation contracts](../../design_review/reviews/audit-closure-target/consumer-contracts.md),
-read together with the semantic/runtime contributions. The source baseline is that revision plus
-the identified concurrent dirty M1 changes inspected on 2026-11-03. Existing work is preserved;
-it is not evidence that the proposed split provenance contract has been implemented or qualified.
-
-Core 3.3, its efficient architecture companion, code-intelligence 1.4 and the test-assessment
-companion guide this bounded foundation assessment. AC00 schedules RC10's ADR and owner updates
-before the changed operation is activated. RC10 was explicitly accepted for planning on
-2026-11-03; no ADR, product implementation, historical grade or existing plan is edited here.
+read together with the semantic/runtime contributions. The original source baseline was
+`fd4ea601` plus identified concurrent M1 work; the current implementation baseline is `75db93e1`.
+Core3.3, heuristics1.0, code-intelligence1.4 and test-assessment1.2 guide this bounded assessment.
+ADR-0054 realizes accepted RC10 at the owners; qualification remains separately scoped below.
 
 ## Purpose and baseline
 
-The existing evaluator owns an immutable assignment of source URI to `dev`, `test` or `reserved`.
-The missing information is the decision that produced that assignment: the effective frozen
-policy, actual seed, population/grouping and existing-assignment inputs, algorithm version and
-per-source reason. A current seed reported by the CLI is not historical provenance for a stored
-row. The correction records actual intent/results at the protected effect boundary without
-replacing the split algorithm or merging unrelated partition concepts.
+**Implemented source, inspected 2026-11-03 at `75db93e1`; assembled qualification open.**
+D3/D7/D8 and ADR-0054 own protected split effects and their consumers.
+`evaluate/split_decisions.py`, `evaluate/semantic.py` and native evaluator operations now preserve
+frozen policy, actual seed and origin, ordered population, prior assignments, assignment basis,
+results and reasons. Exact replay differs from conflicting intent; historical rows retain explicit
+legacy-unavailable provenance without invented seeds or reasons. Native102 carries the protected
+forward transition, with evaluator-only decision access and immutable predecessor data.
 
-Architectural owners are [D7 §3.1/§4](../../design/D7-evaluation-goldens-outer-loop.md),
-[D3 §7](../../design/D3-database.md) and
-[D8 evaluation CLI](../../design/D8-agent-and-query-interfaces.md). Code paths below are relative
-to `python/corpus-structure/src/corpus_structure/` unless qualified.
+The pure `evaluate/split.py:assign` rule retains source-URI grouping, forced/reserved reasons and
+additive assignment: later registered pages do not reshuffle assigned URIs. Invocation population
+and prior assignments are necessary to reproduce that behavior. Chapter inputs admit exact string,
+null or absence; other JSON chapter types refuse at new-decision preparation, including assignment
+requested through reference creation. This does not narrow general document metadata.
 
-`evaluate/split.py:assign` is already a pure assignment rule. It excludes reserved worked-example
-pages, applies forced-dev reasons, and hashes each chapter's still-unassigned source URIs using
-the actual seed; every fifth distinct URI becomes test. Existing URI assignments persist across
-new document bytes. It returns `Assignment(document_id, split, reason, seed)`, refusing policy
-contradictions. Keep that rule, source-URI grouping, ordering/tie breaks and additive population
-meaning. Later registered pages do not reshuffle assigned ones; reproducing that behavior requires
-the invocation's then-unassigned population and prior assignments, not just today's complete list.
-
-`evaluate/semantic.py:split_documents` resolves the admitted release/evaluation config, reads
-registered documents and existing `eval.document_split`, calls `assign`, then passes only
-`(project, source_uri, split)` to `eval.assign_document_split`. The declaration in
-`model/semantic/physical.yaml:document_split` contains no provenance fields. The active native
-routine's frozen predecessors are in `semantic_0028_reference.sql` and
-`semantic_0029_reference_boundaries.sql` under `python/corpus-structure/semantic_alembic/versions/`.
-Those historical migration bodies are inputs to a forward migration, not editing surfaces.
-
-Relevant actual consumers include `evaluate/semantic.py:create_reference_set`,
-`evaluate/split.py:split_documents`, `cli/golden.py` split/create/status, protected evaluator reads,
-`semantic/sql/native_references.sql` and `semantic/sql/record_references.sql`. M1's record reference
-creation already joins `eval.document_split`; its separate source-origin grouping and sample
-metadata do not replace that leakage split. M1 reference/evaluation work remains separately
-unqualified by this static inspection.
+M1 origin partitions, reference independence and statistical sampling remain separate meanings.
+The target below is implemented at source with bounded native controls; AC14 still accounts for
+complete assembled applicability. Paths below are relative to
+`python/corpus-structure/src/corpus_structure/`.
 
 ## Target decision contract
+
+**Adopted refinement I01:** reference creation uses the exact execution-bound operational subset,
+including nondefault supplied schemas, rather than reconstructing it from the domain namespace.
+Keep split-decision provenance distinct from M1 origin partitions and final sampling. Remaining
+native/CLI consumers must preserve legacy-unavailable meaning and actual seed-override origin.
+
 
 Use one versioned evaluator-owned operation with frozen inputs. These conceptual shapes state
 required meaning; existing released/Pydantic/native products should carry it without a new service
@@ -174,7 +160,8 @@ does not justify a new scheduler, general replay service or another evaluation d
 
 Carry forward SQLAlchemy **2.1.6** Core `select`/`where`/joins and transaction ownership,
 PostgreSQL **18** constraints/protected routines and Alembic **1.20.1** forward migrations.
-The review's library mechanisms are **Interface-checked**; the proposed composition is **Proposed**.
+The review's library research remains **Interface-checked**; current source composition is
+**Implemented** at the coordinator's bounded scope, with complete qualification open.
 Precise sources: [SQLAlchemy 2.1.6 connection/transaction source](https://github.com/sqlalchemy/sqlalchemy/blob/rel_2_1_6/doc/build/core/connections.rst),
 [PostgreSQL 18 transaction modes](https://www.postgresql.org/docs/18/sql-set-transaction.html),
 [Alembic autogenerate limitations](https://alembic.sqlalchemy.org/en/latest/autogenerate.html), and

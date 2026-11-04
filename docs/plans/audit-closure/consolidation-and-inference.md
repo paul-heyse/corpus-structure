@@ -1,52 +1,30 @@
 # Consolidation decisions, attribution and inference
 
-**Accepted planning direction, 2026-11-03; implementation and qualification Proposed.**
+**Accepted planning direction, 2026-11-03; source integrated; complete qualification open.**
 This companion develops AC03, AC04 and AC09 of the
 [audit-closure coordinator](../audit-closure_2026-11-03.md). It owns detailed intended contracts;
 the coordinator owns every package status and new-review-work disposition. Source DA disposition
 remains with its existing owner, linked through the coordinator rather than copied here.
-The whole series completes before the M1 plan update and subsequent M1 resumption.
+M1 plan reconciliation follows this audit and amendment; execution retains the relevant AC prerequisites.
 
-The operator accepted RC01–RC12 on 2026-11-03; no reapproval is required. AC00 schedules the
-appropriate ADR/architectural-owner changes before dependent meaning changes. This plan applies
+The operator accepted RC01–RC12 on 2026-11-03; no reapproval is required. ADR-0054 realizes the architectural-owner changes; further material changes follow the same route. This plan applies
 none of those decisions to production and does not change native99 or frozen migration bodies.
 
 ## Basis and focused foundation assessment
 
-Consume the [principal review](../../design_review/reviews/design_review_audit-closure-target_2026-11-03.md)
-at `fd4ea601`, its [semantic contracts](../../design_review/reviews/audit-closure-target/semantic-contracts.md)
-and [runtime boundaries](../../design_review/reviews/audit-closure-target/runtime-boundaries.md).
-Plan source inspection is HEAD `fd4ea601` plus concurrent dirty M1 work, 2026-11-03. This focused
-foundation assessment uses core/template 3.3, heuristics 1.0, code-intelligence 1.4 and test-assessment
-1.2, without opening a new audit or asserting enclosing architectural conformance.
-Architecture remains owned by [D1](../../design/D1-knowledge-representation.md),
-[D2](../../design/D2-schema-and-guidelines.md) and
-[D5](../../design/D5-consolidation-identity-confidence.md) and their decision lines.
-Paths below omit `python/corpus-structure/src/corpus_structure/` unless stated otherwise.
+**Implemented source, inspected 2026-11-03 at `75db93e1`; assembled qualification open.**
+D1/D2/D5 and ADR-0054 own identity, attributed assertions and representative policies.
+The current semantic implementation carries typed identity resolution, qualified normalization,
+attribute-specific evidence, separate storage/display/scientific representatives and shared candidate
+preparation. `semantic/inference.py` computes JSONB delta closure inside atomic publication,
+retaining the necessary universe and complete direct witnesses after the fixed point.
 
-**Implemented baseline, inspected 2026-11-03:** `semantic/domain_operations.py:824–1058` assigns
-safe source-qualified identities, preserves local/known exclusion endpoints, refuses incompatible
-declared keys, and avoids choosing between ambiguous known anchors. It returns mappings, extra
-fields and parsed payloads without typed resolution decisions. Keep those safety properties.
-`semantic/types.py:332,375` uses Python `str.casefold`; native identity/validation SQL uses
-PostgreSQL `casefold(... COLLATE pg_catalog.pg_unicode_fast)`. No divergence was established.
-
-`model/semantic/agent.yaml:8` gives attributes predicate/value alone. The source projector borrows
-first eligible claim evidence via `setdefault` and emits asserted/positive entity fields
-(`domain_operations.py:1507–1620`), including generated IDs. `semantic/consolidation.py:258` already
-retains occurrences/support separately from exact facts. `serve/read.py` exposes occurrence values
-but also makes display decisions; do not erase either scientific or original source distinctions.
-
-Candidate rules rebuild premise and given-by-others collections per candidate at
-`domain_operations.py:3253`. Scientific preparation already runs outside publication at
-`:2058–2091`; that is a preserved foundation, not new work. Inference already uses a private
-PostgreSQL workspace, conflict-aware conclusion deduplication and finite direct proofs after the
-common fixed point (`semantic/inference.py:129–294`). `consolidate_cut` calls derive within source,
-proof and result publication's atomic transaction (`domain_operations.py:2105–2150`).
-
-Dirty M1 record/report-presence/native101 work is separate and does not remove these obligations.
-Reconcile current shared publication/model bytes before implementation; preserve source-record
-admission, terminal report absence, evaluator address ABI and independently owned quality repairs.
+I01's Python3.14.10/UCD16/PostgreSQL18.6 compatibility evidence remains scoped to its recorded
+pair and source; it is not universal Unicode parity. Existing focused/native receipts are linked
+from the coordinator. The target below remains the acceptance contract, with assembled applicability
+and any audit-discovered omissions owned by AC14 and the affected package, respectively.
+No candidate-level uncertainty or scientific truth is inferred from finite entailment.
+Paths below are relative to `python/corpus-structure/src/corpus_structure/`.
 
 ## AC03 — Explicit identity decisions and bounded Unicode compatibility
 
@@ -104,6 +82,12 @@ unqualified-pair refusal and the bounded I01 compatibility result. No algorithm 
 folding is justified solely by DA-009; reopen on demonstrated mismatch or changed determinants.
 
 ## AC04 — Attribute-specific support and three representative policies
+
+**Adopted refinement I01:** carry actual attributed supports, independent representative policies
+and stored inability reasons through remaining native/publication/consumer cases. A constructor
+or shared-validator round trip cannot independently establish correct source meaning. Existing
+implementation is reused; no second family or reason validation framework is selected.
+
 
 **Correspondence:** DA-044. RC01 and RC03 are accepted, 2026-11-03. AC00 schedules D1/D2/D5
 and applicable §B1/§B5 authority changes before activating the new shape and view meaning.

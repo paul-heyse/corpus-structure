@@ -1,17 +1,17 @@
 # M1 evaluation, qualification and gap-driven expansion
 
-**Proposed · planned work · 2026-11-03.** Companion to the
-[M1 coordinator](../first-production-milestone_2026-11-03.md), which alone owns live package
-state and O01–O11 disposition. This develops M1-01/M1-13/M1-14/M1-15, carrying
-[WP0/WP5/WP6](../../target-pipeline-design/first-production-milestone.md#delivery-and-exit-evidence)
-and [O05/O07–O11](../../functional_reviews/m1-target-design_2026-11-03.md#O05).
-Planning source baseline: `4a929aba`; preserve the operator GLiNER reference blob
-`3daefdd5af8a3118f4767d9a558da4bc712cbacd`.
-That initially dirty reference was subsequently committed unchanged in `4720b9a7`.
-By explicit operator clarification on 2026-11-03,
-prior UM functional implementation and validation are complete; remaining UM agent assessment
-and followup retain their own owner. New M1 family/evaluator implementation and qualification
-below do not reopen UM implementation or validation.
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+owns the detailed design and completion conditions for M1-01/13/14/15. The
+[coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
+dependencies, findings and assembled acceptance. Implemented foundations below are source
+inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+qualification is Planned. This revision changes plans, not production code or deployments.
+
+This retains [WP0/WP5/WP6](../../target-pipeline-design/first-production-milestone.md#delivery-and-exit-evidence)
+and [O05/O07–O11](../../functional_reviews/m1-target-design_2026-11-03.md#O05). Original review
+provenance remains with the coordinator. Prior UM functionality/validation is complete; its
+remaining assessment/follow-up is outside M1. The amended AC target supplies the current
+foundation and does not supply M1 reference readings or release grades.
 
 ## Evidence target and authority
 
@@ -29,9 +29,11 @@ own reference authoring, sampling and grading. The source has immutable source-b
 passes, a completed-cut universe including empty producer reports, archived evaluation policy,
 protected insertion/grading and core/full/evidence
 [semantic alignment](../../../python/corpus-structure/src/corpus_structure/evaluate/semantic_alignment.py).
-Its current prediction extraction uses admitted `AgentStoredBatch` observations; the existing
-`agent_claims` reporting contract is not a five-family evaluator. Extend these owners and
-their declared model/operation bindings, not a separate scorer or a second reference store.
+The implemented `record_references.py` and `record_alignment.py` already provide five-family
+protected source-only reference passes, strict field/evidence comparison and completed-record
+prediction adapters. `record_statistics.py` supplies descriptive grouped ratios and exact finite-cut
+precision calculations. Finish actual source-ready A/B/C reference acquisition, grades and release
+assessment through these owners; `agent_claims` is a separate historical reporting contract.
 
 References are independently authored from selected sources under evaluator authority, using
 the existing independent automated author/adjudicator boundary. Production extraction receives
@@ -46,7 +48,8 @@ correct reading, and producer predictions cannot define the reference population
 <a id="M1-01"></a>
 ## M1-01 — Early populations, guidelines and partitions
 
-**Proposed.** Start after M1-00 establishes the authorized target and relevant source-selection
+**Remaining target.** Reuse the development population and protected origin/reference machinery;
+start final-cut preparation after M1-00 establishes the authorized target and relevant source-selection
 authority. Work alongside M1-02 family contract design: guideline roles and supported subsets
 inform the schema; schema distinctions inform annotator rules. Close this early contract before
 packs, few-shot examples, acceptance policies or final-reference authoring make contradictory
@@ -75,8 +78,11 @@ an implicit permission to change an accepted rule.
 Isolate development, feature fitting, final-event calibration and final assessment by credible
 source-origin groups. Keep overlapping windows, copies, related editions, repeated tables and
 known common origins together. Choose explicit group-separated index splits for any fitting tool.
-Current document split support cannot silently claim chapter partitions: if one textbook requires
-chapter/section grouping, extend the evaluator partition contract and label results within-book.
+AC12
+now freezes actual split policy/seed/population/prior assignments/results/reasons, while preserving
+legacy-unavailable provenance. Consume execution-bound reference vocabularies; a domain enum cannot
+replace them. These recorded decisions do not establish independent M1 origins or chapter partitions.
+If within-book grouping is selected, declare it in the evaluator partition contract and label its scope.
 Many records within a few books do not supply many independent source groups.
 
 Freeze seed, strata, inclusion probabilities, challenge populations and reference provenance.
@@ -86,11 +92,12 @@ estimates separate from intentionally difficult cohorts. Reserve prompt/guidelin
 examples outside final assessment; native GLiNER conditioned examples and supervised adaptation
 must observe the same boundary. Once final errors influence development, refresh final assessment.
 
-Choose sample size and a source-cluster-appropriate interval procedure from the intended precision
-claim and actual independent-group availability before final assessment. A zero-error sample or
-degenerate all-correct bootstrap cannot certify the lower bound. If group sufficiency cannot
-support the claim, retain the gate as unestablished or explicitly revise the population/scope
-through the coordinator; do not multiply confidence through repeated passages.
+Freeze the finite held-out source cut and the census or predeclared SRS-without-replacement
+precision procedure under ADR-0053 before final labels. Exact hypergeometric inversion supplies
+the selected sampling lower bound; origin-group resampling remains descriptive and cannot replace
+that procedure. Keep source-side capture/recall denominators independent of accepted output.
+Neither repeated passages nor a degenerate all-correct bootstrap establishes unseen-origin
+performance. An inadequate frame or undefined family denominator leaves the relevant gate open.
 
 Completion supplies the versioned population/guideline/partition contract and independent authoring
 inputs, including empty regions. Reference production can continue under M1-13 while producers
@@ -99,14 +106,16 @@ develop. No source-reading or model-quality result follows from freezing these a
 <a id="M1-13"></a>
 ## M1-13 — Five-family protected evaluation and reference evidence
 
-**Proposed.** Depends on M1-01 population/guideline decisions and the M1-02/M1-03 family/evidence
+**Remaining target.** Reuse implemented source-only reference storage, strict comparison and
+completed-result prediction adapters; depends on M1-01 population/guideline decisions and the M1-02/M1-03 family/evidence
 contract slices, not on predictions or final M1-08 output. Develop protected reference bindings,
 family alignment and independently known fixtures alongside producers. Later prediction adapters
 consume actual M1-11 publications and preserve record membership across lowered assertions.
 M1-10 can consume isolated development/fitting references before M1-13's entire final population
 is complete. This avoids a circular requirement that extraction succeed before references exist.
 
-Extend released reference payloads, source frames, pass persistence and alignment for named fields,
+Finish actual reference authoring and grading through the implemented released payloads, source
+frames, pass persistence and alignment for named fields,
 multi-anchor evidence, record membership, original/normalized/derived states and family-specific
 qualifications. Reference frames pin source view/native addresses and exact projection; do not
 relabel text offsets as cell/formula evidence. Reference authors receive source packets and the
@@ -134,11 +143,12 @@ rather than silently scoring an unsupported family as empty or dropping unaligna
 | Resource effects | Actual CPU/wall time, peak RSS, latency, cache/replay and correct complete records per resource unit on the declared host/profile. |
 
 Report each family and supported source/quality stratum; distinguish repeated occurrences from
-consolidated facts. Implement paired source-group resampling by resampling groups and recomputing
+consolidated facts. Reuse the implemented descriptive paired source-group resampling by resampling groups and recomputing
 aggregate ratios from contributions. SciPy `stats.bootstrap` supplies machinery, but `paired=True`
 does not infer clustering or make a degenerate interval valid. Preserve sampling assumptions and
-few-group uncertainty in the result. The frozen procedure must be defensible before interpreting
-the proposed lower bound; otherwise report estimates with the release gate unestablished.
+few-group uncertainty in the result. The selected finite-cut procedure below governs the release lower bound; source-group summaries
+do not establish that bound or an unseen-origin claim. Otherwise report estimates with the release
+gate unestablished.
 
 Independent tests of the scorer must reject controlled wrong unit, flipped negation, moved condition,
 missing parent header, incorrectly inherited note, cross-scope symbol, duplicate occurrence and broken
@@ -151,6 +161,14 @@ M1-13 completes with working five-family evaluator/prediction adapters and suffi
 reference evidence for the chosen gate assessment. It does not select thresholds using final labels
 or pronounce a release. M1-14 consumes its final frozen evidence; M1-15 uses development gap cohorts.
 
+The inspected foundation is native102 / execution24, including the required bound operational
+reference subset and evaluator-only split-decision custody. Preserve actual seed overrides and
+ordered policy reasons; never reconstruct unavailable historical meaning from current defaults.
+AC improvement I01 carries supplied-subset/producer-population cases through actual reference and
+prediction consumers. Missing or partial required producer reports remain unknown, even if one
+producer completed empty. Registered source-only reference/adjudication operations remain supported;
+AC-CA01's unsupported extraction-queue adjudicate mode is a different route.
+
 <a id="M1-14"></a>
 ## M1-14 — Final functional qualification and adoption
 
@@ -160,11 +178,11 @@ checks remain appropriate at coherent package endpoints; package boundaries are 
 triggers. The coordinator accounts for final source/context and the required native functional,
 applicable provider and nonfunctional union, preserving failures and interrupted results.
 
-Freeze family acceptance policies and the following proposed targets after development and before
-final assessment. Any changed target requires explicit approval and recorded justification. None
+Freeze family acceptance policies and the following operator-selected targets after development
+and before final assessment. Any changed target requires explicit approval and recorded justification. None
 is established by this plan.
 
-| Gate | Proposed policy and release consequence |
+| Gate | Accepted target and release consequence |
 | --- | --- |
 | Source custody | Every required field resolves under the right source/release; zero accepted records with known broken mappings. |
 | Coverage | Every selected target has a disposition, including unsupported, partial, failed and skipped. |
@@ -178,8 +196,17 @@ is established by this plan.
 
 A canary may expose fewer released families, explicitly labelled. Full M1 needs a released supported
 subset of all five unless the operator revises scope. Candidate-only output is not a released
-family. Insufficient independent groups, absent required provider execution or an unavailable
-source cannot become a passed gate; name the missing prerequisite and retain the obligation.
+family. Absent required provider execution, an unavailable source or an invalid finite population/frame
+cannot become a passed gate; name the missing prerequisite and retain the obligation. Origin
+partitions remain isolated; few origins constrain generalization rather than invalidate an honest
+frozen-cut census by themselves.
+
+AC14 remains an explicit upstream acceptance prerequisite for resumed M1 execution. Its 110 mixed
+integration/consumer and 308 non-database selected passes are bounded AC evidence, not M1 family
+accuracy or resource qualification. Repair AC-CA01, close affected AC integration scenarios and
+account for final-source AC evidence before relying on the assembled prerequisite. Native changes
+use a successor to frozen102 with separate fresh/forward/current-head controls and serial full-chain
+installs (AC improvement I03); no provider or database campaign runs merely to publish these plans.
 
 Run the actual CPU path from pinned intake through shared preparation/context, GLiNER proposals,
 family assembly/interpretation and policy publication. Exercise CLI/MCP/query/export on the same
@@ -274,14 +301,17 @@ and publication rather than spawn another pipeline.
 
 M1-01 delivers reproducible source/guideline/partition authority; M1-13 implements independent
 family evaluation and its required references; M1-14 establishes or explicitly leaves unestablished
-the proposed final gates and adoption; M1-15 captures gaps and concludes only the experiments
+the accepted final gates and NONDEFAULT adoption boundary; M1-15 captures gaps and concludes only the experiments
 whose triggers occurred. A deferred optional mechanism does not prevent a conforming M1 release.
 Missing core-family evidence or a broken required field anchor does.
 
-**Plan-creation baseline, before the subsequent execution increment:** this authoring inspected current source and proposed design only. Model extraction, reference
-authoring/grading, fitting/calibration, numerical execution, performance profiling, product tests,
-database publication and actual CLI/MCP/export journeys are **not_run**. No release target,
-calibration standing, quantitative improvement or complete qualification is claimed.
+**Reconciled source baseline, 2026-11-03:** reusable reference/partition/comparison/statistics
+machinery and bounded native consumer controls exist. The coordinator retains their dated receipts,
+including prior actual local CPU operations. The development population is five views/7310 pieces
+from one origin; it is not the frozen final reference/assessment population. Actual fresh Sol A/B/C
+passes, corpus grades, evaluated acceptance/calibration, ordinary CPU/resource fit and complete
+M1 qualification remain open. This plan revision ran none of those product/provider journeys and
+establishes no release, calibrated confidence or quantitative improvement.
 
 ## Approved qualification execution profile — 2026-11-03
 
@@ -295,8 +325,9 @@ Use 70% accepted full-record recall per family, unchanged 90% candidate capture 
 one-sided 95% lower bound at least 95%. Acquire additional suitable English statistics sources if
 local credible origins are insufficient. Freeze sampling/interval design before final assessment.
 
-Sequence: fitting-only provisioning (operator approved) → coherent forward native candidate and
-targeted native custody/publication controls → Sol reference/prediction CLI route → source-ready reference sets,
+Sequence: consume the provisioned fitting-only principal and current frozen102 foundation;
+complete outstanding AC prerequisites and M1-specific custody/publication controls → actual Sol
+reference/prediction CLI route → source-ready reference sets,
 A/B/C development passes and actual grades. Complete acceptance, interpretation/attributed producer
 and recovery prerequisites before final functional/provider/consumer/resource qualification.
 Source/reference acquisition may proceed alongside implementation; successful extraction is not
@@ -334,3 +365,9 @@ Current execution disposition and the 2026-11-03 bounded closeout are in the coo
 machinery, CLI and finite-population calculations have scoped passing receipts; actual Sol/corpus
 assessment and the enclosing M1 release remain open. The prepared development helper was not run
 against a database during closeout.
+
+The [AC improvement review](../../plan_improvement_reviews/audit-closure_2026-11-03.md) I01–I03
+and [AC completion audit](../audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+constrain the reused foundation. The coordinator alone owns their M1 dependency impact and
+current evidence applicability. New checks are selected for unresolved obligations; historical
+passes are not promoted to final-source or whole-milestone qualification.

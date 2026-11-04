@@ -1,21 +1,23 @@
 # M1 GLiNER operations and CPU runtime
 
-**Proposed design and Planned work · 2026-11-03.** This companion develops M1-06 and M1-07.
-The [coordinator](../first-production-milestone_2026-11-03.md) owns all package states, shared
-dependencies, opportunity disposition and assembled completion. The work below is planned new
-M1 functionality, not a record of provider qualification or authority to implement product code.
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+owns the detailed design and completion conditions for M1-06/07. The
+[coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
+dependencies, findings and assembled acceptance. Implemented foundations below are source
+inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+qualification is Planned. This revision changes plans, not production code or deployments.
 
 ## Basis, foundation assessment and responsibility
 
 Consume the [M1 proposal](../../target-pipeline-design/first-production-milestone.md),
 [review O02/O05/O06](../../functional_reviews/m1-target-design_2026-11-03.md#O02) including its
 combined/supplemental dispositions, and [GLiNER deployment](../../target-pipeline-design/gliner-deployment.md)
-in full. Source inspection began at `4a929aba`; the supplemental GLiNER reference was initially
-operator-owned dirty work, blob `3daefdd5af8a3118f4767d9a558da4bc712cbacd`. External operator
-commit `4720b9a7` subsequently committed those same bytes; no content reconciliation or edit to
-that reference is part of this work. By operator direction on 2026-11-03, prior UM functional
-implementation/validation are complete; remaining agent assessment/followup is outside M1's
-dependencies. New M1 runtime behavior still requires its own implementation and qualification.
+in full. Current source `75db93e1` includes `GlinerProfile`, strict `GlinerPack`, mapped reports,
+`GlinerWorker` and the retained-only `orchestrate/m1.py` candidate graph. Historical actual offline
+FP32 operations retain their recorded profile/source limits; they do not qualify all families.
+Consume amended AC owned reads, executable policy admission, shared producer binding and
+`ClaimOwner` lifetime. Prior UM functionality/validation remains complete. Original review and
+operator-reference provenance remains with the coordinator.
 
 [D4](../../design/D4-method-catalog.md) owns methods and their operation contracts,
 [D6](../../design/D6-orchestration-metrics-policies.md) execution/cancellation/policy,
@@ -33,9 +35,9 @@ release evidence. Runtime admission does not decide semantic acceptance.
 
 | Inspected baseline | Reuse and concrete gap |
 | --- | --- |
-| [orchestrate/semantic.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), `run_source_methods`, `_close_source_resources` | Bound release/source/configuration execution, retained task claims and all-owned-resource teardown. It currently requires `agent_mode="complete"`; resource declarations and batch grouping do not establish the proposed coordinated CPU scheduler. |
-| [orchestrate/runner.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/runner.py), method registry and source-step grouping | Reuse task/step/result ownership and compatible batching. Add real bounded CPU admission and worker supervision, with no fictional `agent.opus` tasks for CPU extraction. |
-| [statistics policy](../../../domains/statistics/policies.yaml) and [methods](../../../domains/statistics/methods.yaml) | Existing phase-0 propose chain uses `agent.opus`; add an explicit released CPU extraction policy/allowlist and method configurations, preserving separate reference/evaluator roles. |
+| [orchestrate/semantic.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py), `run_source_methods`, `_close_source_resources` | Bound release/source/configuration execution, retained task claims and all-owned-resource teardown. Executable policy applicability and owned reads now govern this route. JIT claims span custody/preparation through synchronized terminal settlement; integrate the CPU profile into this existing owner rather than add a lease loop. |
+| [orchestrate/runner.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/runner.py), method registry and source-step grouping | Reuse task/step/result ownership and compatible batching. Reuse the implemented bounded `GlinerWorker` supervisor and candidate producer. Finish aggregate CPU admission/ordinary workload evidence, with no fictional `agent.opus` tasks for CPU extraction. |
+| [statistics policy](../../../domains/statistics/policies.yaml) and [methods](../../../domains/statistics/methods.yaml) | The ordinary phase-0 policy remains separate. `orchestrate/m1.py` and `domains/statistics/m1-methods.yaml` supply an explicit retained CPU candidate policy with `policy_propose=False`; finish evaluated acceptance/publication without adding an LLM fallback. |
 | [observations.py](../../../python/corpus-structure/src/corpus_structure/semantic/observations.py), `bind_result` | Source-bound immutable results and actual coverage remain the persistence seam; M1-02/03 add family evidence/diagnostic meaning. |
 | [analytics.py](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), `CapturedPacket`, `AnalysisScope` | Reuse typed columnar input and lazy-result lifetimes for candidate joins and coverage aggregation, with CPU settings coordinated by the run. |
 
@@ -48,19 +50,20 @@ ordinary supported CPU/RSS fit; actual retained-source execution must establish 
 
 ## M1-06: CPU-only policy, admission and lifecycle
 
-**Proposed.** Consume M1-02's outcome/provenance/resource contract, M1-00's authority decisions
+**Remaining target.** Consume M1-02's outcome/provenance/resource contract, M1-00's authority decisions
 and M1-01's supported population. Scheduling design need not wait for every pack; working
 integration uses actual method/result boundaries. M1-07 consumes its admission and resident-profile
 lifecycle, while final publication and consumer adoption stay with M1-11/12.
 
-Add a policy that schedules preparation, routing, GLiNER observations, assembly and interpretation
-without general LLM extraction. Explicit method allowlists and recorded terminal routing enforce
+Extend the implemented retained-only CPU candidate graph through evaluated interpretation and
+publication without general LLM extraction. Explicit method allowlists and recorded terminal routing enforce
 the boundary; disabling an LLM flag while a fallback still queues `agent.opus` is insufficient.
 Do not require completion of an unrelated automated agent journey to run the CPU policy. Reference
 authoring/evaluator assistance retain separate identities and are not extraction fallback. Source
 readiness, completed extraction and selected published knowledge remain distinct operation results.
 
-Start one run-owned CPU model worker with one bounded queue and one resident checkpoint/profile.
+Reuse the implemented run-owned `GlinerWorker` with its bounded request/reply frames and one
+resident checkpoint/profile; finish integrated admission and recovery evidence.
 The worker initializes lazily on first admitted model demand and stays resident while compatible
 work remains. Admission accounts for input/context bytes and model work as well as queue count;
 a row bound alone cannot bound detached full-text or tensor buffers. Batch only compatible
@@ -83,8 +86,8 @@ reuses its owned connection. These constraints reuse
 Model residency and safe interruption justify a persistent worker boundary. Reuse the existing
 source executor's owned child/supervision patterns where their contract fits: the parent retains
 task leases/heartbeat/fencing and database handles; the worker receives typed detached input and
-returns typed results. No live connection crosses the process boundary. Implement CPU supervision
-as new M1 behavior rather than claiming existing PDF supervision already supplies it. The exact
+returns typed results. No live connection crosses the process boundary. Use the M1 CPU supervisor already implemented, while retaining its distinct model lifecycle
+rather than claiming PDF supervision alone supplies it. The exact
 placement/module is local judgment; protection against cancellation during native work is required.
 
 On cancellation or lost ownership, stop admission, cancel queued work, terminate/drain owned
@@ -101,6 +104,17 @@ new attempt receipts. No separate automatic retry loop in the GLiNER adapter mul
 Schema/checkpoint/context changes create new dependent computations. A preparation or inference
 failure never replaces the earlier accepted cut. Publication later rechecks its pinned premises
 under `consolidate_cut`; no worker holds a database transaction during inference or solving.
+
+The source executor's `maintained_claims` / `ClaimOwner.settle` is the shared lifetime owner.
+Claim only imminent execution batches; preparation/custody cannot occur outside renewal. Preserve
+short per-task durable completions, synchronized active-set retirement and exact receipt replay
+under uncertain commit. Do not keep publication locks while later source preparation blocks.
+For interactive agent producers, the shared compatible binding drives policy, queue, packets,
+submission, automation and coverage from immutable method/configuration/unit identity (I01).
+CPU methods consume their declared operation/configuration contracts; do not force them through
+an agent-only binding or fabricate agent tasks. Protocol success,
+completed observation and CPU model execution establish different outcomes. AC-CA01's unsupported
+public queue mode remains an AC prerequisite; reference adjudication is independently supported.
 
 ### Completion conditions for M1-06
 
@@ -119,7 +133,8 @@ is made by this plan.
 
 ## M1-07: governed deployment profile, schema packs and candidate operations
 
-**Proposed.** Consume M1-03's working observation/field evidence binding, M1-05's working mapped
+**Remaining target.** Reuse the existing strict profiles/packs and mapped source reports;
+consume M1-03's working observation/field evidence binding, M1-05's working mapped
 contexts/routing, M1-06's working CPU worker/admission and M1-01's isolated references. Interface
 and pack design may proceed earlier once those contracts settle; real provider qualification
 requires their integrated path. Assemblers consume observations, not accepted facts returned by
@@ -128,21 +143,23 @@ the model.
 ### Exact profile and local environment
 
 Use `AutoExtractor.from_pretrained` with `fastino/gliner2.5-base-v1` FP32 CPU as the initial
-reference. The reviewed package is `gliner2` 2.1.0; implementation deliberately pins the exact
-package, immutable checkpoint/tokenizer revisions and local dependency closure. The base config
+reference. The reviewed package is `gliner2` 2.1.0; the existing adapter pins the exact
+package, immutable checkpoint/tokenizer artifacts and local dependency closure. The base config
 inspected by the source review was revision `54785d51df8d86a0d8f2eb212fec15871aad2c4d`, and multi
 `cf5593a5d45e3bbf204b9df621b13b1c0cf25ee3`; inspection is not deployment selection or weight
-qualification. Resolve and record the actual selected revision before activation. Python 3.14
+qualification. Retain the hashed offline selected artifact from the existing operation receipts; requalify
+changed profiles before activation rather than treating the inspected revision as deployed weights. Python 3.14
 compatibility was operator-confirmed in the proposal, but the exact pinned product environment,
-import/operation/head behavior and CPU execution still require local qualification.
+selected operations have historical local execution receipts. Complete final-source head/profile
+and integrated CPU qualification for the operations actually released.
 
 The deployment manifest binds weights/config/tokenizer, package and dependency versions, word
 splitter identity/restoration recipe, operation signatures, enabled heads/effective pool settings,
 precision/device, schema/validator/profile versions, window/overlap/threshold/batch policy and
 runtime resource controls. Saved weights/config/tokenizer do not save the complete runtime policy.
 Use qualified lazy method-boundary imports; do not promise base-package import is Torch-free from
-extras metadata. The tagged `local` extra includes PEFT despite lazy adapter imports. Adding the
-selected exact dependencies follows repository pin policy; no installation is part of plan writing.
+extras metadata. The tagged `local` extra includes PEFT despite lazy adapter imports. `gliner2[local]==2.1.0` is already pinned. Any further selected exact dependency change follows
+repository pin policy; this revision performs no installation.
 
 ### One owned schema family
 
@@ -286,7 +303,13 @@ The [deployment supplemental reconciliation](../../target-pipeline-design/gliner
 locates the immutable checkpoint configurations and explains source-level limits.
 
 This document preserves those reviewed source conclusions and plans exact-environment execution;
-it does not newly certify upstream code or checkpoint quality. All checks and comparisons above
-are **Planned**. Product tests, dependency changes, model inference, runtime probes and database
+it does not newly certify upstream code or checkpoint quality. Remaining checks and comparisons above
+are **Planned**; earlier adapter/actual-operation receipts retain their bounded applicability. Product tests, dependency changes, model inference, runtime probes and database
 operations for this plan-writing contribution are **not_run**. Use the coordinator's package
 state and evidence links for subsequent execution and qualification.
+
+The [AC improvement review](../../plan_improvement_reviews/audit-closure_2026-11-03.md) I01–I03
+and [AC completion audit](../audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+constrain the reused foundation. The coordinator alone owns their M1 dependency impact and
+current evidence applicability. New checks are selected for unresolved obligations; historical
+passes are not promoted to final-source or whole-milestone qualification.

@@ -1,48 +1,44 @@
 # Status
-_Updated 2026-11-03; audit-closure integration checkpoint. No qualified M1 release._
+_Updated 2026-11-03; completion audit and targeted plan reconciliation. No qualified M1 release._
 
 ## Current checkpoint
 
-- [Audit-closure coordinator](docs/plans/audit-closure_2026-11-03.md#11-execution-checkpoint--2026-11-03)
-  owns package state, new review finding F01, current verification and remaining acceptance.
-  Worker changes are integrated on main; all three secondary worktrees were removed.
-- Implemented source: semantic compiler16/readers14–16, execution compiler24, RuleValue ABI2,
-  attributed source assertions, typed resolution/reasons, separate representatives, owned reads,
-  whole claim lifetime, shared producer binding and native source/search version4 contracts.
-- Forward native102 is frozen from immutable101 with hash-bound native/physical artifacts.
-  Split decisions retain actual policy/seed/population/basis/reasons and honest legacy provenance.
-  Operational reference vocabularies come from the bound execution product, not the domain schema.
-- [Assembled review](docs/design_review/reviews/design_review_audit-closure-assembled_2026-11-03.md)
-  preserves its original Revise judgment; independent F01 delta accepts the coverage correction
-  at source level. Neither review nor targeted checks establish complete AC14 qualification.
-- Retired displaced reader/explanation/inference/split routes, unsupported live configuration and
-  unused producer identity/version code. Current registered operations, historical readers,
-  frozen migrations, plans and evidence remain. No broad repository cleanup was performed.
-- [M1](docs/plans/first-production-milestone_2026-11-03.md) remains unqualified and unchanged.
-  Its source/reference/CPU/accuracy/resource/adoption obligations remain with that coordinator.
-  After AC14 completion, revise M1 plans from the AC impact account before resumed execution.
-- Prior UM functionality/validation standing is preserved. Live corpus_pdf_20261102 remains
-  native99 with its selections intact; no application/default adoption or host configuration changes occurred.
-- [Protobuf capability review](docs/functional_reviews/protobuf-capabilities_2026-11-03.md)
-  remains Proposed; bounded probes establish no product adoption.
+- [Audit-closure coordinator](docs/plans/audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
+  owns the completion audit of claimed integrated slices, remaining findings and AC14 acceptance.
+  Independent source/receipt inspection supports the bounded claims except public queue-mode
+  retirement AC-CA01. No whole package or full AC qualification is declared complete.
+- AC-CA01: MCP queue_next still advertises unsupported adjudication and may return empty success.
+  The plan requires supported advertisement and early direct/project/tool refusal, including empty
+  queues. Live adjudication is not a new feature; reference adjudication remains separately supported.
+- Targeted improvement findings I01–I03 are incorporated directly in the AC coordinator and six
+  companions: bound authority/producer population/stored reasons; effect-aware bounded delivery;
+  frozen102 transition, reflection and registration-aware retirement. The standalone review retains
+  rationale; the AC plan owns accepted scope, remaining work and closure criteria.
+- [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md) and all six companions are
+  reconciled throughout against current source and amended AC target. Existing candidate/annotation/
+  context/CPU/assembly/interpretation/public-reader/evaluator foundations are distinguished from
+  remaining accepted lowering, real consumers, references, resource and release qualification.
+- Preserve semantic compiler16/readers14–16, execution24, RuleValue ABI2, coverage4 with historical3,
+  native source/search4 and frozen native102. Context/source-pin/record-query versions are distinct.
+  Live native99/run6/defaults and prior UM functionality/validation standing remain unchanged.
+- M1 retains five statistics-first English record families, CPU/no-general-LLM extraction, independent
+  Sol A/B/C references, finite-cut census/SRS qualification and conditional expansion triggers.
+  Document revision is brought forward; resumed product execution retains AC repair/acceptance prerequisites.
+- This increment changes documentation only. Existing implementation, migrations and receipts remain.
 
 ## Verification
 
-- **Passed, bounded, 2026-11-03:** full `just types` and Ruff; `just ready`; ADR lint;
-  `just evidence` (0 errors, 39 retained warnings).
-  The 110-case mixed integration/consumer selection passed; its native scope and commands are in the
-  [integration evidence](docs/design_review/evidence/2026-11-03_audit-closure/README.md).
-- **Passed:** final selected non-database suite, 308 cases, including reference authority, coverage,
-  archives, typed reasons, rules, annotations, source contexts and migrated fixtures.
-- Failed setup, SQL, fixture and intermediate test receipts remain. Full-chain migration checks
-  run serially after parallel installs exhausted the dedicated cluster's shared lock table.
-  No server settings or frozen predecessor files were changed to make a check pass.
-- **Failed, pre-existing:** `just docs-check`, library publication targets outside edited scope.
-- **Not_run:** complete `just test-all`/applicable hygiene and final-source actual-provider/
-  complete CLI–MCP–export qualification union. Prior provider receipts retain their original scope.
+- **Passed, 2026-11-03:** `git diff --check`; `just turn-end` maintenance.
+- **Passed, read-only audit inspection:** no runtime/test/migration drift from e816a212; frozen102
+  sidecar hashes and both ac13.forward102 output-log hashes matched. Retained110 mixed and308 pure
+  passes remain their historical bounded results; they were not rerun or promoted to full acceptance.
+- **Failed, pre-existing:** `just docs-check`,63 unresolved library publication/source targets.
+  No new failure is in the revised plans/review. Existing failures remain outside this scope.
+- **Not_run:** new product/provider/native tests, full `just test-all`/hygiene or M1 qualification;
+  this increment assessed source/evidence and revised documents, without repairing production.
 
 ## Next
 
-Finish AC14's remaining acceptance against final source/context, close that boundary, then
-update the M1 coordinator and affected companions and execute their remaining scope. This turn
-ends at the operator-requested integration, targeted-verification and worktree-cleanup checkpoint.
+Repair AC-CA01 with focused actual-boundary controls, then complete remaining AC14 final-source
+functional/provider/nonfunctional acceptance. Resume M1 from its revised queue and working
+prerequisites; its independent reference, accuracy/resource gates and NONDEFAULT release remain open.

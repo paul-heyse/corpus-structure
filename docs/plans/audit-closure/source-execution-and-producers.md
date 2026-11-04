@@ -1,6 +1,6 @@
 # Source execution, effect ownership and producer binding
 
-**Proposed implementation plan · 2026-11-03.** Companion to the
+**Accepted target; source integrated with bounded audit limits; full qualification open · 2026-11-03.** Companion to the
 [audit-closure coordinator](../audit-closure_2026-11-03.md), which alone owns package state,
 the execution queue and new-review finding disposition. This document develops AC06–AC08;
 it does not copy their status or take disposition of findings from an earlier active plan.
@@ -9,37 +9,34 @@ scheduled in AC00, not applied by writing this document.
 
 ## Basis and current foundations
 
-Consume the [principal review](../../design_review/reviews/design_review_audit-closure-target_2026-11-03.md)
-at `fd4ea6011ca0a501d0c986829304fe661a3c5751`, especially its
-[execution contribution](../../design_review/reviews/audit-closure-target/runtime-boundaries.md),
-and the semantic/consumer contributions linked there. The broad audit input is `90ed25c4`.
-Source inspection for this plan used `fd4ea601` plus the identified concurrent dirty M1 tree;
-no native deployment, provider request or product test was executed. Reacquire relevant dirty
-bytes before implementation. Claims about the replacement below remain **Proposed**.
+**Implemented source, inspected 2026-11-03 at `75db93e1`; assembled qualification open.**
+D4/D6 own methods, applicability and execution; ADR-0054 realizes the accepted corrections.
+`orchestrate/source_reader.py` supplies owned read operations in place of public raw connections.
+Executable policy admission precedes effects. `semantic/claim_lifetime.py:ClaimOwner` maintains
+exact task/attempt/holder ownership through custody, preparation and synchronized short terminal
+transactions, with finite exact replay and explicit uncertain settlement. Future batches are claimed
+just in time, and completed tasks remain individually durable. The registered `complete_unit_result`
+operation remains current, even though registration rather than an obvious direct caller reaches it.
 
-Applicable criteria are core3.3, heuristics1.0, code-intelligence1.4 and test-assessment1.2 from
-[standard.toml](../../design_review/design_principles/standard.toml). FP-03/04/05/07 govern
-composition, policy meaning, effects and lifetime; H17/H21/H23–25 favor one admitted batch and
-short settlement fences over idle claims or another scheduler. CI-01/02/10 require attribution
-that says what was actually established. This is focused foundation assessment for plan authoring,
-not a new diagnostic audit or runtime certification.
+Compatible producer binding now supplies policy, queue, packet, submission, automation and coverage
+from immutable run/configuration/unit identity. Configured, provider-reported, manual and managed
+startup-generation evidence remain distinct. I03's actual managed-provider receipts retain their
+original source/context; final-source provider acceptance is outstanding at AC14.
 
-The current architecture owners are [D6](../../design/D6-orchestration-metrics-policies.md),
-[D8](../../design/D8-agent-and-query-interfaces.md), and the released operation/binding owner in
-[D2](../../design/D2-schema-and-guidelines.md). AC00 reconciles RC04–RC07 and RC11 through their
-current decision routes before dependent behavior changes. Source paths below are relative to
-`python/corpus-structure/src/corpus_structure/` unless stated otherwise.
-
-| Foundation inspected | What exists and what the plan must change |
-|---|---|
-| `orchestrate/policy.py:131–185,236–268`, `schema/rulelang.py:200–240`; `orchestrate/semantic.py:985–1075` | Typed authored policy language and compiled chains exist. The current source runner supplies placeholder target/budget/judgment values for capabilities it does not execute. Admit an executable context separately from authored language. |
-| `core/method.py:280–360`, `orchestrate/source_reader.py`, `semantic/operations.py:757,1272`; `semantic/query.py:342–362` | Reader operations mostly return owned values, and `read_snapshot` already owns read-only repeatable-read acquisition. The public `connection()` capability still bypasses that promise. Reuse the owner and snapshot route, replacing its four actual callers. |
-| `orchestrate/semantic.py:491–722`, `semantic/claim_lifetime.py` | Multiple methods are claimed eagerly; custody/unit preparation occur before renewal, and completion occurs after renewal exits. The owner renews a fixed claim sequence. Its cancellation, deadline and cleanup behavior is reusable, but its active-set/settlement contract must change. |
-| `semantic/operations.py:618–704`, `semantic/sql/native_task_completion.sql:6–19`; migration `semantic_0023_execution.sql:343–354` | Completion locks run then task, preserves exact attempt/holder/result-digest replay, and renew rejects terminal tasks. This native contract is a strength; a Python-only reordering that renews completed tasks is insufficient. |
-| `orchestrate/semantic.py:151–173,885–899,1024–1031`, `intervene/semantic_server.py:142–159`, `intervene/automated.py` | Method/configuration snapshots, queue/lease machinery and invocation receipts exist, with literal Opus selection repeated across consumers. Extend one binding and migrate these consumers together. |
-| `ingest/pdf_recognition_methods.py:72–105`, `ingest/pdf_recognition.py:608–623`; repository `services/nemotron-parse/worker.py:49–106` | Configured weight/tokenizer hashes enter recipe identity; HTTP requests use a model alias and record response model/raw receipts. These do not yet establish which local artifact generation executed the request. Preserve GLiNER's actual byte checks in `methods/gliner.py:111–132,321–330`. |
+Paths below are under `python/corpus-structure/src/corpus_structure/`. The target and discriminating
+cases below specify preserved behavior and remaining acceptance, rather than an instruction to
+reimplement existing claim or producer mechanisms. The coordinator owns package state and evidence.
 
 ## AC06 — Admit policy execution and own method reads
+
+**Remaining accepted obligation AC-CA01:** current MCP `queue_next` still advertises unsupported
+adjudicate and can return empty success. Narrow current advertisement and refuse unsupported modes
+at direct session/project boundaries before discovery, even with no pending runs. Preserve normal
+empty extraction and independent reference/golden adjudication. The coordinator owns disposition;
+AC14 requires actual tool-schema/invocation controls. Raw archived configuration vocabulary is
+separate from executable support. Review I01 also requires shared producer membership to reach
+coverage and consumers, including general-only/missing mixed-unit cases.
+
 
 **Required input:** AC00's accepted RC04/RC05/RC11 authority route, the actual source method graph,
 the selected immutable run/release binding, and AC01's released dimensions/subsets where consumed.
@@ -193,8 +190,9 @@ Verify files at the custody boundary rather than hashing large weights per reque
 cryptographic proof of GPU contents. If I03 cannot establish trusted generation binding on a route,
 that endpoint remains explicitly unmanaged/unverified and cannot reuse results under a
 verified-byte premise. The accepted dedicated managed route and its AC14 provider obligation
-remain required and open/blocked on the missing binding prerequisite; a weaker unmanaged route
-does not complete them. Independent work can continue, but narrowing that accepted target needs
+remain required. Current source implements that binding and historical actual receipts exist;
+final-source AC14 applicability is still open. If a future context lacks the binding, its provider
+obligation is blocked on that named prerequisite; a weaker unmanaged route does not complete it. Independent work can continue, but narrowing that accepted target needs
 an explicit operator scope decision. Do not hide the limitation with a synthetic configured digest. Retain
 GLiNER's actual artifact-byte verification without replacing it with weaker alias evidence.
 

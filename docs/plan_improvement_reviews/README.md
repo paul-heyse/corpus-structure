@@ -64,3 +64,5 @@ performs no review and changes no implementation plan.
 - [PDF/Docling streaming improvements](pdf-docling-streaming-improvements_2026-11-01.md):
   functional-extension-focused proposals for native finalization, scheduling, custody, typed transfer
   and richer selective content; no accepted plan changes.
+
+- [Audit closure after integration](audit-closure_2026-11-03.md): targeted bound-authority, delivery and frozen-transition amendments; adoption owned by AC.

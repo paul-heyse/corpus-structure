@@ -1,7 +1,7 @@
 # Audit closure: semantic contracts, owned execution and bounded consumers
 
 **Status:** Authorized execution series; implementation integrated; targeted verification and complete qualification have distinct scope. Full AC14 acceptance remains open.
-**Created:** 2026-11-03. **Target behavior:** Proposed. Operator accepted RC01–RC12 as planning
+**Created:** 2026-11-03. **Target:** accepted; source integrated with AC-CA01 and complete qualification open. Operator accepted RC01–RC12 as planning
 decisions on2026-11-03. This document owns new review-derived package state, shared decisions,
 dependencies and combined acceptance. Writing the series does not authorize product implementation.
 
@@ -23,47 +23,35 @@ authentication service for these corrections.
 The operator selected **own new review work**, not transfer existing findings. This coordinator owns
 AC packages and new review-obligation conclusions only. Existing plans retain current scheduled
 DA disposition, including phase0's DA-001–025 exception. Correspondence below links diagnoses to new
-work without copying old statuses or claiming their automatic closure. No existing plan is edited
-or superseded by publication of this series; those files remain independently authoritative for
-their accepted scope.
+work without copying old statuses or claiming their automatic closure. Original series creation did not supersede existing plans. The current operator instruction
+separately authorizes M1 reconciliation; other plans retain their accepted scope and disposition.
 
-**Required sequence:** finish and qualify this new series → update the M1 coordinator and its
-companions from the resulting system → resume M1. M1 plan revision and resumed M1 execution are
-separate subsequent work, not packages hidden in this series. This ordering is the operator's
-instruction, not a claim that an external process has been stopped by publishing this document.
+**Current sequence (operator revision, 2026-11-03):** audit claimed-complete AC slices →
+review and incorporate targeted AC amendments → reconcile all M1 plan content. This documentation
+sequence proceeds while AC acceptance is open. Before resumed M1 product execution, settle the
+relevant AC repairs and complete the accepted AC qualification boundary; document revision is
+not qualification or permission to skip a prerequisite.
 
 ## 2. Baseline and focused foundation assessment
 
-Source baseline is HEADfd4ea601 plus identified dirty M1 source at authoring. STATUS reports M1
-native101 qualification and its transport/fixture failures; these are not this series' fresh tests.
-UM functionality/validation remains complete under the operator's ruling. This series does not
-schedule UM revalidation or finish M1's scientific release, reference authoring or corpus accuracy.
+**Implemented source inspected 2026-11-03 at `75db93e1`, initially clean.** The original target
+review consumed `fd4ea601`; it remains the source of accepted intent, not current missing-code state.
+Semantic compiler16/readers14–16, execution24, RuleValue ABI2, attributed assertions, typed reasons,
+separate representatives, owned reads, ClaimOwner, shared producer binding, coverage4 and bounded
+source/search4 are integrated. Native102 is frozen from immutable101. Live native99 and persistent
+application selections remain unchanged. ADR-0054 realizes accepted RC01–RC12 at the owners.
 
-Existing reusable foundations include PreparedRelease enum subsets/property roles/effective
-reference and statement bindings, cached Pydantic adapters, typed rule-engine OBJECT schemas,
-public ReadSession selection/hydration, read_snapshot, query continuation compatibility,
-SERIALIZABLE protected publication/receipt replay, method/configuration and claim fences,
-Arrow/DuckDB analysis scopes and the evaluator-owned reference/split boundary.
+The implementation provides reusable foundations; it does not establish complete AC14 acceptance.
+The completion audit below qualifies the claims and identifies the remaining public queue-mode
+retirement gap AC-CA01. Existing I01/I03 provider/runtime receipts retain their original scope;
+I04's bounded native foundation is established, with full native/consumer/provider applicability
+still owned by AC14. Prior UM functionality/validation remains settled under the operator ruling.
 
-Focused reading confirms why the review's corrections fit these foundations: enum_members already
-resolves authored subsets; rule views already have strict accessor validation; inference already
-has a finite conflict-aware relational fixed point; claim renewal currently owns a fixed supplied
-claim sequence, so synchronized terminal retirement needs explicit extension; coverage is selected
-after hydration in the ordinary journey. These are scope-specific assessments, not universal
-alignment or live deployment qualification.
-
-Concurrent native inventory/body/routine authoring changes remain unqualified context. AC00/I04
-must identify the final source/native revision on which execution starts and obtain applicable
-readiness evidence without assuming current dirty101 artifacts are deployable. Do only prerequisites
-needed by this series; a separate M1 task does not become a prerequisite merely because it exists.
-Preserve current application/default/source selections and existing stores until an explicitly
-owned test or adoption operation requires a change. Never alter another project's PostgreSQL cluster.
-
-Workload premise: one local operator with concurrent renewal, publication and readers; intact
-source cuts; growing candidates/evidence and skewed relation degree. Use indexes, set-shaped
-operations, shared preparation and short owned effects where their contracts permit. Necessary
-whole-universe comparisons and witnesses remain necessary. Qualitative fit is required; no numeric
-performance promise, cost model or benchmark campaign is introduced.
+Workload premise remains one local operator with concurrent renewal, publication and readers,
+intact source cuts, growing evidence and skewed relation degree. Use existing indexed/set-shaped
+operations, shared preparation and short owned effects. Necessary whole-universe comparisons and
+witnesses remain necessary; protective refusal alone does not establish measured capacity. No
+new workflow engine, cost model, benchmark campaign or duplicate semantic authority is introduced.
 
 ## 3. Reading route and responsibility boundaries
 
@@ -86,8 +74,8 @@ at execution time even when capabilities are logically independent.
 
 The operator explicitly answered **“Accept all RC01–RC12 as planning decisions”** on2026-11-03.
 No confirmation is pending for these items. Accepted decisions do not mean code or ADRs changed.
-AC00 prepares the appropriate new/superseding ADR and owning section updates before dependent
-implementation changes meaning. Accepted ADRs remain immutable. Where a correction merely
+ADR-0054 and the owning section updates realize the accepted decisions. AC00 retains
+responsibility for any remaining affected authority correction before dependent implementation changes meaning. Accepted ADRs remain immutable. Where a correction merely
 completes an existing rule, update its owner with the applicable evidence and maturity instead of
 inventing an unrelated ADR. New material rule changes discovered later need their own decision.
 
@@ -115,7 +103,9 @@ and maintained readers remain explicit; no universal historical-runtime promise 
 
 ## 5. Package queue and dependencies
 
-The table owns current package state. An in-progress package includes unintegrated worker scope; no authoring inspection or historical receipt marks code done.
+The table owns current package state. Worker changes are integrated; In progress now preserves
+remaining repair and acceptance obligations, rather than implying unmerged work. See §12 for the
+claimed-slice audit and §13 for the revised remaining execution route.
 
 | Package | Delivered behavior | Prerequisite capability / completion boundary |
 |---|---|---|
@@ -144,10 +134,10 @@ independent lifecycle/read-capability work starts. AC13 coordinates shared artif
 
 | Item | Question and settling evidence | Decision / constrained work |
 |---|---|---|
-| I01 (DA-009) | Define Unicode folding recipe/runtime/UCD/collation support; inspect mappings and independently chosen Python/PostgreSQL identity cases | Required bounded compatibility qualification in AC03. Bind qualified pair or refuse unqualified pair; no lowercase substitution or universal claim from samples |
-| I02 (DA-039) | Finalize bounded adjacency/frontier/page defaults and exact refusal/cursor contract against existing resource policy and workload | AC11 design prerequisite. Exact-or-refuse on unfinished search; no false absent/complete, no resume from last output cursor; no durable traversal framework |
+| I01 (DA-009) | Define Unicode folding recipe/runtime/UCD/collation support; inspect mappings and independently chosen Python/PostgreSQL identity cases | Supported runtime pair qualified at its original scope; AC03/AC14 retain final-context applicability. Refuse unqualified pairs; no universal claim from samples |
+| I02 (DA-039) | Finalize bounded adjacency/frontier/page defaults and exact refusal/cursor contract against existing resource policy and workload | Implemented AC11 explicit limits/order/refusal route; retain assembled acceptance. Exact-or-refuse on unfinished search; no false absent/complete or durable traversal framework |
 | I03 (DA-051) | Establish dedicated-service startup artifact/generation custody and a request-bound generation check that detects replacement under same alias | AC08 prerequisite for verified claims/reuse. Unmanaged endpoints remain explicitly unverified; preserve manual operator trust. Failure to establish the dedicated managed route leaves its AC08/AC14 obligation open; only an explicit support-scope decision can narrow it |
-| I04 (native foundation) | Reconcile dirty native101/body/inventory/transport baseline and determine exact series-needed readiness repairs/evidence | AC00 constrains affected native packages only; no automatic completion/resumption of paused M1 |
+| I04 (native foundation) | Reconcile dirty native101/body/inventory/transport baseline and determine exact series-needed readiness repairs/evidence | Bounded native102 foundation settled by ac13.forward102; AC13/14 retain full applicability. No automatic M1 qualification |
 
 Investigations use source/contract reasoning first; a focused probe is warranted only if it changes
 a material decision. Any probe belongs in the existing dated evidence system, with failed/partial
@@ -219,7 +209,7 @@ producers and release/evaluation consumers need reconciliation. It is not an edi
 assertion that M1's science/accuracy/release requirements passed. After this series is complete,
 revise the M1 coordinator and companions first; only then resume their execution.
 
-Plans and evidence are retained at completion. No existing plan/index is modified by this creation;
+Plans and evidence are retained at completion. The original creation changed no existing plan/index; the current M1 reconciliation is separately authorized;
 a concise STATUS link is the handoff pointer, not another work ledger. Documentation maintenance
 and publication checks establish only the new documents' integrity; existing unrelated link
 failures remain reported as failed and are not authorization for repairs elsewhere.
@@ -253,7 +243,8 @@ The operator authorized the complete series and affected-footprint retirement, f
 plan revision and resumed execution. The latest instruction ends this turn after integrating
 current work, removing secondary worktrees, resolving type/lint/targeted failures and updating
 this checkpoint. It does not declare AC14 complete or authorize skipping the AC → revised M1
-sequence. M1 plans remain unchanged and resumed M1 work has not started.
+sequence. This historical integration checkpoint is superseded for documentation sequencing by §1 and §13;
+M1 plans are now reconciled, while resumed product execution has not started.
 
 Execution began at clean main `1240f9b7`, replacing the plan-authoring dirty101 premise. Frozen
 native101 remains unchanged. ADR-0054 realizes RC01–RC12 at the existing architectural owners.
@@ -311,6 +302,7 @@ accepts the corrected producer/coverage boundary at source level. Other review l
 
 | New review finding | Current disposition / responsible component | Closure evidence and remaining limit |
 |---|---|---|
+| AC-CA01 — unsupported public queue mode | Open; AC06/AC08/AC13, intervention boundary | `semantic_server.py` advertises adjudicate although only extract is executable; empty/populated direct/project/tool paths must refuse unsupported mode before work and preserve supported empty success. See §12. |
 | Assembled F01 — producer-bound required coverage | Source correction integrated (`f6d43b9d`); coverage recipe4 consumes the existing compatible producer binding and exact immutable task/configuration identity | Independent general-only/mixed missing/partial/drift/historical cases and independent delta assessment; complete AC14 native/transport applicability remains open |
 
 This table owns only the new review finding. Existing DA identities retain their prior single
@@ -318,9 +310,9 @@ scheduled-disposition owners; neither package integration nor this checkpoint cl
 
 ### Retirement and verification boundary
 
-Removed the raw public reader connection, displaced accumulated inference rescan, eager explanation
+Retired source paths include the raw public reader connection, displaced accumulated inference rescan, eager explanation
 payload form, old current-native split writer and its live caller, unsupported live adjudicate
-configuration, obsolete by-unit advertising, unused producer identity type and competing producer
+configuration (public mode advertising remains incomplete under AC-CA01), obsolete by-unit advertising, unused producer identity type and competing producer
 version constant. Kept the registered `complete_unit_result` operation, supported historical readers,
 current `core`/`schema` consumers, authored historical forms, frozen migrations, plans and evidence.
 The failed experimental removal of that registered operation is retained and the removal reverted.
@@ -347,7 +339,7 @@ pre-existing library publication targets outside this scope.
 CLI–MCP–export union. They remain AC14 obligations. Package rows stay In progress until their
 stated acceptance boundaries are met; this wrap-up is not full-series completion.
 
-### M1 impact to reconcile after AC14
+### M1 impact and revised-plan prerequisites
 
 | M1 responsibility | Required reconciliation before resumed scope |
 |---|---|
@@ -358,7 +350,66 @@ stated acceptance boundaries are met; this wrap-up is not full-series completion
 | M1-01/13 evaluator populations | Use recorded split decisions without inventing legacy seeds/reasons; keep origin partitions, source-only sampling and reference independence separate. |
 | M1-14/15 qualification/gap loop | Reassess prior receipts by consumed contract and final source/context. AC controls do not satisfy five-family source accuracy, CPU/resource evidence, held-out release gates or NONDEFAULT adoption/rollback. |
 
-Next: finish the remaining AC14 required functional/provider/nonfunctional union against final
-source/context, close its accepted boundary, then revise the M1 coordinator and affected companions
-from this concrete impact account before executing remaining M1 scope. No M1 release, default
-adoption or production accuracy is established by this checkpoint.
+Next execution is AC-CA01 repair and its focused consumer controls, then the remaining AC14
+union and final-source applicability. M1's revised documents consume the current baseline and
+accepted amendments; no M1 release, default adoption or production accuracy follows.
+
+## 12. Completion audit — claimed integrated slices
+
+**Audited 2026-11-03; inspected source `75db93e1`, initially clean.** A fresh read-only
+implementation reviewer reconstructed §11's implemented/integrated/retired claims against the
+accepted coordinator, six companions, actual consumers and original receipts. No whole AC
+package is claimed complete. Open AC14 qualification is context, not an invented implementation
+defect. This audit does not repeat the broad principle audit or authorize production repairs.
+
+**Implementation conclusion:** inspected claims are sustained at source/bounded-evidence strength
+except AC-CA01. Source-specific attribute evidence, complete rule values, stored machine reasons,
+owned reads, whole claim lifetime, shared producer coverage, operational reference authority,
+delta inference within atomic publication, split provenance, bounded egress and native102/reflection
+have decisive source support. No other material implementation omission was established within
+the inspected boundary. The retirement claim is narrowed; package rows remain In progress.
+
+AC-CA01: `intervene/semantic_server.py:648–650` advertises extract/adjudicate, while
+`methods/llm/producer.py:46–54` admits only extract. Session `next` skips a mismatched mode at
+lines295–301; project `next` at418–425 can return empty success without a pending run. This falsely
+presents unsupported execution as no queued work. Repair the advertised current tool schema and
+refuse unsupported modes at the service boundary before discovery, including empty projects.
+Retain separately supported reference/golden adjudication and historical authored forms; no live
+adjudication feature is required. Clarify `AgentOpusConfig`'s wider raw vocabulary versus executable
+admission. The sole current disposition is the §11 findings row.
+
+Closure needs registered tool schema/invocation controls, direct session/project unsupported-mode
+refusal with empty and populated queues, preserved empty/successful extraction and strict producer
+admission. Tests should expose the public/service boundary, not merely call producer validation.
+
+**Verification conclusion:** read-only `git diff --name-only e816a212 --` over production source,
+tests, domains, rules, crates and semantic migrations showed no runtime drift. Reviewer AST/hash
+inspection matched all three102 sidecars to wrapper constants, and JSON/hash inspection matched
+both retained output logs in `ac13.forward102.json`. The logs independently account for110 mixed
+integration/consumer passes and308 non-database passes. They were not rerun or broadened.
+
+**Limits and benefits:** all §11 claim groups were reconstructed, with decisive implementations
+and selected tests/receipts inspected, rather than every generated row or serving/walk scenario.
+No fresh provider/native/full functional campaign ran. Standing/walk claims retain their earlier
+bounded evidence. Full AC14 CLI–MCP–export/provider/nonfunctional union remains not_run; performance,
+capacity and quantitative benefits remain unmeasured. No enclosing architectural acceptance follows.
+
+## 13. Adopted targeted amendments and next execution
+
+The operator authorized incorporating targeted amendments and revising M1 after this audit.
+Adopt [improvement review I01–I03](../plan_improvement_reviews/audit-closure_2026-11-03.md),
+reviewed against source `75db93e1`. These refine existing target integration/acceptance, introduce
+no new rule impact and preserve RC01–RC12. Local companion sections retain the concrete mechanisms.
+
+| Amendment | Owning scope and remaining obligation |
+|---|---|
+| Review I01 | AC01/02/05/08/10/12 and AC14: bound operational authority, immutable producer population and actual stored-reason consumer scenarios, including nondefault/historical counterexamples. |
+| Review I02 | AC10/11/13 and AC14: transfer admission versus full-wire delivery, committed render references on refusal, streamed export and actual registered tool/continuation routes. |
+| Review I03 | AC00/13/14: frozen102 successor route, separate fresh/forward/current-head evidence, serial full-chain installs, actual-catalog reflection revisit and registration-aware retirement. |
+
+Next product work: repair AC-CA01 with focused actual-boundary controls; re-evaluate affected
+binding/native authoring requirements without rewriting102; then map and run remaining AC14
+obligations against final source/context. Use existing receipts where premises remain valid,
+retaining every failure/interruption. Full acceptance remains the existing required union.
+M1 coordinator and all six companions are reconciled from these foundations and targets now;
+resumed M1 execution retains AC prerequisites and its independent family/reference/resource gates.
