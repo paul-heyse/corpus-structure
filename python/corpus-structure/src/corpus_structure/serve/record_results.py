@@ -18,7 +18,6 @@ from sqlalchemy import Connection, select
 from corpus_structure.semantic.continuations import decode_continuation, validate_continuation
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import Coverage
 from corpus_structure.semantic.record_projection import (
     ARTIFACT,
     read_record_projection,
@@ -26,6 +25,7 @@ from corpus_structure.semantic.record_projection import (
 )
 from corpus_structure.semantic.record_queries import (
     CompletedRecordProjection,
+    RecordProducerCoverage,
     RecordReadLimit,
     RecordReadSelection,
     read_completed_record_projection,
@@ -94,8 +94,11 @@ class RecordPage(BaseModel):
     released_projection: dict[str, JsonValue]
     records: tuple[RecordAnswer, ...]
     reports: tuple[dict[str, JsonValue], ...]
-    coverage: tuple[Coverage, ...] = ()
-    coverage_diagnostic: str = "candidate record admission does not establish property coverage"
+    coverage: tuple[RecordProducerCoverage, ...] = ()
+    coverage_diagnostic: str = (
+        "sealed producer coverage describes workflow inspection; neither complete inspection "
+        "nor empty candidate output establishes completeness of captured knowledge"
+    )
     report_source_view_ids: dict[int, int]
     matching_records: int
     returned_records: int
@@ -157,8 +160,6 @@ def _position(body: dict[str, Any]) -> tuple[str, str]:
 def present_record_projection(
     projection: CompletedRecordProjection,
     request: RecordRequest,
-    *,
-    coverage: tuple[Coverage, ...] = (),
 ) -> RecordPage:
     """Present already detached rows; adapters never reconstruct admission policy."""
     if request.run_id != projection.run_id:
@@ -271,7 +272,7 @@ def present_record_projection(
         released_projection=_json(released),
         records=tuple(answers),
         reports=tuple(_json(asdict(row)) for row in projection.rows["record_report"]),
-        coverage=coverage,
+        coverage=projection.coverage,
         report_source_view_ids=dict(projection.report_source_view_ids),
         matching_records=(
             projection.matching_records if projection.matching_records is not None else len(keys)
@@ -345,4 +346,4 @@ def serve_record_results(conn: Connection, request: RecordRequest) -> RecordPage
             revision=session.binding.data_revision,
         ),
     )
-    return present_record_projection(projection, request, coverage=())
+    return present_record_projection(projection, request)

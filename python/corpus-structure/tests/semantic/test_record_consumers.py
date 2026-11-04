@@ -12,6 +12,7 @@ import pyarrow.parquet as pq
 import pytest
 from pydantic import ValidationError
 
+from corpus_structure.core.method import CoverageDraft
 from corpus_structure.semantic import PreparationProfile, prepare_release
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
@@ -27,7 +28,11 @@ from corpus_structure.semantic.record_projection import (
     RECORD_ROW_TYPES,
     project_record_reports,
 )
-from corpus_structure.semantic.record_queries import CompletedRecordProjection, RecordReadLimit
+from corpus_structure.semantic.record_queries import (
+    CompletedRecordProjection,
+    RecordProducerCoverage,
+    RecordReadLimit,
+)
 from corpus_structure.semantic.refusals import (
     InvalidContinuation,
     SemanticRefusal,
@@ -422,24 +427,99 @@ def test_cli_and_mcp_serialize_the_same_record_contract(projection, monkeypatch)
 
 
 def test_coverage_ledger_is_carried_without_reinterpreting_record_emptiness(projection):
-    from corpus_structure.semantic.query import Coverage
-
     ledger = (
-        Coverage(
-            coverage_id="coverage-1",
-            family="measurement",
-            scope="7",
-            outcome="partial",
-            reason="bounded inspected region",
-            source_outcome="partial",
-            required_capability=None,
+        RecordProducerCoverage(
+            selected_task_id=72,
+            origin_task_id=24,
+            source_view_id=8,
+            method="m1.candidates",
+            method_version="1",
+            task_status="empty",
+            source="source:empty",
+            outcome="empty",
+            report_present=True,
+            records_present=True,
+            coverage=(
+                CoverageDraft(family="measurement", scope="7", outcome="complete"),
+                CoverageDraft(
+                    family="routing/table", scope="8", outcome="unsupported",
+                    reason="native region has no supported table route",
+                ),
+                CoverageDraft(
+                    family="assertion", scope="9", outcome="failed", reason="worker failed",
+                ),
+            ),
+            diagnostics={"execution": [{"family": "measurement", "reason": "no candidates"}]},
+            error=None,
         ),
     )
     page = present_record_projection(
-        projection, RecordRequest(run_id=41, standing="accepted"), coverage=ledger
+        replace(projection, coverage=ledger), RecordRequest(run_id=41, standing="accepted")
     )
     assert page.records == () and page.coverage == ledger
-    assert page.coverage[0].outcome == "partial"
+    assert [row.outcome for row in page.coverage[0].coverage] == [
+        "complete", "unsupported", "failed"
+    ]
+    assert page.source_coverage == "not_established_by_record_projection"
+    assert "captured knowledge" in page.coverage_diagnostic
+
+
+def test_registered_record_tool_checks_exact_full_wire_budget(projection, monkeypatch):
+    import anyio
+    from fastmcp import Client
+    from mcp.types import CallToolResult, TextContent
+    from sqlalchemy import create_engine
+
+    from corpus_structure.intervene.semantic_server import (
+        SemanticAgentSession,
+        build_semantic_server,
+    )
+    from corpus_structure.semantic import query
+    from corpus_structure.serve import record_results
+
+    engine = create_engine("sqlite://")
+    monkeypatch.setattr(query, "read_snapshot", lambda *a, **kw: nullcontext(None))
+    monkeypatch.setattr(
+        record_results, "serve_record_results",
+        lambda conn, request: present_record_projection(projection, request),
+    )
+    request = RecordRequest(run_id=41, family="measurement")
+    expected = present_record_projection(projection, request).model_dump(mode="json")
+
+    def encoded_size(response):
+        return len(CallToolResult(
+            content=response.content, structured_content=response.structured_content,
+            meta=response.meta, is_error=response.is_error,
+        ).model_dump_json(by_alias=True, exclude_none=True).encode())
+
+    async def journey():
+        async with Client(build_semantic_server(SemanticAgentSession(engine, 41))) as client:
+            delivered = await client.call_tool(
+                "records", {"request": request.model_dump(mode="json")}
+            )
+            assert delivered.structured_content == expected
+            assert isinstance(delivered.content[0], TextContent)
+            assert json.loads(delivered.content[0].text) == expected
+            assert delivered.meta is not None
+            assert (
+                delivered.meta["io.modelcontextprotocol/serverInfo"]["name"] == "corpus-structure"
+            )
+            size = encoded_size(delivered)
+            assert size > len(json.dumps(expected, separators=(",", ":")).encode())
+            exact = await client.call_tool("records", {"request": request.model_copy(
+                update={"page_bytes": size}
+            ).model_dump(mode="json")})
+            assert not exact.is_error and encoded_size(exact) == size
+            refused = await client.call_tool("records", {"request": request.model_copy(
+                update={"page_bytes": size - 1}
+            ).model_dump(mode="json")}, raise_on_error=False)
+            assert refused.is_error and "oversized_item" in str(refused.content)
+            assert "record_id" not in str(refused.content)
+
+    try:
+        anyio.run(journey)
+    finally:
+        engine.dispose()
 
 
 def native_cell_projection(projection):

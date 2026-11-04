@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import Any, cast
 
 import pytest
+from pydantic import JsonValue
 from sqlalchemy import bindparam, select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -464,6 +465,115 @@ def test_completed_public_reader_distinguishes_empty_report_from_missing_source(
     assert present.report_source_view_ids == {case.task: case.view}
     assert missing.rows["record_report"] == ()
     assert missing.report_source_view_ids == {}
+    assert len(present.coverage) == 1
+    assert present.coverage[0].source_view_id == case.view
+    assert present.coverage[0].selected_task_id == case.task
+    assert present.coverage[0].coverage[0].outcome == "complete"
+    assert missing.coverage == ()
+
+
+def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
+    private_source, semantic_reader_engine
+):
+    from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.record_results import RecordRequest, serve_record_results
+
+    case = private_source
+    coverage = (
+        CoverageDraft(family="table", scope="inspected", outcome="complete"),
+        CoverageDraft(
+            family="routing/table", scope="unrouted", outcome="partial", reason="no selected route"
+        ),
+        CoverageDraft(
+            family="routing/table", scope="unsupported", outcome="unsupported",
+            reason="unsupported native region",
+        ),
+        CoverageDraft(family="table", scope="failed", outcome="failed", reason="worker failure"),
+    )
+    diagnostics: dict[str, JsonValue] = {
+        "regions": [{"pointer": "#/texts/0", "outcome": "unsupported"}],
+        "execution": [{"family": "table", "outcome": "failed", "reason": "worker failure"}],
+        "reports": [{"family": "table", "diagnostics": [{"reason": "unbound cell"}]}],
+    }
+    with case.writer.begin() as conn:
+        complete_unit_result(
+            conn, task_id=case.task, attempt=case.held.attempt, holder="records",
+            prepared=case.prepared, method=case.method, configuration_hash="private-config",
+            source="private-unit",
+            result=UnitResult(
+                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+                outcome=ObservationOutcome.EMPTY, coverage=coverage, parse_detail=diagnostics,
+            ), records=(),
+        )
+        absent = create_task(
+            conn, run_id=case.run, config_id=case.task_row["method_config_id"], stage="record",
+            unit_type="source_view", unit_id=case.other_view, unit_key="no-report",
+            input_hash="other-source-input",
+        )
+        claim = claim_tasks(
+            conn, run_id=case.run, config_id=case.task_row["method_config_id"], holder="records"
+        )[0]
+        assert claim.task_id == absent
+        complete_task(
+            conn, task_id=absent, attempt=claim.attempt, holder="records",
+            prepared=case.prepared, observations=[], outcome="empty",
+        )
+        cut = seal_cut(conn, case.run, "empty-coverage-final", final=True)
+    consolidate_cut(case.writer, cut, "public-coverage-diagnostics")
+    request = RecordRequest(run_id=case.run, family="table", standing="accepted")
+    with read_snapshot(semantic_reader_engine) as conn:
+        page = serve_record_results(conn, request)
+        selected = serve_record_results(conn, request.model_copy(
+            update={"source_view_ids": (case.other_view,)}
+        ))
+    assert page.records == () and page.population_paging_complete
+    assert page.source_coverage == "not_established_by_record_projection"
+    by_source = {report.source_view_id: report for report in page.coverage}
+    report = by_source[case.view]
+    assert report.coverage == coverage and report.diagnostics == diagnostics
+    assert report.method == "private.records" and report.outcome == "empty"
+    assert report.report_present and report.records_present
+    assert report.selected_task_id == report.origin_task_id == case.task
+    assert selected.coverage == (by_source[case.other_view],)
+    assert not selected.coverage[0].report_present
+    assert not selected.coverage[0].records_present
+    assert selected.coverage[0].coverage == ()
+
+
+def test_record_continuation_keeps_completed_cut_after_project_selection_changes(
+    private_source, semantic_db_engine, semantic_reader_engine
+):
+    from sqlalchemy import update
+
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.record_results import RecordRequest, serve_record_results
+
+    case = private_source
+    cut = record_cut(case)
+    consolidate_cut(case.writer, cut, "public-continuation-pin")
+    project = table("data.project")
+    with semantic_db_engine.begin() as conn:
+        conn.execute(update(project).where(project.c.project_id == "private-records").values(
+            active_release_id=case.prepared.release_id, selected_result_run_id=case.run,
+            generation=project.c.generation + 1,
+        ))
+    request = RecordRequest(run_id=case.run, limit=1)
+    with read_snapshot(semantic_reader_engine) as conn:
+        first = serve_record_results(conn, request)
+    assert first.next_cursor is not None
+    # This is a genuinely changed selection, not a second read of one snapshot.
+    with semantic_db_engine.begin() as conn:
+        conn.execute(update(project).where(project.c.project_id == "private-records").values(
+            selected_result_run_id=None, generation=project.c.generation + 1,
+        ))
+    with read_snapshot(semantic_reader_engine) as conn:
+        second = serve_record_results(
+            conn, request.model_copy(update={"cursor": first.next_cursor})
+        )
+    assert second.binding == first.binding and second.cut_id == first.cut_id == cut
+    assert second.coverage == first.coverage
+    assert second.records != first.records and second.population_paging_complete
 
 
 def test_completed_public_reader_refuses_wrong_run_project_and_invalid_selectors(
@@ -527,14 +637,19 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
         packet = read_completed_record_projection(conn, run_id=case.run)
         assert len(packet.rows["source_record"]) == 2
         row_collections: Mapping[str, Any] = packet.rows
-        row_count = sum(len(collection) for collection in row_collections.values())
+        row_count = sum(len(collection) for collection in row_collections.values()) + sum(
+            1 + len(report.coverage) for report in packet.coverage
+        )
         # Independent whole-payload serialization checks the API's declared byte scope,
         # including every relation name/array/comma and source-map framing.
         raw = {
             name: [asdict(row) for row in collection]
             for name, collection in row_collections.items()
         }
-        payload = dict(rows=raw, report_source_view_ids=dict(packet.report_source_view_ids))
+        payload = dict(
+            rows=raw, report_source_view_ids=dict(packet.report_source_view_ids),
+            coverage=[asdict(report) for report in packet.coverage],
+        )
         byte_count = len(
             json.dumps(
                 payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -546,9 +661,9 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
         assert exact.rows == packet.rows
         with pytest.raises(RecordReadLimit, match="record count"):
             read_completed_record_projection(conn, run_id=case.run, max_records=1)
-        with pytest.raises(RecordReadLimit, match="row count"):
+        with pytest.raises(RecordReadLimit, match="budget"):
             read_completed_record_projection(conn, run_id=case.run, max_rows=row_count - 1)
-        with pytest.raises(RecordReadLimit, match="record bytes"):
+        with pytest.raises(RecordReadLimit, match="budget"):
             read_completed_record_projection(conn, run_id=case.run, max_bytes=byte_count - 1)
         with pytest.raises(RecordReadLimit, match="metadata bytes"):
             read_completed_record_projection(conn, run_id=case.run, max_bytes=1)

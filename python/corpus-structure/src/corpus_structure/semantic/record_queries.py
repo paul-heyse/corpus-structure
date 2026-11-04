@@ -3,20 +3,22 @@
 Serving supplies its existing read-only snapshot. The protected evaluator may use its
 own transaction: completed results and their realization are immutable, and no selected
 project pointer is consulted. The byte budget covers canonical JSON of the detached
-rows and report-to-view map, including collection framing; it does not bound process
-RSS or the archived prepared release.
+rows, report-to-view map and sealed producer coverage, including collection framing;
+it does not bound process RSS or the archived prepared release.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from functools import cached_property
 from types import MappingProxyType
 from typing import Any
 
-from pydantic import TypeAdapter
+from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import Connection, func, select, tuple_
+
+from corpus_structure.core.method import CoverageDraft
 
 from .identity import canonical_bytes
 from .metadata import table
@@ -53,6 +55,29 @@ class RecordReadSelection:
 
 
 @dataclass(frozen=True)
+class RecordProducerCoverage:
+    """A sealed source producer's report, including explicit empty/failed coverage.
+
+    Coverage describes producer work only. Neither a complete producer report nor
+    absent candidate output establishes completeness of captured knowledge.
+    """
+
+    selected_task_id: int
+    origin_task_id: int
+    source_view_id: int
+    method: str
+    method_version: str
+    task_status: str
+    source: str | None
+    outcome: str | None
+    report_present: bool
+    records_present: bool
+    coverage: tuple[CoverageDraft, ...]
+    diagnostics: JsonValue | None
+    error: JsonValue | None
+
+
+@dataclass(frozen=True)
 class CompletedRecordProjection:
     run_id: int
     release_id: str
@@ -67,6 +92,7 @@ class CompletedRecordProjection:
     selection: RecordReadSelection | None = None
     matching_records: int | None = None
     more_records: bool = False
+    coverage: tuple[RecordProducerCoverage, ...] = ()
 
     @cached_property
     def record_index(self) -> PreparedRecordProjection:
@@ -77,6 +103,112 @@ class CompletedRecordProjection:
         return SnapshotBinding(
             self.release_id, self.realization_id, self.data_revision, f"cut:{self.cut_id}"
         )
+
+
+def _read_producer_coverage(
+    conn: Connection,
+    *,
+    run_id: int,
+    release_id: str,
+    cut_id: int,
+    source_view_ids: tuple[int, ...] | None,
+    max_rows: int,
+    max_bytes: int,
+) -> tuple[RecordProducerCoverage, ...]:
+    """Read the cut's source producers once, independently of record membership.
+
+    Select only report metadata, coverage and diagnostics; never observations or
+    private record envelopes. The cut, not mutable project selection, owns origins.
+    """
+    from .observations import source_python
+    from .pdf_record_reader import PublishedReadBudget
+    from .query import ReadLimit
+
+    task, result, config, method, cut = map(
+        table,
+        ("ops.task", "ops.task_result", "ops.method_config", "ops.method", "ops.cut_task"),
+    )
+    body = result.c.body
+    query = (
+        select(
+            task.c.id.label("selected_task_id"),
+            cut.c.origin_task_id,
+            task.c.unit_id.label("source_view_id"),
+            task.c.status.label("task_status"),
+            task.c.error.label("task_error"),
+            task.c.unit_key,
+            task.c.input_hash,
+            config.c.config_hash,
+            method.c.name.label("method"),
+            method.c.version.label("method_version"),
+            result.c.release_id.label("report_release_id"),
+            body["release_id"].as_string().label("body_release_id"),
+            body["method"].as_string().label("body_method"),
+            body["configuration_hash"].as_string().label("body_config_hash"),
+            body["input_hash"].as_string().label("body_input_hash"),
+            body["unit_key"].as_string().label("body_unit_key"),
+            body["source"].as_string().label("source"),
+            body["outcome"].as_string().label("outcome"),
+            body.has_key("records").label("records_present"),
+            body["coverage"].label("coverage"),
+            body["parse_detail"].label("diagnostics"),
+            body["error"].label("error"),
+        )
+        .select_from(cut)
+        .join(task, task.c.id == cut.c.task_id)
+        .join(config, config.c.id == task.c.method_config_id)
+        .join(method, method.c.id == config.c.method_id)
+        .outerjoin(result, result.c.task_id == cut.c.origin_task_id)
+        .where(
+            cut.c.cut_id == cut_id,
+            task.c.run_id == run_id,
+            task.c.release_id == release_id,
+            task.c.unit_type == "source_view",
+        )
+        .order_by(task.c.unit_id, task.c.id)
+    )
+    if source_view_ids is not None:
+        query = query.where(task.c.unit_id.in_(source_view_ids))
+    try:
+        PublishedReadBudget(max_rows, max_bytes).preflight(conn, query)
+    except ReadLimit as error:
+        raise RecordReadLimit("record producer coverage exceeds projection budget") from error
+    reports = []
+    rows_left, bytes_left = max_rows, max_bytes
+    with conn.execute(query.execution_options(stream_results=True, yield_per=32)) as result_rows:
+        for row in result_rows.mappings():
+            if row["report_release_id"] is not None and (
+                row["report_release_id"] != release_id
+                or row["body_release_id"] != release_id
+                or row["body_method"] != row["method"]
+                or row["body_config_hash"] != row["config_hash"]
+                or row["body_input_hash"] != row["input_hash"]
+                or row["body_unit_key"] != row["unit_key"]
+            ):
+                raise SemanticRefusal("sealed producer report differs from its task binding")
+            report = RecordProducerCoverage(
+                selected_task_id=row["selected_task_id"],
+                origin_task_id=row["origin_task_id"],
+                source_view_id=row["source_view_id"],
+                method=row["method"],
+                method_version=row["method_version"],
+                task_status=row["task_status"],
+                source=row["source"],
+                outcome=row["outcome"],
+                report_present=row["report_release_id"] is not None,
+                records_present=bool(row["records_present"]),
+                coverage=tuple(CoverageDraft(**item) for item in row["coverage"] or ()),
+                diagnostics=(
+                    source_python(row["diagnostics"]) if row["diagnostics"] is not None else None
+                ),
+                error=row["error"] if row["error"] is not None else row["task_error"],
+            )
+            rows_left -= 1 + len(report.coverage)
+            bytes_left -= len(canonical_bytes(asdict(report))) + bool(reports)
+            if rows_left < 0 or bytes_left < 0:
+                raise RecordReadLimit("record producer coverage exceeds projection budget")
+            reports.append(report)
+    return tuple(reports)
 
 
 def read_completed_record_projection(
@@ -93,7 +225,7 @@ def read_completed_record_projection(
     """Read finite public rows, including report absence/empty and admission standing.
 
     One set-shaped query per relation uses the same primary record/report scope. There
-    are no producer-envelope or per-record hydration reads. A limit refuses the whole
+    are no private record-envelope or per-record hydration reads. A limit refuses the whole
     result; it never returns a truncated collection as an evaluated denominator.
     """
     for value in (run_id, max_records, max_rows, max_bytes):
@@ -268,7 +400,9 @@ def read_completed_record_projection(
     remaining_rows = max_rows
     raw_rows: dict[str, list[dict[str, Any]]] = {name: [] for name in RECORD_ROW_TYPES}
     remaining_bytes = max_bytes - len(
-        canonical_bytes(dict(rows=raw_rows, report_source_view_ids=report_source_view_ids))
+        canonical_bytes(
+            dict(rows=raw_rows, report_source_view_ids=report_source_view_ids, coverage=[])
+        )
     )
     if remaining_bytes < 0:
         raise RecordReadLimit("record metadata bytes exceed the requested projection budget")
@@ -301,6 +435,15 @@ def read_completed_record_projection(
                 remaining_bytes -= size
                 collected.append(payload)
         raw_rows[name] = collected
+    coverage = _read_producer_coverage(
+        conn,
+        run_id=run_id,
+        release_id=release_id,
+        cut_id=selected["cut_id"],
+        source_view_ids=source_view_ids,
+        max_rows=remaining_rows,
+        max_bytes=remaining_bytes,
+    )
     current = conn.execute(
         select(realization.c.release_id, realization.c.data_revision).where(
             realization.c.realization_id == realization_id
@@ -324,4 +467,5 @@ def read_completed_record_projection(
         selection,
         matching_records,
         more_records,
+        coverage,
     )
