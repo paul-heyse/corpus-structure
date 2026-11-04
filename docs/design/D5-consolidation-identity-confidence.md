@@ -1,5 +1,20 @@
 # D5 · Consolidation, identity and confidence
 
+## M1 evaluated record admission
+
+**Accepted target, Proposed until implemented (2026-11-04).** Bounded interpretation runs before
+private task-result sealing; an exact candidate-relative event score grants no acceptance. Existing
+domain policy returns whole-record admission alongside ordinary selections. Every record-produced
+field fact is capped by that decision. Common consolidation applies a native-verified admission
+overlay, complete assertion/field/set membership and direct source custody, then preserves atomic
+source publication, finite inference and terminal settlement. Learned finite instances are canonical
+run dependencies under a release-defined algorithm contract; configuration alone is not evaluated
+authority. Fitting scores are supervised compatibility potentials, not automatically LLRs or
+structured-likelihood estimates. Production coupling requires its fixed-universe benefit comparison.
+
+> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+
+
 ## Audit-closure target
 
 **Implemented; selected AC scope Tested2026-11-04.** Identity assignments retain explicit resolution decisions. Source attributes retain their own qualifications and evidence. Storage, display and scientific representatives have separate policies. Shared candidate indexes and delta inference preserve complete direct witnesses inside atomic publication.

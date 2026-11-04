@@ -128,7 +128,9 @@ def _structural_groups(view, selection, context):
 
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    policy: Literal["m1-canonical-same-view-candidates-1"] = POLICY
+    policy: Literal["m1-canonical-related-context-candidates-2"] = POLICY
+    source_dependencies: Literal["source_view_product"] = "source_view_product"
+    source_dependency_method: Literal["extract.m1_annotations"] = "extract.m1_annotations"
     snapshot: Path
     checkpoint: str
     revision: str
@@ -182,7 +184,7 @@ def configured_packs(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "1"
+    version = "2"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -209,6 +211,11 @@ class M1Candidates:
         if unit.ref.unit_id is None:
             raise ValueError("M1 requires a selected source view")
         view = unit.run.reader.source_view(unit.ref.unit_id)
+        from corpus_structure.methods.m1_annotations import consume_annotations
+
+        _, _, annotation_result = consume_annotations(
+            unit.run.reader, view, AnnotationProfile(cfg.sentences)
+        )
         return Digest(
             canonical_bytes(
                 dict(
@@ -216,6 +223,8 @@ class M1Candidates:
                     native=view.ref.native_product.values(),
                     projection=view.ref.projection_digest,
                     recipe=view.ref.recipe_digest,
+                    annotation_product=sha256(canonical_bytes(annotation_result)).hexdigest(),
+                    context_membership=unit.run.reader.source_context_membership(view.ref.id),
                 )
             )
         )
@@ -247,6 +256,11 @@ class M1Candidates:
         packs = configured_packs(ctx.reader.prepared, cfg)
         view = ctx.reader.source_view(unit.ref.unit_id)
         profile = AnnotationProfile(cfg.sentences)
+        from corpus_structure.methods.m1_annotations import consume_annotations
+
+        annotations, annotation_errors, annotation_result = consume_annotations(
+            ctx.reader, view, profile
+        )
         # Load spaCy/native libraries before discovering their thread controllers.
         pipeline(cfg.sentences)
         controller = ThreadpoolController()
@@ -258,6 +272,9 @@ class M1Candidates:
                 max_pieces=cfg.max_context_pieces,
                 max_annotation_chars=cfg.max_annotation_chars,
                 check_active=ctx.check_active,
+                reader=ctx.reader,
+                persisted_annotations=annotations,
+                annotation_errors=annotation_errors,
             )
         details: dict[str, Any] = dict(
             policy=cfg.policy,
@@ -265,7 +282,13 @@ class M1Candidates:
             source_pin=asdict(NativeSourcePin.from_source(prepared_source.source)),
             regions=[asdict(region) for region in prepared_source.regions],
             contexts=[asdict(selection) for selection in prepared_source.selections],
-            annotations=[asdict(product) for product in prepared_source.annotations],
+            annotation_product=dict(
+                method=annotation_result["method"],
+                input_hash=annotation_result["input_hash"],
+                configuration_hash=annotation_result["configuration_hash"],
+                dependency_digest=sha256(canonical_bytes(annotation_result)).hexdigest(),
+                blocks=[product.dependency_digest for product in prepared_source.annotations],
+            ),
             annotation_errors=list(prepared_source.annotation_errors),
             exclusions=list(prepared_source.exclusions),
             effective_profiles={},
@@ -317,6 +340,8 @@ class M1Candidates:
                 prepared_source.source,
                 max_chars=cfg.max_context_chars,
                 max_pieces=cfg.max_context_pieces,
+                related=prepared_source.related,
+                preparation=prepared_source.preparation,
             )
             for family in selection.families:
                 contract, anchor = FAMILIES[family]

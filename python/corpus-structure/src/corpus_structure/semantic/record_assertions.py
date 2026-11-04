@@ -19,7 +19,12 @@ from pydantic import BaseModel
 from .consolidation import SourceItem, assemble, plain
 from .identity import canonical_bytes, occurrence_key
 from .publication import EvidenceRow, PublicationBatch
-from .record_contracts import anchor_identity, evidence_set_identity, interpretation_identity, record_identity
+from .record_contracts import (
+    anchor_identity,
+    evidence_set_identity,
+    interpretation_identity,
+    record_identity,
+)
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 _NAMESPACE = "https://corpus-structure.dev/semantic/source-reading/"
@@ -30,10 +35,21 @@ _FAMILIES = {
     "table": "TableAssertionReading",
     "formula_context": "FormulaContextReading",
 }
-_VALUE_FIELDS = frozenset({
-    "kind", "state", "meaning_changing", "evidence_status", "value", "original",
-    "original_pieces", "reason", "policy", "rule", "premises",
-})
+_VALUE_FIELDS = frozenset(
+    {
+        "kind",
+        "state",
+        "meaning_changing",
+        "evidence_status",
+        "value",
+        "original",
+        "original_pieces",
+        "reason",
+        "policy",
+        "rule",
+        "premises",
+    }
+)
 _MODULE = "source-readings"
 _ROOT = "source-reading-root"
 
@@ -57,28 +73,38 @@ def source_reading_inputs(bundle: SourceBundle) -> SourceBundle:
     if any(source.name in {_MODULE, _ROOT} for source in bundle.sources):
         if bundle.root != _ROOT:
             raise ValueError("reserved source-reading module already supplied")
-        original_root = yaml.safe_load(next(s.content for s in bundle.sources if s.name == _ROOT))["imports"][0]
-        original = SourceBundle(original_root, tuple(s for s in bundle.sources if s.name not in {_MODULE, _ROOT}))
+        original_root = yaml.safe_load(next(s.content for s in bundle.sources if s.name == _ROOT))[
+            "imports"
+        ][0]
+        original = SourceBundle(
+            original_root, tuple(s for s in bundle.sources if s.name not in {_MODULE, _ROOT})
+        )
         if source_reading_inputs(original) != bundle:
             raise ValueError("source-reading declarations differ from effective family contracts")
         return bundle
     view = _view(bundle)
-    classes = view.all_classes()
+    classes = {str(name): definition for name, definition in view.all_classes().items()}
     if "SemanticRecordFields" not in classes:
         raise ValueError("source reading derivation requires observation record declarations")
     families: dict[str, tuple[str, list[Any]]] = {}
     for name in sorted(classes):
-        if name == "SemanticRecordFields" or "SemanticRecordFields" not in view.class_ancestors(name):
+        if name == "SemanticRecordFields" or "SemanticRecordFields" not in view.class_ancestors(
+            name
+        ):
             continue
         slots = {str(slot.name): slot for slot in view.class_induced_slots(name)}
-        family = str(slots["family"].equals_string or "")
+        family = slots["family"].equals_string or ""
         if family not in _FAMILIES or family in families:
             raise ValueError("unsupported or duplicate source-reading family")
-        families[family] = (str(name), [slot for key, slot in slots.items() if key not in {"family", "occurrence_recipe"}])
+        families[family] = (
+            name,
+            [slot for key, slot in slots.items() if key not in {"family", "occurrence_recipe"}],
+        )
     if not families:
         raise ValueError("source reading derivation requires an effective family")
     scalar_classes = {
-        str(name) for name in classes
+        name
+        for name in classes
         if name == "RecordScalar" or "RecordScalar" in view.class_ancestors(name)
     }
     field_classes = {str(slot.range) for _, roles in families.values() for slot in roles}
@@ -90,18 +116,31 @@ def source_reading_inputs(bundle: SourceBundle) -> SourceBundle:
     def attribute(slot, *, owner: str):
         body = json_dumper.to_dict(slot)
         # Induced ownership is compiler metadata, not another declared relationship.
-        for key in ("name", "owner", "domain_of", "from_schema", "domain", "is_a", "mixins", "pattern"):
+        for key in (
+            "name",
+            "owner",
+            "domain_of",
+            "from_schema",
+            "domain",
+            "is_a",
+            "mixins",
+            "pattern",
+        ):
             body.pop(key, None)
         body["slot_uri"] = "reading:" + owner + "/" + str(slot.name)
         if str(slot.range) in names:
             body["range"] = names[str(slot.range)]
         elif str(slot.range) in classes:
-            raise ValueError("graph-safe reading value cannot reference private class " + str(slot.range))
+            raise ValueError(
+                "graph-safe reading value cannot reference private class " + str(slot.range)
+            )
         return body
 
     derived: dict[str, Any] = {
         "SourceReading": {
-            "is_a": "Entity", "abstract": True, "class_uri": "reading:SourceReading",
+            "is_a": "Entity",
+            "abstract": True,
+            "class_uri": "reading:SourceReading",
             "annotations": {"cs:scope": "local", "cs:case": "preserve"},
         }
     }
@@ -129,19 +168,42 @@ def source_reading_inputs(bundle: SourceBundle) -> SourceBundle:
             if not slot.required or slot.multivalued or not slot.inlined:
                 raise ValueError("reading roles require scalar required inlined fields")
             attrs[str(slot.name)] = {
-                "range": names[str(slot.range)], "required": True, "inlined": True,
+                "range": names[str(slot.range)],
+                "required": True,
+                "inlined": True,
                 "slot_uri": "reading:" + target + "/" + str(slot.name),
             }
-        derived[target] = {"is_a": "SourceReading", "class_uri": "reading:" + target, "attributes": attrs}
+        derived[target] = {
+            "is_a": "SourceReading",
+            "class_uri": "reading:" + target,
+            "attributes": attrs,
+        }
     module = {
-        "id": _NAMESPACE, "name": "semantic_source_readings", "default_range": "string",
-        "prefixes": {"reading": _NAMESPACE}, "default_prefix": "reading",
+        "id": _NAMESPACE,
+        "name": "semantic_source_readings",
+        "default_range": "string",
+        "prefixes": {"reading": _NAMESPACE},
+        "default_prefix": "reading",
         "classes": derived,
     }
-    return SourceBundle(_ROOT, (*bundle.sources,
-        SourceArtifact(_MODULE, yaml.safe_dump(module, sort_keys=True).encode()),
-        SourceArtifact(_ROOT, yaml.safe_dump({"id": _NAMESPACE + "root", "name": "semantic_source_reading_root", "imports": [bundle.root, _MODULE]}, sort_keys=True).encode()),
-    ))
+    return SourceBundle(
+        _ROOT,
+        (
+            *bundle.sources,
+            SourceArtifact(_MODULE, yaml.safe_dump(module, sort_keys=True).encode()),
+            SourceArtifact(
+                _ROOT,
+                yaml.safe_dump(
+                    {
+                        "id": _NAMESPACE + "root",
+                        "name": "semantic_source_reading_root",
+                        "imports": [bundle.root, _MODULE],
+                    },
+                    sort_keys=True,
+                ).encode(),
+            ),
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -184,7 +246,10 @@ class RecordAssertionLowering:
 
 
 def reading_identity(release_id: str, record_id: str, interpretation_id: str) -> str:
-    return "source-reading:" + sha256(canonical_bytes([release_id, record_id, interpretation_id])).hexdigest()
+    return (
+        "source-reading:"
+        + sha256(canonical_bytes([release_id, record_id, interpretation_id])).hexdigest()
+    )
 
 
 def lower_record_assertions(
@@ -208,9 +273,12 @@ def lower_record_assertions(
     for report in reports:
         if not report.get("records"):
             continue
-        if not isinstance(report.get("origin_task_id"), int) or report["origin_task_id"] < 1:
+        if type(report.get("origin_task_id")) is not int or report["origin_task_id"] < 1:
             raise ValueError("source readings require actual origin task custody")
-        if any(not isinstance(report.get(k), str) or not report[k] for k in ("source_uri", "provider", "operation_version")):
+        if any(
+            not isinstance(report.get(k), str) or not report[k]
+            for k in ("source_uri", "provider", "operation_version")
+        ):
             raise ValueError("source readings require actual producer and source descriptors")
         for model in report["records"]:
             row = plain(model) if isinstance(model, BaseModel) else dict(model)
@@ -225,22 +293,38 @@ def lower_record_assertions(
             local_support: list[tuple[str, str, str, str]] = []
             try:
                 prepared.validate_python("SourceRecord", row)
-                if row["pin"]["source"] != report["source"] or record_identity(prepared.release_id, row) != key[0] or interpretation_identity(row) != key[1]:
+                if (
+                    row["pin"]["source"] != report["source"]
+                    or record_identity(prepared.release_id, row) != key[0]
+                    or interpretation_identity(row) != key[1]
+                ):
                     raise ValueError("source-reading identity/source differs from sealed record")
                 definition = prepared.index.definitions[row["contract"]]
                 if "SemanticRecordFields" not in definition.ancestors:
                     raise ValueError("reading contract is not an effective record family")
                 contract = {p.name: p for p in definition.properties}
-                if contract["family"].equals_string != row["family"] or contract["occurrence_recipe"].equals_string != row["occurrence_recipe"]:
+                if (
+                    contract["family"].equals_string != row["family"]
+                    or contract["occurrence_recipe"].equals_string != row["occurrence_recipe"]
+                ):
                     raise ValueError("reading family differs from effective record contract")
                 fields = {f["role"]: f for f in row["fields"]}
                 expected = set(contract) - {"family", "occurrence_recipe"}
                 if len(fields) != len(row["fields"]) or set(fields) != expected:
                     raise ValueError("reading roles differ from complete effective family")
-                prepared.validate_python(row["contract"], {"family": row["family"], "occurrence_recipe": row["occurrence_recipe"], **fields})
+                prepared.validate_python(
+                    row["contract"],
+                    {
+                        "family": row["family"],
+                        "occurrence_recipe": row["occurrence_recipe"],
+                        **fields,
+                    },
+                )
                 anchors = {a["anchor_id"]: a for a in row["anchors"]}
                 sets = {s["set_id"]: s for s in row.get("evidence_sets", ())}
-                if len(anchors) != len(row["anchors"]) or any(anchor_identity(a) != k for k, a in anchors.items()):
+                if len(anchors) != len(row["anchors"]) or any(
+                    anchor_identity(a) != k for k, a in anchors.items()
+                ):
                     raise ValueError("reading anchor content differs from identity")
                 if len(sets) != len(row.get("evidence_sets", ())):
                     raise ValueError("duplicate reading evidence set")
@@ -249,22 +333,73 @@ def lower_record_assertions(
                 for role in sorted(fields):
                     field = fields[role]
                     used = tuple(field.get("evidence_sets", ()))
-                    if field["evidence_status"] != "available" or not used or len(set(used)) != len(used):
+                    if (
+                        field["evidence_status"] != "available"
+                        or not used
+                        or len(set(used)) != len(used)
+                    ):
                         raise ValueError("reading role lacks its own sealed evidence: " + role)
                     located = {}
                     for set_id in used:
                         evidence_set = sets[set_id]
-                        if evidence_set["role"] != role or evidence_set_identity(evidence_set) != set_id:
-                            raise ValueError("reading field support belongs to another role or content")
+                        if (
+                            evidence_set["role"] != role
+                            or evidence_set_identity(evidence_set) != set_id
+                        ):
+                            raise ValueError(
+                                "reading field support belongs to another role or content"
+                            )
                         for anchor_id in evidence_set["anchors"]:
                             anchor = anchors[anchor_id]
-                            evidence_id = "reading-evidence:" + sha256(canonical_bytes([prepared.release_id, report["origin_task_id"], *key, role, set_id, anchor_id])).hexdigest()
-                            locator = {k: anchor[k] for k in ("space", "pointer", "precision", "start", "end") if k in anchor}
-                            locator.update(record_id=key[0], interpretation_id=key[1], role=role, set_id=set_id, anchor_id=anchor_id)
-                            located[evidence_id] = EvidenceRow(evidence_id, report["source_uri"], canonical_bytes(locator).decode(), report["provider"], report["operation_version"])
+                            evidence_id = (
+                                "reading-evidence:"
+                                + sha256(
+                                    canonical_bytes(
+                                        [
+                                            prepared.release_id,
+                                            report["origin_task_id"],
+                                            *key,
+                                            role,
+                                            set_id,
+                                            anchor_id,
+                                        ]
+                                    )
+                                ).hexdigest()
+                            )
+                            locator = {
+                                k: anchor[k]
+                                for k in ("space", "pointer", "precision", "start", "end")
+                                if k in anchor
+                            }
+                            locator.update(
+                                record_id=key[0],
+                                interpretation_id=key[1],
+                                role=role,
+                                set_id=set_id,
+                                anchor_id=anchor_id,
+                            )
+                            located[evidence_id] = EvidenceRow(
+                                evidence_id,
+                                report["source_uri"],
+                                canonical_bytes(locator).decode(),
+                                report["provider"],
+                                report["operation_version"],
+                            )
                             local_support.append((role, set_id, anchor_id, evidence_id))
                     value = {name: value for name, value in field.items() if name in _VALUE_FIELDS}
-                    local_items.append(SourceItem(reading, class_name, role, value, {"modality": "asserted", "polarity": True}, report["source"], reading + "/" + role, "agent_asserted", tuple(located.values())))
+                    local_items.append(
+                        SourceItem(
+                            reading,
+                            class_name,
+                            role,
+                            value,
+                            {"modality": "asserted", "polarity": True},
+                            report["source"],
+                            reading + "/" + role,
+                            "stated",
+                            tuple(located.values()),
+                        )
+                    )
                 # Check the released value boundary before retaining any role. The
                 # combined graph is lowered once, after all record decisions.
                 for item in local_items:
@@ -277,13 +412,34 @@ def lower_record_assertions(
             for item in local_items:
                 pending_bindings.append((*key, item.property_name, reading, item.item))
             for role, set_id, anchor_id, evidence_id in local_support:
-                support.append(RecordAssertionSupport(report["origin_task_id"], *key, role, set_id, anchor_id, evidence_id, occurrence_key(prepared.release_id, realization_id, report["source"], reading + "/" + role)))
+                support.append(
+                    RecordAssertionSupport(
+                        report["origin_task_id"],
+                        *key,
+                        role,
+                        set_id,
+                        anchor_id,
+                        evidence_id,
+                        occurrence_key(
+                            prepared.release_id,
+                            realization_id,
+                            report["source"],
+                            reading + "/" + role,
+                        ),
+                    )
+                )
             items.extend(local_items)
     batch = assemble(prepared, realization_id, batch_id, tuple(items))
     occurrences = {occ.item: occ for occ in batch.occurrence}
     bindings = tuple(
-        RecordAssertionBinding(record_id, interpretation_id, role, reading,
-            occurrences[item].fact_id, occurrences[item].occurrence_id)
+        RecordAssertionBinding(
+            record_id,
+            interpretation_id,
+            role,
+            reading,
+            occurrences[item].fact_id,
+            occurrences[item].occurrence_id,
+        )
         for record_id, interpretation_id, role, reading, item in pending_bindings
     )
     return RecordAssertionLowering(batch, bindings, tuple(support), tuple(diagnostics))

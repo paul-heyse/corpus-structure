@@ -17,12 +17,17 @@ from dataclasses import InitVar, asdict, dataclass, field
 from enum import StrEnum
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+from pydantic import JsonValue
 
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 from .proposals import NativeFrameSource, NativeProposalFrame, native_address
 from .types import PreparedRelease
+
+if TYPE_CHECKING:
+    from .source_views import PreparedSourceView
 
 
 class ContextRefused(ValueError):
@@ -69,6 +74,23 @@ class NativeSourcePin:
     def from_source(cls, source: NativeFrameSource) -> NativeSourcePin:
         return cls(**{name: getattr(source, name) for name in cls.__dataclass_fields__})
 
+    def values(self) -> dict[str, JsonValue]:
+        """JSON source identity, preserving every pin and coordinate version."""
+        return {
+            "source_view_id": self.source_view_id,
+            "unit_ref": self.unit_ref,
+            "native_product": {
+                "task_id": self.native_product.task_id,
+                "product_key": self.native_product.product_key,
+                "content_digest": self.native_product.content_digest,
+            },
+            "section_pointer": self.section_pointer,
+            "membership": self.membership,
+            "projection_digest": self.projection_digest,
+            "recipe_digest": self.recipe_digest,
+            "version": self.version,
+        }
+
 
 @dataclass(frozen=True)
 class RelatedNativeSource:
@@ -88,6 +110,41 @@ class RetrievalOutcome(StrEnum):
     MISSING_SCOPE = "missing_scope"
     UNSUPPORTED = "unsupported"
     RESOURCE_LIMIT = "resource_limit"
+
+
+@dataclass(frozen=True)
+class SourceContextRequest:
+    """A bounded structural lookup; missing roles are demands, never inferred facts."""
+
+    pointer: str
+    relationship: ContextRelationship
+    missing_roles: tuple[str, ...]
+    reason: str
+    targets: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        if (
+            not self.pointer.startswith("#/")
+            or not isinstance(self.relationship, ContextRelationship)
+            or not isinstance(self.missing_roles, tuple)
+            or not self.missing_roles
+            or any(not role.strip() for role in self.missing_roles)
+            or not self.reason.strip()
+            or not isinstance(self.targets, tuple)
+            or any(not pointer.startswith("#/") for pointer in self.targets)
+        ):
+            raise ContextRefused("context lookup requires native scope, missing roles and reason")
+
+
+@dataclass(frozen=True)
+class SourceContextRead:
+    """Owned source views and the metadata universe considered before hydration."""
+
+    sources: tuple[PreparedSourceView, ...]
+    candidates: tuple[NativeSourcePin, ...]
+    membership_digest: str
+    outcome: RetrievalOutcome
+    terminal_reason: str
 
 
 @dataclass(frozen=True)

@@ -113,6 +113,73 @@ class ControlledDecoder:
         )
 
 
+def owned_reader(source):
+    """Persisted-operation-shaped fixture with actual local linguistic columns."""
+    from corpus_structure.methods.m1_annotations import M1Annotations
+    from corpus_structure.orchestrate.m1 import registry
+    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+
+    reader = SimpleNamespace(prepared=release(), source_view=lambda _: source)
+    producer = M1Annotations()
+    cfg = registry(ROOT / "domains/statistics").overlay(producer.name, "default")
+    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
+    (product,) = producer.run(
+        (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
+    )
+    reader.source_result = lambda *_: dict(
+        method=producer.name,
+        input_hash="controlled-upstream-input",
+        configuration_hash="controlled-upstream-configuration",
+        outcome=product.outcome.value,
+        parse_detail=product.parse_detail,
+    )
+    reader.context_sources = lambda *_args, **_kwargs: SourceContextRead(
+        (), (), "a" * 64, RetrievalOutcome.NO_MATCH, "controlled empty related-source universe"
+    )
+    reader.source_context_membership = lambda _: "a" * 64
+    return reader
+
+
+def test_owned_annotation_consumer_reuses_columns_and_refuses_profile_or_source_drift(monkeypatch):
+    from dataclasses import replace
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods import source_preparation
+    from corpus_structure.methods.m1_annotations import consume_annotations
+
+    source = view()
+    reader = owned_reader(source)
+    products, errors, _ = consume_annotations(reader, source, AnnotationProfile())
+    assert products and not errors
+
+    def must_not_recompute(*_, **__):
+        raise AssertionError("consumer must not rerun source layout or annotation pipeline")
+
+    monkeypatch.setattr(source_preparation, "pipeline", must_not_recompute)
+    monkeypatch.setattr(source_preparation, "annotate", must_not_recompute)
+    result = source_preparation.prepare_source(source, persisted_annotations=products)
+    assert result.annotations == products
+    assert result.annotations[0].tokens[0].start == 0
+    assert result.annotations[0].sentences[-1].end == 16
+    changed_profile = AnnotationProfile(SentenceConfig(exclude=("ner",), batch_size=1))
+    with pytest.raises(ValueError, match="source/profile"):
+        consume_annotations(reader, source, changed_profile)
+    changed_source = replace(source, ref=replace(source.ref, recipe_digest="d" * 64))
+    with pytest.raises(ValueError, match="source binding"):
+        consume_annotations(reader, changed_source, AnnotationProfile())
+
+
+def test_missing_annotation_operation_does_not_fall_back_to_inference():
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.m1_annotations import consume_annotations
+
+    with pytest.raises(ValueError, match="no source result"):
+        consume_annotations(
+            SimpleNamespace(source_result=lambda *_: None), view(), AnnotationProfile()
+        )
+
+
 @pytest.mark.parametrize("mode", ["definition", "empty", "failed"])
 def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(monkeypatch, mode):
     source = view()
@@ -124,7 +191,7 @@ def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(mo
     cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
     checks = []
     context = SimpleNamespace(
-        reader=SimpleNamespace(prepared=release(), source_view=lambda identity: source),
+        reader=owned_reader(source),
         check_active=lambda: checks.append("checked"),
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7"))
@@ -233,7 +300,7 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
         (unit,),
         cfg,
         SimpleNamespace(
-            reader=SimpleNamespace(prepared=release(), source_view=lambda _: source),
+            reader=owned_reader(source),
             check_active=lambda: None,
         ),
     )

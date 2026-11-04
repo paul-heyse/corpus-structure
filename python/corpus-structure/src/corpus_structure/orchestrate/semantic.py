@@ -430,15 +430,14 @@ def run_source_methods(
                                         registered[(cid, identity)] = register_ref(
                                             conn, view, method, config, cid, ref
                                         )
-                            elif (
-                                config.params.get("source_dependencies")
-                                == "source_view_interpretation"
-                            ):
+                            elif config.params.get("source_dependencies") in {
+                                "source_view_interpretation",
+                                "source_view_product",
+                            }:
                                 prerequisite_name = config.params.get("source_dependency_method")
                                 if prerequisite_name not in configs:
                                     raise OperationConflict(
-                                        "required interpretation producer "
-                                        "configuration is unavailable"
+                                        "required source producer configuration is unavailable"
                                     )
                                 prerequisite = registry.method(prerequisite_name)
                                 prerequisite_config = configs[prerequisite_name]

@@ -181,7 +181,7 @@ class GlinerPack:
 class GlinerInput:
     @classmethod
     def from_context(cls, context: NativeSourceContext) -> GlinerInput:
-        if context.version != 1:
+        if context.version not in {1, 2}:
             raise GlinerRefused("unsupported native source context version")
         return cls(context.dependency_digest, context.dependency_digest, context.text)
 

@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "id": "m1.source-intake106",
+  "title": "Independent-origin finite source cuts and native intake",
+  "group": "M1",
+  "package": "M1-01",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can three distinct local source origins supply frozen manageable source-ready cuts through the existing real PDF intake without changing runtime scope or operational defaults?",
+  "answers": [],
+  "method": "Create exact whole-page excerpt originals retaining parent hashes/page maps; compare all 27 rendered page/text copies; execute actual native and controlled managed recognition canaries, then owned native106 ingest-only graphs; freeze source pins and retain a database dump. Separately restore the full dump and compare release/run/cut bindings and complete detached source-frame hashes through the normal read-only principal.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-populations/prepare_source_cuts.py",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-populations/provider_canary.py docs/design_review/evidence/2026-11-04_m1-source-populations/provider-canary002",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-populations/intake_populations.py docs/design_review/evidence/2026-11-04_m1-source-populations/intake001 --native-revision semantic_m1_preparation_20261104",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-populations/restore_source_dump.py docs/design_review/evidence/2026-11-04_m1-source-populations/intake001 docs/design_review/evidence/2026-11-04_m1-source-populations/attempt-restore004"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-population.json",
+      "role": "Frozen exact source-byte and parent-page population; intended origin partitions",
+      "sha256": "ca05030f9a1f765472658c4b87fb5b4f09809cc54978c4d104ae85fee0e5eea1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "prepare_source_cuts.py",
+      "role": null,
+      "sha256": "2d816161b6846c2e381fd518bc4ba2acd767f3eef77f1c285ee1b62e8a4f5067"
+    },
+    {
+      "path": "provider_canary.py",
+      "role": null,
+      "sha256": "8a81af8117518e259d0bbd8dc7d0c9733ade3a92590950cce15483f735ebde93"
+    },
+    {
+      "path": "intake_populations.py",
+      "role": null,
+      "sha256": "4f3d5d23d8a83424996aa0f2f4114337c273676c951e5f00c73d160cfe1477d7"
+    },
+    {
+      "path": "provider-canary002/result.json",
+      "role": null,
+      "sha256": "b119c78616cf792e6083fc5483c72797e89f1ce64910022cd4b6a47ecd1c5933"
+    },
+    {
+      "path": "intake001/result.json",
+      "role": null,
+      "sha256": "4e11f27fd1bba4e64328addfc1f87961c609c55e62e135ddbb5142ded77e588f"
+    },
+    {
+      "path": "intake001/source-native-population-summary.json",
+      "role": null,
+      "sha256": "3d07180e58d7596630639e58fe8280171fbd05e39a6a53931fec29baaec461cb"
+    },
+    {
+      "path": "intake001/dump-manifest.json",
+      "role": null,
+      "sha256": "6165cf1106a11903e88ee5c164b3e746c4da96d2063a734e04bd6ecef9e44670"
+    },
+    {
+      "path": "intake001/source-populations.dump",
+      "role": null,
+      "sha256": "95383f5b6172c04c728074e50fc32313e547ec73858ea5d307bddc300898e07e"
+    },
+    {
+      "path": "intake001/source-context.json",
+      "role": null,
+      "sha256": "cd212102e193a99dbe19f34a579dab1e7f07571b2a911586f6bd7274f4a3d45c"
+    },
+    {
+      "path": "intake001/executed-source-context.tar.gz",
+      "role": null,
+      "sha256": "bab4625fa4f972b8c0b9c643d3edacfbbf07f90a13f1d542ddea3fc916c1998e"
+    },
+    {
+      "path": "intake001/loaded-source-context.json",
+      "role": null,
+      "sha256": "62316f32b56f8046c3d99323ff24f63d0d61071518bd2938b733cfe778e51952"
+    },
+    {
+      "path": "intake001/source-context-supplement.json",
+      "role": null,
+      "sha256": "e94b90ff3a2de2173f3f05f0214ce09a6b2b3970fbac2efa16ea6cfb94ba2d33"
+    },
+    {
+      "path": "intake001/database-settlement.json",
+      "role": null,
+      "sha256": "b9c788ad1efd0abc4debc070e851e3e9c2fcb8c865e1b30128970433fbdc49e7"
+    },
+    {
+      "path": "restore_source_dump.py",
+      "role": null,
+      "sha256": "04c272beceb678ba96a5ff711ebfac763b5f77d7b43c51516b5ea7c89c41ac4f"
+    },
+    {
+      "path": "attempt-restore001/result.json",
+      "role": null,
+      "sha256": "06152a5b42b117f05914c8a082b44a7d1e9a83d6e1af4f6464b5daeea4f9aa62"
+    },
+    {
+      "path": "attempt-restore002/result.json",
+      "role": null,
+      "sha256": "f5fd43fedb2ab3089b930865cad48085d6d686487a7eb5b92937ef4f027b7ea9"
+    },
+    {
+      "path": "attempt-restore003/result.json",
+      "role": null,
+      "sha256": "0f665c75ed0b92d926cc353c0c77e38f420913b00bc8a85dee64602c49cf84b3"
+    },
+    {
+      "path": "attempt-restore004/result.json",
+      "role": null,
+      "sha256": "b0ac29890cab65c95780929e5469985d85f9ad5e89961c32ee6813ff1e8227e4"
+    },
+    {
+      "path": "attempt-restore004/database-policy.json",
+      "role": null,
+      "sha256": "98575bf63ff00ad8bfae6c863d508c8983ca7e656a76223c55599472cc6e1a47"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Selected parent PDF pages",
+      "value": 27,
+      "of": null,
+      "unit": "pages",
+      "note": "Three purposively selected finite source cuts before predictions or labels"
+    },
+    {
+      "name": "Source-ready analysis views",
+      "value": 11,
+      "of": null,
+      "unit": "views",
+      "note": "All retained units included; no family labels or source-quality gate implied"
+    },
+    {
+      "name": "Successful managed recognition page attempts",
+      "value": 27,
+      "of": 27,
+      "unit": "attempts",
+      "note": "70 retained requests; no downstream family prediction or precision claim"
+    },
+    {
+      "name": "Exact restored source frames",
+      "value": 11,
+      "of": 11,
+      "unit": "views",
+      "note": "Native106 and release/run/cut bindings verified; normal read-only principal compared complete source frames and pins"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Exact source copies matched all 27 original page renders and layout text. Actual 27-page intake on native106 produced 11 source-ready views across Grinstead-Snell(feature fitting), Forbes(calibration), and NIST(final); 27 recognition page attempts succeeded with 70 retained managed requests. Source pins, detached snapshots and a 29.7 MB database dump are retained. Separate full restore verified native106, all three release/run/cut bindings and all 11 complete source-frame/pin hashes through the normal read-only principal after the existing database-policy owner replayed the same native106 bootstrap posture. Three failed restore attempts remain retained. Owned service and database contexts were cleaned up before the new operator steering stopped further disposable work; the coordinator now owns persistent working-database/permission selection. Immutable evaluator origin assignments, final-release reference membership, independent A/B/C labels, family fidelity/calibration/grades and release/default adoption remain not_run. Partial/unknown source health is preserved.",
+  "consumed_by": [
+    "M1-01"
+  ]
+}

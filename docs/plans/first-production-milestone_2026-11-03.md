@@ -22,7 +22,7 @@ extraction, hidden hosted fallback and automatic specialist substitution. Refere
 assessment assistance remain separate, attributed activities. Ordered procedures remain shadow
 output; full M1 needs released subsets of all five core families, even if a canary exposes fewer.
 
-Current source inspection: `71a78774`, 2026-11-04. The original plan consumed `4a929aba`;
+AC prerequisite source: `71a78774`, 2026-11-04; current M1 execution checkpoint below. The original plan consumed `4a929aba`;
 its receipt/source boundaries remain historical. This revision consumes the AC coordinator §§12–13
 and adopted improvement review I01–I03. Inputs:
 
@@ -47,6 +47,54 @@ accepted ADR, install dependencies, deploy schema or approve persistent defaults
 planned M1 work. Every conditional mechanism is captured, but investigations execute by trigger
 (operator decision, 2026-11-03). O08–O11 are not unconditional implementation requirements.
 
+## Design-phase execution direction — 2026-11-04
+
+The operator authorizes adjusting requirements and developer workflows when they create needless
+friction. Agents use persistent corpus_structure_dev with operator maintenance permissions;
+disposable databases are not required for normal work. [ADR-0056](../adr/0056-persistent-development-database.md)
+and D3 own that workflow. Existing isolated-test receipts remain evidence at their original scope,
+not mandatory operational patterns. Preserve useful target distinctions and quality evidence while
+refining implementation requirements; do not introduce new approval steps for these adjustments.
+
+## Current M1 execution checkpoint — 2026-11-04
+
+**Implemented and scoped Tested; no whole M1 package complete.** Native106
+`semantic_m1_preparation_20261104` advances immutable105 with owned linguistic products and
+same-view source-product task edges. All132 predecessor identities remain;133 are now managed.
+The [preparation record](../design_review/evidence/2026-11-04_m1-source-preparation/records/m1.preparation106.json)
+binds actual changed source,217 focused tests (one real native fixture,216 other tests), forward/
+empty-current-head checks, types, Ruff and docs. Failed authoring attempts remain retained.
+
+The producer now seals actual annotation summaries/full columns, consumes them through owned
+reads and preserves exact related-source pins, reversible maps and primary occurrence anchors.
+Read budgets precede related hydration; model-specific context limits apply afterwards. Cross-
+configuration annotation reuse is still open until all three determinant/origin checks are refined.
+Pure finite fitting/scoring and five-family source-reading graph lowerers are implemented and
+focused-tested; neither is wired to native accepted publication yet. Actual interpreter producer
+integration, complete source-state readings, evaluated instances/calibration and consumers remain.
+
+The source lane has completed real intake of27 frozen excerpt pages across Grinstead–Snell,
+Forbes and NIST into11 source-ready analysis views at106. Source health retains partial/unknown
+formula/cell coverage. These are independent-origin source products, not family labels or accurate
+readings. The [source population evidence](../design_review/evidence/2026-11-04_m1-source-populations/README.md)
+owns exact pins, origin/page maps, raw provider attempts and dump/recovery status. References wait
+for the intended final executable release, guideline and immutable frame binding.
+
+Independent pure-engine review at b99ef634 exposed four integration-boundary defects; all were
+corrected and statically rereviewed at the bounded pure scope. M1 owns their surviving native work:
+
+| Finding | Correction and evidence boundary |
+|---|---|
+| Pure F01 | Present literals require exact value evidence; nonpresent roles retain real inspected native scope.17 policy tests include positive/refusal pairs. Native admission still must enforce the same meaning. |
+| Pure F02 | Source-reading assertions use stated establishment, with actual producer and sealed field support; no invented Agent attribution.14 lowerer tests include all five families and boolean task-ID refusal. Native direct support remains open. |
+| Pure F03 | Origin minimum is an explicit algorithm parameter (default2, explicit finite-cut profile may select1). Counts/conditioning are retained, never proof of independence. Native cross-partition disjointness and final gates remain open. |
+| Pure F04 | Every role needs its own located support, including supplemental transformations; eligible proposals and complete lowering now agree. Whole-record native membership/cap remains open. |
+
+Next implement the release-governed policy products, direct native field/set support and admission
+cap/overlay, source-state and occurrence completion, protected fitting/calibration/final-instance
+binding and all actual CPU/consumer/recovery/quality obligations. No final labels or M1 acceptance
+were produced by the source intake or pure checks.
+
 ## Baseline and focused foundation assessment
 
 **Operator clarification, 2026-11-03:** prior unified-domain-model code functionality is fully
@@ -54,7 +102,7 @@ implemented and validated. Its remaining work is agent assessment and follow-up 
 not schedule UM code repair, completion or revalidation. Earlier descriptions of open acceptance
 must be read within that corrected scope. New M1 functionality still needs its own verification.
 
-**Current baseline71a78774, inspected2026-11-04; selected AC acceptance complete, M1 qualification open.**
+**Accepted foundation71a78774, inspected2026-11-04; current M1 delta above.**
 The [AC coordinator §15](audit-closure_2026-11-03.md#15-approved-final-acceptance-and-m1-handoff--2026-11-04)
 owns its completed selected union and AC-CA01–09 closure. Its adopted
 [improvements I01–I03](../plan_improvement_reviews/audit-closure_2026-11-03.md) refine the target
@@ -87,6 +135,9 @@ extraction target and trigger-based handling of expansions. Preserve global agen
 M1 introduces an explicit extraction policy rather than silently rewriting unrelated policies.
 No additional rule waiver is inferred from the review, and no accepted ADR is amended here.
 
+ADR-0055 resolves the remaining source-reading admission, immutable policy-instance and annotation
+reuse realization, following the [scoped target review](../design_review/reviews/design_review_m1-admission_2026-11-04.md).
+Its RC01 is the bounded implementation of accepted M1-04 reuse, not a general dependency waiver.
 ADR-0049–0053 already select M1 contracts and the finite-cut qualification profile; ADR-0054
 realizes the AC corrections. M1-00 reconciles remaining impacts at D1/D2/D3 model/evidence, D4 methods, D5 interpretation/publication, D6 CPU execution,
 D7 evaluation and D8 consumers. It records which existing decisions are extended and which require
@@ -199,6 +250,9 @@ opportunities retain reasoning at their source, referenced below; there is no se
 
 | Source | Component / planned correction or capability | Disposition and closure route |
 | --- | --- | --- |
+| Admission review F01 / DA-054 | Annotation/task reuse | Open: M1-04/06 coordinates operation determinants across task hash, Python twin selection and native origin validation; preserve full-binding default elsewhere. |
+| Admission review F02 | Family occurrence identity | Open: M1-02/08/13 implements statistics-reading-occurrence-2 and formula-symbol-first-use-1; independent compatible-binding/conjunction controls before references freeze. |
+| Admission preservation | Interpretation/policy/publication/evaluation | Open: M1-09/10/11/13 direct sealed-record field/set custody, whole-record cap, complete score-frame calibration, immutable instance/final grading. |
 | O01 | Linguistic/context owners | Open: M1-04/05 exact annotations and mapped context, including neighbor/note retrieval and failure evidence. |
 | O02 | GLiNER/model owners | Open: M1-02/07 packs, native grouping/attributes, strict schema and bounded local decoders; actual operation qualification. |
 | O03 | Semantic/evidence/publication | Open: M1-02/03/08/11/12 field evidence, state/identity and complete record inspection/export. |

@@ -259,6 +259,24 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Implemented development workflow,2026-11-04.** Agents use persistent corpus_structure_dev and
+the operator's administrative authority on dedicated18/corpus. Native candidate authoring can
+run transactionally on that working database; disposable storage is not a prerequisite. Normal
+application purpose roles and semantic publication/evaluation authority remain explicit.
+
+> Decision: [ADR-0056](../adr/0056-persistent-development-database.md)
+
+
+**Accepted target, Proposed until implemented (2026-11-04).** M1 derives scoped source-reading
+field assertions from effective family roles and applies a whole-record admission cap through
+common consolidation. Native direct record/field/set support and exact public overlay retain
+sealed candidate custody and private-product fences. Release-defined finite fitted instances
+bind immutable run inputs and evaluator-authorized calibration, without reference rebinding.
+Annotation-only operation determinants refine reuse consistently while other methods retain the
+full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
+
+> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** Declared source-product ancestry
 retains complete report schemas while excluding graph applicability/identity lowering. Native graph
 membership/datatype and graph-range fences enforce that distinction; ordinary graph regex
@@ -428,6 +446,16 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target, Proposed until implemented (2026-11-04).** M1 derives scoped source-reading
+field assertions from effective family roles and applies a whole-record admission cap through
+common consolidation. Native direct record/field/set support and exact public overlay retain
+sealed candidate custody and private-product fences. Release-defined finite fitted instances
+bind immutable run inputs and evaluator-authorized calibration, without reference rebinding.
+Annotation-only operation determinants refine reuse consistently while other methods retain the
+full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
+
+> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves
 per-anchor selected-view or captured-recognition attribution, distinct text/provider precision and

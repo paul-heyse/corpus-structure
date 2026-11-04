@@ -398,6 +398,9 @@ def test_native_source_view_is_real_unit_with_exact_context(
             validate_pdf_report_metadata(malformed.values())
         assert selected_source_views(conn, run)[0].id == identity
         loaded = load_source_view(conn, identity)
+        _assert_m1_owned_context_and_annotation_dependency(
+            conn, run, identity, child_identity, prepared
+        )
         assert loaded.text == "Independent source.\nf(x)=x"
         assert (
             loaded.health["inline_coverage"] == "complete"
@@ -797,6 +800,162 @@ def test_native_source_view_is_real_unit_with_exact_context(
                     == "failed"
                 )
     assert len(calls) == 2
+
+
+def _assert_m1_owned_context_and_annotation_dependency(
+    conn, run, identity, child_identity, prepared
+):
+    """Actual native parent edge and stored columns; no decoder/provider fidelity claim."""
+    from corpus_structure.core.method import UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.m1_annotations import (
+        M1AnnotationConfig,
+        M1Annotations,
+        consume_annotations,
+    )
+    from corpus_structure.semantic.operations import complete_unit_result
+    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+    from corpus_structure.semantic.source_contexts import (
+        ContextRelationship,
+        RetrievalOutcome,
+        SourceContextRequest,
+    )
+
+    reader = BoundReader(conn, run, prepared)
+    source = reader.source_view(identity)
+    child = reader.source_view(child_identity)
+    request = SourceContextRequest(
+        child.items[0]["self_ref"],
+        ContextRelationship.ANCESTOR,
+        ("scope",),
+        "formula scope unresolved",
+    )
+    context = reader.context_sources(
+        child_identity, request, limit=4, read_budget=PublishedReadBudget(4096, 4_194_304)
+    )
+    assert context.outcome == RetrievalOutcome.SELECTED
+    assert [view.ref.id for view in context.sources] == [identity]
+    assert context.candidates[0].projection_digest == source.ref.projection_digest
+    assert reader.source_context_membership(identity) == reader.source_context_membership(
+        child_identity
+    )
+    with pytest.raises(ValueError, match="native links"):
+        reader.context_sources(
+            identity,
+            SourceContextRequest(
+                source.items[-1]["self_ref"],
+                ContextRelationship.NOTE,
+                ("note",),
+                "forged note link",
+                ("#/texts/unrelated",),
+            ),
+            limit=4,
+            read_budget=PublishedReadBudget(4096, 4_194_304),
+        )
+
+    producer, cfg = M1Annotations(), M1AnnotationConfig()
+    parent_config = record_method(
+        conn,
+        producer,
+        "annotation-control",
+        cfg.model_dump(mode="json"),
+        "annotation-control",
+        prepared=prepared,
+    )
+    consumer = SimpleNamespace(
+        name="extract.m1_candidates",
+        version="2",
+        family="extract",
+        tier="encoder",
+        confidence_source=None,
+        unit_type="source_view",
+        Config=create_model("AnnotationConsumer"),
+    )
+    params = dict(source_dependencies="source_view_product", source_dependency_method=producer.name)
+    consumer_config = record_method(
+        conn, consumer, "annotation-consumer", params, "annotation-consumer", prepared=prepared
+    )
+    parent = create_task(
+        conn,
+        run_id=run,
+        config_id=parent_config,
+        stage="extract",
+        unit_type="source_view",
+        unit_id=identity,
+        unit_key=source.ref.key,
+        input_hash="annotation-control",
+    )
+    task = create_task(
+        conn,
+        run_id=run,
+        config_id=consumer_config,
+        stage="extract",
+        unit_type="source_view",
+        unit_id=identity,
+        unit_key=source.ref.key,
+        input_hash="annotation-consumer",
+    )
+    conn.execute(
+        text("SELECT ops.add_source_task_dependency(:child,:parent)"),
+        dict(child=task, parent=parent),
+    )
+    assert (
+        conn.execute(
+            text("SELECT kind FROM ops.task_dependency WHERE task_id=:task"), dict(task=task)
+        ).scalar_one()
+        == "source_view_product"
+    )
+    assert not claim_tasks(conn, run_id=run, config_id=consumer_config, holder="annotation-control")
+    parent_claim = claim_tasks(
+        conn, run_id=run, config_id=parent_config, holder="annotation-control"
+    )[0]
+    ref = UnitRef(TaskUnitType.SOURCE_VIEW, identity, source.ref.key)
+    (result,) = producer.run(
+        (SimpleNamespace(ref=ref),), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
+    )
+    assert result.observations and result.outcome == ObservationOutcome.PRODUCED
+    complete_unit_result(
+        conn,
+        task_id=parent,
+        attempt=parent_claim.attempt,
+        holder="annotation-control",
+        prepared=prepared,
+        result=result,
+        method=producer,
+        configuration_hash="annotation-control",
+        source=source.ref.key,
+    )
+    annotations, errors, body = consume_annotations(reader, source, AnnotationProfile())
+    assert not errors and len(annotations) == len(result.observations)
+    assert body["method"] == producer.name and body["input_hash"] == "annotation-control"
+    with pytest.raises(DBAPIError, match="same-view producer"), conn.begin_nested():
+        foreign = create_task(
+            conn,
+            run_id=run,
+            config_id=consumer_config,
+            stage="extract",
+            unit_type="source_view",
+            unit_id=child_identity,
+            unit_key=child.ref.key,
+            input_hash="foreign-annotation-consumer",
+        )
+        conn.execute(
+            text("SELECT ops.add_source_task_dependency(:child,:parent)"),
+            dict(child=foreign, parent=parent),
+        )
+    claim = claim_tasks(conn, run_id=run, config_id=consumer_config, holder="annotation-control")[0]
+    complete_unit_result(
+        conn,
+        task_id=task,
+        attempt=claim.attempt,
+        holder="annotation-control",
+        prepared=prepared,
+        result=UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY),
+        method=consumer,
+        configuration_hash="annotation-consumer",
+        source=source.ref.key,
+    )
 
 
 @pytest.mark.parametrize("seconds", [float("inf"), float("-inf"), float("nan"), 0, -1])

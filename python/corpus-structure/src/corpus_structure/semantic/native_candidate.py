@@ -305,6 +305,7 @@ _CURRENT_SOURCE_GUARDS = {
     ("ops", "guard_task_lifecycle"): "execution_guards.sql",
     ("ops", "guard_execution_run"): "execution_guards.sql",
     ("ops", "validate_measurement_definition"): "source_views.sql",
+    ("ops", "add_source_task_dependency"): "source_views.sql",
 }
 
 

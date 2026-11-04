@@ -1,5 +1,20 @@
 # D1 · Knowledge representation
 
+## M1 admitted source-reading assertions
+
+**Accepted target, Proposed until implemented (2026-11-04).** M1 preserves sealed private
+interpretations and derives ordinary scoped source-reading entities and stateful field assertions
+from effective family roles. A reading's polarity/modality is a field; the graph assertion about
+that field does not assert the underlying scientific proposition. Native support authenticates
+actual origin task, record, field, set and anchor without invented Agent observations.
+Assertions about supported source-reading fields use stated establishment, including truthful
+inspected nonpresent states; this neither invents Agent authorship nor asserts scientific truth. Compatible
+reading occurrence membership follows statistics-reading-occurrence-2, independently of decoder
+group anchors. Private product graph fences and historical meanings remain enforced.
+
+> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+
+
 ## M1 qualified source records
 
 **Accepted target, Proposed until implemented (2026-11-03).** Related selected-view evidence

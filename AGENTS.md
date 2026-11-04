@@ -240,6 +240,17 @@ instrumentation, formal cost proofs or additional proof artifacts. Such mechanis
 concrete functional or operational requirement. Quantitative performance/capacity claims still
 require measurements; semantic correctness obligations remain.
 
+## Design-phase development database
+
+Use the persistent `corpus_structure_dev` database on dedicated PostgreSQL18/corpus, port5434,
+for normal agent implementation and functional work. The operator login `paul` has the administrative
+permissions needed for migrations, restores and ownership work through the maintenance connection.
+Do not require agents to create disposable databases to do that work. Native candidate authoring
+can use the working database with its existing rollback-only transaction. Isolated test databases
+remain appropriate where a test actually requires isolation. Application purpose roles retain their
+intended capabilities. Adjust design-phase requirements and developer workflows when they create
+unnecessary friction, updating the owner; the operator has authorized those adjustments.
+
 ## Agent coordination
 
 Use subagents when another context, capability or perspective supplies useful progress, learning

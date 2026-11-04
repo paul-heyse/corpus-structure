@@ -3,7 +3,8 @@
 #
 # Creates the cluster with postgresql-common (socket only, on the port ops/postgresql/corpus.conf
 # sets), installs that file into its conf.d, restarts the cluster when the file changed, and ensures
-# the operator's login role (LOGIN, CREATEDB), the read-only role corpus_ro, the database `corpus`
+# the operator's login role (LOGIN, SUPERUSER, CREATEDB, CREATEROLE), the read-only role corpus_ro,
+# the database `corpus`
 # and the template cs_template. Both databases get each extension of ops/postgresql/extensions.txt
 # at its expected version (`CREATE EXTENSION … VERSION`, then `ALTER EXTENSION … UPDATE TO`), and a
 # version that differs afterwards fails the run (DA-018). Never touches any other cluster. No
@@ -90,9 +91,9 @@ provision() {
   psql_pg -d postgres <<SQL
 DO \$\$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$OWNER') THEN
-    CREATE ROLE "$OWNER" LOGIN CREATEDB;
+    CREATE ROLE "$OWNER" LOGIN SUPERUSER CREATEDB CREATEROLE;
   ELSE
-    ALTER ROLE "$OWNER" LOGIN CREATEDB;
+    ALTER ROLE "$OWNER" LOGIN SUPERUSER CREATEDB CREATEROLE;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'corpus_ro') THEN
     CREATE ROLE corpus_ro NOLOGIN;

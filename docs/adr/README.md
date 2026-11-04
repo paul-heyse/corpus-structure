@@ -38,6 +38,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0052](0052-m1-independent-record-references.md) | Freeze source-only record references before extraction and isolate fitting access | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0053](0053-m1-sol-reference-assessment.md) | Use GPT-6.1 Sol for M1 reference authoring and adjudication | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0054](0054-audit-closure-contracts.md) | Bind audit closure to released semantics, owned effects and bounded readers | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B3](../design/DESIGN.md#section-b3), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
+| [ADR-0055](0055-m1-record-admission.md) | Admit evaluated source readings through immutable run policies and common publication | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0056](0056-persistent-development-database.md) | Use persistent development storage with operator administration | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4) | Implemented |  |
 
 ## Superseded, still in the tree
 

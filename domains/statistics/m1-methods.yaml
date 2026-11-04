@@ -5,6 +5,8 @@ configs:
   ingest.pdf_integrated:
     default:
       membership: descendants
+  extract.m1_annotations:
+    default: {}
   extract.m1_candidates:
     default:
       snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d

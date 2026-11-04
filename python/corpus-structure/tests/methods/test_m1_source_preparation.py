@@ -190,9 +190,12 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
     methods = registry(root / "domains/statistics")
     assert {method.name for method in methods.methods()} == {
         "ingest.pdf_integrated",
+        "extract.m1_annotations",
         "extract.m1_candidates",
     }
     assert M1.policy_propose is False
+    steps = M1.stages[1][1]
+    assert steps[1].upstream == ("extract.m1_annotations",)
     assert not any("agent" in name or "llm" in name for name, _ in methods.named())
     method = methods.method("ingest.pdf_integrated")
     cfg = methods.overlay("ingest.pdf_integrated", "default")
@@ -200,3 +203,105 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
     assert isinstance(cfg, RetainedIntegratedConfig)
     with pytest.raises(ValueError, match="conversion disabled"):
         method.original_recipe(cfg)
+
+
+def test_owned_neighbor_context_preserves_pins_maps_and_failed_retrieval(controlled):
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import (
+        ContextRelationship,
+        NativeSourcePin,
+        RetrievalOutcome,
+        SourceContextRead,
+        SyntheticInterval,
+    )
+
+    primary = source("0.4", labels=("text",))
+    neighbor = source("Population mean.", labels=("text",))
+    neighbor = replace(neighbor, ref=replace(neighbor.ref, id=8, key="source:8"))
+    pin = NativeSourcePin.from_source(native_source_frame(neighbor, ()))
+    requests = []
+
+    def related(identity, request, *, limit, read_budget):
+        requests.append((identity, request, limit, read_budget))
+        assert request.missing_roles == ("scope", "condition", "referent")
+        return SourceContextRead(
+            (neighbor,), (pin,), "b" * 64, RetrievalOutcome.SELECTED, "native previous sibling"
+        )
+
+    # Distinct native pointers, even if strings or recipes happen to match.
+    neighbor_nodes = (dict(self_ref="#/texts/neighbor", label="text"),)
+    neighbor_pieces = (dict(kind="native_text", item_ref="#/texts/neighbor", start=0, end=16),)
+    projection = dict(
+        text=neighbor.text,
+        pieces=neighbor_pieces,
+        items=["#/texts/neighbor"],
+        ancestors=[],
+        health={},
+    )
+    neighbor = replace(
+        neighbor,
+        items=neighbor_nodes,
+        pieces=neighbor_pieces,
+        ref=replace(
+            neighbor.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
+        ),
+    )
+    pin = NativeSourcePin.from_source(native_source_frame(neighbor, ()))
+    result = prep.prepare_source(primary, reader=SimpleNamespace(context_sources=related))
+    selection = result.selections[0]
+    context = selection.context(
+        result.source,
+        related=result.related,
+        preparation=result.preparation,
+        max_chars=4096,
+        max_pieces=64,
+    )
+    assert context.text == "0.4\nPopulation mean."
+    assert context.version == 2 and context.preparation is result.preparation
+    assert context.related[0].relationship == ContextRelationship.NEIGHBOR
+    evidence = context.map_span(4, 20, literal="Population mean.")[0]
+    assert evidence.source.source_view_id == 8 and (evidence.start, evidence.end) == (0, 16)
+    assert isinstance(context.intervals[1], SyntheticInterval)
+    assert requests[0][3].max_bytes == 4_194_304
+    assert selection.retrievals[0].selected == (8,)
+    limited = prep.prepare_source(
+        primary, reader=SimpleNamespace(context_sources=related), max_chars=4
+    )
+    assert limited.selections[0].retrievals[0].outcome == RetrievalOutcome.RESOURCE_LIMIT
+    assert limited.selections[0].retrievals[0].excluded == (8,)
+    assert limited.selections[0].relationships == ()
+    changed = replace(selection.retrievals[0], membership_digest="c" * 64)
+    changed_context = replace(selection, retrievals=(changed,)).context(
+        result.source,
+        related=result.related,
+        preparation=result.preparation,
+        max_chars=4096,
+        max_pieces=64,
+    )
+    assert changed_context.dependency_digest != context.dependency_digest
+
+
+def test_native_table_links_have_missing_scope_and_no_automatic_note_attachment(controlled):
+    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+
+    requests = []
+
+    def related(identity, request, **_):
+        requests.append(request)
+        return SourceContextRead(
+            (),
+            (),
+            "d" * 64,
+            RetrievalOutcome.MISSING_SCOPE,
+            "native table has no explicit note/caption target",
+        )
+
+    result = prep.prepare_source(
+        source("0", labels=("table",)), reader=SimpleNamespace(context_sources=related)
+    )
+    assert [request.relationship.value for request in requests] == ["caption", "note"]
+    assert [row.outcome for row in result.selections[0].retrievals] == [
+        RetrievalOutcome.MISSING_SCOPE
+    ] * 2
+    assert result.regions[0].families == ("table",)
+    assert result.selections[0].missing_roles == ("header_path", "unit", "caption", "note")

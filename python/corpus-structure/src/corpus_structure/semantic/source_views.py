@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from pydantic import JsonValue
-from sqlalchemy import Connection, select, text
+from sqlalchemy import Connection, Text, and_, func, select, text
+from sqlalchemy.dialects.postgresql import aggregate_order_by, array
 
 from corpus_structure.core.method import SourceViewDraft, SourceViewRef
 
@@ -200,6 +201,276 @@ def load_source_view(
         analysis,
         integrated,
     )
+
+
+def read_context_sources(conn, run_id, source, request, *, limit, read_budget):
+    """Select compact same-product relation metadata, then admit owned bodies.
+
+    Run selection and source projections define the candidate universe. Native sibling
+    ordinals supply neighbors; explicit native links supply captions/notes/references.
+    No text search or document hydration is used to manufacture a declaration.
+    """
+    from hashlib import sha256
+
+    from .pdf_record_reader import published_native_table
+    from .query import ReadLimit
+    from .source_contexts import (
+        ContextRelationship,
+        NativeSourcePin,
+        RetrievalOutcome,
+        SourceContextRead,
+    )
+
+    if type(limit) is not int or not 1 <= limit <= 8:
+        raise ValueError("context lookup requires a source bound between one and eight")
+    node = next((item for item in source.items if item["self_ref"] == request.pointer), None)
+    if node is None:
+        raise ValueError("context lookup pointer is outside its selected primary view")
+    view, selection = table("kb.source_view"), table("ops.run_source_view")
+    newer = selection.alias("context_newer")
+    product = source.ref.native_product
+    base = (
+        select(view)
+        .join(selection, selection.c.source_view_id == view.c.id)
+        .where(
+            selection.c.run_id == run_id,
+            view.c.id != source.ref.id,
+            view.c.native_task_id == product.task_id,
+            view.c.native_product_key == product.product_key,
+            view.c.native_content_digest == product.content_digest,
+            ~select(newer.c.source_view_id)
+            .where(newer.c.run_id == run_id, newer.c.supersedes_source_view_id == view.c.id)
+            .exists(),
+        )
+    )
+    relationship = request.relationship
+    if request.targets:
+        field = {
+            ContextRelationship.CAPTION: "captions",
+            ContextRelationship.NOTE: "footnotes",
+            ContextRelationship.REFERENCE: "references",
+        }.get(relationship)
+        declared = (
+            {link.get("$ref") for link in node.get(field, ()) if isinstance(link, dict)}
+            if field
+            else set()
+        )
+        if not set(request.targets) <= declared:
+            raise ValueError("context targets differ from the selected item's native links")
+        # A target already in the primary projection is handled locally; it must
+        # not acquire a second source identity merely because projections overlap.
+        targets = tuple(
+            p for p in request.targets if p not in {n["self_ref"] for n in source.items}
+        )
+        predicate = view.c.projection["items"].op("?|")(array(targets, type_=Text()))
+    elif relationship == ContextRelationship.NEIGHBOR:
+        item = published_native_table()
+        anchor = (
+            select(item.c.ordinal, item.c.parent_pointer, item.c.section_pointer)
+            .where(
+                item.c.task_id == product.task_id,
+                item.c.product_key == product.product_key,
+                item.c.pointer == request.pointer,
+            )
+            .cte("context_anchor")
+        )
+        sibling = and_(
+            item.c.task_id == product.task_id,
+            item.c.product_key == product.product_key,
+            item.c.parent_pointer == anchor.c.parent_pointer,
+            item.c.section_pointer.is_not_distinct_from(anchor.c.section_pointer),
+            item.c.label.not_in(("section", "chapter", "inline")),
+        )
+        before = (
+            select(item.c.pointer)
+            .select_from(item.join(anchor, sibling))
+            .where(item.c.ordinal < anchor.c.ordinal)
+            .order_by(item.c.ordinal.desc())
+            .limit(1)
+        )
+        after = (
+            select(item.c.pointer)
+            .select_from(item.join(anchor, sibling))
+            .where(item.c.ordinal > anchor.c.ordinal)
+            .order_by(item.c.ordinal)
+            .limit(1)
+        )
+        neighbors = before.union_all(after).subquery()
+        matching = (
+            select(neighbors.c.pointer)
+            .where(view.c.projection["items"].op("?")(neighbors.c.pointer))
+            .correlate(view)
+            .exists()
+        )
+        predicate = matching
+    elif relationship == ContextRelationship.ANCESTOR:
+        predicate = and_(
+            view.c.membership == "direct",
+            view.c.section_pointer.in_(tuple(n["self_ref"] for n in source.ancestors)),
+        )
+    else:
+        return SourceContextRead(
+            (),
+            (),
+            sha256(canonical_bytes([source.ref.id, asdict(request), "missing_scope"])).hexdigest(),
+            RetrievalOutcome.MISSING_SCOPE,
+            "no explicit native target for this relation",
+        )
+    candidates = base.where(predicate).subquery("context_candidates")
+    # Complete metadata membership remains server-side, including alternatives beyond
+    # the supported bound. Pin changes and absent/new candidates change this digest.
+    identity = func.jsonb_build_array(
+        candidates.c.id,
+        candidates.c.projection_digest,
+        candidates.c.recipe_digest,
+        candidates.c.section_pointer,
+        candidates.c.membership,
+    ).cast(Text)
+    summary_statement = select(
+        func.count().label("total"),
+        func.encode(
+            func.sha256(
+                func.convert_to(
+                    func.coalesce(
+                        func.array_agg(aggregate_order_by(identity, candidates.c.id)).cast(Text), ""
+                    ),
+                    "UTF8",
+                )
+            ),
+            "hex",
+        ).label("membership"),
+    ).select_from(candidates)
+    read_budget.preflight(conn, summary_statement)
+    summary = conn.execute(summary_statement).one()
+    read_budget.value(tuple(summary))
+    digest = sha256(
+        canonical_bytes([asdict(source.ref), asdict(request), summary.total, summary.membership])
+    ).hexdigest()
+    columns = tuple(
+        candidates.c[name]
+        for name in (
+            "id",
+            "key",
+            "document_id",
+            "native_task_id",
+            "native_product_key",
+            "native_content_digest",
+            "section_pointer",
+            "membership",
+            "projection_digest",
+            "recipe_digest",
+            "analysis_eligible",
+        )
+    )
+    statement = select(*columns).order_by(candidates.c.id).limit(limit)
+    read_budget.preflight(conn, statement)
+    rows = tuple(conn.execute(statement).mappings())
+    for row in rows:
+        read_budget.value(dict(row))
+    refs = tuple(_ref(row) for row in rows)
+    pins = tuple(
+        NativeSourcePin(
+            ref.id,
+            ref.key,
+            ref.native_product,
+            ref.section_pointer,
+            ref.membership,
+            ref.projection_digest,
+            ref.recipe_digest,
+            3,
+        )
+        for ref in refs
+    )
+    if summary.total > limit:
+        return SourceContextRead(
+            (),
+            pins,
+            digest,
+            RetrievalOutcome.RESOURCE_LIMIT,
+            "related source candidate bound exceeded before hydration",
+        )
+    if not refs:
+        return SourceContextRead(
+            (),
+            (),
+            digest,
+            RetrievalOutcome.NO_MATCH,
+            "no selected same-product view in the declared relation scope",
+        )
+    # Multiple views covering the same target retain an explicit ambiguity rather
+    # than selecting whichever equal string or view happened to appear first.
+    if request.targets and len(refs) > len(set(request.targets)):
+        return SourceContextRead(
+            (),
+            pins,
+            digest,
+            RetrievalOutcome.AMBIGUOUS,
+            "multiple selected projections cover an explicit target",
+        )
+    try:
+        sources = tuple(load_source_view(conn, ref.id, read_budget=read_budget) for ref in refs)
+    except ReadLimit:
+        return SourceContextRead(
+            (),
+            pins,
+            digest,
+            RetrievalOutcome.RESOURCE_LIMIT,
+            "invocation read budget exhausted before related hydration completed",
+        )
+    return SourceContextRead(
+        sources,
+        pins,
+        digest,
+        RetrievalOutcome.SELECTED,
+        "selected native relation; semantic role attachment remains unresolved",
+    )
+
+
+def context_membership_digest(conn, run_id, source, *, read_budget=None):
+    """Conservatively pin complete selected same-product metadata on the server."""
+    from hashlib import sha256
+
+    view, selection = table("kb.source_view"), table("ops.run_source_view")
+    newer = selection.alias("membership_newer")
+    product = source.ref.native_product
+    identity = func.jsonb_build_array(
+        view.c.id,
+        view.c.projection_digest,
+        view.c.recipe_digest,
+        view.c.section_pointer,
+        view.c.membership,
+    ).cast(Text)
+    statement = (
+        select(
+            func.encode(
+                func.sha256(
+                    func.convert_to(
+                        func.coalesce(
+                            func.array_agg(aggregate_order_by(identity, view.c.id)).cast(Text), ""
+                        ),
+                        "UTF8",
+                    )
+                ),
+                "hex",
+            )
+        )
+        .select_from(view.join(selection, selection.c.source_view_id == view.c.id))
+        .where(
+            selection.c.run_id == run_id,
+            view.c.native_task_id == product.task_id,
+            view.c.native_product_key == product.product_key,
+            view.c.native_content_digest == product.content_digest,
+            ~select(newer.c.source_view_id)
+            .where(newer.c.run_id == run_id, newer.c.supersedes_source_view_id == view.c.id)
+            .exists(),
+        )
+    )
+    if read_budget is not None:
+        read_budget.preflight(conn, statement)
+    result = conn.execute(statement).scalar_one()
+    if read_budget is not None:
+        read_budget.value(result)
+    return sha256(canonical_bytes([asdict(product), result])).hexdigest()
 
 
 def store_source_view(

@@ -1,5 +1,19 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## M1 fitted instances and final-event calibration
+
+**Accepted target, Proposed until implemented (2026-11-04).** The executable semantic release and
+source-ready frames freeze before A/B/C. Feature fitting consumes only protected feature-fit labels.
+An evaluator-authorized final-event calibration operation uses a frozen feature instance and the
+complete predeclared scored-event frame, including low-score and unaccepted candidates; no-output
+source units remain in separate coverage/capture accounting. Its typed immutable product extends
+the existing evaluation result. Production receives finite parameters/evidence identities, never
+labels. Final grading checks the exact frozen instance as well as algorithm/guideline/release.
+Refitting creates a new run instance, without implicit reference relocation or release rebinding.
+
+> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+
+
 ## Audit-closure target
 
 **Implemented; selected AC scope Tested2026-11-04.** Protected split publication atomically retains actual policy, seed, population, prior-assignment basis, reasons and algorithm version. Exact replay preserves the original receipt; historical unrecoverable provenance stays unavailable. M1 origin/sample metadata remains distinct.

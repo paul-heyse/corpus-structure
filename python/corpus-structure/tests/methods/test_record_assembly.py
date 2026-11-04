@@ -798,7 +798,7 @@ def test_synthetic_crossing_and_nonpresent_without_inspection_remain_unresolved(
     assert any("synthetic" in item.reason for item in result.diagnostics)
 
 
-def test_related_source_mapping_is_explicitly_unsupported_without_fake_primary_pin():
+def test_related_source_mapping_retains_independent_pin_and_primary_occurrence():
     primary, related = source("mean"), source("average", identity=2)
     ctx = NativeSourceContext(
         primary,
@@ -824,11 +824,23 @@ def test_related_source_mapping_is_explicitly_unsupported_without_fake_primary_p
             ),
         ),
     )
-    assert fields(result.records[0])["defining_text"]["state"] == "unresolved"
-    assert any("cross-view" in item.reason for item in result.diagnostics)
-    assert all(
-        anchor["pin"]["source_view_id"] == 1 for anchor in result.records[0].model_dump()["anchors"]
+    assert fields(result.records[0])["defining_text"]["state"] == "present"
+    row = result.records[0].model_dump()
+    anchors = {anchor["anchor_id"]: anchor for anchor in row["anchors"]}
+    related_anchor = next(
+        anchor for anchor in anchors.values() if anchor["pin"]["source_view_id"] == 2
     )
+    assert related_anchor["source_piece"] == "average"
+    assert related_anchor["binding"] == dict(
+        version=2, relationship="selected_context", policy="attributed-selected-source-2"
+    )
+    assert all(
+        anchors[identity]["pin"]["source_view_id"] == 1 for identity in row["occurrence_anchors"]
+    )
+    assert {item["pin"]["source_view_id"]: item["text"] for item in result.coordinate_texts} == {
+        1: "mean",
+        2: "average",
+    }
 
 
 def test_exact_duplicate_native_groups_are_not_independent_votes():

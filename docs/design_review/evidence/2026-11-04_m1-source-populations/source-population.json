@@ -1,0 +1,481 @@
+{
+  "frozen_at": "2026-11-04T05:42:57.740208+00:00",
+  "baseline": "71a78774",
+  "standing": "Tested source-byte/page-membership freeze; native admission/reference acquisition/provider execution not_run",
+  "creation_library": {
+    "pypdfium2": "5.14.0"
+  },
+  "method": "PdfDocument.new/import_pages/save of exact complete parent pages; no rasterization/reflow in the saved PDF",
+  "population_selection": "Purposive finite cuts selected from source structure before predictions and reference labels; no unseen-origin inference",
+  "assessment_method": "Intended source-side census of every admitted excerpt unit, including empty, unsupported and unreadable units; native view population must be frozen before reference passes",
+  "development_origin": {
+    "origin_group": "siegrist-random",
+    "partition": "development",
+    "prior_evidence": "../2026-11-03_m1-population/manifest.json"
+  },
+  "sources": [
+    {
+      "source_id": "m1-grinstead-snell-20261104",
+      "origin_group": "grinstead-snell",
+      "intended_partition": "feature_fit",
+      "copy_group_rule": "Parent book, editions, excerpt, chapter PDFs, HTML and overlapping windows remain in this origin group",
+      "title": "Discrete distributions, chapter 5 opening through Poisson examples; printed 183-192",
+      "parent": {
+        "path": "docs/statistics_corpus/corpus/grinstead_snell/Introduction_to_probability_grinstead_and_snell.pdf",
+        "sha256": "763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e",
+        "bytes": 2993135,
+        "physical_pages": 518
+      },
+      "excerpt": {
+        "path": "docs/design_review/evidence/2026-11-04_m1-source-populations/population-fixtures/grinstead-snell.pdf",
+        "source_uri": "grinstead-snell.pdf",
+        "sha256": "5fd120d5046b720de64dd9c556de4aeafe024bd03559bf5e1c532edb5ee67f3f",
+        "bytes": 154290,
+        "physical_pages": 10,
+        "scope": "Whole excerpt PDF; a bounded parent-page selection, not an entire parent book",
+        "text_path": "population-fixtures/grinstead-snell.txt",
+        "text_sha256": "ee738c5c661038420b57c9eca1c8a4f15ba9e3d6c6a55ddda869850ad1fed07b",
+        "page_map": [
+          {
+            "excerpt_physical_page": 1,
+            "parent_physical_page": 191,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "0f221b845975e23d1479d53aaeb0b41a6e1028cfb8508674a3718c62a17b56ca",
+            "excerpt_pixels_sha256": "0f221b845975e23d1479d53aaeb0b41a6e1028cfb8508674a3718c62a17b56ca"
+          },
+          {
+            "excerpt_physical_page": 2,
+            "parent_physical_page": 192,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "505075a6f81e3f3ac84607a631a32032bc11cb67c57204b44995cb4e35b4ff6d",
+            "excerpt_pixels_sha256": "505075a6f81e3f3ac84607a631a32032bc11cb67c57204b44995cb4e35b4ff6d"
+          },
+          {
+            "excerpt_physical_page": 3,
+            "parent_physical_page": 193,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "c7020c6e7303f13506482493f0c80a74c628fad866d0c7fd7cd0625b18d18c51",
+            "excerpt_pixels_sha256": "c7020c6e7303f13506482493f0c80a74c628fad866d0c7fd7cd0625b18d18c51"
+          },
+          {
+            "excerpt_physical_page": 4,
+            "parent_physical_page": 194,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "859a965359f7c1d451b2f0a9204aefba3259ca7851fc22a9faf5721b0b3b089f",
+            "excerpt_pixels_sha256": "859a965359f7c1d451b2f0a9204aefba3259ca7851fc22a9faf5721b0b3b089f"
+          },
+          {
+            "excerpt_physical_page": 5,
+            "parent_physical_page": 195,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "295895c169d4f5d376cacbd8037c3a36fef606848e3f674cf76d93a9952658f4",
+            "excerpt_pixels_sha256": "295895c169d4f5d376cacbd8037c3a36fef606848e3f674cf76d93a9952658f4"
+          },
+          {
+            "excerpt_physical_page": 6,
+            "parent_physical_page": 196,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "d71c4cf93622fc1972b6ad3ddf8c88dfb9d40489e086dd740b6acc3fa1e3a228",
+            "excerpt_pixels_sha256": "d71c4cf93622fc1972b6ad3ddf8c88dfb9d40489e086dd740b6acc3fa1e3a228"
+          },
+          {
+            "excerpt_physical_page": 7,
+            "parent_physical_page": 197,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "867df234f6933caedd5845c0a6e998b4378db375870805180efa40ae66a94403",
+            "excerpt_pixels_sha256": "867df234f6933caedd5845c0a6e998b4378db375870805180efa40ae66a94403"
+          },
+          {
+            "excerpt_physical_page": 8,
+            "parent_physical_page": 198,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "f2bfe68034b64f0626029b7a313de380e7595e616ae102ab5fdff0f65d3b41ca",
+            "excerpt_pixels_sha256": "f2bfe68034b64f0626029b7a313de380e7595e616ae102ab5fdff0f65d3b41ca"
+          },
+          {
+            "excerpt_physical_page": 9,
+            "parent_physical_page": 199,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "6d668ad31b0ff575ebd59aabff8521f3a4721b2c0e20aa23083816ab2b8956f1",
+            "excerpt_pixels_sha256": "6d668ad31b0ff575ebd59aabff8521f3a4721b2c0e20aa23083816ab2b8956f1"
+          },
+          {
+            "excerpt_physical_page": 10,
+            "parent_physical_page": 200,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "df2707ad703faa76aeba8f8111d107e0c8ca94a997ded60430298994bffc5ad9",
+            "excerpt_pixels_sha256": "df2707ad703faa76aeba8f8111d107e0c8ca94a997ded60430298994bffc5ad9"
+          }
+        ]
+      },
+      "native_source_pin": null,
+      "family_eligibility": "Source-only leads; independent authors decide in-scope records and explicit empty/unreadable outcomes"
+    },
+    {
+      "source_id": "m1-forbes-statistical-distributions-20261104",
+      "origin_group": "forbes-statistical-distributions",
+      "intended_partition": "final_event_calibration",
+      "copy_group_rule": "Parent book, editions, excerpt, chapter PDFs, HTML and overlapping windows remain in this origin group",
+      "title": "Complete chapter 4, Multivariate Distributions; printed 24-31",
+      "parent": {
+        "path": "docs/statistics_corpus/corpus/forbes_statistical_distributions/STATISTICAL DISTRIBUTIONS  FOURTH EDITION -- Forbes, Catherine, Evans, Merran, Hastings, Nicholas, -- Wiley series in probability and statistics, 4th -- isbn13 9780470390634.pdf",
+        "sha256": "8b84802f96725d63a5cdc02687cfb57f1f866b2096ec940bdb81ee41f1b55ae9",
+        "bytes": 1585055,
+        "physical_pages": 227
+      },
+      "excerpt": {
+        "path": "docs/design_review/evidence/2026-11-04_m1-source-populations/population-fixtures/forbes-statistical-distributions.pdf",
+        "source_uri": "forbes-statistical-distributions.pdf",
+        "sha256": "6f20111c2fc9daa5429026edac13496ddbb646a79bb0e47a4dea72f4b5518aa0",
+        "bytes": 65245,
+        "physical_pages": 8,
+        "scope": "Whole excerpt PDF; a bounded parent-page selection, not an entire parent book",
+        "text_path": "population-fixtures/forbes-statistical-distributions.txt",
+        "text_sha256": "a0f436927227f57931a33a2da8802acae4038b073fcbf8c8aff3be2475bc89b5",
+        "page_map": [
+          {
+            "excerpt_physical_page": 1,
+            "parent_physical_page": 39,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "0f20da780d50d388a3849ee4c03c00cc8a493f13626f4e0c07a4dcc40612cdc4",
+            "excerpt_pixels_sha256": "0f20da780d50d388a3849ee4c03c00cc8a493f13626f4e0c07a4dcc40612cdc4"
+          },
+          {
+            "excerpt_physical_page": 2,
+            "parent_physical_page": 40,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "1f0395a05a1b6489b13afa0d902607d90093e9fe682e9a0c1b1ba582b04e3328",
+            "excerpt_pixels_sha256": "1f0395a05a1b6489b13afa0d902607d90093e9fe682e9a0c1b1ba582b04e3328"
+          },
+          {
+            "excerpt_physical_page": 3,
+            "parent_physical_page": 41,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "b8e6cf82c0af7a58e8c4a590f7cc0b727b46526b6d724a3b93c00e6f5efa0073",
+            "excerpt_pixels_sha256": "b8e6cf82c0af7a58e8c4a590f7cc0b727b46526b6d724a3b93c00e6f5efa0073"
+          },
+          {
+            "excerpt_physical_page": 4,
+            "parent_physical_page": 42,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "f8f44657c8bb0d1cf2b14ae9683fa4a6fe62f25752abe6011494f61557163546",
+            "excerpt_pixels_sha256": "f8f44657c8bb0d1cf2b14ae9683fa4a6fe62f25752abe6011494f61557163546"
+          },
+          {
+            "excerpt_physical_page": 5,
+            "parent_physical_page": 43,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "775c6186f6dc56ee67bf9a9c237fad69c1ed4fd0bc7b09f1bddefd9997de4af4",
+            "excerpt_pixels_sha256": "775c6186f6dc56ee67bf9a9c237fad69c1ed4fd0bc7b09f1bddefd9997de4af4"
+          },
+          {
+            "excerpt_physical_page": 6,
+            "parent_physical_page": 44,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "029843ab01d0d3e9597ad38f542c49d637131cf035c5ceee0aab83715a808fce",
+            "excerpt_pixels_sha256": "029843ab01d0d3e9597ad38f542c49d637131cf035c5ceee0aab83715a808fce"
+          },
+          {
+            "excerpt_physical_page": 7,
+            "parent_physical_page": 45,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "455b3b550332ad6b54a25cc10da324c707673ff54d94726c61743a3bdeb77480",
+            "excerpt_pixels_sha256": "455b3b550332ad6b54a25cc10da324c707673ff54d94726c61743a3bdeb77480"
+          },
+          {
+            "excerpt_physical_page": 8,
+            "parent_physical_page": 46,
+            "width_points": 440.95001220703125,
+            "height_points": 665.9000244140625,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              441,
+              666
+            ],
+            "parent_pixels_sha256": "058e2942fa858f25a96fb4bae6c932db2cf1be711e92026bb061ad5e53284664",
+            "excerpt_pixels_sha256": "058e2942fa858f25a96fb4bae6c932db2cf1be711e92026bb061ad5e53284664"
+          }
+        ]
+      },
+      "native_source_pin": null,
+      "family_eligibility": "Source-only leads; independent authors decide in-scope records and explicit empty/unreadable outcomes"
+    },
+    {
+      "source_id": "m1-nist-ehandbook-20261104",
+      "origin_group": "nist-ehandbook",
+      "intended_partition": "final_assessment",
+      "copy_group_rule": "Parent book, editions, excerpt, chapter PDFs, HTML and overlapping windows remain in this origin group",
+      "title": "Complete 1.3.5.1 Measures of Location and 1.3.5.2 Confidence Limits for the Mean",
+      "parent": {
+        "path": "docs/statistics_corpus/corpus/nist_ehandbook/pdf/E-Handbook.pdf",
+        "sha256": "c0d71c6fc65eb0a44bbb11107799cd36ceae1c4d81f0d143c439c3d1849eadda",
+        "bytes": 12811958,
+        "physical_pages": 2333
+      },
+      "excerpt": {
+        "path": "docs/design_review/evidence/2026-11-04_m1-source-populations/population-fixtures/nist-ehandbook.pdf",
+        "source_uri": "nist-ehandbook.pdf",
+        "sha256": "982678319e04365b6dbb1d70e6196e97b398e9e81ceda2b3f3b2e5cd17dd294a",
+        "bytes": 136204,
+        "physical_pages": 9,
+        "scope": "Whole excerpt PDF; a bounded parent-page selection, not an entire parent book",
+        "text_path": "population-fixtures/nist-ehandbook.txt",
+        "text_sha256": "52186b24524ba0637011df3b83e38f94168662f165efa020f79bcab9f8f461b6",
+        "page_map": [
+          {
+            "excerpt_physical_page": 1,
+            "parent_physical_page": 218,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "1c1043254df370bd3d0e9faf5c3f4b1aa53a151b0c93f605d8bbde13be904b5b",
+            "excerpt_pixels_sha256": "1c1043254df370bd3d0e9faf5c3f4b1aa53a151b0c93f605d8bbde13be904b5b"
+          },
+          {
+            "excerpt_physical_page": 2,
+            "parent_physical_page": 219,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "0f248c2df27f9a15ad17eb8b64c6eb6ede2ac8e07a826f65d726d1668d056a2e",
+            "excerpt_pixels_sha256": "0f248c2df27f9a15ad17eb8b64c6eb6ede2ac8e07a826f65d726d1668d056a2e"
+          },
+          {
+            "excerpt_physical_page": 3,
+            "parent_physical_page": 220,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "35e8bd0fc618386d4192300f920d429a3f2826c4a95ae3371dc8c685a7b17808",
+            "excerpt_pixels_sha256": "35e8bd0fc618386d4192300f920d429a3f2826c4a95ae3371dc8c685a7b17808"
+          },
+          {
+            "excerpt_physical_page": 4,
+            "parent_physical_page": 221,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "525cde3942a880d63262c3f27f27cbd0f7b5cb1ad28c11843f7b857c362845a0",
+            "excerpt_pixels_sha256": "525cde3942a880d63262c3f27f27cbd0f7b5cb1ad28c11843f7b857c362845a0"
+          },
+          {
+            "excerpt_physical_page": 5,
+            "parent_physical_page": 222,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "922964b201afd8a1820e7767704e1b900b106d7c200ebcc3dd301529cf6ef054",
+            "excerpt_pixels_sha256": "922964b201afd8a1820e7767704e1b900b106d7c200ebcc3dd301529cf6ef054"
+          },
+          {
+            "excerpt_physical_page": 6,
+            "parent_physical_page": 223,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "74ac26c587828c9ae96d9587dec72cd888fe3788ff6c6be713fb808fb470f698",
+            "excerpt_pixels_sha256": "74ac26c587828c9ae96d9587dec72cd888fe3788ff6c6be713fb808fb470f698"
+          },
+          {
+            "excerpt_physical_page": 7,
+            "parent_physical_page": 224,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "cad5be0bf8305f7e47c6c5bface060b895beeb13f5d0c4891d12423951947aed",
+            "excerpt_pixels_sha256": "cad5be0bf8305f7e47c6c5bface060b895beeb13f5d0c4891d12423951947aed"
+          },
+          {
+            "excerpt_physical_page": 8,
+            "parent_physical_page": 225,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "928c91afdefe8b462cadab310b2e2f7202994ccb18eab92abc2a0a74bd25fef1",
+            "excerpt_pixels_sha256": "928c91afdefe8b462cadab310b2e2f7202994ccb18eab92abc2a0a74bd25fef1"
+          },
+          {
+            "excerpt_physical_page": 9,
+            "parent_physical_page": 226,
+            "width_points": 612.0,
+            "height_points": 792.0,
+            "pdfium_render_scale": 1,
+            "render_mode": "RGB",
+            "render_size": [
+              612,
+              792
+            ],
+            "parent_pixels_sha256": "161aad11b910635d647b14cc43b37d0404eab5a3598834893463f96f3b53b876",
+            "excerpt_pixels_sha256": "161aad11b910635d647b14cc43b37d0404eab5a3598834893463f96f3b53b876"
+          }
+        ]
+      },
+      "native_source_pin": null,
+      "family_eligibility": "Source-only leads; independent authors decide in-scope records and explicit empty/unreadable outcomes"
+    }
+  ],
+  "total_pages": 27,
+  "independence": "Three named source-origin groups separated by intended use; no statistical independence or sufficient per-family support claim",
+  "references": "not_run; fresh Sol 6.1 high A/B/C through the protected evaluator owner",
+  "predictions": "not_run and not read"
+}

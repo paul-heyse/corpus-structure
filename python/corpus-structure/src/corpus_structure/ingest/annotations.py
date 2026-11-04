@@ -12,6 +12,8 @@ from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from typing import Literal
 
+from pydantic import TypeAdapter
+
 from corpus_structure.core.text_structure import source_atoms
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import NativeSourcePin
@@ -183,6 +185,52 @@ class AnnotationProduct:
     tokens: tuple[TokenAnnotation, ...]
     sentences: tuple[SentenceAnnotation, ...]
     dependency_digest: str
+
+
+_PRODUCTS = TypeAdapter(tuple[AnnotationProduct, ...])
+
+
+def restore_annotations(rows, *, source, profile):
+    """Restore owned persisted columns under their exact source/profile identity.
+
+    The enclosing SourceObservationBatch authenticates release/method/input custody;
+    this consumer checks the product's own source and annotation demand. It never
+    upgrades a sentence-only product or reconstructs a mutable global Doc.
+    """
+    products = _PRODUCTS.validate_json(canonical_bytes(rows), strict=True, extra="forbid")
+    pin = NativeSourcePin.from_source(source)
+    expected_profile = sha256(canonical_bytes(profile.identity())).hexdigest()
+    if len({row.block_id for row in products}) != len(products):
+        raise ValueError("persisted annotations contain duplicate native blocks")
+    for product in products:
+        if (
+            product.source != pin
+            or product.profile_digest != expected_profile
+            or product.profile_recipe != profile.recipe
+            or product.spacy_version != profile.configuration.spacy_version
+            or product.model != profile.configuration.model
+            or product.model_version != profile.configuration.model_version
+        ):
+            raise ValueError("persisted annotation source/profile pin differs from demand")
+        if not 0 <= product.block_start < product.block_end <= len(source.text):
+            raise ValueError("persisted annotation block is outside its source projection")
+        if (
+            product.text_digest
+            != sha256(source.text[product.block_start : product.block_end].encode()).hexdigest()
+        ):
+            raise ValueError("persisted annotation text differs from its pinned source")
+        if any(
+            column.status not in {"complete", "not_applicable"} for column in product.availability
+        ) or {column.attribute for column in product.availability} != set(_ATTRIBUTES):
+            raise ValueError("persisted annotation columns do not satisfy the richer profile")
+        if any(
+            not product.block_start <= token.start < token.end <= product.block_end
+            or not 0 <= token.head < len(product.tokens)
+            or any(not 0 <= index < len(product.native_pieces) for index in token.piece_indices)
+            for token in product.tokens
+        ):
+            raise ValueError("persisted annotation token coordinates are invalid")
+    return products
 
 
 def annotate(

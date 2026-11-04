@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "m1.preparation106",
+  "title": "Owned linguistic products and source-context native106 preparation",
+  "group": "first-production-milestone",
+  "package": "M1-04",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does owned annotation/context preparation and source-product dependency custody work on a coherent immutable105 successor?",
+  "answers": [
+    "M1-03",
+    "M1-04",
+    "M1-05",
+    "M1-06",
+    "M1-07"
+  ],
+  "method": "Focused source-owned preparation integration; catalog-derived native successor, explicit physical check,105 forward/current-head controls and native fixture plus detached tests.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-preparation/native106/author.py candidate-003",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-preparation/native106/freeze.py",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-source-preparation/native106/verify.py",
+    "uv run python -m pytest python/corpus-structure/tests/semantic/test_record_policy.py python/corpus-structure/tests/semantic/test_record_assertions.py python/corpus-structure/tests/semantic/test_record_interpretation.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/semantic/test_source_contexts.py python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/tests/methods/test_m1_cli.py python/corpus-structure/tests/semantic/test_source_views.py -q",
+    "just types",
+    "uv run ruff check",
+    "just docs-check",
+    "just turn-end"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native106/source-inputs.json",
+      "role": "Actual source base and changed source/artifact hashes",
+      "sha256": "3bc9f8f2fc5c0f43353133f98756a22499cbfc49f38d154fcc3831a6abbbe6e0"
+    },
+    {
+      "path": "native106/candidate-003",
+      "role": "Rollback-derived native and physical candidate",
+      "sha256": "c1834c533b05476f577206b110f81181c47e6a033d09806b72262c4200407974"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native106/attempt-final001",
+      "role": "Actual targeted/native/type/lint/docs outcomes and explicit limits",
+      "sha256": "330259227605400f1bc5cede084bfe04f2eb57a3616dfe9910d14554a808d504"
+    },
+    {
+      "path": "native106/attempt-author-001.log",
+      "role": "Retained table-owner authoring failure",
+      "sha256": "564ba1ff26e451ec60fcd342a7ac791f9bc34475e9e721129110f428ffcce7d4"
+    },
+    {
+      "path": "native106/attempt-author-002.log",
+      "role": "Retained overly narrow ordinary-operation assertion failure",
+      "sha256": "d5c9b1832f8b42ac5b5020f8b3d36f92a90d24fa70c224e0949f3580874eee70"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "targeted_selected",
+      "value": 217,
+      "of": null,
+      "unit": "cases",
+      "note": "One native fixture and216 other focused tests; not complete M1 qualification."
+    },
+    {
+      "name": "native_managed_objects",
+      "value": 133,
+      "of": null,
+      "unit": "objects",
+      "note": "Preserves all132 predecessor identities and adds owned source-task dependency function."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Bounded preparation passed: real sealed annotation summaries/columns and candidate consumption; owned budgeted same-product relations, field coordinates and primary occurrence anchors; protected same-view product task edges. Native106 freezes one physical dependency-kind extension and six native changes, preserving132 managed identities. Four read bodies carry the changed derived physical projection identity; no new PDF interpretation is inferred.217 selected checks pass along with types, Ruff and documentation. Cross-configuration annotation reuse, accepted record/native policy/evaluator integration, real CPU fidelity/resources and all five release gates remain open. No M1 package/default adoption claim.",
+  "consumed_by": [
+    "M1-03",
+    "M1-04",
+    "M1-05",
+    "M1-06",
+    "M1-07",
+    "M1-14"
+  ]
+}

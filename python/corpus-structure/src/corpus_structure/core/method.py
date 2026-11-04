@@ -55,7 +55,9 @@ if typing.TYPE_CHECKING:
         PreparedIntegratedPdfProduct,
         PreparedPdfOriginal,
     )
+    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.source_contexts import SourceContextRead, SourceContextRequest
     from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.types import PreparedRelease
 
@@ -357,6 +359,33 @@ class Reader(Protocol):
 
     def source_view_documents(self) -> tuple[UnitRef, ...]:
         """Owned distinct selected-view documents, in document identity order."""
+        ...
+
+
+class SourcePreparationReader(Protocol):
+    """Additional owned reads for consumers of reusable source preparation.
+
+    Ordinary source methods keep the Reader contract. Only consumers that actually
+    retrieve related contexts or consume persisted preparation require this capability.
+    """
+
+    def context_sources(
+        self,
+        source_view_id: int,
+        request: SourceContextRequest,
+        *,
+        limit: int,
+        read_budget: PublishedReadBudget,
+    ) -> SourceContextRead:
+        """Return owned same-product relation sources after metadata/body admission."""
+        ...
+
+    def source_result(self, source_view_id: int, method: str) -> Mapping[str, Any] | None:
+        """Read an exact run-selected upstream SourceObservationBatch envelope."""
+        ...
+
+    def source_context_membership(self, source_view_id: int) -> str:
+        """Digest the selected same-product source universe without hydrating bodies."""
         ...
 
 

@@ -310,10 +310,10 @@ BEGIN
  IF dependency='ancestor_source_view' THEN
   IF child.method_config_id<>parent.method_config_id OR NOT(view.projection->'ancestors' ? ancestor.section_pointer) THEN
    RAISE EXCEPTION 'source prerequisite is not a declared ancestor' USING ERRCODE='23514'; END IF;
- ELSIF dependency='source_view_interpretation' THEN
+ ELSIF dependency IN ('source_view_interpretation','source_view_product') THEN
   IF child.unit_id<>parent.unit_id OR NOT EXISTS(SELECT FROM ops.method_config consumer JOIN ops.method_config producer ON producer.id=parent.method_config_id JOIN ops.method method ON method.id=producer.method_id
     WHERE consumer.id=child.method_config_id AND consumer.params->>'source_dependency_method'=method.name) THEN
-   RAISE EXCEPTION 'source prerequisite is not the declared same-view interpretation producer' USING ERRCODE='23514'; END IF;
+   RAISE EXCEPTION 'source prerequisite is not the declared same-view producer' USING ERRCODE='23514'; END IF;
  ELSE RAISE EXCEPTION 'source method has no admitted prerequisite declaration' USING ERRCODE='23514'; END IF;
  INSERT INTO ops.task_dependency VALUES(p_child,p_parent,dependency) ON CONFLICT DO NOTHING;
 END $dependency$;

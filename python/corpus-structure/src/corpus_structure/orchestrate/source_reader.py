@@ -70,6 +70,19 @@ class ScopedSourceReader:
     def ancestor_source_views(self, source_view_id):
         return self._read(lambda reader: reader.ancestor_source_views(source_view_id))
 
+    def context_sources(self, source_view_id, request, *, limit, read_budget):
+        return self._read(
+            lambda reader: reader.context_sources(
+                source_view_id, request, limit=limit, read_budget=read_budget
+            )
+        )
+
+    def source_result(self, source_view_id, method):
+        return self._read(lambda reader: reader.source_result(source_view_id, method))
+
+    def source_context_membership(self, source_view_id):
+        return self._read(lambda reader: reader.source_context_membership(source_view_id))
+
     def native_document(self, reference, *, include_candidate_pages: bool = True):
         return self._read(
             lambda reader: reader.native_document(

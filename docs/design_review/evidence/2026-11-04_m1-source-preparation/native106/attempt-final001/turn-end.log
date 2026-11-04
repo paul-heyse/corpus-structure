@@ -1,0 +1,9 @@
+[mdirenv: loading ~/corpus-structure/.envrc
+== just adr-index
+== just fmt
+cargo fmt --all
+uv run ruff format
+2 files reformatted, 727 files left unchanged
+# Apply ruff's auto-fixes; what remains is the `ruff` check's to report.
+uv run ruff check --fix --quiet --exit-zero
+turn-end: all passed

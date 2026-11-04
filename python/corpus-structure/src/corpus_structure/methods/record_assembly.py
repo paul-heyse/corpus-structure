@@ -97,7 +97,10 @@ def _digest(kind: str, value: Any) -> str:
 
 
 def _pin(context: NativeSourceContext) -> dict[str, Any]:
-    source = context.primary
+    return _source_pin(context.primary)
+
+
+def _source_pin(source) -> dict[str, Any]:
     product = source.native_product
     return dict(
         source=source.unit_ref,
@@ -160,7 +163,11 @@ def _assemble(
     primary_pin = NativeSourcePin.from_source(context.primary)
     pointers = _native_pointers(context)
     diagnostics: list[AssemblyDiagnostic] = []
-    coordinates: dict[tuple[str, str], dict[str, Any]] = {}
+    sources = {
+        source.source_view_id: source
+        for source in (context.primary, *(entry.source for entry in context.related))
+    }
+    coordinates: dict[tuple[int, str, str], dict[str, Any]] = {}
     dependencies = {
         "release:" + prepared.release_id,
         "context:" + context.dependency_digest,
@@ -221,10 +228,8 @@ def _assemble(
                             "captured recognition evidence is unsupported by this "
                             "canonical assembler"
                         )
-                    if piece.source != primary_pin:
-                        raise GlinerRefused(
-                            "related/cross-view evidence is unsupported by private record custody"
-                        )
+                    piece_source = sources[piece.source.source_view_id]
+                    piece_pin = _source_pin(piece_source)
                     if piece.source_field not in {None, "text", "orig", "cell_text"}:
                         raise GlinerRefused(
                             "alternate/recognized source space is unsupported by this assembler"
@@ -233,7 +238,7 @@ def _assemble(
                     if piece.cell_index is not None:
                         pointer += f"/data/table_cells/{piece.cell_index}"
                     row = dict(
-                        pin=pin,
+                        pin=piece_pin,
                         space="selected_projection",
                         pointer=pointer,
                         precision="exact",
@@ -241,21 +246,30 @@ def _assemble(
                         end=piece.end,
                         source_piece=piece.quote,
                     )
+                    if piece.source != primary_pin:
+                        row["binding"] = dict(
+                            version=2,
+                            relationship="selected_context",
+                            policy="attributed-selected-source-2",
+                        )
                     row["anchor_id"] = anchor_identity(row)
                     _anchors[row["anchor_id"]] = row
-                    coordinates[("selected_projection", pointer)] = dict(
-                        pin=pin,
-                        space="selected_projection",
-                        pointer=pointer,
-                        text=context.primary.text,
+                    coordinates[(piece.source.source_view_id, "selected_projection", pointer)] = (
+                        dict(
+                            pin=piece_pin,
+                            space="selected_projection",
+                            pointer=pointer,
+                            text=piece_source.text,
+                        )
                     )
                     mapped.append(row)
             # A role's ordered source pieces may not overlap or reverse a coordinate.
-            ends: dict[str, int] = {}
+            ends: dict[tuple[int, str], int] = {}
             for row in mapped:
-                if row["start"] < ends.get(row["pointer"], 0):
+                key = (row["pin"]["source_view_id"], row["pointer"])
+                if row["start"] < ends.get(key, 0):
                     raise GlinerRefused("literal pieces overlap or reverse their source order")
-                ends[row["pointer"]] = row["end"]
+                ends[key] = row["end"]
             return mapped
 
         for role in roles:
@@ -406,13 +420,17 @@ def _assemble(
                 )
             fields.append(field)
         all_dependencies.update(group_dependencies)
-        if any(role not in role_anchors for role in occurrence_roles):
+        if any(
+            role not in role_anchors
+            or any(anchors[identity]["pin"] != pin for identity in role_anchors[role])
+            for role in occurrence_roles
+        ):
             diagnostics.append(
                 AssemblyDiagnostic(
                     index,
                     None,
                     "unlocated_occurrence",
-                    "canonical occurrence role is not independently located",
+                    "canonical occurrence role is not independently located in the primary source",
                 )
             )
             continue
@@ -554,16 +572,20 @@ def assemble_native_records(
 
 
 def _item_spans(
-    context: NativeSourceContext, pointer: str, *, cell_index: int | None = None
+    context: NativeSourceContext,
+    pointer: str,
+    *,
+    cell_index: int | None = None,
+    source_view_id: int | None = None,
 ) -> tuple[LiteralSpan, ...]:
     """Lift retained native piece positions, never search equal source strings."""
     _require_canonical_context(context)
-    primary_pin = NativeSourcePin.from_source(context.primary)
+    identity = context.primary.source_view_id if source_view_id is None else source_view_id
     return tuple(
         LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
         for row in context.intervals
         if isinstance(row, SourceInterval)
-        and row.source == primary_pin
+        and row.source.source_view_id == identity
         and json.loads(row.item_locator.removeprefix("pdf:"))["pointer"] == pointer
         and row.cell_index == cell_index
     )
@@ -599,6 +621,16 @@ def native_table_groups(
     native_cells = table["data"]["table_cells"]
     inherited = inherited or {}
     groups = []
+    caption_spans = []
+    for link in table.get("captions", ()):
+        pointer = link.get("$ref")
+        for source in (
+            context.primary,
+            *(entry.source for entry in context.related if entry.relationship.value == "caption"),
+        ):
+            caption_spans.extend(
+                _item_spans(context, pointer, source_view_id=source.source_view_id)
+            )
 
     def reading(role: str, path: tuple[int, ...]) -> RoleInput:
         if not path or len(set(path)) != len(path):
@@ -657,6 +689,16 @@ def native_table_groups(
             if text == ""
             else reading("cell_value", (index,))
         )
+        additional = inherited.get(index, ())
+        if caption_spans and not any(field.role == "caption" for field in additional):
+            additional = (
+                *additional,
+                RoleInput(
+                    "caption",
+                    spans=tuple(caption_spans),
+                    reason="explicit native table caption link",
+                ),
+            )
         groups.append(
             NativeRecordGroup(
                 (
@@ -665,7 +707,7 @@ def native_table_groups(
                     reading("row_identity", row_paths.get(index, ())),
                     reading("header_path", header_paths.get(index, ())),
                     value,
-                    *inherited.get(index, ()),
+                    *additional,
                 ),
                 "explicit native cell, complete row/header paths and declared inheritance",
             )

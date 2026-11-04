@@ -354,3 +354,209 @@ def test_calibration_without_binary_support_cannot_export_a_map():
             frame=frame((row.label.event_id for row in rows), calibration=True),
             event_procedure="different-coupled-event-procedure",
         )
+
+
+def policy_for_reading(prepared, row):
+    data = fitted().model_dump(mode="python")
+    data["algorithm"]["version"] = row["policy_version"]
+    data["applicability"]["release_id"] = prepared.release_id
+    data["applicability"]["family"] = row["family"]
+    feature = FeatureInstance.model_validate(data)
+    return RecordAcceptanceInstance(
+        feature=feature,
+        calibration=calibrated(feature),
+        threshold=0.6,
+        threshold_procedure="predeclared finite-cut threshold",
+        conditioning_assumptions="finite supplied source cut; native custody still required",
+    )
+
+
+@pytest.mark.parametrize("state", ["unstated", "inapplicable"])
+def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowering(state):
+    from .test_record_assertions import inputs, lower, record, seal
+
+    overrides = {
+        role: {
+            "state": "present",
+            "value": {"kind": "native_location", "pointer": "#/inspected/" + role},
+        }
+        for role in ("table", "cell")
+    }
+    overrides.update(
+        {
+            role: {
+                "state": "present",
+                "pieces": text,
+                "original": text,
+                "value": {"kind": "text", "text": text},
+            }
+            for role, text in (
+                ("row_identity", "Group A"),
+                ("header_path", "Count"),
+                ("cell_value", "12"),
+            )
+        }
+    )
+    row = record(overrides=overrides)
+    caption = next(field for field in row["fields"] if field["role"] == "caption")
+    caption["state"] = state
+    seal(row)
+    prepared = inputs()[2]
+    instance = policy_for_reading(prepared, row)
+    proposal = assess_record_admission(
+        prepared,
+        row,
+        instance,
+        subset="native-tables",
+        final_event_score=100.0,
+        event_procedure="uncoupled-whole-reading-1",
+    )
+    assert proposal.blockers == ()
+    assert proposal.eligible_for_native_validation
+    assert proposal.standing == "candidate"
+    lowered = lower(row)
+    assert lowered.diagnostics == ()
+    assert len(lowered.assertions) == 8
+    assert lowered.batch.selection == ()
+    # A present literal still needs exact value evidence, unlike the inspected absence.
+    cell_value = next(field for field in row["fields"] if field["role"] == "cell_value")
+    value_set = next(item for item in row["evidence_sets"] if item["role"] == "cell_value")
+    value_anchor = next(
+        anchor for anchor in row["anchors"] if anchor["anchor_id"] == value_set["anchors"][0]
+    )
+    value_anchor["precision"] = "item"
+    assert cell_value["state"] == "present"
+    refusal = assess_record_admission(
+        prepared,
+        row,
+        instance,
+        subset="native-tables",
+        final_event_score=100.0,
+        event_procedure="uncoupled-whole-reading-1",
+    )
+    assert "unlocated_field_evidence:cell_value" in refusal.blockers
+    assert not refusal.eligible_for_native_validation
+
+
+def test_supplemental_transformed_role_requires_its_own_located_support():
+    from .test_record_assertions import inputs, record
+
+    overrides = {
+        role: {
+            "state": "present",
+            "pieces": text,
+            "original": text,
+            "value": {"kind": "text", "text": text},
+        }
+        for role, text in (("referent", "bottle"), ("property", "volume"))
+    }
+    overrides["original_value"] = {
+        "state": "present",
+        "pieces": "12",
+        "original": "12",
+        "value": {"kind": "decimal", "lexical": "12"},
+    }
+    overrides["value_role"] = {
+        "state": "present",
+        "pieces": "average",
+        "value": {"kind": "measurement_value_role", "label": "mean"},
+    }
+    row = record("MeasurementRecordFields", overrides=overrides)
+    prepared = inputs()[2]
+    instance = policy_for_reading(prepared, row)
+    supported = assess_record_admission(
+        prepared,
+        row,
+        instance,
+        subset="native-tables",
+        final_event_score=100.0,
+        event_procedure="uncoupled-whole-reading-1",
+    )
+    assert supported.blockers == ()
+    assert supported.eligible_for_native_validation
+    supplemental = next(field for field in row["fields"] if field["role"] == "normalized_value")
+    assert not supplemental["meaning_changing"]
+    supplemental["evidence_status"] = "unavailable"
+    supplemental["evidence_sets"] = ()
+    proposal = assess_record_admission(
+        prepared,
+        row,
+        instance,
+        subset="native-tables",
+        final_event_score=100.0,
+        event_procedure="uncoupled-whole-reading-1",
+    )
+    assert "missing_located_evidence:normalized_value" in proposal.blockers
+    assert not proposal.eligible_for_native_validation
+
+
+@pytest.mark.parametrize("minimum,expected", [(1, "fitted"), (2, "provisional")])
+def test_declared_origin_minimum_scopes_both_fits_without_claiming_independence(minimum, expected):
+    algo = algorithm(minimum_origin_groups=minimum)
+    original, selected = training(algo=algo)
+    assumption = (
+        "Finite supplied source cut only; no unseen-origin claim. "
+        "Native checks fit/calibration partition and origin disjointness."
+    )
+    frame_data = selected.model_dump(mode="python")
+    frame_data["assumptions"] = assumption
+    selected = FittingFrame.model_validate(frame_data)
+    single_origin = tuple(
+        FeatureFitObservation(
+            features=row.features,
+            label=WholeReadingLabel(
+                event_id=row.label.event_id,
+                origin_group="source:GS",
+                correct=row.label.correct,
+                sample_weight=row.label.sample_weight,
+            ),
+        )
+        for row in original
+    )
+    result = fit_whole_reading_features(
+        single_origin, algorithm=algo, applicability=applicability(), frame=selected
+    )
+    assert result.diagnostics.standing == expected
+    assert result.diagnostics.declared_origin_group_count == 1
+    assert result.diagnostics.conditioning_assumptions == assumption
+    assert (result.instance is not None) == (minimum == 1)
+    # A supported feature fit isolates the calibration minimum when the default refuses GS.
+    feature = result.instance
+    if feature is None:
+        feature = fit_whole_reading_features(
+            original, algorithm=algo, applicability=applicability(), frame=selected
+        ).instance
+    assert feature is not None
+    rows = tuple(
+        FinalEventObservation(
+            feature_instance_digest=feature.digest,
+            event_procedure="uncoupled-whole-reading-1",
+            final_event_score=float(index - 2.5),
+            label=WholeReadingLabel(
+                event_id=f"single-cal:{index}",
+                origin_group="source:Forbes",
+                correct=index >= 3,
+            ),
+        )
+        for index in range(6)
+    )
+    calibration_frame = frame((row.label.event_id for row in rows), calibration=True)
+    calibration_data = calibration_frame.model_dump(mode="python")
+    calibration_data["assumptions"] = assumption
+    calibration_result = fit_final_event_calibration(
+        rows,
+        feature=feature,
+        frame=FittingFrame.model_validate(calibration_data),
+        event_procedure="uncoupled-whole-reading-1",
+    )
+    assert calibration_result.diagnostics.standing == expected
+    assert calibration_result.diagnostics.declared_origin_group_count == 1
+    assert calibration_result.diagnostics.conditioning_assumptions == assumption
+    assert (calibration_result.calibration is not None) == (minimum == 1)
+    if result.instance is not None:
+        changed = result.instance.model_dump(mode="python")
+        changed["algorithm"]["minimum_origin_groups"] = 2
+        with pytest.raises(ValidationError, match="fitted support"):
+            FeatureInstance.model_validate(changed)
+    with pytest.raises(ValidationError):
+        algorithm(minimum_origin_groups=0)

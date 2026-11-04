@@ -1,0 +1,5 @@
+population-fixtures/*.png filter=lfs diff=lfs merge=lfs -text
+population-fixtures/*.txt filter=lfs diff=lfs merge=lfs -text
+provider-canary*/** filter=lfs diff=lfs merge=lfs -text
+intake*/** filter=lfs diff=lfs merge=lfs -text
+attempt-restore*/** filter=lfs diff=lfs merge=lfs -text

@@ -11,6 +11,7 @@ from corpus_structure.ingest.pdf_recognition_methods import (
     IngestPdfIntegrated,
     PdfIntegratedIngestConfig,
 )
+from corpus_structure.methods.m1_annotations import M1Annotations
 from corpus_structure.methods.m1_source import M1Candidates
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, Step
@@ -22,7 +23,10 @@ M1 = Graph(
         (Stage.INGEST, (Step("ingest.pdf_integrated/default"),)),
         (
             Stage.EXTRACT,
-            (Step("extract.m1_candidates/default", upstream=("ingest.pdf_integrated",)),),
+            (
+                Step("extract.m1_annotations/default", upstream=("ingest.pdf_integrated",)),
+                Step("extract.m1_candidates/default", upstream=("extract.m1_annotations",)),
+            ),
         ),
     ),
     policy_propose=False,
@@ -42,9 +46,10 @@ def source_graph(configuration: str = "default") -> Graph:
             (
                 Stage.EXTRACT,
                 (
+                    M1.stages[1][1][0],
                     Step(
                         f"extract.m1_candidates/{configuration}",
-                        upstream=("ingest.pdf_integrated",),
+                        upstream=("extract.m1_annotations",),
                     ),
                 ),
             ),
@@ -211,4 +216,6 @@ def registry(pack: Path) -> MethodRegistry:
     path = pack / "m1-methods.yaml"
     if not path.is_file():
         raise ValueError("M1 requires an explicitly authored m1-methods.yaml")
-    return MethodRegistry((RetainedIntegratedPdf(), M1Candidates()), load_methods(path))
+    return MethodRegistry(
+        (RetainedIntegratedPdf(), M1Annotations(), M1Candidates()), load_methods(path)
+    )

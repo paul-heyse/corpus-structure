@@ -113,6 +113,7 @@ def _fit(
     _membership(labels, frame)
     positive = sum(label.correct for label in labels)
     negative = len(labels) - positive
+    declared_origin_groups = len({label.origin_group for label in labels})
 
     def diagnostic(
         reason: str,
@@ -128,6 +129,8 @@ def _fit(
             provenance=frame.provenance,
             negative_count=negative,
             positive_count=positive,
+            declared_origin_group_count=declared_origin_groups,
+            conditioning_assumptions=frame.assumptions,
             converged=converged,
             iterations=iterations,
             standing="fitted" if converged else "provisional",
@@ -137,7 +140,7 @@ def _fit(
 
     if min(positive, negative) < algorithm.minimum_per_class:
         return None, diagnostic("insufficient whole-reading class support")
-    if len({label.origin_group for label in labels}) < 2:
+    if declared_origin_groups < algorithm.minimum_origin_groups:
         return None, diagnostic("insufficient declared origin groups")
     weights = np.asarray([label.sample_weight for label in labels], dtype=np.float64)
     if not np.isfinite(weights.sum()):
@@ -170,7 +173,7 @@ def _fit(
     iterations = int(np.max(estimator.n_iter_))
     converged = not any(issubclass(w.category, ConvergenceWarning) for w in captured)
     converged = converged and iterations < algorithm.max_iterations
-    converged = converged and bool(np.array_equal(estimator.classes_, np.asarray([0, 1])))
+    converged = converged and np.array_equal(estimator.classes_, np.asarray([0, 1]))
     converged = converged and all(
         np.all(np.isfinite(array)) for array in (estimator.coef_, estimator.intercept_)
     )

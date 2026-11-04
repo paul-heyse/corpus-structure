@@ -62,6 +62,8 @@ class RecordAlgorithm(FrozenContract):
     tolerance: Annotated[FiniteFloat, Field(gt=0)] = 1e-8
     max_iterations: Annotated[int, Field(gt=0)] = 1000
     minimum_per_class: Annotated[int, Field(ge=2)] = 2
+    # Supplied grouping metadata scopes the fit; group names do not prove independence.
+    minimum_origin_groups: Annotated[int, Field(ge=1)] = 2
     scaling: Literal["training-population-standard-deviation-1"] = (
         "training-population-standard-deviation-1"
     )
@@ -75,8 +77,10 @@ class RecordAlgorithm(FrozenContract):
             raise ValueError("released lbfgs algorithm requires L2 regularization")
         names = tuple(feature.name for feature in self.features)
         known = {feature.name: feature for feature in FEATURES}
-        if not names or len(set(names)) != len(names) or any(
-            known.get(feature.name) != feature for feature in self.features
+        if (
+            not names
+            or len(set(names)) != len(names)
+            or any(known.get(feature.name) != feature for feature in self.features)
         ):
             raise ValueError(
                 "features require a unique ordered subset of released grouped features"
@@ -130,14 +134,18 @@ class LinearParameters(FrozenContract):
     @model_validator(mode="after")
     def dimensions(self) -> Self:
         size = len(self.names)
-        if not size or len(set(self.names)) != size or any(
-            len(values) != size for values in (self.coefficients, self.center, self.scale)
+        if (
+            not size
+            or len(set(self.names)) != size
+            or any(len(values) != size for values in (self.coefficients, self.center, self.scale))
         ):
             raise ValueError("finite parameters must align with unique feature order and scaling")
         return self
 
 
 class FitDiagnostics(FrozenContract):
+    """Declared finite-frame support; neither grouping nor fitting certifies quality."""
+
     partition: Literal["feature_fit", "final_event_calibration"]
     frame_digest: Digest
     reference_digest: Digest
@@ -145,6 +153,8 @@ class FitDiagnostics(FrozenContract):
     provenance: Nonempty
     negative_count: Annotated[int, Field(ge=0)]
     positive_count: Annotated[int, Field(ge=0)]
+    declared_origin_group_count: Annotated[int, Field(ge=0)]
+    conditioning_assumptions: Nonempty
     converged: bool
     iterations: Annotated[int, Field(ge=0)]
     standing: Literal["fitted", "provisional"]
@@ -154,7 +164,9 @@ class FitDiagnostics(FrozenContract):
     @model_validator(mode="after")
     def fitted_support(self) -> Self:
         if self.standing == "fitted" and (
-            not self.converged or min(self.negative_count, self.positive_count) < 2
+            not self.converged
+            or min(self.negative_count, self.positive_count) < 2
+            or self.declared_origin_group_count < 1
         ):
             raise ValueError("fitted standing requires convergence and both correctness classes")
         return self
@@ -176,6 +188,7 @@ class FeatureInstance(FrozenContract):
             or self.fit.library_version != "scikit-learn-1.9.1"
             or min(self.fit.negative_count, self.fit.positive_count)
             < self.algorithm.minimum_per_class
+            or self.fit.declared_origin_group_count < self.algorithm.minimum_origin_groups
         ):
             raise ValueError("feature instance differs from its algorithm or fitted support")
         return self
@@ -220,6 +233,8 @@ class RecordAcceptanceInstance(FrozenContract):
             or self.calibration.fit.reference_digest == self.feature.fit.reference_digest
             or min(self.calibration.fit.negative_count, self.calibration.fit.positive_count)
             < self.feature.algorithm.minimum_per_class
+            or self.calibration.fit.declared_origin_group_count
+            < self.feature.algorithm.minimum_origin_groups
         ):
             raise ValueError("calibration must bind the frozen feature instance and held-out frame")
         return self
@@ -315,12 +330,12 @@ def derive_record_features(
     )
 
 
-def score_record(
-    feature: FeatureInstance, vector: RecordFeatures, *, subset: str
-) -> RecordScore:
+def score_record(feature: FeatureInstance, vector: RecordFeatures, *, subset: str) -> RecordScore:
     applicability, parameters = feature.applicability, feature.parameters
     if (vector.release_id, vector.family, subset) != (
-        applicability.release_id, applicability.family, applicability.subset
+        applicability.release_id,
+        applicability.family,
+        applicability.subset,
     ):
         raise ValueError("record is outside exact instance release/family/subset applicability")
     if vector.feature_signature != parameters.feature_signature or vector.names != parameters.names:
@@ -328,12 +343,15 @@ def score_record(
     if any(value is None for value in vector.values):
         raise ValueError("required raw feature is unavailable; imputation is not declared")
     values = tuple(float(value) for value in vector.values if value is not None)
-    potential = math.fsum(
-        ((value - center) / scale) * coefficient
-        for value, center, scale, coefficient in zip(
-            values, parameters.center, parameters.scale, parameters.coefficients, strict=True
+    potential = (
+        math.fsum(
+            ((value - center) / scale) * coefficient
+            for value, center, scale, coefficient in zip(
+                values, parameters.center, parameters.scale, parameters.coefficients, strict=True
+            )
         )
-    ) + parameters.intercept
+        + parameters.intercept
+    )
     if not math.isfinite(potential):
         raise ArithmeticError("nonfinite whole-reading potential")
     return RecordScore(
@@ -380,9 +398,7 @@ def assess_record_admission(
         if changing and field["state"] == "unresolved":
             blockers.append(f"unresolved_meaning:{role}")
         used = tuple(field.get("evidence_sets", ()))
-        if (required or changing) and (
-            field.get("evidence_status") != "available" or not used
-        ):
+        if field.get("evidence_status") != "available" or not used:
             blockers.append(f"missing_located_evidence:{role}")
         for key in used:
             evidence = sets.get(key)
@@ -391,8 +407,14 @@ def assess_record_admission(
                 continue
             for anchor in evidence["anchors"]:
                 piece = anchors.get(anchor)
-                if piece is None or piece["precision"] == "unavailable" or (
-                    field["kind"] == "literal" and piece["precision"] != "exact"
+                if (
+                    piece is None
+                    or piece["precision"] == "unavailable"
+                    or (
+                        field["state"] == "present"
+                        and field["kind"] == "literal"
+                        and piece["precision"] != "exact"
+                    )
                 ):
                     blockers.append(f"unlocated_field_evidence:{role}")
     probability = None

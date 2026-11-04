@@ -232,18 +232,18 @@ def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
 @schema_app.command("native-candidate")
 def native_candidate_(
     ctx: typer.Context,
+    out: Annotated[Path, typer.Option("--out")],
     authoring_database: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--authoring-database",
-            help="Explicitly owned disposable semantic database for rollback-only authoring.",
+            help="Rollback-only authoring database; defaults to the configured target.",
         ),
-    ],
-    out: Annotated[Path, typer.Option("--out")],
+    ] = None,
     predecessor_state: Annotated[Path | None, typer.Option("--predecessor-state")] = None,
     json_: JsonOpt = False,
 ):
-    """Compare/render a native candidate on an owned maintenance connection; never deploy it."""
+    """Compare/render a native candidate with maintenance authority and roll back all changes."""
     from hashlib import sha256
     from tempfile import TemporaryDirectory
 
@@ -269,15 +269,16 @@ def native_candidate_(
             raise SemanticRefusal("native authoring requires a new --out directory")
         settings = state(ctx).settings()
         source = make_url(settings.database.url)
-        if authoring_database in {
+        if authoring_database is None:
+            authoring_database = source.database
+        if authoring_database is None or authoring_database in {
             "",
             "postgres",
             "template0",
             "template1",
-            source.database,
             settings.database.template,
         }:
-            raise SemanticRefusal("select a separate explicitly owned --authoring-database")
+            raise SemanticRefusal("native authoring requires a non-system, non-template database")
         maintenance = make_url(settings.database.maintenance_url).set(database=authoring_database)
         selected = settings.model_copy(
             update={

@@ -2018,9 +2018,14 @@ and the workload of §11 (bulk COPY, short indexed queries, a queue):
   `log_line_prefix`, so `pg_activity` and pgBadger can be pointed at it when a question arises;
 - socket only (`listen_addresses = ''`), peer authentication.
 
-**Roles.** The operator's login role owns the project's objects and has `CREATEDB` for test
-databases; `corpus_ro` (NOLOGIN, `SELECT` only) is assumed by read-only sessions (the agent's
-read-only `ci` commands, DuckDB analytics; D8 §1). No role needs superuser.
+**Implemented development setup,2026-11-04.** The persistent default working database is
+`corpus_structure_dev` on dedicated18/corpus, port5434. The operator login `paul` is the
+cluster's development administrator with SUPERUSER/CREATEDB/CREATEROLE; agents use maintenance
+credentials for administrative work. Normal read/write/admission/evaluation/fitting purposes
+keep their existing application roles. Real source products and results persist between turns.
+An isolated test database is used only when the test needs isolation, not as an agent-work prerequisite.
+
+> Decision: [ADR-0056](../adr/0056-persistent-development-database.md)
 
 **No backups or archiving yet** (operator, 2026-10-28): everything in the database is generated
 and can be regenerated, so backup and integrity machinery would be overhead now. **Revisit**
@@ -2151,8 +2156,9 @@ caller-Connection execution through Alembic's extension APIs. `native_objects.py
 managed identity/property comparison and independent catalog admission; pglast source facts
 preserve overloaded input signatures and distinguish OUT/TABLE results. Frozen operation inputs
 include declared before/after state, owner/ACL effects and dependency order. Candidate authoring
-is restricted to an explicitly owned disposable database and rolls back its changes. `ci schema
-native-candidate` emits reviewable candidate artifacts without editing revision history; source
+uses maintenance authority on the configured persistent development database and rolls back its
+changes. An explicit alternate database remains optional. `ci schema native-candidate` emits
+reviewable candidate artifacts without editing revision history; source
 preview generation is separate. Committed revisions execute byte-bound payloads, rather than
 calling mutable generators. The new head `semantic_pg_20261101` supplies the current projections
 and compiler18 admission. A head marker alone does not establish native admission.

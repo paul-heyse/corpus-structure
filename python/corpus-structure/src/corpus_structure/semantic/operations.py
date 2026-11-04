@@ -945,6 +945,87 @@ class BoundReader:
             if v.native_product == source.ref.native_product and v.section_pointer in ancestors
         )
 
+    def context_sources(self, source_view_id, request, *, limit, read_budget):
+        from .source_views import read_context_sources
+
+        # The primary view has already been read by the invoking consumer. The
+        # shared budget covers all new candidate metadata and owned related bodies.
+        source = self.source_view(source_view_id)
+        return read_context_sources(
+            self.conn,
+            self.run_id,
+            source,
+            request,
+            limit=limit,
+            read_budget=self._read_budget or read_budget,
+        )
+
+    def source_context_membership(self, source_view_id):
+        from .source_views import context_membership_digest
+
+        return context_membership_digest(
+            self.conn,
+            self.run_id,
+            self.source_view(source_view_id),
+            read_budget=self._read_budget,
+        )
+
+    def source_result(self, source_view_id, method):
+        from .observations import source_python
+        from .pdf_record_reader import PublishedReadBudget
+
+        source = self.source_view(source_view_id)
+        task, result, config, producer = map(
+            table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method")
+        )
+        query = (
+            select(
+                result.c.body,
+                result.c.release_id,
+                task.c.input_hash,
+                task.c.unit_key,
+                config.c.config_hash,
+            )
+            .select_from(task)
+            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
+            .join(config, task.c.method_config_id == config.c.id)
+            .join(producer, producer.c.id == config.c.method_id)
+            .where(
+                task.c.run_id == self.run_id,
+                task.c.unit_type == "source_view",
+                task.c.unit_id == source_view_id,
+                producer.c.name == method,
+            )
+        )
+        if self.cut_id is not None:
+            cut = table("ops.cut_task")
+            query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(
+                cut.c.cut_id == self.cut_id
+            )
+        budget = self._read_budget or PublishedReadBudget(16, 16_777_216)
+        budget.preflight(self.conn, query)
+        rows = tuple(self.conn.execute(query).mappings())
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise OperationConflict("upstream source result is ambiguous")
+        row = rows[0]
+        body = row["body"]
+        budget.value(body)
+        if (
+            row["release_id"] != self.prepared.release_id
+            or body.get("release_id") != self.prepared.release_id
+            or body.get("source") != source.ref.key
+            or body.get("unit_key") != row["unit_key"]
+            or body.get("method") != method
+            or body.get("configuration_hash") != row["config_hash"]
+            or body.get("input_hash") != row["input_hash"]
+        ):
+            raise OperationConflict("upstream source result differs from its run/task binding")
+        # Return detached decoded columns; the enclosing stored envelope remains
+        # the one persistence and source-product custody owner.
+        return dict(body, parse_detail=source_python(body["parse_detail"]))
+
     def _native_product_input(self, reference):
         """Selected/input pins or this running task's exact published output custody."""
         from .contracts import require_bound_operation

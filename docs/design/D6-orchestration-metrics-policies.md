@@ -1,5 +1,19 @@
 # D6 · Orchestration, metrics and policies
 
+## M1 annotation task dependency scope
+
+**Accepted target, Proposed until implemented (2026-11-04).** A declared upstream annotation
+operation seals actual products through existing source observation/task custody. Its task identity,
+Python origin selection and native reuse admission use one complete operation-specific projection:
+source/release/profile/recipe/configuration and relevant implementation/spaCy/model dependencies.
+The full run manifest remains provenance. This bounded annotation-only refinement permits downstream
+schema changes to reuse unchanged preparation; all other methods retain the full-binding default.
+Actual upstream product edges and body hashes govern consumption and invalidation. No independent
+annotation store, mutable Doc cache or replacement task engine is introduced.
+
+> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+
+
 ## Audit-closure target
 
 **Implemented; selected AC scope Tested2026-11-04.** Executable applicability is distinct from authored policy validity. Methods use owned reads. Claims remain owned through preparation, provider work and durable synchronized terminal retirement. One compatible producer binding governs actual queue and submission paths; trust strength is explicit. Model/provider preparation runs outside publication locks; finite rule inference retains atomic publication.
