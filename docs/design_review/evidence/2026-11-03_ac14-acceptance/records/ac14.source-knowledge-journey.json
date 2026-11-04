@@ -5,9 +5,9 @@
   "group": "audit-closure",
   "package": "AC14",
   "finalized": "2026-11-03",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "ac14.source-knowledge-native105",
   "question": "Does an actual authenticated producer report reach admitted knowledge and same-pin query/evidence/MCP/export?",
   "answers": [
     "AC08",

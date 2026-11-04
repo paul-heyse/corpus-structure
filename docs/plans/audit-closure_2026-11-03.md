@@ -541,3 +541,12 @@ companion. They remain not_run; other auth/application/native lifecycle controls
 No test marker, harness, guard or accepted functional target was weakened. Next: fresh actual
 provider-to-egress journey and final selected functional/nonfunctional union on maintained source.
 M1 remains queued until that acceptance closes.
+
+
+**Fresh actual provider-to-egress passed on769793f7/native105:** see
+[the superseding record](../design_review/evidence/2026-11-03_ac14-acceptance/records/ac14.source-knowledge-native105.json).
+Actual authenticated extraction, protected consolidation, occurrence/accepted/evidence CLI queries,
+registered MCP source inspection and ADBC JSONL export retain identical immutable producing pins.
+Controlled Person/name scope remains distinct from M1 statistics/CPU fidelity. Managed recognition's
+unchanged watched inputs preserve its separate actual generation/replacement/application scope.
+Remaining AC14 obligation is final selected functional/nonfunctional union and applicability accounting.

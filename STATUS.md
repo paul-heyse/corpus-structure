@@ -22,8 +22,8 @@ _Updated2026-11-03 local; AC acceptance execution. No qualified M1 release._
   earlier interrupted attempts are retained. Failures are repaired or in targeted verification;
   a failed campaign is not full qualification. Rust had an empty selection, no functional coverage.
 - Actual managed generation/replacement/restart/in-flight/application controls retain matching
-  watched inputs. Prior authenticated source→knowledge→CLI/MCP/export passed on103; the changed
-  MCP path needs a fresh actual journey. Owned services and test databases were disposed.
+  watched inputs. Fresh authenticated source→knowledge→CLI/MCP/export passes on105/769793f7.
+  The immutable final attempt supersedes the older provider record. Owned services and test databases were disposed.
 - M1 product execution/reference authoring remain queued behind AC acceptance. Its revised
   coordinator and six companions retain five families, CPU/no-general-LLM extraction, independent
   Sol A/B/C references, finite-cut gates and NONDEFAULT adoption/rollback.
@@ -45,7 +45,6 @@ _Updated2026-11-03 local; AC acceptance execution. No qualified M1 release._
 
 ## Next
 
-Run remaining current native/consumer fixture controls, fresh actual provider-to-egress journey,
-final functional/nonfunctional qualification and applicability reconciliation. Close AC only on its
+Run final selected functional/nonfunctional qualification and applicability reconciliation. Close AC only on its
 accepted required union; then execute all remaining M1 scope. Native installs remain serial. The final selected suite excludes only eight unchanged opt-in
 host-authentication crash controls, explicitly not_run outside the AC required union.

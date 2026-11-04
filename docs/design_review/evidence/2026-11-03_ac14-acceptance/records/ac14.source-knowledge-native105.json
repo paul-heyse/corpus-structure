@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "ac14.source-knowledge-native105",
+  "title": "Actual provider and consumer egress on final native105 source",
+  "group": "audit-closure",
+  "package": "AC14",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [
+    "ac14.source-knowledge-journey"
+  ],
+  "superseded_by": null,
+  "question": "Does the actual authenticated provider-to-knowledge/query/evidence/MCP/export journey pass on repaired native105/MCP source769793f7?",
+  "answers": [
+    "AC08",
+    "AC10",
+    "AC11",
+    "AC13",
+    "AC14"
+  ],
+  "method": "Controlled PDF/schema with real authenticated extraction, protected finalization, actual Typer query/evidence/export adapters, registered MCP source inspection and ADBC-backed JSONL export; compare immutable semantic pins and actual fact/observation/product identities.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/source-knowledge-journey/journey.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-knowledge-journey/journey.py",
+      "role": "unchanged executed provider-to-egress harness",
+      "sha256": "6f8ea6c478176b248809ceb9f78120724af54eb33b3ecf285adf251fc3422e7d"
+    },
+    {
+      "path": "native105/source-inputs.json",
+      "role": "final tested native/MCP source context",
+      "sha256": "8b04ffe1f301938404a0fb671b21f953a2b8b847ffeb25fcb6b169e486fd2c9d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "source-knowledge-journey/runtime/attempt-20261104T042008Z-37c3bf62",
+      "role": "immutable final105 actual authenticated provider and consumer receipts",
+      "sha256": "cb3783754fa72e49442fc13fd6d716b378d97ed3c4d454fccad4351be85a1d43"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "accepted_provider_facts",
+      "value": 1,
+      "of": null,
+      "unit": "facts",
+      "note": null
+    },
+    {
+      "name": "evidence_entries",
+      "value": 2,
+      "of": null,
+      "unit": "entries",
+      "note": null
+    },
+    {
+      "name": "native_items",
+      "value": 2,
+      "of": null,
+      "unit": "items",
+      "note": null
+    },
+    {
+      "name": "matching_exported_facts",
+      "value": 1,
+      "of": null,
+      "unit": "facts",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed at bounded actual-provider/consumer scope on source769793f7 and native105. One accepted provider fact, two located evidence entries, exact immutable release/realization/revision/run/cut/fact/observation/product pins across protected consolidation, actual CLI queries/evidence, registered MCP inspection and ADBC JSONL export. Independent capture IDs retain their distinct meanings. Controlled Person/name PDF/schema, not statistics accuracy or M1 CPU qualification. Owned database and provider process disposed. Earlier native103 result is superseded; its raw attempts and original directory hash remain retained, with a historical output-collection growth warning after this later attempt. Full selected AC14 functional/nonfunctional union remains open.",
+  "consumed_by": [
+    "AC08",
+    "AC10",
+    "AC11",
+    "AC13",
+    "AC14"
+  ]
+}
