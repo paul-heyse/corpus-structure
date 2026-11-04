@@ -1,0 +1,145 @@
+{
+  "verified_at": "2026-11-04T12:08:27.212822+00:00",
+  "baseline_head": "1e631ba7c9a6877d40a0eab7f6e81ddef0b4b99a",
+  "package_version": "gliner2==2.1.0",
+  "method": "read installed source files; fetched five tagged upstream files; no package imports, inference, data labels or DB access",
+  "sources": [
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/training/data.py",
+      "sha256": "73ee2c003c03171efe44373f83c041d731fa31bef05e9579bbbf93d8d31edd9d",
+      "lines": 1432,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/training/data.py",
+      "upstream_sha256": "73ee2c003c03171efe44373f83c041d731fa31bef05e9579bbbf93d8d31edd9d",
+      "byte_match": true
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/training/trainer.py",
+      "sha256": "309e49c57f29a3061242ed2ee8377f4efa38eba4a7f7f7e292546a047367bb2e",
+      "lines": 2312,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/training/trainer.py",
+      "upstream_sha256": "309e49c57f29a3061242ed2ee8377f4efa38eba4a7f7f7e292546a047367bb2e",
+      "byte_match": true
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/training/lora_targets.py",
+      "sha256": "abc97069b5685fe23d8bf51da2da41d78e209eaa551c585d811e479f50cc07c4",
+      "lines": 98,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/training/lora_targets.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/training/lora.py",
+      "sha256": "6ab90c0c16bf3d3fdae8cfb9b4a1e11442f94199d074850965bc191b47b62a67",
+      "lines": 376,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/training/lora.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/models/boundary/model.py",
+      "sha256": "e2e006a1a9f05ec4830f284f6dc90c4e6744311197e06deb556e9b75d8219faf",
+      "lines": 2258,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/models/boundary/model.py",
+      "upstream_sha256": "e2e006a1a9f05ec4830f284f6dc90c4e6744311197e06deb556e9b75d8219faf",
+      "byte_match": true
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/models/boundary/records.py",
+      "sha256": "766a2d91e01c88cde92f00aa2b31216a7313bd90893c0c0ee69b0b41a50a5f9b",
+      "lines": 1518,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/models/boundary/records.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/models/boundary/engine.py",
+      "sha256": "8561feb865f200d623e76a008e5dca77b389ae1959606aa072ec478907a0f910",
+      "lines": 1542,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/models/boundary/engine.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/processing/word_splitter.py",
+      "sha256": "13f53b701c29d96dc3241cb4feb2a567cca0a78e2ea08cf0863d7c3b38ae8875",
+      "lines": 114,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/processing/word_splitter.py",
+      "upstream_sha256": "13f53b701c29d96dc3241cb4feb2a567cca0a78e2ea08cf0863d7c3b38ae8875",
+      "byte_match": true
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/processing/targets.py",
+      "sha256": "631226a74b636b69ee1ec5f6eaf7ee8c7f53390fd3736a9d565359445a45ff42",
+      "lines": 554,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/processing/targets.py",
+      "upstream_sha256": "631226a74b636b69ee1ec5f6eaf7ee8c7f53390fd3736a9d565359445a45ff42",
+      "byte_match": true
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/processing/boundary_preprocessing.py",
+      "sha256": "225f551d6cd62c5ecea6e21f68dfe587b8fb14db6a72f3028fb2e31668330602",
+      "lines": 672,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/processing/boundary_preprocessing.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/processing/records.py",
+      "sha256": "6dc6122e3d8bf9eed424f3077f06c1233ed1a2c1ead84d81093991d48ce43213",
+      "lines": 311,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/processing/records.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/processor.py",
+      "sha256": "fdeb0814c29a0d1fec4e66358e936058af224d011a37b5c7f1e800cb2cd9c521",
+      "lines": 1762,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/processor.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/inference/schema.py",
+      "sha256": "63f9f16a27d45bece89c7f7ebdf14afaa7150b0e8e58001161efe4b16de21898",
+      "lines": 776,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/inference/schema.py"
+    },
+    {
+      "installed_path": ".venv/lib/python3.14/site-packages/gliner2/configuration.py",
+      "sha256": "96f06de2f4783e1b0af82539bb0cd2cc880bd9c77a8a0409ebf0ad641bd0ab20",
+      "lines": 756,
+      "upstream_url": "https://raw.githubusercontent.com/fastino-ai/GLiNER2/v2.1.0/gliner2/configuration.py"
+    }
+  ],
+  "context7": {
+    "resolved_library": "/fastino-ai/gliner2",
+    "queries": [
+      "structured record training explicit char spans modes and choices",
+      "CPU/full/LoRA training and injection-free recall",
+      "supplied token spans and word-splitter alignment"
+    ],
+    "result": "documentation discovered; exact installed source governs version-specific claims"
+  },
+  "repository_sources": [
+    {
+      "path": "python/corpus-structure/src/corpus_structure/methods/gliner.py",
+      "sha256": "b20e6a85324b207a41982261bc871d9c582bff85dc4faaf0277268a0e44ddda4"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/methods/m1_source.py",
+      "sha256": "c3a01ae1696c8fb96c7b6b8e89d904e41c1ccc493f5bcecdbdef58832cff3e8d"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/methods/record_packs.py",
+      "sha256": "6e1a52b8668758d4f4aa8d2b3ea838ad4a7b4c1ca1c5dec022f7694b737ed8df"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/orchestrate/m1.py",
+      "sha256": "b12c562c1a2a86ea6e14a50e394190f8540d0900d6a69e20a7e10f16ee7223ff"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/regeneration.py",
+      "sha256": "71495610909f3e6980104cfff10d0648822f59170d04f2cdbd7ea44802c9aca6"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/contracts.py",
+      "sha256": "6fce95699dd3eadf41b5a8bd0862c84a486e9ad2ed70303034637c76de8412cd"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/record_policy.py",
+      "sha256": "e37949cdbbe65698a63aa5a766a804c7c25ab7722c06f0f4c4de3cfe7de46c3d"
+    },
+    {
+      "path": "domains/statistics/m1-methods.yaml",
+      "sha256": "6554d0fe653774bf323c2eede1981259e5ce8214a74bcbb30ad0d5aef56b24ac"
+    }
+  ]
+}

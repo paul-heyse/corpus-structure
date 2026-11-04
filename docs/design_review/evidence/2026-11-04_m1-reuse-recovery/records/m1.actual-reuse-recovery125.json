@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "m1.actual-reuse-recovery125",
+  "title": "Actual retained-source reuse cancellation and recovery",
+  "group": "M1",
+  "package": "M1-04",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do downstream configuration reuse, completion fencing and retained-source recovery work on actual persistent runs?",
+  "answers": [],
+  "method": "Owned run16 changes only resolver subset; actual run17 cancellation, run18 refusal, native125 run19 recovery/restricted readmission/publication/replay; bounded readonly origin checks.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "downstream-subset-001",
+      "role": null,
+      "sha256": "a3fa9fee450c38ec962d81a9be51d21c9503b198a9817f2fb95aaf7446d7078e"
+    },
+    {
+      "path": "attempt-downstream-subset-001.log",
+      "role": null,
+      "sha256": "225d1c907d88d6d1c2aa6953dec9367a9258ed1d83a114ce1ff5ec2a6be6b0b8"
+    },
+    {
+      "path": "attempt-completed-resume-14.log",
+      "role": null,
+      "sha256": "9b47dbcb9579c17f9f4b7cf68901d23af2b198abdfea0c42296c475c84a6edb3"
+    },
+    {
+      "path": "attempt-completed-resume-14-002.log",
+      "role": null,
+      "sha256": "cf0ed63987612142e3b623d2a1a9302cb3ee1e3bbd8605b48406e6010b69bd98"
+    },
+    {
+      "path": "attempt-completed-resume-14-003.log",
+      "role": null,
+      "sha256": "ce89dcf77de4dc583ed193d812e4f2ff8fb91d5b36700cd50f669d9f8bd15da1"
+    },
+    {
+      "path": "cancellation-heading/attempt-001",
+      "role": null,
+      "sha256": "416f23e1cfa082ae9864931fda97d22b89c9c90c305fd999c4f749a0c601c5b5"
+    },
+    {
+      "path": "cancellation-heading/attempt-002",
+      "role": null,
+      "sha256": "3b8f458809b904541e743670ee704ba2bc700d2618d0fa3270e4e105614230c2"
+    },
+    {
+      "path": "cancellation-heading/attempt-001.log",
+      "role": null,
+      "sha256": "7879c1111ac02c579f1ec18d9478b85433c9793c9c2ebb0785013926704eff3f"
+    },
+    {
+      "path": "cancellation-heading/attempt-002.log",
+      "role": null,
+      "sha256": "5e75b4ae6baae96c543b7dc3b74cb7a1846f67854c0ae24e6646f071b5236fb2"
+    },
+    {
+      "path": "cancellation-heading/attempt-002-publication.log",
+      "role": null,
+      "sha256": "e37c8e479087f72c75c61d434bcf14888039bbdedf3621abdb244374e52d0a94"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Actual recovered run",
+      "value": 19,
+      "of": null,
+      "unit": "run id",
+      "note": null
+    },
+    {
+      "name": "Recovery model calls",
+      "value": 3,
+      "of": null,
+      "unit": "calls",
+      "note": null
+    },
+    {
+      "name": "Cancelled task durable results/observations",
+      "value": "0/0",
+      "of": null,
+      "unit": "rows",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Run16 reuses annotation/raw tasks34–37 under identical config/input/output hashes and computes only new resolver subset; result cut17 finishes unselected. Cancelled17/task71 leaves no durable output. Failed18 preserves the exposed retained-view defect. Repaired125 run19 reuses73→69/74→34, selects22, runs3actual CPU calls/one cold, joins child and publishes/replays identical nondefault cut19. Normal restricted readmission resolves initial stale-deployment publication refusal without source rerun. Actual CLI completed-run14 replay matches its existing cut13/result; no historical full producer-body pre/post hash exists. No inference interruption, all-family quality, calibrated-policy reuse or full operating envelope claim.",
+  "consumed_by": [
+    "M1-04",
+    "M1-06",
+    "M1-10",
+    "M1-14"
+  ]
+}

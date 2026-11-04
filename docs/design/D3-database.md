@@ -118,6 +118,17 @@ Finalize native validation/normalization before hashing and publish coherent pro
 attempt/source fences. Use forward migrations and supported archived readers; never edit frozen
 revisions or reinterpret old records. PDF-03/09 own persistence and publication, PDF-10/11 adoption.
 
+**Implemented; scoped Tested,2026-11-04.** Native125 retained-source reuse resolves a valid
+reused ingestion task through the successful origin run's selected views. An explicitly configured
+`native_product` or `integrated_product` must equal the published task/key/digest; document,
+project, selected-view release and original-content custody remain checked. A native producer
+may belong to an archived release while the analysis view belongs to the current release.
+Ordinary own-produced output remains eligible when a retained input is also configured.
+Selection authority remains the run-level source universe protected by complete native reuse
+binding; no per-task view ownership is inferred. Eleven native controls and actual cancelled-run
+recovery/nondefault publication pass in the [M1 reuse evidence](../design_review/evidence/2026-11-04_m1-reuse-recovery/README.md).
+This establishes custody and completion fencing, not inference interruption or reading quality.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF

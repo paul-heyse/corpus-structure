@@ -19,12 +19,13 @@ def main():
     parser.add_argument("--author", type=Path, required=True)
     parser.add_argument("--kind", choices=("A", "B", "C"), required=True)
     parser.add_argument("--actor", required=True)
+    parser.add_argument("--filename-prefix", default="unit-")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     frozen = json.loads((args.freeze / "manifest.json").read_bytes())
     units = [(entry, unit) for entry in frozen["sets"] for unit in entry["units"]]
-    expected = {f"unit-{unit['unit_id']}.json" for _, unit in units}
-    actual = {path.name for path in args.author.glob("unit-*.json")}
+    expected = {f"{args.filename_prefix}{unit['unit_id']}.json" for _, unit in units}
+    actual = {path.name for path in args.author.glob(args.filename_prefix + "*.json")}
     if actual != expected:
         raise ValueError(f"authored unit census differs: missing={expected-actual}, extra={actual-expected}")
     args.out.mkdir(parents=True, exist_ok=False)
@@ -34,7 +35,7 @@ def main():
             for entry, unit in units:
                 packet = json.loads((args.freeze / entry["directory"] / unit["path"]).read_bytes())
                 frame = decode_frame(packet["source_frame"])
-                content = (args.author / f"unit-{unit['unit_id']}.json").read_bytes()
+                content = (args.author / f"{args.filename_prefix}{unit['unit_id']}.json").read_bytes()
                 # No mutation, normalization, relabeling or reference relocation.
                 with engine.begin() as conn:
                     identity = record_pass(conn, unit_id=unit["unit_id"], pass_kind=args.kind,

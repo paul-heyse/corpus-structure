@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "m1.actual-candidate-consumers124",
+  "title": "Actual candidate query CLI MCP source and export journeys",
+  "group": "M1",
+  "package": "M1-12",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do actual pinned CPU-source candidate records agree across existing public consumers and retained native source handoff?",
+  "answers": [],
+  "method": "Actual reader principal query, CLI subprocesses, registered in-process MCP fullSDK envelopes, JSONL/Parquet exact relation comparisons and complete continuation census.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "run_consumers.py",
+      "role": null,
+      "sha256": "466afb1d28c904a5621663656fbeb2033042554edfe385f8f3f9e88c4540cd7e"
+    },
+    {
+      "path": "inspect_custody.py",
+      "role": null,
+      "sha256": "75475a32e897a87ea74e8502b2359a5433873aefca2c48ab2b1ade1a62f30ab7"
+    },
+    {
+      "path": "check_historical_pin.py",
+      "role": null,
+      "sha256": "f2760ec7f5dfdbdb995d0f5d3e32b9bdb41f5211a9addbbbd7fd1743caeb5bed"
+    },
+    {
+      "path": "check_diagnostics_cli.py",
+      "role": null,
+      "sha256": "2a5e581e38b32c8b1166d5d9d94da234c5553d0df08d7f3ec96a4c29cb972c27"
+    },
+    {
+      "path": "complete_census.py",
+      "role": null,
+      "sha256": "2aeab55402d1510da2e437070891430d342f2f65cab1d8038be63aeced528785"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "3b3a6ecec0e9b159e512ef2b3d280c26e18c86bd022476a224ed015e4a9e5bfb"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Complete unique candidate identities",
+      "value": 464,
+      "of": null,
+      "unit": "interpretations",
+      "note": null
+    },
+    {
+      "name": "Exact compared record relations",
+      "value": 19,
+      "of": null,
+      "unit": "relations",
+      "note": null
+    },
+    {
+      "name": "Source-reading assertion rows",
+      "value": 500,
+      "of": null,
+      "unit": "rows",
+      "note": null
+    },
+    {
+      "name": "Assertion support rows",
+      "value": 964,
+      "of": null,
+      "unit": "rows",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All464candidate interpretations agree across the completed query/MCP census and both full CLI export formats over19relations. Selected query/CLI/MCP detail/support/source handoffs, diagnostics/refusals and historic pinned reread pass. Initial partial pagination, export-capture harness failures and1MiB native refusals remain with successful bounded followups. In-process MCP is not a host/external attachment. Actual accepted all-family consumers, source quality, selected-default transition and complete M1 qualification remain open.",
+  "consumed_by": [
+    "M1-12",
+    "M1-14"
+  ]
+}

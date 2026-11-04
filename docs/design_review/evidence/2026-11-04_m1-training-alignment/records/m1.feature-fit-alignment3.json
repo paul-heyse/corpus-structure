@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "id": "m1.feature-fit-alignment3",
+  "title": "Protected development target alignment and native collation",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can independently authored source records become faithful native model targets under the actual bounded source and word-coordinate contracts?",
+  "answers": [],
+  "method": "Protected feature_fit C23/24 only, exact retained-source/context reconstruction, checkpoint/tokenizer hashes, native strict raw validation and deterministic target collation; no model forward.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "training-targets.jsonl",
+      "role": null,
+      "sha256": "eab3b3953dff12804045e127241a64951bc5e6b77cf611637af10f17614fc3b0"
+    },
+    {
+      "path": "training-target-origins.jsonl",
+      "role": null,
+      "sha256": "eadd1b9b56a1dd6355bad74c87dde357de68e2d2a28cbc33ea5e3b2bd161af10"
+    },
+    {
+      "path": "final-record-disposition.jsonl",
+      "role": null,
+      "sha256": "397b3a78dd47b875ad002270b7f1238f406e242f3559cd6a5e4914a90a22d156"
+    },
+    {
+      "path": "mapping-attempts.jsonl",
+      "role": null,
+      "sha256": "00fb8ca1acfdcbf5c99779b2c26ad9cf9eb41fde931f8ea86b2c7e6f3eaa505b"
+    },
+    {
+      "path": "source-reconstruction.json",
+      "role": null,
+      "sha256": "d5dc31881964586ad43820db14c26b292ab8204ab715bc5b5c76839fbcb9af3e"
+    },
+    {
+      "path": "source-contexts.jsonl",
+      "role": null,
+      "sha256": "351d5880e6d57bbefdf2727f3da08046643ab66abc9f623016df84551e86f7f7"
+    },
+    {
+      "path": "context-verification.jsonl",
+      "role": null,
+      "sha256": "84ff9db586448abe8d48a93d6e877d38f67093cab837d9cf1e96e05b9aacee01"
+    },
+    {
+      "path": "native-check-summary.json",
+      "role": null,
+      "sha256": "9343293946f7f12783823eb60477840d40f4fc984518ad29b5ffa09f00443fe0"
+    },
+    {
+      "path": "negative-collation.jsonl",
+      "role": null,
+      "sha256": "336e47c0e0f990ff2829d0add71d082acf98f44047e5873d1c06270b01bed361"
+    },
+    {
+      "path": "deterministic-native-targets.jsonl",
+      "role": null,
+      "sha256": "789cd949f305ff34bcabbe85ce7edf2d3c221cb8c8ff2b523b09a971ec33edb8"
+    },
+    {
+      "path": "collation-failures.jsonl",
+      "role": null,
+      "sha256": "85270342ec2a0d08a2aa8b47f05a994aed5bb22843e345d721553f0062336853"
+    },
+    {
+      "path": "attempt-alignment-005.log",
+      "role": null,
+      "sha256": "a3f5ebcd9638b775e9701348a8cb975db7166aa2f995da2d230388460957a82d"
+    },
+    {
+      "path": "attempt-native-check-003.log",
+      "role": null,
+      "sha256": "8df8bbf546051a8bdf9c63713339f5e1232003dd70e4fc162663cd655a901e63"
+    },
+    {
+      "path": "freeze-receipts.jsonl",
+      "role": null,
+      "sha256": "64e17791fae5d8e149951590f0effbb3060f2d904da16fe2bc51e6a09528e186"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Development records",
+      "value": 270,
+      "of": null,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "Complete exact model-role mappings",
+      "value": 143,
+      "of": null,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "Safe positive examples",
+      "value": 48,
+      "of": null,
+      "unit": "examples",
+      "note": null
+    },
+    {
+      "name": "Unique emitted records",
+      "value": 118,
+      "of": null,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "Explicit alignment exclusions",
+      "value": 127,
+      "of": null,
+      "unit": "records",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "148actual contexts and294model report metadata bindings reconstruct exactly. Of270development C readings,143map complete exact roles,127retain alignment exclusions;48safe positive examples cover118unique records with25further unsafe/group exclusions. Reloaded strict native validation and deterministic target collation preserve every retained target/field contract. Two native capacity failures108/90vs64 are preserved. Native stochastic description/choice variation and37expanded choice prefixes remain; no faithful full-pack no-record negative among four tested shapes. No model loss/training/efficacy, heldout labels, PDF/OCR or DBwrites. This is target feasibility for a bounded subset, not adequate five-family capture.",
+  "consumed_by": [
+    "M1-07",
+    "M1-15"
+  ]
+}

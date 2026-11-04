@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-resources124",
+  "title": "Sampled actual CPU reading and publication process tree",
+  "group": "M1",
+  "package": "M1-06",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What resources were observed for actual retained GS source reading and publication?",
+  "answers": [],
+  "method": "Existing stdlib0.5s process-tree sampler around entire run14 wrapper; separate late PostgreSQL backend snapshots explicitly partial.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "ordinary-002.jsonl",
+      "role": null,
+      "sha256": "d059d00fa1ca579374d4f5881b2ebac421aea949882646fd72c115f1ac2c96a8"
+    },
+    {
+      "path": "ordinary-002-summary.json",
+      "role": null,
+      "sha256": "6238a55f4ea57e81237c1e6ab554a3d4ab212316fd08b883fc9b9d62835b88cf"
+    },
+    {
+      "path": "ordinary-003.jsonl",
+      "role": null,
+      "sha256": "6fe7203b4991d40f17d0a672c3644ff68dafe50e5ab5a6494928029ec7b0452d"
+    },
+    {
+      "path": "database-native-snapshot-001.log",
+      "role": null,
+      "sha256": "88abc6a0d98bac6f2039b84d679f52ae2179dc591ba5270cc160327cfbf7ee1d"
+    },
+    {
+      "path": "database-native-snapshot-002.log",
+      "role": null,
+      "sha256": "5c093bb9fc929e43d476d95cf2ec7f5f8fa0123137ada85a16cae5a9cfb65ceb"
+    },
+    {
+      "path": "database-native-snapshot-context-001.json",
+      "role": null,
+      "sha256": "00ba05e6ae3a4e6ed645857f5a8ad7e90fbfc70176f1786df2152a3f19cfc56f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Samples",
+      "value": 1637,
+      "of": null,
+      "unit": "samples",
+      "note": null
+    },
+    {
+      "name": "Observed wrapper seconds",
+      "value": 818.2410140319989,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Peak complete process-tree PSS",
+      "value": 4190578,
+      "of": null,
+      "unit": "KiB",
+      "note": null
+    },
+    {
+      "name": "Incomplete PSS samples",
+      "value": 2,
+      "of": null,
+      "unit": "samples",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Run14 wrapper exits0 over818.241s/1637samples; peak complete tree PSS4190578KiB, summed RSS4684536KiB,117OSthreads and1641.03observed own CPU seconds. Two incomplete PSS samples remain. PostgreSQL backend/server lies outside this tree; late snapshots do not reconstruct full aggregate scope. Ordinary003 calibration-source wrapper also exits0; no heldout quality inference. These are observed profiles, not capacity upper bounds, performance gains or complete aggregate operating qualification.",
+  "consumed_by": [
+    "M1-06",
+    "M1-14"
+  ]
+}

@@ -1,1 +1,4 @@
 *.jsonl filter=lfs diff=lfs merge=lfs -text
+ordinary-*-summary.json filter=lfs diff=lfs merge=lfs -text
+database-native-*.json filter=lfs diff=lfs merge=lfs -text
+database-native-*.log filter=lfs diff=lfs merge=lfs -text

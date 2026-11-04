@@ -60,10 +60,12 @@ refining implementation requirements; do not introduce new approval steps for th
 ## Current M1 execution checkpoint — 2026-11-04
 
 **Implemented with bounded Tested results; no whole M1 package complete.** Native106 source
-preparation remains frozen. Forward107–124 add whole-reading overlays, direct sealed field/set/
-anchor custody, protected finite policy products and operation-scoped reuse.151 native objects
-are managed. Persistent corpus_structure_dev is at124 with its retained source population.
-Rollback-only current-head authoring at124 reports zero native and zero ordinary changes.
+preparation remains frozen. Forward107–125 add whole-reading overlays, direct sealed field/set/
+anchor custody, protected finite policy products and operation-scoped reuse.152 native objects
+are managed. Persistent corpus_structure_dev is at125 with its retained source population.
+Rollback-only current-head authoring at125 reports zero native and zero ordinary changes.
+Native125 adds11passing retained-source reuse controls;13authoring controls, typing and scoped Ruff pass.
+The semantic release remains bc69d3be…: this SQL/authoring repair does not rotate trusted runtime inputs.
 The selected integrated scope passes465nonnative cases and38native cases, including the corrected
 typed-field support expectation; this is not whole-M1 qualification. Failed attempts are retained in the
 [policy/admission evidence](../design_review/evidence/2026-11-04_m1-policy-admission/README.md).
@@ -75,7 +77,7 @@ markers. `extract.m1_annotations` and `extract.m1_candidates` seal reusable upst
 feature/calibrated-instance JSON is separate from release declarations. The same native dependency
 projection controls orchestration hashing, twin selection and origin validation; actual inputs,
 unknown determinants and complete run provenance remain bound. DA-054 implementation is present;
-actual cross-configuration task-reuse qualification remains open.
+actual resolver-only configuration run16 reuses annotations/raw output and publishes a new nondefault result; fitted-policy change qualification remains open.
 
 Release-derived reading assertions enter ordinary consolidation with whole-record selection caps.
 Private records retain candidate standing; public admission supplies effective standing for readers,
@@ -98,7 +100,11 @@ owns their exact pins and restore receipt. New retained-source CPU readings run 
 database through ordinary release admission and owned project initialization. First attempts
 exposed script-level missing initialization/admission steps; they are retained in the
 [CPU reading evidence](../design_review/evidence/2026-11-04_m1-cpu-readings/README.md).
-Actual retained Grinstead–Snell attempt010 reached source_ready after268native model calls, but emitted0located records. The later publication refused changed runtime implementation bytes; run10 was explicitly settled failed, preserving its source-ready cut/reports. The finalized partial [CPU baseline](../design_review/evidence/2026-11-04_m1-cpu-readings/README.md) owns that boundary. No source-only A/B/C references, final fitted instances or five-family quality claims exist yet.
+Actual retained Grinstead–Snell attempt010 reached source_ready after268native model calls, but emitted0located records. The later publication refused changed runtime implementation bytes; run10 was explicitly settled failed, preserving its source-ready cut/reports. The finalized partial [CPU baseline](../design_review/evidence/2026-11-04_m1-cpu-readings/README.md) owns that boundary. Source-only A/B/C acquisition is now complete across all11units:486A/525B/618C readings, registered as immutable passes1–33 under guideline3. C retains270development readings and source-space limitations. These model-assisted references are the accepted finite source assessment route, not independent mathematical truth.
+
+Frozen run14 subsequently completed294actual CPU calls and published464candidate interpretations at cut13 (232raw/232resolver; definition/table only). Actual query/CLI/registered in-process MCP and JSONL/Parquet consumers cover the full464identity census; supported source handoff and refusal paths pass. Forbes run15 also completed nondefault publication; held-out errors remain unused for development. Protected development evaluation1 has0accepted predictions,190missing readings and80unaccepted matching table occurrences. Definition/table fitting has0positive events; other three families have no candidate events. All five attempts refuse a fitted runtime policy. No final feature/calibration instance or five-family quality claim exists.
+
+The observed run14 process tree peaks at4190578KiB complete PSS across1637samples/818.241s, with2incomplete samples. PostgreSQL is outside that tree; separate late backend snapshots are partial. This is measured workload evidence, not a complete aggregate capacity envelope. Cancellation/recovery17→18→19 passes completion fencing and retained-source recovery under125; inference interruption is not demonstrated.
 
 Implementation review and native findings stay in this owning plan:
 
@@ -119,15 +125,19 @@ Implementation review and native findings stay in this owning plan:
 
 
 | M1-INT-F12 | Conflicting auxiliary state proposals discarded actual located value evidence and occurrence identity. Explicit inspection readings now retain typed value alternatives; a separate coherent value hypothesis retains the actual native group. Both remain candidate, same occurrence/different interpretation; no Cartesian expansion or fabricated absence.34 focused tests passed; exact replay of265stored reports retained50definition readings over20occurrences, with112unlocated groups still visible. New candidate universe requires fresh fit/calibration; native/current-source extraction remains open. |
-| M1-INT-F13 | Treating a dense table as one context suppressed every cell under the64interval guard. POLICY3 prepares bounded row/cell targets with complete actual native paths; rich-header text comes from the existing canonical projector.52 focused tests and read-only actual preparation cover all182eligible cells once in26contexts. Rich-child literal/cell assembly is integrating; no table extraction or quality claim yet. |
-| M1-INT-F14 | Independent reference freezing must not require completed CPU extraction. The explicit source-only profile composes retained product/view custody with no annotation/model/resolver/agent stage. Actual final-source runs11/12/13 completed and sealed cuts7/9/11, with one retained-input task each and no annotation/model/resolver/agent tasks. Protected sets1/2/3 freeze all11units in the original origin partitions; fresh A/B source-only authoring is underway. Outputs remain unselected. |
+| M1-INT-F13 | Treating a dense table as one context suppressed every cell under the64interval guard. POLICY3 prepares bounded row/cell targets with complete actual native paths; rich-header text comes from the existing canonical projector.52 focused tests and read-only actual preparation cover all182eligible cells once in26contexts. Rich-child literal/cell assembly is implemented; actual run14 retains182raw table candidates, including80source-reference occurrences. No accepted table quality claim follows. |
+| M1-INT-F14 | Independent reference freezing must not require completed CPU extraction. The explicit source-only profile composes retained product/view custody with no annotation/model/resolver/agent stage. Actual final-source runs11/12/13 completed and sealed cuts7/9/11, with one retained-input task each and no annotation/model/resolver/agent tasks. Protected sets1/2/3 freeze all11units in the original origin partitions; fresh source-only A/B/C authoring and exact-byte protected registration are complete (passes1–33). Outputs remain unselected. |
 
 
 | M1-INT-F15 | A required literal row_identity confused native row location with quoted author labels. ADR-0058 keeps table/cell native location and replaces the required label with meaning-changing row_label: inspected absence can be represented, unknown still blocks admission. Version3 reference format is prepared before first labels; implementation and188focused pure controls passed. No row-header absence or first-column meaning is inferred. Native/family qualification remains open. |
-| M1-INT-F16 | Qualified support reporting lacked an M1 adapter and risked confusing metadata polarity with scientific opposition. ADR-0059 adopts a pinned field-support/citation/assessment ledger and marks scientific comparison unmodeled. Query/CLI/MCP/exact JSON export are implemented. Independent review found a restored coverage-row budget, now corrected with a passing boundary regression. Native controlled accepted publication verifies two readings/four typed field facts with genuine support/custody. Actual source journeys remain open; broader proposition comparison remains explicitly unimplemented follow-on scope. |
+| M1-INT-F16 | Qualified support reporting lacked an M1 adapter and risked confusing metadata polarity with scientific opposition. ADR-0059 adopts a pinned field-support/citation/assessment ledger and marks scientific comparison unmodeled. Query/CLI/MCP/exact JSON export are implemented. Independent review found a restored coverage-row budget, now corrected with a passing boundary regression. Native controlled accepted publication verifies two readings/four typed field facts with genuine support/custody. Actual candidate source journeys cover all464interpretations and selected native handoffs; accepted all-family journeys remain open. Broader proposition comparison remains explicitly unimplemented follow-on scope. |
 | M1-INT-F17 | Ordinary pages hydrated annotation/raw/resolver parse details on every record request (over14MB encoded in the actual baseline), regardless of diagnostic demand. Implemented explicit bounded diagnostic inclusion preserves availability, actual coverage/errors and immutable producer bindings while omitting raw details from SQL selection by default. Inclusion binds continuation identity. The native2MiB/default-page/explicit-refusal control passed at124. |
 | M1-INT-F18 | Formula ANCESTOR retrieval only searched other selected views:49actual formula contexts received no enclosing prose, although21have a complete same-primary paragraph. Implemented POLICY4 adds the nearest complete native enclosure under unchanged2048character/64interval limits, preserving exact primary occurrence and explicit partial closure. A decoder formula span must identify that occurrence before receiving its native supplement.55focused controls passed; actual preparation now supplies23complete enclosures and retains26partial closures. This supplies context, not symbol-binding truth. |
 | M1-INT-F19 | Reference freezing encountered real chart-title/cell projection fields outside current record-anchor support. It now retains the complete chart source in the census/frame, explicitly records unsupported exact record scopes, and continues freezing all source units. It never invents native table-cell addresses or treats unsupported content as absent. Initial failed freeze and passed freeze-002 are retained; independent authors own source limitations. |
+| M1-INT-F20 | Actual frozen-source run14 emitted232raw readings (50definition/182table), with no located assertion/measurement/formula readings, then published464raw/resolver candidate interpretations at cut13. Actual transport/export/census checks pass, but no accepted or five-family output follows. Protected C development grading now reports190missing/80unaccepted occurrences and0accepted readings; policy fits refuse0positive/no-event populations. Targeted native training alignment is investigating exact representability/conditioning before adaptation. This is a failed development quality boundary, not calibrated release success. |
+| M1-INT-F21 | Actual heading cancellation closed run17, rejected its late task result and settled the child. Identical recovery run18 reused a successful retained-ingest task but selected no views: source-view reuse compared the ingestion task69 with the original native producer1. Native125 repairs this by replaying valid reused-run selections tied to the exact declared retained product, current source digest/project/release and full native reuse guard; ordinary own-produced output remains valid even when a retained input is configured. Run-level selected-view authority is preserved, without invented task ownership. All11native controls pass. Actual run19 reuses73→69/74→34, selects only22, joins its actual CPU child and publishes/replays nondefault cut19; cancelled71 has no durable output and is excluded. Initial125publication refused stale deployment admission; normal restricted readmission resolved it without rerunning source. Inference interruption is not demonstrated. |
+| M1-INT-F22 | Actual native formula response is about10KiB, but a1MiB reader-work bound can refuse whole-source-view context hydration. Existing bounded8MiB requests succeed; source/cell whole MCP envelopes are also admitted/refused against their actual duplicated wire size. Retain this source-inspection usability/working-set limit separately from output absence. It establishes no missing source or permission blocker. |
+| M1-INT-F23 | Protected feature-fit alignment reconstructs148contexts/294model reports, but exact complete model roles map only143/270C readings:2/14definition,38/56assertion,14/32measurement,80/80table,9/88formula.48safe positive examples contain118readings;127alignment and25group exclusions remain explicit. Native strict collation retains targets but two108/90-span groups exceed64; training conditioning can omit descriptions/reorder choices, multi-record prefixes expand and no faithful full-pack no-record negative is demonstrated. Repair source-available boundaries/context/ABSENT representation before an efficacy claim; a separate one-step native CPU experiment establishes numerical feasibility only. Preserve the full270denominator and all five quality gates. |
 
 
 Actual retained-source runs also corrected: distinct version2 for retained PDF configuration; no inherited phase0 filter for explicit M1 products; omitted synthetic-separator references decode as None (11 preparation tests passed). Archive24 decoding retains actual native106 PDF reads while current analysis/source execution remain refused. Publication binds canonical JSON text so numeric spelling survives frozen transport; native validation still enforces the typed policy object.
@@ -380,6 +390,20 @@ calling the mechanism conditional must not silently erase the capability.
 | O11 safety/PII/hosted/Transformers interfaces | Explicit sensitive-source/agent or alternative-interface consumer and separate compatibility/evaluation | Deferred at review O11; no hidden fallback, security guarantee or local feature-parity assumption. |
 | Long-term stream attribution/corpus truth/learned escalation | Defined functional need, independent outcome evidence and justified probability/utility assumptions | Deferred at source mathematics/review; no exhaustive stream coalition campaign follows from M1. |
 
+The targeted [native adaptation contracts](../design_review/evidence/2026-11-04_m1-adaptation-contract/README.md)
+ground the next O02/O05/O11 decision without adopting a mechanism. Native grouped supervision can
+carry exact located fields, per-record state choices and cue spans. Explicit character spans can
+broaden to enclosing word tokens during conversion; verify source/token/source identity rather
+than relabel broadened output. Loader sanitization can drop annotations or richer record metadata;
+inspect actual collated targets and retain invalid/unsupported records explicitly. Injection-off
+proposal recall diagnoses nomination, not grouping, semantic fidelity or calibrated precision.
+Latent/anchorless modes and supplied-span scoring are native capabilities but need their concrete
+facade/data contracts; they cannot invent source-available candidates. A compatible full-checkpoint
+configuration can retain domain meaning, whereas changed trusted code or semantic contracts require
+their actual release treatment. Feature-fit origins alone may train/select these alternatives;
+calibration/final labels cannot leak into representation or model selection. Actual C/feature-fit
+gaps decide the bounded route and its required benefit/resource evidence.
+
 ## Qualification and completion
 
 Targeted compile, invariant, numerical and consumer tests run with each coherent implementation
@@ -506,14 +530,14 @@ gates. Earlier receipts retain their exact source/context. No whole M1 package i
 | M1 package | Current implemented boundary | Remaining execution / evidence |
 | --- | --- | --- |
 | 00 | Accepted authority/review artifacts, ADR-0049–0054 | Resolve only remaining governing conflicts and applicable changed-boundary review; preserve UM standing. |
-| 01 | Three original source cuts/27pages/11views retained; final-source snapshots and protected reference sets1/2/3 frozen with origin partitions | Finish independent A/B/C source census/readings and actual reference agreement/limitations. |
+| 01 | Three original source cuts/27pages/11views retained; protected sets1/2/3 and independent A/B/C passes1–33 complete | Preserve source-space limitations and evaluate population sufficiency for each family; no unseen-origin inference. |
 | 02/03 | Released record/state/role/identity and row-label contracts; private/attributed custody and public projections; selected native124 controls pass | Actual all-family supported-source readings and complete evaluator/publication qualification. |
 | 04/05 | Persisted reusable annotations; bounded related contexts, dense cells and POLICY4 native formula enclosures | Actual source routing/omission/reuse journeys; retain26unavailable formula closures and chart-space limits. |
-| 06/07 | Explicit raw CPU producer and separate resolver; resident worker; actual baseline268calls with retained failures/resources | Final-source CPU fidelity, ordinary/dense aggregate resources, cancellation/resume and actual cross-configuration reuse. |
+| 06/07 | Actual run14/15 CPU publications; run16 upstream reuse;125retained-source recovery19 and completion-fenced cancellation17 pass | Five-family fidelity, complete aggregate resource envelope, conditional adaptation and remaining invalidation/recovery scenarios. |
 | 08/09 | Five-family candidate assembly, retained whole-reading alternatives and three bounded numerical templates | Independent real-source quality and fixed-universe coupling benefit disposition; keep unsupported/partial routes explicit. |
 | 10 | Released finite feature/calibrated-instance products, protected fitting and native whole-reading admission; controlled heldout/tamper controls pass | Actual independent-origin feature fit/calibration, frozen final instance and invalidation/counterevidence journeys. |
-| 11/12 | Native accepted field/set/anchor custody and overlays; pinned readers/support/CLI/MCP/export; selected38native union passes | Actual CPU-source public consumers and accepted all-family journeys, evidence/export inspection and recovery. |
-| 13 | Protected source-only sets/frames, origin isolation, pass/grading/finite-cut implementation; fresh A/B underway | Complete C, actual grading and final policy/assessment evidence with no reference rebinding. |
+| 11/12 | Native accepted custody controls and actual464candidate identity census across query/CLI/MCP/exports, selected source handoffs/refusals pass | Evaluated accepted all-family journeys and qualified release/default transition. |
+| 13 | Source-only A/B/C1–33 registered; actual protected development grade and five fitting refusals retained | Obtain useful complete candidate events, valid feature/calibration instances and final assessment; preserve no reference rebinding. |
 | 14/15 | Native gap evidence and cohort comparisons implemented; first actual resource profile measured; whole-plan acceptance open | Final required union, five-family gates, operating/recovery envelope, gap/regression dispositions and NONDEFAULT release acceptance. |
 
 **Execution route:** AC prerequisites are complete. Reconcile source/read/runtime inputs and

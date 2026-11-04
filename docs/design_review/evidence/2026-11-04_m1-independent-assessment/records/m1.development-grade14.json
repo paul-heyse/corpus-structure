@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "m1.development-grade14",
+  "title": "Actual protected development grading and fitting refusal",
+  "group": "M1",
+  "package": "M1-13",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does actual completed run14 support useful complete reading fit and accepted five-family quality?",
+  "answers": [],
+  "method": "Protected evaluation1 against Cpasses23/24 and five actual record-policy-fit attempts on feature_fit origin only.",
+  "commands": [
+    "uv run ci eval run --run 14 --set-id 1 --project m1-source-grinstead-snell --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "development-grade-001-summary.json",
+      "role": null,
+      "sha256": "390058ec08d31ce094d4c404358e815600e5cba03da0fb6fd5db303bfca24b03"
+    },
+    {
+      "path": "attempt-development-grade-001.log",
+      "role": null,
+      "sha256": "363ac5ac1359e11aedf6186f32cdfa7b94d867de15b49951b542c58897befa28"
+    },
+    {
+      "path": "attempt-definition-fit-001.log",
+      "role": null,
+      "sha256": "b24c1507a56e5aec49f124347227b653e2c035454a096cb3fec72955e9097f75"
+    },
+    {
+      "path": "attempt-assertion-fit-001.log",
+      "role": null,
+      "sha256": "d9d6d6cd9effa758bcdbd969c2bad3e7a2289a5d7963ef53b598c2a77d2ca95f"
+    },
+    {
+      "path": "attempt-measurement-fit-001.log",
+      "role": null,
+      "sha256": "d9d6d6cd9effa758bcdbd969c2bad3e7a2289a5d7963ef53b598c2a77d2ca95f"
+    },
+    {
+      "path": "attempt-table-fit-001.log",
+      "role": null,
+      "sha256": "29e2e9cead09e956591809d52011fdb83220b544744b7fcf9250b655f81fc61a"
+    },
+    {
+      "path": "attempt-formula_context-fit-001.log",
+      "role": null,
+      "sha256": "d9d6d6cd9effa758bcdbd969c2bad3e7a2289a5d7963ef53b598c2a77d2ca95f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Development C readings",
+      "value": 270,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Accepted predictions",
+      "value": 0,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Missing occurrences",
+      "value": 190,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Unaccepted matching occurrences",
+      "value": 80,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Fitted runtime policy instances",
+      "value": 0,
+      "of": null,
+      "unit": "instances",
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "Successful evaluator execution exposes a failed quality boundary:0accepted predictions,190missing and80unaccepted source-reference occurrences. Definition/table candidate populations have0whole-reading positive events; three other families have no candidate events. All attempts refuse runtime fitting authority. No calibration or final assessment is performed; heldout origins remain outside development selection.",
+  "consumed_by": [
+    "M1-13",
+    "M1-10",
+    "M1-15"
+  ]
+}

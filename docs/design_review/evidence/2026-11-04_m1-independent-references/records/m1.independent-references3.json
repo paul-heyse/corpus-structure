@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "id": "m1.independent-references3",
+  "title": "Independent source-only A B and adjudicated C reference readings",
+  "group": "M1",
+  "package": "M1-01",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are independent source-only passes acquired and registered as exact attributed bytes on the frozen intended source frames?",
+  "answers": [],
+  "method": "Separate source-only Sol6.1high authoring, protected A/B disagreement packets, independent C source recensus and exact-byte protected registration.",
+  "commands": [],
+  "agents": [
+    {
+      "role": "independent A",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Source-only frozen frames; C also receives actual protected A/B disagreement packet, no production predictions"
+    },
+    {
+      "role": "independent B",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Source-only frozen frames; C also receives actual protected A/B disagreement packet, no production predictions"
+    },
+    {
+      "role": "adjudication C",
+      "model": "gpt-6.1-sol high",
+      "brief": null,
+      "separation": "Source-only frozen frames; C also receives actual protected A/B disagreement packet, no production predictions"
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "author-A-v3",
+      "role": null,
+      "sha256": "c275c4c3971e01830a351f1b2f1a77db00617bf46138bea8afd9a5b5809a49b1"
+    },
+    {
+      "path": "author-B-v3",
+      "role": null,
+      "sha256": "36ea717c6f3d816a1fa5539385a3243267c9876af541f4633bbb326aac343306"
+    },
+    {
+      "path": "author-C-v3",
+      "role": null,
+      "sha256": "20402c20da0edb7746a8cb71d1b7987ab203f171d63a730810a143328a43a840"
+    },
+    {
+      "path": "registration-A-001",
+      "role": null,
+      "sha256": "50f6a06d793485bc723e3fb1e16201b129d7ee9846f9240101a33664e46ca818"
+    },
+    {
+      "path": "registration-B-001",
+      "role": null,
+      "sha256": "3246a85a722f74d08a70e55286c2590fc4491efe33b6477c12ea6aa07da1e649"
+    },
+    {
+      "path": "registration-C-001",
+      "role": null,
+      "sha256": "b16e6136221b8101ffbe2afba0a2adffa7b42df6904ab7d773d7be6c9375b0cc"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "A readings",
+      "value": 486,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "B readings",
+      "value": 525,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "C readings",
+      "value": 618,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Protected registered passes",
+      "value": 33,
+      "of": null,
+      "unit": "passes",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All11units have attributed A/B/C passes1–33 under BC69/guideline3. Counts486A/525B/618C include270development Creadings. Explicit source-space/ambiguity limitations remain; these are accepted model-assisted reference judgments, not mathematical truth or five-family quality. Source-only freeze preceded predictions; authors did not inspect production predictions.",
+  "consumed_by": [
+    "M1-01",
+    "M1-13",
+    "M1-15"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-publication124",
+  "title": "Actual retained-source CPU reading publication",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do frozen compatible CPU methods complete actual source work and ordinary nondefault publication?",
+  "answers": [],
+  "method": "Normal owned release admission/initialization, retained native products, actual resident FP32 CPU workers, final cuts and consolidation.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-011",
+      "role": null,
+      "sha256": "01c492f6ac7b7c820e4ae98c9a8a61fd7af579a31b426172caa5ec7ed6d187c2"
+    },
+    {
+      "path": "attempt-011.log",
+      "role": null,
+      "sha256": "9114072cce3ae3d53c9b283df2c2f47840f35b2d033b65454bd99a317e26de99"
+    },
+    {
+      "path": "attempt-012",
+      "role": null,
+      "sha256": "b70c247ec18933bcdb5932138a4d9e29e477078ce6bf864fd96e70e664d9ef88"
+    },
+    {
+      "path": "attempt-012.log",
+      "role": null,
+      "sha256": "838efaa424b0cecef3662031fa2b51bc45fc0100426815a2647e5174a724feba"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Development model calls",
+      "value": 294,
+      "of": null,
+      "unit": "calls",
+      "note": null
+    },
+    {
+      "name": "Development source elapsed seconds",
+      "value": 471.43192962200555,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Development final cut",
+      "value": 13,
+      "of": null,
+      "unit": "cut id",
+      "note": null
+    },
+    {
+      "name": "Calibration-source final cut",
+      "value": 15,
+      "of": null,
+      "unit": "cut id",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Actual run14 completes294native calls and publishes cut13/revision1 with212ordinary reports/500occurrences; all464raw/resolver interpretations are candidates from definition/table only. Run15 also completes nondefault Forbes publication cut15/revision1; heldout prediction errors remain unused for development. Children join. No PDF conversion/OCR/recognition rerun. This establishes execution/publication, not quality, calibration, complete resources or M1 release.",
+  "consumed_by": [
+    "M1-07",
+    "M1-11",
+    "M1-14"
+  ]
+}

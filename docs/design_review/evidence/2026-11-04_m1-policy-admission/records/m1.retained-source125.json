@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "m1.retained-source125",
+  "title": "Retained native product reuse and forward admission125",
+  "group": "M1",
+  "package": "M1-04",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does declared retained-product source reuse preserve ordinary producer behavior and exact custody after cancellation?",
+  "answers": [],
+  "method": "Native source controls, persistent frozen forward transition, rollback-only empty-head authoring and unchanged semantic release check.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_retained_source_reuse_native.py -q",
+    "uv run pytest python/corpus-structure/tests/semantic/test_native_candidate_cli.py -q",
+    "uv run ci db migrate --json",
+    "uv run ci schema native-candidate --out docs/design_review/evidence/2026-11-04_m1-policy-admission/current-head-026 --json",
+    "just types"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "current-head-025/native_operations.json",
+      "role": null,
+      "sha256": "72a8c98854dac9afa1888ec4f59d0798a548437ac626fde5f8c956757877e1e5"
+    },
+    {
+      "path": "current-head-026/native_operations.json",
+      "role": null,
+      "sha256": "25217f0fc50a6136380690b88dea5cb524d1145639d6a1c7ce61b64cf70a09dc"
+    },
+    {
+      "path": "attempt-native-source-reuse125.log",
+      "role": null,
+      "sha256": "8355ac25fc2f76ef1fbd3497c02bf7fc5ec88110e3492df5f45b0c3622af85f3"
+    },
+    {
+      "path": "attempt-upgrade-020.log",
+      "role": null,
+      "sha256": "b055db9e491739b3413a6f0ac6797d74bf8217d171ec31a674ad64de586811e6"
+    },
+    {
+      "path": "attempt-current-head-026.log",
+      "role": null,
+      "sha256": "89f1ff4e339c3dfb47ac99095ae975b48d4be20f011fb9e4a7cc67d8d0a52a20"
+    },
+    {
+      "path": "attempt-release-identity125.log",
+      "role": null,
+      "sha256": "ea2483ef8e7711fc5fba51c8138165e5565ceaefa21cfd418c1831ed7a4d7c63"
+    },
+    {
+      "path": "attempt-authoring-tests125.log",
+      "role": null,
+      "sha256": "befe21463d05165968a05b6995e697be295f4cd2213e7205d7c5af46bbd47473"
+    },
+    {
+      "path": "attempt-types-125.log",
+      "role": null,
+      "sha256": "f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726"
+    },
+    {
+      "path": "attempt-ruff-125.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native controls passed",
+      "value": 11,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Authoring controls passed",
+      "value": 13,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Current-head native/ordinary operations",
+      "value": "0/0",
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Native125 manages152objects and fixes retained source selection while preserving own-produced outputs, exact pin/document/project/release/content custody and complete valid-reuse binding. Eleven native cases and13authoring cases pass. Current-head authoring is empty; BC69 semantic release unchanged. Actual recovery is recorded separately; no reading quality or whole-M1 qualification.",
+  "consumed_by": [
+    "M1-04",
+    "M1-06",
+    "M1-14"
+  ]
+}

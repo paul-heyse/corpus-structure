@@ -1,50 +1,54 @@
 # Status
-_Updated2026-11-04; selected AC complete; M1 implementation/qualification continues._
+_Updated2026-11-04; selected AC complete; M1 execution continues._
 
 ## Accepted foundation
 
 - [AC §15](docs/plans/audit-closure_2026-11-03.md#15-approved-final-acceptance-and-m1-handoff--2026-11-04)
-  closes selected AC00–14/CA01–09/F01 on71a78774/native105:4008 selected passes,
-  680 complete native contexts, actual provider/managed journeys and hygiene.
+  closes selected AC00–14/CA01–09/F01 on71a78774/native105:4008selected passes,
+  680complete native contexts, actual provider/managed journeys and hygiene.
   Eight opt-in host-auth crash tests remain not_run outside that selection; Rust has no tests.
   Those receipts establish no M1 family quality, calibration or capacity.
 - Prior UM standing, legacy native99/run6 and operational defaults remain unchanged.
 
 ## Development workflow
 
-- Persistent corpus_structure_dev on5434 retains the real source population and is at native124.
-  Operator paul has development administration rights; all six actual purpose connections passed.
-  [ADR-0056](docs/adr/0056-persistent-development-database.md): disposable databases are not
-  required for ordinary work. Isolated functional tests retain purposeful isolation.
+- Persistent corpus_structure_dev on5434 retains real source products at native125/152objects.
+  Operator paul has development administration rights; six actual purpose connections passed.
+  [ADR-0056](docs/adr/0056-persistent-development-database.md) removes mandatory disposable DBs.
+  All worktrees are removed. No PDF conversion/OCR/recognition reran in this increment.
 
 ## Current M1 checkpoint
 
-- [M1 checkpoint](docs/plans/first-production-milestone_2026-11-03.md#current-m1-execution-checkpoint--2026-11-04)
-  owns all remaining scope and current implementation findings. No whole M1 package is complete.
-- [ADR-0057](docs/adr/0057-m1-retained-reading-execution.md) carries source-reading admission
-  and separates reusable raw CPU extraction from finite reading resolution. Prior decisions survive.
-- Implemented: explicit readings profile/source-state/occurrence work, native raw diagnostics,
-  separate resolution, released LinkML policy products, protected fitting/calibration, complete
-  reading assertion/support transport, native overlays/caps and effective-standing consumers.
-- Forward107–124 manage151 native objects, preserving frozen predecessors. Persistent upgrades
-  passed. Empty-current-head authoring at124 passed0 native/0 ordinary changes.
-- Passed2026-11-04:465selected nonnative and38selected native M1 cases, integrated typing,
-  scoped Ruff and documentation checks. Corrected native support expectation retains typed field
-  values. Full M1 test-all/hygiene remain not_run. Historical native bootstrap runs serially.
-- [Policy/native evidence](docs/design_review/evidence/2026-11-04_m1-policy-admission/README.md)
-  retains authoring, forward upgrades and failed attempts. Controlled native fit/calibration/accepted publication passed at117, with tamper refusals.
-- [Source evidence](docs/design_review/evidence/2026-11-04_m1-source-populations/README.md):
-  27 actual excerpt pages/11 pinned analysis views, partial/unknown formula/cell health retained.
-  [CPU readings](docs/design_review/evidence/2026-11-04_m1-cpu-readings/README.md) are being retried
-  through normal release admission/owned initialization. Baseline run10 reached source_ready with
-  268calls/0records, then publication refused changed code; it is settled failed. Repaired native124
-  CPU development run14 is active; no current source-quality claim.
-- Source-only runs11–13 finished/sealed unselected results; protected sets1–3 freeze all11units
-  under releasebc69d3be…/guideline3 before fresh independent Sol6.1 high A/B authoring, now active.
-  No conversion/OCR/recognition reran. All worktrees are removed. Actual source-only consumers pass;
-  candidate/accepted-source follow-up, C and remaining qualification are open.
+- [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md#current-m1-execution-checkpoint--2026-11-04)
+  owns remaining scope/findings. No whole M1 package is complete.
+- [ADR-0057](docs/adr/0057-m1-retained-reading-execution.md),0058/0059 own retained source
+  readings, row-label semantics and field-support reporting. Scientific comparison is unmodeled.
+- Implemented: reusable annotation/raw/resolution operations, released field/state/identity
+  contracts, protected finite policy fitting/calibration, native overlays/direct custody and
+  bounded query/CLI/registered MCP/export/support consumers.
+- Native125 fixes retained-source reuse.11native/13authoring cases, typing/Ruff and empty-head
+  authoring passed; releasebc69d3be… is unchanged. Prior selected465pure/38native results remain
+  bounded124receipts. Whole M1 test-all/hygiene are not_run while functional scope remains open.
+- Source-only snapshots11–13 and protected sets1–3 retain27pages/11views across three origins.
+  Independent source-only A/B/C acquisition and exact registration complete:passes1–33,
+  486A/525B/618C readings, including270development Creadings and explicit limitations.
+- Actual CPU runs14/15 publish nondefault cut13/15. Run14 makes294native calls and retains
+  464candidate interpretations (definition/table only). Actual public consumers complete the
+  full464identity census and selected native handoffs/refusals; accepted all-family remains open.
+- Actual resolver-only run16 reuses upstream products. Cancellation17 fences late output;
+  repaired125recovery19 reuses retained source and publishes/replays cut19. Defaults unchanged.
+  Inference interruption is not demonstrated.
+- [Protected development assessment](docs/design_review/evidence/2026-11-04_m1-independent-assessment/README.md)
+  fails quality:0accepted readings,190missing/80unaccepted occurrences. All five fitting attempts
+  refuse runtime authority (0positive/no events); no final feature/calibration policy exists.
+- [Alignment](docs/design_review/evidence/2026-11-04_m1-training-alignment/README.md) maps143/270
+  readings exactly;48safe examples cover118. Source-boundary/context/negative-conditioning gaps
+  remain. A separate one-step CPU numerical-feasibility experiment is active; no efficacy claim.
+- Run14 sampled process-tree peak PSS4190578KiB; PostgreSQL excluded and late backend snapshots
+  partial. Complete aggregate resource/capacity qualification remains open.
 
 ## Next
 
-Complete actual retained-source CPU execution/reuse, independent A/B/C and protected fitting. Held-out calibration,
-five-family gates, resources, consumers/recovery and NONDEFAULT release acceptance remain open.
+Repair concrete representation/context gaps and reconcile reference applicability for implementation
+successors while retaining original authorship. Then fresh predictions, protected feature fit,
+held-out calibration/final assessment, five-family gates and remaining M1 release qualification.
