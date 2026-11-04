@@ -16,7 +16,6 @@ from typing import Any
 from pydantic import BaseModel
 
 from corpus_structure.core.tex import tokens as tex_tokens
-
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
@@ -124,8 +123,7 @@ def _first_exact_formula_use(source_text, formula_pieces, spelling):
         # accepting a sum as a declared symbol would need semantic authority.
         return None
     expression = re.compile(
-        r"(?<![\w\\])" + re.escape(spelling) + r"(?!\w)"
-        if identifier else re.escape(spelling)
+        r"(?<![\w\\])" + re.escape(spelling) + r"(?!\w)" if identifier else re.escape(spelling)
     )
     runs = []
     for piece in formula_pieces:
@@ -135,7 +133,7 @@ def _first_exact_formula_use(source_text, formula_pieces, spelling):
             runs.append([piece])
     for run in runs:
         origin = run[0]["start"]
-        quoted = source_text[origin:run[-1]["end"]]
+        quoted = source_text[origin : run[-1]["end"]]
         starts = ends = set()
         if not identifier:
             # The shared positioned lexer is the sole TeX lexical authority.
@@ -749,9 +747,7 @@ def _assemble(
             elif symbol["state"] == meaning["state"] == "present":
                 spelling = symbol.get("original", "")
                 formula_pieces = [anchors[key] for key in role_anchors["formula"]]
-                first_use = _first_exact_formula_use(
-                    context.primary.text, formula_pieces, spelling
-                )
+                first_use = _first_exact_formula_use(context.primary.text, formula_pieces, spelling)
                 if first_use is not None:
                     anchors[first_use["anchor_id"]] = first_use
                     extra_occurrence.append(first_use)

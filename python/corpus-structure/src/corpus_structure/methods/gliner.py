@@ -352,7 +352,9 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
     if any(p.device.type != "cpu" or p.dtype != torch.float32 for p in model.parameters()):
         raise GlinerRefused("resident weights are not FP32 CPU")
     expected_splitter = (
-        UnicodeCodepointSplitter if profile.version == CODEPOINT_PROFILE else WhitespaceTokenSplitter
+        UnicodeCodepointSplitter
+        if profile.version == CODEPOINT_PROFILE
+        else WhitespaceTokenSplitter
     )
     if type(model.processor.word_splitter) is not expected_splitter:
         raise GlinerRefused("resident splitter differs from the selected recipe")

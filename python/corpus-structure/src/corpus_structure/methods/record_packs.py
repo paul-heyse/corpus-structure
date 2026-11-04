@@ -137,9 +137,16 @@ def formula_pack_variants(prepared, *, descriptions=None, source_inspection=Fals
     released roles, choices and occurrence/first-use policy remain unchanged.
     """
     return tuple(
-        (variant, anchor, family_pack(
-            prepared, contract="FormulaRecordFields", anchor_role=anchor,
-            descriptions=descriptions, source_inspection=source_inspection,
-        ))
+        (
+            variant,
+            anchor,
+            family_pack(
+                prepared,
+                contract="FormulaRecordFields",
+                anchor_role=anchor,
+                descriptions=descriptions,
+                source_inspection=source_inspection,
+            ),
+        )
         for variant, anchor in (("symbol_binding", "symbol"), ("formula_reading", "formula"))
     )

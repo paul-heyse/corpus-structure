@@ -17,6 +17,7 @@ from corpus_structure.ingest.sentences import SentenceConfig, pipeline
 from corpus_structure.methods.gliner import (
     WHITESPACE_PROFILE,
     GlinerInput,
+    GlinerPack,
     GlinerProfile,
     GlinerRefused,
 )
@@ -71,12 +72,15 @@ def _prose_formula_scope(view, context, group):
     if not isinstance(value, dict):
         return None
     try:
-        evidence = context.map_span(value["start"], value["end"], literal=value["text"],
-                                    allow_multiple=True)
-    except (KeyError, TypeError, ContextRefused):
+        evidence = context.map_span(
+            value["start"], value["end"], literal=value["text"], allow_multiple=True
+        )
+    except KeyError, TypeError, ContextRefused:
         return None
-    if not evidence or not all(isinstance(p, NativeSpanEvidence)
-                               and p.source.source_view_id == view.ref.id for p in evidence):
+    if not evidence or not all(
+        isinstance(p, NativeSpanEvidence) and p.source.source_view_id == view.ref.id
+        for p in evidence
+    ):
         return None
     return NativeRecordGroup(
         (RoleInput("scope", native_pointer=view.ref.section_pointer),),
@@ -218,11 +222,13 @@ def configured_pack_variants(prepared, cfg):
     from corpus_structure.methods.record_packs import formula_pack_variants
 
     packs = configured_packs(prepared, cfg)
-    variants = {family: (("default", FAMILIES[family][1], pack),)
-                for family, pack in packs.items()}
+    variants: dict[str, tuple[tuple[str, str, GlinerPack], ...]] = {
+        family: (("default", FAMILIES[family][1], pack),) for family, pack in packs.items()
+    }
     if cfg.policy == POLICY_V5:
         variants["formula_context"] = formula_pack_variants(
-            prepared, descriptions=cfg.pack_descriptions.get("formula_context"),
+            prepared,
+            descriptions=cfg.pack_descriptions.get("formula_context"),
             source_inspection=cfg.source_inspection,
         )
     return variants
@@ -366,14 +372,21 @@ class M1Candidates:
         assemblies = []
         coverage = []
         details["execution"] = [
-            dict(context=index, family=family, outcome="pending", reason="not yet executed",
-                 **(dict(variant=variant, anchor_role=anchor) if cfg.policy == POLICY_V5 else {}))
+            dict(
+                context=index,
+                family=family,
+                outcome="pending",
+                reason="not yet executed",
+                **(dict(variant=variant, anchor_role=anchor) if cfg.policy == POLICY_V5 else {}),
+            )
             for index, selection in enumerate(prepared_source.selections)
             for family in selection.families
             for variant, anchor, _ in packs[family]
         ]
-        execution = {(row["context"], row["family"], row.get("variant", "default")): row
-                     for row in details["execution"]}
+        execution = {
+            (row["context"], row["family"], row.get("variant", "default")): row
+            for row in details["execution"]
+        }
         for region in prepared_source.regions:
             for family in region.families:
                 coverage.append(
@@ -413,27 +426,44 @@ class M1Candidates:
             except ContextRefused as error:
                 for family in selection.families:
                     for variant, anchor, _ in packs[family]:
-                        execution[index, family, variant].update(outcome="limited", reason=str(error))
-                        metadata = (dict(variant=variant, anchor_role=anchor)
-                                    if cfg.policy == POLICY_V5 else {})
-                        details["reports"].append(dict(
-                            context=index, family=family, outcome="limited", reason=str(error),
-                            **metadata,
-                        ))
+                        execution[index, family, variant].update(
+                            outcome="limited", reason=str(error)
+                        )
+                        metadata = (
+                            dict(variant=variant, anchor_role=anchor)
+                            if cfg.policy == POLICY_V5
+                            else {}
+                        )
+                        details["reports"].append(
+                            dict(
+                                context=index,
+                                family=family,
+                                outcome="limited",
+                                reason=str(error),
+                                **metadata,
+                            )
+                        )
                         scope = f"{selection.region}:{selection.start}:{selection.end}"
                         if metadata:
                             scope += f":{variant}"
-                        coverage.append(CoverageDraft(
-                            family=family, scope=scope, outcome="partial", reason=str(error),
-                        ))
+                        coverage.append(
+                            CoverageDraft(
+                                family=family,
+                                scope=scope,
+                                outcome="partial",
+                                reason=str(error),
+                            )
+                        )
                 continue
             for family, variant, anchor, pack in (
-                (family, variant, anchor, pack) for family in selection.families
-                for variant, anchor, pack in packs[family]
+                (requested_family, variant, anchor, pack)
+                for requested_family in selection.families
+                for variant, anchor, pack in packs[requested_family]
             ):
                 contract = FAMILIES[family][0]
-                metadata = (dict(variant=variant, anchor_role=anchor)
-                            if cfg.policy == POLICY_V5 else {})
+                metadata = (
+                    dict(variant=variant, anchor_role=anchor) if cfg.policy == POLICY_V5 else {}
+                )
                 scope = f"{selection.region}:{selection.start}:{selection.end}"
                 if metadata:
                     scope += f":{variant}"
@@ -475,12 +505,13 @@ class M1Candidates:
                         threshold=cfg.threshold,
                         check_active=ctx.check_active,
                     )
+                    association_diagnostics: list[dict[str, Any]] = []
                     report_entry = dict(
                         context=index,
                         family=family,
                         report=_retained_report(report, details["effective_profiles"]),
                         diagnostics=[],
-                        association_diagnostics=[],
+                        association_diagnostics=association_diagnostics,
                         **metadata,
                     )
                     details["reports"].append(report_entry)
@@ -505,7 +536,7 @@ class M1Candidates:
                                     "or formula-only reading",
                                 ),
                             )
-                            report_entry["association_diagnostics"].extend(
+                            association_diagnostics.extend(
                                 asdict(d) for d in native_diagnostics
                             )
                     from corpus_structure.methods.record_readings import native_model_observations
@@ -529,7 +560,7 @@ class M1Candidates:
                             if _formula_matches_primary(context, group, selection.region):
                                 supplements[group_index] = native_groups[0]
                             else:
-                                report_entry["association_diagnostics"].append(
+                                association_diagnostics.append(
                                     dict(
                                         group=group_index,
                                         reason="formula span does not identify the selected native "
@@ -544,9 +575,12 @@ class M1Candidates:
                             if supplement is not None:
                                 supplements[group_index] = supplement
                             else:
-                                report_entry["association_diagnostics"].append(
-                                    dict(group=group_index, reason="decoded prose formula has no "
-                                         "exact primary-source span; no native scope attached")
+                                association_diagnostics.append(
+                                    dict(
+                                        group=group_index,
+                                        reason="decoded prose formula has no "
+                                        "exact primary-source span; no native scope attached",
+                                    )
                                 )
                         elif family == "table":
                             raw_value = group.get("cell_value")
@@ -559,7 +593,7 @@ class M1Candidates:
                                         allow_multiple=True,
                                     )
                                 except (KeyError, TypeError, ContextRefused) as error:
-                                    report_entry["association_diagnostics"].append(
+                                    association_diagnostics.append(
                                         dict(group=group_index, reason=str(error))
                                     )
                                     continue
@@ -629,8 +663,13 @@ class M1Candidates:
                 except GlinerRefused as error:
                     execution[index, family, variant].update(outcome="limited", reason=str(error))
                     details["reports"].append(
-                        dict(context=index, family=family, outcome="limited", reason=str(error),
-                             **metadata)
+                        dict(
+                            context=index,
+                            family=family,
+                            outcome="limited",
+                            reason=str(error),
+                            **metadata,
+                        )
                     )
                     coverage.append(
                         CoverageDraft(
@@ -649,8 +688,13 @@ class M1Candidates:
                                 reason="resident worker failed; no automatic restart/fallback",
                             )
                     details["reports"].append(
-                        dict(context=index, family=family, outcome="failed", reason=str(error),
-                             **metadata)
+                        dict(
+                            context=index,
+                            family=family,
+                            outcome="failed",
+                            reason=str(error),
+                            **metadata,
+                        )
                     )
                     return UnitResult(
                         ref=unit.ref,
