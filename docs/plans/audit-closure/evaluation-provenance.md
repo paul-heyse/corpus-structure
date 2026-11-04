@@ -147,6 +147,15 @@ limitation. An operation requiring reproducible decision provenance refuses that
 rows. Any later historical recovery requires independently retained source evidence and a separately
 declared provenance correction, not silent backfill. No historical regrading is part of AC12.
 
+**Implementation contract resolution (2026-11-03):** new protected decisions accept exact string,
+null or absent chapter metadata, matching `SplitDocument.chapter`; null and empty strings retain
+the existing common group. Python and native admission explicitly refuse other JSON chapter
+types. This narrows the former permissive Python `str()` conversion: it does not silently adopt
+PostgreSQL's different boolean/container spellings or pretend arbitrary JSON has a chapter meaning.
+General document metadata stays unrestricted. Existing assignments and grades remain usable under
+their recorded provenance; a new split invocation (including reference creation that requests one)
+with unsupported historical chapter metadata refuses rather than rewriting or guessing its group.
+
 Keep `dev/test/reserved` separate from M1 origin/training/qualification partitions, source-origin
 groups and fixed reference-sampling metadata. Carry existing sample procedure/version/seed/frame
 metadata forward unchanged; the split receipt references its own population. Source/reference

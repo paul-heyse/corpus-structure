@@ -2,9 +2,16 @@
 
 ## Audit-closure target
 
-**Accepted target; implementation and qualification Proposed (2026-11-03).** Protected split publication atomically retains actual policy, seed, population, prior-assignment basis, reasons and algorithm version. Exact replay preserves the original receipt; historical unrecoverable provenance stays unavailable. M1 origin/sample metadata remains distinct.
+**Implemented source; assembled qualification remains open (2026-11-03).** Protected split publication atomically retains actual policy, seed, population, prior-assignment basis, reasons and algorithm version. Exact replay preserves the original receipt; historical unrecoverable provenance stays unavailable. M1 origin/sample metadata remains distinct.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
+
+New split decisions accept exact string, null or absent chapter metadata. Null and empty strings
+share the existing unlabelled group. Other JSON types explicitly refuse at the evaluator operation;
+the former Python `str()` coercion is no longer a grouping contract. This restriction does not
+narrow general document metadata or rewrite historical assignments/grades. Unsupported historical
+chapter metadata can prevent a new split invocation, including automatic assignment during
+reference creation; existing stored split reads retain their explicit provenance limits.
 
 
 ## M1 independent record references

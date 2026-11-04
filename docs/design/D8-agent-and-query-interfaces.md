@@ -2,7 +2,7 @@
 
 ## Audit-closure target
 
-**Accepted target; implementation and qualification Proposed (2026-11-03).** Answers distinguish selection, assessment and establishment. Coverage selects before hydration. Evidence references page separately from explicit immutable payload reads. Versioned bounded walks retain cycles and parallel edges, with exact-or-refuse deterministic replay. Producer and recognition generation bindings retain truthful configured/reported/manual/verified meanings.
+**Implemented source; assembled qualification remains open (2026-11-03).** Answers distinguish selection, assessment and establishment. Coverage selects before hydration. Evidence references page separately from explicit immutable payload reads. Versioned bounded walks retain cycles and parallel edges, with exact-or-refuse deterministic replay. Producer and recognition generation bindings retain truthful configured/reported/manual/verified meanings.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 

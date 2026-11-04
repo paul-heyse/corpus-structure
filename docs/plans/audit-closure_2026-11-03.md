@@ -1,6 +1,6 @@
 # Audit closure: semantic contracts, owned execution and bounded consumers
 
-**Status:** Proposed execution series; implementation in progress; complete qualification remains open.
+**Status:** Authorized execution series; implementation integrated; targeted verification and complete qualification have distinct scope. Full AC14 acceptance remains open.
 **Created:** 2026-11-03. **Target behavior:** Proposed. Operator accepted RC01–RC12 as planning
 decisions on2026-11-03. This document owns new review-derived package state, shared decisions,
 dependencies and combined acceptance. Writing the series does not authorize product implementation.
@@ -133,7 +133,7 @@ The table owns current package state. An in-progress package includes unintegrat
 | AC11 — In progress | Bounded evidence inventory/source reads and versioned exact bounded walks | AC10 pin/standing products; I02 settled before traversal implementation |
 | AC12 — In progress | Immutable split decision inputs/results with honest legacy provenance | AC00 RC10; existing evaluator/forward-native mechanism; independent of AC11 |
 | AC13 — In progress | Coherent forward native/release/query transitions and retirement across capabilities | Participates as each changed contract integrates; no final catch-all consumer deferral |
-| AC14 | Complete applicable functional/provider/nonfunctional union and M1 impact handoff | All selected functional scope integrated; final source and evidence applicability reconciled |
+| AC14 — In progress | Complete applicable functional/provider/nonfunctional union and M1 impact handoff | All selected functional scope integrated; final source and evidence applicability reconciled |
 
 An early contract agreement can permit dependent design; runtime integration requires the working
 validated product. Among ready packages prioritize source faithfulness, claim ownership and ordinary
@@ -249,46 +249,116 @@ maintenance and staged whitespace checks are reported with the publication commi
 
 ## 11. Execution checkpoint — 2026-11-03
 
-Operator authorized the complete series and retirement in its affected footprint. Execution
-starts at clean main `1240f9b7`, replacing the authoring-time dirty101 premise. Native101 is
-frozen from100; bounded M1 receipts remain historical prerequisite evidence, not AC qualification.
-ADR-0054 realizes RC01–RC12 at existing owners. Root owns shared products, forward-native
-chain and integration; isolated semantic/source/serving workers own coherent capability changes.
-AC00–AC13 are in progress across integrated slices and isolated worker assignments; none is complete. AC14 remains Planned.
-I04 must confirm applicable author/install/admit readiness for the new forward transition.
-Existing plans, application selections and the live native99 corpus remain unchanged.
+The operator authorized the complete series and affected-footprint retirement, followed by M1
+plan revision and resumed execution. The latest instruction ends this turn after integrating
+current work, removing secondary worktrees, resolving type/lint/targeted failures and updating
+this checkpoint. It does not declare AC14 complete or authorize skipping the AC → revised M1
+sequence. M1 plans remain unchanged and resumed M1 work has not started.
 
-### AC09 inference slice
+Execution began at clean main `1240f9b7`, replacing the plan-authoring dirty101 premise. Frozen
+native101 remains unchanged. ADR-0054 realizes RC01–RC12 at the existing architectural owners.
+All semantic/source/serving worker contributions are integrated on main. The three secondary
+worktrees were removed after unique work was integrated and their remaining historical log bytes
+were checked identical to their committed content. Branch history and all evidence remain.
 
-**Implemented; bounded Tested, 2026-11-03.** `semantic/inference.py` now uses the returned
-new-insertion frontier for unary and both transitive join orientations, retaining the existing
-private accumulated native workspace, atomic publication and post-fixed-point direct witnesses.
-One typed JSONB frontier parameter avoids a parameter-count-dependent ABI. The full accumulated
-rescan loop is removed. `uv run pytest python/corpus-structure/tests/semantic/test_inference.py -q`
-passed all13 native cases. This closes only the inference slice; shared candidate indexes and
-final applicability against AC02–04 changes remain open. No speed/capacity claim is made.
+### Integrated contracts and native foundation
 
-### Integrated semantic contract slice
+**Implemented source, 2026-11-03; complete assembled qualification open.** Current semantic
+compiler16 produces releases; immutable product readers support14/15/16. Execution compiler24,
+RuleValue ABI2, coverage recipe4, independent standing dimensions and explicit detail APIs retain
+separate compatibility meanings. Coverage recipe3 keeps its exact historical interpretation.
+Native source inspection/search use version4; incompatible tokens and bindings refuse.
 
-`1e22a724` integrates the first AC01–05 declarations/prepared products, rule-value ABI2,
-explicit source attribute shape and resolution/representative publication rows. The worker's
-bounded checks passed before integration; final assembled applicability remains open. New
-physical products require the next frozen forward transition and current native source
-attribution guards before activation. No source/default database is upgraded by this commit.
+- AC01–05: effective subsets/property behaviors and method result dimensions govern actual
+  admission; operational reference subsets come from the bound execution product, without importing
+  execution classes into the domain namespace. Attributed source assertions, provisional/resolved identities, separate display and
+  scientific representatives, complete rule values and stored machine-readable reasons are
+  integrated. Statistics display annotations belong to the actual properties.
+- AC06–08: executable policy admission precedes effects; four reader callers use owned reads;
+  JIT claims span custody/preparation through synchronized durable settlement. Compatible producer
+  binding is shared across policy/queue/packet/submission/automation. Configured, reported,
+  manual and managed-generation identity strengths remain distinct.
+- AC09: shared candidate preparation and JSONB delta inference retain the whole necessary
+  universe and post-fixed-point direct witnesses within atomic publication.
+- AC10–11: coverage selects the required producer-bound population; standing, inventory and
+  payload access are separate. Native source reads, interactive packet hydration, labels, search,
+  rendered-image egress and complete response envelopes have explicit bounds. Walks retain cycles,
+  parallel edges and deterministic exact-or-refuse replay. These are no measured latency/RSS claims.
+- AC12: protected split decisions freeze ordered policy, actual seed/origin, population, prior
+  assignments, outputs and reasons; replay and immutable legacy-unavailable provenance are
+  explicit. New decisions accept exact string/null/absent chapter metadata; other JSON chapter
+  types refuse, including when reference creation requests new assignment. General document
+  metadata and historical split/grade rows remain unchanged.
+- AC13/I04: new forward102 is authored from frozen101, with hash-bound native inventory,
+  admission and physical CHECK artifacts. Current-head reauthoring compares actual index
+  collations through a pinned Alembic integration; it neither copies the target into reflection
+  nor suppresses differences. Generated staging catalog aliases cannot shadow validator records.
+  The live native99 application database and persistent selections were not upgraded.
 
-### AC12 preparation and I04 checks
+I01's exact Python3.14.10/UCD16/PostgreSQL18.6 builtin-folding qualification and I03's actual managed
+service/application receipts remain in their existing evidence folders. They retain their original
+source/context and do not become fresh final-provider qualification through this integration.
+I02 uses the implemented explicit walk limits/order/refusal route; I04's current bounded native
+controls do not qualify every AC14 consumer or M1 release obligation.
 
-Frozen split-decision preparation retains actual policy ordering, seed origin, complete selected
-population, prior rows and assignments. Its three independent tests and four existing split
-checks passed (`uv run pytest python/corpus-structure/tests/evaluate/test_split_decisions.py
-python/corpus-structure/tests/evaluate/golden/test_split.py -q`). Protected atomic publication,
-native basis validation and consumer migration are still open; AC12 is not complete.
+### Assembled review and finding disposition
 
-`uv run pytest python/corpus-structure/tests/semantic/test_native_inventory.py
-python/corpus-structure/tests/semantic/test_record_migration_native.py -q` passed four bounded
-native controls. The current-head reauthoring-stability node failed because the candidate was
-nonempty; it is not recorded as readiness success. Candidate inspection002 succeeded on owned
-frozen-head/template clones and lists forward operations in the linked evidence folder.
-Inspection001 crossed a source integration and failed with mixed metadata; retain it as failed,
-not applicable baseline evidence. An initial index fixture omitted explicit USING btree in its
-expected SQL and failed; the corrected independent SQL expectation passed.
+The [assembled design review](../design_review/reviews/design_review_audit-closure-assembled_2026-11-03.md)
+continues the original holistic engagement. Its original Revise judgment is retained in Git at
+`de61cc38`; its separately attributed
+[F01 delta](../design_review/reviews/design_review_audit-closure-assembled-f01_2026-11-03.md)
+accepts the corrected producer/coverage boundary at source level. Other review limits remain.
+
+| New review finding | Current disposition / responsible component | Closure evidence and remaining limit |
+|---|---|---|
+| Assembled F01 — producer-bound required coverage | Source correction integrated (`f6d43b9d`); coverage recipe4 consumes the existing compatible producer binding and exact immutable task/configuration identity | Independent general-only/mixed missing/partial/drift/historical cases and independent delta assessment; complete AC14 native/transport applicability remains open |
+
+This table owns only the new review finding. Existing DA identities retain their prior single
+scheduled-disposition owners; neither package integration nor this checkpoint closes those plans.
+
+### Retirement and verification boundary
+
+Removed the raw public reader connection, displaced accumulated inference rescan, eager explanation
+payload form, old current-native split writer and its live caller, unsupported live adjudicate
+configuration, obsolete by-unit advertising, unused producer identity type and competing producer
+version constant. Kept the registered `complete_unit_result` operation, supported historical readers,
+current `core`/`schema` consumers, authored historical forms, frozen migrations, plans and evidence.
+The failed experimental removal of that registered operation is retained and the removal reverted.
+
+**Passed, bounded, 2026-11-03:** final selected integration/consumer suite110 cases and
+non-database suite308 cases on source `e816a212`. The former is mixed; file/recipe labels do not
+classify every case as native. It includes actual PostgreSQL current-head/fresh/forward controls,
+protected semantic/split/claim operations, privilege drift and controlled CLI/MCP/evaluator paths.
+Full `just types`, Ruff, `just ready` and ADR lint passed. The
+[integration record](../design_review/evidence/2026-11-03_audit-closure/records/ac13.forward102.json)
+settles I04's bounded current foundation; it does not close complete AC14. Forward102 is now frozen.
+All commands and superseded failures remain in the linked evidence folder.
+Final maintenance preserves the exact frozen102 bytes. Ruff formatting now excludes frozen
+semantic revision files while lint remains enabled; this formatter-only change leaves tested
+runtime and test source identical to `e816a212`, with final typing/lint/readiness checks passed.
+
+**Failed and retained:** native authoring/admission setup, index expectation/reflection, SQL alias
+and fixture/profile defects, plus simultaneous full-chain installs exhausting the dedicated test
+cluster's shared lock table. Their fixes use the existing owners and serial migration execution;
+no host configuration or historical migration was rewritten. `just docs-check` still reports
+pre-existing library publication targets outside this scope.
+
+**Not_run:** complete `just test-all`/applicable hygiene and final-source actual provider/complete
+CLI–MCP–export union. They remain AC14 obligations. Package rows stay In progress until their
+stated acceptance boundaries are met; this wrap-up is not full-series completion.
+
+### M1 impact to reconcile after AC14
+
+| M1 responsibility | Required reconciliation before resumed scope |
+|---|---|
+| M1-00/02/03/11 shared release/native/evidence | Use current compiler16/execution24 and the frozen AC successor; rebuild affected derived products with attributed values, declared dimensions and current operation bindings. Do not execute predecessor preparation under current code. |
+| M1-04/05/06/07 source preparation/runtime | Consume owned reads, shared compatible preparation and whole claim lifetime; keep CPU extraction policy and native observation outcome distinct from task protocol success. |
+| M1-08/09/10 interpretation/acceptance | Use released behavioral roles, complete RuleValue products, representative policy and typed inability reasons. Finite closure still does not establish uncertain interpretation or scientific truth. |
+| M1-12 actual consumers | Migrate remaining record journeys to independent standing, explicit inventory/payload reads and version4 bounded source contracts; retain producing pins and query custody across continuations/export. |
+| M1-01/13 evaluator populations | Use recorded split decisions without inventing legacy seeds/reasons; keep origin partitions, source-only sampling and reference independence separate. |
+| M1-14/15 qualification/gap loop | Reassess prior receipts by consumed contract and final source/context. AC controls do not satisfy five-family source accuracy, CPU/resource evidence, held-out release gates or NONDEFAULT adoption/rollback. |
+
+Next: finish the remaining AC14 required functional/provider/nonfunctional union against final
+source/context, close its accepted boundary, then revise the M1 coordinator and affected companions
+from this concrete impact account before executing remaining M1 scope. No M1 release, default
+adoption or production accuracy is established by this checkpoint.

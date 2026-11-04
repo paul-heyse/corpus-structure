@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "ac13.forward102",
+  "title": "Forward102 scoped integration and legacy preservation",
+  "group": "Audit closure integration",
+  "package": "AC13",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can current source freeze the supported forward102 transition from immutable101 with coherent native admission and targeted consumer behavior?",
+  "answers": [
+    "I04",
+    "AC13",
+    "AC14 selected controls"
+  ],
+  "method": "Author a prospective transition on owned frozen101 databases, freeze checked artifacts, and execute selected native/consumer and non-database tests on the source committed as e816a212202c22a63392a3100dda11e90d215aa5. This is bounded integration, not complete AC14 qualification.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_pdf_native_consumer_journey.py python/corpus-structure/tests/semantic/test_read_contracts.py python/corpus-structure/tests/semantic/test_audit_closure_native.py python/corpus-structure/tests/semantic/test_native_closure.py::test_model_products_match_frozen_current_native_state python/corpus-structure/tests/semantic/test_native_closure.py::test_current_frozen_head_witness_records_current_authoring_provenance python/corpus-structure/tests/semantic/test_native_closure.py::test_live_cross_purpose_privilege_drift_refuses python/corpus-structure/tests/semantic/test_inference.py python/corpus-structure/tests/semantic/test_split_decisions_native.py python/corpus-structure/tests/semantic/test_index_collation_reflection.py python/corpus-structure/tests/semantic/test_method_dimensions_native.py python/corpus-structure/tests/semantic/test_claim_owner_native.py python/corpus-structure/tests/semantic/test_source_jit_native.py python/corpus-structure/tests/semantic/test_semantic_mcp.py python/corpus-structure/tests/semantic/test_published_region_artifact.py python/corpus-structure/tests/semantic/test_published_section_views.py python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/evaluate/test_record_references_native.py",
+    "uv run pytest python/corpus-structure/tests/semantic/test_audit_closure_semantics.py python/corpus-structure/tests/semantic/test_semantic_reason_producers.py python/corpus-structure/tests/semantic/test_bounded_walks.py python/corpus-structure/tests/semantic/test_configured_coverage.py python/corpus-structure/tests/semantic/test_query_compatibility.py python/corpus-structure/tests/semantic/test_method_dimensions.py python/corpus-structure/tests/semantic/test_identity_resolution.py python/corpus-structure/tests/evaluate/test_split_decisions.py python/corpus-structure/tests/evaluate/golden/test_split.py python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/tests/ingest/test_managed_recognition.py python/corpus-structure/tests/orchestrate/test_registry.py python/corpus-structure/tests/orchestrate/test_policy.py python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_source_contexts.py tests/test_native_math_methods.py python/corpus-structure/tests/semantic/test_reference_split_authority.py python/corpus-structure/tests/semantic/test_composed.py python/corpus-structure/tests/semantic/test_contracts.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author-candidate.py",
+      "role": "owned predecessor authoring",
+      "sha256": "a2ef82f01e9e020918d00886aa5de9011518dac68c2866c42a1672522b267952"
+    },
+    {
+      "path": "prepare-forward.py",
+      "role": "historical untracked draft materialization",
+      "sha256": "5b8933c89a02767377f62cdf431a34bbb625f479e5657a2c2f1109eeb2c987dc"
+    },
+    {
+      "path": "candidate-010",
+      "role": "final prospective native products",
+      "sha256": "110645f9e368d6c968cf4831b27403ab37759a471a64055353ffb26957b23297"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "targeted-native-final-001.log",
+      "role": "110 selected integration and consumer results",
+      "sha256": "d2d7d6d52b306cc6ce89df7cc9ddb2ccb8300b02b1c623d1102b5abb86897fd7"
+    },
+    {
+      "path": "targeted-pure-final-001.log",
+      "role": "308 selected non-database results",
+      "sha256": "6f757ae92e37ea6310a7b73d625fa51c54f9672a6d3c678c982879df7c2beb20"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "selected_integration_consumer_cases",
+      "value": 110,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "selected_non_database_cases",
+      "value": 308,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Forward102 from frozen101 installs and admits on owned databases; current-head reauthoring agrees, privilege drift refuses, protected semantic/split/claim and actual controlled CLI/MCP/evaluator consumer cases pass. Legacy split values and unavailable provenance are preserved. Execution compiler24 resolves operational reference subsets from the bound execution schema. No application database/default was adopted. Complete functional/provider/nonfunctional AC14 qualification and M1 release evidence remain open.",
+  "consumed_by": [
+    "AC13",
+    "AC14",
+    "I04",
+    "ADR-0054"
+  ]
+}

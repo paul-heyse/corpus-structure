@@ -2,7 +2,7 @@
 
 ## Current compiler and compatibility owner
 
-**Accepted target; implementation in progress (2026-11-03).**
+**Implemented source; assembled qualification open (2026-11-03).**
 `semantic.types.SEMANTIC_COMPILER_VERSION` declares the sole current producing compiler;
 `READABLE_COMPILER_VERSIONS` declares supported immutable product reading. Native execution
 projection admission requires the current compiler and exact implementation binding. Product
@@ -12,11 +12,20 @@ a compiler number alone does not establish their compatibility. AC13 owns the co
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
+The current producing semantic compiler is16; immutable product readers cover14/15/16. Execution
+compiler24, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
+coverage recipe3 retains its historical producer universe. Native source inspection/search use
+request/cursor version4; incompatible old requests and query bindings refuse. These version
+declarations do not establish final native, provider or assembled consumer qualification.
+Operational reference subsets derive from the supplied execution schema and are archived in its
+compiled product. Python admission and native semantic-contract projection consume that same bound
+product; domain vocabulary lookup does not stand in for operational authority.
+
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 
 ## Audit-closure target
 
-**Accepted target; implementation and qualification Proposed (2026-11-03).** Released subsets, behavioral memberships, contextual display policy, method dimensions and versioned rule-value products govern generated and native boundaries. Current executable compiler and reader owners govern present-tense compatibility; older numbered descriptions are historical until reconciled by AC13.
+**Implemented source; assembled qualification remains open (2026-11-03).** Released subsets, behavioral memberships, contextual display policy, method dimensions and versioned rule-value products govern generated and native boundaries. Current executable compiler and reader owners govern present-tense compatibility; older numbered descriptions are historical until reconciled by AC13.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 

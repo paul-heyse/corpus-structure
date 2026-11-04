@@ -3,7 +3,13 @@
 **Implemented source / Proposed deployment, 2026-11-03. Tier:** design. **Purpose:** target.
 **Focus:** holistic, informed by targeted library research.
 
-**Decision: Revise for F01, the producer/required-coverage composition gap.** The other inspected
+**Current assessment:** the separately attributed [F01 delta](design_review_audit-closure-assembled-f01_2026-11-03.md)
+accepts the corrected source boundary. Its revised judgments supersede the F01-specific failures
+below. Complete AC14 qualification remains open; the coordinator owns current native/verification
+disposition. The original assessment is
+preserved verbatim in commit `de61cc38`.
+
+**Original inspected-baseline decision: Revise for F01, the producer/required-coverage composition gap.** The other inspected
 responsibilities compose coherently at source level. This judgment neither freezes native102
 nor establishes complete AC14 qualification. The audit-closure coordinator owns disposition,
 integration and acceptance.
