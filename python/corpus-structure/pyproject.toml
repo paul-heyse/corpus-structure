@@ -45,6 +45,7 @@ dependencies = [
     "sqlglot==30.27.0",
     "gliner2[local]==2.1.0",
     "threadpoolctl==3.7.0",
+    "scikit-learn==1.9.1",
 ]
 
 [project.scripts]
