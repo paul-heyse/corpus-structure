@@ -127,7 +127,7 @@ def test_finite_feature_instance_scores_final_reading_without_repeating_extracti
     assert isinstance(events, list)
     (event,) = events
     assert isinstance(event, dict)
-    assert event["outcome"] == "scored" and event["feature_instance_digest"] == instance.digest
+    assert event["outcome"] == "completed" and event["feature_instance_digest"] == instance.digest
     row = result.records[0]
     present_fraction = sum(f["state"] == "present" for f in row["fields"]) / len(row["fields"])
     expected = instance.parameters.intercept + instance.parameters.coefficients[0] * (

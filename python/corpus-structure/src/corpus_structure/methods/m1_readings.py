@@ -201,7 +201,7 @@ class M1Readings:
                         score = score_record(instance, vector, subset=cfg.subset)
                         event.update(
                             final_event_score=score.compatibility_potential,
-                            outcome="scored",
+                            outcome="completed",
                             diagnostics=diagnostics,
                             score=score.model_dump(mode="json"),
                         )
