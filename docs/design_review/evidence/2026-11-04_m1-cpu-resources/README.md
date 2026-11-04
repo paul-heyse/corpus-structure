@@ -1,0 +1,65 @@
+# M1 CPU process-tree resources
+
+**Implemented; bounded sampler sanity only (2026-11-04).** This evidence companion
+captures Linux parent/descendant resource observations for actual M1 journeys. It
+does not establish model quality, workload capacity or complete M1 qualification.
+The M1 coordinator remains the disposition owner.
+
+`sample_tree.py` uses only the Python standard library and `/proc`. It reads each
+process's own CPU ticks, thread count and resident memory and its `smaps_rollup`
+PSS. Summed PSS is the tree's proportional resident share, avoiding the repeated
+shared-page attribution of summed RSS. The separately named `rss_sum_kib` does
+double-count shared pages. Unavailable PSS and discovery errors remain explicit;
+an incomplete PSS sum is not a complete footprint measurement. Swap PSS is retained
+per process when available.
+
+Each JSONL sample includes PID/start-tick identity, parent PID, command, process
+CPU seconds and consecutive-sample CPU delta, threads, proportional memory and
+summed RSS. Aggregate CPU-equivalent cores divide observed own-process CPU deltas
+by the monotonic sampling interval. Parent child-accounting CPU ticks are excluded
+to avoid double-counting. Samples report collection duration, disappearing process
+identities and unavailable readings. The final summary retains observed peaks and
+identities. It never signals the observed tree and stops when the root exits or its
+PID is reused.
+
+Polling is not an atomic snapshot: short-lived processes, final CPU between the
+last sample and exit, and children reparented before discovery can be missed.
+CPU deltas sum only identities seen in consecutive samples; they are observed
+work, not complete process-tree CPU billing. PSS is proportional to all sharers on
+the host, not a claim of exclusively owned physical pages. The sampler's own
+overhead is outside the observed command tree. A cold-start wrapper begins
+observation immediately after spawning the command but cannot capture every
+sub-interval allocation or child. Resource limits and adoption decisions require
+the complete actual journey and its applicable baseline.
+
+For the next authorized ordinary/dense/cancellation command, from the repository
+root, use an unused output name and the actual command after `--`:
+
+```bash
+uv run python docs/design_review/evidence/2026-11-04_m1-cpu-resources/sample_tree.py \
+  --interval 0.5 \
+  --out docs/design_review/evidence/2026-11-04_m1-cpu-resources/ordinary-001.jsonl \
+  -- uv run python docs/design_review/evidence/2026-11-04_m1-cpu-readings/run.py grinstead-snell attempt-010
+```
+
+The command's stdout/stderr remain inherited so the existing journey receipt can
+still capture them. The wrapper returns the command's exit status. Existing output
+files are refused before a command is launched. Use `--pid PID` instead of a
+command only for a deliberately partial attachment.
+
+`attempt-009-attached.jsonl` records an unsuccessful late attachment at
+2026-11-04T09:23:11Z: the root process had already exited, **zero samples**. It is
+retained as `not_run` resource observation, not a zero-memory/CPU result. A prior
+read-only process inventory observed PID2910313 and descendant2916856 alive before
+sampler implementation; their subsequent disappearance is not a measured resource
+outcome.
+
+The bounded sanity command creates one small parent/child pair, checks descendant
+discovery, positive PSS and CPU deltas, thread accounting, root-exit termination,
+and overwrite refusal. It executes no model/PDF/provider/database work:
+
+```bash
+uv run python docs/design_review/evidence/2026-11-04_m1-cpu-resources/check_sampler.py
+```
+
+Its receipt is `sampler-sanity.json`; it establishes sampler mechanics only.
