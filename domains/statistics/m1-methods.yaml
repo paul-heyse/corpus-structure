@@ -1,6 +1,6 @@
 # Explicit candidate-only CPU policy. Default uses baseline packs.
 # described is an experimental, unqualified role-description policy; default adoption is deferred.
-version: m1-candidate-1
+version: m1-candidate-2
 configs:
   ingest.pdf_integrated:
     default:
@@ -28,7 +28,8 @@ configs:
       max_context_chars: 2048
       max_context_pieces: 64
       pack_descriptions: {}
-    described:
+      source_inspection: false
+    described: &described
       snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
       checkpoint: fastino/gliner2.5-base-v1
       revision: 54785d51df8d86a0d8f2eb212fec15871aad2c4d
@@ -131,3 +132,9 @@ configs:
             the restricted object and do not assume real, positive or finite values.
           assumption: Exact stated premise or assumption governing this formula and local declaration.
             Do not invent an assumption from mathematical convention or omit its condition.
+    readings:
+      <<: *described
+      source_inspection: true
+  resolve.m1_readings:
+    default:
+      feature_instances: []
