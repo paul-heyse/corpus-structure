@@ -472,8 +472,9 @@ def test_completed_public_reader_distinguishes_empty_report_from_missing_source(
     assert missing.coverage == ()
 
 
+@pytest.mark.parametrize("no_report_status", ["empty", "failed", "skipped"])
 def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
-    private_source, semantic_reader_engine
+    private_source, semantic_reader_engine, no_report_status
 ):
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
     from corpus_structure.semantic.query import read_snapshot
@@ -486,7 +487,9 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
             family="routing/table", scope="unrouted", outcome="partial", reason="no selected route"
         ),
         CoverageDraft(
-            family="routing/table", scope="unsupported", outcome="unsupported",
+            family="routing/table",
+            scope="unsupported",
+            outcome="unsupported",
             reason="unsupported native region",
         ),
         CoverageDraft(family="table", scope="failed", outcome="failed", reason="worker failure"),
@@ -498,35 +501,60 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
     }
     with case.writer.begin() as conn:
         complete_unit_result(
-            conn, task_id=case.task, attempt=case.held.attempt, holder="records",
-            prepared=case.prepared, method=case.method, configuration_hash="private-config",
+            conn,
+            task_id=case.task,
+            attempt=case.held.attempt,
+            holder="records",
+            prepared=case.prepared,
+            method=case.method,
+            configuration_hash="private-config",
             source="private-unit",
             result=UnitResult(
                 ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-                outcome=ObservationOutcome.EMPTY, coverage=coverage, parse_detail=diagnostics,
-            ), records=(),
+                outcome=ObservationOutcome.EMPTY,
+                coverage=coverage,
+                parse_detail=diagnostics,
+            ),
+            records=(),
         )
         absent = create_task(
-            conn, run_id=case.run, config_id=case.task_row["method_config_id"], stage="record",
-            unit_type="source_view", unit_id=case.other_view, unit_key="no-report",
+            conn,
+            run_id=case.run,
+            config_id=case.task_row["method_config_id"],
+            stage="record",
+            unit_type="source_view",
+            unit_id=case.other_view,
+            unit_key="no-report",
             input_hash="other-source-input",
+            skip_reason=(
+                "controlled source route skipped" if no_report_status == "skipped" else None
+            ),
         )
-        claim = claim_tasks(
-            conn, run_id=case.run, config_id=case.task_row["method_config_id"], holder="records"
-        )[0]
-        assert claim.task_id == absent
-        complete_task(
-            conn, task_id=absent, attempt=claim.attempt, holder="records",
-            prepared=case.prepared, observations=[], outcome="empty",
-        )
+        if no_report_status != "skipped":
+            claim = claim_tasks(
+                conn, run_id=case.run, config_id=case.task_row["method_config_id"], holder="records"
+            )[0]
+            assert claim.task_id == absent
+            complete_task(
+                conn,
+                task_id=absent,
+                attempt=claim.attempt,
+                holder="records",
+                prepared=case.prepared,
+                observations=[],
+                outcome=no_report_status,
+                error={"message": "controlled no-report failure"}
+                if no_report_status == "failed"
+                else None,
+            )
         cut = seal_cut(conn, case.run, "empty-coverage-final", final=True)
     consolidate_cut(case.writer, cut, "public-coverage-diagnostics")
     request = RecordRequest(run_id=case.run, family="table", standing="accepted")
     with read_snapshot(semantic_reader_engine) as conn:
         page = serve_record_results(conn, request)
-        selected = serve_record_results(conn, request.model_copy(
-            update={"source_view_ids": (case.other_view,)}
-        ))
+        selected = serve_record_results(
+            conn, request.model_copy(update={"source_view_ids": (case.other_view,)})
+        )
     assert page.records == () and page.population_paging_complete
     assert page.source_coverage == "not_established_by_record_projection"
     by_source = {report.source_view_id: report for report in page.coverage}
@@ -534,11 +562,47 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
     assert report.coverage == coverage and report.diagnostics == diagnostics
     assert report.method == "private.records" and report.outcome == "empty"
     assert report.report_present and report.records_present
+    assert report.cut_member
     assert report.selected_task_id == report.origin_task_id == case.task
     assert selected.coverage == (by_source[case.other_view],)
     assert not selected.coverage[0].report_present
     assert not selected.coverage[0].records_present
     assert selected.coverage[0].coverage == ()
+    missing_report = selected.coverage[0]
+    assert missing_report.task_status == no_report_status
+    assert missing_report.cut_member is (no_report_status == "empty")
+    assert missing_report.selected_task_id == missing_report.origin_task_id == absent
+    assert missing_report.error == (
+        {"message": "controlled no-report failure"} if no_report_status == "failed" else None
+    )
+    assert missing_report.reason == (
+        "controlled source route skipped" if no_report_status == "skipped" else None
+    )
+    # These rows are final-run diagnostics. Terminal tasks cannot acquire later
+    # failures, reasons or identities, and the closed run cannot accept a new task.
+    from sqlalchemy import update
+
+    from corpus_structure.semantic.operations import OperationConflict
+
+    with case.writer.begin() as conn:
+        with (
+            pytest.raises(DBAPIError, match="terminal source task is immutable"),
+            conn.begin_nested(),
+        ):
+            task = table("ops.task")
+            conn.execute(update(task).where(task.c.id == absent).values(reason="later mutation"))
+        with pytest.raises(OperationConflict, match="no longer accepts tasks"):
+            create_task(
+                conn,
+                run_id=case.run,
+                config_id=case.task_row["method_config_id"],
+                stage="record",
+                unit_type="source_view",
+                unit_id=case.other_view,
+                unit_key="later-task",
+                input_hash="later-input",
+                fresh=True,
+            )
 
 
 def test_record_continuation_keeps_completed_cut_after_project_selection_changes(
@@ -554,19 +618,29 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
     consolidate_cut(case.writer, cut, "public-continuation-pin")
     project = table("data.project")
     with semantic_db_engine.begin() as conn:
-        conn.execute(update(project).where(project.c.project_id == "private-records").values(
-            active_release_id=case.prepared.release_id, selected_result_run_id=case.run,
-            generation=project.c.generation + 1,
-        ))
+        conn.execute(
+            update(project)
+            .where(project.c.project_id == "private-records")
+            .values(
+                active_release_id=case.prepared.release_id,
+                selected_result_run_id=case.run,
+                generation=project.c.generation + 1,
+            )
+        )
     request = RecordRequest(run_id=case.run, limit=1)
     with read_snapshot(semantic_reader_engine) as conn:
         first = serve_record_results(conn, request)
     assert first.next_cursor is not None
     # This is a genuinely changed selection, not a second read of one snapshot.
     with semantic_db_engine.begin() as conn:
-        conn.execute(update(project).where(project.c.project_id == "private-records").values(
-            selected_result_run_id=None, generation=project.c.generation + 1,
-        ))
+        conn.execute(
+            update(project)
+            .where(project.c.project_id == "private-records")
+            .values(
+                selected_result_run_id=None,
+                generation=project.c.generation + 1,
+            )
+        )
     with read_snapshot(semantic_reader_engine) as conn:
         second = serve_record_results(
             conn, request.model_copy(update={"cursor": first.next_cursor})
@@ -574,6 +648,63 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
     assert second.binding == first.binding and second.cut_id == first.cut_id == cut
     assert second.coverage == first.coverage
     assert second.records != first.records and second.population_paging_complete
+
+
+@pytest.mark.parametrize("resolver_status", ["failed", "skipped"])
+def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
+    private_source, semantic_reader_engine, resolver_status
+):
+    from corpus_structure.evaluate.record_references import prediction_records
+    from corpus_structure.methods.m1_readings import M1Readings
+    from corpus_structure.semantic.operations import (
+        claim_tasks,
+        complete_task,
+        create_task,
+        record_method,
+    )
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.record_queries import read_completed_record_projection
+
+    case = private_source
+    with case.writer.begin() as conn:
+        complete(case, conn, (candidate(case),))
+        method = M1Readings()
+        config = record_method(
+            conn, method, "terminal-resolver-control", method.Config().model_dump(mode="json"),
+            "terminal-resolver-config", prepared=case.prepared,
+        )
+        resolver = create_task(
+            conn, run_id=case.run, config_id=config, stage="resolve", unit_type="source_view",
+            unit_id=case.view, unit_key="private-unit", input_hash="terminal-resolver-input",
+            skip_reason=(
+                "controlled resolver route skipped" if resolver_status == "skipped" else None
+            ),
+        )
+        if resolver_status == "failed":
+            held = claim_tasks(conn, run_id=case.run, config_id=config, holder="resolver")[0]
+            complete_task(
+                conn, task_id=resolver, attempt=held.attempt, holder="resolver",
+                prepared=case.prepared, observations=(), outcome="failed",
+                error={"message": "controlled resolver failure"},
+            )
+        cut = seal_cut(conn, case.run, "terminal-resolver-final", final=True)
+    consolidate_cut(case.writer, cut, "public-terminal-resolver")
+    with read_snapshot(semantic_reader_engine) as conn:
+        projection = read_completed_record_projection(conn, run_id=case.run)
+    # The raw candidate exists in the successful public projection. Actual registered
+    # resolver authority nevertheless governs no-output even without cut membership.
+    assert len(projection.rows["source_record"]) == 1
+    producers = [report for report in projection.coverage if report.source_view_id == case.view]
+    resolver_report = next(report for report in producers if report.selected_task_id == resolver)
+    assert resolver_report.method == "resolve.m1_readings"
+    assert resolver_report.task_status == resolver_status and not resolver_report.cut_member
+    predictions, reports = prediction_records(
+        projection, source="private-unit", source_view_id=case.view,
+        release_id=projection.release_id, realization_id=projection.realization_id,
+        selected_tasks=tuple(report.selected_task_id for report in producers),
+        report_method_names={report.selected_task_id: report.method for report in producers},
+    )
+    assert predictions == () and reports == ()
 
 
 def test_completed_public_reader_refuses_wrong_run_project_and_invalid_selectors(
@@ -647,7 +778,8 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
             for name, collection in row_collections.items()
         }
         payload = dict(
-            rows=raw, report_source_view_ids=dict(packet.report_source_view_ids),
+            rows=raw,
+            report_source_view_ids=dict(packet.report_source_view_ids),
             coverage=[asdict(report) for report in packet.coverage],
         )
         byte_count = len(

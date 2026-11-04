@@ -7,6 +7,7 @@ These are machinery controls, never model-quality or independent-population evid
 
 from copy import deepcopy
 from dataclasses import replace
+from typing import Any
 
 import pytest
 from semantic import test_private_records as source_fixture
@@ -386,9 +387,12 @@ def test_actual_fitting_capability_has_only_fit_labels(
         fitter.dispose()
 
 
-@pytest.mark.parametrize("changed_producer_alias", [False, True])
+@pytest.mark.parametrize(
+    ("changed_producer_alias", "failed_without_report"),
+    [(False, False), (True, False), (False, True)],
+)
 def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses(
-    reference_source, semantic_evaluator_engine, changed_producer_alias
+    reference_source, semantic_evaluator_engine, changed_producer_alias, failed_without_report
 ):
     from corpus_structure.core.method import UnitRef, UnitResult
     from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
@@ -396,6 +400,7 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
     from corpus_structure.semantic.operations import (
         OperationBinding,
         claim_tasks,
+        complete_task,
         complete_unit_result,
         create_run,
         create_task,
@@ -440,7 +445,8 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             text("SELECT ops.select_source_view(:r,:origin,:v)"),
             dict(r=target, origin=case.run, v=case.other_view),
         )
-        if changed_producer_alias:
+        task = None
+        if changed_producer_alias or failed_without_report:
             task = create_task(
                 conn,
                 run_id=target,
@@ -455,23 +461,35 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             held = claim_tasks(
                 conn, run_id=target, config_id=case.task_row["method_config_id"], holder="records"
             )[0]
-            complete_unit_result(
-                conn,
-                task_id=task,
-                attempt=held.attempt,
-                holder="records",
-                prepared=case.prepared,
-                method=case.method,
-                configuration_hash="private-config",
-                source="different-real-producer-alias",
-                result=UnitResult(
-                    ref=UnitRef(
-                        TaskUnitType.SOURCE_VIEW, case.view, "different-real-producer-alias"
+            if failed_without_report:
+                complete_task(
+                    conn,
+                    task_id=task,
+                    attempt=held.attempt,
+                    holder="records",
+                    prepared=case.prepared,
+                    observations=(),
+                    outcome="failed",
+                    error={"message": "controlled timeout without report", "stage": "worker"},
+                )
+            else:
+                complete_unit_result(
+                    conn,
+                    task_id=task,
+                    attempt=held.attempt,
+                    holder="records",
+                    prepared=case.prepared,
+                    method=case.method,
+                    configuration_hash="private-config",
+                    source="different-real-producer-alias",
+                    result=UnitResult(
+                        ref=UnitRef(
+                            TaskUnitType.SOURCE_VIEW, case.view, "different-real-producer-alias"
+                        ),
+                        outcome=ObservationOutcome.EMPTY,
                     ),
-                    outcome=ObservationOutcome.EMPTY,
-                ),
-                records=(),
-            )
+                    records=(),
+                )
         cut = seal_cut(conn, target, "completed-target", final=True)
     output = consolidate_cut(case.writer, cut, "empty-reference-target")
     with semantic_evaluator_engine.begin() as conn:
@@ -488,7 +506,7 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             for family in ("definition", "assertion", "measurement", "table", "formula_context")
         }
         tiers = {tier: dict(one) for tier in ("core", "full", "evidence")}
-        scored = dict(
+        scored: dict[str, Any] = dict(
             scope="private_validated_records",
             comparison_policy="strict-source-occurrence-1",
             grain="accepted_source_record_occurrence",
@@ -518,7 +536,7 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             tiers={key: dict(zero) for key in tiers},
             families={family: {key: dict(zero) for key in tiers} for family in families},
         )
-        result = dict(
+        result: dict[str, Any] = dict(
             protocol="source-record-evaluation-1",
             release_id=frame.release_id,
             output_realization_id=output.realization_id,
@@ -569,7 +587,20 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
                 )
             )
             assert stored["tiers"]["full"] == one
-            assert gap_evidence["tasks"] == []
+            if failed_without_report:
+                assert len(gap_evidence["tasks"]) == 1
+                failure = gap_evidence["tasks"][0]
+                assert failure["outcome"] == "failed" and failure["result_present"] is False
+                assert failure["cut_member"] is False
+                assert failure["selected_task_id"] == failure["origin_task_id"] == task
+                import json
+
+                assert json.loads(failure["error"]) == {
+                    "message": "controlled timeout without report",
+                    "stage": "worker",
+                }
+            else:
+                assert gap_evidence["tasks"] == []
             for change in ("omit", "foreign_reference", "invent_stage", "source_cut", "fake_task"):
                 invalid = deepcopy(result)
                 evidence = invalid["units"][0]["gap_evidence"]
@@ -587,9 +618,15 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
                     conn.execute(statement, dict(parameters, v=canonical_bytes(invalid).decode()))
             with case.writer.connect() as producer:
                 with pytest.raises(DBAPIError) as refusal, producer.begin_nested():
-                    producer.scalar(text("SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)"),
-                        dict(r=target, u=unit["id"], p=frozen_by_unit[unit["id"]]["pass_id"],
-                             f=frozen_by_unit[unit["id"]]["frame_id"]))
+                    producer.scalar(
+                        text("SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)"),
+                        dict(
+                            r=target,
+                            u=unit["id"],
+                            p=frozen_by_unit[unit["id"]]["pass_id"],
+                            f=frozen_by_unit[unit["id"]]["frame_id"],
+                        ),
+                    )
                 assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
             changes = [
                 ("unit", "foreign-unit"),

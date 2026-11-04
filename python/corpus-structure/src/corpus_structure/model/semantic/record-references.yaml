@@ -254,9 +254,11 @@ classes:
       predictions: {range: ReferenceRecordGapPrediction, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   ReferenceRecordGapTask:
     is_a: SourceRecordProduct
+    description: Immutable completed final-run task diagnostics. Nonmembers are actual failed, skipped or cancelled tasks, not as-of-cut custody claims.
     attributes:
       selected_task_id: {range: integer, required: true}
       origin_task_id: {range: integer, required: true}
+      cut_member: {range: boolean, required: true}
       method: {required: true}
       operation_version: {required: true}
       configuration_hash: {required: true}
@@ -267,6 +269,7 @@ classes:
       coverage: {range: SourceCoverage, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       parse_detail: {range: SourceObject, inlined: true}
       error: {}
+      reason: {}
       dependency_task_ids: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       dependent_task_ids: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   ReferenceRecordGapEvidence:

@@ -16,7 +16,7 @@ from types import MappingProxyType
 from typing import Any
 
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import Connection, func, select, tuple_
+from sqlalchemy import Connection, func, or_, select, tuple_
 
 from corpus_structure.core.method import CoverageDraft
 
@@ -56,14 +56,17 @@ class RecordReadSelection:
 
 @dataclass(frozen=True)
 class RecordProducerCoverage:
-    """A sealed source producer's report, including explicit empty/failed coverage.
+    """Completed final-run producer diagnostics, with successful cut custody explicit.
 
     Coverage describes producer work only. Neither a complete producer report nor
     absent candidate output establishes completeness of captured knowledge.
+    Nonmembers describe terminal failed/skipped/cancelled tasks in the immutable
+    completed run; they do not claim successful cut membership or as-of-cut timing.
     """
 
     selected_task_id: int
     origin_task_id: int
+    cut_member: bool
     source_view_id: int
     method: str
     method_version: str
@@ -75,6 +78,7 @@ class RecordProducerCoverage:
     coverage: tuple[CoverageDraft, ...]
     diagnostics: JsonValue | None
     error: JsonValue | None
+    reason: str | None
 
 
 @dataclass(frozen=True)
@@ -115,10 +119,11 @@ def _read_producer_coverage(
     max_rows: int,
     max_bytes: int,
 ) -> tuple[RecordProducerCoverage, ...]:
-    """Read the cut's source producers once, independently of record membership.
+    """Read completed final-run source diagnostics independently of record membership.
 
     Select only report metadata, coverage and diagnostics; never observations or
-    private record envelopes. The cut, not mutable project selection, owns origins.
+    private record envelopes. The cut owns successful origins. Terminal nonmembers
+    belong to the final run, whose completion and native guards make them immutable.
     """
     from .observations import source_python
     from .pdf_record_reader import PublishedReadBudget
@@ -129,13 +134,16 @@ def _read_producer_coverage(
         ("ops.task", "ops.task_result", "ops.method_config", "ops.method", "ops.cut_task"),
     )
     body = result.c.body
+    origin_task_id = func.coalesce(cut.c.origin_task_id, task.c.id)
     query = (
         select(
             task.c.id.label("selected_task_id"),
-            cut.c.origin_task_id,
+            origin_task_id.label("origin_task_id"),
+            cut.c.task_id.is_not(None).label("cut_member"),
             task.c.unit_id.label("source_view_id"),
             task.c.status.label("task_status"),
             task.c.error.label("task_error"),
+            task.c.reason,
             task.c.unit_key,
             task.c.input_hash,
             config.c.config_hash,
@@ -154,16 +162,19 @@ def _read_producer_coverage(
             body["parse_detail"].label("diagnostics"),
             body["error"].label("error"),
         )
-        .select_from(cut)
-        .join(task, task.c.id == cut.c.task_id)
+        .select_from(task)
+        .outerjoin(cut, (cut.c.task_id == task.c.id) & (cut.c.cut_id == cut_id))
         .join(config, config.c.id == task.c.method_config_id)
         .join(method, method.c.id == config.c.method_id)
-        .outerjoin(result, result.c.task_id == cut.c.origin_task_id)
+        .outerjoin(result, result.c.task_id == origin_task_id)
         .where(
-            cut.c.cut_id == cut_id,
             task.c.run_id == run_id,
             task.c.release_id == release_id,
             task.c.unit_type == "source_view",
+            or_(
+                cut.c.task_id.is_not(None),
+                task.c.status.in_(("failed", "skipped", "cancelled")),
+            ),
         )
         .order_by(task.c.unit_id, task.c.id)
     )
@@ -189,6 +200,7 @@ def _read_producer_coverage(
             report = RecordProducerCoverage(
                 selected_task_id=row["selected_task_id"],
                 origin_task_id=row["origin_task_id"],
+                cut_member=row["cut_member"],
                 source_view_id=row["source_view_id"],
                 method=row["method"],
                 method_version=row["method_version"],
@@ -202,6 +214,7 @@ def _read_producer_coverage(
                     source_python(row["diagnostics"]) if row["diagnostics"] is not None else None
                 ),
                 error=row["error"] if row["error"] is not None else row["task_error"],
+                reason=row["reason"],
             )
             rows_left -= 1 + len(report.coverage)
             bytes_left -= len(canonical_bytes(asdict(report))) + bool(reports)
@@ -265,9 +278,23 @@ def read_completed_record_projection(
         table("ops.run"),
         table("data.realization"),
     )
+    cut = table("ops.input_cut")
     statement = (
-        select(completed, realization.c.data_revision, run.c.project_id, run.c.status)
+        select(
+            completed,
+            realization.c.data_revision,
+            run.c.project_id,
+            run.c.status,
+            run.c.sealed,
+            cut.c.final.label("final_cut"),
+        )
         .join(run, run.c.id == completed.c.run_id)
+        .join(
+            cut,
+            (cut.c.id == completed.c.cut_id)
+            & (cut.c.run_id == run.c.id)
+            & (cut.c.release_id == completed.c.release_id),
+        )
         .join(
             realization,
             (realization.c.release_id == completed.c.release_id)
@@ -280,8 +307,8 @@ def read_completed_record_projection(
         raise SemanticRefusal(
             "record result does not belong to the requested completed run/project"
         )
-    if selected["status"] != "finished":
-        raise SemanticRefusal("record projection requires an immutable completed result")
+    if selected["status"] != "finished" or not selected["sealed"] or not selected["final_cut"]:
+        raise SemanticRefusal("record projection requires an immutable completed final result")
     release_id, realization_id = selected["release_id"], selected["output_realization_id"]
     prepared = open_release(conn, release_id)
     try:

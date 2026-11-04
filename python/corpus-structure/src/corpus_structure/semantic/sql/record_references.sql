@@ -336,6 +336,9 @@ GRANT EXECUTE ON FUNCTION eval.record_source_record_reference_pass(bigint,text,t
 -- Protected gap evidence is derived, never authored as free-form writer labels.
 -- Keep expected values in C. These rows link source anchors and actual immutable
 -- invocation diagnostics; missing diagnostics never establish a failed stage.
+-- The completed final run also owns actual failed/skipped/cancelled terminal tasks.
+-- They are immutable final-run diagnostics, explicitly outside successful cut custody;
+-- publisher failures may occur after sealing, so this is not an as-of-cut claim.
 CREATE OR REPLACE FUNCTION eval.source_record_gap_evidence(p_run bigint,p_unit bigint,p_pass bigint,p_frame bigint)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE unit eval.reference_unit; reference_set eval.reference_set; completed ops.completed_result;
@@ -346,24 +349,33 @@ BEGIN
  SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=unit.set_id;
  SELECT * INTO STRICT completed FROM ops.completed_result WHERE run_id=p_run AND release_id=reference_set.release_id;
  PERFORM sem.require_execution_operation(reference_set.release_id,'reference_record_grade');
- IF NOT EXISTS(SELECT FROM ops.run WHERE id=p_run AND project_id=reference_set.project_id) THEN
-  RAISE EXCEPTION 'gap evidence crosses the reference project' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT FROM ops.run job JOIN ops.input_cut cut ON cut.id=completed.cut_id
+  AND cut.run_id=job.id AND cut.release_id=completed.release_id
+  WHERE job.id=p_run AND job.project_id=reference_set.project_id AND job.sealed
+   AND job.status='finished' AND cut.final) THEN
+  RAISE EXCEPTION 'gap evidence requires the project immutable completed final run' USING ERRCODE='23514'; END IF;
  SELECT convert_from(p.authored,'UTF8')::jsonb INTO STRICT payload FROM eval.reference_pass p
  JOIN eval.reference_frame f ON f.pass_id=p.id WHERE p.id=p_pass AND p.unit_id=p_unit AND p.pass_kind='C' AND f.id=p_frame;
  SELECT COALESCE(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-  'selected_task_id',selected.id,'origin_task_id',origin.id,'method',method.name,'operation_version',method.version,
+  'selected_task_id',selected.id,'origin_task_id',origin.id,'cut_member',ct.task_id IS NOT NULL,
+  'method',method.name,'operation_version',method.version,
   'configuration_hash',config.config_hash,'input_hash',selected.input_hash,'outcome',selected.status,
   'result_present',result.task_id IS NOT NULL,'coverage_present',COALESCE(result.body ? 'coverage',false),
   'coverage',COALESCE(result.body->'coverage','[]'::jsonb),'parse_detail',result.body->'parse_detail',
   'error',COALESCE(result.body->>'error',origin.error::text,selected.error::text),
+  'reason',selected.reason,
   'dependency_task_ids',COALESCE((SELECT jsonb_agg(dependency_task_id ORDER BY dependency_task_id)
     FROM ops.task_dependency WHERE task_id=selected.id),'[]'::jsonb),
   'dependent_task_ids',COALESCE((SELECT jsonb_agg(task_id ORDER BY task_id)
     FROM ops.task_dependency WHERE dependency_task_id=selected.id),'[]'::jsonb))) ORDER BY selected.id),'[]'::jsonb)
- INTO tasks FROM ops.cut_task ct JOIN ops.task selected ON selected.id=ct.task_id
- JOIN ops.task origin ON origin.id=ct.origin_task_id JOIN ops.method_config config ON config.id=selected.method_config_id
+ INTO tasks FROM ops.task selected
+ LEFT JOIN ops.cut_task ct ON ct.task_id=selected.id AND ct.cut_id=completed.cut_id
+ JOIN ops.task origin ON origin.id=COALESCE(ct.origin_task_id,selected.id)
+ JOIN ops.method_config config ON config.id=selected.method_config_id
  JOIN ops.method method ON method.id=config.method_id LEFT JOIN ops.task_result result ON result.task_id=origin.id
- WHERE ct.cut_id=completed.cut_id AND selected.unit_type='source_view' AND selected.unit_id=unit.source_view_id;
+ WHERE selected.run_id=p_run AND selected.release_id=completed.release_id
+  AND (ct.task_id IS NOT NULL OR selected.status IN ('failed','skipped','cancelled'))
+  AND selected.unit_type='source_view' AND selected.unit_id=unit.source_view_id;
  -- Use exactly the authoritative resolver/raw source selection used by grading.
  WITH selected AS (
   SELECT value FROM jsonb_array_elements(tasks) WHERE value->>'method'=CASE

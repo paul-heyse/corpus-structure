@@ -441,24 +441,12 @@ def reference_evaluate(
     prepared_index = projection.record_index
     tasks_by_view: dict[int, list[int]] = {}
     report_method_names: dict[int, str] = {}
-    task, cut_task = table("ops.task"), table("ops.cut_task")
-    config, method = table("ops.method_config"), table("ops.method")
-    # Read method authority from the immutable selected cut, not from producer strings.
-    # Include selected tasks without record reports so a failed resolver cannot trigger
-    # fallback to an upstream raw report.
-    task_rows = conn.execute(
-        select(task.c.id, task.c.unit_id, method.c.name)
-        .select_from(
-            task.join(cut_task, cut_task.c.task_id == task.c.id)
-            .join(config, config.c.id == task.c.method_config_id)
-            .join(method, method.c.id == config.c.method_id)
-        )
-        .where(cut_task.c.cut_id == projection.cut_id, task.c.unit_type == "source_view")
-        .order_by(task.c.id)
-    )
-    for task_id, view, name in task_rows:
-        tasks_by_view.setdefault(view, []).append(task_id)
-        report_method_names[task_id] = name
+    # Reuse the completed reader's registered method authority and immutable final-run
+    # diagnostics. A failed/skipped resolver without cut membership still governs
+    # no-output; it cannot silently fall back to an upstream raw report.
+    for producer in projection.coverage:
+        tasks_by_view.setdefault(producer.source_view_id, []).append(producer.selected_task_id)
+        report_method_names[producer.selected_task_id] = producer.method
     populations = {value["unit_key"]: value for value in definition["sampling"]["eligible_units"]}
     for unit in selected_units:
         frozen = snapshots[unit["id"]]

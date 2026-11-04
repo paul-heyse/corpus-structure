@@ -431,6 +431,7 @@ def test_coverage_ledger_is_carried_without_reinterpreting_record_emptiness(proj
         RecordProducerCoverage(
             selected_task_id=72,
             origin_task_id=24,
+            cut_member=True,
             source_view_id=8,
             method="m1.candidates",
             method_version="1",
@@ -442,15 +443,21 @@ def test_coverage_ledger_is_carried_without_reinterpreting_record_emptiness(proj
             coverage=(
                 CoverageDraft(family="measurement", scope="7", outcome="complete"),
                 CoverageDraft(
-                    family="routing/table", scope="8", outcome="unsupported",
+                    family="routing/table",
+                    scope="8",
+                    outcome="unsupported",
                     reason="native region has no supported table route",
                 ),
                 CoverageDraft(
-                    family="assertion", scope="9", outcome="failed", reason="worker failed",
+                    family="assertion",
+                    scope="9",
+                    outcome="failed",
+                    reason="worker failed",
                 ),
             ),
             diagnostics={"execution": [{"family": "measurement", "reason": "no candidates"}]},
             error=None,
+            reason=None,
         ),
     )
     page = present_record_projection(
@@ -458,7 +465,9 @@ def test_coverage_ledger_is_carried_without_reinterpreting_record_emptiness(proj
     )
     assert page.records == () and page.coverage == ledger
     assert [row.outcome for row in page.coverage[0].coverage] == [
-        "complete", "unsupported", "failed"
+        "complete",
+        "unsupported",
+        "failed",
     ]
     assert page.source_coverage == "not_established_by_record_projection"
     assert "captured knowledge" in page.coverage_diagnostic
@@ -480,17 +489,24 @@ def test_registered_record_tool_checks_exact_full_wire_budget(projection, monkey
     engine = create_engine("sqlite://")
     monkeypatch.setattr(query, "read_snapshot", lambda *a, **kw: nullcontext(None))
     monkeypatch.setattr(
-        record_results, "serve_record_results",
+        record_results,
+        "serve_record_results",
         lambda conn, request: present_record_projection(projection, request),
     )
     request = RecordRequest(run_id=41, family="measurement")
     expected = present_record_projection(projection, request).model_dump(mode="json")
 
     def encoded_size(response):
-        return len(CallToolResult(
-            content=response.content, structured_content=response.structured_content,
-            meta=response.meta, is_error=response.is_error,
-        ).model_dump_json(by_alias=True, exclude_none=True).encode())
+        return len(
+            CallToolResult(
+                content=response.content,
+                structured_content=response.structured_content,
+                meta=response.meta,
+                is_error=response.is_error,
+            )
+            .model_dump_json(by_alias=True, exclude_none=True)
+            .encode()
+        )
 
     async def journey():
         async with Client(build_semantic_server(SemanticAgentSession(engine, 41))) as client:
@@ -506,13 +522,24 @@ def test_registered_record_tool_checks_exact_full_wire_budget(projection, monkey
             )
             size = encoded_size(delivered)
             assert size > len(json.dumps(expected, separators=(",", ":")).encode())
-            exact = await client.call_tool("records", {"request": request.model_copy(
-                update={"page_bytes": size}
-            ).model_dump(mode="json")})
+            exact = await client.call_tool(
+                "records",
+                {
+                    "request": request.model_copy(update={"page_bytes": size}).model_dump(
+                        mode="json"
+                    )
+                },
+            )
             assert not exact.is_error and encoded_size(exact) == size
-            refused = await client.call_tool("records", {"request": request.model_copy(
-                update={"page_bytes": size - 1}
-            ).model_dump(mode="json")}, raise_on_error=False)
+            refused = await client.call_tool(
+                "records",
+                {
+                    "request": request.model_copy(update={"page_bytes": size - 1}).model_dump(
+                        mode="json"
+                    )
+                },
+                raise_on_error=False,
+            )
             assert refused.is_error and "oversized_item" in str(refused.content)
             assert "record_id" not in str(refused.content)
 
