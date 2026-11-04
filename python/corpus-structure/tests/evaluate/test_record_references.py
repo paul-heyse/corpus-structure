@@ -444,3 +444,84 @@ def test_document_producer_absence_report_is_not_a_source_view_prediction():
         realization_id="completed",
     )
     assert records == () and len(reports) == 1 and reports[0]["selected_task_id"] == 4
+
+
+def test_prediction_adopts_native_overlay_without_mutating_private_interpretation():
+    from corpus_structure.semantic.record_projection import (
+        project_record_reports,
+        reconstruct_record,
+    )
+
+    row, _, _ = fixture()
+    row["standing"] = "candidate"
+    rows = project_record_reports(prepared(), (dict(
+        selected_task_id=4, origin_task_id=4, cut_id=1, source=PIN["source"],
+        outcome="produced", records=(row,),
+    ),))
+    rows = dict(rows, record_admission=tuple(
+        replace(admission, decision="accepted") for admission in rows["record_admission"]
+    ))
+    projected = SimpleNamespace(
+        rows=rows, release_id=prepared().release_id, realization_id="completed",
+        report_source_view_ids={4: 7},
+    )
+    predictions, _ = prediction_records(
+        projected, source=PIN["source"], source_view_id=7,
+        release_id=prepared().release_id, realization_id="completed",
+    )
+    assert len(predictions) == 1 and predictions[0]["standing"] == "accepted"
+    assert predictions[0]["interpretation_id"] == row["interpretation_id"]
+    assert predictions[0]["record_id"] == row["record_id"]
+    assert reconstruct_record(rows, row["record_id"], row["interpretation_id"]) == row
+
+
+def test_resolver_is_prediction_authority_and_raw_report_stays_diagnostic():
+    from corpus_structure.semantic.record_projection import project_record_reports
+
+    raw, _, _ = fixture()
+    raw["standing"] = "candidate"
+    resolved = deepcopy(raw)
+    resolved["computation_dependencies"] = ("reading-resolution:recipe",)
+    resolved["interpretation_id"] = interpretation_identity(resolved)
+    rows = project_record_reports(prepared(), tuple(dict(
+        selected_task_id=task, origin_task_id=task, cut_id=1, source=PIN["source"],
+        outcome="produced", records=(record,),
+    ) for task, record in ((4, raw), (5, resolved))))
+    projected = SimpleNamespace(
+        rows=rows, release_id=prepared().release_id, realization_id="completed",
+        report_source_view_ids={4: 7, 5: 7},
+    )
+    predictions, reports = prediction_records(
+        projected, source=PIN["source"], source_view_id=7,
+        release_id=prepared().release_id, realization_id="completed",
+        report_method_names={4: "extract.m1_candidates", 5: "resolve.m1_readings"},
+    )
+    assert predictions == (resolved,)
+    assert [report["selected_task_id"] for report in reports] == [5]
+
+
+def test_empty_or_absent_resolver_report_never_falls_back_to_raw_predictions():
+    from corpus_structure.semantic.record_projection import project_record_reports
+
+    row, _, _ = fixture()
+    row["standing"] = "candidate"
+    rows = project_record_reports(prepared(), (dict(
+        selected_task_id=4, origin_task_id=4, cut_id=1, source=PIN["source"],
+        outcome="produced", records=(row,),
+    ), dict(
+        selected_task_id=5, origin_task_id=5, cut_id=1, source=PIN["source"],
+        outcome="empty", records=(),
+    )))
+    projected = SimpleNamespace(
+        rows=rows, release_id=prepared().release_id, realization_id="completed",
+        report_source_view_ids={4: 7, 5: 7},
+    )
+    methods = {4: "extract.m1_candidates", 5: "resolve.m1_readings", 6: "resolve.m1_readings"}
+    for selected in ((4, 5), (4, 6)):
+        predictions, reports = prediction_records(
+            projected, source=PIN["source"], source_view_id=7,
+            release_id=prepared().release_id, realization_id="completed",
+            selected_tasks=selected, report_method_names=methods,
+        )
+        assert predictions == ()
+        assert [report["selected_task_id"] for report in reports] == ([5] if 5 in selected else [])

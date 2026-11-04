@@ -149,7 +149,7 @@ def fit_record_policy(
     algorithm = algorithm or RecordAlgorithm()
     observations = []
     final_observations = []
-    members = []
+    members: list[dict[str, Any]] = []
     coverage = []
     from .record_references import _coordinates
     from .semantic import _unit
@@ -253,7 +253,7 @@ def fit_record_policy(
             threshold_procedure=threshold_procedure, conditioning_assumptions=assumptions,
         )
     feature_payload = feature.model_dump(mode="json")
-    product = dict(
+    product: dict[str, Any] = dict(
         protocol="source-record-policy-fit-1", kind=kind, family=family, subset=subset,
         feature_instance=feature_payload, feature_instance_digest=feature.digest,
         feature_canonical_json=canonical_bytes(feature_payload).decode(),
@@ -262,6 +262,8 @@ def fit_record_policy(
         event_members=members, coverage_digest=frame.coverage_digest, assumptions=assumptions,
     )
     if instance is not None:
+        if feature_evaluation_id is None or feature_evaluation_digest is None:
+            raise ReferenceError("calibration export has no protected feature-fit authority")
         product.update(
             acceptance_instance=instance.model_dump(mode="json"), instance_digest=instance.digest,
             instance_canonical_json=canonical_bytes(instance.model_dump(mode="json")).decode(),
