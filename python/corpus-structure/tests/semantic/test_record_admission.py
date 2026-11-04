@@ -99,6 +99,7 @@ def evaluated_reading():
         RecordAcceptanceInstance,
         RecordAlgorithm,
         derive_record_features,
+        score_record,
     )
     from corpus_structure.semantic.record_policy_products import record_policy_inputs
     from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
@@ -163,13 +164,13 @@ def evaluated_reading():
             coefficients=(1.0,),
             center=(0.0,),
             scale=(1.0,),
-            intercept=0.0,
+            intercept=7.0,
         ),
         fit=fit,
     )
     calibration = FinalEventCalibration(
         feature_instance_digest=feature.digest,
-        event_procedure="fixture-whole-event",
+        event_procedure="independent-complete-reading-logistic-1",
         slope=1.0,
         intercept=0.0,
         fit=fit.model_copy(
@@ -205,7 +206,7 @@ def evaluated_reading():
         feature_input_digest=vector.input_digest,
         feature_input_canonical_json=canonical_bytes([raw, diagnostics]).decode(),
         event_procedure=calibration.event_procedure,
-        final_event_score=8.0,
+        final_event_score=score_record(feature, vector, subset="fixture").compatibility_potential,
         outcome="completed",
         diagnostics=diagnostics,
     )
@@ -229,6 +230,8 @@ def test_overlay_requests_admission_only_for_exact_completed_sealed_event(evalua
         {"feature_input_digest": "0" * 64},
         {"feature_input_canonical_json": "[]"},
         {"final_event_score": -8.0},
+        {"final_event_score": event["final_event_score"] + 1.0},
+        {"event_procedure": "unreleased-coupled-procedure"},
     ):
         candidate = evaluate_record_admissions(
             prepared, (dict(report, record_policy_events=[dict(event, **changed)]),), [binding]

@@ -6,6 +6,7 @@ can select their field assertions; ordinary domain rules supply no admission aut
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import replace
 
@@ -71,7 +72,7 @@ def evaluate_record_admissions(prepared, reports, bindings):
     if not any(report.get("records") for report in reports):
         return ()
     from .identity import canonical_bytes
-    from .record_policy import assess_record_admission, derive_record_features
+    from .record_policy import assess_record_admission, derive_record_features, score_record
     from .record_policy_products import validate_record_policy_binding
     from .record_projection import CALIBRATION, CANDIDATE_POLICY, CANDIDATE_POLICY_VERSION
 
@@ -131,6 +132,23 @@ def evaluate_record_admissions(prepared, reports, bindings):
                     and serialized == canonical_input
                     and event.get("outcome") == "completed"
                 )
+                try:
+                    expected_score = score_record(
+                        instance.feature, vector, subset=instance.feature.applicability.subset
+                    ).compatibility_potential
+                except ValueError, ArithmeticError:
+                    expected_score = None
+                declared_score = event.get("final_event_score")
+                score_compatible = (
+                    expected_score is not None
+                    and type(declared_score) in (float, int)
+                    and math.isfinite(declared_score)
+                    and math.isclose(declared_score, expected_score, rel_tol=1e-12, abs_tol=1e-12)
+                )
+                supported_procedure = (
+                    event.get("event_procedure") == "independent-complete-reading-logistic-1"
+                )
+                compatible = compatible and score_compatible and supported_procedure
                 proposal = assess_record_admission(
                     prepared,
                     row,
@@ -139,8 +157,15 @@ def evaluate_record_admissions(prepared, reports, bindings):
                     final_event_score=event.get("final_event_score") if compatible else None,
                     event_procedure=event.get("event_procedure", ""),
                 )
-                blockers = tuple(proposal.blockers) + (
-                    () if compatible else ("no_completed_bound_policy_event",)
+                blockers = (
+                    tuple(proposal.blockers)
+                    + (() if compatible else ("no_completed_bound_policy_event",))
+                    + (
+                        ()
+                        if score_compatible
+                        else ("final_event_score_differs_from_frozen_predictor",)
+                    )
+                    + (() if supported_procedure else ("unsupported_final_event_procedure",))
                 )
                 eligible = proposal.eligible_for_native_validation and not blockers
                 decision = RecordAdmissionRow(
