@@ -308,6 +308,7 @@ def prediction_records(
     source_view_id: int,
     prepared_index=None,
     selected_tasks=None,
+    report_method_names: Mapping[int, str] | None = None,
 ):
     """Consume only an admitted completed SourceRecordProjection, retaining report outcomes.
 
@@ -332,6 +333,17 @@ def prediction_records(
             for task, view in projection.report_source_view_ids.items()
             if view == source_view_id
         )
+    # A resolver is authoritative for this source even when it produced no records.
+    # Falling back after failure/empty would turn upstream diagnostics into predictions.
+    methods = report_method_names or getattr(projection, "report_method_names", {})
+    selected_tasks = tuple(selected_tasks)
+    resolver_tasks = tuple(
+        task for task in selected_tasks if methods.get(task) == "resolve.m1_readings"
+    )
+    raw_tasks = tuple(
+        task for task in selected_tasks if methods.get(task) == "extract.m1_candidates"
+    )
+    selected_tasks = resolver_tasks or raw_tasks or selected_tasks
     selected = [dict(row) for task in selected_tasks for row in index.reports_by_task.get(task, ())]
     if any(row["source"] != source for row in selected):
         raise ReferenceError("completed prediction changed the frozen logical source alias")
@@ -348,7 +360,18 @@ def prediction_records(
     identities = sorted(
         {(record_id, interpretation_id) for _, record_id, interpretation_id in memberships}
     )
-    records = tuple(reconstruct_record(index, *identity) for identity in identities)
+    records = []
+    for identity in identities:
+        record = reconstruct_record(index, *identity)
+        admissions = index.rows_for(*identity, "record_admission")
+        if len(admissions) != 1 or admissions[0]["decision"] not in {
+            "candidate", "accepted", "unresolved", "rejected"
+        }:
+            raise ReferenceError("completed record has no unique native admission standing")
+        # SourceRecord remains sealed and candidate. Only the detached evaluation view
+        # adopts the native overlay; standing does not participate in interpretation ID.
+        records.append(dict(record, standing=admissions[0]["decision"]))
+    records = tuple(records)
     if any(row["pin"]["source"] != source for row in records):
         raise ReferenceError("completed public record membership crosses source units")
     return records, tuple(selected)
@@ -406,8 +429,23 @@ def reference_evaluate(
     reports = []
     prepared_index = projection.record_index
     tasks_by_view: dict[int, list[int]] = {}
-    for task, view in projection.report_source_view_ids.items():
-        tasks_by_view.setdefault(view, []).append(task)
+    report_method_names: dict[int, str] = {}
+    task, cut_task = table("ops.task"), table("ops.cut_task")
+    config, method = table("ops.method_config"), table("ops.method")
+    # Read method authority from the immutable selected cut, not from producer strings.
+    # Include selected tasks without record reports so a failed resolver cannot trigger
+    # fallback to an upstream raw report.
+    task_rows = conn.execute(
+        select(task.c.id, task.c.unit_id, method.c.name)
+        .select_from(task.join(cut_task, cut_task.c.task_id == task.c.id)
+                     .join(config, config.c.id == task.c.method_config_id)
+                     .join(method, method.c.id == config.c.method_id))
+        .where(cut_task.c.cut_id == projection.cut_id, task.c.unit_type == "source_view")
+        .order_by(task.c.id)
+    )
+    for task_id, view, name in task_rows:
+        tasks_by_view.setdefault(view, []).append(task_id)
+        report_method_names[task_id] = name
     populations = {value["unit_key"]: value for value in definition["sampling"]["eligible_units"]}
     for unit in selected_units:
         frozen = snapshots[unit["id"]]
@@ -420,6 +458,7 @@ def reference_evaluate(
             realization_id=completed["output_realization_id"],
             prepared_index=prepared_index,
             selected_tasks=tasks_by_view.get(unit["source_view_id"], ()),
+            report_method_names=report_method_names,
         )
         bound = _unit(conn, unit["id"])
         contexts = _coordinates(conn, prepared, bound, (*reference.records, *prediction))
