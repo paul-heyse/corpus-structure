@@ -206,6 +206,10 @@ BEGIN
       OR data.report_field(event,'event_procedure')->>'text' IS DISTINCT FROM p_product->>'event_procedure'
       OR data.report_field(event,'feature_input_digest')->>'text' IS DISTINCT FROM member->>'feature_input_digest'
       OR data.record_source_float(data.report_field(event,'final_event_score')) IS DISTINCT FROM (member->>'score')::double precision
+      OR abs(data.record_source_float(data.report_field(event,'final_event_score'))-
+       data.record_feature_score(candidate,data.record_source_json(data.report_field(event,'diagnostics')),feature))>
+       greatest(1e-12,1e-12*abs(data.record_feature_score(candidate,
+        data.record_source_json(data.report_field(event,'diagnostics')),feature)))
       OR (data.report_field(event,'feature_input_canonical_json')->>'text')::jsonb IS DISTINCT FROM
        jsonb_build_array(candidate,data.record_source_json(data.report_field(event,'diagnostics')))
       OR encode(sha256(convert_to(data.report_field(event,'feature_input_canonical_json')->>'text','UTF8')),'hex')

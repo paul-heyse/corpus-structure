@@ -8,6 +8,7 @@ A finite converged fit is not a quality or population-generalization claim.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
@@ -26,6 +27,7 @@ from corpus_structure.semantic.record_policy import (
     RecordAcceptanceInstance,
     RecordAlgorithm,
     derive_record_features,
+    score_record,
 )
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.types import PreparedRelease
@@ -206,6 +208,9 @@ def fit_record_policy(
                     if event["event_procedure"] != EVENT_PROCEDURE:
                         raise ReferenceError("unsupported final-event interpretation procedure")
                     score = event["final_event_score"]
+                    expected_score = score_record(feature, vector, subset=subset).compatibility_potential
+                    if not math.isclose(score, expected_score, rel_tol=1e-12, abs_tol=1e-12):
+                        raise ReferenceError("sealed final event differs from released feature scorer")
                     final_observations.append(FinalEventObservation(
                         feature_instance_digest=feature.digest, event_procedure=EVENT_PROCEDURE,
                         final_event_score=score, label=label,
