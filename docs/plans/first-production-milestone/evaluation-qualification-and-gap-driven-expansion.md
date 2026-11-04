@@ -4,8 +4,13 @@
 owns the detailed design and completion conditions for M1-01/13/14/15. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
 dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
 qualification is Planned. This revision changes plans, not production code or deployments.
+
+**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
+current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
+accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
+open. This companion retains the remaining target; the coordinator owns current package state.
 
 This retains [WP0/WP5/WP6](../../target-pipeline-design/first-production-milestone.md#delivery-and-exit-evidence)
 and [O05/O07–O11](../../functional_reviews/m1-target-design_2026-11-03.md#O05). Original review
@@ -161,7 +166,7 @@ M1-13 completes with working five-family evaluator/prediction adapters and suffi
 reference evidence for the chosen gate assessment. It does not select thresholds using final labels
 or pronounce a release. M1-14 consumes its final frozen evidence; M1-15 uses development gap cohorts.
 
-The inspected foundation is native102 / execution24, including the required bound operational
+The inspected foundation is native105 / execution24, including the required bound operational
 reference subset and evaluator-only split-decision custody. Preserve actual seed overrides and
 ordered policy reasons; never reconstruct unavailable historical meaning from current defaults.
 AC improvement I01 carries supplied-subset/producer-population cases through actual reference and
@@ -201,11 +206,11 @@ cannot become a passed gate; name the missing prerequisite and retain the obliga
 partitions remain isolated; few origins constrain generalization rather than invalidate an honest
 frozen-cut census by themselves.
 
-AC14 remains an explicit upstream acceptance prerequisite for resumed M1 execution. Its 110 mixed
-integration/consumer and 308 non-database selected passes are bounded AC evidence, not M1 family
-accuracy or resource qualification. Repair AC-CA01, close affected AC integration scenarios and
-account for final-source AC evidence before relying on the assembled prerequisite. Native changes
-use a successor to frozen102 with separate fresh/forward/current-head controls and serial full-chain
+AC14’s accepted selected prerequisite is complete on71a78774/native105:4008 selected functional
+passes, including680 required native cases, plus applicable provider and hygiene evidence. These
+are AC evidence, not M1 family accuracy or resource qualification. Consume closed AC-CA01–09
+and retain final-source applicability when extending the assembled capability. Native changes
+use a successor to frozen105 with separate fresh/forward/current-head controls and serial full-chain
 installs (AC improvement I03); no provider or database campaign runs merely to publish these plans.
 
 Run the actual CPU path from pinned intake through shared preparation/context, GLiNER proposals,
@@ -325,10 +330,11 @@ Use 70% accepted full-record recall per family, unchanged 90% candidate capture 
 one-sided 95% lower bound at least 95%. Acquire additional suitable English statistics sources if
 local credible origins are insufficient. Freeze sampling/interval design before final assessment.
 
-Sequence: consume the provisioned fitting-only principal and current frozen102 foundation;
-complete outstanding AC prerequisites and M1-specific custody/publication controls → actual Sol
+Sequence: consume the provisioned fitting-only principal and current frozen105 foundation;
+complete M1-specific custody/publication controls on the accepted AC foundation → actual Sol
 reference/prediction CLI route → source-ready reference sets,
-A/B/C development passes and actual grades. Complete acceptance, interpretation/attributed producer
+A/B/C development passes and actual grades. Freeze the intended exact release/frame before
+packet authoring; existing operations do not relocate earlier-release answers. Complete acceptance, interpretation/attributed producer
 and recovery prerequisites before final functional/provider/consumer/resource qualification.
 Source/reference acquisition may proceed alongside implementation; successful extraction is not
 required to begin reference authoring. `just test-all` and applicable hygiene wait for complete

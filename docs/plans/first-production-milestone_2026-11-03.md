@@ -1,7 +1,7 @@
 # First production milestone: qualified CPU semantic assembly
 
-**Status:** Active series reconciled after AC completion audit and targeted amendments, 2026-11-03.
-Implemented candidate foundations; AC repair/qualification and M1 release obligations remain open.
+**Status:** Active M1 execution; AC prerequisite accepted2026-11-04. Implemented candidate
+foundations and current controlled native/consumer tests; M1 functional and release obligations remain open.
 **Created:** 2026-11-03. **Target claims:** Proposed. This coordinator owns package state,
 shared decisions, execution order and scheduled opportunity/investigation disposition. Companions
 own detailed designs and completion criteria, not competing progress tables.
@@ -22,7 +22,7 @@ extraction, hidden hosted fallback and automatic specialist substitution. Refere
 assessment assistance remain separate, attributed activities. Ordered procedures remain shadow
 output; full M1 needs released subsets of all five core families, even if a canary exposes fewer.
 
-Current source inspection: `75db93e1`, 2026-11-03. The original plan consumed `4a929aba`;
+Current source inspection: `71a78774`, 2026-11-04. The original plan consumed `4a929aba`;
 its receipt/source boundaries remain historical. This revision consumes the AC coordinator §§12–13
 and adopted improvement review I01–I03. Inputs:
 
@@ -54,15 +54,15 @@ implemented and validated. Its remaining work is agent assessment and follow-up 
 not schedule UM code repair, completion or revalidation. Earlier descriptions of open acceptance
 must be read within that corrected scope. New M1 functionality still needs its own verification.
 
-**Current baseline, source-inspected 2026-11-03 at `75db93e1`; full qualification open.**
-The [AC coordinator](audit-closure_2026-11-03.md#12-completion-audit--claimed-integrated-slices)
-owns its completion audit, remaining AC-CA01 repair and AC14 acceptance. Its adopted
+**Current baseline71a78774, inspected2026-11-04; selected AC acceptance complete, M1 qualification open.**
+The [AC coordinator §15](audit-closure_2026-11-03.md#15-approved-final-acceptance-and-m1-handoff--2026-11-04)
+owns its completed selected union and AC-CA01–09 closure. Its adopted
 [improvements I01–I03](../plan_improvement_reviews/audit-closure_2026-11-03.md) refine the target
 consumed here. This plan owns only M1 work and its evidence. No whole M1 package is complete.
 
 | Existing foundation | Reuse and remaining M1 obligation |
 | --- | --- |
-| Released semantics and native102 | Semantic compiler16, readers14–16, execution24 and RuleValue ABI2 are integrated. Reuse attributed assertions, released roles/dimensions and operational subsets. Future native meaning changes require a forward successor to frozen102, not rewriting101/102 or executing predecessor preparation under current code. |
+| Released semantics and native105 | Semantic compiler16, readers14–16, execution24 and RuleValue ABI2 are integrated. Reuse attributed assertions, released roles/dimensions and operational subsets. Future native meaning changes require a forward successor to frozen105, not rewriting frozen101–105 or executing predecessor preparation under current code. |
 | Record/evidence model and candidate public projection | Five-family roles/states, field anchor sets, context2, record binding and finite public relations already exist. Finish evaluated accepted-assertion lowering, actual producer integration and all-family native/evaluator/consumer journeys; do not rebuild these structures. |
 | Linguistic preparation and source contexts | Rich detached annotation operations and mapped same-product related sources are implemented. Finish persisted product admission, actual supported context/routing adoption and workload evidence. NativeSourcePin2/3, context2 and source inspection/search4 are distinct contracts. |
 | CPU graph and resident worker | Retained-source candidate CPU policy, resident lifecycle and strict schema/report adapters exist. Reuse AC owned reads, executable admission, JIT claims and durable settlement. Actual family fidelity, aggregate resource fit and accepted release remain unestablished. |
@@ -180,7 +180,7 @@ are logically independent. Package IDs are not fixed worker roles or required co
 | [Unified model](unified-domain-model_2026-11-01.md) | Implemented/validated code is a baseline. UM owns remaining agent assessment and follow-up. M1 neither inherits an open code-validation task nor closes that assessment by producing CPU records. Exact implementation matching means queued predecessor preparation/execution uses its matching archived runtime after M1 changes operation determinants; frozen `analysis=False` source/BoundReader reading remains available. Do not weaken matching or migrate run6 to hide that boundary. |
 | [PDF pipeline](pdf-docling-pipeline_2026-10-31.md) | Consume available pinned selected products. Existing provider/current-book and other acceptance dispositions stay there; request only a specifically unavailable consumed contract/evidence item, not completion of the whole series. |
 | [Test architecture](test-architecture-and-evidence_2026-11-02.md) | Reuse applicable scenario/preparation/lifecycle mechanisms and independent expectations; M1 owns new evaluator semantics and release evidence. |
-| [Audit closure](audit-closure_2026-11-03.md#13-adopted-targeted-amendments-and-next-execution) | Consume integrated source and I01–I03 target refinements. Repair AC-CA01 and complete relevant AC14 prerequisites before resumed M1 product scope. M1 documentation revision is authorized before that acceptance. AC owns its findings and required union; M1 owns family quality/resources/release. |
+| [Audit closure](audit-closure_2026-11-03.md#15-approved-final-acceptance-and-m1-handoff--2026-11-04) | Selected AC scope is complete on native105/71a78774, including I01–I03 and AC-CA01–09. Reuse its contracts and applicable current controlled tests; M1 owns new family quality, resources, references and release. Historical/native/provider receipt limits remain explicit. |
 | Other active/finished plans | Preserve their files, accepted scope, findings and receipt meanings. Link package/evidence IDs rather than copying live state. |
 
 Candidate-only operation is a valid intermediate state and cannot become a selected production
@@ -362,10 +362,11 @@ companions remain target/acceptance detail rather than duplicate progress ledger
 
 ## Current checkpoint and next work
 
-**Reconciled 2026-11-03 from source `75db93e1`.** Earlier receipts below and in the historical
-completion audit keep their exact source/context; they are not fresh qualification on execution24.
-AC's independent audit supports inspected source integration with one open public queue-mode
-retirement, AC-CA01. The new documentation sequence does not mark AC14 or any M1 package complete.
+**Reconciled2026-11-04 from clean71a78774/native105.** AC selected acceptance passes4008 functional
+cases, including all680 required native cases, actual bounded provider/consumer journeys and
+postfunctional hygiene. Existing controlled M1 candidate/reference/consumer tests participate in
+that union; this does not establish actual M1 CPU fidelity, accepted lowering or family/resource
+gates. Earlier receipts retain their exact source/context. No whole M1 package is complete.
 
 | M1 package | Current implemented boundary | Remaining execution / evidence |
 | --- | --- | --- |
@@ -380,9 +381,10 @@ retirement, AC-CA01. The new documentation sequence does not mark AC14 or any M1
 | 13 | Protected reference/pass machinery, strict comparison, partitions and finite-cut precision implementation | Actual independent A/B/C source references, deterministic grading, population/empty-prediction and isolation evidence. |
 | 14/15 | Qualification and gap-loop target remain Planned | Final required union, five-family gates, measured operating envelope, gap-driven comparisons and NONDEFAULT release/adoption/rollback procedure. |
 
-**Execution route:** first finish the AC repair/acceptance prerequisites at their owner. Then
-reconcile source/read/runtime inputs and freeze M1 populations/guidelines; start source-only
-reference acquisition before requiring successful extraction. In coherent retained-source increments,
+**Execution route:** AC prerequisites are complete. Reconcile source/read/runtime inputs and
+freeze M1 populations/guidelines. Prepare source-only reference inputs before requiring successful
+extraction, but freeze each intended reference release and exact source-ready frame before A/B/C
+authoring; current reference operations do not relocate passes across releases. In coherent retained-source increments,
 finish annotation/context/CPU producer integration and family assembly, then evaluated interpretation/
 acceptance and assertion lowering, publication and real consumers. Independent evaluation develops
 alongside producers. Execute final M1 functional/provider/nonfunctional and family/resource gates
@@ -391,8 +393,30 @@ only after selected functional scope is complete. Conditional O08–O11 branches
 I01 supplies nondefault execution-subset and producer coverage controls; I02 supplies effect-aware
 bounded interactive delivery versus streamed export; I03 supplies immutable native successors and
 registration-aware retirement. Keep these at the relevant companion boundaries rather than add
-another registry. Explicit unsupported queue modes must refuse even for empty projects (AC-CA01);
+another registry. Unsupported queue modes now refuse even for empty projects (closed AC-CA01);
 reference adjudication remains separate. No live native99/run6/default adoption is performed here.
+
+## Current remaining integration details
+
+Read-only code mapping at71a78774 confirms that annotation persistence already exists inside typed
+SourceObservationBatch parse_detail. M1-04 must finish independently reusable product/admission/
+owned-consumer integration, not invent a parallel preparation store. Context2 supports typed related
+sources, but current M1 ContextSelection uses one same-view slice without retrieval records; M1-05
+still needs actual neighbor/declaration/note/caption/reference adoption and routing evidence.
+
+Actual M1Candidates ends at candidate reports. interpret_records has production callers only in
+tests; candidate projection refuses accepted standing and fills private assertion references.
+M1-08/09/10/11 must wire real candidate/template decisions, evaluated acceptance and actual
+record_assertion→fact membership through the existing domain-policy/consolidate_cut boundary.
+A validator accepting an accepted shape is not that implementation.
+
+Reference frames/passes bind release, source run/cut, exact pins, guideline and policy versions.
+There is no supported frame/pass copy or relocation operation. Resolve fitting/calibration instance
+bindings and release stability early in M1-10/13. Answers from an earlier release packet cannot be
+registered unchanged under a later release; new compatible meaning does not waive actual frame
+identity or authorize predecessor execution. Source/guideline review can proceed early; final A/B/C
+packets must use their intended stable release. Source-only authoring still precedes prediction
+completion, and the coordinator registers exact attributed bytes through existing protected APIs.
 
 ## Historical qualification increment — bounded receipt
 

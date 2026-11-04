@@ -1,7 +1,7 @@
 # Audit closure: semantic contracts, owned execution and bounded consumers
 
-**Status:** Authorized execution series; implementation integrated; targeted verification and complete qualification have distinct scope. Full AC14 acceptance remains open.
-**Created:** 2026-11-03. **Target:** accepted; source integrated with AC-CA01 and complete qualification open. Operator accepted RC01–RC12 as planning
+**Status:** Complete for the accepted selected AC00–AC14 scope, 2026-11-04. Source71a78774/native105; current closure and limits are in §15. Plans and evidence are retained.
+**Created:** 2026-11-03. **Target:** accepted, implemented and selected-scope Tested2026-11-04. Operator accepted RC01–RC12 as planning
 decisions on2026-11-03. This document owns new review-derived package state, shared decisions,
 dependencies and combined acceptance. Writing the series does not authorize product implementation.
 
@@ -26,11 +26,10 @@ DA disposition, including phase0's DA-001–025 exception. Correspondence below 
 work without copying old statuses or claiming their automatic closure. Original series creation did not supersede existing plans. The current operator instruction
 separately authorizes M1 reconciliation; other plans retain their accepted scope and disposition.
 
-**Current sequence (operator revision, 2026-11-03):** audit claimed-complete AC slices →
+**Completed preparation sequence (operator revision, 2026-11-03):** audit claimed-complete AC slices →
 review and incorporate targeted AC amendments → reconcile all M1 plan content. This documentation
-sequence proceeds while AC acceptance is open. Before resumed M1 product execution, settle the
-relevant AC repairs and complete the accepted AC qualification boundary; document revision is
-not qualification or permission to skip a prerequisite.
+sequence preceded AC acceptance. AC repairs and the accepted selected qualification boundary
+are now complete (§15); M1 resumes from that baseline with its own remaining obligations.
 
 ## 2. Baseline and focused foundation assessment
 
@@ -103,27 +102,27 @@ and maintained readers remain explicit; no universal historical-runtime promise 
 
 ## 5. Package queue and dependencies
 
-The table owns current package state. Worker changes are integrated; In progress now preserves
-remaining repair and acceptance obligations, rather than implying unmerged work. See §12 for the
-claimed-slice audit and §13 for the revised remaining execution route.
+The table owns current package state. All selected outcomes are integrated and accepted under §15;
+earlier audit/repair receipts retain their original scope. The required union and its eight unchanged
+host-opt-in exclusions are explicit; M1 quality/resource/release obligations remain separate.
 
 | Package | Delivered behavior | Prerequisite capability / completion boundary |
 |---|---|---|
-| AC00 — In progress | Freeze execution baseline, settle I04 readiness, realize accepted rule decisions at owners, establish contract/version ownership | No product claim; required ADR/owner changes precede dependent meaning changes |
-| AC01 — In progress | One released subset/role/method-dimension authority consumed by admission/behavior | AC00 affected decisions; generated/native/Python/display consumers integrated |
-| AC02 — In progress | One complete rule-value projection and mechanical source-address owner | AC01 required roles/ranges; new ABI and actual rule/evaluator consumers migrate |
-| AC03 — In progress | Typed identity decisions and qualified normalization compatibility | AC01 products; I01 settles runtime support before Unicode parity claims |
-| AC04 — In progress | Attribute-specific support and explicit representatives | AC01 source subset/roles; RC01/03 realized; source/native/consolidation/read consumers integrated |
-| AC05 — In progress | Operation-owned machine-readable reasons | Existing failure/invariant boundary; revised operations and CLI/MCP/storage consumers migrate |
-| AC06 — In progress | Executable policy applicability, owned read operations and truthful CLI/status | AC00 RC04/05/11; existing pinned task/read contracts; need not wait for all semantic work |
-| AC07 — In progress | JIT claims owned through preparation and synchronized fenced terminal retirement | AC00 native claim baseline; retain per-task durability, receipt/reclaim/cancel semantics |
-| AC08 — In progress | Shared producer binding and truthful configured/reported/verified/manual attribution | AC06 applicability seam and AC07 usable attempt-lifetime slice; I03 and affected AC01/05 dimensions; actual current producers migrate |
-| AC09 — In progress | Shared candidate indexes and delta fixed point with complete direct witnesses | AC02 rule meaning and relevant AC04 policy; inference stays inside atomic publication |
-| AC10 — In progress | Selective coverage and batch-hydrated independent standing dimensions | AC01/03/04/05 relevant products and AC06 owned-read slice; ordinary primitive/named/CLI/MCP/export migrations |
-| AC11 — In progress | Bounded evidence inventory/source reads and versioned exact bounded walks | AC10 pin/standing products; I02 settled before traversal implementation |
-| AC12 — In progress | Immutable split decision inputs/results with honest legacy provenance | AC00 RC10; existing evaluator/forward-native mechanism; independent of AC11 |
-| AC13 — In progress | Coherent forward native/release/query transitions and retirement across capabilities | Participates as each changed contract integrates; no final catch-all consumer deferral |
-| AC14 — In progress | Complete applicable functional/provider/nonfunctional union and M1 impact handoff | All selected functional scope integrated; final source and evidence applicability reconciled |
+| AC00 — Complete | Freeze execution baseline, settle I04 readiness, realize accepted rule decisions at owners, establish contract/version ownership | No product claim; required ADR/owner changes precede dependent meaning changes |
+| AC01 — Complete | One released subset/role/method-dimension authority consumed by admission/behavior | AC00 affected decisions; generated/native/Python/display consumers integrated |
+| AC02 — Complete | One complete rule-value projection and mechanical source-address owner | AC01 required roles/ranges; new ABI and actual rule/evaluator consumers migrate |
+| AC03 — Complete | Typed identity decisions and qualified normalization compatibility | AC01 products; I01 settles runtime support before Unicode parity claims |
+| AC04 — Complete | Attribute-specific support and explicit representatives | AC01 source subset/roles; RC01/03 realized; source/native/consolidation/read consumers integrated |
+| AC05 — Complete | Operation-owned machine-readable reasons | Existing failure/invariant boundary; revised operations and CLI/MCP/storage consumers migrate |
+| AC06 — Complete | Executable policy applicability, owned read operations and truthful CLI/status | AC00 RC04/05/11; existing pinned task/read contracts; need not wait for all semantic work |
+| AC07 — Complete | JIT claims owned through preparation and synchronized fenced terminal retirement | AC00 native claim baseline; retain per-task durability, receipt/reclaim/cancel semantics |
+| AC08 — Complete | Shared producer binding and truthful configured/reported/verified/manual attribution | AC06 applicability seam and AC07 usable attempt-lifetime slice; I03 and affected AC01/05 dimensions; actual current producers migrate |
+| AC09 — Complete | Shared candidate indexes and delta fixed point with complete direct witnesses | AC02 rule meaning and relevant AC04 policy; inference stays inside atomic publication |
+| AC10 — Complete | Selective coverage and batch-hydrated independent standing dimensions | AC01/03/04/05 relevant products and AC06 owned-read slice; ordinary primitive/named/CLI/MCP/export migrations |
+| AC11 — Complete | Bounded evidence inventory/source reads and versioned exact bounded walks | AC10 pin/standing products; I02 settled before traversal implementation |
+| AC12 — Complete | Immutable split decision inputs/results with honest legacy provenance | AC00 RC10; existing evaluator/forward-native mechanism; independent of AC11 |
+| AC13 — Complete | Coherent forward native/release/query transitions and retirement across capabilities | Participates as each changed contract integrates; no final catch-all consumer deferral |
+| AC14 — Complete | Complete applicable functional/provider/nonfunctional union and M1 impact handoff | All selected functional scope integrated; final source and evidence applicability reconciled |
 
 An early contract agreement can permit dependent design; runtime integration requires the working
 validated product. Among ready packages prioritize source faithfulness, claim ownership and ordinary
@@ -302,16 +301,16 @@ accepts the corrected producer/coverage boundary at source level. Other review l
 
 | New review finding | Current disposition / responsible component | Closure evidence and remaining limit |
 |---|---|---|
-| AC-CA01 — unsupported public queue mode | Corrected and tested at bounded scope; AC06/AC08/AC13 | Extraction-only tool schema and early direct session/project refusal;11 focused cases passed including both native producer identities. Independent implementation review found no material issue. Full AC14 union remains open. |
-| AC-CA02 — Unicode release determinant admission | Source correction integrated; AC03/AC13/AC14 | Full campaign exposed nonexistent `PreparedRelease.library_versions`; admission now reads the actual manifest libraries and retains database-pair qualification. Eight identity controls and seven native regeneration cases passed; broader qualification is in progress. |
-| AC-CA03 — endpoint/isolate class membership | Corrected at bounded source/native scope; AC04/AC09/AC13 | Actual representable declarations supply exact class membership through observation/local-ID/resolution lineage, without invented property facts or borrowed evidence. Native103 selected controls and full source-to-egress journey pass; full union remains open. |
-| AC-CA04 — attribute citation SQL alias | Corrected at bounded native scope; AC04/AC13 | Renamed the attribute-source alias that collided with the PL/pgSQL record. Native known-input/declared-key positive passes under103 without weakening citation checks. |
-| AC-CA05 — registered MCP delivery bounds | Source correction,16 detached controls and native rollback passed; AC08/AC10/AC11/AC14 | Canonical source/search JSON fits its cap before FastMCP duplicates text/structured content and stamps protocol metadata. The shared stamp owner now bounds complete successful source/search/read-unit/render results; exact registered schemas and exact-size/one-byte-smaller delivery controls pass. Native ACK rollback now passes: task state is unchanged, no session/events escape, and the following adequately budgeted lease succeeds. Full union remains open. |
-| AC-CA06 — inherited declaration-only membership | Reproduced through native103; forward repair in progress; AC04/AC09/AC13 | An eligible prior relation object can have an accepted declaration-only class with no physical membership support. A subsequent known-object import has EntityInput lineage, not a current source declaration. Admit only the exact prior class/establishment under the bound run, input realization/revision and identity-preserving input entity. Never copy old EntitySource or invent attributes/support. Preserve frozen103 and use a successor if native meaning changes. |
-| AC-CA07 — ordinary Alembic collation reflection | Corrected and selected native controls passed; AC13 | The native candidate route installs the actual-catalog index reflection plugin, but the ordinary Alembic environment does not. Register that same plugin there; retain genuine collation/order drift detection and immutable migration artifacts. |
-| AC-CA08 — typed relational surface fingerprint | Regenerated and current-surface control passed; AC13 | Checked-in typed columns carry an older physical model fingerprint. Regenerate with the existing metadata generator; retain independently tested table/field/type agreement and include changed source determinants in prospective native authoring. |
-| AC-CA09 — attribute selector semantic refusal | Corrected and reviewed; ten selector/literal-ID native controls passed; AC04/AC05/AC13 | Malformed attribute owners reached a STRICT lookup and leaked NoDataFound instead of an owned semantic refusal. Match the exact literal local-ID/actual-ordinal address under its observation, entity and property; reject absent/noncanonical selectors with23514. No caller index cast, wildcard matching or broad exception conversion. Preserve legitimate underscore/percent/slash IDs, citation checks and atomic rollback. |
-| Assembled F01 — producer-bound required coverage | Source correction integrated (`f6d43b9d`); coverage recipe4 consumes the existing compatible producer binding and exact immutable task/configuration identity | Independent general-only/mixed missing/partial/drift/historical cases and independent delta assessment; complete AC14 native/transport applicability remains open |
+| AC-CA01 — unsupported public queue mode | Closed2026-11-04; AC06/AC08/AC13 | Extraction-only registered schema and early direct session/project refusal cover empty/populated queues and both compatible producers; full selected union passes. |
+| AC-CA02 — Unicode release determinant admission | Closed2026-11-04; AC03/AC13/AC14 | Admission reads actual manifest libraries, retains supported Unicode/runtime/database-pair qualification, and passes real-release recipe and retained regeneration controls in the final union. |
+| AC-CA03 — endpoint/isolate class membership | Closed2026-11-04; AC04/AC09/AC13 | Representable declarations retain exact observation/local-ID/class/resolution/cut lineage without invented property facts or borrowed citations; native103 and final105 union pass. |
+| AC-CA04 — attribute citation SQL alias | Closed2026-11-04; AC04/AC13 | Attribute-source alias no longer collides with the PL/pgSQL record; native103 positive and native105 source-citation/selector controls pass. |
+| AC-CA05 — registered MCP delivery bounds | Closed2026-11-04; AC08/AC10/AC11/AC14 | Full successful MCP result includes text/structured payload, resultType and SDK metadata. Exact-byte/refusal controls, native precommit ACK rollback and final actual provider/consumer journey pass. |
+| AC-CA06 — inherited declaration-only membership | Closed2026-11-04; AC04/AC09/AC13 | Native104 preserves exact prior class/establishment/input entity and run/snapshot custody. Seven import/tamper/replay controls and the full105 union pass; existing check_entity_input refuses forged run/revision. |
+| AC-CA07 — ordinary Alembic collation reflection | Closed2026-11-04; AC13 | Ordinary Alembic registers the same actual-catalog collation plugin as candidate authoring. Current physical comparison and actual collation/order drift controls pass. |
+| AC-CA08 — typed relational surface fingerprint | Closed2026-11-04; AC13 | Typed columns regenerated through existing metadata generation; independent surface/table/type and final static/functional controls pass. |
+| AC-CA09 — attribute selector semantic refusal | Closed2026-11-04; AC04/AC05/AC13 | Native105 matches actual literal owner/attribute ordinal with no caller cast; eight23514 refusals, two underscore/percent/slash positives, four scientific traces and the full selected union pass. |
+| Assembled F01 — producer-bound required coverage | Closed selected AC scope2026-11-04; coverage recipe4 | Immutable task/configuration population and compatible producer binding survive nondefault/mixed/missing/partial/historical controls and the final native/transport union. |
 
 This table owns the new review/execution findings. Existing DA identities retain their prior single
 scheduled-disposition owners; neither package integration nor this checkpoint closes those plans.
@@ -358,7 +357,7 @@ stated acceptance boundaries are met; this wrap-up is not full-series completion
 | M1-01/13 evaluator populations | Use recorded split decisions without inventing legacy seeds/reasons; keep origin partitions, source-only sampling and reference independence separate. |
 | M1-14/15 qualification/gap loop | Reassess prior receipts by consumed contract and final source/context. AC controls do not satisfy five-family source accuracy, CPU/resource evidence, held-out release gates or NONDEFAULT adoption/rollback. |
 
-Next execution is AC-CA01 repair and its focused consumer controls, then the remaining AC14
+The historical next step at this checkpoint was AC-CA01 repair and its focused consumer controls, then the remaining AC14
 union and final-source applicability. M1's revised documents consume the current baseline and
 accepted amendments; no M1 release, default adoption or production accuracy follows.
 
@@ -415,7 +414,7 @@ no new rule impact and preserve RC01–RC12. Local companion sections retain the
 | Review I02 | AC10/11/13 and AC14: transfer admission versus full-wire delivery, committed render references on refusal, streamed export and actual registered tool/continuation routes. |
 | Review I03 | AC00/13/14: frozen102 successor route, separate fresh/forward/current-head evidence, serial full-chain installs, actual-catalog reflection revisit and registration-aware retirement. |
 
-Next product work: repair AC-CA01 with focused actual-boundary controls; re-evaluate affected
+The next product work at that checkpoint was: repair AC-CA01 with focused actual-boundary controls; re-evaluate affected
 binding/native authoring requirements without rewriting102; then map and run remaining AC14
 obligations against final source/context. Use existing receipts where premises remain valid,
 retaining every failure/interruption. Full acceptance remains the existing required union.
@@ -423,6 +422,8 @@ M1 coordinator and all six companions are reconciled from these foundations and 
 resumed M1 execution retains AC prerequisites and its independent family/reference/resource gates.
 
 ## 14. Current acceptance execution — 2026-11-03 local
+
+**Historical repair/receipt account; §15 owns final completion and next work.**
 
 Execution resumes from `3fb48945`. AC-CA01 has a source/service/tool correction and scoped
 native evidence; AC-CA02 was revealed by the broader campaign, rather than the earlier selected
@@ -550,3 +551,45 @@ registered MCP source inspection and ADBC JSONL export retain identical immutabl
 Controlled Person/name scope remains distinct from M1 statistics/CPU fidelity. Managed recognition's
 unchanged watched inputs preserve its separate actual generation/replacement/application scope.
 Remaining AC14 obligation is final selected functional/nonfunctional union and applicability accounting.
+
+
+## 15. Approved final acceptance and M1 handoff — 2026-11-04
+
+**Complete, selected-scope Tested.** The
+[final acceptance record](../design_review/evidence/2026-11-03_ac14-acceptance/records/ac14.selected-acceptance105.json)
+closes AC00–AC14, AC-CA01–09 and assembled F01 at their accepted boundaries. The final functional
+source is clean71a78774, native105, semantic compiler16/readers14–16, execution24 and RuleValue ABI2.
+Runtime/test/service/domain/script bytes match the actual provider source769793f7; later differences
+are documentation/evidence only. Native102–105 are immutable. There are no unmerged worktrees.
+
+**Passed:** the predeclared selected `just test-all` invocation in the record:4008 selected/pass,
+zero failed/blocked/incomplete, all680 required native cases with complete item-bound acquisition,
+zero unresolved native contexts, complete reporting and consistent source context. Postfunctional
+`just hygiene` passes. Rust nextest has an empty selection and establishes no Rust functional
+coverage; Rust clippy and the other applicable nonfunctional checks pass. No source mutation
+occurred during the campaign. The eight exact unchanged host-authentication crash controls remain
+not_run outside this selected scope under the acceptance companion's predeclared rationale.
+
+Actual managed recognition generation/replacement/restart/in-flight/application receipts retain
+all five watched inputs unchanged. Fresh authenticated native105 extraction proceeds through
+protected consolidation and occurrence/accepted/evidence CLI queries, registered MCP inspection
+and ADBC/JSONL export with identical immutable producing pins. Native continuation/default-change
+controls separately prove pinned replay and stale-token refusal; the provider probe is not claimed
+to exercise every variation. Independent read-only applicability review found no material uncovered
+accepted obligation. Failed/interrupted receipts and the superseded provider collection warning
+remain retained. Evidence warnings are not relabelled as passing source results.
+
+The implementation retires displaced current APIs/choices, not supported historical readers,
+registered complete_unit_result, reference adjudication, frozen migrations, plans or evidence.
+Live native99/run6 and operational defaults are preserved. No measured capacity/latency benefit,
+M1 statistics reading quality, empirical calibration, CPU/RSS fit or qualified corpus release is
+established by AC acceptance. Existing DA dispositions retain their original owning plans.
+
+**Next:** reconcile M1's current baseline to this closure, then execute its remaining source/
+guideline/population, annotation/context/CPU, interpretation/acceptance/assertion lowering,
+independent Sol A/B/C reference, native/consumer, resource and five-family release obligations.
+The existing M1 impact table and revised companions retain those contracts. Current implementation
+has private candidate records and a pure interpreter, not a wired accepted-record path. Reference
+frames/passes bind exact releases and have no implicit cross-release relocation; resolve that
+sequencing before authoring final packets. Deliver a NONDEFAULT release and adoption/rollback
+procedure, preserving the separately authorized default-selection boundary.

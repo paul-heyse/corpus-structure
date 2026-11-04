@@ -1,10 +1,14 @@
 # Released semantic contracts and projections
 
-**Accepted planning direction, 2026-11-03; source integrated; complete qualification open.**
+**Completed selected AC scope; Tested2026-11-04.**
 This companion develops AC01, AC02 and AC05 of the
 [audit-closure coordinator](../audit-closure_2026-11-03.md). The coordinator alone owns package
 status, execution queue and new-review-work disposition. Source DA findings keep their existing
 disposition owner; the correspondence below supplies implementation routes, not copied status.
+
+Current accepted source71a78774/native105 and complete selected functional/native/provider/
+nonfunctional evidence are owned by coordinator §15. Original dated grounding and target detail
+below are retained; they do not reopen completed AC work or qualify M1.
 
 The operator accepted principal-review RC01–RC12 on 2026-11-03. No reapproval is needed.
 ADR-0054 realizes the accepted changes at their architectural owners;

@@ -2,7 +2,7 @@
 
 ## Current compiler and compatibility owner
 
-**Implemented source; assembled qualification open (2026-11-03).**
+**Implemented; selected AC scope Tested2026-11-04.**
 `semantic.types.SEMANTIC_COMPILER_VERSION` declares the sole current producing compiler;
 `READABLE_COMPILER_VERSIONS` declares supported immutable product reading. Native execution
 projection admission requires the current compiler and exact implementation binding. Product
@@ -25,7 +25,7 @@ product; domain vocabulary lookup does not stand in for operational authority.
 
 ## Audit-closure target
 
-**Implemented source; assembled qualification remains open (2026-11-03).** Released subsets, behavioral memberships, contextual display policy, method dimensions and versioned rule-value products govern generated and native boundaries. Current executable compiler and reader owners govern present-tense compatibility; older numbered descriptions are historical until reconciled by AC13.
+**Implemented; selected AC scope Tested2026-11-04.** Released subsets, behavioral memberships, contextual display policy, method dimensions and versioned rule-value products govern generated and native boundaries. Current executable compiler and reader owners govern present-tense compatibility; older numbered descriptions are historical until reconciled by AC13.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 

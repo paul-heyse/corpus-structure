@@ -4,8 +4,13 @@
 owns the detailed design and completion conditions for M1-02/03. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
 dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
 qualification is Planned. This revision changes plans, not production code or deployments.
+
+**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
+current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
+accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
+open. This companion retains the remaining target; the coordinator owns current package state.
 
 ## Basis and foundation assessment
 
@@ -14,8 +19,8 @@ Consume the [M1 proposal](../../target-pipeline-design/first-production-mileston
 [GLiNER deployment contract](../../target-pipeline-design/gliner-deployment.md). The original
 review inputs remain those recorded by the coordinator. The current foundation is the
 [amended AC target](../audit-closure_2026-11-03.md#13-adopted-targeted-amendments-and-next-execution):
-semantic compiler16, immutable readers14–16, execution24 and RuleValue ABI2, with frozen native102.
-AC14 qualification and AC-CA01 retirement remain open. Prior UM functionality/validation is
+semantic compiler16, immutable readers14–16, execution24 and RuleValue ABI2, with frozen native105.
+Selected AC14 acceptance and AC-CA01–09 closure are complete under coordinator §15. Prior UM functionality/validation is
 complete under the operator's ruling; M1 does not reopen it.
 
 The [assembly/interpretation companion](record-assembly-and-bounded-interpretation.md) consumes
@@ -212,7 +217,7 @@ selected. Local class/table names and whether compact field data share an existi
 are implementation choices. The implemented finite record
 projection now owns field-set and record membership; do not reopen placement as a greenfield
 choice. Extend that owner only for a demonstrated missing meaning, and demonstrate the accepted
-table/header/note round trip. Any native change after frozen102 uses a new forward successor
+table/header/note round trip. Any native change after frozen105 uses a new forward successor
 under AC review I03, never a rewrite of historical migration bytes. Do not accept opaque
 payload-only persistence that strands query/export/evaluator consumers.
 

@@ -1,10 +1,14 @@
 # Release transition and integrated acceptance
 
-**Accepted target; source integrated with bounded audit limits; full qualification open · 2026-11-03.** Companion to the
+**Completed selected AC scope; Tested2026-11-04.** Companion to the
 [audit-closure coordinator](../audit-closure_2026-11-03.md), the sole owner of package state,
 execution queue, new-review disposition and the M1 impact handoff. This document develops
 AC13–AC14 and the I04 native-foundation investigation. It does not duplicate package statuses or
 move original audit findings from their prior disposition owners.
+
+Current accepted source71a78774/native105 and complete selected functional/native/provider/
+nonfunctional evidence are owned by coordinator §15. Original dated grounding and target detail
+below are retained; they do not reopen completed AC work or qualify M1.
 
 ## Basis, foundations and boundary
 

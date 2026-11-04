@@ -2,7 +2,7 @@
 
 ## Audit-closure target
 
-**Implemented source; assembled qualification remains open (2026-11-03).** Protected split publication atomically retains actual policy, seed, population, prior-assignment basis, reasons and algorithm version. Exact replay preserves the original receipt; historical unrecoverable provenance stays unavailable. M1 origin/sample metadata remains distinct.
+**Implemented; selected AC scope Tested2026-11-04.** Protected split publication atomically retains actual policy, seed, population, prior-assignment basis, reasons and algorithm version. Exact replay preserves the original receipt; historical unrecoverable provenance stays unavailable. M1 origin/sample metadata remains distinct.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 

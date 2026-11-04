@@ -4,8 +4,13 @@
 owns the detailed design and completion conditions for M1-08/09/10. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
 dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
 qualification is Planned. This revision changes plans, not production code or deployments.
+
+**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
+current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
+accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
+open. This companion retains the remaining target; the coordinator owns current package state.
 
 ## Target and existing seams
 

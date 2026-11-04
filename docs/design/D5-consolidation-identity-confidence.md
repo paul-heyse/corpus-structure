@@ -2,7 +2,7 @@
 
 ## Audit-closure target
 
-**Implemented source; assembled qualification remains open (2026-11-03).** Identity assignments retain explicit resolution decisions. Source attributes retain their own qualifications and evidence. Storage, display and scientific representatives have separate policies. Shared candidate indexes and delta inference preserve complete direct witnesses inside atomic publication.
+**Implemented; selected AC scope Tested2026-11-04.** Identity assignments retain explicit resolution decisions. Source attributes retain their own qualifications and evidence. Storage, display and scientific representatives have separate policies. Shared candidate indexes and delta inference preserve complete direct witnesses inside atomic publication.
 
 Explicit representable entity declarations retain class membership for endpoints and isolates,
 even when they have no attributed property assertions. Their separate native support basis is
@@ -10,15 +10,14 @@ exact observation/local-entity/class and typed resolution lineage under the boun
 It does not manufacture name/ID facts, source occurrences or located evidence. Existing supported
 memberships remain intact; incomplete required identity remains unrepresentable. Native103 carries
 this guard correction and the attribute-citation alias correction forward from immutable102;
-assembled qualification remains with the AC plan.
+selected AC qualification is recorded by coordinator §15.
 
 Known imports retain an existing class/establishment through exact EntityInput custody under
 the importing run's output and input snapshot, with unchanged entity identity and current prior
 revision. Native104 carries this basis forward; it copies no old declaration or property support.
 Malformed attribute selectors now match only an actual source attribute ordinal under the exact
 literal owner/subject/property, with an owned23514 refusal. Caller index text is never cast.
-Native105's forward/current-head comparison and scoped selector/scientific controls pass; complete
-assembled acceptance remains with AC14.
+Native105's forward/current-head comparison and scoped selector/scientific controls pass; the selected complete AC union passes under coordinator §15.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 

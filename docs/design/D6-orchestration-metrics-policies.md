@@ -2,7 +2,7 @@
 
 ## Audit-closure target
 
-**Implemented source; assembled qualification remains open (2026-11-03).** Executable applicability is distinct from authored policy validity. Methods use owned reads. Claims remain owned through preparation, provider work and durable synchronized terminal retirement. One compatible producer binding governs actual queue and submission paths; trust strength is explicit. Model/provider preparation runs outside publication locks; finite rule inference retains atomic publication.
+**Implemented; selected AC scope Tested2026-11-04.** Executable applicability is distinct from authored policy validity. Methods use owned reads. Claims remain owned through preparation, provider work and durable synchronized terminal retirement. One compatible producer binding governs actual queue and submission paths; trust strength is explicit. Model/provider preparation runs outside publication locks; finite rule inference retains atomic publication.
 
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 

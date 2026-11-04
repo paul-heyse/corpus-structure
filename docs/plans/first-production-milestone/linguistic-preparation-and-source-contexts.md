@@ -4,15 +4,20 @@
 owns the detailed design and completion conditions for M1-04/05. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
 dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
 qualification is Planned. This revision changes plans, not production code or deployments.
+
+**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
+current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
+accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
+open. This companion retains the remaining target; the coordinator owns current package state.
 
 ## Basis and current foundations
 
 The [M1 proposal](../../target-pipeline-design/first-production-milestone.md),
 [review O01/O05/O06](../../functional_reviews/m1-target-design_2026-11-03.md#O01) and
 [GLiNER deployment](../../target-pipeline-design/gliner-deployment.md) supply the selected design.
-The source baseline is now `75db93e1`, consuming the amended AC target and its adopted I01–I03.
+The source baseline is now `71a78774`, consuming the amended AC target and its adopted I01–I03.
 `ingest/annotations.py`, `methods/source_preparation.py` and `semantic/source_contexts.py` already
 supply richer detached annotations, mapped contexts and routing dispositions. M1 finishes their
 persisted/operation adoption and retained-source CPU evidence. Prior UM functionality/validation
@@ -54,7 +59,8 @@ once the fields and precision semantics are settled. M1-04 does not wait for eve
 the full context retrieval implementation.
 
 Use the implemented `SentenceConfig` / `AnnotationProfile` sentence-only and richer
-annotation selections; finish their release-bound persisted product/operation integration. The richer profile enables/version-pins needed lemmatizer, tagger,
+annotation selections. Full annotations already persist in typed SourceObservationBatch parse_detail;
+finish their release-bound independently reusable product/operation and owned-consumer integration. The richer profile enables/version-pins needed lemmatizer, tagger,
 morphology and dependency components; do not assume annotations exist because a `Doc` object
 exists. Record component/model/package versions, source/layout recipe and availability per needed
 annotation. Model/package mismatch refuses deterministically, following existing `pipeline`.

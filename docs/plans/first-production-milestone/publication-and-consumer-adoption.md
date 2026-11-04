@@ -4,8 +4,13 @@
 owns the detailed design and completion conditions for M1-11/12. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
 dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
 qualification is Planned. This revision changes plans, not production code or deployments.
+
+**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
+current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
+accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
+open. This companion retains the remaining target; the coordinator owns current package state.
 
 ## Target and responsibility
 
@@ -81,7 +86,7 @@ origins in a ledger. Author modality, interpretation confidence, reliability and
 remain separate; consolidation neither estimates scientific truth nor silently adopts ontology
 proposals. Global identity/ontology changes require their existing review/version route.
 
-The current baseline is frozen native102, semantic compiler16/readers14–16, execution24 and
+The current baseline is frozen native105, semantic compiler16/readers14–16, execution24 and
 RuleValue ABI2. Reuse attributed assertions and complete rule views inside the existing atomic
 consolidation/delta-inference route. New accepted record semantics must not turn generated
 structural assignments into source assertions or count one field's evidence for another. Preserve
@@ -111,7 +116,7 @@ Remove replaced M1-local flattening or duplicate interpretation paths once their
 Do not retire predecessor data or unrelated workflows merely to simplify a test. A new release
 can exist without being default-selected while consumers and evidence are incomplete.
 
-Any native change after frozen102 uses a new forward successor, preserving immutable predecessor
+Any native change after frozen105 uses a new forward successor, preserving immutable predecessor
 bytes, sidecar hashes, existing supported archive readers and the live native99 application.
 AC improvement I03 separates fresh installation, predecessor-forward and current-head reauthoring
 controls. Run full-chain installs serially on the dedicated cluster, and retain actual-catalog
@@ -175,7 +180,7 @@ and metadata overhead. Rendering can commit an artifact before inline delivery r
 artifact reference and allow later bounded retrieval. Explicit streamed export keeps its own
 snapshot/iterator lifetime rather than inheriting an interactive whole-response limit. Exercise
 registered tools and continuations; no MCP resource workflow is currently registered or required.
-AC-CA01 must refuse unsupported queue modes even for an empty project before they can be relied on
+Closed AC-CA01 refuses unsupported queue modes even for an empty project before they can be relied on
 as truthful queue outcomes.
 
 | Journey | Required observable behavior |

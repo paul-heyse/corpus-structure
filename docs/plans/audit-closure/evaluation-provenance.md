@@ -1,6 +1,6 @@
 # Evaluation split-decision provenance
 
-**Accepted target; source integrated; complete qualification open · 2026-11-03.** This companion defines AC12 of the
+**Completed selected AC scope; Tested2026-11-04.** This companion defines AC12 of the
 [audit-closure coordinator](../audit-closure_2026-11-03.md), which alone owns new-series package
 state, review-obligation conclusions and completion. Existing plans retain scheduled DA
 dispositions; this companion neither transfers nor duplicates them. It consumes DA-037 in the
@@ -10,6 +10,10 @@ read together with the semantic/runtime contributions. The original source basel
 `fd4ea601` plus identified concurrent M1 work; the current implementation baseline is `75db93e1`.
 Core3.3, heuristics1.0, code-intelligence1.4 and test-assessment1.2 guide this bounded assessment.
 ADR-0054 realizes accepted RC10 at the owners; qualification remains separately scoped below.
+
+Current accepted source71a78774/native105 and complete selected functional/native/provider/
+nonfunctional evidence are owned by coordinator §15. Original dated grounding and target detail
+below are retained; they do not reopen completed AC work or qualify M1.
 
 ## Purpose and baseline
 

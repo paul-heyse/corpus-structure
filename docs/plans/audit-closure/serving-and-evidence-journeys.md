@@ -1,10 +1,14 @@
 # Serving and evidence journeys
 
-**Accepted target; source integrated; complete qualification open · 2026-11-03.** This companion defines the AC10 and
+**Completed selected AC scope; Tested2026-11-04.** This companion defines the AC10 and
 AC11 contracts of the [audit-closure coordinator](../audit-closure_2026-11-03.md).
 The coordinator alone owns new-series package state, review-obligation conclusions, sequencing
 and completion. Existing plans retain their scheduled DA dispositions; this companion does not
 transfer or copy them. It contains no separate progress ledger and authorizes no production changes.
+
+Current accepted source71a78774/native105 and complete selected functional/native/provider/
+nonfunctional evidence are owned by coordinator §15. Original dated grounding and target detail
+below are retained; they do not reopen completed AC work or qualify M1.
 
 The input is the [principal review](../../design_review/reviews/design_review_audit-closure-target_2026-11-03.md)
 at `fd4ea601`, especially DA-035/036/039 and its

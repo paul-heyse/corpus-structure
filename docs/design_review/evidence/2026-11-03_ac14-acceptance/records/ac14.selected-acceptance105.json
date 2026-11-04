@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "id": "ac14.selected-acceptance105",
+  "title": "Selected AC functional native provider and hygiene acceptance",
+  "group": "audit-closure",
+  "package": "AC14",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does repaired native105 source close the accepted AC functional/native/provider/consumer/nonfunctional union without claiming M1 qualification?",
+  "answers": [
+    "AC00",
+    "AC01",
+    "AC02",
+    "AC03",
+    "AC04",
+    "AC05",
+    "AC06",
+    "AC07",
+    "AC08",
+    "AC09",
+    "AC10",
+    "AC11",
+    "AC12",
+    "AC13",
+    "AC14",
+    "AC-CA01",
+    "AC-CA02",
+    "AC-CA03",
+    "AC-CA04",
+    "AC-CA05",
+    "AC-CA06",
+    "AC-CA07",
+    "AC-CA08",
+    "AC-CA09"
+  ],
+  "method": "Complete predeclared ordinary suite on clean71a78774, exact8 unchanged host-opt-in deselections, item-bound acquired native context classification, postfunctional hygiene, actual provider-to-egress and unchanged-input managed service evidence. Independent read-only applicability review.",
+  "commands": [
+    "just test-all '--deselect=tests/scripts/test_native_auth.py::test_actual_partial_auth_effects_are_recovered[after_create-injected after role create]' '--deselect=tests/scripts/test_native_auth.py::test_actual_partial_auth_effects_are_recovered[first_edit-injected after first auth edit]' '--deselect=tests/scripts/test_native_auth.py::test_actual_partial_auth_effects_are_recovered[reload-injected after reload]' '--deselect=tests/scripts/test_native_auth.py::test_actual_partial_auth_effects_are_recovered[second_edit-injected after second auth edit]' --deselect=tests/scripts/test_native_auth.py::test_killed_owner_waits_for_privileged_file_helper_then_removes_late_row --deselect=tests/scripts/test_native_auth.py::test_killed_owner_waits_for_tagged_postgres_backend_before_recovery --deselect=tests/scripts/test_native_auth.py::test_sigkill_owner_is_recovered_by_the_next_pgadmin_context --deselect=tests/scripts/test_native_auth.py::test_stale_guardian_generation_refuses_a_late_privileged_command",
+    "just hygiene",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/source-knowledge-journey/journey.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native105/source-inputs.json",
+      "role": "final native/transport source and frozen105 hashes",
+      "sha256": "8b04ffe1f301938404a0fb671b21f953a2b8b847ffeb25fcb6b169e486fd2c9d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "qualification/attempt-final005",
+      "role": "complete functional/context/hygiene receipts, exact source/selection and limitations",
+      "sha256": "dcb1b9c8ca83f72c5bf79cd3a54471a350784a3cbb7a55a3f2310f5118e1291b"
+    }
+  ],
+  "depends_on": [
+    "ac13.forward103",
+    "ac13.forward104",
+    "ac13.forward105",
+    "ac14.source-knowledge-native105",
+    "ac14.actual-provider-refresh"
+  ],
+  "results": [
+    {
+      "name": "selected_functional_passes",
+      "value": 4008,
+      "of": null,
+      "unit": "cases",
+      "note": "All selected passed; eight explicit opt-in host-auth controls deselected/not_run outside AC."
+    },
+    {
+      "name": "required_native_with_acquired_context",
+      "value": 680,
+      "of": null,
+      "unit": "cases",
+      "note": "All claimed; zero unresolved; reporting complete and source contexts consistent."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected AC acceptance passed on clean71a78774/native105. Functional union4008, all680 required native contexts, actual controlled provider→protected knowledge→CLI/MCP/evidence/ADBC export, unchanged-input actual managed generation/replacement/application scope, and postfunctional hygiene establish accepted AC00–14. Native default/continuation changes are independently exercised, not all provider-driven. Eight unchanged opt-in host-auth crash controls remain not_run outside selected scope; Rust empty selection establishes no Rust functional coverage. No M1 accuracy, calibration, CPU/resource fit, corpus release or persistent default adoption follows. Historical failed/interrupted runs and superseded provider collection warning retained.",
+  "consumed_by": [
+    "AC14",
+    "M1-00",
+    "M1-14"
+  ]
+}

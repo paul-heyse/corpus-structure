@@ -1,11 +1,15 @@
 # Consolidation decisions, attribution and inference
 
-**Accepted planning direction, 2026-11-03; source integrated; complete qualification open.**
+**Completed selected AC scope; Tested2026-11-04.**
 This companion develops AC03, AC04 and AC09 of the
 [audit-closure coordinator](../audit-closure_2026-11-03.md). It owns detailed intended contracts;
 the coordinator owns every package status and new-review-work disposition. Source DA disposition
 remains with its existing owner, linked through the coordinator rather than copied here.
 M1 plan reconciliation follows this audit and amendment; execution retains the relevant AC prerequisites.
+
+Current accepted source71a78774/native105 and complete selected functional/native/provider/
+nonfunctional evidence are owned by coordinator §15. Original dated grounding and target detail
+below are retained; they do not reopen completed AC work or qualify M1.
 
 The operator accepted RC01–RC12 on 2026-11-03; no reapproval is required. ADR-0054 realizes the architectural-owner changes; further material changes follow the same route. This plan applies
 none of those decisions to production and does not change native99 or frozen migration bodies.

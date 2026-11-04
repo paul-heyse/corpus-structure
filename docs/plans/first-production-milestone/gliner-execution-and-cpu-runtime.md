@@ -4,15 +4,20 @@
 owns the detailed design and completion conditions for M1-06/07. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
 dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `75db93e1`; historical receipts retain their own source/context. Remaining
+inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
 qualification is Planned. This revision changes plans, not production code or deployments.
+
+**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
+current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
+accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
+open. This companion retains the remaining target; the coordinator owns current package state.
 
 ## Basis, foundation assessment and responsibility
 
 Consume the [M1 proposal](../../target-pipeline-design/first-production-milestone.md),
 [review O02/O05/O06](../../functional_reviews/m1-target-design_2026-11-03.md#O02) including its
 combined/supplemental dispositions, and [GLiNER deployment](../../target-pipeline-design/gliner-deployment.md)
-in full. Current source `75db93e1` includes `GlinerProfile`, strict `GlinerPack`, mapped reports,
+in full. Current source `71a78774` includes `GlinerProfile`, strict `GlinerPack`, mapped reports,
 `GlinerWorker` and the retained-only `orchestrate/m1.py` candidate graph. Historical actual offline
 FP32 operations retain their recorded profile/source limits; they do not qualify all families.
 Consume amended AC owned reads, executable policy admission, shared producer binding and
