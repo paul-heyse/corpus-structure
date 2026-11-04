@@ -222,6 +222,7 @@ def test_overlay_requests_admission_only_for_exact_completed_sealed_event(evalua
     assert len(rows) == 1
     assert rows[0].decision == "accepted", rows[0].reason
     assert rows[0].evaluation_id == 71
+    assert rows[0].probability_lexical is not None
     assert float(rows[0].probability_lexical) > 0.99
     assert report["records"][0]["standing"] == "candidate"
     for changed in (
