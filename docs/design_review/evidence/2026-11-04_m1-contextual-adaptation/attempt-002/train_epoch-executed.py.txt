@@ -1,0 +1,449 @@
+"""One native CPU FP32 epoch over a frozen faithful contextual feature-fit dataset.
+
+Import/help is inert. Training is an explicit command, after the coordinator selects
+and the dataset worker freezes the passed input. No database or source preparation.
+"""
+from __future__ import annotations
+
+import argparse
+from collections import Counter
+import copy
+from datetime import datetime, timezone
+from hashlib import file_digest, sha256
+import importlib.metadata
+import importlib.util
+from importlib.machinery import SourceFileLoader
+import json
+import logging
+import math
+import os
+from pathlib import Path
+import random
+import sys
+import time
+import traceback
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[3]
+TARGETS = HERE.parent / "2026-11-04_m1-contextual-targets"
+DENOMINATOR = dict(definition=14, assertion=56, measurement=32, table=80, formula_context=88)
+FORMAT = "m1-fixed-schema-native-targets-experiment-2"
+DATASET_SHA256 = "a98a7cdaaae94a755ca61441770ef7551a9572d9e4497a3ac40288d7b3f35a2b"
+PROCESSOR_SHA256 = "b0ecf2152aebfe4023496b8a01fc96d7d24c35b9a6a6d6b14a00a7a24ea94d95"
+PROFILE = "78871269cc270839a432a0d7a36cbc09e325de1cc87f64e6fe6bae215514e3e7"
+RELEASE = "release:407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25"
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def digest(value):
+    return sha256(json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def file_receipt(path):
+    with path.open("rb") as stream:
+        value = file_digest(stream, "sha256").hexdigest()
+    return dict(path=str(path), bytes=path.stat().st_size, sha256=value)
+
+
+def manifest(directory):
+    return [dict(relative=str(path.relative_to(directory)), **file_receipt(path))
+            for path in sorted(directory.rglob("*")) if path.is_file()]
+
+
+def rows(path):
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def write(path, value):
+    with path.open("x") as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2, allow_nan=False)
+        stream.write("\n")
+
+
+def append(path, value):
+    with path.open("a") as stream:
+        stream.write(json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n")
+
+
+def full_conditioning(receipt):
+    return digest(dict(encoding=receipt["conditioning"], record_specs=receipt["record_specs"],
+                       original_schemas=receipt["original_schemas"]))
+
+
+def single_row_native_records(records, *, expected_count, actual_mask_count):
+    """Native no-record batch representation, bound to independent frozen membership."""
+    if records is None:
+        require(expected_count == actual_mask_count == 0,
+                "native record container absent for nonzero frozen/actual membership")
+        return []
+    require(len(records) == 1 and len(records[0]) == expected_count == actual_mask_count,
+            "native record container/frozen membership/record mask differ")
+    return records[0]
+
+
+def load_inputs(directory):
+    directory = directory.resolve()
+    require(directory.parent == TARGETS.resolve() and directory.name == "attempt-004",
+            "only the coordinator-selected contextual-targets attempt is in scope")
+    require(not (directory / "failure.json").exists(), "failed reconstruction is not a training dataset")
+    frozen = json.loads((directory / "freeze.json").read_text())
+    require(frozen["outcome"] == "passed" and frozen["immutable_attempt"] == directory.name,
+            "dataset worker has not frozen this passed attempt")
+    declared = {}
+    for entry in frozen["files"]:
+        relative = Path(entry["path"])
+        require(not relative.is_absolute() and ".." not in relative.parts
+                and relative.parts[0] == directory.name, "freeze contains a foreign path")
+        require(str(relative) not in declared, "freeze repeats a file")
+        declared[str(relative)] = entry
+        actual = file_receipt(directory.parent / relative)
+        require(actual["bytes"] == entry["bytes"] and actual["sha256"] == entry["sha256"],
+                "frozen dataset artifact changed: " + str(relative))
+    actual_paths = {str(path.relative_to(directory.parent)) for path in directory.rglob("*") if path.is_file()}
+    require(actual_paths == set(declared) | {str(Path(directory.name) / "freeze.json")},
+            "dataset directory no longer matches its complete freeze inventory")
+    summary = json.loads((directory / "summary.json").read_text())
+    require(summary["outcome"] == "passed", "target reconstruction did not pass")
+    require(summary["denominator"] == DENOMINATOR and summary["original_records"] == 270,
+            "original independent 270-reading denominator changed")
+    require(all(summary.get(name) is False for name in
+                ("heldout", "model_loaded", "forward", "training", "database_mutation")),
+            "dataset isolation/metadata-only premise is missing")
+    data = rows(directory / "training-targets.jsonl")
+    require(file_receipt(directory / "training-targets.jsonl")["sha256"] == DATASET_SHA256,
+            "coordinator-selected exact v2 dataset bytes changed")
+    reloads = rows(directory / "reload-collation.jsonl")
+    origins = rows(directory / "training-target-origins.jsonl")
+    ledger = rows(directory / "record-disposition.jsonl")
+    require(len(data) == summary["examples"] == summary["reload_examples"] == len(reloads) == len(origins),
+            "complete admitted dataset/reload/origin membership differs")
+    require(len(data) == 261, "complete approved261-row epoch required")
+    require(len(ledger) == 270 and len({row["record_id"] for row in ledger}) == 270,
+            "full original independent ledger is incomplete or duplicated")
+    require(Counter(row["family"] for row in ledger) == Counter(DENOMINATOR),
+            "independent family denominators changed")
+    represented = Counter(row["family"] for row in ledger if row["emitted_requests"])
+    excluded = Counter(row["family"] for row in ledger if not row["emitted_requests"])
+    require(represented == Counter(summary["represented"]) and excluded == Counter(summary["excluded"]),
+            "represented/excluded ledger differs from the frozen summary")
+    expected = {row["request"]: row for row in reloads}
+    identities = [row["output"]["sample_id"] for row in data]
+    require(len(set(identities)) == len(data) and set(identities) == set(expected),
+            "dataset/reload sample identities are incomplete or duplicated")
+    require({row["request"] for row in origins} == set(identities), "origin aliases lost an admitted row")
+    for entry in ledger:
+        require(set(entry["emitted_requests"]) <= set(identities), "ledger names an unadmitted training row")
+    for row in data:
+        payload = row["output"]
+        require(payload["format"] == FORMAT and isinstance(row["input"], str), "unsupported raw dataset format")
+        require(payload["native_pack_version"] == "native-combined-v2", "native frontend version changed")
+        require(digest(payload["released_schema"]) == payload["released_schema_digest"], "released schema bytes/order changed")
+        require(digest(payload["target_records"]) == payload["target_records_digest"], "target bytes/order changed")
+        fields = [field["name"] for field in payload["released_schema"]["structures"][payload["family"]]["fields"]]
+        require(all(list(target) == fields for target in payload["target_records"]), "raw target field insertion order changed")
+    require(any(row["output"]["target_records"] for row in data), "a zero-only feasibility dataset is not meaningful adaptation")
+    cfg = json.loads((directory / "contextual-configuration.json").read_text())
+    require(cfg["name"] == "extract.m1_candidates/contextual", "dataset is not the named contextual profile")
+    require(file_receipt(REPO / "domains/statistics/m1-methods.yaml")["sha256"] == cfg["registry"]["sha256"],
+            "contextual registry bytes changed after target preparation")
+    processor = directory / "fixed_schema_processor-executed.py.txt"
+    contract = json.loads((directory / "processor-contract.json").read_text())
+    require(contract["format"] == FORMAT and contract["dedupe_contained_entity_spans"] is False
+            and contract["immutable_executed_source"]["sha256"] == PROCESSOR_SHA256
+            and file_receipt(processor)["sha256"] == PROCESSOR_SHA256,
+            "exact frozen v2 target processor/transport contract differs")
+    source_binding = json.loads((directory / "source-whitelist-freeze.json").read_text())
+    require(source_binding["outcome"] == "passed" and source_binding["run_id"] == 22
+            and source_binding["cut_id"] == 23 and source_binding["release_id"] == RELEASE,
+            "approved source-only run22/cut23/release binding differs")
+    require(cfg["profile_fingerprint"] == PROFILE, "approved production profile fingerprint differs")
+    for relative in ("methods/gliner.py", "methods/m1_source.py"):
+        actual = REPO / "python/corpus-structure/src/corpus_structure" / relative
+        frozen = directory / "executed-source" / (relative.replace("/", "__") + ".txt")
+        require(actual.read_bytes() == frozen.read_bytes(), "consumed contextual loader/configuration source changed: " + relative)
+    source_receipts = json.loads((directory / "source-receipts.json").read_text())
+    for name, value in source_receipts["packages"].items():
+        require(importlib.metadata.version(name) == value, "native package version changed: " + name)
+    return dict(directory=directory, processor=processor, summary=summary, data=data, expected=expected,
+                configuration=cfg, manifest=manifest(directory), represented=sum(represented.values()),
+                excluded=sum(excluded.values()), positive_rows=sum(bool(row["output"]["target_records"]) for row in data),
+                zero_rows=sum(not row["output"]["target_records"] for row in data))
+
+
+def native_config(output_dir):
+    from gliner2.training.trainer import TrainingConfig
+    config = TrainingConfig(
+        output_dir=str(output_dir), experiment_name="m1-contextual-one-faithful-epoch",
+        num_epochs=1, max_steps=-1, batch_size=1, gradient_accumulation_steps=1,
+        fp16=False, bf16=False, eval_strategy="no", save_best=False,
+        num_workers=0, pin_memory=False, report_to_wandb=False, use_lora=False,
+        max_train_samples=-1, max_eval_samples=-1, validate_data=False,
+        strict_training=True, skip_step_errors=False, ignore_nonfinite_losses=False,
+        allow_invalid_samples=False, on_capacity_exceeded="raise", max_len=None,
+        gradient_checkpointing=False, compile_model=False, seed=42,
+        dedupe_contained_entity_spans=False,
+    )
+    require(config.encoder_lr == 1e-5 and config.task_lr == 5e-4, "native learning-rate defaults changed")
+    return config
+
+
+def train(args):
+    os.environ.update(CUDA_VISIBLE_DEVICES="", HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
+                      TOKENIZERS_PARALLELISM="false", OMP_NUM_THREADS="4", MKL_NUM_THREADS="4", OPENBLAS_NUM_THREADS="1")
+    require(__debug__, "optimized Python would disable the settled processor's invariant checks")
+    out = HERE / args.attempt
+    out.mkdir(exist_ok=False)
+    started = time.perf_counter()
+    counts = Counter()
+    handles = []
+    warnings = []
+    handler = None
+    model = trainer = None
+
+    def emit(kind, **values):
+        row = dict(kind=kind, at=datetime.now(timezone.utc).isoformat(),
+                   elapsed_seconds=time.perf_counter() - started, **values)
+        append(out / "events.jsonl", row)
+        print(json.dumps(row, ensure_ascii=False, allow_nan=False), flush=True)
+
+    write(out / "launch.json", dict(at=datetime.now(timezone.utc).isoformat(), pid=os.getpid(),
+          process_start_ticks=int(Path("/proc/self/stat").read_text().rsplit(") ", 1)[1].split()[19]),
+          argv=sys.argv, dataset=str(args.dataset), runner=file_receipt(Path(__file__)),
+          scope="one full faithful feature-fit epoch; no DB/PDF/heldout/adoption"))
+    (out / "train_epoch-executed.py.txt").write_bytes(Path(__file__).read_bytes())
+    try:
+        inputs = load_inputs(args.dataset)
+        write(out / "input-manifest.json", inputs["manifest"])
+        write(out / "input-summary.json", {key: inputs[key] for key in
+              ("summary", "represented", "excluded", "positive_rows", "zero_rows")})
+        (out / "training-targets-executed.jsonl").write_bytes((inputs["directory"] / "training-targets.jsonl").read_bytes())
+        frozen_processor = out / "fixed_schema_processor-executed.py.txt"
+        frozen_processor.write_bytes(inputs["processor"].read_bytes())
+        spec = importlib.util.spec_from_loader("m1_contextual_fixed_processor",
+                    SourceFileLoader("m1_contextual_fixed_processor", str(frozen_processor)))
+        require(spec is not None and spec.loader is not None, "cannot load frozen processor")
+        fixed = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = fixed
+        spec.loader.exec_module(fixed)
+        import torch
+        from torch.optim.optimizer import register_optimizer_step_pre_hook, register_optimizer_step_post_hook
+        from gliner2.training.trainer import ExtractorTrainer
+        from corpus_structure.methods.gliner import CODEPOINT_PROFILE, load_model
+        from corpus_structure.methods.m1_source import M1Config
+        from corpus_structure.orchestrate.m1 import registry
+        from dataclasses import asdict
+        import inspect
+
+        cfg = registry(REPO / "domains/statistics").config("extract.m1_candidates", "contextual").config
+        require(isinstance(cfg, M1Config) and cfg.model_dump(mode="json") == inputs["configuration"]["params"],
+                "actual production named contextual configuration differs from frozen004")
+        profile = cfg.profile()
+        require(profile.version == CODEPOINT_PROFILE and profile.threads == 4, "contextual codepoint/CPU thread profile changed")
+        require(profile.max_words == profile.max_subwords == 4096, "4096 native input bounds changed")
+        require(cfg.max_context_chars == 4096 and cfg.max_context_pieces == 128
+                and cfg.source_inspection and cfg.formula_prose, "contextual source-input recipe changed")
+        require(all(len(row["input"]) <= cfg.max_context_chars
+                    and len(row["input"].encode()) <= profile.max_input_bytes for row in inputs["data"]),
+                "frozen input exceeds the declared source character/byte bound")
+        require(profile.fingerprint == inputs["configuration"]["profile_fingerprint"], "contextual profile fingerprint differs")
+        profile.verify_artifacts()
+        loader_paths = [REPO / "python/corpus-structure/src/corpus_structure" / name
+                        for name in ("methods/gliner.py", "methods/m1_source.py")]
+        loader_receipts = [file_receipt(path) for path in loader_paths]
+        write(out / "loader-source-receipts.json", loader_receipts)
+        config = native_config(out / "native")
+        write(out / "native-training-config.json", asdict(config))
+        write(out / "native-source-receipts.json", [file_receipt(Path(inspect.getfile(value))) for value in
+              (ExtractorTrainer, type(config), fixed.FixedSchemaProcessor)])
+        random.seed(config.seed)
+        torch.manual_seed(config.seed)
+        emit("load_start", profile=profile.fingerprint, rows=len(inputs["data"]), dataset_manifest_digest=digest(inputs["manifest"]))
+        model, effective_json = load_model(profile)
+        effective = json.loads(effective_json)
+        require(effective["splitter"] == "UnicodeCodepointSplitter" and effective["threads"] == 4
+                and effective["interop_threads"] == 1 and effective["device"] == "cpu"
+                and effective["dtype"] == "float32" and effective["attention_backend"] == "standard", "effective model recipe differs")
+        require(not torch.cuda.is_available(), "this experiment permits CPU execution only")
+        require(getattr(model, "architecture", None) == "boundary"
+                and model.boundary_settings.max_gold_per_query == 64
+                and model.boundary_settings.candidate_budget == 192
+                and model.boundary_settings.training_candidate_budget == 192,
+                "native architecture/gold/candidate capacity differs")
+        write(out / "effective-profile.json", effective)
+
+        def parameter_receipt():
+            result = []
+            for name, parameter in model.named_parameters():
+                require(parameter.device.type == "cpu" and parameter.dtype == torch.float32, "non-CPU/FP32 resident weights")
+                require(bool(torch.isfinite(parameter).all()), "non-finite model weights")
+                data = parameter.detach().contiguous().view(torch.uint8).numpy().tobytes()
+                result.append(dict(name=name, shape=list(parameter.shape), dtype=str(parameter.dtype), sha256=sha256(data).hexdigest()))
+            return result
+
+        before = parameter_receipt()
+        write(out / "parameters-before.json", before)
+        expected = inputs["expected"]
+        expected_counts = {row["output"]["sample_id"]: len(row["output"]["target_records"])
+                           for row in inputs["data"]}
+        seen = []
+
+        class ReceiptProcessor(fixed.FixedSchemaProcessor):
+            def _collate(self, batch_rows, **options):
+                require(len(batch_rows) == 1, "batch1 is required for exact per-row conditioning comparison")
+                batch = super()._collate(batch_rows, **options)
+                receipt = copy.deepcopy(self.last_receipt)
+                sample_id = receipt["samples"][0]["sample_id"]
+                original = expected[sample_id]
+                require(receipt["entrypoint"] == "collate_fn_train" and receipt["build_targets"], "unexpected native processor call")
+                require(receipt["exact_conditioning"] and receipt["native_cap_inactive"] and not receipt["actual_truncation"], "training altered/truncated fixed conditioning")
+                require(receipt["requested_max_len"] == 4096 and all(count <= 4096 for count in receipt["source_word_counts"]),
+                        "effective source-word cap differs from the strict 4096 recipe")
+                require(not receipt["native_processor_is_training"], "native schema augmentation is outside fixed conditioning")
+                require(receipt["strict_capacity"] == 64 and receipt["on_capacity_exceeded"] == "raise", "gold capacity policy changed")
+                require(receipt["payload_format"] == FORMAT and receipt["native_pack_version"] == "native-combined-v2"
+                        and receipt["dedupe_contained_entity_spans"] is False,
+                        "exact v2 processor/no-sanitation contract changed")
+                require(receipt["conditioning_digest"] == original["conditioning_digest"], "encoder/query conditioning changed")
+                require(full_conditioning(receipt) == original["full_conditioning_digest"], "native specification conditioning changed")
+                require(digest(receipt["samples"][0]["native_records"]) == original["targets_digest"], "native targets changed")
+                require(all(value <= 4096 for value in batch.original_lengths), "schema-conditioned subword bound exceeded")
+                require(sample_id not in seen, "an admitted row was repeated inside the single epoch")
+                seen.append(sample_id)
+                counts["collation"] += 1
+                append(out / "actual-collation.jsonl", dict(receipt, full_conditioning_digest=full_conditioning(receipt)))
+                return batch
+
+        wrapper = ReceiptProcessor(model.processor, max_gold_per_query=64)
+
+        class CaptureWarnings(logging.Handler):
+            def emit(self, record):
+                warnings.append(dict(name=record.name, message=record.getMessage()))
+
+        handler = CaptureWarnings(level=logging.WARNING)
+        logging.getLogger("gliner2").addHandler(handler)
+
+        def forward_pre(module, positional, keywords):
+            counts["forward"] += 1
+            require(counts["forward"] == counts["collation"], "forward/collation calls are not one-to-one")
+            batch = positional[0]
+            require(digest(fixed.conditioning(batch)) == wrapper.last_receipt["conditioning_digest"], "actual forward conditioning changed")
+            actual_full = digest(fixed.execution_conditioning(batch))
+            require(actual_full == expected[seen[-1]]["full_conditioning_digest"],
+                    "actual forward native record specifications changed")
+            native_records = single_row_native_records(batch.targets.records,
+                expected_count=expected_counts[seen[-1]],
+                actual_mask_count=int(batch.targets.record_targets[2][0].sum()))
+            require(digest([asdict(record) for record in native_records]) == expected[seen[-1]]["targets_digest"],
+                    "actual forward native record targets changed")
+            require(module.training and torch.is_grad_enabled(), "forward is not a native training call")
+            append(out / "forward-calls.jsonl", dict(step=counts["forward"], sample_id=seen[-1],
+                model_training=module.training, grad_enabled=True,
+                training_gold_injection=getattr(module.boundary_head, "_gold_injection_prob", None),
+                full_conditioning_digest=actual_full))
+
+        def forward_post(module, positional, keywords, output):
+            loss = output.get("total_loss")
+            require(loss is not None and loss.requires_grad and bool(torch.isfinite(loss.detach()).all()), "native loss is absent/non-finite/nondifferentiable")
+            components = {name: float(value.detach().cpu()) for name, value in (getattr(output, "losses", None) or {}).items()
+                          if isinstance(value, torch.Tensor) and value.numel() == 1}
+            require(all(math.isfinite(value) for value in components.values()), "native loss component is non-finite")
+            counts["finite_loss"] += 1
+            emit("forward_complete", step=counts["forward"], sample_id=seen[-1], total_loss=float(loss.detach().cpu()), components=components)
+
+        def optimizer_pre(optimizer, positional, keywords):
+            gradients = [parameter.grad for group in optimizer.param_groups for parameter in group["params"] if parameter.grad is not None]
+            require(bool(gradients) and all(bool(torch.isfinite(gradient).all()) for gradient in gradients), "native gradients are absent or non-finite")
+            nonzero = sum(bool(torch.count_nonzero(gradient)) for gradient in gradients)
+            counts["optimizer_pre"] += 1
+            counts["nonzero_gradient_steps"] += bool(nonzero)
+            norm = float(trainer._last_grad_norm)
+            require(math.isfinite(norm), "native pre-clip gradient norm is non-finite")
+            emit("optimizer_pre", step=counts["optimizer_pre"], gradient_tensors=len(gradients),
+                 nonzero_gradient_tensors=nonzero, finite=True, pre_clip_norm=norm,
+                 parameter_group_rates=[group["lr"] for group in optimizer.param_groups])
+
+        def optimizer_post(optimizer, positional, keywords):
+            require(all(bool(torch.isfinite(parameter).all()) for parameter in model.parameters()), "optimizer produced non-finite weights")
+            counts["optimizer_post"] += 1
+            require(counts["optimizer_pre"] == counts["optimizer_post"], "optimizer calls did not settle")
+            steps = sorted({int(state["step"]) for state in optimizer.state.values() if "step" in state})
+            require(bool(steps) and 1 <= min(steps) <= max(steps) <= counts["optimizer_post"], "invalid native optimizer state steps")
+            emit("optimizer_post", step=counts["optimizer_post"], finite_weights=True, parameter_state_steps=steps)
+
+        handles = [model.register_forward_pre_hook(forward_pre, with_kwargs=True),
+                   model.register_forward_hook(forward_post, with_kwargs=True),
+                   register_optimizer_step_pre_hook(optimizer_pre), register_optimizer_step_post_hook(optimizer_post)]
+        trainer = ExtractorTrainer(model, config, processor=wrapper)
+        require(trainer.processor is wrapper and trainer.device.type == "cpu", "native trainer seam/device differs")
+        require(not trainer.is_distributed, "distributed training is outside this one-process epoch")
+        emit("trainer_start", rows=len(inputs["data"]), native_config=asdict(config), planned_optimizer_steps=len(inputs["data"]))
+        result = trainer.train(train_data=copy.deepcopy(inputs["data"]), eval_data=None)
+        total = len(inputs["data"])
+        require(all(counts[name] == total for name in ("collation", "forward", "finite_loss", "optimizer_pre", "optimizer_post")), "one complete epoch did not execute every admitted row")
+        require(set(seen) == set(expected) and len(seen) == total and trainer.global_step == result["total_steps"] == total,
+                "native epoch membership/optimizer steps changed")
+        require(result["total_epochs"] == 1 and counts["nonzero_gradient_steps"] > 0, "no complete gradient-bearing epoch")
+        require(not trainer.eval_metrics_history and result["eval_metrics_history"] == [], "unexpected held-out/evaluation access")
+        after = parameter_receipt()
+        write(out / "parameters-after.json", after)
+        changed = [old["name"] for old, new in zip(before, after, strict=True) if old["sha256"] != new["sha256"]]
+        require(bool(changed), "native optimizer left every parameter unchanged")
+        require(not any(any(word in row["message"].lower() for word in ("dropped", "non-finite", "skipping")) for row in warnings), "native warning indicates missing/invalid work")
+        require(manifest(inputs["directory"]) == inputs["manifest"], "frozen input directory changed during the epoch")
+        require(inputs["processor"].read_bytes() == frozen_processor.read_bytes(), "frozen processor changed during the epoch")
+        require(loader_receipts == [file_receipt(path) for path in loader_paths], "contextual loader/config source changed during epoch")
+        require(profile.fingerprint == cfg.profile().fingerprint, "contextual recipe changed during epoch")
+        profile.verify_artifacts()
+        checkpoints = sorted(path.name for path in (out / "native").iterdir() if path.is_dir() and (path.name in {"final", "best"} or path.name.startswith("checkpoint")))
+        require(checkpoints == ["final"], "unexpected epoch/best checkpoint copy")
+        checkpoint_files = manifest(out / "native" / "final")
+        require(bool(checkpoint_files), "native final checkpoint is missing")
+        result["best_metric"] = result["best_metric"] if math.isfinite(result["best_metric"]) else None
+        write(out / "result.json", dict(outcome="passed", counts=dict(counts), rows=total,
+            sampling_order=seen, original_denominator=DENOMINATOR, represented=inputs["represented"], excluded=inputs["excluded"],
+            positive_rows=inputs["positive_rows"], genuine_zero_rows=inputs["zero_rows"],
+            dataset_manifest_digest=digest(inputs["manifest"]), parameters_before_digest=digest(before),
+            parameters_after_digest=digest(after), changed_parameter_count=len(changed), changed_parameters=changed,
+            all_gradients_finite=True, all_final_weights_finite=True, full_conditioning_preserved=True,
+            max_gold_per_query=64, candidate_budget=192, training_candidate_budget=192,
+            dedupe_contained_entity_spans=False, actual_truncation=False, native_result=result, native_warnings=warnings,
+            checkpoint_files=checkpoint_files, elapsed_seconds=time.perf_counter()-started,
+            no_heldout=True, no_db=True, no_pdf=True, no_adoption=True, quality_claim="not_established"))
+        emit("finished", outcome="passed", counts=dict(counts), changed_parameter_count=len(changed))
+    except BaseException as error:
+        write(out / "failure.json", dict(outcome="failed", type=type(error).__name__, message=str(error), traceback=traceback.format_exc(), counts=dict(counts)))
+        emit("failed", exception=type(error).__name__, message=str(error))
+        raise
+    finally:
+        for handle in handles:
+            handle.remove()
+        if handler is not None:
+            logging.getLogger("gliner2").removeHandler(handler)
+        write(out / "runner-settlement.json", dict(pid=os.getpid(), at=datetime.now(timezone.utc).isoformat(),
+            hook_handles_removed=len(handles), model_loaded=model is not None,
+            native_num_workers=0, phase="runner finalization; external process-tree settlement still required"))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("plan", "train"))
+    parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--attempt", default="attempt-001")
+    args = parser.parse_args()
+    require(Path(args.attempt).name == args.attempt and args.attempt.startswith("attempt-"), "attempt must be one unused local attempt-* name")
+    if args.mode == "plan":
+        inputs = load_inputs(args.dataset)
+        print(json.dumps(dict(outcome="prepared", model_loaded=False, training=False,
+              rows=len(inputs["data"]), represented=inputs["represented"], excluded=inputs["excluded"],
+              dataset_manifest_digest=digest(inputs["manifest"])), indent=2))
+    else:
+        train(args)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,5 @@
 # Status
-_Updated2026-11-04; selected AC complete; M1 execution continues._
+_Updated2026-11-04; selected AC complete; M1 execution stopped by operator._
 
 ## Accepted foundation
 
@@ -48,7 +48,7 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 - Run20 ENOSPC/cancellation retained; cluster recovered. Approved APT cache cleanup removed2.37GiB.
 - Fixed-schema native positive/zero training step passes numerical checks; isolated checkpoint,
   no efficacy claim. Correct production-profile004 passes261examples/reloads covering239/270decoder
-  readings (226primary-custody/13neighbor-only);31exclusions remain. One fresh-base epoch is active.
+  readings (226primary-custody/13neighbor-only);31exclusions remain. Epoch stopped after101updates.
 - Corrected scoped inspection passes90pure/58actual comparisons at1MiB; chart-parent/inventory
   review findings are closed. Current finding disposition stays in M1.
 - Run14 sampled process-tree peak PSS4190578KiB; PostgreSQL excluded and late backend snapshots
@@ -56,5 +56,5 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 
 ## Next
 
-Finish the bounded native epoch and settlement, then isolated-artifact predictions and feature fit,
-held-out calibration/final assessment, five-family gates and remaining M1 release qualification.
+Execution stopped by operator; trainer and all observed children settled. No final checkpoint exists.
+Clarify saved candidate/acceptance results and book-wide accumulation scope before further execution.

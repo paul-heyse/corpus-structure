@@ -1,8 +1,33 @@
+> **Stopped by operator,2026-11-04.** Attempt002 ended after101completed optimizer updates,
+> with102finite forwards before KeyboardInterrupt during the next backward call. Wrapper exit130;
+> all three observed PID/start identities absent. No final checkpoint/result or adoption, no restart.
+> [operator-stop.json](attempt-002/operator-stop.json) and the retained failure/external-settlement
+> receipts own the terminal outcome; any preparation/in-progress prose below is historical.
+
 # Contextual native CPU FP32 adaptation
 
-2026-11-04. **Approved bounded experiment; scaffold prepared; training not_run.**
-This folder owns one experimental full-dataset learning epoch after the contextual-targets
-worker supplies its passed, frozen faithful dataset. It owns no runtime/domain change,
+2026-11-04. **Approved bounded experiment; actual one-epoch training in progress.**
+`attempt-002` consumes the finalized contextual-targets/attempt-004:261 rows,239 unique
+decoder-visible C readings, all original270 ledger entries, with31 exclusions retained.
+The239 decoder readings differ from226 readings with a primary-custody route; neither count
+establishes assembled capture. Dataset SHA256 is
+`a98a7cdaaae94a755ca61441770ef7551a9572d9e4497a3ac40288d7b3f35a2b`.
+The exact frozen format2 processor is15494 bytes with SHA256
+`b0ecf2152aebfe4023496b8a01fc96d7d24c35b9a6a6d6b14a00a7a24ea94d95`.
+Current production profile is `78871269cc270839a432a0d7a36cbc09e325de1cc87f64e6fe6bae215514e3e7`,
+bound to completed source/annotation run22/finalcut23 and release
+`release:407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25`.
+
+Failed `attempt-001` remains retained: two finite optimizer updates, then an evidence-hook
+error on the native `records=None` representation of a genuine-zero row. No checkpoint
+was produced or adopted. The hook was corrected to accept that representation only when
+the independent frozen target count and actual native record-mask count are both zero;
+two zero representations, one positive case and five invalid-membership refusals passed
+pure controls. `attempt-002` starts from the untouched pinned base, never those partial
+weights. Failed001's external settlement found all three observed process identities absent.
+
+This folder owns one experimental full-dataset learning epoch from that passed frozen dataset.
+It owns no runtime/domain change,
 production checkpoint adoption, source/reference reauthoring or held-out assessment.
 
 The coordinator approved exactly one epoch over all admitted contextual-targets rows,
@@ -18,8 +43,11 @@ using CPU FP32, standard attention,4 intraop threads and1 interop thread. The su
 `ExtractorTrainer(processor=...)` seam reuses the existing evidence-only
 `FixedSchemaProcessor`. Original text, field insertion order, complete released schema,
 native record specifications and native target masks remain exact. Full conditioning
-includes record specifications in addition to encoder/query tokens. Bounds remain4096
-source words and schema-conditioned subwords and native max-gold64, with errors raised.
+includes record specifications and original native schemas in addition to encoder/query tokens.
+The exact format2 wrapper preserves definition fragments as distinct native values and latent
+assertion formation. `dedupe_contained_entity_spans=False` prevents contained-span sanitation.
+Bounds remain4096 source words and schema-conditioned subwords, native max-gold64 and
+candidate/training-candidate budgets192, with errors raised.
 Nothing is sanitized, silently skipped, truncated or expanded. AMP, LoRA, compilation,
 extra encoder/candidate capacity, GPU and hosted execution are outside this run.
 
@@ -46,11 +74,10 @@ The current native batch default is2; this experiment explicitly uses1 for bound
 CPU memory. Native learning rates remain unchanged. No evaluation/epoch checkpoint copies
 are requested: `eval_strategy="no"`, `save_best=False`; the native final save remains enabled.
 
-Execution is held while the coordinator settles the faithful decoder target population,
-additional source neighborhoods and the metadata-only native cardinality/instance challengers.
-The scaffold currently consumes the settled fixed-schema processor format1. An adopted change
-to that target/processor contract must be reconciled before the epoch; it is not silently
-accepted as another input shape. Attempt001's input
+The coordinator explicitly selected finalized004 and authorized the one epoch after actual
+v2 native interface and warm request cancellation checks passed. The runner uses the actual
+production registry constructor and the immutable executed format2 processor snapshot.
+The earlier format1 scaffold's input
 validation passed118 rows/205 represented readings with65 exclusions; this is a scaffold/input
 check, not selection of that dataset for learning. Its freeze, raw bytes, complete270 ledger,
 reload/origin membership, source/package/configuration and field-order checks passed without
@@ -60,14 +87,14 @@ AST parsing and side-effect-free imports of both scripts passed; neither importe
 GLiNER2 or SQLAlchemy ([receipt](preparation-import-001.log)). Isolated Ruff F checks and CLI
 help also passed. These preparation checks do not establish native training behavior.
 
-After the coordinator selects a passed frozen dataset, the intended commands are:
+The actual selected commands (reuse requires unused output names and coordinator scope) are:
 
 ```bash
-uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/train_epoch.py plan --dataset docs/design_review/evidence/2026-11-04_m1-contextual-targets/SELECTED_ATTEMPT
+uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/train_epoch.py plan --dataset docs/design_review/evidence/2026-11-04_m1-contextual-targets/attempt-004
 
-uv run python docs/design_review/evidence/2026-11-04_m1-cpu-resources/sample_tree.py --interval 0.5 --out docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/resources-001.jsonl -- uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/train_epoch.py train --dataset docs/design_review/evidence/2026-11-04_m1-contextual-targets/SELECTED_ATTEMPT --attempt attempt-001
+uv run python docs/design_review/evidence/2026-11-04_m1-cpu-resources/sample_tree.py --interval 0.5 --out docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/resources-002.jsonl -- uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/train_epoch.py train --dataset docs/design_review/evidence/2026-11-04_m1-contextual-targets/attempt-004 --attempt attempt-002
 
-uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/finalize_run.py --attempt attempt-001 --resources docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/resources-001.jsonl
+uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/finalize_run.py --attempt attempt-002 --resources docs/design_review/evidence/2026-11-04_m1-contextual-adaptation/resources-002.jsonl
 ```
 
 `plan` validates frozen files and prints the intended input identity without model loading.

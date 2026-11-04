@@ -2,3 +2,6 @@
 ordinary-*-summary.json filter=lfs diff=lfs merge=lfs -text
 database-native-*.json filter=lfs diff=lfs merge=lfs -text
 database-native-*.log filter=lfs diff=lfs merge=lfs -text
+
+combined-*.json filter=lfs diff=lfs merge=lfs -text
+combined-*.log filter=lfs diff=lfs merge=lfs -text

@@ -27,9 +27,12 @@ sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[3]
 TARGETS = HERE.parent / "2026-11-04_m1-contextual-targets"
-PROCESSOR = HERE.parent / "2026-11-04_m1-fixed-schema-loss/fixed_schema_processor.py"
 DENOMINATOR = dict(definition=14, assertion=56, measurement=32, table=80, formula_context=88)
-FORMAT = "m1-fixed-schema-native-targets-experiment-1"
+FORMAT = "m1-fixed-schema-native-targets-experiment-2"
+DATASET_SHA256 = "a98a7cdaaae94a755ca61441770ef7551a9572d9e4497a3ac40288d7b3f35a2b"
+PROCESSOR_SHA256 = "b0ecf2152aebfe4023496b8a01fc96d7d24c35b9a6a6d6b14a00a7a24ea94d95"
+PROFILE = "78871269cc270839a432a0d7a36cbc09e325de1cc87f64e6fe6bae215514e3e7"
+RELEASE = "release:407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25"
 
 
 def require(condition, message):
@@ -68,12 +71,24 @@ def append(path, value):
 
 
 def full_conditioning(receipt):
-    return digest(dict(encoding=receipt["conditioning"], record_specs=receipt["record_specs"]))
+    return digest(dict(encoding=receipt["conditioning"], record_specs=receipt["record_specs"],
+                       original_schemas=receipt["original_schemas"]))
+
+
+def single_row_native_records(records, *, expected_count, actual_mask_count):
+    """Native no-record batch representation, bound to independent frozen membership."""
+    if records is None:
+        require(expected_count == actual_mask_count == 0,
+                "native record container absent for nonzero frozen/actual membership")
+        return []
+    require(len(records) == 1 and len(records[0]) == expected_count == actual_mask_count,
+            "native record container/frozen membership/record mask differ")
+    return records[0]
 
 
 def load_inputs(directory):
     directory = directory.resolve()
-    require(directory.parent == TARGETS.resolve() and directory.name.startswith("attempt-"),
+    require(directory.parent == TARGETS.resolve() and directory.name == "attempt-004",
             "only the coordinator-selected contextual-targets attempt is in scope")
     require(not (directory / "failure.json").exists(), "failed reconstruction is not a training dataset")
     frozen = json.loads((directory / "freeze.json").read_text())
@@ -100,12 +115,14 @@ def load_inputs(directory):
                 ("heldout", "model_loaded", "forward", "training", "database_mutation")),
             "dataset isolation/metadata-only premise is missing")
     data = rows(directory / "training-targets.jsonl")
+    require(file_receipt(directory / "training-targets.jsonl")["sha256"] == DATASET_SHA256,
+            "coordinator-selected exact v2 dataset bytes changed")
     reloads = rows(directory / "reload-collation.jsonl")
     origins = rows(directory / "training-target-origins.jsonl")
     ledger = rows(directory / "record-disposition.jsonl")
     require(len(data) == summary["examples"] == summary["reload_examples"] == len(reloads) == len(origins),
             "complete admitted dataset/reload/origin membership differs")
-    require(bool(data), "no faithful examples are available")
+    require(len(data) == 261, "complete approved261-row epoch required")
     require(len(ledger) == 270 and len({row["record_id"] for row in ledger}) == 270,
             "full original independent ledger is incomplete or duplicated")
     require(Counter(row["family"] for row in ledger) == Counter(DENOMINATOR),
@@ -124,6 +141,7 @@ def load_inputs(directory):
     for row in data:
         payload = row["output"]
         require(payload["format"] == FORMAT and isinstance(row["input"], str), "unsupported raw dataset format")
+        require(payload["native_pack_version"] == "native-combined-v2", "native frontend version changed")
         require(digest(payload["released_schema"]) == payload["released_schema_digest"], "released schema bytes/order changed")
         require(digest(payload["target_records"]) == payload["target_records_digest"], "target bytes/order changed")
         fields = [field["name"] for field in payload["released_schema"]["structures"][payload["family"]]["fields"]]
@@ -133,8 +151,17 @@ def load_inputs(directory):
     require(cfg["name"] == "extract.m1_candidates/contextual", "dataset is not the named contextual profile")
     require(file_receipt(REPO / "domains/statistics/m1-methods.yaml")["sha256"] == cfg["registry"]["sha256"],
             "contextual registry bytes changed after target preparation")
-    require((directory / "fixed_schema_processor-executed.py.txt").read_bytes() == PROCESSOR.read_bytes(),
-            "settled target processor changed after reconstruction")
+    processor = directory / "fixed_schema_processor-executed.py.txt"
+    contract = json.loads((directory / "processor-contract.json").read_text())
+    require(contract["format"] == FORMAT and contract["dedupe_contained_entity_spans"] is False
+            and contract["immutable_executed_source"]["sha256"] == PROCESSOR_SHA256
+            and file_receipt(processor)["sha256"] == PROCESSOR_SHA256,
+            "exact frozen v2 target processor/transport contract differs")
+    source_binding = json.loads((directory / "source-whitelist-freeze.json").read_text())
+    require(source_binding["outcome"] == "passed" and source_binding["run_id"] == 22
+            and source_binding["cut_id"] == 23 and source_binding["release_id"] == RELEASE,
+            "approved source-only run22/cut23/release binding differs")
+    require(cfg["profile_fingerprint"] == PROFILE, "approved production profile fingerprint differs")
     for relative in ("methods/gliner.py", "methods/m1_source.py"):
         actual = REPO / "python/corpus-structure/src/corpus_structure" / relative
         frozen = directory / "executed-source" / (relative.replace("/", "__") + ".txt")
@@ -142,7 +169,7 @@ def load_inputs(directory):
     source_receipts = json.loads((directory / "source-receipts.json").read_text())
     for name, value in source_receipts["packages"].items():
         require(importlib.metadata.version(name) == value, "native package version changed: " + name)
-    return dict(directory=directory, summary=summary, data=data, expected=expected,
+    return dict(directory=directory, processor=processor, summary=summary, data=data, expected=expected,
                 configuration=cfg, manifest=manifest(directory), represented=sum(represented.values()),
                 excluded=sum(excluded.values()), positive_rows=sum(bool(row["output"]["target_records"]) for row in data),
                 zero_rows=sum(not row["output"]["target_records"] for row in data))
@@ -159,6 +186,7 @@ def native_config(output_dir):
         strict_training=True, skip_step_errors=False, ignore_nonfinite_losses=False,
         allow_invalid_samples=False, on_capacity_exceeded="raise", max_len=None,
         gradient_checkpointing=False, compile_model=False, seed=42,
+        dedupe_contained_entity_spans=False,
     )
     require(config.encoder_lr == 1e-5 and config.task_lr == 5e-4, "native learning-rate defaults changed")
     return config
@@ -195,7 +223,7 @@ def train(args):
               ("summary", "represented", "excluded", "positive_rows", "zero_rows")})
         (out / "training-targets-executed.jsonl").write_bytes((inputs["directory"] / "training-targets.jsonl").read_bytes())
         frozen_processor = out / "fixed_schema_processor-executed.py.txt"
-        frozen_processor.write_bytes(PROCESSOR.read_bytes())
+        frozen_processor.write_bytes(inputs["processor"].read_bytes())
         spec = importlib.util.spec_from_loader("m1_contextual_fixed_processor",
                     SourceFileLoader("m1_contextual_fixed_processor", str(frozen_processor)))
         require(spec is not None and spec.loader is not None, "cannot load frozen processor")
@@ -207,10 +235,13 @@ def train(args):
         from gliner2.training.trainer import ExtractorTrainer
         from corpus_structure.methods.gliner import CODEPOINT_PROFILE, load_model
         from corpus_structure.methods.m1_source import M1Config
+        from corpus_structure.orchestrate.m1 import registry
         from dataclasses import asdict
         import inspect
 
-        cfg = M1Config.model_validate(inputs["configuration"]["params"])
+        cfg = registry(REPO / "domains/statistics").config("extract.m1_candidates", "contextual").config
+        require(isinstance(cfg, M1Config) and cfg.model_dump(mode="json") == inputs["configuration"]["params"],
+                "actual production named contextual configuration differs from frozen004")
         profile = cfg.profile()
         require(profile.version == CODEPOINT_PROFILE and profile.threads == 4, "contextual codepoint/CPU thread profile changed")
         require(profile.max_words == profile.max_subwords == 4096, "4096 native input bounds changed")
@@ -239,7 +270,10 @@ def train(args):
                 and effective["dtype"] == "float32" and effective["attention_backend"] == "standard", "effective model recipe differs")
         require(not torch.cuda.is_available(), "this experiment permits CPU execution only")
         require(getattr(model, "architecture", None) == "boundary"
-                and model.boundary_settings.max_gold_per_query == 64, "native architecture/capacity differs")
+                and model.boundary_settings.max_gold_per_query == 64
+                and model.boundary_settings.candidate_budget == 192
+                and model.boundary_settings.training_candidate_budget == 192,
+                "native architecture/gold/candidate capacity differs")
         write(out / "effective-profile.json", effective)
 
         def parameter_receipt():
@@ -254,6 +288,8 @@ def train(args):
         before = parameter_receipt()
         write(out / "parameters-before.json", before)
         expected = inputs["expected"]
+        expected_counts = {row["output"]["sample_id"]: len(row["output"]["target_records"])
+                           for row in inputs["data"]}
         seen = []
 
         class ReceiptProcessor(fixed.FixedSchemaProcessor):
@@ -269,6 +305,9 @@ def train(args):
                         "effective source-word cap differs from the strict 4096 recipe")
                 require(not receipt["native_processor_is_training"], "native schema augmentation is outside fixed conditioning")
                 require(receipt["strict_capacity"] == 64 and receipt["on_capacity_exceeded"] == "raise", "gold capacity policy changed")
+                require(receipt["payload_format"] == FORMAT and receipt["native_pack_version"] == "native-combined-v2"
+                        and receipt["dedupe_contained_entity_spans"] is False,
+                        "exact v2 processor/no-sanitation contract changed")
                 require(receipt["conditioning_digest"] == original["conditioning_digest"], "encoder/query conditioning changed")
                 require(full_conditioning(receipt) == original["full_conditioning_digest"], "native specification conditioning changed")
                 require(digest(receipt["samples"][0]["native_records"]) == original["targets_digest"], "native targets changed")
@@ -276,7 +315,7 @@ def train(args):
                 require(sample_id not in seen, "an admitted row was repeated inside the single epoch")
                 seen.append(sample_id)
                 counts["collation"] += 1
-                append(out / "actual-collation.jsonl", dict(full_conditioning_digest=full_conditioning(receipt), **receipt))
+                append(out / "actual-collation.jsonl", dict(receipt, full_conditioning_digest=full_conditioning(receipt)))
                 return batch
 
         wrapper = ReceiptProcessor(model.processor, max_gold_per_query=64)
@@ -293,12 +332,13 @@ def train(args):
             require(counts["forward"] == counts["collation"], "forward/collation calls are not one-to-one")
             batch = positional[0]
             require(digest(fixed.conditioning(batch)) == wrapper.last_receipt["conditioning_digest"], "actual forward conditioning changed")
-            actual_specs = [{key: asdict(value) for key, value in specifications.items()}
-                            for specifications in batch.record_specs]
-            actual_full = digest(dict(encoding=fixed.conditioning(batch), record_specs=actual_specs))
+            actual_full = digest(fixed.execution_conditioning(batch))
             require(actual_full == expected[seen[-1]]["full_conditioning_digest"],
                     "actual forward native record specifications changed")
-            require(digest([asdict(record) for record in batch.targets.records[0]]) == expected[seen[-1]]["targets_digest"],
+            native_records = single_row_native_records(batch.targets.records,
+                expected_count=expected_counts[seen[-1]],
+                actual_mask_count=int(batch.targets.record_targets[2][0].sum()))
+            require(digest([asdict(record) for record in native_records]) == expected[seen[-1]]["targets_digest"],
                     "actual forward native record targets changed")
             require(module.training and torch.is_grad_enabled(), "forward is not a native training call")
             append(out / "forward-calls.jsonl", dict(step=counts["forward"], sample_id=seen[-1],
@@ -355,11 +395,11 @@ def train(args):
         require(bool(changed), "native optimizer left every parameter unchanged")
         require(not any(any(word in row["message"].lower() for word in ("dropped", "non-finite", "skipping")) for row in warnings), "native warning indicates missing/invalid work")
         require(manifest(inputs["directory"]) == inputs["manifest"], "frozen input directory changed during the epoch")
-        require(PROCESSOR.read_bytes() == frozen_processor.read_bytes(), "settled processor changed during the epoch")
+        require(inputs["processor"].read_bytes() == frozen_processor.read_bytes(), "frozen processor changed during the epoch")
         require(loader_receipts == [file_receipt(path) for path in loader_paths], "contextual loader/config source changed during epoch")
         require(profile.fingerprint == cfg.profile().fingerprint, "contextual recipe changed during epoch")
         profile.verify_artifacts()
-        checkpoints = sorted(path.name for path in (out / "native").iterdir() if path.is_dir() and (path.name == "final" or path.name.startswith("checkpoint")))
+        checkpoints = sorted(path.name for path in (out / "native").iterdir() if path.is_dir() and (path.name in {"final", "best"} or path.name.startswith("checkpoint")))
         require(checkpoints == ["final"], "unexpected epoch/best checkpoint copy")
         checkpoint_files = manifest(out / "native" / "final")
         require(bool(checkpoint_files), "native final checkpoint is missing")
@@ -370,7 +410,8 @@ def train(args):
             dataset_manifest_digest=digest(inputs["manifest"]), parameters_before_digest=digest(before),
             parameters_after_digest=digest(after), changed_parameter_count=len(changed), changed_parameters=changed,
             all_gradients_finite=True, all_final_weights_finite=True, full_conditioning_preserved=True,
-            max_gold_per_query=64, actual_truncation=False, native_result=result, native_warnings=warnings,
+            max_gold_per_query=64, candidate_budget=192, training_candidate_budget=192,
+            dedupe_contained_entity_spans=False, actual_truncation=False, native_result=result, native_warnings=warnings,
             checkpoint_files=checkpoint_files, elapsed_seconds=time.perf_counter()-started,
             no_heldout=True, no_db=True, no_pdf=True, no_adoption=True, quality_claim="not_established"))
         emit("finished", outcome="passed", counts=dict(counts), changed_parameter_count=len(changed))
