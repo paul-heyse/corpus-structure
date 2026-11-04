@@ -2,16 +2,20 @@
 
 ## M1 fitted instances and final-event calibration
 
-**Accepted target, Proposed until implemented (2026-11-04).** The executable semantic release and
-source-ready frames freeze before A/B/C. Feature fitting consumes only protected feature-fit labels.
+**Accepted target, Proposed until implemented (2026-11-04).** The authoring release and exact source-ready frames
+freeze before A/B/C; their original identities remain immutable. A compatible execution successor
+may be evaluated through independently validated physical-source correspondence and the unchanged
+consumed reference/comparison contract, preserving both releases in its evaluation. This successor
+path is Proposed until implemented; current hard-equality behavior remains in force meanwhile. Feature fitting consumes only protected feature-fit labels.
 An evaluator-authorized final-event calibration operation uses a frozen feature instance and the
 complete predeclared scored-event frame, including low-score and unaccepted candidates; no-output
 source units remain in separate coverage/capture accounting. Its typed immutable product extends
 the existing evaluation result. Production receives finite parameters/evidence identities, never
 labels. Final grading checks the exact frozen instance as well as algorithm/guideline/release.
-Refitting creates a new run instance, without implicit reference relocation or release rebinding.
+Refitting creates a new run instance, without reference relocation or automatic reuse of an older
+feature/calibration instance. Changed prediction code requires fresh affected evidence.
 
-> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
 
 ## Audit-closure target
@@ -31,12 +35,14 @@ reference creation; existing stored split reads retain their explicit provenance
 ## M1 independent record references
 
 
-**Implemented freeze; independent authoring/qualification open (2026-11-04).** The statistics reference
+**Tested source-only freeze and A/B/C registration; family qualification open (2026-11-04).** The statistics reference
 format is `statistics-m1-reference-3`: original literals remain text or ordered real-piece text
 sequences, character anchors use genuine selected-projection coordinates, and native scope uses
 the primary selected section. Native cell geometry supplies structural row location; `row_label`
 is separate meaning-changing quoted content. Missing parser flags do not establish absence.
-Freeze exact guideline bytes, release and frames before fresh A/B/C; no earlier answer is rebound.
+Freeze exact guideline bytes, authoring release and frames before fresh A/B/C; no earlier answer
+is rebound. Actual passes1–33 retain486A/525B/618C readings and explicit source-space limitations.
+Compatible successor evaluation preserves that original provenance under ADR-0060.
 
 > Decision: [ADR-0058](../adr/0058-native-row-location.md)
 

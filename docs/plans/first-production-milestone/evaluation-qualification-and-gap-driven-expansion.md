@@ -1,22 +1,37 @@
 # M1 evaluation, qualification and gap-driven expansion
 
-**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-04.** This companion
 owns the detailed design and completion conditions for M1-01/13/14/15. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
-dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
-qualification is Planned. This revision changes plans, not production code or deployments.
+dependencies, findings and assembled acceptance. Foundation notes retain their stated source
+and receipt context; the coordinator owns the current integrated implementation and selected
+verification. Remaining targets below are not blanket claims that every listed capability is
+unimplemented. Whole-M1 qualification remains open.
 
-**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
-current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
-accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
-open. This companion retains the remaining target; the coordinator owns current package state.
+**Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
+Subsequent M1 native125, actual CPU publication/reuse/recovery, independent source-only references
+and candidate consumer results have their own receipts in the coordinator. Actual development
+quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
+functional and quality boundaries; no whole M1 package is complete.
 
 This retains [WP0/WP5/WP6](../../target-pipeline-design/first-production-milestone.md#delivery-and-exit-evidence)
 and [O05/O07–O11](../../functional_reviews/m1-target-design_2026-11-03.md#O05). Original review
 provenance remains with the coordinator. Prior UM functionality/validation is complete; its
 remaining assessment/follow-up is outside M1. The amended AC target supplies the current
 foundation and does not supply M1 reference readings or release grades.
+
+## Applicable source-reference succession
+
+[ADR-0060](../../adr/0060-m1-reference-applicability.md) changes only the executable-equality
+requirement for unchanged source judgments. Original sets, frames, passes, authored bytes and
+origin partitions remain immutable. New evaluation uses the actual prediction release/run/cut,
+authenticates both sides independently, requires a unique bijection of identical physical source
+closures, and compares only through correspondence while retaining both record identities.
+Exact consumed record/coordinate/guideline/comparison contracts remain applicability premises;
+new output-report fields do not themselves invalidate authored source meaning. Missing or
+ambiguous source correspondence refuses rather than dropping units. This accepted target is
+Proposed implementation until Python/native grading, gaps and policy correctness agree.
+No fitted/calibrated instance is inherited into a changed candidate universe automatically.
 
 ## Evidence target and authority
 
@@ -37,8 +52,9 @@ protected insertion/grading and core/full/evidence
 The implemented `record_references.py` and `record_alignment.py` already provide five-family
 protected source-only reference passes, strict field/evidence comparison and completed-record
 prediction adapters. `record_statistics.py` supplies descriptive grouped ratios and exact finite-cut
-precision calculations. Finish actual source-ready A/B/C reference acquisition, grades and release
-assessment through these owners; `agent_claims` is a separate historical reporting contract.
+precision calculations. Source-only A/B/C acquisition and protected registration are complete at the coordinator
+boundary; development grading exposes the retained failed quality/fitting results. Finish valid
+feature/calibration instances and final assessment through these owners; `agent_claims` is a separate historical reporting contract.
 
 References are independently authored from selected sources under evaluator authority, using
 the existing independent automated author/adjudicator boundary. Production extraction receives
@@ -333,8 +349,11 @@ local credible origins are insufficient. Freeze sampling/interval design before 
 Sequence: consume the provisioned fitting-only principal and current frozen105 foundation;
 complete M1-specific custody/publication controls on the accepted AC foundation → actual Sol
 reference/prediction CLI route → source-ready reference sets,
-A/B/C development passes and actual grades. Freeze the intended exact release/frame before
-packet authoring; existing operations do not relocate earlier-release answers. Complete acceptance, interpretation/attributed producer
+A/B/C development passes and actual grades. Freeze the intended authoring release/frame before
+packet authoring; preserve those exact immutable identities. ADR-0060 accepts compatible successor
+evaluation with dual provenance and authenticated physical-source/meaning correspondence;
+implementation remains open. Never relocate, copy or relabel earlier-release answers. Changed
+predictions require fresh affected fitting/calibration evidence. Complete acceptance, interpretation/attributed producer
 and recovery prerequisites before final functional/provider/consumer/resource qualification.
 Source/reference acquisition may proceed alongside implementation; successful extraction is not
 required to begin reference authoring. `just test-all` and applicable hygiene wait for complete

@@ -12,7 +12,7 @@ run dependencies under a release-defined algorithm contract; configuration alone
 authority. Fitting scores are supervised compatibility potentials, not automatically LLRs or
 structured-likelihood estimates. Production coupling requires its fixed-universe benefit comparison.
 
-> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
 
 ## Audit-closure target

@@ -18,7 +18,7 @@ annotation, model, resolver or agent work. It permits source-only reference free
 extraction succeeds. Profile composition is implemented/pure-tested; its actual native source
 freeze remains a separate qualification obligation.
 
-> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
 
 ## Audit-closure target

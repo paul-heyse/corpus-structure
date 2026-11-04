@@ -1,10 +1,10 @@
 ---
 id: ADR-0057
 title: Separate retained CPU extraction from evaluated reading policies
-status: accepted
+status: superseded
 date: 2026-11-04
 supersedes: [ADR-0055]
-superseded-by: null
+superseded-by: ADR-0060
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A source-reading family needs mathematical identity projection, or fitted policy instances cannot be admitted independently of semantic release identity.

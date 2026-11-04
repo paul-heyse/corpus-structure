@@ -291,7 +291,7 @@ bind immutable run inputs and evaluator-authorized calibration, without referenc
 Annotation and raw-extraction determinants refine reuse consistently; retained CPU products
 feed separately configured reading resolution. Other methods retain the full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
 
-> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** Declared source-product ancestry
 retains complete report schemas while excluding graph applicability/identity lowering. Native graph
@@ -479,7 +479,7 @@ bind immutable run inputs and evaluator-authorized calibration, without referenc
 Annotation and raw-extraction determinants refine reuse consistently; retained CPU products
 feed separately configured reading resolution. Other methods retain the full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
 
-> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves
 per-anchor selected-view or captured-recognition attribution, distinct text/provider precision and

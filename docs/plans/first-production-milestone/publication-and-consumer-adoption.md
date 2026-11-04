@@ -1,16 +1,29 @@
 # M1 publication and consumer adoption
 
-**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-04.** This companion
 owns the detailed design and completion conditions for M1-11/12. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
-dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
-qualification is Planned. This revision changes plans, not production code or deployments.
+dependencies, findings and assembled acceptance. Foundation notes retain their stated source
+and receipt context; the coordinator owns the current integrated implementation and selected
+verification. Remaining targets below are not blanket claims that every listed capability is
+unimplemented. Whole-M1 qualification remains open.
 
-**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
-current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
-accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
-open. This companion retains the remaining target; the coordinator owns current package state.
+**Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
+Subsequent M1 native125, actual CPU publication/reuse/recovery, independent source-only references
+and candidate consumer results have their own receipts in the coordinator. Actual development
+quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
+functional and quality boundaries; no whole M1 package is complete.
+
+## Current live boundary
+
+The coordinator links actual query/CLI/registered in-process MCP and JSONL/Parquet candidate
+consumer results, the complete finite identity census, support/native handoff and budget refusals.
+These establish transport/custody at candidate standing, not accepted source fidelity. Controlled
+native accepted field-support tests retain their separate scope. Actual evaluated accepted
+all-family journeys, final qualification and release/default transition remain required.
+The complete SDK envelope and source-hydration work bounds remain distinct; a small final
+formula response can require a larger bounded source read. Preserve the measured refusal and
+existing bounded successful followup rather than infer source absence or a permission failure.
 
 ## Target and responsibility
 

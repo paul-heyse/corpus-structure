@@ -12,7 +12,7 @@ inspected nonpresent states; this neither invents Agent authorship nor asserts s
 reading occurrence membership follows statistics-reading-occurrence-2, independently of decoder
 group anchors. Private product graph fences and historical meanings remain enforced.
 
-> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
 
 ## M1 qualified source records

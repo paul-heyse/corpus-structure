@@ -21,7 +21,7 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md#current-m1-execution-checkpoint--2026-11-04)
   owns remaining scope/findings. No whole M1 package is complete.
-- [ADR-0057](docs/adr/0057-m1-retained-reading-execution.md),0058/0059 own retained source
+- [ADR-0060](docs/adr/0060-m1-reference-applicability.md),0058/0059 own retained source
   readings, row-label semantics and field-support reporting. Scientific comparison is unmodeled.
 - Implemented: reusable annotation/raw/resolution operations, released field/state/identity
   contracts, protected finite policy fitting/calibration, native overlays/direct custody and
@@ -43,7 +43,7 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
   refuse runtime authority (0positive/no events); no final feature/calibration policy exists.
 - [Alignment](docs/design_review/evidence/2026-11-04_m1-training-alignment/README.md) maps143/270
   readings exactly;48safe examples cover118. Source-boundary/context/negative-conditioning gaps
-  remain. A separate one-step CPU numerical-feasibility experiment is active; no efficacy claim.
+  remain. One native CPU numerical step passed finite loss/gradients/update; isolated checkpoint, no efficacy claim.
 - Run14 sampled process-tree peak PSS4190578KiB; PostgreSQL excluded and late backend snapshots
   partial. Complete aggregate resource/capacity qualification remains open.
 

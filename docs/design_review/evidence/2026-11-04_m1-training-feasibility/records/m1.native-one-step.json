@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "m1.native-one-step",
+  "title": "One native CPU FP32 optimizer step on a faithful source record",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the unchanged native training loss backward and optimizer update execute numerically on one complete protected development reading?",
+  "answers": [],
+  "method": "Strict already-validated raw positive target, offline exact checkpoint, native fullFP32 CPU trainer with max_steps1 and observing forward/optimizer hooks; isolated final checkpoint.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "run-001",
+      "role": null,
+      "sha256": "954e88484461a73f88abff605e93641790b06a3eec067edd40f7f217aabb5cfc"
+    },
+    {
+      "path": "attempt-one-step-001.log",
+      "role": null,
+      "sha256": "f99e6191d78d1ac47cd817136e2c47c32250c114f63bd4bc0f44f47b668b6a1f"
+    },
+    {
+      "path": "resources-001.jsonl",
+      "role": null,
+      "sha256": "7c697af217a96d39365c4e67d96cea01ad2fa141ea9de53f9dbed7e421ca801e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Actual root forwards",
+      "value": 1,
+      "of": null,
+      "unit": "forwards",
+      "note": null
+    },
+    {
+      "name": "Actual optimizer steps",
+      "value": 1,
+      "of": null,
+      "unit": "steps",
+      "note": null
+    },
+    {
+      "name": "Finite loss",
+      "value": 441.7489929199219,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Changed parameter tensors",
+      "value": 302,
+      "of": null,
+      "unit": "tensors",
+      "note": null
+    },
+    {
+      "name": "Observed process-tree complete peak PSS",
+      "value": 5235438,
+      "of": null,
+      "unit": "KiB",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Exactly one actual forward/backward/AdamW update completes CPUFP32 with finite loss/allgradients/finalparameters;302parameter tensors changed (weight decay included). One preselected smallest complete formula positive only; no injection-off candidate assessment, model efficacy, no-record specificity, calibration, heldout or product adoption. Native final checkpoint is isolated and original model remains unchanged. Process-tree samples are bounded observations, not aggregate capacity qualification.",
+  "consumed_by": [
+    "M1-07",
+    "M1-15"
+  ]
+}

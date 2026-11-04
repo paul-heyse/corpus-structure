@@ -1,16 +1,31 @@
 # M1 GLiNER operations and CPU runtime
 
-**Target: Proposed; mixed implementation maturity · reconciled 2026-11-03.** This companion
+**Target: Proposed; mixed implementation maturity · reconciled 2026-11-04.** This companion
 owns the detailed design and completion conditions for M1-06/07. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
-dependencies, findings and assembled acceptance. Implemented foundations below are source
-inspection claims at `71a78774`; historical receipts retain their own source/context. Remaining
-qualification is Planned. This revision changes plans, not production code or deployments.
+dependencies, findings and assembled acceptance. Foundation notes retain their stated source
+and receipt context; the coordinator owns the current integrated implementation and selected
+verification. Remaining targets below are not blanket claims that every listed capability is
+unimplemented. Whole-M1 qualification remains open.
 
-**Execution baseline, 2026-11-04:** AC selected acceptance is complete on71a78774/native105;
-current controlled candidate/native/reference/consumer tests retain that bounded evidence. M1
-accepted lowering, actual CPU fidelity/resources, independent references and release gates remain
-open. This companion retains the remaining target; the coordinator owns current package state.
+**Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
+Subsequent M1 native125, actual CPU publication/reuse/recovery, independent source-only references
+and candidate consumer results have their own receipts in the coordinator. Actual development
+quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
+functional and quality boundaries; no whole M1 package is complete.
+
+## Current conditional preparation
+
+The coordinator's F23 owns the concrete capture/representation losses. The targeted
+[adaptation contracts](../../design_review/evidence/2026-11-04_m1-adaptation-contract/README.md),
+[protected alignment](../../design_review/evidence/2026-11-04_m1-training-alignment/README.md) and
+[one-step numerical result](../../design_review/evidence/2026-11-04_m1-training-feasibility/README.md)
+separate native API support, exact target representation and actual loss/optimizer execution.
+The isolated one-step checkpoint is not an adopted model. Repair source-available word boundaries,
+coherent formula context and faithful fixed-schema ABSENT/zero-record targets before claiming a
+five-family learning benefit. Keep source normalization, gold-derived inference candidates and
+partial-reference negatives out of this route. Every changed profile/universe needs fresh
+predictions and affected fitting/calibration; held-out labels remain excluded from development.
 
 ## Basis, foundation assessment and responsibility
 
