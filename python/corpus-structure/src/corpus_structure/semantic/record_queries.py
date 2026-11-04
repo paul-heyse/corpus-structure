@@ -16,7 +16,7 @@ from types import MappingProxyType
 from typing import Any
 
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import Connection, func, or_, select, tuple_
+from sqlalchemy import Connection, func, literal, or_, select, tuple_
 
 from corpus_structure.core.method import CoverageDraft
 
@@ -79,6 +79,14 @@ class RecordProducerCoverage:
     diagnostics: JsonValue | None
     error: JsonValue | None
     reason: str | None
+    diagnostics_available: bool = False
+    diagnostics_included: bool = True
+
+    def __post_init__(self):
+        if self.diagnostics is not None:
+            if not self.diagnostics_included:
+                raise ValueError("omitted diagnostics cannot retain a diagnostic body")
+            object.__setattr__(self, "diagnostics_available", True)
 
 
 @dataclass(frozen=True)
@@ -118,6 +126,7 @@ def _read_producer_coverage(
     source_view_ids: tuple[int, ...] | None,
     max_rows: int,
     max_bytes: int,
+    include_diagnostics: bool = True,
 ) -> tuple[RecordProducerCoverage, ...]:
     """Read completed final-run source diagnostics independently of record membership.
 
@@ -159,7 +168,8 @@ def _read_producer_coverage(
             body["outcome"].as_string().label("outcome"),
             body.has_key("records").label("records_present"),
             body["coverage"].label("coverage"),
-            body["parse_detail"].label("diagnostics"),
+            body.has_key("parse_detail").label("diagnostics_available"),
+            (body["parse_detail"] if include_diagnostics else literal(None)).label("diagnostics"),
             body["error"].label("error"),
         )
         .select_from(task)
@@ -215,6 +225,8 @@ def _read_producer_coverage(
                 ),
                 error=row["error"] if row["error"] is not None else row["task_error"],
                 reason=row["reason"],
+                diagnostics_available=bool(row["diagnostics_available"]),
+                diagnostics_included=include_diagnostics,
             )
             rows_left -= 1 + len(report.coverage)
             bytes_left -= len(canonical_bytes(asdict(report))) + bool(reports)
@@ -234,6 +246,7 @@ def read_completed_record_projection(
     max_rows: int = 100_000,
     max_bytes: int = 32 * 1024 * 1024,
     selection: RecordReadSelection | None = None,
+    include_diagnostics: bool = True,
 ) -> CompletedRecordProjection:
     """Read finite public rows, including report absence/empty and admission standing.
 
@@ -244,6 +257,8 @@ def read_completed_record_projection(
     for value in (run_id, max_records, max_rows, max_bytes):
         if type(value) is not int or value < 1:
             raise ValueError("record read identities and budgets require positive integers")
+    if type(include_diagnostics) is not bool:
+        raise ValueError("record diagnostic selection requires an explicit boolean")
     if selection is not None:
         if type(selection) is not RecordReadSelection:
             raise ValueError("record selection requires its typed reader contract")
@@ -470,6 +485,7 @@ def read_completed_record_projection(
         source_view_ids=source_view_ids,
         max_rows=remaining_rows,
         max_bytes=remaining_bytes,
+        include_diagnostics=include_diagnostics,
     )
     current = conn.execute(
         select(realization.c.release_id, realization.c.data_revision).where(

@@ -10,12 +10,11 @@ from fastmcp.tools import ToolResult
 
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.serve.record_results import RecordPage, RecordRequest
+from corpus_structure.serve.record_support import RecordSupportPage
 
 
 def register_record_tools(server: FastMCP, bound_run: Callable[[Context, int], Any]) -> None:
-    @server.tool(
-        annotations={"readOnlyHint": True}, output_schema=RecordPage.model_json_schema()
-    )
+    @server.tool(annotations={"readOnlyHint": True}, output_schema=RecordPage.model_json_schema())
     @tool_refusals(ValueError)
     def records(ctx: Context, request: RecordRequest) -> ToolResult:
         """Read pinned records, field evidence, alternatives and candidate admission.
@@ -31,3 +30,22 @@ def register_record_tools(server: FastMCP, bound_run: Callable[[Context, int], A
         with read_snapshot(active.engine) as conn:
             page = serve_record_results(conn, request)
         return _bounded_mcp_result(page, request.page_bytes)
+
+    @server.tool(
+        annotations={"readOnlyHint": True}, output_schema=RecordSupportPage.model_json_schema()
+    )
+    @tool_refusals(ValueError)
+    def record_support(ctx: Context, request: RecordRequest) -> ToolResult:
+        """Inspect pinned source-reading field facts, actual support/custody and assessments.
+
+        Scientific proposition support/opposition is explicitly unmodeled; source
+        polarity/modality and repeated windows do not establish independent votes.
+        """
+        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.serve.record_support import serve_record_support
+
+        active = bound_run(ctx, request.run_id)
+        with read_snapshot(active.engine) as conn:
+            ledger = serve_record_support(conn, request)
+        return _bounded_mcp_result(ledger, request.page_bytes)

@@ -27,6 +27,7 @@ def records(
     cursor: str | None = None,
     limit: int = 20,
     page_bytes: int = 1024**2,
+    include_diagnostics: bool = False,
     json: JsonOpt = False,
 ):
     """List records, or inspect one identity with --record and --interpretation.
@@ -58,8 +59,62 @@ def records(
                 cursor=cursor,
                 limit=limit,
                 page_bytes=page_bytes,
+                include_diagnostics=include_diagnostics,
             ),
         )
+    emit(result, json=json)
+
+
+@app.command("support")
+def record_support(
+    ctx: typer.Context,
+    run: Annotated[int, typer.Option()],
+    project: str | None = None,
+    source_view: Annotated[list[int] | None, typer.Option("--source-view")] = None,
+    family: str | None = None,
+    standing: str | None = None,
+    record: str | None = None,
+    interpretation: str | None = None,
+    cursor: str | None = None,
+    limit: int = 20,
+    page_bytes: int = 1024**2,
+    include_diagnostics: bool = False,
+    out: Annotated[
+        Path | None, typer.Option(help="Export this exact pinned support page as JSON.")
+    ] = None,
+    json: JsonOpt = False,
+):
+    """Inspect source-reading field support; scientific support/opposition is unmodeled."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.record_export import export_record_support
+    from corpus_structure.serve.record_results import RecordRequest
+    from corpus_structure.serve.record_support import serve_record_support
+
+    with (
+        failure_boundary(json),
+        open_runtime_engine(state(ctx).settings(), "ci-record-support", purpose="read") as engine,
+        read_snapshot(engine) as conn,
+    ):
+        result = serve_record_support(
+            conn,
+            RecordRequest(
+                run_id=run,
+                project_id=project,
+                source_view_ids=tuple(source_view) if source_view is not None else None,
+                family=family,
+                standing=standing,
+                record_id=record,
+                interpretation_id=interpretation,
+                cursor=cursor,
+                limit=limit,
+                page_bytes=page_bytes,
+                include_diagnostics=include_diagnostics,
+            ),
+        )
+        if out is not None:
+            export_record_support(result, out)
     emit(result, json=json)
 
 
@@ -71,6 +126,7 @@ def export_records(
     project: str | None = None,
     format: Literal["jsonl", "parquet"] = "parquet",
     capture_mode: Literal["resident", "spooled"] | None = None,
+    include_diagnostics: bool = False,
     json: JsonOpt = False,
 ):
     """Export all 18 record relations with the same pinned captured semantic packet."""
@@ -85,6 +141,7 @@ def export_records(
         project=project,
         json=json,
         include_records=True,
+        include_record_diagnostics=include_diagnostics,
     )
 
 

@@ -549,7 +549,9 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
             )
         cut = seal_cut(conn, case.run, "empty-coverage-final", final=True)
     consolidate_cut(case.writer, cut, "public-coverage-diagnostics")
-    request = RecordRequest(run_id=case.run, family="table", standing="accepted")
+    request = RecordRequest(
+        run_id=case.run, family="table", standing="accepted", include_diagnostics=True
+    )
     with read_snapshot(semantic_reader_engine) as conn:
         page = serve_record_results(conn, request)
         selected = serve_record_results(
@@ -670,12 +672,22 @@ def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
         complete(case, conn, (candidate(case),))
         method = M1Readings()
         config = record_method(
-            conn, method, "terminal-resolver-control", method.Config().model_dump(mode="json"),
-            "terminal-resolver-config", prepared=case.prepared,
+            conn,
+            method,
+            "terminal-resolver-control",
+            method.Config().model_dump(mode="json"),
+            "terminal-resolver-config",
+            prepared=case.prepared,
         )
         resolver = create_task(
-            conn, run_id=case.run, config_id=config, stage="resolve", unit_type="source_view",
-            unit_id=case.view, unit_key="private-unit", input_hash="terminal-resolver-input",
+            conn,
+            run_id=case.run,
+            config_id=config,
+            stage="resolve",
+            unit_type="source_view",
+            unit_id=case.view,
+            unit_key="private-unit",
+            input_hash="terminal-resolver-input",
             skip_reason=(
                 "controlled resolver route skipped" if resolver_status == "skipped" else None
             ),
@@ -683,8 +695,13 @@ def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
         if resolver_status == "failed":
             held = claim_tasks(conn, run_id=case.run, config_id=config, holder="resolver")[0]
             complete_task(
-                conn, task_id=resolver, attempt=held.attempt, holder="resolver",
-                prepared=case.prepared, observations=(), outcome="failed",
+                conn,
+                task_id=resolver,
+                attempt=held.attempt,
+                holder="resolver",
+                prepared=case.prepared,
+                observations=(),
+                outcome="failed",
                 error={"message": "controlled resolver failure"},
             )
         cut = seal_cut(conn, case.run, "terminal-resolver-final", final=True)
@@ -699,8 +716,11 @@ def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
     assert resolver_report.method == "resolve.m1_readings"
     assert resolver_report.task_status == resolver_status and not resolver_report.cut_member
     predictions, reports = prediction_records(
-        projection, source="private-unit", source_view_id=case.view,
-        release_id=projection.release_id, realization_id=projection.realization_id,
+        projection,
+        source="private-unit",
+        source_view_id=case.view,
+        release_id=projection.release_id,
+        realization_id=projection.realization_id,
         selected_tasks=tuple(report.selected_task_id for report in producers),
         report_method_names={report.selected_task_id: report.method for report in producers},
     )

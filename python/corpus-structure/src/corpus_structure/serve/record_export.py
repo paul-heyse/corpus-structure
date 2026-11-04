@@ -19,6 +19,7 @@ from corpus_structure.semantic.query import SnapshotBinding
 from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, read_record_projection
 from corpus_structure.semantic.record_queries import CompletedRecordProjection
 from corpus_structure.semantic.refusals import WrongBinding
+from corpus_structure.serve.record_results import presented_coverage
 
 
 def write_record_relations(
@@ -27,6 +28,7 @@ def write_record_relations(
     binding: SnapshotBinding,
     *,
     format: Literal["jsonl", "parquet"],
+    include_diagnostics: bool = False,
 ) -> tuple[dict, dict]:
     """Write already detached rows before their enclosing directory is published.
 
@@ -40,6 +42,7 @@ def write_record_relations(
     ) != (binding.release_id, binding.realization_id, binding.data_revision):
         raise WrongBinding("record export differs from its captured semantic snapshot")
     relations = {}
+    coverage = presented_coverage(projection.coverage, include_diagnostics=include_diagnostics)
     row_relations = cast(Mapping[str, Sequence[Any]], projection.rows)
     arrow_types = {int: pa.int64(), bool: pa.bool_(), str: pa.string()}
     for name, row_type in RECORD_ROW_TYPES.items():
@@ -99,7 +102,8 @@ def write_record_relations(
         projection_digest=projection.projection_digest,
         source_view_ids=projection.source_view_ids,
         report_source_view_ids=dict(projection.report_source_view_ids),
-        coverage=[asdict(report) for report in projection.coverage],
+        coverage=[asdict(report) for report in coverage],
+        include_diagnostics=include_diagnostics,
         released_projection=read_record_projection(projection.prepared),
         semantic_release_manifest=json.loads(projection.prepared.manifest),
         logical_digest=sha256(
@@ -111,7 +115,7 @@ def write_record_relations(
                         name: [asdict(row) for row in rows] for name, rows in row_relations.items()
                     },
                     report_source_view_ids=dict(projection.report_source_view_ids),
-                    coverage=[asdict(report) for report in projection.coverage],
+                    coverage=[asdict(report) for report in coverage],
                 )
             )
         ).hexdigest(),
@@ -119,3 +123,18 @@ def write_record_relations(
         source_coverage="not_established_by_record_projection",
     )
     return manifest, relations
+
+
+def export_record_support(ledger, destination: Path) -> dict:
+    """Export the same bounded pinned support contract returned by query/CLI/MCP."""
+    content = ledger.model_dump_json().encode("utf-8")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("xb") as stream:
+        stream.write(content)
+    return dict(
+        path=str(destination),
+        version=ledger.version,
+        binding=ledger.page.binding,
+        sha256=sha256(content).hexdigest(),
+        bytes=len(content),
+    )

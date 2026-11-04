@@ -16,6 +16,7 @@ import yaml
 from semantic import test_private_records as source_fixture
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
+from semantic.conftest import semantic_reader_engine as semantic_reader_engine
 from semantic.conftest import semantic_writer_engine as semantic_writer_engine
 from semantic.test_private_records import private_source as private_source
 from sqlalchemy import select, text
@@ -612,7 +613,7 @@ def _adjudicated_case(conn, case, partition):
 
 
 def test_heldout_calibration_binding_and_native_whole_reading_admission(
-    policy_source, semantic_evaluator_engine, tmp_path, semantic_db_engine
+    policy_source, semantic_evaluator_engine, tmp_path, semantic_db_engine, semantic_reader_engine
 ):
     training = policy_source
     with semantic_evaluator_engine.begin() as conn:
@@ -722,6 +723,46 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
             )
         )
         assert len(facts) == 4 and selections == facts
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.record_results import RecordRequest
+    from corpus_structure.serve.record_support import serve_record_support
+
+    with read_snapshot(semantic_reader_engine) as conn:
+        ledger = serve_record_support(
+            conn, RecordRequest(run_id=heldout.run, family="table", limit=10)
+        )
+    assert ledger.page.binding["realization_id"] == result.realization_id
+    assert ledger.page.cut_id == heldout.cut
+    assert ledger.scientific_support_opposition.availability == "unmodeled"
+    accepted_entries = [entry for entry in ledger.records if entry.admission == "accepted"]
+    selected_fields = [
+        field
+        for entry in accepted_entries
+        for field in entry.fields
+        if field.asserted_field_fact is not None
+    ]
+    assert len(accepted_entries) == 2 and len(selected_fields) == 4
+    assert {
+        field.asserted_field_fact.fact_id
+        for field in selected_fields
+        if field.asserted_field_fact is not None
+    } == facts
+    for entry in accepted_entries:
+        for field in entry.fields:
+            if field.asserted_field_fact is None:
+                continue
+            assert field.supports and field.evidence
+            assert field.asserted_field_fact.object is True  # source-reading metadata only
+            for evidence in field.evidence:
+                assert evidence.source is not None and evidence.source.kind == "source_reading"
+                assert evidence.source.record_id == entry.record_id
+                assert evidence.source.role == field.role
+    assert all(
+        field.asserted_field_fact is None
+        for entry in ledger.records
+        if entry.admission != "accepted"
+        for field in entry.fields
+    )
     forged = _resolved_cut(heldout, feature, binding=binding, forged_score=True)
     with heldout.writer.connect() as conn:
         decisions = list(

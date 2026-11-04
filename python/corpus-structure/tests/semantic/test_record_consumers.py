@@ -461,7 +461,8 @@ def test_coverage_ledger_is_carried_without_reinterpreting_record_emptiness(proj
         ),
     )
     page = present_record_projection(
-        replace(projection, coverage=ledger), RecordRequest(run_id=41, standing="accepted")
+        replace(projection, coverage=ledger),
+        RecordRequest(run_id=41, standing="accepted", include_diagnostics=True),
     )
     assert page.records == () and page.coverage == ledger
     assert [row.outcome for row in page.coverage[0].coverage] == [

@@ -35,6 +35,7 @@ def export_packet(
     *,
     format: Literal["jsonl", "parquet"] = "parquet",
     records: CompletedRecordProjection | None = None,
+    include_record_diagnostics: bool = False,
 ) -> dict:
     """Write a fresh directory atomically; cancellation never publishes a partial export."""
     if format not in {"jsonl", "parquet"}:
@@ -126,7 +127,11 @@ def export_packet(
             from corpus_structure.serve.record_export import write_record_relations
 
             record_manifest, record_relations = write_record_relations(
-                records, root, packet.binding, format=format
+                records,
+                root,
+                packet.binding,
+                format=format,
+                include_diagnostics=include_record_diagnostics,
             )
             manifest["format"] = "semantic-export-3"
             manifest["logical_digest_scope"] = "captured_semantic_spine"

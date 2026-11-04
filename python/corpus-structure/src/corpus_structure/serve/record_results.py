@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
@@ -49,6 +49,7 @@ class RecordRequest(BaseModel):
     standing: str | None = None
     record_id: str | None = None
     interpretation_id: str | None = None
+    include_diagnostics: bool = Field(default=False, strict=True)
     cursor: str | None = None
     limit: int = Field(default=20, strict=True, ge=1, le=100)
     max_records: int = Field(default=10_000, strict=True, ge=1, le=10_000)
@@ -112,6 +113,25 @@ class RecordPage(BaseModel):
 def _json(value: Any) -> Any:
     """Use the canonical transport without introducing float numeric conversions."""
     return json.loads(canonical_bytes(value))
+
+
+def presented_coverage(
+    coverage: tuple[RecordProducerCoverage, ...], *, include_diagnostics: bool
+) -> tuple[RecordProducerCoverage, ...]:
+    """Omit optional bodies explicitly; immutable producer IDs remain their locator."""
+    if include_diagnostics:
+        if any(not row.diagnostics_included for row in coverage):
+            raise SemanticRefusal("detached record coverage did not include requested diagnostics")
+        return coverage
+    return tuple(
+        replace(
+            row,
+            diagnostics=None,
+            diagnostics_included=False,
+            diagnostics_available=row.diagnostics_available or row.diagnostics is not None,
+        )
+        for row in coverage
+    )
 
 
 def _query_identity(projection: CompletedRecordProjection, request: RecordRequest) -> str:
@@ -272,7 +292,9 @@ def present_record_projection(
         released_projection=_json(released),
         records=tuple(answers),
         reports=tuple(_json(asdict(row)) for row in projection.rows["record_report"]),
-        coverage=projection.coverage,
+        coverage=presented_coverage(
+            projection.coverage, include_diagnostics=request.include_diagnostics
+        ),
         report_source_view_ids=dict(projection.report_source_view_ids),
         matching_records=(
             projection.matching_records if projection.matching_records is not None else len(keys)
@@ -286,8 +308,10 @@ def present_record_projection(
     return result
 
 
-def serve_record_results(conn: Connection, request: RecordRequest) -> RecordPage:
-    """Use the caller's existing read-only ReadSession and its completed-result pin."""
+def read_record_result_projection(
+    conn: Connection, request: RecordRequest
+) -> CompletedRecordProjection:
+    """Use the caller's existing read-only session and its completed-result pin."""
     from corpus_structure.semantic.query import bind_completed_result
 
     session = bind_completed_result(conn, request.run_id)
@@ -332,6 +356,7 @@ def serve_record_results(conn: Connection, request: RecordRequest) -> RecordPage
             after=after,
             limit=request.limit,
         ),
+        include_diagnostics=request.include_diagnostics,
     )
     validate_continuation(
         projection.prepared,
@@ -346,4 +371,8 @@ def serve_record_results(conn: Connection, request: RecordRequest) -> RecordPage
             revision=session.binding.data_revision,
         ),
     )
-    return present_record_projection(projection, request)
+    return projection
+
+
+def serve_record_results(conn: Connection, request: RecordRequest) -> RecordPage:
+    return present_record_projection(read_record_result_projection(conn, request), request)
