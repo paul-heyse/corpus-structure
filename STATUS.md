@@ -12,7 +12,7 @@ _Updated2026-11-04; selected AC complete; M1 implementation/qualification contin
 
 ## Development workflow
 
-- Persistent corpus_structure_dev on5434 retains the real source population and is at native122.
+- Persistent corpus_structure_dev on5434 retains the real source population and is at native124.
   Operator paul has development administration rights; all six actual purpose connections passed.
   [ADR-0056](docs/adr/0056-persistent-development-database.md): disposable databases are not
   required for ordinary work. Isolated functional tests retain purposeful isolation.
@@ -26,21 +26,25 @@ _Updated2026-11-04; selected AC complete; M1 implementation/qualification contin
 - Implemented: explicit readings profile/source-state/occurrence work, native raw diagnostics,
   separate resolution, released LinkML policy products, protected fitting/calibration, complete
   reading assertion/support transport, native overlays/caps and effective-standing consumers.
-- Forward107–122 manage151 native objects, preserving frozen predecessors. Persistent upgrades
-  passed. Empty-current-head authoring at122 passed0 native/0 ordinary changes.
-- Passed: scoped pure numerical/producer/consumer tests,15 archived-wire lowerer cases, current
-  `uv run pyrefly check` and `uv run ruff check`. Whole-M1 test-all/hygiene remain not_run.
-  Ten targeted native reference/policy controls passed; failed-task diagnostic follow-up found missing terminal membership; remediation is active. Concurrent template bootstrap hit PostgreSQL transaction-lock capacity; run these serially.
+- Forward107–124 manage151 native objects, preserving frozen predecessors. Persistent upgrades
+  passed. Empty-current-head authoring at124 passed0 native/0 ordinary changes.
+- Passed2026-11-04:465selected nonnative and38selected native M1 cases, integrated typing,
+  scoped Ruff and documentation checks. Corrected native support expectation retains typed field
+  values. Full M1 test-all/hygiene remain not_run. Historical native bootstrap runs serially.
 - [Policy/native evidence](docs/design_review/evidence/2026-11-04_m1-policy-admission/README.md)
   retains authoring, forward upgrades and failed attempts. Controlled native fit/calibration/accepted publication passed at117, with tamper refusals.
 - [Source evidence](docs/design_review/evidence/2026-11-04_m1-source-populations/README.md):
   27 actual excerpt pages/11 pinned analysis views, partial/unknown formula/cell health retained.
   [CPU readings](docs/design_review/evidence/2026-11-04_m1-cpu-readings/README.md) are being retried
-  through normal release admission/owned initialization. No source-only labels or M1 quality claim. Reader/continuation controls passed8; adapter/source MCP controls passed29.
-- Consumer and protected gap contributions are merged; all worktrees are removed. Actual CPU execution reached the model; whole-source retry and resource capture are active.
+  through normal release admission/owned initialization. Baseline run10 reached source_ready with
+  268calls/0records, then publication refused changed code; it is settled failed. Repaired native124
+  CPU development run14 is active; no current source-quality claim.
+- Source-only runs11–13 finished/sealed unselected results; protected sets1–3 freeze all11units
+  under releasebc69d3be…/guideline3 before fresh independent Sol6.1 high A/B authoring, now active.
+  No conversion/OCR/recognition reran. All worktrees are removed. Actual source-only consumers pass;
+  candidate/accepted-source follow-up, C and remaining qualification are open.
 
 ## Next
 
-Complete native fit/publication checks and actual retained-source CPU execution/reuse, then freeze
-executable release/reference inputs for fresh Sol6.1 high A/B/C. Protected held-out calibration,
+Complete actual retained-source CPU execution/reuse, independent A/B/C and protected fitting. Held-out calibration,
 five-family gates, resources, consumers/recovery and NONDEFAULT release acceptance remain open.

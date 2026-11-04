@@ -188,6 +188,22 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+
+**Implemented; selected native124 controls Tested2026-11-04.** Source-reading field support
+is reported through existing D5/D8 custody. Positive metadata facts and author polarity are not
+scientific support/opposition. Broader proposition comparison remains explicitly unmodeled until
+a released mapping defines identity, qualifications and opposition.
+
+> Decision: [ADR-0059](../adr/0059-source-reading-support.md)
+
+
+**Implemented; scoped contract controls Tested2026-11-04.** Native table/cell custody supplies
+structural row location; quoted row labels are separate source content. Missing native header flags
+cannot establish that an author label is absent. D1 and the statistics release own the exact role
+contract; unchanged table+cell occurrence membership does not imply global row identity.
+
+> Decision: [ADR-0058](../adr/0058-native-row-location.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves
 per-anchor selected-view or captured-recognition attribution, distinct text/provider precision and
 versioned real-piece readings across permitted whitespace. Native enforcement and prepared context
@@ -446,6 +462,14 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target, Implemented with native qualification open (2026-11-04).** The statistics
+release separates native table/cell row location from the meaning-changing quoted `row_label`.
+Its source-reading support ledger reports the existing selected field facts and their custody;
+scientific proposition comparison remains explicitly unmodeled without a released projection.
+The M1 coordinator owns current verification and remaining adoption evidence.
+
+> Decision: [ADR-0058](../adr/0058-native-row-location.md), [ADR-0059](../adr/0059-source-reading-support.md)
 
 **Accepted target, Proposed until implemented (2026-11-04).** M1 derives scoped source-reading
 field assertions from effective family roles and applies a whole-record admission cap through

@@ -17,6 +17,15 @@ group anchors. Private product graph fences and historical meanings remain enfor
 
 ## M1 qualified source records
 
+
+**Implemented; selected native124 controls Tested2026-11-04.** Native table/cell addresses own
+structural row membership. A separately quoted `row_label` is meaning-changing source content,
+not a required literal identity for every cell. Missing parser row-header flags do not prove
+source absence; unknown labels still prevent meaning-complete acceptance. The release-derived
+domain roles and frozen reference guideline own the exact contract; old records are unchanged.
+
+> Decision: [ADR-0058](../adr/0058-native-row-location.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** Related selected-view evidence
 retains its own pin and declared relation; primary occurrence identity remains explicit. Captured
 recognition text uses a distinct product/occurrence/text-slice address, separate from original

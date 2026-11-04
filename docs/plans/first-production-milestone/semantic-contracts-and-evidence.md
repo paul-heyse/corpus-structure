@@ -56,6 +56,16 @@ opaque passage-cited JSON payload would duplicate custody or leave the consumer 
 
 ## M1-02: released record, field and outcome model
 
+
+**Accepted amendment,2026-11-04 (ADR-0058).** Native table/cell custody supplies structural row
+location. The statistics contract uses meaning-changing `row_label` without requiring a quoted
+label to be present; explicit source absence/inapplicability can be represented, unknown still
+blocks acceptance. Missing parser header flags are not source absence. No copied whole-row
+literal, fabricated row pointer or redundant persisted extent scalar is introduced. The generic
+projection ABI2 and table+cell occurrence recipe remain; new releases/references carry the role
+change without rebinding old records or calibrated membership. Current execution is owned by
+coordinator M1-INT-F15.
+
 **Remaining target.** Reuse implemented declarations and bound products; consume M1-00's authority decisions and M1-01's family guidelines, supported subsets
 and population identities. Settle the shared contracts early enough for preparation, extraction,
 assemblers, interpretation and evaluation to design against them. Working integration requires

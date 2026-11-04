@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "id": "m1.source-reference-freeze124",
+  "title": "Retained source-only snapshots and protected reference frames",
+  "group": "M1",
+  "package": "M1-01",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can independent source frames freeze before CPU extraction without repeating PDF/OCR/recognition or selecting a default result?",
+  "answers": [],
+  "method": "Existing source-only retained-input graph and NONDEFAULT consolidation, native source/task/default inspection, protected evaluator origin/set/frame operations and source census.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_m1-cpu-readings/run.py all source-only-001 source-only",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-independent-references/source_snapshot_receipt.py",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-independent-references/prepare_reference_sets.py --mapping docs/design_review/evidence/2026-11-04_m1-independent-references/final-source-mapping-001.json --out docs/design_review/evidence/2026-11-04_m1-independent-references/freeze-002"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "final-source-mapping-001.json",
+      "role": null,
+      "sha256": "e907109bc32f6abd5f7a400459a79282e7c7a769939fa1510e0bc7ac371087c5"
+    },
+    {
+      "path": "prepare_reference_sets.py",
+      "role": null,
+      "sha256": "2fdd393c6d8025bff9b64f05845ab7ece6d4adfbd97d2b07af1469426db25bde"
+    },
+    {
+      "path": "source_snapshot_receipt.py",
+      "role": null,
+      "sha256": "87f6a7a5d8ed28888a0d946423907386a59c08096f29aaee161fca411c255153"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "freeze-002",
+      "role": null,
+      "sha256": "09f0a11f6a32348220b52ae98681f9976fc2024a8cd0f36fb5242509507c40aa"
+    },
+    {
+      "path": "source-only-native-receipt124.json",
+      "role": null,
+      "sha256": "01020ce6852d6c7171875232e526bdc73e305ed77df421a0ada309c1ee248512"
+    },
+    {
+      "path": "attempt-freeze-001.log",
+      "role": null,
+      "sha256": "e20c24f1fa9ffe2ab0f4d925d1a9840424aff60dd5999f29c4af198460d3ab80"
+    },
+    {
+      "path": "freeze-001/failure.json",
+      "role": null,
+      "sha256": "2930281fc0704a774fd72c8daae559ca6080b7923b9f29402b496fe870b16a56"
+    },
+    {
+      "path": "attempt-freeze-002.log",
+      "role": null,
+      "sha256": "7ddcd3f7bb70273ab2a55269ed8e947427a6b0a8d2af27e8964b87e279913dfd"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-source-populations/m1.source-intake106"
+  ],
+  "results": [
+    {
+      "name": "Finished sealed unselected source-only snapshots",
+      "value": 3,
+      "of": null,
+      "unit": "runs",
+      "note": null
+    },
+    {
+      "name": "Protected reference sets",
+      "value": 3,
+      "of": null,
+      "unit": "sets",
+      "note": null
+    },
+    {
+      "name": "Complete selected source census",
+      "value": 11,
+      "of": null,
+      "unit": "units",
+      "note": null
+    },
+    {
+      "name": "New annotation model resolver agent tasks",
+      "value": 0,
+      "of": null,
+      "unit": "tasks",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Runs11/12/13 and finalcuts7/9/11 retain existing integrated products under releasebc69d3be658e27e079ae61d4c4fa2051eabf006326b80443f2d28a9e8662b5bd/native124, each with its sole successful empty retained-ingest operation. All outputs remain unselected. Protected sets1/2/3 contain2/7/2source units in feature-fit/calibration/final partitions, frozen under reference guideline3 before author passes. First freezing failed on a real chart-cell projection field; revised preparation retains full chart source in census/frames and records unsupported record-anchor spaces instead of inventing table addresses. No label agreement, model quality, fitting/calibration or release gate is established.",
+  "consumed_by": [
+    "M1-01",
+    "M1-13",
+    "M1-14"
+  ]
+}

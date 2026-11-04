@@ -40,7 +40,8 @@ def test_refused_pin_never_opens_database(cli, monkeypatch, arguments):
 
 
 @pytest.mark.parametrize(
-    ("m1", "configuration"), [(False, "default"), (True, "default"), (True, "described")]
+    ("m1", "configuration"),
+    [(False, "default"), (True, "default"), (True, "described"), (True, "source-only")],
 )
 def test_cli_dispatch_records_explicit_policy_and_leaves_phase0_graph(
     cli, monkeypatch, m1, configuration

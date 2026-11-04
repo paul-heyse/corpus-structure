@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 import yaml
+from pydantic import BaseModel
 from semantic import test_private_records as source_fixture
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
@@ -752,7 +753,12 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
             if field.asserted_field_fact is None:
                 continue
             assert field.supports and field.evidence
-            assert field.asserted_field_fact.object is True  # source-reading metadata only
+            # The metadata fact stores the typed field reading. Its positive
+            # qualification does not turn the quoted proposition into truth.
+            assert isinstance(field.asserted_field_fact.object, BaseModel)
+            stored_field = field.asserted_field_fact.object.model_dump(mode="json")
+            assert stored_field["state"] == field.source_reading["state"]
+            assert stored_field["value"] == field.source_reading["value"]
             for evidence in field.evidence:
                 assert evidence.source is not None and evidence.source.kind == "source_reading"
                 assert evidence.source.record_id == entry.record_id

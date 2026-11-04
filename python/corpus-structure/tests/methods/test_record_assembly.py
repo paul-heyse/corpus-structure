@@ -113,6 +113,34 @@ def context(text, **kwargs):
     )
 
 
+def test_formula_supplement_requires_exact_native_occurrence_in_enclosing_prose():
+    from corpus_structure.methods.m1_source import _formula_matches_primary
+
+    ctx = context(
+        "x+y and x+y",
+        pieces=[
+            dict(kind="native_text", item_ref="#/texts/1", start=0, end=3),
+            dict(kind="native_text", item_ref="#/texts/3", start=3, end=8),
+            dict(kind="native_text", item_ref="#/texts/2", start=8, end=11),
+        ],
+        items=[
+            dict(self_ref="#/texts/1", text="x+y", label="formula"),
+            dict(self_ref="#/texts/2", text="x+y", label="formula"),
+            dict(self_ref="#/texts/3", text=" and ", label="text"),
+        ],
+    )
+    assert _formula_matches_primary(ctx, {"formula": dict(start=0, end=3, text="x+y")}, "#/texts/1")
+    assert not _formula_matches_primary(
+        ctx, {"formula": dict(start=8, end=11, text="x+y")}, "#/texts/1"
+    )
+    assert not _formula_matches_primary(
+        ctx, {"formula": dict(start=0, end=3, text="wrong")}, "#/texts/1"
+    )
+    assert not _formula_matches_primary(
+        ctx, {"symbol": dict(start=0, end=1, text="x")}, "#/texts/1"
+    )
+
+
 def report(ctx, pack, family, groups):
     return GlinerReport(
         ctx.dependency_digest,
@@ -201,25 +229,58 @@ def test_native_table_adapter_reads_actual_structure_and_declared_inheritance():
 def rich_header_context():
     text = "Binomial\nn = 100\nA\n0"
     pieces = [
-        dict(kind="native_text", item_ref="#/texts/1", source_field="text", cell_index=0,
-             start=0, end=8),
+        dict(
+            kind="native_text",
+            item_ref="#/texts/1",
+            source_field="text",
+            cell_index=0,
+            start=0,
+            end=8,
+        ),
         dict(kind="synthetic_separator", start=8, end=9),
-        dict(kind="native_text", item_ref="#/texts/2", source_field="text", cell_index=0,
-             start=9, end=16),
+        dict(
+            kind="native_text",
+            item_ref="#/texts/2",
+            source_field="text",
+            cell_index=0,
+            start=9,
+            end=16,
+        ),
         dict(kind="synthetic_separator", start=16, end=17),
-        dict(kind="native_text", item_ref="#/tables/0", source_field="cell_text", cell_index=1,
-             start=17, end=18),
+        dict(
+            kind="native_text",
+            item_ref="#/tables/0",
+            source_field="cell_text",
+            cell_index=1,
+            start=17,
+            end=18,
+        ),
         dict(kind="synthetic_separator", start=18, end=19),
-        dict(kind="native_text", item_ref="#/tables/0", source_field="cell_text", cell_index=2,
-             start=19, end=20),
+        dict(
+            kind="native_text",
+            item_ref="#/tables/0",
+            source_field="cell_text",
+            cell_index=2,
+            start=19,
+            end=20,
+        ),
     ]
     items = [
-        dict(self_ref="#/tables/0", data=dict(table_cells=[
-            dict(text="provider summary differs", ref={"$ref": "#/groups/0"}),
-            dict(text="A"), dict(text="0"),
-        ])),
-        dict(self_ref="#/groups/0", label="unspecified",
-             children=[{"$ref": "#/texts/1"}, {"$ref": "#/texts/2"}]),
+        dict(
+            self_ref="#/tables/0",
+            data=dict(
+                table_cells=[
+                    dict(text="provider summary differs", ref={"$ref": "#/groups/0"}),
+                    dict(text="A"),
+                    dict(text="0"),
+                ]
+            ),
+        ),
+        dict(
+            self_ref="#/groups/0",
+            label="unspecified",
+            children=[{"$ref": "#/texts/1"}, {"$ref": "#/texts/2"}],
+        ),
         dict(self_ref="#/texts/1", text="Binomial"),
         dict(self_ref="#/texts/2", text="n = 100"),
     ]
@@ -227,15 +288,22 @@ def rich_header_context():
 
 
 def rich_header_groups(ctx, *, row_path=(1,)):
-    return native_table_groups(ctx, table_pointer="#/tables/0", cells=(2,),
-                               row_paths={2: row_path}, header_paths={2: (0,)})
+    return native_table_groups(
+        ctx, table_pointer="#/tables/0", cells=(2,), row_paths={2: row_path}, header_paths={2: (0,)}
+    )
 
 
 def test_rich_header_keeps_child_literal_addresses_and_parent_cell_occurrence():
     ctx = rich_header_context()
-    result = assemble_native_records(release(), ctx, contract="TableRecordFields",
-        occurrence_roles=("cell",), policy_version="reading-1",
-        occurrence_policy="statistics-reading-occurrence-2", groups=rich_header_groups(ctx))
+    result = assemble_native_records(
+        release(),
+        ctx,
+        contract="TableRecordFields",
+        occurrence_roles=("cell",),
+        policy_version="reading-1",
+        occurrence_policy="statistics-reading-occurrence-2",
+        groups=rich_header_groups(ctx),
+    )
     (record,) = result.records
     row = record.model_dump()
     header = fields(record)["header_path"]
@@ -248,7 +316,8 @@ def test_rich_header_keeps_child_literal_addresses_and_parent_cell_occurrence():
     assert [anchors[key]["pointer"] for key in evidence["anchors"]] == ["#/texts/1", "#/texts/2"]
     assert all("/data/table_cells/" not in anchors[key]["pointer"] for key in evidence["anchors"])
     assert {anchors[key]["pointer"] for key in row["occurrence_anchors"]} == {
-        "#/tables/0", "#/tables/0/data/table_cells/2"
+        "#/tables/0",
+        "#/tables/0/data/table_cells/2",
     }
     assert fields(record)["cell_value"]["original"] == "0"
     assert all(anchor.get("source_piece") != "\n" for anchor in row["anchors"])
@@ -265,10 +334,18 @@ def test_rich_header_requires_every_canonical_child_not_summary_or_equal_foreign
         ctx = replace(whole, primary=primary)
     else:
         middle = (SyntheticText("n = 100", "unattributed replacement is not source evidence"),)
-        ctx = NativeSourceContext(whole.primary, (),
-            (SourceSlice(1, 0, 8), *(middle if replacement == "synthetic" else ()),
-             SourceSlice(1, 17, 20)),
-            "reading", "policy", "explicit bounded context")
+        ctx = NativeSourceContext(
+            whole.primary,
+            (),
+            (
+                SourceSlice(1, 0, 8),
+                *(middle if replacement == "synthetic" else ()),
+                SourceSlice(1, 17, 20),
+            ),
+            "reading",
+            "policy",
+            "explicit bounded context",
+        )
     group = rich_header_groups(ctx)[0]
     header = next(field for field in group.fields if field.role == "header_path")
     assert header.state == "unresolved" and not header.spans
@@ -277,14 +354,23 @@ def test_rich_header_requires_every_canonical_child_not_summary_or_equal_foreign
 
 def test_unmarked_row_label_can_use_actual_raw_quote_but_present_header_wins():
     ctx = rich_header_context()
-    pack = family_pack(release(), contract="TableRecordFields", anchor_role="cell_value",
-                       source_inspection=True)
-    group = dict(cell_value=span(19, 20, "0"), row_label=span(17, 18, "A"),
-                 header_path=span(17, 18, "A"))  # raw header contradicts actual located native path
-    result = assemble_records(release(), ctx, pack, report(ctx, pack, "table", [group]),
-        contract="TableRecordFields", anchor_role="cell_value", policy_version="reading-1",
+    pack = family_pack(
+        release(), contract="TableRecordFields", anchor_role="cell_value", source_inspection=True
+    )
+    group = dict(
+        cell_value=span(19, 20, "0"), row_label=span(17, 18, "A"), header_path=span(17, 18, "A")
+    )  # raw header contradicts actual located native path
+    result = assemble_records(
+        release(),
+        ctx,
+        pack,
+        report(ctx, pack, "table", [group]),
+        contract="TableRecordFields",
+        anchor_role="cell_value",
+        policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
-        supplements={0: rich_header_groups(ctx, row_path=())[0]})
+        supplements={0: rich_header_groups(ctx, row_path=())[0]},
+    )
     (valued,) = result.records
     assert fields(valued)["row_label"]["original"] == "A"
     assert "alternatives" not in fields(valued)["row_label"]
@@ -292,10 +378,15 @@ def test_unmarked_row_label_can_use_actual_raw_quote_but_present_header_wins():
         assert fields(record)["header_path"]["original_pieces"] == ("Binomial", "n = 100")
         assert "alternatives" not in fields(record)["header_path"]
         assert record.model_dump()["standing"] == "candidate"
-    native = assemble_native_records(release(), ctx, contract="TableRecordFields",
-        occurrence_roles=("cell",), policy_version="reading-1",
+    native = assemble_native_records(
+        release(),
+        ctx,
+        contract="TableRecordFields",
+        occurrence_roles=("cell",),
+        policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
-        groups=rich_header_groups(ctx, row_path=()))
+        groups=rich_header_groups(ctx, row_path=()),
+    )
     assert native.records[0].model_dump()["record_id"] == valued.model_dump()["record_id"]
     assert (
         native.records[0].model_dump()["interpretation_id"]
@@ -307,9 +398,15 @@ def test_missing_native_row_path_preserves_location_and_unknown_label_without_ab
     ctx = rich_header_context()
     groups = rich_header_groups(ctx, row_path=())
     assert "row_label" not in {field.role for field in groups[0].fields}
-    result = assemble_native_records(release(), ctx, contract="TableRecordFields",
-        occurrence_roles=("cell",), policy_version="reading-1",
-        occurrence_policy="statistics-reading-occurrence-2", groups=groups)
+    result = assemble_native_records(
+        release(),
+        ctx,
+        contract="TableRecordFields",
+        occurrence_roles=("cell",),
+        policy_version="reading-1",
+        occurrence_policy="statistics-reading-occurrence-2",
+        groups=groups,
+    )
     (record,) = result.records
     label = fields(record)["row_label"]
     assert label["state"] == "unresolved" and label["meaning_changing"]
@@ -318,26 +415,36 @@ def test_missing_native_row_path_preserves_location_and_unknown_label_without_ab
     row = record.model_dump()
     anchors = {anchor["anchor_id"]: anchor for anchor in row["anchors"]}
     assert {anchors[key]["pointer"] for key in row["occurrence_anchors"]} == {
-        "#/tables/0", "#/tables/0/data/table_cells/2"
+        "#/tables/0",
+        "#/tables/0/data/table_cells/2",
     }
     assert fields(record)["table"]["state"] == fields(record)["cell"]["state"] == "present"
 
 
 def test_row_label_unstated_requires_actual_inspection_not_missing_native_flag():
     ctx = rich_header_context()
-    pack = family_pack(release(), contract="TableRecordFields", anchor_role="cell_value",
-                       source_inspection=True)
+    pack = family_pack(
+        release(), contract="TableRecordFields", anchor_role="cell_value", source_inspection=True
+    )
     raw = dict(cell_value=span(19, 20, "0"), row_label__state="unstated")
-    result = assemble_records(release(), ctx, pack, report(ctx, pack, "table", [raw]),
-        contract="TableRecordFields", anchor_role="cell_value", policy_version="reading-1",
+    result = assemble_records(
+        release(),
+        ctx,
+        pack,
+        report(ctx, pack, "table", [raw]),
+        contract="TableRecordFields",
+        anchor_role="cell_value",
+        policy_version="reading-1",
         occurrence_policy="statistics-reading-occurrence-2",
-        supplements={0: rich_header_groups(ctx, row_path=())[0]})
+        supplements={0: rich_header_groups(ctx, row_path=())[0]},
+    )
     (record,) = result.records
     label = fields(record)["row_label"]
     assert label["state"] == "unstated" and label["meaning_changing"]
     assert label["evidence_status"] == "available" and label["evidence_sets"]
-    evidence = next(e for e in record.model_dump()["evidence_sets"]
-                    if e["set_id"] == label["evidence_sets"][0])
+    evidence = next(
+        e for e in record.model_dump()["evidence_sets"] if e["set_id"] == label["evidence_sets"][0]
+    )
     assert evidence["usage"] == "context" and evidence["anchors"]
     definition = release().index.definitions["LiteralRecordField"]
     assert "MeaningChangingRecordField" in definition.ancestors

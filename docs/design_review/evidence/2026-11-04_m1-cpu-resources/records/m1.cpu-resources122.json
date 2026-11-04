@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-resources122",
+  "title": "Sampled process-tree resources for retained-source CPU baseline",
+  "group": "M1",
+  "package": "M1-06",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What process-tree resources were observed during the actual native122 retained Grinstead-Snell CPU source run?",
+  "answers": [],
+  "method": "Wrap the actual command from process creation; sample parent/descendant own CPU and proportional memory every0.5seconds; retain unavailable/disappeared processes and command exit.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_m1-cpu-resources/sample_tree.py --interval 0.5 --out docs/design_review/evidence/2026-11-04_m1-cpu-resources/ordinary-001.jsonl -- uv run python docs/design_review/evidence/2026-11-04_m1-cpu-readings/run.py grinstead-snell attempt-010"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "sample_tree.py",
+      "role": null,
+      "sha256": "7778444ee157cb6a533da9edfd4c275dade8db29e1269614abcb08e3b02eb26a"
+    },
+    {
+      "path": "ordinary-001.jsonl",
+      "role": null,
+      "sha256": "30474dba9023683d56ecbecbd6b9b24e6b278a6b989d2a3ef3ab3e2d4c4eff13"
+    },
+    {
+      "path": "sampler-sanity.json",
+      "role": null,
+      "sha256": "a7cfb2e03c4386f314c3664ec9b83f65667ae333d8314a6aef3b0492d581c972"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Observed complete-sample peak proportional memory",
+      "value": 4204339,
+      "of": null,
+      "unit": "KiB",
+      "note": "Sampled PSS, not an upper bound; one incomplete sample remains explicit"
+    },
+    {
+      "name": "Observed maximum summed RSS",
+      "value": 4615984.0,
+      "of": null,
+      "unit": "KiB",
+      "note": "Separately labelled summed RSS double-counts shared pages"
+    },
+    {
+      "name": "Cold-wrapper sampled elapsed time",
+      "value": 603.9096562539999,
+      "of": null,
+      "unit": "seconds",
+      "note": "Includes preparation and teardown; source API elapsed time is a different interval"
+    },
+    {
+      "name": "Observed maximum OS threads",
+      "value": 117,
+      "of": null,
+      "unit": "threads",
+      "note": "Includes idle threads; configured model4 and parent1 do not imply this OS count"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Actual command exited0 and all owned processes exited. The sampled cold-start tree reached4204339KiB complete-sample PSS across1207samples; one incomplete sample remains retained. These are measured observations for this exact source/profile, not a guaranteed footprint bound, dense/cancellation envelope or M1 quality qualification.",
+  "consumed_by": [
+    "M1-06",
+    "M1-14"
+  ]
+}

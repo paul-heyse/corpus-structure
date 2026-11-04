@@ -337,7 +337,9 @@ def test_row_label_remains_meaning_changing_without_a_required_present_gate(stat
     label = next(field for field in raw["fields"] if field["role"] == "row_label")
     old_set = label["evidence_sets"][0]
     inspection = dict(
-        role="row_label", ordering="ordered", usage="context",
+        role="row_label",
+        ordering="ordered",
+        usage="context",
         anchors=(raw["anchors"][0]["anchor_id"],),
     )
     inspection["set_id"] = evidence_set_identity(inspection)
@@ -346,19 +348,29 @@ def test_row_label_remains_meaning_changing_without_a_required_present_gate(stat
     )
     label.clear()
     label.update(
-        role="row_label", kind="literal", state=state, meaning_changing=True,
-        evidence_status="available", evidence_sets=(inspection["set_id"],),
+        role="row_label",
+        kind="literal",
+        state=state,
+        meaning_changing=True,
+        evidence_status="available",
+        evidence_sets=(inspection["set_id"],),
         reason="controlled independently located row-label inspection",
     )
     finish(raw)
     candidate = bind(raw, contexts)
     instance = RecordAcceptanceInstance(
-        feature=feature, calibration=calibrated(feature), threshold=0.6,
+        feature=feature,
+        calibration=calibrated(feature),
+        threshold=0.6,
         threshold_procedure="fixed threshold before final assessment",
         conditioning_assumptions="native source custody required",
     )
     proposal = assess_record_admission(
-        prepared, candidate, instance, subset="native-tables", final_event_score=100.0,
+        prepared,
+        candidate,
+        instance,
+        subset="native-tables",
+        final_event_score=100.0,
         event_procedure="uncoupled-whole-reading-1",
     )
     assert "required_role_not_present:row_label" not in proposal.blockers

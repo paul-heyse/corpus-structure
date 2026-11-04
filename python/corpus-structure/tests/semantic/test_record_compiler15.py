@@ -79,7 +79,7 @@ def test_new_record_projection_gets_a_new_compiler_identity_for_identical_source
     assert not any(artifact.kind == ARTIFACT for artifact in old.artifacts)
     assert len([artifact for artifact in new.artifacts if artifact.kind == ARTIFACT]) == 1
     assert comparison_projection(new).compiler_version == "16"
-    assert read_record_projection(new)["abi"] == "source-record-projection-1"
+    assert read_record_projection(new)["abi"] == "source-record-projection-2"
 
 
 def test_old_archive_does_not_acquire_a_projection_from_installed_code():

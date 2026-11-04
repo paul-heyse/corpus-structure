@@ -1,6 +1,6 @@
 # Statistics M1 source-reading reference guideline
 
-**Proposed reference contract, version `statistics-m1-reference-2`, 2026-11-04.** Freeze its
+**Proposed reference contract, version `statistics-m1-reference-3`, 2026-11-04.** Freeze its
 exact bytes with the intended semantic release and source-ready reference frames before A/B/C.
 This guideline defines source readings, not extraction predictions or scientific truth. The
 candidate execution policy remains separately versioned in `m1-methods.yaml`.
@@ -60,6 +60,21 @@ float substitution. No implicit positive polarity, certainty, universal quantifi
 population, symbol meaning or sample size may be invented. When a classification is explicit in
 ordinary grammar, cite the actual grammatical cue; ambiguity stays unresolved.
 
+For the submitted record format, original quoted literal roles use `kind: text` with the exact
+source string, or `kind: text_sequence` for separately anchored ordered pieces. This includes
+quoted numeric notation: this subset records the original literal, without an additional numeric
+parse. Classification roles use their released label value and separate cue evidence. Native
+table/cell/scope roles use the actual native pointer. Character evidence uses exact
+`selected_projection` offsets and its genuine owning item/cell pointer; do not substitute an
+equally spelled native-text coordinate. These representation choices keep independent readings
+comparable under the released strict occurrence policy without asserting equivalence between
+different source spaces or value kinds.
+
+The native `scope` value is the primary frozen source view's `section_pointer`, identifying its
+selected source section. Locate the narrower defining clause, condition and symbol declaration
+separately in their own role evidence. Section identity does not make a reading universally
+applicable within that section or merge equal symbol spellings across occurrences.
+
 ## Family readings
 
 | Family | Occurrence and fields |
@@ -67,7 +82,7 @@ ordinary grammar, cite the actual grammatical cue; ambiguity stays unresolved.
 | Definition | One explicitly defined term occurrence with its complete defining clause and native local scope. Retain an explicitly stated alias and definition relation; otherwise mark those supplemental roles unstated. An alias must have its own located phrase. A later mere mention creates no new definition. |
 | Qualified assertion | One explicit subject–predicate–object/proposition clause. Preserve negation, modality, attributed speaker, quantification, condition and scope in their separate roles when stated. A conditional clause and its conclusion form one qualified reading. A conjunction with distinct predicates or objects creates separate occurrences; do not drop the shared qualification. |
 | Measurement | One referent/property/original-value/value-role statement. A stated mean, standard deviation, probability, sample size, bound or comparison keeps its distinct role. Preserve stated unit, comparator, uncertainty, reference quantity and condition. A hypothetical example stays hypothetical in its condition. A derived answer is included only if explicitly stated by the source, without claiming independent computation. |
-| Table | One native non-header data cell with its complete ordered header path, row identity and original cell value. Retain separately located caption, applicable unit and note. Header inheritance follows native row/column extents and explicit note scope. A blank or dash is not zero: preserve its literal/state meaning under the source legend, or report unresolved. Ambiguous spanning headers or note applicability cannot become accepted by proximity. |
+| Table | One native non-header data cell with its complete ordered header path, native cell/row location and original cell value. Record a quoted row label separately when stated; no parser flag alone establishes its presence or absence. Retain separately located caption, applicable unit and note. Header inheritance follows native row/column extents and explicit note scope. A blank or dash is not zero: preserve its literal/state meaning under the source legend, or report unresolved. Ambiguous spanning headers or note applicability cannot become accepted by proximity. |
 | Formula context | One native formula occurrence with its original formula literal and native local scope. Link explicitly declared symbol, meaning, domain and assumption only within that scope, with separately located declaration evidence. A new section reusing a symbol does not establish identity. A formula with several distinct declared symbol bindings yields one reading per binding under the occurrence rule below; do not invent an unobserved declaration. |
 
 The versioned family occurrence policy is `statistics-reading-occurrence-2`. Decoder grouping

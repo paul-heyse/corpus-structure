@@ -235,7 +235,8 @@ def start_bound_run(
         from corpus_structure.orchestrate.m1 import bind_retained_document
 
         selected_registry = bind_retained_document(selected_registry, retained_input_document)
-        selected_registry.resolve("extract.m1_candidates", m1_configuration)
+        if m1_configuration != "source-only":
+            selected_registry.resolve("extract.m1_candidates", m1_configuration)
         if record_policy is not None:
             from corpus_structure.orchestrate.m1 import bind_record_policy
 

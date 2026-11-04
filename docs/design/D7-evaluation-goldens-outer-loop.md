@@ -30,6 +30,16 @@ reference creation; existing stored split reads retain their explicit provenance
 
 ## M1 independent record references
 
+
+**Implemented freeze; independent authoring/qualification open (2026-11-04).** The statistics reference
+format is `statistics-m1-reference-3`: original literals remain text or ordered real-piece text
+sequences, character anchors use genuine selected-projection coordinates, and native scope uses
+the primary selected section. Native cell geometry supplies structural row location; `row_label`
+is separate meaning-changing quoted content. Missing parser flags do not establish absence.
+Freeze exact guideline bytes, release and frames before fresh A/B/C; no earlier answer is rebound.
+
+> Decision: [ADR-0058](../adr/0058-native-row-location.md)
+
 **Accepted target, Proposed until native qualification (2026-11-03).** A distinct released
 source-record protocol reuses the protected reference store. Freeze selected source membership,
 source-only frames, guideline text and immutable credible origin partitions at reference-set

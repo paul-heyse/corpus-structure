@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "id": "m1.reading-consumer124",
+  "title": "Frozen reading contexts and native consumer acceptance controls",
+  "group": "M1",
+  "package": "M1-12",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the integrated reading/context, optional diagnostics and pinned source-support boundaries pass their selected pure/native controls on the frozen runtime?",
+  "answers": [],
+  "method": "Targeted nonnative tests, one serialized native invocation followed by the corrected single test, persistent forward migration and rollback-only empty-current-head authoring; independent bounded source review.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/evaluate/test_record_gaps.py python/corpus-structure/tests/evaluate/test_record_policy_product.py python/corpus-structure/tests/evaluate/test_record_reference_cli.py python/corpus-structure/tests/evaluate/test_record_references.py python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/methods/test_m1_cli.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_readings.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/methods/test_m1_source_freeze.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/methods/test_record_readings.py python/corpus-structure/tests/semantic/test_record_admission.py python/corpus-structure/tests/semantic/test_record_assertions.py python/corpus-structure/tests/semantic/test_record_compiler15.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_record_diagnostic_selection.py python/corpus-structure/tests/semantic/test_record_interpretation.py python/corpus-structure/tests/semantic/test_record_policy.py python/corpus-structure/tests/semantic/test_record_policy_products.py python/corpus-structure/tests/semantic/test_record_projection.py python/corpus-structure/tests/semantic/test_record_support.py python/corpus-structure/tests/evaluate/test_record_alignment.py::test_independent_five_family_counts_and_empty_prediction_denominator python/corpus-structure/tests/evaluate/test_record_alignment.py::test_independent_five_family_counts_and_empty_prediction_denominator python/corpus-structure/tests/evaluate/test_record_statistics.py::test_ratio_is_ratio_of_group_contributions_not_mean_of_group_ratios -q",
+    "uv run pytest python/corpus-structure/tests/semantic/test_record_publication_native.py python/corpus-structure/tests/semantic/test_record_reading_closure_native.py python/corpus-structure/tests/evaluate/test_record_policy_native.py python/corpus-structure/tests/evaluate/test_record_references_native.py python/corpus-structure/tests/evaluate/test_record_policy_authority_native.py python/corpus-structure/tests/semantic/test_record_alternative_publication_native.py python/corpus-structure/tests/semantic/test_record_support_native.py -q",
+    "uv run pytest python/corpus-structure/tests/evaluate/test_record_policy_authority_native.py::test_heldout_calibration_binding_and_native_whole_reading_admission -q",
+    "uv run ci db migrate --json",
+    "uv run ci schema native-candidate --out docs/design_review/evidence/2026-11-04_m1-policy-admission/current-head-023 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-context124.json",
+      "role": null,
+      "sha256": "fda61159384fd7499312dee03b59349bd7db7dd356fb3c55df0892c10a93caac"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "attempt-pure-integrated-001.log",
+      "role": null,
+      "sha256": "af0eefb30a8a778b14ad56978735996ce3f90625b137c7865ce1dcd54bbff1ff"
+    },
+    {
+      "path": "attempt-native-integrated-124.log",
+      "role": null,
+      "sha256": "bef5a54d926bd722c858061b25c07e080997d6eabbda5f0049cd0e9854e382c1"
+    },
+    {
+      "path": "attempt-native-support-124-followup.log",
+      "role": null,
+      "sha256": "8ed8a65999a17d0e1fad5dd535567c4e0b90e17520bc1f1fef707ad286845f36"
+    },
+    {
+      "path": "attempt-upgrade-019.log",
+      "role": null,
+      "sha256": "02380aea89637b04dda26be1504550bb6de80a607495983bacd414baeb2420fa"
+    },
+    {
+      "path": "attempt-current-head-023.log",
+      "role": null,
+      "sha256": "e7fc72bcaf9a9a6356e6fd8c324b946f47cee73444537669fa2bcbcd508697fe"
+    },
+    {
+      "path": "current-head-023/native_operations.json",
+      "role": null,
+      "sha256": "5cf1e959d477c56f305414390d6ad597b64ad0d24f67c946844282d7720a6d5e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Selected nonnative cases passed",
+      "value": 465,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Selected native union passed",
+      "value": 38,
+      "of": null,
+      "unit": "cases",
+      "note": "37passed in the first invocation; new support assertion incorrectly expected Boolean object rather than typed field reading. Corrected expectation passed in the single follow-up. Product runtime unchanged."
+    },
+    {
+      "name": "Empty native delta",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    },
+    {
+      "name": "Empty ordinary delta",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected boundaries pass on native124 and the exact source manifest. Includes heldout controlled fitting/admission and four typed field facts with authentic support/custody, retained alternatives, no-output terminal resolver authority, paging/limits and default omission of2MiB diagnostics. Initial native test expectation and prior interrupted stale-source run remain retained failures, not passes. No independent source quality, all-family release, complete operating envelope or whole-M1 test-all/hygiene claim.",
+  "consumed_by": [
+    "M1-03",
+    "M1-05",
+    "M1-10",
+    "M1-11",
+    "M1-12",
+    "M1-13",
+    "M1-14"
+  ]
+}

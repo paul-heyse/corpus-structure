@@ -116,6 +116,13 @@ independent/stacking baseline demonstrates worthwhile complete-record gain or er
 M1-13 supplies independent development references; it does not take reference answers from these
 predictions. Sparse fitting evidence keeps scores provisional and never licenses invented factors.
 
+The logical table template's `row_identity` decision remains distinct from the statistics source
+role `row_label` (ADR-0058). Required native table/cell custody supplies structural row membership;
+a quoted label is separately inspected source content. Missing native row-header metadata never
+becomes an unstated author label. Dense contexts consume complete bounded row/cell targets and
+canonical rich-header child pieces; unconsumed middle text and synthetic separators supply no
+literal evidence. Current bounded preparation/assembly evidence is in the coordinator.
+
 The templates are value–property–referent–condition; mention identity–type–relation; and table
 header–row identity–cell value–unit–note. Definitions/formula records reuse these decisions with
 their native contexts. Do not build a universal solver language or corpus-wide latent-truth model.

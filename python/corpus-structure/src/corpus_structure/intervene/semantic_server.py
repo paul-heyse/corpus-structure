@@ -67,9 +67,7 @@ def _stamp_mcp_result(wire: CallToolResult) -> CallToolResult:
     return wire.model_copy(update={"meta": meta})
 
 
-def _bounded_mcp_result(
-    value: BaseModel, max_bytes: int
-) -> ToolResult:
+def _bounded_mcp_result(value: BaseModel, max_bytes: int) -> ToolResult:
     """Admit the actual full text-plus-structured result, retaining its exact wire form."""
     from corpus_structure.semantic.query import ReadLimit
 

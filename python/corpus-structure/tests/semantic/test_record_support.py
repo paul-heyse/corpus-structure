@@ -2,6 +2,7 @@
 
 import json
 from contextlib import nullcontext
+from dataclasses import replace
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
@@ -10,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import Engine, literal
 
+from corpus_structure.core.method import CoverageDraft
 from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.query import (
     CitationRole,
@@ -18,6 +20,7 @@ from corpus_structure.semantic.query import (
     ReadSession,
     SourceCustody,
 )
+from corpus_structure.semantic.record_queries import RecordProducerCoverage, RecordReadLimit
 from corpus_structure.serve.record_results import RecordRequest, present_record_projection
 from corpus_structure.serve.record_support import (
     present_record_support,
@@ -55,6 +58,41 @@ def fact():
         qualification_value_id=None,
         qualification=None,
     )
+
+
+def test_support_hydration_cannot_reuse_rows_already_consumed_by_producer_coverage(projection):
+    report = RecordProducerCoverage(
+        selected_task_id=23,
+        origin_task_id=23,
+        cut_member=True,
+        source_view_id=7,
+        method="extract.m1_candidates",
+        method_version="4",
+        task_status="done",
+        source="u",
+        outcome="produced",
+        report_present=True,
+        records_present=True,
+        coverage=(CoverageDraft(family="assertion", scope="u", outcome="complete"),),
+        diagnostics=None,
+        error=None,
+        reason=None,
+    )
+    projection = replace(projection, coverage=(report,))
+    max_rows = sum(len(rows) for rows in projection.rows.values()) + 2
+    request = RecordRequest(run_id=41, max_rows=max_rows)
+    mock = MagicMock()
+    session = SimpleNamespace(
+        connection=mock,
+        binding=projection.binding,
+        completed_cut_id=projection.cut_id,
+        scope=lambda relation: literal(True),
+    )
+    with pytest.raises(RecordReadLimit, match="transfer budget exhausted"):
+        read_support_inventory(
+            cast(ReadSession, session), projection, accepted_page(projection), request
+        )
+    mock.execute.assert_not_called()
 
 
 def test_metadata_fact_true_and_quoted_negation_do_not_become_scientific_opposition(projection):

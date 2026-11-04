@@ -38,6 +38,25 @@ FAMILIES = {
 RECORD_POLICY = "m1-grouped-reading-logistic-1"
 
 
+def _formula_matches_primary(context, group, pointer):
+    """Associate a native supplement only through the decoder's actual formula span."""
+    value = group.get("formula")
+    if not isinstance(value, dict):
+        return False
+    try:
+        evidence = context.map_span(
+            value["start"], value["end"], literal=value["text"], allow_multiple=True
+        )
+    except KeyError, TypeError, ContextRefused:
+        return False
+    return bool(evidence) and all(
+        isinstance(piece, NativeSpanEvidence)
+        and piece.source.source_view_id == context.primary.source_view_id
+        and json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"] == pointer
+        for piece in evidence
+    )
+
+
 def _retained_report(report, profiles):
     """Retain raw decoder output and reconstructible preparation without passage copies."""
     row = asdict(report)
@@ -87,7 +106,7 @@ def _structural_groups(view, selection, context):
 
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    policy: Literal["m1-canonical-related-context-candidates-3"] = POLICY
+    policy: Literal["m1-canonical-related-context-candidates-4"] = POLICY
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: Literal["extract.m1_annotations"] = "extract.m1_annotations"
     snapshot: Path
@@ -427,7 +446,16 @@ class M1Candidates:
                                 "selected native section is the explicit definition scope",
                             )
                         elif family == "formula_context" and native_groups:
-                            supplements[group_index] = native_groups[0]
+                            if _formula_matches_primary(context, group, selection.region):
+                                supplements[group_index] = native_groups[0]
+                            else:
+                                report_entry["association_diagnostics"].append(
+                                    dict(
+                                        group=group_index,
+                                        reason="formula span does not identify the selected native "
+                                        "formula; no structural supplement attached",
+                                    )
+                                )
                         elif family == "table":
                             raw_value = group.get("cell_value")
                             if isinstance(raw_value, dict):

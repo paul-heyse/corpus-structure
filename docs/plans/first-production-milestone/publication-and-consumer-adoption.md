@@ -81,8 +81,11 @@ available even for a cut with zero accepted records.
 
 Consolidation may group equivalent qualified facts while preserving all source occurrences,
 record membership and disagreement. Different conditions, value roles, local senses, modality or
-attribution cannot disappear under normalization. Keep support/opposition and known common citation
-origins in a ledger. Author modality, interpretation confidence, reliability and corpus support
+attribution cannot disappear under normalization. Keep actual source-reading field support and known common citation
+origins in the pinned ledger. ADR-0059 qualifies the earlier support/opposition wording: positive
+metadata assertions and author polarity do not supply scientific opposition. The report marks
+scientific comparison unmodeled until a released proposition mapping exists; broader comparison
+remains unimplemented follow-on scope, not a completed corpus-truth capability. Author modality, interpretation confidence, reliability and corpus support
 remain separate; consolidation neither estimates scientific truth nor silently adopts ontology
 proposals. Global identity/ontology changes require their existing review/version route.
 

@@ -40,6 +40,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0054](0054-audit-closure-contracts.md) | Bind audit closure to released semantics, owned effects and bounded readers | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B3](../design/DESIGN.md#section-b3), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 | [ADR-0056](0056-persistent-development-database.md) | Use persistent development storage with operator administration | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4) | Implemented |  |
 | [ADR-0057](0057-m1-retained-reading-execution.md) | Separate retained CPU extraction from evaluated reading policies | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0055](0055-m1-record-admission.md) |
+| [ADR-0058](0058-native-row-location.md) | Separate native row location from quoted row labels | 2026-11-04 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0059](0059-source-reading-support.md) | Scope M1 support reports to attributed source-reading facts | 2026-11-04 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

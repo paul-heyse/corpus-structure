@@ -1,15 +1,22 @@
 # D6 · Orchestration, metrics and policies
 
-## M1 annotation task dependency scope
+## M1 retained reading task dependency scope
 
-**Accepted target, Proposed until implemented (2026-11-04).** A declared upstream annotation
-operation seals actual products through existing source observation/task custody. Its task identity,
-Python origin selection and native reuse admission use one complete operation-specific projection:
-source/release/profile/recipe/configuration and relevant implementation/spaCy/model dependencies.
-The full run manifest remains provenance. This bounded annotation-only refinement permits downstream
-schema changes to reuse unchanged preparation; all other methods retain the full-binding default.
-Actual upstream product edges and body hashes govern consumption and invalidation. No independent
-annotation store, mutable Doc cache or replacement task engine is introduced.
+**Accepted target, Implemented with cross-configuration qualification open (2026-11-04).**
+Annotation and raw CPU extraction seal actual upstream products through source task custody.
+Orchestration hashing, Python origin selection and native reuse admission use the same owned
+operation projection. Annotation retains its source/release/profile/recipe/configuration and
+linguistic dependencies; raw extraction retains its own and annotation inputs, model and actual
+source context. Unknown determinants remain significant. The full run manifest stays provenance.
+Within one release, downstream reading-policy configuration changes can reuse unchanged upstream
+work; changed releases are not implicitly compatible. Other methods retain full binding.
+Actual product edges and body hashes govern consumption and invalidation. There is no independent
+annotation store, mutable Doc cache or replacement task engine.
+
+The explicit `source-only` M1 profile composes retained integrated-product/view custody without
+annotation, model, resolver or agent work. It permits source-only reference freezing before CPU
+extraction succeeds. Profile composition is implemented/pure-tested; its actual native source
+freeze remains a separate qualification obligation.
 
 > Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
 

@@ -39,6 +39,16 @@ Native105's forward/current-head comparison and scoped selector/scientific contr
 
 ## M1 record interpretation and admission
 
+
+**Accepted target, Proposed pending implementation (2026-11-04).** M1 support reports describe
+attributed source-reading field facts under the completed-result pin, using existing support,
+evidence, citation and assessment owners. Metadata assertion polarity and author polarity do not
+supply scientific opposition. Without a released proposition projection, scientific support/
+opposition is explicitly `unmodeled`; alternatives and unknown lineage are separate. Broader
+scientific comparison remains unimplemented follow-on scope, not a completed ledger capability.
+
+> Decision: [ADR-0059](../adr/0059-source-reading-support.md)
+
 **Accepted target, Proposed until implemented (2026-11-03).** Deterministic assembly and bounded
 uncertain interpretation prepare coherent source-record readings upstream of existing domain
 policy and `consolidate_cut`. Exact event sums describe the retained candidate model; they do not

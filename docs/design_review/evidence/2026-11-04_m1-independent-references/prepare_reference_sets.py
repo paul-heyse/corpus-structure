@@ -34,8 +34,8 @@ from sqlalchemy import select, text
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 GUIDELINE = ROOT / "domains/statistics/m1-reference-guideline.md"
-GUIDELINE_ID = "statistics-m1-reference-2"
-REFERENCE_POLICY = "statistics-reference-reading-2"
+GUIDELINE_ID = "statistics-m1-reference-3"
+REFERENCE_POLICY = "statistics-reference-reading-3"
 PREDICTION_POLICY = "m1-grouped-reading-logistic-1"
 
 
@@ -85,6 +85,11 @@ def anchor_scopes(view, pin):
         source_field = piece.get("source_field", "text")
         if source_field == "cell_text":
             pointer += f"/data/table_cells/{piece['cell_index']}"
+        elif source_field in {"chart_title", "chart_cell_text"}:
+            # The full source frame retains these real pieces. Current canonical
+            # record admission does not support their alternate native fields;
+            # a chart cell must not acquire an invented table-cell address.
+            continue
         elif source_field not in {"text", "orig"}:
             raise ValueError(f"unsupported genuine projection field: {source_field}")
         start, end = piece["start"], piece["end"]
@@ -211,7 +216,10 @@ def prepare_origin(reader, evaluator, entry, release_id, guideline_text, output,
         source_receipts.append(dict(source_view_id=identity, unit_key=key,
             projection_digest=primary["projection_digest"], analysis_eligible=primary["analysis_eligible"],
             source_health=view.health, text_characters=len(view.text), native_items=len(view.items),
-            unresolved_native_context_targets=unresolved_links, related_source_view_ids=[r["id"] for r in related]))
+            unresolved_native_context_targets=unresolved_links, related_source_view_ids=[r["id"] for r in related],
+            unsupported_record_projection_pieces=[dict(piece) for piece in view.pieces
+                if piece["kind"] == "native_text" and piece.get("source_field") in {"chart_title", "chart_cell_text"}],
+            unsupported_piece_disposition="Retained in the complete source frame and census; no exact released record anchor scope. Authors report eligible unrepresentable content as limitations, never absence."))
     created = create_reference_set(evaluator, project_id=entry["project_id"], source_run_id=run_id,
         source_cut_id=cut_id, label=entry["label"], legacy_split="dev", guideline=GUIDELINE_ID,
         guideline_text=guideline_text, partition=entry["partition"], unit_keys=tuple(frames), frames=frames,
@@ -281,6 +289,17 @@ def main():
                 for kind in ("record_projection.json", "json_schema/ReferenceRecordBatch"):
                     artifact = next(item for item in prepared.artifacts if item.kind == kind)
                     name = "record-contract.json" if kind == "record_projection.json" else "authored-schema.json"
+                    (args.out / name).write_bytes(artifact.content)
+                    artifacts.append(dict(artifact_name=kind, path=name,
+                                          sha256=sha256(artifact.content).hexdigest()))
+                family_schemas = args.out / "family-schemas"
+                family_schemas.mkdir()
+                for definition in prepared.definitions:
+                    if "SemanticRecordFields" not in definition.ancestors:
+                        continue
+                    kind = "json_schema/" + definition.name
+                    artifact = next(item for item in prepared.artifacts if item.kind == kind)
+                    name = "family-schemas/" + definition.name + ".json"
                     (args.out / name).write_bytes(artifact.content)
                     artifacts.append(dict(artifact_name=kind, path=name,
                                           sha256=sha256(artifact.content).hexdigest()))

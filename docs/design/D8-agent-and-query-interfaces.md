@@ -17,6 +17,15 @@ admission and streamed export retain their separate contracts.
 
 ## Unified operation realization
 
+
+**Implemented; selected native124 controls Tested2026-11-04.** The pinned M1 support ledger
+shares one domain response across query, CLI, MCP and export. It distinguishes source-reading
+support, author polarity/modality, admission and source reliability; scientific comparison without
+a released proposition projection is `unmodeled`. Ordinary pages carry actual coverage and task
+errors while large raw diagnostics require explicit bounded inclusion with availability retained.
+
+> Decision: [ADR-0059](../adr/0059-source-reading-support.md)
+
 **Accepted target, Proposed until implemented (2026-11-02).** Ordinary callers use concrete typed domain operations with generated bindings/materializers. Named queries resolve producing and installed implementation compatibility before plugin import and carry it through continuation/evidence journeys. CLI/MCP operation explanations, semantic impact and located diagnostics share domain functions; preflight observations never authorize later effects.
 
 > Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)

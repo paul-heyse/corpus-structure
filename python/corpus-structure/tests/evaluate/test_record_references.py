@@ -269,14 +269,31 @@ def test_released_record_grade_protocol_is_distinct_from_reference_and_typed():
         RecordSide(binding, (row,)), RecordSide(binding, ()), prepared(), coordinate_texts=contexts
     ).as_dict()
     result.update(
-        origin_group="one-original-book", producer_reports=[],
+        origin_group="one-original-book",
+        producer_reports=[],
         gap_evidence=dict(
-            unit_id=1, pass_id=2, frame_id=3, source_view_id=7, source_run_id=4,
-            source_cut_id=5, run_id=6, cut_id=8, cohort="controlled",
-            tasks=[], gaps=[dict(reference_record_id=row["record_id"], family=row["family"],
-                reference_anchor_ids=sorted(a["anchor_id"] for a in row["anchors"]),
-                kind="no_output", earliest_failed_stage="unknown", reading_roles=[],
-                evidence_roles=[], predictions=[])],
+            unit_id=1,
+            pass_id=2,
+            frame_id=3,
+            source_view_id=7,
+            source_run_id=4,
+            source_cut_id=5,
+            run_id=6,
+            cut_id=8,
+            cohort="controlled",
+            tasks=[],
+            gaps=[
+                dict(
+                    reference_record_id=row["record_id"],
+                    family=row["family"],
+                    reference_anchor_ids=sorted(a["anchor_id"] for a in row["anchors"]),
+                    kind="no_output",
+                    earliest_failed_stage="unknown",
+                    reading_roles=[],
+                    evidence_roles=[],
+                    predictions=[],
+                )
+            ],
         ),
     )
     report = dict(

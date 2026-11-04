@@ -173,8 +173,7 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
                         "native source-state proposal remains unresolved beside retained "
                         "value/cue output"
                         if conflicting and state == "unresolved"
-                        else
-                        "native state proposal conflicts with retained value/cue output"
+                        else "native state proposal conflicts with retained value/cue output"
                         if conflicting
                         else "native inapplicability proposal lacks a family-specific justification"
                         if state == "inapplicable"
@@ -658,17 +657,21 @@ def _assemble(
                     state = (
                         state.get("text", state.get("label")) if isinstance(state, dict) else state
                     )
-                    diagnostics.append(AssemblyDiagnostic(
-                        index, role.name,
-                        "state_value_conflict" if state in {"unstated", "inapplicable"}
-                        else "unresolved_value_proposal",
-                        "actual native value/cue and unresolved inspection/structural "
-                        "reading retained; coherent value hypothesis remains candidate",
-                    ))
+                    diagnostics.append(
+                        AssemblyDiagnostic(
+                            index,
+                            role.name,
+                            "state_value_conflict"
+                            if state in {"unstated", "inapplicable"}
+                            else "unresolved_value_proposal",
+                            "actual native value/cue and unresolved inspection/structural "
+                            "reading retained; coherent value hypothesis remains candidate",
+                        )
+                    )
                 except (ValueError, TypeError, KeyError) as error:
-                    diagnostics.append(AssemblyDiagnostic(
-                        index, role.name, "unlocated_value_proposal", str(error)
-                    ))
+                    diagnostics.append(
+                        AssemblyDiagnostic(index, role.name, "unlocated_value_proposal", str(error))
+                    )
             if field["state"] == "unresolved":
                 diagnostics.append(
                     AssemblyDiagnostic(index, role.name, "unresolved_field", field["reason"])
@@ -691,9 +694,7 @@ def _assemble(
             continue
         extra_occurrence = []
         if occurrence_policy and family == "formula_context":
-            by_role = {
-                field["role"]: value_proposals.get(field["role"], field) for field in fields
-            }
+            by_role = {field["role"]: value_proposals.get(field["role"], field) for field in fields}
             symbol, meaning = by_role["symbol"], by_role["meaning"]
             if symbol["state"] == meaning["state"] == "unstated":
                 pass
@@ -955,14 +956,18 @@ def _item_spans(
             else json.loads(row.item_locator.removeprefix("pdf:"))["pointer"] == pointer
         )
     )
-    if expected is not None and tuple(
-        (
-            json.loads(row.item_locator.removeprefix("pdf:"))["pointer"],
-            row.source_field,
-            context.text[row.model_start : row.model_end],
+    if (
+        expected is not None
+        and tuple(
+            (
+                json.loads(row.item_locator.removeprefix("pdf:"))["pointer"],
+                row.source_field,
+                context.text[row.model_start : row.model_end],
+            )
+            for row in rows
         )
-        for row in rows
-    ) != expected:
+        != expected
+    ):
         return ()
     return tuple(
         LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
@@ -1038,7 +1043,7 @@ def native_table_groups(
                 located = _item_spans(
                     context, table_pointer, cell_index=index, cell_projection=projections[index]
                 )
-            except (ValueError, KeyError, TypeError):
+            except ValueError, KeyError, TypeError:
                 located = ()
             if not located:
                 return RoleInput(

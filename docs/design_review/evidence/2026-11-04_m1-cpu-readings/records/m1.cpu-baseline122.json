@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "m1.cpu-baseline122",
+  "title": "Actual retained-source CPU execution and candidate gaps",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can retained native products drive actual M1 CPU readings without PDF conversion or recognition, and what output limitations remain?",
+  "answers": [],
+  "method": "Run the explicit readings graph on the persistent database with exact retained integrated input, summarize sealed reports and retain unsuccessful publication/terminal settlement.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_m1-cpu-readings/run.py grinstead-snell attempt-010",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-cpu-readings/inspect_run.py 10 docs/design_review/evidence/2026-11-04_m1-cpu-readings/attempt-summary-010.json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-010/executed-runner.py",
+      "role": null,
+      "sha256": "5b9464fe054b35dec88c8ad801d41fc199c1c8d3b8b05d4f50a126d782b0f3c0"
+    },
+    {
+      "path": "attempt-010/source-run.json",
+      "role": null,
+      "sha256": "57e0954b3cc5207fe6123989ef40b350a3252535ab9063367f8958dd38065746"
+    },
+    {
+      "path": "attempt-summary-010.json",
+      "role": null,
+      "sha256": "b486bb2073a8dd9086d1a7320b9499801e56db04f5af5da2b47959f8da909f8f"
+    },
+    {
+      "path": "attempt-010.log",
+      "role": null,
+      "sha256": "f9ebe55c0149784cebcb190a0db84d3c52ef9d4c85187e398f25b0ed3786f862"
+    },
+    {
+      "path": "attempt-publish-010.log",
+      "role": null,
+      "sha256": "702c7b968eecdafe815e3c2faa74355aa743a163e9f0a61518e26d7779c133b7"
+    },
+    {
+      "path": "attempt-settle-010.log",
+      "role": null,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-cpu-resources/m1.cpu-resources122"
+  ],
+  "results": [
+    {
+      "name": "Actual native model calls",
+      "value": 268,
+      "of": null,
+      "unit": "calls",
+      "note": "3heading calls plus265body calls; one cold initialization and compatible residency"
+    },
+    {
+      "name": "Source API elapsed time",
+      "value": 562.4902134609947,
+      "of": null,
+      "unit": "seconds",
+      "note": "source_ready; not the cold-wrapper interval"
+    },
+    {
+      "name": "Located candidate records",
+      "value": 0,
+      "of": null,
+      "unit": "records",
+      "note": "No family-quality gate established;137rawgroups lost occurrence identity under conflicting proposals"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Actual CPU model execution reached source_ready on native122/releasee8b1dc426a02a024bf065ee29e5fa95c77a862efd0cbdfb38640a5ccf8cac938, using retained source only. No PDF conversion, OCR or recognition reran. It emitted no located records; actual diagnostics expose state/value conflicts and an over-limit dense table, not a quality success. Later publication was refused because unrelated runtime implementation bytes had advanced during the run; owned run10 was explicitly settled failed while retaining its source-ready cut and immutable reports. Candidate-retention/dense-preparation corrections and final-release reference/extraction/quality remain separate work.",
+  "consumed_by": [
+    "M1-01",
+    "M1-07",
+    "M1-08",
+    "M1-14",
+    "M1-15"
+  ]
+}

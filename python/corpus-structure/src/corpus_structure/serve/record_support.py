@@ -95,7 +95,11 @@ def _transport(value):
 class _SupportBudget:
     def __init__(self, conn, projection, request):
         self.conn = conn
-        self.rows = request.max_rows - sum(len(rows) for rows in projection.rows.values())
+        self.rows = (
+            request.max_rows
+            - sum(len(rows) for rows in projection.rows.values())
+            - sum(1 + len(report.coverage) for report in projection.coverage)
+        )
         self.bytes = request.max_bytes - len(
             canonical_bytes(
                 dict(
