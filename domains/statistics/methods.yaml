@@ -60,9 +60,8 @@ configs:                                               # named configurations, r
                                                        # b′ (D4 M03): each inline math span and reference marker is one
                                                        # word of a words-and-spaces Doc, no retokenizer (S1, OPEN-D1-1)
   agent.opus:                                          # caps in characters: the one cap authority for agent packets (D8 §3);
-                                                       # agent_reuse (full | by_unit) is a run option, not configuration (D6 §4)
+                                                       # current execution supports complete mode and full packet reuse (D6 §4)
     extract: {mode: extract, examples: reference, hints: none, packet_cap_chars: 18000}
-    adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
     expectation: {mode: extract, role: expectation, examples: reference, hints: none, packet_cap_chars: 18000}
                                                        # golden-expectation runs (D7 §9); `role` keeps its digests apart from live tasks'
   normalize.formula:

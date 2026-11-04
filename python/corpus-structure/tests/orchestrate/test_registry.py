@@ -188,3 +188,17 @@ def test_literal_configuration_reference_is_validated_as_referenced_value(tmp_pa
     registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, source))
     result = registry.resolve("ingest.pdf", "default", ARTIFACTS)
     assert result.params["sentences"] == {"model": "explicit-model", "exclude": []}
+
+
+def test_statistics_producer_configurations_are_executable():
+    from corpus_structure.methods.llm.agent_opus import AgentOpus
+    from corpus_structure.methods.llm.producer import producer_binding
+
+    pack = reg.load_methods(Path(__file__).parents[4] / "domains/statistics/methods.yaml")
+    named = pack.configs["agent.opus"]
+    assert set(named) == {"extract", "expectation"}
+    registry = reg.MethodRegistry([AgentOpus()], reg.MethodsFile(configs={"agent.opus": named}))
+    for method, name in registry.named():
+        binding = producer_binding(method, registry.overlay(method, name).model_dump(mode="json"))
+        assert binding.mode == "extract"
+        assert registry.method(method).version == binding.version

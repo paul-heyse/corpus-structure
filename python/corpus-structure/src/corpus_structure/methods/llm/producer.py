@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Any, Literal
+from typing import Any
 
 from corpus_structure.core.vocab import TaskUnitType
 
@@ -53,14 +53,3 @@ def producer_binding(
     if not isinstance(model, str) or not model.strip():
         raise OperationConflict("producer requires an explicitly configured model")
     return ProducerBinding(method, str(unit), protocol, version, execution_kind, mode, model)
-
-
-@dataclass(frozen=True)
-class InvocationIdentity:
-    """Names supplied by configuration/operator/provider never imply artifact verification."""
-
-    binding: ProducerBinding
-    assurance: Literal["manual_operator", "provider_reported"]
-    reported_model: str | None = None
-    provider_session: str | None = None
-    invocation_id: str | None = None

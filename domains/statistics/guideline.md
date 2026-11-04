@@ -2,8 +2,9 @@
 
 Guideline v1, frozen for phase 0 (D2 §10 is its design text). Golden passes and the agent work from
 it together with the generated annotator reference (§10.10). Sections carrying `<!-- core -->` go
-into LLM prompts (D4 §4.2, D7 §2). No section declares unit features, so under `agent_reuse:
-by_unit` every section applies to every unit (D2 §10).
+into LLM prompts (D4 §4.2, D7 §2). Current source execution serves and hashes every core
+section in the complete immutable packet for every unit. It supports `complete` mode and
+`full` packet reuse (D6 §4).
 
 ## 10.1 Purpose
 

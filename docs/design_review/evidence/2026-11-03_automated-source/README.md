@@ -44,3 +44,21 @@ The explicit-checkout replay guard was exercised with the source worktree's envi
 `--checkout /home/paul/corpus-structure`: it refused before authentication, database acquisition
 or provider invocation because the imported operation owner belonged to the source worktree.
 `raw/wrong-checkout-refusal.log` retains that expected exit1; `--help` passed.
+
+Bounded AC06–08 retirement follow-through removes the live statistics pack's unused
+`agent.opus/adjudicate` configuration, whose unsupported mode made source preflight refuse the
+whole named configuration inventory; extract/expectation remain. Current pack/guideline prose
+now names complete/full packet behavior. The unreferenced InvocationIdentity class is removed,
+and AgentOpus/AgentGeneral advertise the shared semantic producer version rather than a separate
+stale constant. An actual-pack registry control checks the remaining configurations against the
+production binding. `raw/retirement-final-35.log` passed35 registry/policy cases; scoped Ruff and
+Pyrefly0errors passed. Authored adjudication/mode/unit-feature read forms and their independent
+fixtures remain supported.
+
+A direct-call-only scan initially missed that contracts.approved_implementations and the released
+execution model register complete_unit_result as a current semantic boundary. Its experimental
+removal produced the failures retained in `raw/retirement-attempt-registered-boundary.log` and was
+fully reverted, including temporary test adapter/import moves. The registered production boundary
+and meaningful primitive tests remain; long-running execution still uses detached preparation
+plus owned settlement. No native API or SQL shape changed, and no further native database command
+was started while the coordinator serialized its migration controls.

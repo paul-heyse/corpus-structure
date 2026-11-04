@@ -48,7 +48,6 @@ from corpus_structure.core.vocab import (
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
 
-VERSION = "6"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
 
 
@@ -91,7 +90,7 @@ class AgentOpus:
     """`agent.opus`, M24 (module doc)."""
 
     name = "agent.opus"
-    version = VERSION
+    version = SEMANTIC_AGENT_VERSION
     family = MethodFamily.AGENT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.AGENT
