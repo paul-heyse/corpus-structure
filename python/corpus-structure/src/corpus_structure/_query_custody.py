@@ -37,6 +37,8 @@ QUERY_SOURCES = (
     "semantic/outcomes.py",
     "semantic/analysis_contracts.py",
     "semantic/identity.py",
+    "semantic/unicode_identity.py",
+    "methods/llm/producer.py",
     "semantic/metadata.py",
     "semantic/source_views.py",
     "semantic/product_reference.py",

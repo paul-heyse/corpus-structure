@@ -167,11 +167,11 @@ class ValueView:
 
     @property
     def parse(self) -> str | None:
-        return str(self.reading.status) if self.reading else None
+        return self.reading.status if self.reading else None
 
     @property
     def math_kind(self) -> str | None:
-        return str(self.reading.kind) if self.reading and self.reading.kind else None
+        return self.reading.kind if self.reading and self.reading.kind else None
 
 
 @dataclass(frozen=True)

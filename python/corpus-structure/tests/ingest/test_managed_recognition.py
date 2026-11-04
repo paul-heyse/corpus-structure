@@ -1,4 +1,4 @@
-"""Parsing and custody refusal controls; actual managed-provider evidence lives in its dated folder."""
+"""Parsing/custody controls; actual managed-provider evidence is in its dated folder."""
 
 import importlib.util
 from dataclasses import dataclass
@@ -14,6 +14,7 @@ from corpus_structure.methods.llm.producer import producer_binding
 def service_module(name):
     path = Path(__file__).resolve().parents[4] / "services/nemotron-parse" / (name + ".py")
     spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

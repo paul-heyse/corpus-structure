@@ -20,6 +20,7 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import RunId, TaskId
 from corpus_structure.semantic.operations import (
@@ -85,7 +86,9 @@ def build_resubmission_case(
 
     from .method_dimensions_support import fixture_execution_inputs
 
-    deps = composed_dependencies(deps, fixture_execution_inputs('pdf.controlled-source', 'coverage.witness'))
+    deps = composed_dependencies(
+        deps, fixture_execution_inputs("pdf.controlled-source", "coverage.witness")
+    )
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
@@ -118,7 +121,17 @@ def build_resubmission_case(
         run = create_run(
             conn,
             project_id="resubmit",
-            binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
+            binding=OperationBinding(
+                prepared.release_id,
+                "input",
+                0,
+                canonical_bytes(
+                    {
+                        "operations": {},
+                        "agent_configurations": {"agent.opus/extract": config},
+                    }
+                ),
+            ),
             kind="full",
             options={
                 "agent_configs": {"agent.opus/extract": config},

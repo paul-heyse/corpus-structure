@@ -183,10 +183,16 @@ def test_confidence_blocks_are_keyed_by_confidence_source(
             parse_policy(policy(entry("true"), confidence=bad))
 
 
-@pytest.mark.parametrize("expression", [
-    "target.size == null", "budget.agent_packets_left == null", 'judged_by("agent.opus")',
-    'decision("agent.opus") == null', 'confidence("agent.opus") == null',
-])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "target.size == null",
+        "budget.agent_packets_left == null",
+        'judged_by("agent.opus")',
+        'decision("agent.opus") == null',
+        'confidence("agent.opus") == null',
+    ],
+)
 def test_source_execution_refuses_unavailable_capabilities(expression):
     from corpus_structure.orchestrate.policy import source_propose_language
     from corpus_structure.schema.rulelang import RuleError
@@ -198,31 +204,50 @@ def test_source_execution_refuses_unavailable_capabilities(expression):
 
 def test_source_execution_preserves_available_unknown_classification():
     from types import SimpleNamespace
+
     from corpus_structure.orchestrate.policy import source_propose_language
 
     rule = source_propose_language(("theorem",), ("agent.opus",)).compile(
-        "unknown", 'unit.claim_bearing == null and unit.statement_kind == null')
-    assert rule.matches({"unit": SimpleNamespace(kind="source_view", claim_bearing=None, statement_kind=None)})
+        "unknown", "unit.claim_bearing == null and unit.statement_kind == null"
+    )
+    assert rule.matches(
+        {"unit": SimpleNamespace(kind="source_view", claim_bearing=None, statement_kind=None)}
+    )
 
 
 @pytest.mark.parametrize("chain,when", [("escalate", "true"), ("propose", "target.size == null")])
 def test_source_policy_refusal_precedes_run_and_task_effects(monkeypatch, chain, when):
     from types import SimpleNamespace
     from unittest.mock import MagicMock
+
     from corpus_structure.methods.llm.agent_opus import AgentOpus
+    from corpus_structure.orchestrate.policy import PolicyError
     from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
     from corpus_structure.orchestrate.semantic import run_source_methods
-    from corpus_structure.orchestrate.policy import PolicyError
+    from corpus_structure.semantic.operations import OperationBinding
 
-    monkeypatch.setattr("corpus_structure.semantic.contracts.require_bound_operation", lambda *args: None)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.contracts.require_bound_operation", lambda *args: None
+    )
     monkeypatch.setattr("corpus_structure.semantic.contracts.execution_payload", lambda *args: None)
-    monkeypatch.setattr("corpus_structure.semantic.statement_types.statement_kinds", lambda *args: ("theorem",))
+    monkeypatch.setattr(
+        "corpus_structure.semantic.statement_types.statement_kinds", lambda *args: ("theorem",)
+    )
     registry = MethodRegistry([AgentOpus()], MethodsFile(configs={"agent.opus": {"extract": {}}}))
     engine = MagicMock()
     with pytest.raises(PolicyError):
-        run_source_methods(engine, project_id="p", prepared=SimpleNamespace(release_id="r"),
-                           binding=SimpleNamespace(release_id="r"), registry=registry,
-                           graph=SimpleNamespace(stages=(), policy_propose=True), method_settings=None,
-                           policy_source=f'version: "1"\nchains:\n {chain}:\n  - key: unsupported\n    when: "{when}"\n    do: {{method: agent.opus/extract}}\n')
+        run_source_methods(
+            engine,
+            project_id="p",
+            prepared=SimpleNamespace(release_id="r"),
+            binding=OperationBinding("r", "policy-input", 0, b"{}"),
+            registry=registry,
+            graph=SimpleNamespace(stages=(), policy_propose=True),
+            method_settings=None,
+            policy_source=(
+                f'version: "1"\nchains:\n {chain}:\n  - key: unsupported\n'
+                f'    when: "{when}"\n    do: {{method: agent.opus/extract}}\n'
+            ),
+        )
     engine.begin.assert_not_called()
     engine.connect.assert_not_called()

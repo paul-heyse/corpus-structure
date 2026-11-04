@@ -251,7 +251,8 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
             "default",
             {},
             "inline-fixture",
-        prepared=prepared)
+            prepared=prepared,
+        )
         identity = register_document(
             conn,
             project_id="p",

@@ -23,7 +23,6 @@ from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import RunId
 from corpus_structure.semantic.operations import OperationBinding, create_run, register_document
-from corpus_structure.semantic.regeneration import prepare_pack
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.types import PreparedRelease
 

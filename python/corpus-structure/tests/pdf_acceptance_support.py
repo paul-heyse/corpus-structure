@@ -135,6 +135,7 @@ def seed_retained_integrated_product(
     settings, *, domain, corpus, domains, conversion, observation, raw_response, artifacts
 ):
     """Publish controlled native/layout evidence and its exact selected integrated product."""
+    from semantic.method_dimensions_support import prepare_fixture_pack
     from sqlalchemy import select
 
     from corpus_structure.orchestrate.project import init_bound_project
@@ -145,11 +146,8 @@ def seed_retained_integrated_product(
     )
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.publication import admit_release
-    from corpus_structure.semantic.regeneration import prepare_pack
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
-
-    from semantic.method_dimensions_support import prepare_fixture_pack
 
     bundle, dependencies, profile, prepared = prepare_fixture_pack(
         domains / domain, "pdf.controlled-retained-fixture"
@@ -213,7 +211,9 @@ def seed_retained_integrated_product(
                 unit_type="document",
                 Config=create_model("ControlledRetainedPdfConfig"),
             )
-            config = record_method(conn, method, "default", {}, "controlled-retained-pdf", prepared=prepared)
+            config = record_method(
+                conn, method, "default", {}, "controlled-retained-pdf", prepared=prepared
+            )
             task = create_task(
                 conn,
                 run_id=run,
@@ -410,11 +410,13 @@ def publish_controlled_pdf_views(
     root = document.add_group(label=GroupLabel.SECTION, name="People")
     sections = [root]
     for index in range(1, len(paragraphs)):
-        sections.append(document.add_group(
-            label=GroupLabel.SECTION,
-            name="Other" if index == 1 else f"Other {index}",
-            parent=root,
-        ))
+        sections.append(
+            document.add_group(
+                label=GroupLabel.SECTION,
+                name="Other" if index == 1 else f"Other {index}",
+                parent=root,
+            )
+        )
     for index, paragraph in enumerate(paragraphs):
         document.add_text(
             label=DocItemLabel.TEXT,
@@ -466,7 +468,10 @@ def publish_controlled_pdf_views(
                 input_hash=conversion.original_digest,
             )
             claim = claim_tasks(
-                conn, run_id=RunId(run_id), config_id=MethodConfigId(config), holder="controlled-source"
+                conn,
+                run_id=RunId(run_id),
+                config_id=MethodConfigId(config),
+                holder="controlled-source",
             )[0]
         else:
             claim = source_claim

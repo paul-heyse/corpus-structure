@@ -177,7 +177,8 @@ def test_native_source_view_is_real_unit_with_exact_context(
             "default",
             {},
             "view-fixture",
-        prepared=prepared)
+            prepared=prepared,
+        )
         path = tmp_path / "source.pdf"
         path.write_bytes(original)
         document = register_document(
@@ -433,7 +434,8 @@ def test_native_source_view_is_real_unit_with_exact_context(
             "default",
             {},
             "native-packet-fixture",
-        prepared=prepared)
+            prepared=prepared,
+        )
         agent_task = create_task(
             conn,
             run_id=run,

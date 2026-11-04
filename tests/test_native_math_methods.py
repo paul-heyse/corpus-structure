@@ -1,6 +1,7 @@
 """Actual M09/M11/M13 branches consume immutable SourceViews and native addresses."""
 
 import logging
+from collections.abc import Sequence
 from functools import cache
 from pathlib import Path
 from types import SimpleNamespace
@@ -121,6 +122,16 @@ class Reader(ReaderPort):
 
     def source_views(self):
         return [self.view.ref]
+
+    def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
+        # This fixture has no retained original-source selection.
+        return ()
+
+    def source_view_documents(self) -> tuple[UnitRef, ...]:
+        return tuple(
+            UnitRef(TaskUnitType.DOCUMENT, identity, f"document:{identity}")
+            for identity in sorted({view.ref.document_id for view in self.views.values()})
+        )
 
     def source_view(self, source_view_id: int) -> PreparedSourceView:
         return self.views[source_view_id]

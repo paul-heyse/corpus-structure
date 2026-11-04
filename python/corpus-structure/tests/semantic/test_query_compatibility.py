@@ -58,7 +58,7 @@ def test_actual_statistics_pack_acquisition_binds_installed_queries():
     claims = registry["claims"]
     assert claims.release_id == prepared.release_id
     assert claims.implementation == claims.producing_implementation
-    assert claims.version == "semantic-1"
+    assert claims.version == "ordinary-answer-2"
     assert any(artifact.kind == "query_bindings.json" for artifact in prepared.artifacts)
 
 
@@ -237,7 +237,7 @@ def test_query_result_admission_preserves_concrete_nested_qualification(
     from pydantic import ValidationError
     from sqlalchemy import Connection
 
-    from corpus_structure.semantic.query import SnapshotBinding
+    from corpus_structure.semantic.query import CoverageSummary, SnapshotBinding
     from corpus_structure.serve import journey
 
     pack = tmp_path / "qualified"
@@ -272,7 +272,11 @@ QUERIES=[Query()]
     monkeypatch.setattr(
         journey,
         "bind_session",
-        lambda conn, run: SimpleNamespace(binding=binding, coverage=lambda: ()),
+        lambda conn, run: SimpleNamespace(
+            binding=binding,
+            completed_cut_id=7,
+            coverage_summary=lambda requirement: CoverageSummary(state="not_established"),
+        ),
     )
     if invalid:
         with pytest.raises(ValidationError, match="qualification"):

@@ -13,19 +13,24 @@ BEGIN
  p_intent->>'release_id' IS DISTINCT FROM p_release OR
  jsonb_typeof(p_intent->'seed') IS DISTINCT FROM 'number' OR
  (p_intent->>'seed') !~ '^-?[0-9]+$' OR
+ jsonb_typeof(p_intent->'policy'->'seed') IS DISTINCT FROM 'number' OR
+ (p_intent->'policy'->>'seed') !~ '^-?[0-9]+$' OR
  NOT coalesce(p_intent->>'seed_origin' IN ('policy','override'),false) OR
  (p_intent->>'seed_origin'='policy' AND p_intent->'seed' IS DISTINCT FROM p_intent->'policy'->'seed') OR
  jsonb_typeof(p_intent->'policy'->'forced_dev') IS DISTINCT FROM 'array' OR
  jsonb_typeof(p_intent->'policy'->'reserved') IS DISTINCT FROM 'array' THEN
  RAISE EXCEPTION 'unsupported split decision binding' USING ERRCODE='23514'; END IF;
  IF p_intent-ARRAY['version','algorithm','project_id','release_id','seed','seed_origin','policy','population','previous','assignments']<>'{}'::jsonb OR
- p_intent->'policy'-ARRAY['seed','forced_dev','reserved']<>'{}'::jsonb THEN
+ (p_intent->'policy')-ARRAY['seed','forced_dev','reserved']<>'{}'::jsonb THEN
  RAISE EXCEPTION 'unknown split decision fields' USING ERRCODE='23514'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements((p_intent->'policy'->'forced_dev')||(p_intent->'policy'->'reserved')) LOOP
   IF jsonb_typeof(item) IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'invalid split policy entry' USING ERRCODE='23514'; END IF;
   IF jsonb_array_length(item)<>2 OR jsonb_typeof(item->0) IS DISTINCT FROM 'string' OR jsonb_typeof(item->1) IS DISTINCT FROM 'string' THEN
    RAISE EXCEPTION 'invalid split policy entry' USING ERRCODE='23514'; END IF;
  END LOOP;
+ IF EXISTS(SELECT entry->>0 FROM jsonb_array_elements(p_intent->'policy'->'forced_dev') entry GROUP BY entry->>0 HAVING count(*)>1)
+ OR EXISTS(SELECT entry->>0 FROM jsonb_array_elements(p_intent->'policy'->'reserved') entry GROUP BY entry->>0 HAVING count(*)>1) THEN
+ RAISE EXCEPTION 'duplicate split policy keys' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_intent->'policy'->'forced_dev') f
  JOIN jsonb_array_elements(p_intent->'policy'->'reserved') r ON f->>0=r->>0) THEN
  RAISE EXCEPTION 'reserved and forced split policy conflict' USING ERRCODE='23514'; END IF;
@@ -37,6 +42,9 @@ BEGIN
    RAISE EXCEPTION 'conflicting split decision identity' USING ERRCODE='23514'; END IF;
   RETURN jsonb_build_object('decision_id',decision,'outcome','exact_replay');
  END IF;
+ IF EXISTS(SELECT FROM kb.document WHERE project_id=p_project
+  AND jsonb_typeof(meta->'chapter') NOT IN ('string','null')) THEN
+ RAISE EXCEPTION 'unsupported split chapter metadata: expected string or null' USING ERRCODE='23514'; END IF;
  SELECT coalesce(jsonb_agg(jsonb_build_object('document_id',id,'source_uri',source_uri,
  'chapter',meta->>'chapter') ORDER BY id),'[]') INTO population FROM kb.document WHERE project_id=p_project;
  SELECT coalesce(jsonb_agg(jsonb_build_object('document_id',d.id,'split',s.split,
@@ -45,14 +53,20 @@ BEGIN
  WHERE d.project_id=p_project;
  IF population IS DISTINCT FROM p_intent->'population' OR prior IS DISTINCT FROM p_intent->'previous' THEN
  RAISE EXCEPTION 'split population or prior assignment basis changed' USING ERRCODE='40001'; END IF;
+ IF EXISTS(SELECT FROM eval.document_split assigned WHERE assigned.project_id=p_project AND (
+  (assigned.split<>'reserved' AND EXISTS(SELECT FROM jsonb_array_elements(p_intent->'policy'->'reserved') entry
+    WHERE assigned.source_uri=entry->>0 OR right(assigned.source_uri,length('/'||(entry->>0)))='/'||(entry->>0))) OR
+  (assigned.split<>'dev' AND EXISTS(SELECT FROM jsonb_array_elements(p_intent->'policy'->'forced_dev') entry
+    WHERE assigned.source_uri=entry->>0 OR right(assigned.source_uri,length('/'||(entry->>0)))='/'||(entry->>0))))) THEN
+ RAISE EXCEPTION 'split policy contradicts immutable existing assignment' USING ERRCODE='23514'; END IF;
  -- Independently reproduce the existing URI/chapter rule from frozen inputs. Rank distinct
  -- unassigned URIs, retaining minimum document ID as the existing hash-tie breaker.
  WITH docs AS (
  SELECT d.id,d.source_uri,coalesce(d.meta->>'chapter','') chapter,
  (SELECT entry->>1 FROM jsonb_array_elements(p_intent->'policy'->'reserved') WITH ORDINALITY x(entry,n)
-  WHERE d.source_uri=entry->>0 OR ends_with(d.source_uri,'/'||(entry->>0)) ORDER BY n LIMIT 1) reserved,
+  WHERE d.source_uri=entry->>0 OR right(d.source_uri,length('/'||(entry->>0)))='/'||(entry->>0) ORDER BY n LIMIT 1) reserved,
  (SELECT entry->>1 FROM jsonb_array_elements(p_intent->'policy'->'forced_dev') WITH ORDINALITY x(entry,n)
-  WHERE d.source_uri=entry->>0 OR ends_with(d.source_uri,'/'||(entry->>0)) ORDER BY n LIMIT 1) forced
+  WHERE d.source_uri=entry->>0 OR right(d.source_uri,length('/'||(entry->>0)))='/'||(entry->>0) ORDER BY n LIMIT 1) forced
  FROM kb.document d WHERE project_id=p_project AND NOT EXISTS(
  SELECT FROM eval.document_split s WHERE s.project_id=p_project AND s.source_uri=d.source_uri)
  ), uris AS (

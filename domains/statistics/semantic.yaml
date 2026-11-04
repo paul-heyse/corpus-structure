@@ -217,7 +217,6 @@ classes:
       cs:scope: local
       cs:extract: mention
       cs:case: preserve
-      cs:role: display
   Concept:
     is_a: Entity
     description: 'A defined mathematical term that is not a distribution family, construction
@@ -339,6 +338,8 @@ slots:
       cs:role: display
   symbol:
     description: The symbol or expression that denotes the random variable, as written.
+    annotations:
+      cs:role: display
   has_distribution:
     range: DistributionFamily
     description: The random variable has a distribution in the family, optionally

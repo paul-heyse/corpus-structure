@@ -81,7 +81,9 @@ classes:
     bundle, dependencies = analytical_inputs(bundle, ResolvedDependencies())
     from .method_dimensions_support import fixture_execution_inputs
 
-    dependencies = composed_dependencies(dependencies, fixture_execution_inputs('pdf.controlled-source'))
+    dependencies = composed_dependencies(
+        dependencies, fixture_execution_inputs("pdf.controlled-source")
+    )
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:

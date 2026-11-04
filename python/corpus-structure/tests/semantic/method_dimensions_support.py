@@ -21,11 +21,21 @@ FIXTURE_METHODS = {
     "coverage.witness": ("extract", "deterministic", ()),
     "private.records": ("record", "deterministic", ("record",)),
     "private.source": ("ingest", "deterministic", ()),
-    **{name: ("ingest", "deterministic", ()) for name in (
-        "pdf.adoption-fixture", "pdf.consumer-fixture", "pdf.controlled-retained-fixture",
-        "pdf.controlled-source", "pdf.fixture", "pdf.inline-fixture", "pdf.ocr-fixture",
-        "pdf.stage.fixture", "pdf.view-fixture", "pdf13.fixture",
-    )},
+    **{
+        name: ("ingest", "deterministic", ())
+        for name in (
+            "pdf.adoption-fixture",
+            "pdf.consumer-fixture",
+            "pdf.controlled-retained-fixture",
+            "pdf.controlled-source",
+            "pdf.fixture",
+            "pdf.inline-fixture",
+            "pdf.ocr-fixture",
+            "pdf.stage.fixture",
+            "pdf.view-fixture",
+            "pdf13.fixture",
+        )
+    },
 }
 
 
@@ -36,25 +46,40 @@ def fixture_execution_inputs(*methods: str, inputs=None):
     operation = next(o for o in catalog["operations"] if o["id"] == "configure_method")
     for method in methods:
         family, tier, reports = FIXTURE_METHODS[method]
-        declarations = {"family": ("family", (family,)), "tier": ("tier", (tier,)),
-                        "result.outcome": ("outcome", ("produced", "empty", "failed"))}
+        declarations = {
+            "family": ("family", (family,)),
+            "tier": ("tier", (tier,)),
+            "result.outcome": ("outcome", ("produced", "empty", "failed")),
+        }
         if reports:
-            declarations |= {"observation.family": ("observations.family", reports),
-                             "observation.outcome": ("observations.outcome", ("produced", "empty", "failed"))}
+            declarations |= {
+                "observation.family": ("observations.family", reports),
+                "observation.outcome": ("observations.outcome", ("produced", "empty", "failed")),
+            }
         for dimension, (field, values) in declarations.items():
             key = f"fixture.{method}/{dimension}"
-            catalog["outcome_domains"].append({"id": key, "authority": "code", "values": list(values)})
-            operation["result_dimensions"].append({"id": f"{method}/{dimension}", "field": field,
-                                                    "outcome_domain": key})
-    return replace(inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog,sort_keys=False).encode()))
+            catalog["outcome_domains"].append(
+                {"id": key, "authority": "code", "values": list(values)}
+            )
+            operation["result_dimensions"].append(
+                {"id": f"{method}/{dimension}", "field": field, "outcome_domain": key}
+            )
+    return replace(
+        inputs,
+        catalog=SourceArtifact(
+            inputs.catalog.name, yaml.safe_dump(catalog, sort_keys=False).encode()
+        ),
+    )
 
 
 def prepare_fixture_pack(pack, *methods):
-    """Explicit acquired pack inputs keep their source bytes and declared test producers together."""
+    """Keep acquired pack bytes and declared test producers together."""
     from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs
 
     acquired = acquire_pack(pack)
-    acquired = replace(acquired, execution=fixture_execution_inputs(*methods, inputs=acquired.execution))
+    acquired = replace(
+        acquired, execution=fixture_execution_inputs(*methods, inputs=acquired.execution)
+    )
     bundle, deps, profile = compose_pack_inputs((acquired,))
     return bundle, deps, profile, prepare_release(bundle, deps, profile)

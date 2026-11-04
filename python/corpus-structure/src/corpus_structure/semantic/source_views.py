@@ -107,11 +107,24 @@ def selected_source_views(
     view, selection = table("kb.source_view"), table("ops.run_source_view")
     newer = selection.alias("newer")
     statement = (
-        select(*(view.c[name] for name in (
-            "id", "key", "document_id", "native_task_id", "native_product_key",
-            "native_content_digest", "section_pointer", "membership", "projection_digest",
-            "recipe_digest", "analysis_eligible",
-        )))
+        select(
+            *(
+                view.c[name]
+                for name in (
+                    "id",
+                    "key",
+                    "document_id",
+                    "native_task_id",
+                    "native_product_key",
+                    "native_content_digest",
+                    "section_pointer",
+                    "membership",
+                    "projection_digest",
+                    "recipe_digest",
+                    "analysis_eligible",
+                )
+            )
+        )
         .join(selection, selection.c.source_view_id == view.c.id)
         .where(
             selection.c.run_id == run_id,

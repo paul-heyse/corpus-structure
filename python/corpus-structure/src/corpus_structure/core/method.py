@@ -733,13 +733,17 @@ class Method[C: BaseModel](Protocol):
 
     name: str
     version: str
+
     @property
     def family(self) -> str: ...
+
     unit_type: TaskUnitType
+
     @property
     def tier(self) -> str: ...
     @property
     def confidence_source(self) -> str | None: ...
+
     Config: type[C]
     resources: Resources
 

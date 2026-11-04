@@ -1,16 +1,21 @@
 """Independent bounded-walk witnesses and replay/work refusal expectations."""
 
+from collections.abc import Iterable
+from functools import cached_property
 from pathlib import Path
-from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
+from pydantic import JsonValue
+from sqlalchemy import Connection as SqlConnection
 from sqlalchemy import select
 
 from corpus_structure.semantic.query import EntityReference, QueryRow, ReadLimit
 from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.serve.protocol import Positioned, QueryContext
 from corpus_structure.serve.read import T
 from corpus_structure.serve.registry import build_registry
-from corpus_structure.serve.results import ClaimAnswer
+from corpus_structure.serve.results import ClaimAnswer, RelationAnswer
 
 
 def query():
@@ -79,12 +84,36 @@ class Reader:
             )
 
 
-def context(edges):
-    return SimpleNamespace(reader=Reader(), conn=Connection(edges), row_batch=64)
+class WalkContext(QueryContext):
+    def __init__(self, edges):
+        self.adjacency = Connection(edges)
+        conn = MagicMock(spec=SqlConnection)
+        conn.execute.side_effect = self.adjacency.execute
+        super().__init__(run_id=1, conn=conn, row_batch=64)
+
+    @cached_property
+    def reader(self) -> Reader:
+        return Reader()
 
 
-def paths(rows):
-    return [tuple(c.fact.fact_id for c in row.row.claims) for row in rows]
+def context(edges) -> WalkContext:
+    return WalkContext(edges)
+
+
+def paths(rows: Iterable[Positioned]) -> list[tuple[str, ...]]:
+    witnesses = []
+    for row in rows:
+        assert isinstance(row.row, RelationAnswer)
+        witnesses.append(tuple(claim.fact.fact_id for claim in row.row.claims))
+    return witnesses
+
+
+def depth(row: Positioned) -> int:
+    position = row.position
+    assert isinstance(position, dict)
+    value = position["depth"]
+    assert type(value) is int
+    return value
 
 
 def test_cycles_repeated_edges_parallel_edges_and_depth_four():
@@ -93,7 +122,7 @@ def test_cycles_repeated_edges_parallel_edges_and_depth_four():
     p = q.params(a="A", b="B")
     result = list(q.rows(ctx, p))
     assert paths(result) == [("e1",), ("e1", "e2", "e1")]
-    assert [r.position["depth"] for r in result] == [1, 3]
+    assert [depth(r) for r in result] == [1, 3]
     assert next(q.rows(ctx, p, after=result[0].position)).position == result[1].position
     ctx = context([("a", "A", "A"), ("b", "A", "B"), ("c", "A", "B")])
     assert paths(q.rows(ctx, q.params(a="A", b="B", depth=2))) == [
@@ -129,12 +158,12 @@ def test_adjacency_frontier_and_replay_work_are_bounded():
     with pytest.raises(ReadLimit) as caught:
         list(q.rows(ctx, p))
     assert caught.value.reason == "work_limit"
-    assert ctx.conn.batch_sizes == [64, 7]
+    assert ctx.adjacency.batch_sizes == [64, 7]
     with pytest.raises(ReadLimit):
         list(q.rows(context(edges), q.params(a="A", b="Z", max_frontier=5)))
     with pytest.raises(ReadLimit):
         list(q.rows(context(edges), q.params(a="A", b="Z", max_state_bytes=10)))
     # Even the continuation prefix is examined anew and spends the same edge budget.
-    position = {"walk_version": 2, "depth": 1, "origin": "A", "path": ["e100"]}
+    position: JsonValue = {"walk_version": 2, "depth": 1, "origin": "A", "path": ["e100"]}
     with pytest.raises(ReadLimit):
         next(q.rows(context(edges), q.params(a="A", b="B", max_edges=70), after=position))

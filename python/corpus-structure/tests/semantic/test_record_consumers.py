@@ -558,7 +558,10 @@ def test_record_cell_handle_drives_actual_native_inspection_adapter(projection, 
     monkeypatch.setattr(pdf_storage, "read_native_items", read_items)
     monkeypatch.setattr(pdf_storage, "integrated_source_context", lambda *a, **kw: None)
     response = native_source._inspect_native_source(
-        connection, request, cancellation=BorrowerCancellation()
+        connection,
+        request,
+        cancellation=BorrowerCancellation(),
+        read_budget=pdf_record_reader.PublishedReadBudget(request.max_rows, request.max_bytes),
     )
     assert response.rows == [
         {

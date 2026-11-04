@@ -36,6 +36,8 @@ from corpus_structure.evaluate.record_references import (
     reference_inputs,
     source_binding,
 )
+from corpus_structure.evaluate.semantic import split_documents
+from corpus_structure.evaluate.split import SplitConfig
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
@@ -171,7 +173,12 @@ def create_case(conn, case, partition, *, captured_coordinates=(), include_empty
             independence_claim="none",
         ),
     )
-    conn.execute(text("SELECT eval.assign_document_split('private-records',:u,'dev')"), dict(u=uri))
+    split_documents(
+        conn,
+        "private-records",
+        SplitConfig(forced_dev={uri: "controlled reference source"}),
+        release_id=case.prepared.release_id,
+    )
     logical = source_binding(
         conn, source_run_id=case.run, source_view_id=case.view, source_cut_id=case.cut
     )

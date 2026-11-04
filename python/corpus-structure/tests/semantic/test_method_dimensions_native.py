@@ -14,7 +14,11 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.native_candidate import prepare_series_candidate
 from corpus_structure.semantic.native_objects import admit_native
 from corpus_structure.semantic.operations import (
-    OperationBinding, claim_tasks, create_run, create_task, record_method,
+    OperationBinding,
+    claim_tasks,
+    create_run,
+    create_task,
+    record_method,
 )
 
 from .operation_scenario_support import prepare_operation_scenario
@@ -28,12 +32,14 @@ def current_guarded_database(admin):
     with admin.begin() as conn:
         script, authored = prepare_series_candidate(conn, owned_authoring=True)
         operations = Operations(MigrationContext.configure(conn))
+
         def apply(item):
             if isinstance(item, ops.OpContainer):
                 for child in item.ops:
                     apply(child)
             else:
                 operations.invoke(item)
+
         apply(script.upgrade_ops)
         admit_native(conn, authored.desired)
 
@@ -41,63 +47,137 @@ def current_guarded_database(admin):
 def task(admin, writer):
     prepared = prepare_operation_scenario(admin)
     current_guarded_database(admin)
-    method = SimpleNamespace(name="normalize.formula", version="dimension-control-1",
-                             family="normalize", tier="deterministic", confidence_source=None,
-                             unit_type="run", Config=Config)
+    method = SimpleNamespace(
+        name="normalize.formula",
+        version="dimension-control-1",
+        family="normalize",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type="run",
+        Config=Config,
+    )
     with writer.begin() as conn:
-        run = create_run(conn, project_id="p", binding=OperationBinding(prepared.release_id,"z",0,b"{}"),
-                         kind="full", options={}, code_commit="test")
+        run = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="test",
+        )
         config = record_method(conn, method, "default", {}, "dimension-config", prepared=prepared)
-        identity = create_task(conn,run_id=run,config_id=config,stage="normalize",unit_type="run",input_hash="test")
-        claim = claim_tasks(conn,run_id=run,config_id=config,holder="owner")[0]
+        identity = create_task(
+            conn,
+            run_id=run,
+            config_id=config,
+            stage="normalize",
+            unit_type="run",
+            input_hash="test",
+        )
+        claim = claim_tasks(conn, run_id=run, config_id=config, holder="owner")[0]
     return prepared, run, config, identity, claim
 
 
 def complete(conn, claim, *, family="value", outcome="produced", confidence=None):
-    payload = {"observation_key":"method-dimension-control", "item_key":"control", "family":family,
-               "outcome":outcome, "payload":{"kind":"object","fields":[]}}
+    payload = {
+        "observation_key": "method-dimension-control",
+        "item_key": "control",
+        "family": family,
+        "outcome": outcome,
+        "payload": {"kind": "object", "fields": []},
+    }
     if confidence is not None:
         payload["confidence_source"] = confidence
-    rows = [{"ordinal":0,"observation_key":"method-dimension-control","kind":family,
-             "payload_definition":"SourceObservation","payload":payload,"outcome":outcome}]
-    return conn.scalar(text("SELECT ops.complete_task(:task,:attempt,'owner',CAST(:rows AS jsonb),'done',NULL,NULL)"),
-                       {"task":claim.task_id,"attempt":claim.attempt,"rows":json.dumps(rows)})
+    rows = [
+        {
+            "ordinal": 0,
+            "observation_key": "method-dimension-control",
+            "kind": family,
+            "payload_definition": "SourceObservation",
+            "payload": payload,
+            "outcome": outcome,
+        }
+    ]
+    return conn.scalar(
+        text(
+            "SELECT ops.complete_task(:task,:attempt,'owner',CAST(:rows AS jsonb),'done',NULL,NULL)"
+        ),
+        {"task": claim.task_id, "attempt": claim.attempt, "rows": json.dumps(rows)},
+    )
 
 
 def test_native_report_dimensions_refuse_before_observation_effects(
     semantic_db_engine, semantic_writer_engine
 ):
-    prepared, run, config, identity, claim = task(semantic_db_engine, semantic_writer_engine)
+    _prepared, _run, _config, identity, claim = task(semantic_db_engine, semantic_writer_engine)
     for values, message in [
-        ({"family":"mention"}, "family/outcome"),
-        ({"outcome":"done"}, "family/outcome"),
-        ({"confidence":"agent"}, "confidence provenance"),
+        ({"family": "mention"}, "family/outcome"),
+        ({"outcome": "done"}, "family/outcome"),
+        ({"confidence": "agent"}, "confidence provenance"),
     ]:
         with pytest.raises(DBAPIError, match=message), semantic_writer_engine.begin() as conn:
             complete(conn, claim, **values)
         with semantic_db_engine.connect() as conn:
-            assert conn.scalar(text("SELECT count(*) FROM kb.observation WHERE task_id=:task"),{"task":identity}) == 0
-            assert conn.scalar(text("SELECT status FROM ops.task WHERE id=:task"),{"task":identity}) == "running"
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM kb.observation WHERE task_id=:task"),
+                    {"task": identity},
+                )
+                == 0
+            )
+            assert (
+                conn.scalar(text("SELECT status FROM ops.task WHERE id=:task"), {"task": identity})
+                == "running"
+            )
     with semantic_writer_engine.begin() as conn:
         receipt = complete(conn, claim)
         assert receipt["receipt"]["protocol"] == "done"
         assert receipt["receipt"]["task_id"] == identity
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM kb.observation WHERE task_id=:task"),{"task":identity}) == 1
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM kb.observation WHERE task_id=:task"), {"task": identity}
+            )
+            == 1
+        )
 
 
 def test_native_task_guard_rejects_metadata_outside_its_release(
     semantic_db_engine, semantic_writer_engine
 ):
-    prepared, run, config, identity, claim = task(semantic_db_engine, semantic_writer_engine)
+    _prepared, run, config, _identity, _claim = task(semantic_db_engine, semantic_writer_engine)
     with semantic_db_engine.begin() as conn:
-        method_id = conn.scalar(select(table("ops.method_config").c.method_id).where(table("ops.method_config").c.id==config))
-        original = dict(conn.execute(select(table("ops.method")).where(table("ops.method").c.id==method_id)).mappings().one())
+        method_id = conn.scalar(
+            select(table("ops.method_config").c.method_id).where(
+                table("ops.method_config").c.id == config
+            )
+        )
+        original = dict(
+            conn.execute(select(table("ops.method")).where(table("ops.method").c.id == method_id))
+            .mappings()
+            .one()
+        )
         original.pop("id")
         original.update(version="dimension-invalid-metadata", family="ingest")
-        bad_method = conn.scalar(table("ops.method").insert().values(**original).returning(table("ops.method").c.id))
-        bad_config = conn.scalar(table("ops.method_config").insert().values(method_id=bad_method,name="bad",params={},config_hash="bad-dimension").returning(table("ops.method_config").c.id))
+        bad_method = conn.scalar(
+            table("ops.method").insert().values(**original).returning(table("ops.method").c.id)
+        )
+        bad_config = conn.scalar(
+            table("ops.method_config")
+            .insert()
+            .values(method_id=bad_method, name="bad", params={}, config_hash="bad-dimension")
+            .returning(table("ops.method_config").c.id)
+        )
     with pytest.raises(DBAPIError, match="not admitted"), semantic_writer_engine.begin() as conn:
-        create_task(conn,run_id=run,config_id=bad_config,stage="normalize",unit_type="run",input_hash="wrong-family")
+        create_task(
+            conn,
+            run_id=run,
+            config_id=bad_config,
+            stage="normalize",
+            unit_type="run",
+            input_hash="wrong-family",
+        )
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id=:run"),{"run":run}) == 1
+        assert (
+            conn.scalar(text("SELECT count(*) FROM ops.task WHERE run_id=:run"), {"run": run}) == 1
+        )

@@ -98,44 +98,73 @@ def _rendered_artifact_result(engine, result, max_bytes):
         return len(response.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
 
     def refusal(raw_bytes, required):
-        body = dict(structured, inline_image=dict(
-            disposition="refused", reason="oversized_item", media_type="image/png",
-            artifact_bytes=raw_bytes, required_bytes=required, max_bytes=max_bytes,
-        ))
-        response = wire([TextContent(type="text", text=(
-            "Rendered artifact is committed; inline image exceeds max_bytes. "
-            "Use the retained artifact reference."
-        ))], body, refused=True)
+        body = dict(
+            structured,
+            inline_image=dict(
+                disposition="refused",
+                reason="oversized_item",
+                media_type="image/png",
+                artifact_bytes=raw_bytes,
+                required_bytes=required,
+                max_bytes=max_bytes,
+            ),
+        )
+        response = wire(
+            [
+                TextContent(
+                    type="text",
+                    text=(
+                        "Rendered artifact is committed; inline image exceeds max_bytes. "
+                        "Use the retained artifact reference."
+                    ),
+                )
+            ],
+            body,
+            refused=True,
+        )
         if size(response) > max_bytes:
             # The minimum supported budget is sized for a reference-only refusal,
             # independently of any potentially large optional native result detail.
-            body = {key: structured[key] for key in (
-                "run_id", "task_id", "source_view_id", "artifact_digest"
-            )}
+            body = {
+                key: structured[key]
+                for key in ("run_id", "task_id", "source_view_id", "artifact_digest")
+            }
             body["inline_image"] = {"disposition": "refused", "reason": "oversized_item"}
             response = wire(
                 [TextContent(type="text", text="Inline image refused; artifact retained.")],
-                body, refused=True,
+                body,
+                refused=True,
             )
             if size(response) > max_bytes:
                 raise ValueError("retained artifact reference exceeds inline response budget")
         return ToolResult.from_mcp_result(response)
 
     with read_snapshot(engine) as conn:
-        length = conn.execute(select(func.octet_length(artifact.c.content)).where(
-            artifact.c.artifact_digest == result.artifact_digest
-        )).scalar_one()
-        body = dict(structured, inline_image=dict(
-            disposition="included", media_type="image/png", artifact_bytes=length,
-            max_bytes=max_bytes,
-        ))
+        length = conn.execute(
+            select(func.octet_length(artifact.c.content)).where(
+                artifact.c.artifact_digest == result.artifact_digest
+            )
+        ).scalar_one()
+        body = dict(
+            structured,
+            inline_image=dict(
+                disposition="included",
+                media_type="image/png",
+                artifact_bytes=length,
+                max_bytes=max_bytes,
+            ),
+        )
         empty = wire([ImageContent(type="image", data="", mime_type="image/png")], body)
         required = size(empty) + 4 * ((length + 2) // 3)
         if required > max_bytes:
             return refusal(length, required)
-        content = bytes(conn.execute(select(artifact.c.content).where(
-            artifact.c.artifact_digest == result.artifact_digest
-        )).scalar_one())
+        content = bytes(
+            conn.execute(
+                select(artifact.c.content).where(
+                    artifact.c.artifact_digest == result.artifact_digest
+                )
+            ).scalar_one()
+        )
     response = wire([Image(data=content, format="png").to_image_content()], body)
     actual = size(response)
     if actual > max_bytes:
@@ -239,12 +268,20 @@ class SemanticAgentSession:
         prepared = self.interpretation()
         if max_units is not None and max_units < 1:
             raise ProposalRefused("max_units must be positive")
+        from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+
+        read_budget = PublishedReadBudget(max_rows=10000, max_bytes=8 * 1024 * 1024)
         out = []
         admitted_events = []
+        pending_sessions: dict[int, ProposalSession] = {}
         with self.lock, self.engine.begin() as conn:
             rows = conn.execute(
-                select(configs.c.id, configs.c.params, methods.c.name.label("method"),
-                       methods.c.version.label("method_version"))
+                select(
+                    configs.c.id,
+                    configs.c.params,
+                    methods.c.name.label("method"),
+                    methods.c.version.label("method_version"),
+                )
                 .join(methods, methods.c.id == configs.c.method_id)
                 .join(table("ops.task"), table("ops.task").c.method_config_id == configs.c.id)
                 .where(
@@ -257,8 +294,9 @@ class SemanticAgentSession:
             ).mappings()
             for row in rows:
                 preparation = {}
-                binding = producer_binding(row["method"], row["params"],
-                                           method_version=row["method_version"])
+                binding = producer_binding(
+                    row["method"], row["params"], method_version=row["method_version"]
+                )
                 if binding.mode != mode:
                     continue
                 limit = min(max_units or 1, row["params"].get("max_units", 1))
@@ -273,7 +311,12 @@ class SemanticAgentSession:
                 )
                 for task in leased:
                     packet = agent_packet(
-                        conn, self.run_id, task.task_id, prepared, preparation=preparation
+                        conn,
+                        self.run_id,
+                        task.task_id,
+                        prepared,
+                        preparation=preparation,
+                        read_budget=read_budget,
                     )
                     if packet.hash != task.packet_hash:
                         raise ProposalRefused(
@@ -282,7 +325,7 @@ class SemanticAgentSession:
                     session = ProposalSession(
                         prepared, packet, task.task_id, task.attempt, self.holder
                     )
-                    self.sessions[task.task_id] = session
+                    pending_sessions[task.task_id] = session
                     admitted_events.append((task, binding, packet.hash))
                     pages = packet.part_pages(
                         next(part for part in packet.parts() if part.name == "unit")
@@ -303,6 +346,7 @@ class SemanticAgentSession:
                     )
                 if out:
                     break
+        self.sessions.update(pending_sessions)
         for task, binding, packet_hash in admitted_events:
             _invocation_event(
                 task.task_id,
@@ -629,6 +673,21 @@ def build_semantic_server(
                 hash=active.packet.hash,
                 text=body,
             )
+            from mcp.types import CallToolResult, TextContent
+
+            from corpus_structure.semantic.query import ReadLimit
+
+            wire = CallToolResult(
+                content=[TextContent(type="text", text=body)],
+                structured_content=structured.model_dump(mode="json"),
+            )
+            if (
+                len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
+                > 8 * 1024 * 1024
+            ):
+                raise ReadLimit(
+                    "complete read_unit envelope exceeds byte budget", reason="oversized_item"
+                )
             return ToolResult(content=body, structured_content=structured.model_dump(mode="json"))
 
     @server.tool
@@ -698,7 +757,11 @@ def build_semantic_server(
                 )
             session.sessions.pop(task_id, None)
             _invocation_event(
-                task_id, active.attempt, active.holder, result.producer_binding, "completed",
+                task_id,
+                active.attempt,
+                active.holder,
+                result.producer_binding,
+                "completed",
                 receipt=result.completion.receipt.model_dump(mode="json"),
             )
             data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()

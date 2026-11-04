@@ -193,7 +193,7 @@ def bind_result(
         row: dict[str, Any] = {
             "observation_key": "observation:" + sha256(canonical_bytes(identity)).hexdigest(),
             "item_key": item_key,
-            "family": str(draft.kind),
+            "family": draft.kind,
             "payload": source_value(
                 draft.payload.model_dump(mode="json", by_alias=True, serialize_as_any=True)
             ),
@@ -203,7 +203,7 @@ def bind_result(
                 {"observation_key": ref.observation_key, "role": ref.role}
                 for ref in draft.input_refs
             )
-        row["outcome"] = str(draft.outcome)
+        row["outcome"] = draft.outcome
         if draft.score is not None:
             row["score"] = source_value(draft.score)
         confidence = (
@@ -212,7 +212,7 @@ def bind_result(
             else draft.confidence_source
         )
         if confidence is not None:
-            row["confidence_source"] = str(confidence)
+            row["confidence_source"] = confidence
         if draft.rendition_id is not None:
             row["rendition_id"] = draft.rendition_id
         if draft.segment_id is not None:

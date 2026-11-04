@@ -286,7 +286,8 @@ def test_binding_preserves_record_memberships_and_retry_identity():
         bind_result(prepared, **kwargs).model_dump_json()
         == bind_result(prepared, **kwargs).model_dump_json()
     )
-    assert bind_result(prepared, **kwargs).records[0].record_id == record["record_id"]
+    product = bind_result(prepared, **kwargs).model_dump(mode="python")
+    assert product["records"][0]["record_id"] == record["record_id"]
     # Operational retry/sequence positions are not source occurrence meaning.
     moved = deepcopy(record)
     moved["pin"]["source_view_id"] = 81
@@ -356,7 +357,7 @@ def test_missing_role_unresolved_role_and_unknown_role_refuse_full_acceptance():
     with pytest.raises(ValueError, match="unresolved meaning-changing"):
         bind(record, contexts)
     record["standing"] = "candidate"
-    assert bind(record, contexts).standing == "candidate"
+    assert bind(record, contexts).model_dump(mode="python")["standing"] == "candidate"
 
 
 def test_synthetic_and_coarse_spans_do_not_become_exact_literals():
@@ -584,7 +585,8 @@ def test_classification_record_association_and_zero_offsets_cannot_manufacture_a
     with pytest.raises(ValueError, match="required role lacks located evidence"):
         bind(record, contexts)
     record["standing"] = "candidate"
-    assert bind(record, contexts).fields[3].evidence_status == "unavailable"
+    bound = bind(record, contexts).model_dump(mode="python")
+    assert bound["fields"][3]["evidence_status"] == "unavailable"
 
 
 def test_discontinuous_definition_retains_two_real_original_pieces():
@@ -637,7 +639,8 @@ def test_discontinuous_definition_retains_two_real_original_pieces():
     )
     contexts = ({**contexts[0], "text": "random ... variable"}, *contexts[1:])
     finish(record)
-    assert bind(record, contexts).fields[0].original_pieces == ("random", "variable")
+    bound = bind(record, contexts).model_dump(mode="python")
+    assert bound["fields"][0]["original_pieces"] == ("random", "variable")
     record["fields"][0]["original_pieces"] = ("random ", "variable")
     with pytest.raises(ValueError, match="original source pieces"):
         bind(record, contexts)
@@ -668,14 +671,16 @@ def test_normalization_and_derivation_require_original_policy_and_real_premises(
         bind(record, contexts)
     normalized.update(policy="decimal-policy-1", original="1.234567890123456789e-400")
     finish(record)
-    assert bind(record, contexts).fields[-1].value.lexical == "1234567890123456789e-418"
+    bound = bind(record, contexts).model_dump(mode="python")
+    assert bound["fields"][-1]["value"]["lexical"] == "1234567890123456789e-418"
     normalized.update(kind="derived")
     finish(record)
     with pytest.raises(ValueError, match="present premises and rule"):
         bind(record, contexts)
     normalized.update(rule="unit-conversion-1", premises=("original_value",))
     finish(record)
-    assert bind(record, contexts).fields[-1].premises == ("original_value",)
+    bound = bind(record, contexts).model_dump(mode="python")
+    assert bound["fields"][-1]["premises"] == ("original_value",)
     normalized.update(kind="classified", value={"kind": "classification", "label": "x"})
     with pytest.raises(ValidationError, match=r"derived.*normalized"):
         bind(record, contexts)
@@ -690,7 +695,8 @@ def test_multiple_sets_cannot_duplicate_one_source_value_into_a_new_literal():
     value = record["fields"][4]
     value["evidence_sets"] = (original_set["set_id"], second_set["set_id"])
     finish(record)
-    assert bind(record, contexts).fields[4].original == "12"
+    bound = bind(record, contexts).model_dump(mode="python")
+    assert bound["fields"][4]["original"] == "12"
     value.update(original="1212", value={"kind": "decimal", "lexical": "1212"})
     finish(record)
     with pytest.raises(ValueError, match="does not reconstruct"):

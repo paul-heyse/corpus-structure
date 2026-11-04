@@ -28,7 +28,8 @@ class SelectedReader(PublishedPdfReader):
         )
         self.requests = []
 
-    def sections(self):
+    def sections(self, *, after=None, section_pointer=None, membership="direct", limit=None):
+        assert (after, section_pointer, membership, limit) == (None, None, "direct", None)
         return [
             dict(
                 pointer="#/groups/1",

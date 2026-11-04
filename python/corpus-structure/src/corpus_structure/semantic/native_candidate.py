@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from .alembic_defaults import compare_default
 from .alembic_defaults import plugin as defaults_plugin
+from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
 from .companion_projection_native import companion_projection_definitions
 from .metadata import SCHEMAS, metadata
@@ -1259,6 +1260,7 @@ def prepare_series_candidate(
                 "alembic.autogenerate.*",
                 "alembic.ext.checkconstraint_byname",
                 defaults_plugin.name,
+                indexes_plugin.name,
                 native_plugin.name,
             ],
             "native_authoring": authoring,
@@ -1333,9 +1335,9 @@ def prepare_series_candidate(
                 ordered.append(
                     ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher")
                 )
-        ordered.append(ExecuteSQLOp(publisher))
+        publisher_work: list[MigrateOperation] = []
         if physical_contract is not None:
-            ordered.append(ExecuteSQLOp(physical_contract))
+            publisher_work.append(ExecuteSQLOp(physical_contract))
         for item in created:
             relation = item.to_table()
             name = connection.dialect.identifier_preparer.format_table(relation)
@@ -1349,7 +1351,7 @@ def prepare_series_candidate(
                 ],
             )
             if roles:
-                ordered.append(
+                publisher_work.append(
                     ExecuteSQLOp(
                         "GRANT SELECT ON "
                         + name
@@ -1365,8 +1367,9 @@ def prepare_series_candidate(
             )
             is not True
         ):
-            ordered.append(ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO corpus_sem_fitter"))
-        ordered.append(ExecuteSQLOp(restore))
+            publisher_work.append(ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO corpus_sem_fitter"))
+        if publisher_work:
+            ordered.extend((ExecuteSQLOp(publisher), *publisher_work, ExecuteSQLOp(restore)))
         candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
     return candidate, authoring

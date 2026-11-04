@@ -1097,11 +1097,15 @@ def _prepare_release_uncached(
                     )
                     if any(v.enum == "Establishment" for v in vocabularies)
                     else [],
-                    "executable_reference_splits": sorted(
-                        _enum_members(vocabularies, rows, "ReferenceSplit", "executable")
-                    )
-                    if any(v.enum == "ReferenceSplit" for v in vocabularies)
-                    else [],
+                    "executable_reference_splits": (
+                        list(execution.reference_splits)
+                        if execution is not None
+                        else sorted(
+                            _enum_members(vocabularies, rows, "ReferenceSplit", "executable")
+                        )
+                        if any(v.enum == "ReferenceSplit" for v in vocabularies)
+                        else []
+                    ),
                     "scientific_representative_policy": "min-fact-id-1",
                 }
             ),

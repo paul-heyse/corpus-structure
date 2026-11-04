@@ -160,7 +160,7 @@ def test_compiler20_product_refuses_without_current_admission(monkeypatch):
 
     monkeypatch.setattr(contracts, "_validate", no_current_admission)
     with pytest.raises(
-        PreparationError, match="requires current compiler 23; regenerate"
+        PreparationError, match="requires current compiler 24; regenerate"
     ) as refusal:
         _bound_execution_model(encoded, body["model_id"])
     assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
@@ -169,7 +169,7 @@ def test_compiler20_product_refuses_without_current_admission(monkeypatch):
 def test_compiler20_cannot_claim_new_observable_contracts():
     body = legacy20_product()
     body["invariants"][0]["observable"] = True
-    with pytest.raises(PreparationError, match="requires current compiler 23; regenerate"):
+    with pytest.raises(PreparationError, match="requires current compiler 24; regenerate"):
         _bound_execution_model(canonical_bytes(body), body["model_id"])
 
 
@@ -193,7 +193,7 @@ def test_compiler21_product_with_retired_bindings_refuses_without_current_admiss
 
     monkeypatch.setattr(contracts, "_normalize", no_current_admission)
     with pytest.raises(
-        PreparationError, match="requires current compiler 23; regenerate"
+        PreparationError, match="requires current compiler 24; regenerate"
     ) as refusal:
         _bound_execution_model(encoded, body["model_id"])
     assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
@@ -279,7 +279,7 @@ def test_compiler22_native_only_product_refuses_without_current_admission(monkey
 
     monkeypatch.setattr(contracts, "_normalize", no_current_ingress)
     with pytest.raises(
-        PreparationError, match="requires current compiler 23; regenerate"
+        PreparationError, match="requires current compiler 24; regenerate"
     ) as refusal:
         _bound_execution_model(encoded, body["model_id"])
     assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
@@ -289,5 +289,5 @@ def test_compiler22_native_only_product_refuses_without_current_admission(monkey
 def test_pre23_archive_cannot_assert_core_backend_even_if_native(compiler):
     body = json.loads(current_model().content)
     body["inputs"]["compiler_version"] = compiler
-    with pytest.raises(PreparationError, match="requires current compiler 23; regenerate"):
+    with pytest.raises(PreparationError, match="requires current compiler 24; regenerate"):
         _bound_execution_model(canonical_bytes(body), body["model_id"])

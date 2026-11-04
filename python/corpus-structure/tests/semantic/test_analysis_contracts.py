@@ -213,7 +213,7 @@ def test_schema_only_and_retired_composed_profiles_refuse_execution():
             RegistryRow("execution_model", model.model_id, canonical_bytes(historic)),
         ),
     )
-    with pytest.raises(PreparationError, match="current compiler 23; regenerate the release"):
+    with pytest.raises(PreparationError, match="current compiler 24; regenerate the release"):
         prepare_interpretation_context(archived, macros={})
 
 
@@ -252,7 +252,7 @@ def test_unknown_execution_abi_refuses_before_model_binding():
     model = compile_execution_model(trusted_execution_inputs())
     changed = json.loads(model.content)
     changed["inputs"]["compiler_version"] = "999"
-    with pytest.raises(PreparationError, match="current compiler 23; regenerate the release"):
+    with pytest.raises(PreparationError, match="current compiler 24; regenerate the release"):
         _bound_execution_model(canonical_bytes(changed), model.model_id)
 
 
@@ -284,7 +284,7 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    with pytest.raises(PreparationError, match="current compiler 23; regenerate the release"):
+    with pytest.raises(PreparationError, match="current compiler 24; regenerate the release"):
         prepare_interpretation_context(archived, macros={})
 
 

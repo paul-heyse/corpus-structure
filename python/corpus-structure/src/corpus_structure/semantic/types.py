@@ -324,6 +324,22 @@ class PreparedRelease:
         return self.enum_members("Establishment", subset="source_admissible")
 
     def reference_splits(self) -> frozenset[str]:
+        """Operational splits belong to the exact bound execution schema when composed."""
+        if self.execution_model_id is not None:
+            from .contracts import bound_execution_model
+
+            return frozenset(bound_execution_model(self).reference_splits)
+        if "ReferenceSplit" not in self.vocabulary_names:
+            raise PreparationError(
+                (
+                    Diagnostic(
+                        "missing_reference_splits",
+                        "ReferenceSplit",
+                        "reference split vocabulary is absent from the supplied schema",
+                        "unsupported",
+                    ),
+                )
+            )
         return self.enum_members("ReferenceSplit", subset="executable")
 
     def member_has_behavior(self, vocabulary: str, member: str | None, behavior: str) -> bool:

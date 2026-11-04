@@ -113,7 +113,8 @@ def test_native_attempt_and_nonterminal_transition_fences(
             "default",
             {},
             "config:one",
-        prepared=prepared)
+            prepared=prepared,
+        )
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
         )
@@ -212,7 +213,8 @@ def test_protected_release_and_reclaim_preserve_held_progress(
             "default",
             {},
             "agent",
-        prepared=prepared)
+            prepared=prepared,
+        )
         task = create_task(
             conn,
             run_id=run,
@@ -288,7 +290,9 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         pytest.fail("lease loss was not exposed to in-flight private computation")
 
 
-def test_method_version_binds_unit_and_configuration_schema(semantic_db_engine, semantic_writer_engine):
+def test_method_version_binds_unit_and_configuration_schema(
+    semantic_db_engine, semantic_writer_engine
+):
     from types import SimpleNamespace
 
     from pydantic import BaseModel
@@ -364,7 +368,8 @@ def test_held_progress_survives_cancel_and_fail(
             "default",
             {},
             "agent",
-        prepared=prepared)
+            prepared=prepared,
+        )
         task = create_task(
             conn,
             run_id=run,
@@ -446,7 +451,8 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
             "default",
             {},
             "read",
-        prepared=prepared)
+            prepared=prepared,
+        )
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
         )
@@ -579,7 +585,8 @@ def test_invocation_effect_enforces_agent_packet_disposition(
             "default",
             {},
             "configuration:disposition",
-        prepared=prepared)
+            prepared=prepared,
+        )
 
         def insert():
             return create_task(

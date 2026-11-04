@@ -90,7 +90,8 @@ WHERE attrelid='ops.task'::regclass AND attnum>0 AND NOT attisdropped""")
             "default",
             {},
             "native-binding-config",
-        prepared=prepared)
+            prepared=prepared,
+        )
         task = create_task(
             conn,
             run_id=run,

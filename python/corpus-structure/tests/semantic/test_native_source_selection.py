@@ -61,7 +61,8 @@ def test_native_declared_corpus_and_final_open_task_guard(
             "default",
             {},
             "cfg",
-        prepared=p)
+            prepared=p,
+        )
     with pytest.raises(DBAPIError, match="immutable declared corpus"), e.begin() as conn:
         create_task(
             conn,

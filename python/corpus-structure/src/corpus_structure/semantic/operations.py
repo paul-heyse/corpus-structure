@@ -155,11 +155,13 @@ def record_method(
     require_bound_operation(prepared, "configure_method")
     from .operation_results import validate_method_dimension
 
-    validate_method_dimension(prepared, method.name, "family", str(method.family))
-    validate_method_dimension(prepared, method.name, "tier", str(method.tier))
+    validate_method_dimension(prepared, method.name, "family", method.family)
+    validate_method_dimension(prepared, method.name, "tier", method.tier)
     validate_method_dimension(
-        prepared, method.name, "confidence_source",
-        str(method.confidence_source) if method.confidence_source is not None else None,
+        prepared,
+        method.name,
+        "confidence_source",
+        method.confidence_source if method.confidence_source is not None else None,
     )
     m = table("ops.method")
     c = table("ops.method_config")
@@ -172,9 +174,9 @@ def record_method(
         ).hexdigest()
         if hasattr(method, "Config")
         else None,
-        family=str(method.family),
-        tier=str(method.tier),
-        confidence_source=str(method.confidence_source)
+        family=method.family,
+        tier=method.tier,
+        confidence_source=method.confidence_source
         if method.confidence_source is not None
         else None,
         projection_context=prepared,
@@ -438,7 +440,9 @@ def complete_task(
             ):
                 raise OperationConflict("observation dimensions differ from its bound report")
             validate_method_dimension(
-                prepared, method_name, "observation.confidence_source",
+                prepared,
+                method_name,
+                "observation.confidence_source",
                 payload.get("confidence_source"),
             )
         rows.append(
@@ -740,7 +744,7 @@ def prepare_unit_completion(
         input_hash=task["input_hash"],
         invocation_key=task["invocation_key"],
         result=result,
-        method_confidence_source=str(method.confidence_source)
+        method_confidence_source=method.confidence_source
         if method.confidence_source is not None
         else None,
         records=records,
@@ -866,6 +870,10 @@ class BoundReader:
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
 
+    @property
+    def read_budget(self):
+        return self._read_budget
+
     def pdf_contract(self):
         from .pdf_contracts import pdf_context_for_release
 
@@ -883,9 +891,9 @@ class BoundReader:
         from .source_views import selected_source_views
 
         selected = tuple(
-            v for v in selected_source_views(
-                self.conn, self.run_id, read_budget=self._read_budget
-            ) if v.analysis_eligible
+            v
+            for v in selected_source_views(self.conn, self.run_id, read_budget=self._read_budget)
+            if v.analysis_eligible
         )
         run = table("ops.run")
         options = self.conn.execute(
@@ -918,7 +926,9 @@ class BoundReader:
             self._native_views = cache
         if source_view_id not in cache:
             cache[source_view_id] = load_source_view(
-                self.conn, source_view_id, analysis=self._analysis_enabled,
+                self.conn,
+                source_view_id,
+                analysis=self._analysis_enabled,
                 read_budget=self._read_budget,
             )
         return cache[source_view_id]
@@ -1234,7 +1244,7 @@ class BoundReader:
                 t.c.run_id == self.run_id,
                 o.c.source_view_id == source_id,
                 m.c.name == method,
-                o.c.kind == str(kind),
+                o.c.kind == kind,
             )
             .order_by(o.c.ordinal)
         )
@@ -1406,7 +1416,12 @@ class BoundReader:
 
 
 def run_view(
-    conn: Connection, run_id: int, prepared: PreparedRelease, *, cut_id: int | None = None
+    conn: Connection,
+    run_id: int,
+    prepared: PreparedRelease,
+    *,
+    cut_id: int | None = None,
+    read_budget=None,
 ) -> BoundRunView:
     from corpus_structure.core.vocab import RunKind
 
@@ -1423,7 +1438,7 @@ def run_view(
         binding,
         prepared,
         row["options"],
-        BoundReader(conn, run_id, prepared, cut_id),
+        BoundReader(conn, run_id, prepared, cut_id, read_budget=read_budget),
     )
 
 

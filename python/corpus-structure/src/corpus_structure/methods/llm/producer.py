@@ -25,7 +25,10 @@ class ProducerBinding:
 
 
 def producer_binding(
-    method: str, configuration: Mapping[str, Any], *, unit: str = TaskUnitType.SOURCE_VIEW,
+    method: str,
+    configuration: Mapping[str, Any],
+    *,
+    unit: str = TaskUnitType.SOURCE_VIEW,
     method_version: str | None = None,
 ) -> ProducerBinding:
     from corpus_structure.semantic.operations import OperationConflict
@@ -40,7 +43,7 @@ def producer_binding(
     execution_kind = configuration.get("execution_kind", "agent")
     mode = configuration.get("mode", "extract")
     model = configuration.get("model")
-    if (str(unit), protocol, version, execution_kind, mode) != (
+    if (unit, protocol, version, execution_kind, mode) != (
         TaskUnitType.SOURCE_VIEW.value,
         PROPOSAL_PROTOCOL,
         SEMANTIC_AGENT_VERSION,
@@ -52,4 +55,4 @@ def producer_binding(
         )
     if not isinstance(model, str) or not model.strip():
         raise OperationConflict("producer requires an explicitly configured model")
-    return ProducerBinding(method, str(unit), protocol, version, execution_kind, mode, model)
+    return ProducerBinding(method, unit, protocol, version, execution_kind, mode, model)

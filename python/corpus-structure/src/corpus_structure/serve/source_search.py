@@ -155,7 +155,7 @@ def search_source(conn: Connection, request: SourceSearchRequest) -> SourceSearc
                 or cursor["selection"] != selection
             ):
                 raise ValueError("source search selection changed")
-            after_score, after_id = float(cursor["score"]), int(cursor["id"])
+            after_score, after_id = float(cursor["score"]), cursor["id"]
         except (ValueError, TypeError, KeyError) as error:
             raise InvalidContinuation(
                 "invalid or stale source search continuation", reason="invalid_continuation"

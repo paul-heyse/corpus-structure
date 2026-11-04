@@ -305,10 +305,10 @@ BEGIN
           o.source,'claims',split_part(o.item,'/',2)::bigint,citation.position-1,citation.value)),'UTF8')),'hex'))) THEN
     RAISE EXCEPTION 'occurrence citation role differs from bound source citation' USING ERRCODE='23514'; END IF;
   ELSIF observation.payload_definition='AgentStoredBatch' AND o.item LIKE 'entities/%/attributes/%' THEN
-   SELECT source.* INTO STRICT src FROM data.entity_source source
-    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=source.entity_id
-    WHERE source.release_id=r AND source.realization_id=z AND source.observation_id=observation.id
-     AND starts_with(o.item,'entities/'||source.local_id||'/attributes/');
+   SELECT entity_source_row.* INTO STRICT src FROM data.entity_source entity_source_row
+    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=entity_source_row.entity_id
+    WHERE entity_source_row.release_id=r AND entity_source_row.realization_id=z AND entity_source_row.observation_id=observation.id
+     AND starts_with(o.item,'entities/'||entity_source_row.local_id||'/attributes/');
    SELECT value INTO STRICT declaration FROM jsonb_array_elements(observation.payload->'entities') WHERE value->>'id'=src.local_id;
    attribute_index:=substring(o.item FROM length('entities/'||src.local_id||'/attributes/')+1)::integer;
    attribute:=declaration->'attributes'->attribute_index;
@@ -647,9 +647,9 @@ BEGIN
   IF (decision.basis='source_local' OR decision.outcome<>'resolved') AND decision.entity_id<>provisional THEN
    RAISE EXCEPTION 'provisional identity falsely claims global resolution' USING ERRCODE='23514'; END IF;
  END LOOP;
- IF EXISTS(SELECT FROM data.entity_resolution decision WHERE decision.release_id=r AND decision.realization_id=z
-   AND NOT EXISTS(SELECT FROM data.entity_source source WHERE source.release_id=r AND source.realization_id=z
-    AND source.observation_id=decision.observation_id AND source.local_id=decision.local_id AND source.entity_id=decision.entity_id)) THEN
+ IF EXISTS(SELECT FROM data.entity_resolution resolution_row WHERE resolution_row.release_id=r AND resolution_row.realization_id=z
+   AND NOT EXISTS(SELECT FROM data.entity_source entity_source_row WHERE entity_source_row.release_id=r AND entity_source_row.realization_id=z
+    AND entity_source_row.observation_id=resolution_row.observation_id AND entity_source_row.local_id=resolution_row.local_id AND entity_source_row.entity_id=resolution_row.entity_id)) THEN
   RAISE EXCEPTION 'resolution decision lacks its source declaration' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.scientific_representative rep WHERE rep.release_id=r AND rep.realization_id=z
    AND (rep.policy_id<>'min-fact-id-1' OR NOT EXISTS(SELECT FROM data.selection selected WHERE

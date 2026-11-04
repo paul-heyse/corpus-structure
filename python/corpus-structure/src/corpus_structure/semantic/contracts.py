@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "23"
+EXECUTION_COMPILER_VERSION = "24"
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -680,6 +680,7 @@ class ExecutionModelProducts:
     outcome_domains: tuple[OutcomeDomain, ...]
     outcome_translations: tuple[OutcomeTranslation, ...]
     native_guards: tuple[NativeGuardBinding, ...]
+    reference_splits: tuple[str, ...]
     effect_definitions: tuple[EffectDefinition, ...] = ()
     analysis_profiles: tuple[AnalysisProfile, ...] = ()
     implementation_digests: tuple[tuple[str, str], ...] = ()
@@ -855,7 +856,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         _fail(
             "unsupported_execution_abi",
             model_id,
-            "execution product requires current compiler 23; regenerate the release",
+            "execution product requires current compiler 24; regenerate the release",
         )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
@@ -1145,12 +1146,20 @@ _PRODUCT_CONVERTER = _product_converter()
 def _normalize(
     data: dict[str, Any],
     model_id: str,
+    *,
+    reference_splits: tuple[str, ...],
 ) -> ExecutionModelProducts:
     # Version is already checked by the admitted LinkML catalog boundary.
     fields = {key: value for key, value in data.items() if key != "version"}
     try:
         products = _PRODUCT_CONVERTER.structure(
-            {**fields, "model_id": model_id, "content": b""}, ExecutionModelProducts
+            {
+                **fields,
+                "model_id": model_id,
+                "content": b"",
+                "reference_splits": reference_splits,
+            },
+            ExecutionModelProducts,
         )
     except Exception as exc:
         _fail("contract_product", "ExecutionCatalog", "; ".join(transform_error(exc)))
@@ -1611,7 +1620,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     }
     model_id = "execution:" + sha256(canonical_bytes(identity)).hexdigest()
     products = replace(
-        _normalize(data, model_id),
+        _normalize(data, model_id, reference_splits=tuple(sorted(companion.reference_splits()))),
         implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
     )
     from .operation_call_generation import validate_call_bindings

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.refusals import SemanticOperationRefusal, SemanticReason
 
 from .split import Assignment, SplitConfig, SplitDocument, SplitError, assign
 
@@ -42,6 +43,18 @@ def prepare_split_decision(
     ids = {document.id for document in documents}
     if len(ids) != len(documents) or not set(previous) <= ids:
         raise SplitError("split decision requires unique documents and in-population prior rows")
+    for document in documents:
+        if document.chapter is not None and not isinstance(document.chapter, str):
+            raise SemanticOperationRefusal(
+                SemanticReason(
+                    "unsupported_interpretation",
+                    "reference_split",
+                    release_id,
+                    expected="string or null chapter metadata",
+                    actual=type(document.chapter).__name__,
+                    detail=f"document {document.id} has unsupported split chapter metadata",
+                )
+            )
     population = [
         {"document_id": d.id, "source_uri": d.source_uri, "chapter": d.chapter}
         for d in sorted(documents, key=lambda d: d.id)

@@ -366,9 +366,15 @@ def request_source_view(
             def terminal_intent(result):
                 with read_snapshot(engine) as preparation_conn:
                     return prepare_unit_completion(
-                        preparation_conn, task_id=task_id, attempt=claim.attempt,
-                        holder=holder, prepared=prepared, result=result, method=method,
-                        configuration_hash=digest, source=view.ref.key,
+                        preparation_conn,
+                        task_id=task_id,
+                        attempt=claim.attempt,
+                        holder=holder,
+                        prepared=prepared,
+                        result=result,
+                        method=method,
+                        configuration_hash=digest,
+                        source=view.ref.key,
                     )
 
             owner()

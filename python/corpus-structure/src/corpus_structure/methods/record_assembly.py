@@ -387,7 +387,7 @@ def _assemble(
                     field.pop("reason", None)
                 # Validate against the released role, including specialized classification values.
                 prepared.validate_python(role.range, field)
-            except (ValueError, TypeError, KeyError, ContextRefused) as error:
+            except (ValueError, TypeError, KeyError) as error:
                 diagnostics.append(
                     AssemblyDiagnostic(index, role.name, "unsupported_field", str(error))
                 )

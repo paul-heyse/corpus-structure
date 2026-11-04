@@ -2,12 +2,11 @@
 
 from dataclasses import FrozenInstanceError, replace
 from types import SimpleNamespace
-from typing import cast
+from typing import Literal
 
 import pytest
 import spacy
-from spacy.language import Language
-from spacy.tokens import Doc
+from spacy.tokens import Doc, MorphAnalysis
 
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import (
@@ -27,7 +26,7 @@ class ControlledPipeline:
 
     def __init__(self):
         self.pipe_names = ["tok2vec", "tagger", "parser", "attribute_ruler", "lemmatizer"]
-        blank = spacy.blank("en")
+        blank = self.language = spacy.blank("en")
         self.tokenizer = blank.tokenizer
         self.vocab = blank.vocab
         self.config = SimpleNamespace(to_str=lambda: "controlled-unit-fixture-1")
@@ -49,7 +48,7 @@ class ControlledPipeline:
                 token.lemma_ = f"lemma:{token.i}"
                 token.pos_ = "VERB"
                 token.tag_ = "VB"
-                token.set_morph("VerbForm=Fin")
+                token.morph = MorphAnalysis(doc.vocab, "VerbForm=Fin")
                 token.dep_ = "ROOT" if token.i == 0 else "dep"
                 token.head = doc[0]
             if self.omit == "lemma" and len(doc):
@@ -63,7 +62,7 @@ class ControlledPipeline:
 @pytest.fixture
 def controlled(monkeypatch):
     nlp = ControlledPipeline()
-    monkeypatch.setattr(annotations, "pipeline", lambda _: cast(Language, nlp))
+    monkeypatch.setattr(annotations, "pipeline", lambda _: nlp)
     return nlp
 
 
@@ -81,18 +80,18 @@ def pin(identity=7):
 
 
 def item(
-    nlp,
+    nlp: ControlledPipeline,
     text="X X.",
     *,
     start=100,
     identity=7,
     block_id="paragraph:1",
-    kind="paragraph",
+    kind: Literal["paragraph", "list_item", "table_cell", "caption"] = "paragraph",
     block=None,
     pieces=None,
 ):
     block = Block(text, (), (), ()) if block is None else block
-    layout = prepare_layout(cast(Language, nlp), block, start=start)
+    layout = prepare_layout(nlp.language, block, start=start)
     if pieces is None:
         pieces = (
             (ProjectedPiece("#/texts/1", start, start + len(text), "native_text"),) if text else ()
@@ -178,10 +177,12 @@ def test_products_are_detached_immutable_and_do_not_copy_passages_into_rows(cont
     (product,) = annotate((item(controlled),))
     assert not hasattr(product, "text")
     assert not hasattr(product.tokens[0], "text")
-    with pytest.raises(FrozenInstanceError):
-        product.tokens[0].lemma = "changed"
-    with pytest.raises(FrozenInstanceError):
-        product.source.membership = "direct"
+    for target, attribute, value in (
+        (product.tokens[0], "lemma", "changed"),
+        (product.source, "membership", "direct"),
+    ):
+        with pytest.raises(FrozenInstanceError):
+            setattr(target, attribute, value)
 
 
 def test_missing_required_components_are_explicit_and_sentence_only_default_is_preserved(

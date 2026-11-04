@@ -69,7 +69,7 @@ def init_bound_project(
     profiles = set()
     count = 0
     for method, config in registry.named():
-        if str(registry.method(method).family) != "ingest":
+        if registry.method(method).family != "ingest":
             continue
         from corpus_structure.ingest.pdf_methods import PdfIngestConfig
 

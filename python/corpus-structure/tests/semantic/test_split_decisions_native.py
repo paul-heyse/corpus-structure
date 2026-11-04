@@ -4,34 +4,20 @@ import copy
 import json
 
 import pytest
-from alembic.migration import MigrationContext
-from alembic.operations import Operations, ops
+from psycopg import Error as PostgresError
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.evaluate.semantic import split_documents, split_provenance_summary
 from corpus_structure.evaluate.split import SplitConfig
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.native_candidate import prepare_series_candidate
-from corpus_structure.semantic.native_objects import admit_native
 
 from .agent_scenarios import build_resubmission_case
 
 
 def prepare(admin, writer, tmp_path):
-    with admin.begin() as conn:
-        script, authoring = prepare_series_candidate(conn, owned_authoring=True)
-        operations = Operations(MigrationContext.configure(conn))
-
-        def apply(operation):
-            if isinstance(operation, ops.OpContainer):
-                for child in operation.ops:
-                    apply(child)
-            else:
-                operations.invoke(operation)
-
-        apply(script.upgrade_ops)
-        admit_native(conn, authoring.desired)
+    # The shared fixture installs the actual selected head. Functional consumers do not
+    # author or replace native definitions in setup; I04 checks that route separately.
     prepared, *_ = build_resubmission_case(admin, writer, tmp_path / "source.html", composed=True)
     with admin.connect() as conn:
         uri = conn.scalar(select(table("kb.document").c.source_uri))
@@ -43,6 +29,50 @@ def invoke(conn, release, intent):
         text("SELECT eval.assign_document_split_decision('resubmit',:r,CAST(:i AS jsonb))"),
         {"r": release, "i": json.dumps(intent)},
     )
+
+
+def test_nontext_chapter_has_explicit_python_and_native_refusal(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_evaluator_engine,
+    tmp_path,
+):
+    from corpus_structure.semantic.operations import register_document
+    from corpus_structure.semantic.refusals import SemanticOperationRefusal
+
+    release, _ = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+    source = tmp_path / "chapter.txt"
+    source.write_bytes(b"a separately registered chapter")
+    with semantic_writer_engine.begin() as conn:
+        register_document(
+            conn,
+            project_id="resubmit",
+            source_uri="chapter.txt",
+            original_path=str(source),
+            original=source.read_bytes(),
+            mime="text/plain",
+            metadata={"chapter": True},
+            prepared=release,
+        )
+    with semantic_evaluator_engine.begin() as conn:
+        with pytest.raises(SemanticOperationRefusal, match="unsupported split chapter"):
+            split_documents(conn, "resubmit", SplitConfig(), release_id=release.release_id)
+        forged = dict(
+            version="split-decision-1",
+            algorithm="chapter-uri-hash-1",
+            project_id="resubmit",
+            release_id=release.release_id,
+            seed=0,
+            seed_origin="policy",
+            policy=dict(seed=0, forced_dev=[], reserved=[]),
+            population=[],
+            previous=[],
+            assignments=[],
+        )
+        with pytest.raises(DBAPIError, match="unsupported split chapter"), conn.begin_nested():
+            invoke(conn, release.release_id, forged)
+        assert conn.scalar(text("SELECT count(*) FROM eval.split_decision")) == 0
+        assert conn.scalar(text("SELECT count(*) FROM eval.document_split")) == 0
 
 
 def test_actual_override_reason_replay_and_immutable_provenance(
@@ -112,3 +142,142 @@ def test_changed_outputs_refuse_without_orphan_decision(
             invoke(conn, release.release_id, intent)
         assert conn.scalar(text("SELECT count(*) FROM eval.split_decision")) == 0
         assert conn.scalar(text("SELECT count(*) FROM eval.document_split")) == 0
+
+
+def test_existing_policy_conflict_and_malformed_policy_refuse(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_evaluator_engine,
+    tmp_path,
+):
+    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+    with semantic_evaluator_engine.begin() as conn:
+        first = split_documents(
+            conn,
+            "resubmit",
+            SplitConfig(forced_dev={uri: "dev"}),
+            seed=19,
+            release_id=release.release_id,
+        )
+        recorded = conn.scalar(select(table("eval.split_decision").c.intent))
+        current = copy.deepcopy(recorded)
+        current["previous"] = [
+            {"document_id": row["document_id"], "split": "dev", "reason": "persisted", "seed": None}
+            for row in current["population"]
+        ]
+        current["assignments"] = []
+        reserved = copy.deepcopy(current)
+        reserved["policy"]["forced_dev"] = []
+        reserved["policy"]["reserved"] = [[uri, "new worked example"]]
+        with pytest.raises(DBAPIError, match="contradicts immutable"), conn.begin_nested():
+            invoke(conn, release.release_id, reserved)
+        no_seed = copy.deepcopy(current)
+        del no_seed["policy"]["seed"]
+        with pytest.raises(DBAPIError, match="unsupported split"), conn.begin_nested():
+            invoke(conn, release.release_id, no_seed)
+        duplicate = copy.deepcopy(current)
+        duplicate["policy"]["forced_dev"] = [[uri, "one"], [uri, "two"]]
+        with pytest.raises(DBAPIError, match="duplicate split policy"), conn.begin_nested():
+            invoke(conn, release.release_id, duplicate)
+        wrong_population = copy.deepcopy(current)
+        wrong_population["population"] = []
+        with pytest.raises(DBAPIError, match="basis changed"), conn.begin_nested():
+            invoke(conn, release.release_id, wrong_population)
+        assert (
+            conn.scalar(select(table("eval.split_decision").c.decision_id)) == first["decision_id"]
+        )
+
+
+def test_new_noop_decision_does_not_relabel_legacy_assignments(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_evaluator_engine,
+    tmp_path,
+):
+    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+    # Trusted fixture represents a retained predecessor row with unavailable provenance.
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(
+            text(
+                "INSERT INTO eval.document_split(project_id,source_uri,split) "
+                "VALUES('resubmit',:u,'dev')"
+            ),
+            {"u": uri},
+        )
+    with semantic_evaluator_engine.begin() as conn:
+        result = split_documents(
+            conn, "resubmit", SplitConfig(seed=42), release_id=release.release_id
+        )
+        assert result["added"] == {}
+        assert result["decision_provenance"] == "recorded"
+        assert result["assignment_provenance"] == {"recorded": 0, "legacy_unavailable": 1}
+        split = conn.execute(select(table("eval.document_split"))).mappings().one()
+        assert split["split"] == "dev" and split["decision_id"] is None and split["reason"] is None
+
+
+@pytest.mark.parametrize("same_intent", [True, False])
+def test_concurrent_intentions_replay_or_refuse_changed_basis(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_evaluator_engine,
+    tmp_path,
+    same_intent,
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from corpus_structure.evaluate.split import SplitDocument
+    from corpus_structure.evaluate.split_decisions import prepare_split_decision
+
+    release, uri = prepare(semantic_db_engine, semantic_writer_engine, tmp_path)
+    with semantic_db_engine.connect() as conn:
+        d = conn.execute(select(table("kb.document"))).mappings().one()
+    document = SplitDocument(d["id"], uri, d["meta"].get("chapter"))
+    policy = SplitConfig(forced_dev={uri: "dev"})
+    intentions = [
+        json.loads(
+            prepare_split_decision(
+                "resubmit", release.release_id, [document], policy, {}, seed=seed
+            ).intent
+        )
+        for seed in (19, 19 if same_intent else 20)
+    ]
+    barrier = Barrier(2)
+
+    def apply(intent):
+        try:
+            with semantic_evaluator_engine.begin() as conn:
+                barrier.wait(timeout=15)
+                return invoke(conn, release.release_id, intent)["outcome"]
+        except DBAPIError as error:
+            assert isinstance(error.orig, PostgresError)
+            assert error.orig.sqlstate == "40001"
+            return "changed_basis"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(apply, intentions))
+    assert sorted(outcomes) == (
+        ["committed", "exact_replay"] if same_intent else ["changed_basis", "committed"]
+    )
+    with semantic_evaluator_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM eval.split_decision")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM eval.document_split")) == 1
+
+
+def test_forward_upgrade_preserves_unavailable_predecessor_split(semantic_database_at):
+    from corpus_structure.semantic.migrations import upgrade
+
+    with semantic_database_at("semantic_m1_records_20261103") as engine:
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO data.project(project_id) VALUES('legacy')"))
+            conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+            conn.execute(text("SELECT eval.assign_document_split('legacy','legacy:source','dev')"))
+            before = conn.execute(text("SELECT id,source_uri,split FROM eval.document_split")).one()
+        with engine.begin() as conn:
+            upgrade(conn)
+            after = conn.execute(
+                text("SELECT id,source_uri,split,decision_id,reason FROM eval.document_split")
+            ).one()
+            assert tuple(after[:3]) == tuple(before)
+            assert after.decision_id is None and after.reason is None

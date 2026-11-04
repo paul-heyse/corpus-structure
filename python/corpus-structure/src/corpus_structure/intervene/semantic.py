@@ -152,22 +152,35 @@ class ProposalSession:
         from corpus_structure.semantic.observations import source_value
 
         configurations, methods = table("ops.method_config"), table("ops.method")
-        frozen = conn.execute(
-            select(configurations.c.params, methods.c.name.label("method"),
-                   methods.c.version.label("method_version"))
-            .join(tasks, tasks.c.method_config_id == configurations.c.id)
-            .join(methods, methods.c.id == configurations.c.method_id)
-            .where(tasks.c.id == self.task_id)
-        ).mappings().one()
-        producer = producer_binding(frozen["method"], frozen["params"], unit="source_view",
-                                    method_version=frozen["method_version"])
+        frozen = (
+            conn.execute(
+                select(
+                    configurations.c.params,
+                    methods.c.name.label("method"),
+                    methods.c.version.label("method_version"),
+                )
+                .join(tasks, tasks.c.method_config_id == configurations.c.id)
+                .join(methods, methods.c.id == configurations.c.method_id)
+                .where(tasks.c.id == self.task_id)
+            )
+            .mappings()
+            .one()
+        )
+        producer = producer_binding(
+            frozen["method"],
+            frozen["params"],
+            unit="source_view",
+            method_version=frozen["method_version"],
+        )
         import os
 
         invocation_id = os.environ.get("CORPUS_AGENT_INVOCATION_ID")
         diagnostic: dict[str, JsonValue] = {
             "execution_identity": {
                 "binding": dict[str, JsonValue](producer.values()),
-                "task_id": self.task_id, "attempt": self.attempt, "holder": self.holder,
+                "task_id": self.task_id,
+                "attempt": self.attempt,
+                "holder": self.holder,
                 "assurance": "provider_reported" if invocation_id else "manual_operator",
                 "invocation_id": invocation_id,
                 "provider_reported_model": None,

@@ -579,7 +579,7 @@ def split_documents(
         SplitDocument(
             r.id,
             r.source_uri,
-            str(r.meta["chapter"]) if r.meta.get("chapter") is not None else None,
+            r.meta.get("chapter"),
         )
         for r in conn.execute(select(d).where(d.c.project_id == project_id))
     ]
@@ -615,7 +615,8 @@ def split_documents(
         "total": dict(totals),
         "decision_id": receipt["decision_id"],
         "outcome": receipt["outcome"],
-        "provenance": "recorded",
+        "decision_provenance": "recorded",
+        "assignment_provenance": split_provenance_summary(conn, project_id),
     }
 
 

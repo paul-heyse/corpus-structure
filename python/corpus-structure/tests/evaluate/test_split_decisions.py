@@ -7,6 +7,14 @@ import pytest
 from corpus_structure.core.vocab import DocumentSplit
 from corpus_structure.evaluate.split import Assignment, SplitConfig, SplitDocument, SplitError
 from corpus_structure.evaluate.split_decisions import prepare_split_decision
+from corpus_structure.semantic.refusals import SemanticOperationRefusal
+
+
+@pytest.mark.parametrize("chapter", [True, 3, 1.5, ["one"], {"id": "one"}])
+def test_nontext_chapter_refuses_without_cross_language_stringification(chapter):
+    with pytest.raises(SemanticOperationRefusal, match="unsupported split chapter") as caught:
+        prepare_split_decision("p", "r", [SplitDocument(1, "a", chapter)], SplitConfig(), {})
+    assert caught.value.semantic_reason.expected == "string or null chapter metadata"
 
 
 def test_effective_override_and_non_hash_reasons_are_retained():

@@ -351,7 +351,8 @@ def pdf13_db(semantic_db_engine, semantic_writer_engine, native_source, tmp_path
                 "default",
                 {},
                 "pdf13-fixture",
-            prepared=prepared)
+                prepared=prepared,
+            )
             path = tmp_path / f"{project}-{name}.pdf"
             path.write_bytes(original)
             document = register_document(

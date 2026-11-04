@@ -1,6 +1,7 @@
 """Independent coverage composition expectations over real Core SQL, without native deployment."""
 
 import json
+import sqlite3
 from hashlib import sha256
 from types import SimpleNamespace
 
@@ -11,6 +12,7 @@ from corpus_structure.semantic.coverage_contract import coverage_recipe
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.query import ReadSession, SnapshotBinding
 from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.types import PreparedArtifact
 
 FAMILY = "https://example.org/name"
 PARAMETERS = {"model": "configured-general-model", "mode": "extract"}
@@ -22,11 +24,21 @@ def configuration_hash(method, version, parameters):
     return "configuration:" + sha256(encoded.encode()).hexdigest()
 
 
+def bind_recipe(session, recipe):
+    prepared = SimpleNamespace(
+        artifacts=(PreparedArtifact("query_coverage.json", canonical_bytes(recipe)),),
+        enum_members=lambda name: (FAMILY,),
+    )
+    object.__setattr__(session, "prepared", prepared)
+
+
 @pytest.fixture
 def coverage_database():
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
-        conn.connection.driver_connection.create_function(
+        driver = conn.connection.driver_connection
+        assert isinstance(driver, sqlite3.Connection)
+        driver.create_function(
             "octet_length", 1, lambda value: len(value.encode()) if value is not None else None
         )
         for schema in ("ops", "kb", "data"):
@@ -83,18 +95,9 @@ def populate(conn, methods, *, declared=None, version=4):
             text("INSERT INTO kb.source_view VALUES(:id,:document)"),
             {"id": index, "document": 100 + index},
         )
-    prepared = SimpleNamespace(
-        artifacts=[
-            SimpleNamespace(
-                kind="query_coverage.json",
-                content=canonical_bytes(coverage_recipe(version=version)),
-            )
-        ],
-        enum_members=lambda name: (FAMILY,),
-    )
     session = object.__new__(ReadSession)
     object.__setattr__(session, "connection", conn)
-    object.__setattr__(session, "prepared", prepared)
+    bind_recipe(session, coverage_recipe(version=version))
     object.__setattr__(session, "binding", SnapshotBinding("release", "realization", 1, "capture"))
     return session
 
@@ -202,7 +205,7 @@ def test_v3_archive_keeps_original_opus_universe_and_unknown_recipe_refuses(cove
     assert required.members == frozenset({"opus-A"})
     report(conn, "opus-A")
     assert session.coverage_summary(required).state == "established"
-    session.prepared.artifacts[0].content = canonical_bytes({"abi": "semantic-query-coverage-99"})
+    bind_recipe(session, {"abi": "semantic-query-coverage-99"})
     with pytest.raises(SemanticRefusal, match="unsupported archived"):
         session.required_coverage(1, FAMILY)
 

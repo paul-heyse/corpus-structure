@@ -21,6 +21,7 @@ from corpus_structure.semantic.source_contexts import (
     ContextRetrieval,
     NativeSourceContext,
     NativeSourcePin,
+    NativeSpanEvidence,
     RelatedNativeSource,
     RetrievalOutcome,
     SourceInterval,
@@ -118,7 +119,12 @@ def test_neighbor_and_declaration_have_distinct_sources_and_repeated_strings_do_
         (2, 0, 1, "X"),
         (3, 0, 1, "X"),
     ]
-    assert [json.loads(row.locator[4:])["source_view_id"] for row in anchors] == [1, 2, 3]
+    source_ids = []
+    for row in anchors:
+        assert isinstance(row, NativeSpanEvidence)
+        source_ids.append(json.loads(row.locator[4:])["source_view_id"])
+    assert source_ids == [1, 2, 3]
+    assert isinstance(anchors[1], NativeSpanEvidence)
     assert (
         anchors[1].item_locator == 'pdf:{"pointer":"#/texts/2","product_digest":"' + "a" * 64 + '"}'
     )
@@ -172,6 +178,8 @@ def test_repeated_header_inclusions_point_to_one_native_cell_occurrence():
     assert result.text == "Value:4\nValue:5"
     (first,) = result.map_span(0, 5)
     (second,) = result.map_span(8, 13)
+    assert isinstance(first, NativeSpanEvidence)
+    assert isinstance(second, NativeSpanEvidence)
     assert (first.start, first.end, first.cell_index, first.source_field) == (0, 5, 0, "cell_text")
     assert first.locator == second.locator
     assert [
@@ -204,6 +212,7 @@ def test_original_projection_separator_is_synthetic_and_span_crossing_it_refuses
     with pytest.raises(ContextRefused, match="synthetic"):
         result.map_span(0, 3, allow_multiple=True)
     (second,) = result.map_span(2, 3)
+    assert isinstance(second, NativeSpanEvidence)
     assert (second.start, second.end, second.quote) == (2, 3, "X")
     assert json.loads(second.item_locator[4:])["pointer"] == "#/texts/2"
 
@@ -433,6 +442,7 @@ def test_source_frame_validation_and_qualified_sentence_addresses_are_retained()
     sentence = ProposalSentence("s1", native_address(primary, start=0, end=1), 0, 1)
     result = context(replace(primary, sentences=(sentence,)), (SourceSlice(1, 0, 1),))
     (anchor,) = result.map_span(0, 1)
+    assert isinstance(anchor, NativeSpanEvidence)
     assert anchor.locator == sentence.locator
     with pytest.raises(ValueError, match="qualified projection"):
         replace(primary, sentences=(replace(sentence, locator="wrong"),))

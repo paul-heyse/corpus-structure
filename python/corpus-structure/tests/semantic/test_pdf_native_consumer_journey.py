@@ -103,7 +103,9 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
     bundle, dependencies = analytical_inputs(bundle, dependencies)
     from .method_dimensions_support import fixture_execution_inputs
 
-    dependencies = composed_dependencies(dependencies, fixture_execution_inputs('pdf.consumer-fixture'))
+    dependencies = composed_dependencies(
+        dependencies, fixture_execution_inputs("pdf.consumer-fixture")
+    )
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     with admin.begin() as conn:
@@ -195,7 +197,8 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             "default",
             {},
             "native-consumer-fixture",
-        prepared=prepared)
+            prepared=prepared,
+        )
         path = tmp_path / "source.pdf"
         path.write_bytes(original)
         document = register_document(

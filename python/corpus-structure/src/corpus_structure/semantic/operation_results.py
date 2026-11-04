@@ -135,8 +135,13 @@ def validate_method_dimension(prepared, method: str, dimension: str, value: str 
         return
     if value is None:
         raise ValueError(f"{method}/{dimension}: a declared value is required")
-    field = {"family": "family", "tier": "tier", "confidence_source": "confidence_source",
-             "result.outcome": "outcome", "observation.family": "observations.family",
-             "observation.outcome": "observations.outcome",
-             "observation.confidence_source": "observations.confidence_source"}[dimension]
+    field = {
+        "family": "family",
+        "tier": "tier",
+        "confidence_source": "confidence_source",
+        "result.outcome": "outcome",
+        "observation.family": "observations.family",
+        "observation.outcome": "observations.outcome",
+        "observation.confidence_source": "observations.confidence_source",
+    }[dimension]
     validate_result_dimension(prepared, "configure_method", key, value, field=field)

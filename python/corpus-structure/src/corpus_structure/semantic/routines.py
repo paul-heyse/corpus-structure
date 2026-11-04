@@ -22,13 +22,18 @@ def stage_verification_sql(name: str) -> str:
         "'" + column + ":" + kind + "'" for column, kind in zip(columns, types, strict=True)
     )
     return (
-        "IF NOT EXISTS(SELECT FROM pg_catalog.pg_class c WHERE "
-        f"c.relnamespace=pg_my_temp_schema() AND c.relname='sp_{name}' "
-        "AND c.relkind='r' AND c.relpersistence='t' "
-        "AND c.relowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=current_user) "
-        "AND (SELECT array_agg(a.attname||':'||format_type(a.atttypid,a.atttypmod) "
-        "ORDER BY a.attnum) FROM pg_catalog.pg_attribute a "
-        "WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)="
+        "IF NOT EXISTS(SELECT FROM pg_catalog.pg_class stage_catalog_relation WHERE "
+        "stage_catalog_relation.relnamespace=pg_my_temp_schema() "
+        f"AND stage_catalog_relation.relname='sp_{name}' "
+        "AND stage_catalog_relation.relkind='r' AND stage_catalog_relation.relpersistence='t' "
+        "AND stage_catalog_relation.relowner=(SELECT oid FROM pg_catalog.pg_roles "
+        "WHERE rolname=current_user) "
+        "AND (SELECT array_agg(stage_catalog_attribute.attname||':'||"
+        "format_type(stage_catalog_attribute.atttypid,stage_catalog_attribute.atttypmod) "
+        "ORDER BY stage_catalog_attribute.attnum) "
+        "FROM pg_catalog.pg_attribute stage_catalog_attribute "
+        "WHERE stage_catalog_attribute.attrelid=stage_catalog_relation.oid "
+        "AND stage_catalog_attribute.attnum>0 AND NOT stage_catalog_attribute.attisdropped)="
         f"ARRAY[{signatures}]) THEN "
         f"RAISE EXCEPTION 'untrusted staging relation sp_{name}'; END IF;"
     )

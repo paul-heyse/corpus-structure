@@ -49,7 +49,8 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
             "default",
             {},
             "config:one",
-        prepared=p)
+            prepared=p,
+        )
         task = create_task(
             c, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -157,7 +158,8 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
             "default",
             {},
             "config:one",
-        prepared=p)
+            prepared=p,
+        )
         task = create_task(
             c, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -727,7 +729,8 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
             "default",
             {},
             "config",
-        prepared=p)
+            prepared=p,
+        )
         task = create_task(
             c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -917,7 +920,8 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
             "default",
             {},
             "config",
-        prepared=p)
+            prepared=p,
+        )
         task = create_task(
             c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
         )
@@ -968,7 +972,8 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
             "default",
             {},
             "cfg",
-        prepared=p)
+            prepared=p,
+        )
         task = create_task(
             c, run_id=run, config_id=cfg, stage="read", unit_type="run", input_hash="input"
         )

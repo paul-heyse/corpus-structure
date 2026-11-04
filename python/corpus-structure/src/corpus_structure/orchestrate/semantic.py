@@ -134,7 +134,9 @@ def run_source_methods(
         validate_method_dimension(prepared, method_name, "family", str(descriptor.family))
         validate_method_dimension(prepared, method_name, "tier", str(descriptor.tier))
         validate_method_dimension(
-            prepared, method_name, "confidence_source",
+            prepared,
+            method_name,
+            "confidence_source",
             str(descriptor.confidence_source) if descriptor.confidence_source is not None else None,
         )
     if "enrich.pdf_math" in configs:
@@ -551,7 +553,12 @@ def run_source_methods(
 
                             with maintained_claims(engine, claimed, holder) as check_active:
                                 _retain_source_originals(
-                                    engine, claimed, method, config.config, holder, prepared,
+                                    engine,
+                                    claimed,
+                                    method,
+                                    config.config,
+                                    holder,
+                                    prepared,
                                     check_active,
                                 )
                                 with engine.connect() as conn:
@@ -562,7 +569,9 @@ def run_source_methods(
                                                 task.unit_id
                                                 if task.unit_type == "document"
                                                 else conn.execute(
-                                                    select(table("kb.source_view").c.document_id).where(
+                                                    select(
+                                                        table("kb.source_view").c.document_id
+                                                    ).where(
                                                         table("kb.source_view").c.id == task.unit_id
                                                     )
                                                 ).scalar_one()
@@ -695,9 +704,13 @@ def run_source_methods(
 
                                     with read_snapshot(engine) as preparation_conn:
                                         intent = prepare_unit_completion(
-                                            preparation_conn, task_id=task.task_id,
-                                            attempt=task.attempt, holder=holder,
-                                            prepared=prepared, result=result, method=method,
+                                            preparation_conn,
+                                            task_id=task.task_id,
+                                            attempt=task.attempt,
+                                            holder=holder,
+                                            prepared=prepared,
+                                            result=result,
+                                            method=method,
                                             configuration_hash=config.config_hash,
                                             source=result.ref.unit_key or "run",
                                             records=result.records,
@@ -771,8 +784,12 @@ def _retain_source_originals(engine, claimed, method, config, holder, prepared, 
         active()
         with engine.begin() as conn:
             store_pdf_original(
-                conn, task_id=task.task_id, attempt=task.attempt, holder=holder,
-                original=original, recipe_bytes=recipe,
+                conn,
+                task_id=task.task_id,
+                attempt=task.attempt,
+                holder=holder,
+                original=original,
+                recipe_bytes=recipe,
             )
 
 
@@ -816,6 +833,8 @@ def _packet_for_unit(
     ref: Any,
     configuration: Mapping[str, Any],
     preparation: dict | None = None,
+    *,
+    read_budget=None,
 ):
     """Shared queue/serve preparation including recorded M13 standing context."""
     from corpus_structure.orchestrate.semantic_references import document_references
@@ -825,8 +844,10 @@ def _packet_for_unit(
     lock_input_snapshot(conn, run_id)
     preparation = {} if preparation is None else preparation
     if "view" not in preparation:
-        preparation["view"] = run_view(conn, run_id, prepared)
+        preparation["view"] = run_view(conn, run_id, prepared, read_budget=read_budget)
     view = preparation["view"]
+    if view.reader.read_budget is not read_budget:
+        raise OperationConflict("packet preparation uses a different source read budget")
     snapshot = view.options.get("agent_configs")
     if not isinstance(snapshot, dict) or not any(
         canonical_bytes(value) == canonical_bytes(dict(configuration))
@@ -841,21 +862,36 @@ def _packet_for_unit(
         raise OperationConflict("agent proposals require a selected PDF SourceView")
     from corpus_structure.methods.math.native import native_proposal_packet
 
-    known = document_references(conn, view, unit.document_id, limit=MAX_KNOWN)
-    return native_proposal_packet(
+    known = document_references(
+        conn, view, unit.document_id, limit=MAX_KNOWN, read_budget=read_budget
+    )
+    packet = native_proposal_packet(
         view.reader, unit.source_view_id, prepared, configuration, known=known
     )
+    if read_budget is not None:
+        from corpus_structure.semantic.query import ReadLimit
+
+        if sum(len(part.text.encode("utf-8")) for part in packet.parts()) > read_budget.max_bytes:
+            raise ReadLimit(
+                "complete interactive packet exceeds byte budget", reason="oversized_item"
+            )
+    return packet
 
 
 def agent_packet(
-    conn: Any, run_id: int, task_id: int, prepared: Any, *, preparation: dict | None = None
+    conn: Any,
+    run_id: int,
+    task_id: int,
+    prepared: Any,
+    *,
+    preparation: dict | None = None,
+    read_budget=None,
 ):
     """Rebuild exactly the packet hashed by queue_agent; no active release lookup."""
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     row = (
         conn.execute(
-            select(t, c.c.params, m.c.name.label("method"),
-                   m.c.version.label("method_version"))
+            select(t, c.c.params, m.c.name.label("method"), m.c.version.label("method_version"))
             .join(c, t.c.method_config_id == c.c.id)
             .join(m, m.c.id == c.c.method_id)
             .where(t.c.id == task_id, t.c.run_id == run_id)
@@ -866,12 +902,15 @@ def agent_packet(
     ref = UnitRef(TaskUnitType(row["unit_type"]), row["unit_id"], row["unit_key"])
     from corpus_structure.methods.llm.producer import producer_binding
 
-    producer_binding(row["method"], row["params"], unit=ref.unit_type,
-                     method_version=row["method_version"])
+    producer_binding(
+        row["method"], row["params"], unit=ref.unit_type, method_version=row["method_version"]
+    )
     from corpus_structure.semantic.proposals import ProposalRefused
 
     try:
-        packet = _packet_for_unit(conn, run_id, prepared, ref, row["params"], preparation)
+        packet = _packet_for_unit(
+            conn, run_id, prepared, ref, row["params"], preparation, read_budget=read_budget
+        )
     except OperationConflict as exc:
         raise ProposalRefused(str(exc)) from exc
     if row["packet_hash"] != packet.hash:
@@ -907,8 +946,13 @@ def queue_agent(
     for ref in units:
         producer_binding(method_name, configuration, unit=ref.unit_type)
     method = OperationDescriptor(
-        producer.method, producer.version, "agent", producer.execution_kind,
-        TaskUnitType(producer.unit), AgentOpusConfig, "agent",
+        producer.method,
+        producer.version,
+        "agent",
+        producer.execution_kind,
+        TaskUnitType(producer.unit),
+        AgentOpusConfig,
+        "agent",
     )
     config_hash = (
         "configuration:"
@@ -974,8 +1018,11 @@ def queue_agent(
             packet_hash=None if packet is None else packet.hash,
             agent=True,
             fresh=method_name in fresh_names,
-            trigger={**dict(trigger or {}), "configuration_name": configuration_name,
-                     "producer_binding": producer.values()},
+            trigger={
+                **dict(trigger or {}),
+                "configuration_name": configuration_name,
+                "producer_binding": producer.values(),
+            },
             skip_reason=skip_reason,
         )
         tasks.append(task_id)
@@ -1031,10 +1078,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     unit_views = {}
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
-        if (
-            method.tier != MethodTier.AGENT
-            or entry.unit_type != method.unit_type
-        ):
+        if method.tier != MethodTier.AGENT or entry.unit_type != method.unit_type:
             raise OperationConflict(
                 "semantic propose requires a supported agent method with matching source unit type"
             )
