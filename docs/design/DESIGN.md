@@ -272,10 +272,10 @@ field assertions from effective family roles and applies a whole-record admissio
 common consolidation. Native direct record/field/set support and exact public overlay retain
 sealed candidate custody and private-product fences. Release-defined finite fitted instances
 bind immutable run inputs and evaluator-authorized calibration, without reference rebinding.
-Annotation-only operation determinants refine reuse consistently while other methods retain the
-full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
+Annotation and raw-extraction determinants refine reuse consistently; retained CPU products
+feed separately configured reading resolution. Other methods retain the full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
 
-> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** Declared source-product ancestry
 retains complete report schemas while excluding graph applicability/identity lowering. Native graph
@@ -452,10 +452,10 @@ field assertions from effective family roles and applies a whole-record admissio
 common consolidation. Native direct record/field/set support and exact public overlay retain
 sealed candidate custody and private-product fences. Release-defined finite fitted instances
 bind immutable run inputs and evaluator-authorized calibration, without reference rebinding.
-Annotation-only operation determinants refine reuse consistently while other methods retain the
-full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
+Annotation and raw-extraction determinants refine reuse consistently; retained CPU products
+feed separately configured reading resolution. Other methods retain the full-binding default. D1/D5/D6/D7 own the detailed target and M1 owns implementation evidence.
 
-> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 source evidence preserves
 per-anchor selected-view or captured-recognition attribution, distinct text/provider precision and

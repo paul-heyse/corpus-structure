@@ -164,6 +164,14 @@ def run(
             help="M1 named policy: default, described or readings (experimental, unqualified)."
         ),
     ] = "default",
+    record_policy: Annotated[
+        Path | None,
+        typer.Option(
+            help="Finite fitted policy JSON for the M1 readings configuration.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = None,
     integrated_product_task: Annotated[
         int | None, typer.Option(help="Exact retained integrated producing task.")
     ] = None,
@@ -246,6 +254,9 @@ def run(
             agent_reuse=str(agent_reuse or AgentReuse.FULL),
             extraction_policy=extraction_policy,
             m1_configuration=m1_configuration,
+            record_policy=__import__("json").loads(record_policy.read_text())
+            if record_policy
+            else None,
             integrated_product=integrated_product,
             **{
                 k: v

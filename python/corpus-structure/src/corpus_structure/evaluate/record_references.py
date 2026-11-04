@@ -43,6 +43,10 @@ def reference_inputs(bundle: SourceBundle, *, model_content: bytes | None = None
     Call after observation_inputs; no reference answers are read or packaged. The abstract
     source-product ancestor fences these types from knowledge graph realization.
     """
+    if not any(source.name == "record_policy" for source in bundle.sources):
+        from corpus_structure.semantic.record_policy_products import record_policy_inputs
+
+        bundle = record_policy_inputs(bundle)
     content = (
         (Path(__file__).resolve().parents[1] / "model/semantic/record-references.yaml").read_bytes()
         if model_content is None
@@ -360,21 +364,24 @@ def prediction_records(
     identities = sorted(
         {(record_id, interpretation_id) for _, record_id, interpretation_id in memberships}
     )
-    records = []
+    records: list[dict[str, Any]] = []
     for identity in identities:
         record = reconstruct_record(index, *identity)
         admissions = index.rows_for(*identity, "record_admission")
         if len(admissions) != 1 or admissions[0]["decision"] not in {
-            "candidate", "accepted", "unresolved", "rejected"
+            "candidate",
+            "accepted",
+            "unresolved",
+            "rejected",
         }:
             raise ReferenceError("completed record has no unique native admission standing")
         # SourceRecord remains sealed and candidate. Only the detached evaluation view
         # adopts the native overlay; standing does not participate in interpretation ID.
         records.append(dict(record, standing=admissions[0]["decision"]))
-    records = tuple(records)
-    if any(row["pin"]["source"] != source for row in records):
+    record_rows = tuple(records)
+    if any(row["pin"]["source"] != source for row in record_rows):
         raise ReferenceError("completed public record membership crosses source units")
-    return records, tuple(selected)
+    return record_rows, tuple(selected)
 
 
 def report_payload(value: Any) -> Any:
@@ -391,7 +398,11 @@ def report_payload(value: Any) -> Any:
 
 
 def reference_evaluate(
-    conn: Connection, *, project_id: str, run_id: int, set_id: int,
+    conn: Connection,
+    *,
+    project_id: str,
+    run_id: int,
+    set_id: int,
     policy_fit: Mapping[str, Any] | None = None,
 ) -> ReferenceReport:
     completed = _completed(conn, run_id, project_id)
@@ -437,9 +448,11 @@ def reference_evaluate(
     # fallback to an upstream raw report.
     task_rows = conn.execute(
         select(task.c.id, task.c.unit_id, method.c.name)
-        .select_from(task.join(cut_task, cut_task.c.task_id == task.c.id)
-                     .join(config, config.c.id == task.c.method_config_id)
-                     .join(method, method.c.id == config.c.method_id))
+        .select_from(
+            task.join(cut_task, cut_task.c.task_id == task.c.id)
+            .join(config, config.c.id == task.c.method_config_id)
+            .join(method, method.c.id == config.c.method_id)
+        )
         .where(cut_task.c.cut_id == projection.cut_id, task.c.unit_type == "source_view")
         .order_by(task.c.id)
     )

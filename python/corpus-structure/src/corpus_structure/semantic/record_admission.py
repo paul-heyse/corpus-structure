@@ -141,7 +141,8 @@ def evaluate_record_admissions(prepared, reports, bindings):
                 declared_score = event.get("final_event_score")
                 score_compatible = (
                     expected_score is not None
-                    and type(declared_score) in (float, int)
+                    and isinstance(declared_score, float | int)
+                    and not isinstance(declared_score, bool)
                     and math.isfinite(declared_score)
                     and math.isclose(declared_score, expected_score, rel_tol=1e-12, abs_tol=1e-12)
                 )

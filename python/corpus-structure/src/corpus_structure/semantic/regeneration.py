@@ -82,6 +82,8 @@ def acquire_pack(pack: Path) -> PackInputs:
         "observation-root",
         "record_references",
         "record-reference-root",
+        "record_policy",
+        "record-policy-root",
         "analytics",
         "analytical-root",
     }:
@@ -149,6 +151,7 @@ def acquire_pack(pack: Path) -> PackInputs:
             "agent.yaml",
             "observations.yaml",
             "record-references.yaml",
+            "record-policy.yaml",
             "analytics.yaml",
             "metrics.yaml",
             "analytical-profile.json",
@@ -300,7 +303,19 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
     )
     from corpus_structure.evaluate.record_references import reference_inputs
 
+    from .record_assertions import source_reading_inputs
+    from .record_policy_products import record_policy_inputs
+
+    bundle = record_policy_inputs(bundle, model_content=content["record-policy.yaml"])
     bundle = reference_inputs(bundle, model_content=content["record-references.yaml"])
+    from .prepare import _view
+
+    view = _view(bundle, PreparationProfile(version="semantic-2"))
+    if any(
+        name != "SemanticRecordFields" and "SemanticRecordFields" in view.class_ancestors(name)
+        for name in view.all_classes()
+    ):
+        bundle = source_reading_inputs(bundle)
     bundle, deps = prepare_source_inputs(
         bundle,
         deps,

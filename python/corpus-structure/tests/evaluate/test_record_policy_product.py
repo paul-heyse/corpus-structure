@@ -1,4 +1,5 @@
 """Evaluator candidate correctness preserves private standing and exact full readings."""
+
 from copy import deepcopy
 
 import pytest
@@ -26,8 +27,15 @@ def test_complete_wrong_reading_and_nonpresent_meaning_are_negative_labels():
     candidate["standing"] = "candidate"
     note = role(candidate, "note")
     note.clear()
-    note.update(role="note", kind="literal", state="unstated", meaning_changing=True,
-                evidence_status="unavailable", evidence_sets=(), reason="not observed")
+    note.update(
+        role="note",
+        kind="literal",
+        state="unstated",
+        meaning_changing=True,
+        evidence_status="unavailable",
+        evidence_sets=(),
+        reason="not observed",
+    )
     finish(candidate)
     assert not whole_reading_correct(
         prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts

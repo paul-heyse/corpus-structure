@@ -1,4 +1,5 @@
 """Native full-reading label controls; these do not establish fitted model quality."""
+
 from copy import deepcopy
 
 from semantic.conftest import semantic_db_engine as semantic_db_engine
@@ -23,13 +24,20 @@ def test_native_whole_reading_labels_keep_meaning_and_source_occurrence(
     evidence = deepcopy(record)
     evidence["fields"][0]["evidence_sets"] = ["another-set"]
     with semantic_db_engine.connect() as conn:
+
         def correct(prediction):
-            return conn.execute(text(
-                "SELECT eval.record_policy_full_correct("
-                ":release,CAST(:candidate AS jsonb),CAST(:refs AS jsonb))"
-            ), dict(release=private_source.prepared.release_id,
+            return conn.execute(
+                text(
+                    "SELECT eval.record_policy_full_correct("
+                    ":release,CAST(:candidate AS jsonb),CAST(:refs AS jsonb))"
+                ),
+                dict(
+                    release=private_source.prepared.release_id,
                     candidate=canonical_bytes(prediction).decode(),
-                    refs=canonical_bytes([record]).decode())).scalar_one()
+                    refs=canonical_bytes([record]).decode(),
+                ),
+            ).scalar_one()
+
         assert correct(record) is True
         assert correct(explanatory) is True
         assert correct(different) is False

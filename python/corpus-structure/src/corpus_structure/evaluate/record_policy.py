@@ -73,14 +73,18 @@ def whole_reading_correct(
     does not enter a producer result, public projection or admission decision.
     """
     # Validate source/frame/policy even when the candidate cannot be accepted.
-    align_records(RecordSide(frame, reference_records), RecordSide(frame, (candidate,)),
-                  prepared, coordinate_texts=coordinate_texts)
+    align_records(
+        RecordSide(frame, reference_records),
+        RecordSide(frame, (candidate,)),
+        prepared,
+        coordinate_texts=coordinate_texts,
+    )
     comparison = dict(candidate, standing="accepted")
     try:
         aligned = align_records(
-        RecordSide(frame, reference_records),
-        RecordSide(frame, (comparison,)),
-        prepared,
+            RecordSide(frame, reference_records),
+            RecordSide(frame, (comparison,)),
+            prepared,
             coordinate_texts=coordinate_texts,
         )
     except ValueError:
@@ -123,7 +127,11 @@ def fit_record_policy(
     raw = _call(
         conn,
         "SELECT eval.record_policy_prediction_frame(:p,:r,:s,:f,:k)",
-        p=project_id, r=run_id, s=set_id, f=family, k=kind,
+        p=project_id,
+        r=run_id,
+        s=set_id,
+        f=family,
+        k=kind,
     ).scalar_one()
     prepared = open_release(conn, raw["release_id"])
     require_bound_operation(prepared, "reference_record_calibrate")
@@ -131,9 +139,11 @@ def fit_record_policy(
     feature_evaluation_digest = None
     if feature_evaluation_id is not None:
         evaluations = table("eval.reference_evaluation")
-        previous = conn.execute(
-            select(evaluations).where(evaluations.c.id == feature_evaluation_id)
-        ).mappings().one()
+        previous = (
+            conn.execute(select(evaluations).where(evaluations.c.id == feature_evaluation_id))
+            .mappings()
+            .one()
+        )
         product = previous["result"].get("policy_fit", {})
         if product.get("kind") != "feature_fit":
             raise ReferenceError("calibration requires an immutable protected feature-fit product")
@@ -158,26 +168,50 @@ def fit_record_policy(
 
     for unit in raw["units"]:
         frame = decode_frame(unit["source_frame"])
-        coverage.append({
-            "unit_id": unit["unit_id"], "source_view_id": unit["source_view_id"],
-            "reports": [
-                {"selected_task_id": report["selected_task_id"], "outcome": report["outcome"],
-                 "records": len(report["records"])}
-                for report in unit["reports"]
-            ],
-        })
-        reference = unit["reference_records"]
+        coverage.append(
+            {
+                "unit_id": unit["unit_id"],
+                "source_view_id": unit["source_view_id"],
+                "reports": [
+                    {
+                        "selected_task_id": report["selected_task_id"],
+                        "outcome": report["outcome"],
+                        "records": len(report["records"]),
+                    }
+                    for report in unit["reports"]
+                ],
+            }
+        )
+        reference = tuple(
+            prepared.validate_json("SourceRecord", canonical_bytes(record)).model_dump(
+                mode="python", exclude_unset=True
+            )
+            for record in unit["reference_records"]
+        )
+        reports = tuple(
+            (
+                report,
+                tuple(
+                    prepared.validate_json("SourceRecord", canonical_bytes(record)).model_dump(
+                        mode="python", exclude_unset=True
+                    )
+                    for record in report["records"]
+                ),
+            )
+            for report in unit["reports"]
+        )
         bound_unit = _unit(conn, unit["unit_id"])
-        candidates = tuple(record for report in unit["reports"] for record in report["records"])
+        candidates = tuple(record for _, records in reports for record in records)
         coordinates = _coordinates(conn, prepared, bound_unit, (*reference, *candidates))
-        for report in unit["reports"]:
+        for report, records in reports:
             detail = source_python(report["parse_detail"]) if report["parse_detail"] else {}
-            for record in report["records"]:
+            for record in records:
                 correct = whole_reading_correct(
                     prepared, record, reference, frame, coordinate_texts=coordinates
                 )
                 label = WholeReadingLabel(
-                    event_id=record["interpretation_id"], origin_group=unit["origin_group"],
+                    event_id=record["interpretation_id"],
+                    origin_group=unit["origin_group"],
                     correct=correct,
                 )
                 diagnostics = _diagnostics(record, detail)
@@ -187,7 +221,8 @@ def fit_record_policy(
                 score = 0.0
                 if feature is not None:
                     events = [
-                        event for event in detail.get("record_policy_events", ())
+                        event
+                        for event in detail.get("record_policy_events", ())
                         if (event.get("record_id"), event.get("interpretation_id"))
                         == (record["record_id"], record["interpretation_id"])
                         and event.get("feature_instance_digest") == feature.digest
@@ -208,37 +243,56 @@ def fit_record_policy(
                     if event["event_procedure"] != EVENT_PROCEDURE:
                         raise ReferenceError("unsupported final-event interpretation procedure")
                     score = event["final_event_score"]
-                    expected_score = score_record(feature, vector, subset=subset).compatibility_potential
+                    expected_score = score_record(
+                        feature, vector, subset=subset
+                    ).compatibility_potential
                     if not math.isclose(score, expected_score, rel_tol=1e-12, abs_tol=1e-12):
-                        raise ReferenceError("sealed final event differs from released feature scorer")
-                    final_observations.append(FinalEventObservation(
-                        feature_instance_digest=feature.digest, event_procedure=EVENT_PROCEDURE,
-                        final_event_score=score, label=label,
-                    ))
+                        raise ReferenceError(
+                            "sealed final event differs from released feature scorer"
+                        )
+                    final_observations.append(
+                        FinalEventObservation(
+                            feature_instance_digest=feature.digest,
+                            event_procedure=EVENT_PROCEDURE,
+                            final_event_score=score,
+                            label=label,
+                        )
+                    )
                 else:
                     observations.append(FeatureFitObservation(features=vector, label=label))
-                members.append(dict(
-                    record_id=record["record_id"], interpretation_id=record["interpretation_id"],
-                    selected_task_id=report["selected_task_id"], source=report["source"],
-                    feature_input_digest=vector.input_digest, score=score, correct=correct,
-                ))
+                members.append(
+                    dict(
+                        record_id=record["record_id"],
+                        interpretation_id=record["interpretation_id"],
+                        selected_task_id=report["selected_task_id"],
+                        source=report["source"],
+                        feature_input_digest=vector.input_digest,
+                        score=score,
+                        correct=correct,
+                    )
+                )
     if not members:
         raise ReferenceError(
             "policy fit has no candidate events; no-output coverage is retained separately"
         )
     frame = FittingFrame(
-        frame_digest=_digest(raw), reference_digest=raw["reference_digest"],
+        frame_digest=_digest(raw),
+        reference_digest=raw["reference_digest"],
         coverage_digest=_digest(coverage),
         event_ids=tuple(member["interpretation_id"] for member in members),
-        provenance=f"protected-evaluator:set:{set_id}:run:{run_id}:{kind}", assumptions=assumptions,
+        provenance=f"protected-evaluator:set:{set_id}:run:{run_id}:{kind}",
+        assumptions=assumptions,
     )
     instance = None
     if feature is None:
         fitted = fit_whole_reading_features(
-            observations, algorithm=algorithm,
+            observations,
+            algorithm=algorithm,
             applicability=PolicyApplicability(
-                release_id=prepared.release_id, family=family, subset=subset,
-                assumptions=assumptions
+                release_id=prepared.release_id,
+                family=family,
+                subset=subset,
+                assumptions=assumptions,
             ),
             frame=frame,
         )
@@ -254,23 +308,34 @@ def fit_record_policy(
             return PolicyFitOutcome(fitted_calibration.diagnostics.model_dump(mode="json"))
         diagnostics = fitted_calibration.diagnostics
         instance = RecordAcceptanceInstance(
-            feature=feature, calibration=fitted_calibration.calibration, threshold=threshold,
-            threshold_procedure=threshold_procedure, conditioning_assumptions=assumptions,
+            feature=feature,
+            calibration=fitted_calibration.calibration,
+            threshold=threshold,
+            threshold_procedure=threshold_procedure,
+            conditioning_assumptions=assumptions,
         )
     feature_payload = feature.model_dump(mode="json")
     product: dict[str, Any] = dict(
-        protocol="source-record-policy-fit-1", kind=kind, family=family, subset=subset,
-        feature_instance=feature_payload, feature_instance_digest=feature.digest,
+        protocol="source-record-policy-fit-1",
+        kind=kind,
+        family=family,
+        subset=subset,
+        feature_instance=feature_payload,
+        feature_instance_digest=feature.digest,
         feature_canonical_json=canonical_bytes(feature_payload).decode(),
-        event_procedure=EVENT_PROCEDURE, event_frame_digest=_digest(members),
+        event_procedure=EVENT_PROCEDURE,
+        event_frame_digest=_digest(members),
         event_frame_canonical_json=canonical_bytes(members).decode(),
-        event_members=members, coverage_digest=frame.coverage_digest, assumptions=assumptions,
+        event_members=members,
+        coverage_digest=frame.coverage_digest,
+        assumptions=assumptions,
     )
     if instance is not None:
         if feature_evaluation_id is None or feature_evaluation_digest is None:
             raise ReferenceError("calibration export has no protected feature-fit authority")
         product.update(
-            acceptance_instance=instance.model_dump(mode="json"), instance_digest=instance.digest,
+            acceptance_instance=instance.model_dump(mode="json"),
+            instance_digest=instance.digest,
             instance_canonical_json=canonical_bytes(instance.model_dump(mode="json")).decode(),
             feature_evaluation_id=feature_evaluation_id,
             feature_evaluation_digest=feature_evaluation_digest,

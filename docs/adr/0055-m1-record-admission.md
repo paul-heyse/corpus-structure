@@ -1,10 +1,10 @@
 ---
 id: ADR-0055
 title: Admit evaluated source readings through immutable run policies and common publication
-status: accepted
+status: superseded
 date: 2026-11-04
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0057
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A source-reading family needs mathematical identity projection, or fitted policy instances cannot be admitted independently of semantic release identity.

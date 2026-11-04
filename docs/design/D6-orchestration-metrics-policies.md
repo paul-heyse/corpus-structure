@@ -11,7 +11,7 @@ schema changes to reuse unchanged preparation; all other methods retain the full
 Actual upstream product edges and body hashes govern consumption and invalidation. No independent
 annotation store, mutable Doc cache or replacement task engine is introduced.
 
-> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
 
 
 ## Audit-closure target

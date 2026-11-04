@@ -225,3 +225,42 @@ def registry(pack: Path) -> MethodRegistry:
     return MethodRegistry(
         (RetainedIntegratedPdf(), M1Annotations(), M1Candidates(), M1Readings()), load_methods(path)
     )
+
+
+def bind_record_policy(registry, prepared, policy):
+    """Bind finite parameters as run inputs without modifying release declarations."""
+    from corpus_structure.semantic.record_policy import FeatureInstance
+    from corpus_structure.semantic.record_policy_products import validate_record_policy_binding
+
+    if not isinstance(policy, dict) or set(policy) - {"feature_instances", "record_acceptance"}:
+        raise ValueError("record policy requires only feature_instances and record_acceptance")
+    features = []
+    for raw in policy.get("feature_instances", ()):
+        prepared.validate_json("RecordFeatureInstance", canonical_bytes(raw))
+        feature = FeatureInstance.model_validate_json(canonical_bytes(raw))
+        if feature.applicability.release_id != prepared.release_id:
+            raise ValueError("feature instance belongs to another semantic release")
+        features.append(feature)
+    for binding in policy.get("record_acceptance", ()):
+        acceptance = validate_record_policy_binding(prepared, binding)
+        if acceptance.calibration is None:
+            raise ValueError("acceptance binding requires held-out calibration")
+        if not any(feature.digest == acceptance.feature.digest for feature in features):
+            features.append(acceptance.feature)
+    configs = dict(registry.file.configs)
+    named = dict(configs["resolve.m1_readings"])
+    subsets = {feature.applicability.subset for feature in features}
+    if len(subsets) > 1:
+        raise ValueError("one reading resolution requires one coherent policy subset")
+    named["default"] = dict(
+        named["default"],
+        feature_instances=[feature.model_dump(mode="json") for feature in features],
+        **({"subset": next(iter(subsets))} if subsets else {}),
+    )
+    configs["resolve.m1_readings"] = named
+    return MethodRegistry(
+        registry.methods(),
+        replace(registry.file, configs=configs),
+        registry.sources,
+        prepared=registry.prepared,
+    )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
@@ -59,6 +59,7 @@ def run_source_methods(
     kind: str = "full",
     extraction_policy: str = "phase0",
     extraction_policy_config: str | None = None,
+    record_acceptance: Sequence[Mapping[str, Any]] = (),
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
@@ -233,6 +234,8 @@ def run_source_methods(
             native_libraries = dict(pdf_package_versions())
         if set(configs) & {"extract.math", "normalize.formula"}:
             library_names.add("lark")
+        if "extract.m1_annotations" in configs:
+            library_names.update(("spacy", "en-core-web-sm"))
         if "resolve.symbol_scope" in configs:
             library_names.update(("spacy", "en-core-web-sm"))
         if "extract.m1_candidates" in configs:
@@ -292,6 +295,7 @@ def run_source_methods(
             "corpus": dict(corpus_record) if corpus_record is not None else None,
             "scope": dict(scope_record) if scope_record is not None else None,
             "policy": policy_source,
+            **({"record_acceptance": list(record_acceptance)} if record_acceptance else {}),
         }
         binding = OperationBinding(
             binding.release_id,
@@ -335,13 +339,24 @@ def run_source_methods(
                     def register_ref(conn, view, method, config, cid, ref, stage=stage):
                         unit = _unit(conn, view, ref)
                         digest = method.input_digest(unit, config.config)
+                        from sqlalchemy import func, literal
+                        from sqlalchemy.dialects.postgresql import JSONB
+
+                        scoped_dependencies = conn.execute(
+                            select(
+                                func.ops.task_dependency_scope(
+                                    literal(json.loads(binding.dependencies), type_=JSONB),
+                                    method.name,
+                                )
+                            )
+                        ).scalar_one()
                         ih = sha256(
                             canonical_bytes(
                                 [
                                     prepared.release_id,
                                     binding.input_realization_id,
                                     binding.input_revision,
-                                    binding.dependency_digest,
+                                    sha256(canonical_bytes(scoped_dependencies)).hexdigest(),
                                     method.name,
                                     method.version,
                                     config.config_hash,

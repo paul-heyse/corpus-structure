@@ -1,0 +1,404 @@
+id: https://corpus-structure.dev/semantic/record-policy
+name: semantic_record_policy
+prefixes:
+  csrp: https://corpus-structure.dev/semantic/record-policy/
+default_prefix: csrp
+default_range: string
+classes:
+  RecordPolicyProduct:
+    is_a: SourceRecordProduct
+    abstract: true
+  RecordPolicyFeatureDefinition:
+    is_a: RecordPolicyProduct
+    attributes:
+      name:
+        range: RecordPolicyFeatureName
+        required: true
+      group:
+        range: RecordPolicyFeatureGroup
+        required: true
+  RecordPolicyAlgorithm:
+    is_a: RecordPolicyProduct
+    attributes:
+      version:
+        range: string
+        required: true
+      feature_version:
+        range: string
+        required: true
+        equals_string: sealed-record-groups-1
+      features:
+        range: RecordPolicyFeatureDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+      positive_class:
+        range: integer
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+      score_meaning:
+        range: string
+        required: true
+        equals_string: whole_reading_compatibility_potential
+      solver:
+        range: string
+        required: true
+        equals_string: lbfgs
+      l1_ratio:
+        range: float
+        required: true
+        minimum_value: 0
+        maximum_value: 0
+      inverse_regularization:
+        range: float
+        required: true
+        minimum_value: 0
+      tolerance:
+        range: float
+        required: true
+        minimum_value: 0
+      max_iterations:
+        range: integer
+        required: true
+        minimum_value: 1
+      minimum_per_class:
+        range: integer
+        required: true
+        minimum_value: 2
+      minimum_origin_groups:
+        range: integer
+        required: true
+        minimum_value: 1
+      scaling:
+        range: string
+        required: true
+        equals_string: training-population-standard-deviation-1
+      weighting:
+        range: string
+        required: true
+        equals_string: explicit-positive-sample-weight-no-class-weight-1
+  RecordPolicyApplicability:
+    is_a: RecordPolicyProduct
+    attributes:
+      release_id:
+        range: string
+        required: true
+      family:
+        range: RecordPolicyFamily
+        required: true
+      subset:
+        range: string
+        required: true
+      assumptions:
+        range: string
+        required: true
+  RecordPolicyLinearParameters:
+    is_a: RecordPolicyProduct
+    attributes:
+      feature_signature:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      names:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+      coefficients:
+        range: float
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+      center:
+        range: float
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+      scale:
+        range: float
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+      intercept:
+        range: float
+        required: true
+      positive_class:
+        range: integer
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+  RecordPolicyFitDiagnostics:
+    is_a: RecordPolicyProduct
+    attributes:
+      partition:
+        range: RecordPolicyFitPartition
+        required: true
+      frame_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      reference_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      coverage_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      provenance:
+        range: string
+        required: true
+      negative_count:
+        range: integer
+        required: true
+        minimum_value: 0
+      positive_count:
+        range: integer
+        required: true
+        minimum_value: 0
+      declared_origin_group_count:
+        range: integer
+        required: true
+        minimum_value: 0
+      conditioning_assumptions:
+        range: string
+        required: true
+      converged:
+        range: boolean
+        required: true
+      iterations:
+        range: integer
+        required: true
+        minimum_value: 0
+      standing:
+        range: RecordPolicyFitStanding
+        required: true
+      reason:
+        range: string
+        required: true
+      library_version:
+        range: string
+        required: true
+  RecordFeatureInstance:
+    is_a: RecordPolicyProduct
+    attributes:
+      algorithm:
+        range: RecordPolicyAlgorithm
+        required: true
+        inlined: true
+      applicability:
+        range: RecordPolicyApplicability
+        required: true
+        inlined: true
+      parameters:
+        range: RecordPolicyLinearParameters
+        required: true
+        inlined: true
+      fit:
+        range: RecordPolicyFitDiagnostics
+        required: true
+        inlined: true
+  RecordPolicyFinalEventCalibration:
+    is_a: RecordPolicyProduct
+    attributes:
+      method:
+        range: string
+        required: true
+        equals_string: held-out-final-event-sigmoid-1
+      feature_instance_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      event_procedure:
+        range: string
+        required: true
+      slope:
+        range: float
+        required: true
+      intercept:
+        range: float
+        required: true
+      fit:
+        range: RecordPolicyFitDiagnostics
+        required: true
+        inlined: true
+      assumptions:
+        range: string
+        required: true
+      frame_selection:
+        range: string
+        required: true
+        equals_string: complete-predeclared-eligible-scored-events
+      coverage_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+  RecordAcceptanceInstance:
+    is_a: RecordPolicyProduct
+    attributes:
+      feature:
+        range: RecordFeatureInstance
+        required: true
+        inlined: true
+      calibration:
+        range: RecordPolicyFinalEventCalibration
+        inlined: true
+      threshold:
+        range: float
+        required: true
+        minimum_value: 0
+        maximum_value: 1
+      threshold_procedure:
+        range: string
+        required: true
+      conditioning_assumptions:
+        range: string
+        required: true
+  RecordPolicyEventMember:
+    is_a: RecordPolicyProduct
+    attributes:
+      record_id:
+        range: string
+        required: true
+      interpretation_id:
+        range: string
+        required: true
+      selected_task_id:
+        range: integer
+        required: true
+        minimum_value: 1
+      source:
+        range: string
+        required: true
+      feature_input_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      score:
+        range: float
+        required: true
+      correct:
+        range: boolean
+        required: true
+  RecordPolicyCalibrationProduct:
+    is_a: RecordPolicyProduct
+    attributes:
+      protocol:
+        range: string
+        required: true
+        equals_string: source-record-policy-fit-1
+      kind:
+        range: RecordPolicyFitProductKind
+        required: true
+      family:
+        range: RecordPolicyFamily
+        required: true
+      subset:
+        range: string
+        required: true
+      feature_instance:
+        range: RecordFeatureInstance
+        required: true
+        inlined: true
+      acceptance_instance:
+        range: RecordAcceptanceInstance
+        inlined: true
+      feature_instance_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      instance_digest:
+        range: string
+        pattern: ^[a-f0-9]{64}$
+      event_procedure:
+        range: string
+        required: true
+      event_frame_canonical_json:
+        range: string
+        required: true
+      event_frame_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      event_members:
+        range: RecordPolicyEventMember
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+      coverage_digest:
+        range: string
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      assumptions:
+        range: string
+        required: true
+      feature_canonical_json:
+        range: string
+        required: true
+      instance_canonical_json:
+        range: string
+      feature_evaluation_digest:
+        range: string
+        pattern: ^[a-f0-9]{64}$
+      feature_evaluation_id:
+        range: integer
+        minimum_value: 1
+  RecordPolicyBinding:
+    is_a: RecordPolicyProduct
+    attributes:
+      instance:
+        range: RecordAcceptanceInstance
+        inlined: true
+        required: true
+      instance_digest:
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      instance_canonical_json:
+        required: true
+      evaluation_id:
+        range: integer
+        minimum_value: 1
+        required: true
+      evaluation_digest:
+        required: true
+        pattern: ^[a-f0-9]{64}$
+enums:
+  RecordPolicyFeatureGroup:
+    permissible_values:
+      structure: {}
+      evidence: {}
+      semantics: {}
+      transformation: {}
+      diagnostics: {}
+  RecordPolicyFamily:
+    permissible_values:
+      definition: {}
+      assertion: {}
+      measurement: {}
+      table: {}
+      formula_context: {}
+  RecordPolicyFitPartition:
+    permissible_values:
+      feature_fit: {}
+      final_event_calibration: {}
+  RecordPolicyFitStanding:
+    permissible_values:
+      fitted: {}
+      provisional: {}
+  RecordPolicyFitProductKind:
+    permissible_values:
+      feature_fit: {}
+      final_event_calibration: {}
+  RecordPolicyFeatureName:
+    permissible_values:
+      present_fraction: {}
+      located_fraction: {}
+      exact_anchor_fraction: {}
+      unresolved_fraction: {}
+      classified_fraction: {}
+      changed_fraction: {}
+      alternative_count: {}
+      diagnostic_count: {}

@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "24"
+EXECUTION_COMPILER_VERSION = "25"
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -73,11 +73,37 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("records/references.py", "evaluate/record_references.py"),
     ("records/reference-alignment.py", "evaluate/record_alignment.py"),
     ("records/reference-model.yaml", "model/semantic/record-references.yaml"),
+    ("records/policy-model.yaml", "model/semantic/record-policy.yaml"),
+    ("records/policy-products.py", "semantic/record_policy_products.py"),
+    ("records/admission.py", "semantic/record_admission.py"),
+    ("records/policy.py", "semantic/record_policy.py"),
+    ("records/assertions.py", "semantic/record_assertions.py"),
+    ("records/fitting.py", "evaluate/record_fitting.py"),
+    ("records/policy-evaluation.py", "evaluate/record_policy.py"),
+    ("records/policy.sql", "semantic/sql/record_policy.sql"),
+    ("invocation/task-dependency.sql", "semantic/sql/task_dependency_scope.sql"),
     ("records/references.sql", "semantic/sql/record_references.sql"),
     ("records/graph-validation.sql", "semantic/sql/source_record_graph.sql"),
     ("records/release-projection.py", "semantic/releases.py"),
     ("records/graph-publication.py", "semantic/publication.py"),
     ("records/execution-projection-check.sql", "semantic/sql/execution_projection_check.sql"),
+)
+
+
+M1_IMPLEMENTATION_SOURCES = (
+    ("records/m1-source.py", "methods/m1_source.py"),
+    ("records/m1-annotations.py", "methods/m1_annotations.py"),
+    ("records/m1-readings.py", "methods/m1_readings.py"),
+    ("records/assembly.py", "methods/record_assembly.py"),
+    ("records/packs.py", "methods/record_packs.py"),
+    ("records/readings.py", "methods/record_readings.py"),
+    ("records/interpreter.py", "semantic/record_interpretation.py"),
+    ("records/source-preparation.py", "methods/source_preparation.py"),
+    ("records/annotations.py", "ingest/annotations.py"),
+    ("records/gliner.py", "methods/gliner.py"),
+    ("records/gliner-worker.py", "methods/gliner_worker.py"),
+    ("records/source-contexts.py", "semantic/source_contexts.py"),
+    ("records/m1-graph.py", "orchestrate/m1.py"),
 )
 
 
@@ -87,7 +113,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
-    from corpus_structure.evaluate import record_references
+    from corpus_structure.evaluate import record_policy, record_references
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
@@ -219,6 +245,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_record_grade": record_references.reference_evaluate,
             "reference_record_partition": record_references.assign_origin,
             "reference_record_fit": record_references.read_fitting_references,
+            "reference_record_calibrate": record_policy.fit_record_policy,
             "read_source_records": record_queries.read_completed_record_projection,
             "select_result": runtime.select_completed_result,
         }
@@ -944,6 +971,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("invocation/method.py", "core/method.py"),
                 ("invocation/operations.py", "semantic/operations.py"),
                 ("records/records.py", "semantic/records.py"),
+                *M1_IMPLEMENTATION_SOURCES,
                 ("records/record-contracts.py", "semantic/record_contracts.py"),
                 ("records/observations.py", "semantic/observations.py"),
                 ("capture/storage.py", "semantic/capture_storage.py"),
@@ -1573,6 +1601,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/stream-orchestration.py",
     }
     required_implementations.update(name for name, _ in POSTGRESQL_IMPLEMENTATION_SOURCES)
+    required_implementations.update(name for name, _ in M1_IMPLEMENTATION_SOURCES)
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
         required_implementations.update(
             {

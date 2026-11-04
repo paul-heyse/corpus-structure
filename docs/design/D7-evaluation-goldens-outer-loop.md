@@ -11,7 +11,7 @@ the existing evaluation result. Production receives finite parameters/evidence i
 labels. Final grading checks the exact frozen instance as well as algorithm/guideline/release.
 Refitting creates a new run instance, without implicit reference relocation or release rebinding.
 
-> Decision: [ADR-0055](../adr/0055-m1-record-admission.md)
+> Decision: [ADR-0057](../adr/0057-m1-retained-reading-execution.md)
 
 
 ## Audit-closure target

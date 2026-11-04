@@ -58,42 +58,65 @@ refining implementation requirements; do not introduce new approval steps for th
 
 ## Current M1 execution checkpoint — 2026-11-04
 
-**Implemented and scoped Tested; no whole M1 package complete.** Native106
-`semantic_m1_preparation_20261104` advances immutable105 with owned linguistic products and
-same-view source-product task edges. All132 predecessor identities remain;133 are now managed.
-The [preparation record](../design_review/evidence/2026-11-04_m1-source-preparation/records/m1.preparation106.json)
-binds actual changed source,217 focused tests (one real native fixture,216 other tests), forward/
-empty-current-head checks, types, Ruff and docs. Failed authoring attempts remain retained.
+**Implemented with bounded Tested results; no whole M1 package complete.** Native106 source
+preparation remains frozen. Forward107–111 add whole-reading overlays, direct sealed field/set/
+anchor custody, protected finite policy products and operation-scoped reuse.149 native objects
+are managed. Persistent corpus_structure_dev is at111 with its retained source population.
+Rollback-only authoring at109 reports zero native and zero ordinary changes. Native functional
+qualification remains in progress; failed attempts are retained in the
+[policy/admission evidence](../design_review/evidence/2026-11-04_m1-policy-admission/README.md).
 
-The producer now seals actual annotation summaries/full columns, consumes them through owned
-reads and preserves exact related-source pins, reversible maps and primary occurrence anchors.
-Read budgets precede related hydration; model-specific context limits apply afterwards. Cross-
-configuration annotation reuse is still open until all three determinant/origin checks are refined.
-Pure finite fitting/scoring and five-family source-reading graph lowerers are implemented and
-focused-tested; neither is wired to native accepted publication yet. Actual interpreter producer
-integration, complete source-state readings, evaluated instances/calibration and consumers remain.
+The explicit `readings` profile retains default/described behavior and adds source-state inspection,
+family-specific primary occurrence identity, native raw field/group confidences and exact group
+markers. `extract.m1_annotations` and `extract.m1_candidates` seal reusable upstream products;
+`resolve.m1_readings` consumes raw output and seals finite independent reading scores. Runtime
+feature/calibrated-instance JSON is separate from release declarations. The same native dependency
+projection controls orchestration hashing, twin selection and origin validation; actual inputs,
+unknown determinants and complete run provenance remain bound. DA-054 implementation is present;
+actual cross-configuration task-reuse qualification remains open.
 
-The source lane has completed real intake of27 frozen excerpt pages across Grinstead–Snell,
-Forbes and NIST into11 source-ready analysis views at106. Source health retains partial/unknown
-formula/cell coverage. These are independent-origin source products, not family labels or accurate
-readings. The [source population evidence](../design_review/evidence/2026-11-04_m1-source-populations/README.md)
-owns exact pins, origin/page maps, raw provider attempts and dump/recovery status. References wait
-for the intended final executable release, guideline and immutable frame binding.
+Release-derived reading assertions enter ordinary consolidation with whole-record selection caps.
+Private records retain candidate standing; public admission supplies effective standing for readers,
+exports and grading. LinkML owns persisted policy products, with numerical DTOs internal. Protected
+feature fitting/calibration uses immutable evaluation rows, complete predeclared scored frames and
+separate source-origin partitions. Independent structural scoring is replayed in Python and SQL.
+`ci eval record-policy-fit` exports finite runtime parameters; it creates no authority when support
+is inadequate. Actual protected fit/calibration/publication qualification is still open.
 
-Independent pure-engine review at b99ef634 exposed four integration-boundary defects; all were
-corrected and statically rereviewed at the bounded pure scope. M1 owns their surviving native work:
+Passed focused pure checks cover the producer/resolver, finite numerical engine, reading lowerer,
+consumers, policy binding and reference adapters. The archived-JSON array regression passes15
+lowerer tests. Full current typing and Ruff passed. Native attempts found real integration defects
+below; concurrent independent bootstrap attempts also exhausted transaction locks before assertions.
+Native bootstraps now run serially. None of these bounded results establishes whole-M1 qualification.
 
-| Finding | Correction and evidence boundary |
+Real intake remains27 frozen excerpt pages from Grinstead–Snell, Forbes and NIST, with11 native106
+analysis views and retained partial/unknown formula/cell health. The
+[source population evidence](../design_review/evidence/2026-11-04_m1-source-populations/README.md)
+owns their exact pins and restore receipt. New retained-source CPU readings run in the persistent
+database through ordinary release admission and owned project initialization. First attempts
+exposed script-level missing initialization/admission steps; they are retained in the
+[CPU reading evidence](../design_review/evidence/2026-11-04_m1-cpu-readings/README.md).
+No source-only A/B/C references, final fitted instances or five-family quality claims exist yet.
+
+Implementation review and native findings stay in this owning plan:
+
+| Finding | Correction and remaining evidence |
 |---|---|
-| Pure F01 | Present literals require exact value evidence; nonpresent roles retain real inspected native scope.17 policy tests include positive/refusal pairs. Native admission still must enforce the same meaning. |
-| Pure F02 | Source-reading assertions use stated establishment, with actual producer and sealed field support; no invented Agent attribution.14 lowerer tests include all five families and boolean task-ID refusal. Native direct support remains open. |
-| Pure F03 | Origin minimum is an explicit algorithm parameter (default2, explicit finite-cut profile may select1). Counts/conditioning are retained, never proof of independence. Native cross-partition disjointness and final gates remain open. |
-| Pure F04 | Every role needs its own located support, including supplemental transformations; eligible proposals and complete lowering now agree. Whole-record native membership/cap remains open. |
+| Pure F01–F04 | Present literal precision, truthful stated attribution, explicit finite-cut origin minimum and every role's own support were corrected and pure-tested. Native admission/consumer qualification remains required. |
+| M1-INT-F01 | Grading now applies native admission standing to detached records and selects resolver authority even for empty/failed output; private IDs/standing remain unchanged. Focused adapter tests passed. |
+| M1-INT-F02 | Python and native admission/calibration replay the frozen independent compatibility score. A forged high event score cannot inherit authority from a valid input digest. Pure tamper controls passed; native controls pending. |
+| M1-INT-F03 | Runtime parameter binding selects one coherent subset and refuses mixed subsets, avoiding silent `not_run` scoring. Integrated runtime journey pending. |
+| M1-INT-F04 | Plain graph append cannot bypass reading admission by omitting record rows; exact direct record occurrence/evidence support is required without fabricated Agent observations. Native controls pending. |
+| M1-INT-F05 | Native publication used a nonexistent selection boolean and ambiguous JSON subtraction. Forward108/109 correct the set-valued selection and JSON operators. Rerun targeted native publication before closure. |
+| M1-INT-F08 | Protected fitting now normalizes JSON candidate/reference arrays through their released boundary before strict coordinate/meaning checks; raw frame bytes remain bound. Controlled native test remains in progress. |
+| M1-INT-F07 | Python/native task completion treated only observation rows as output, rejecting valid records-only CPU results. Forward110 now accounts for the authenticated record envelope; controlled native fitting test will verify it. |
+| M1-INT-F06 | Actual archived JSON arrays were rejected by strict Python tuple validation, silently suppressing reading assertions. The owned JSON boundary now normalizes wire values before family validation.15 lowerer cases passed; actual native round trip pending. |
 
-Next implement the release-governed policy products, direct native field/set support and admission
-cap/overlay, source-state and occurrence completion, protected fitting/calibration/final-instance
-binding and all actual CPU/consumer/recovery/quality obligations. No final labels or M1 acceptance
-were produced by the source intake or pure checks.
+Next complete native policy/publication tests, actual CPU extraction and operation reuse, then freeze
+the executable release/reference inputs before fresh Sol6.1 high A/B/C. Actual source-only references,
+protected fit/calibration, coupled-template benefit disposition, five-family gates, CPU/RSS envelope,
+consumer/recovery journeys and NONDEFAULT release acceptance remain open. Prior UM standing and
+operational defaults remain unchanged.
 
 ## Baseline and focused foundation assessment
 
@@ -135,7 +158,7 @@ extraction target and trigger-based handling of expansions. Preserve global agen
 M1 introduces an explicit extraction policy rather than silently rewriting unrelated policies.
 No additional rule waiver is inferred from the review, and no accepted ADR is amended here.
 
-ADR-0055 resolves the remaining source-reading admission, immutable policy-instance and annotation
+ADR-0057 resolves the remaining source-reading admission, immutable policy-instance and annotation
 reuse realization, following the [scoped target review](../design_review/reviews/design_review_m1-admission_2026-11-04.md).
 Its RC01 is the bounded implementation of accepted M1-04 reuse, not a general dependency waiver.
 ADR-0049–0053 already select M1 contracts and the finite-cut qualification profile; ADR-0054
@@ -193,7 +216,7 @@ experiments. The result constrains dependent work even when it selects an existi
 
 ## Execution queue and readiness
 
-M1-00/01/02/03/04/05/06/07/08/09/11/12/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
+M1-00/01/02/03/04/05/06/07/08/09/10/11/12/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
 Dependencies below mean working capability/evidence unless explicitly
 identified as an early settled contract. Design of consumers may proceed from settled contracts
 while implementation of their required producers is underway. Document order is not a global barrier.

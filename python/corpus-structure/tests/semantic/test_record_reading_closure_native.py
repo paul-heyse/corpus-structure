@@ -14,28 +14,34 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
 from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.record_assertions import source_reading_inputs
+from corpus_structure.semantic.record_assertions import (
+    lower_record_assertions,
+    source_reading_inputs,
+)
 from corpus_structure.semantic.record_projection import project_record_reports
 
+from .test_private_records import private_source as private_source
 from .test_record_publication_native import record_cut
 
 
 @pytest.fixture
-def reading_source(semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch):
+def reading_source(request, monkeypatch):
     from . import test_private_records as support
 
     original = support.observation_inputs
     monkeypatch.setattr(
         support, "observation_inputs", lambda bundle: source_reading_inputs(original(bundle))
     )
-    return support.private_source.__wrapped__(semantic_db_engine, semantic_writer_engine, tmp_path)
+    return request.getfixturevalue("private_source")
 
 
 def test_plain_graph_append_cannot_bypass_record_admission(reading_source):
     case = reading_source
     cut = record_cut(case)
     inputs = _cut_input(case.writer, cut, "unbound-reading-result")
-    assert inputs.batch.record_assertion
+    assert inputs.batch.record_assertion, lower_record_assertions(
+        case.prepared, inputs.output_realization_id, inputs.batch.batch_id, inputs.record_reports
+    ).diagnostics
     # Preserve the real graph and its independently located evidence while omitting
     # all record transport. Ordinary graph validity must not authorize this source basis.
     plain = replace(inputs.batch, **project_record_reports(case.prepared, ()), _analysis_input=None)

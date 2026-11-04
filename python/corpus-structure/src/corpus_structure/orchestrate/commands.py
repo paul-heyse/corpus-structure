@@ -89,6 +89,7 @@ def start_bound_run(
     integrated_product: ProductReference | None = None,
     extraction_policy: str = "phase0",
     m1_configuration: str = "default",
+    record_policy: dict[str, Any] | None = None,
 ):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
@@ -101,6 +102,10 @@ def start_bound_run(
     from corpus_structure.semantic.operations import OperationBinding
     from corpus_structure.semantic.releases import load_release
 
+    if record_policy is not None and (
+        extraction_policy != "m1-candidate" or m1_configuration != "readings"
+    ):
+        raise CommandError("record policy parameters require the M1 readings configuration")
     if extraction_policy not in {"phase0", "m1-candidate"}:
         raise CommandError("unknown extraction policy")
     if extraction_policy == "phase0" and m1_configuration != "default":
@@ -231,6 +236,10 @@ def start_bound_run(
 
         selected_registry = bind_retained_document(selected_registry, retained_input_document)
         selected_registry.resolve("extract.m1_candidates", m1_configuration)
+        if record_policy is not None:
+            from corpus_structure.orchestrate.m1 import bind_record_policy
+
+            selected_registry = bind_record_policy(selected_registry, prepared, record_policy)
     return run_source_methods(
         engine,
         project_id=project_id,
@@ -254,6 +263,9 @@ def start_bound_run(
         agent_reuse=agent_reuse,
         kind="slice" if slice else "full",
         extraction_policy=extraction_policy,
+        record_acceptance=tuple(record_policy.get("record_acceptance", ()))
+        if record_policy
+        else (),
         extraction_policy_config=(pack / "m1-methods.yaml").read_text()
         if extraction_policy == "m1-candidate"
         else None,

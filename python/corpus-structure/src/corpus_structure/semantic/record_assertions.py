@@ -16,7 +16,7 @@ import yaml
 from linkml_runtime.dumpers import json_dumper
 from pydantic import BaseModel
 
-from .consolidation import SourceItem, assemble, plain
+from .consolidation import SourceItem, assemble
 from .identity import canonical_bytes, occurrence_key
 from .publication import EvidenceRow, PublicationBatch
 from .record_contracts import (
@@ -25,7 +25,7 @@ from .record_contracts import (
     interpretation_identity,
     record_identity,
 )
-from .types import PreparedRelease, SourceArtifact, SourceBundle
+from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
 
 _NAMESPACE = "https://corpus-structure.dev/semantic/source-reading/"
 _FAMILIES = {
@@ -82,7 +82,7 @@ def source_reading_inputs(bundle: SourceBundle) -> SourceBundle:
         if source_reading_inputs(original) != bundle:
             raise ValueError("source-reading declarations differ from effective family contracts")
         return bundle
-    view = _view(bundle)
+    view = _view(bundle, PreparationProfile(version="semantic-2"))
     classes = {str(name): definition for name, definition in view.all_classes().items()}
     if "SemanticRecordFields" not in classes:
         raise ValueError("source reading derivation requires observation record declarations")
@@ -281,7 +281,14 @@ def lower_record_assertions(
         ):
             raise ValueError("source readings require actual producer and source descriptors")
         for model in report["records"]:
-            row = plain(model) if isinstance(model, BaseModel) else dict(model)
+            raw = (
+                model.model_dump(mode="python", exclude_unset=True)
+                if isinstance(model, BaseModel)
+                else dict(model)
+            )
+            row = prepared.validate_json("SourceRecord", canonical_bytes(raw)).model_dump(
+                mode="python", exclude_unset=True
+            )
             key = row["record_id"], row["interpretation_id"]
             content = canonical_bytes(row)
             if key in seen:

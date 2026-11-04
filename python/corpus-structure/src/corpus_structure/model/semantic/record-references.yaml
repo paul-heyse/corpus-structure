@@ -271,6 +271,9 @@ classes:
       sampling_digest:
         required: true
         pattern: ^[a-f0-9]{64}$
+      policy_fit:
+        range: RecordPolicyCalibrationProduct
+        inlined: true
       quality_claim:
         required: true
         equals_string: not_established

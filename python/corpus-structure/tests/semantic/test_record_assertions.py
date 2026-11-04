@@ -398,3 +398,15 @@ def test_origin_task_custody_requires_an_integer_identity_not_a_boolean(origin_t
     invalid["origin_task_id"] = origin_task_id
     with pytest.raises(ValueError, match="actual origin task custody"):
         lower_record_assertions(inputs()[2], "r", "b", (invalid,))
+
+
+def test_lowering_accepts_exact_archived_json_arrays():
+    import json
+
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    row = record()
+    wire = json.loads(canonical_bytes(row))
+    result = lower(wire)
+    assert result.assertions
+    assert result.diagnostics == ()

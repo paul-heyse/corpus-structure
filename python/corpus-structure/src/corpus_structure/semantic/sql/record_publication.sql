@@ -191,7 +191,7 @@ BEGIN
     (admission.release_id,admission.realization_id,admission.record_id,admission.interpretation_id)=
     (a.release_id,a.realization_id,a.record_id,a.interpretation_id)
    WHERE a.release_id=r AND a.realization_id=z AND
-    EXISTS(SELECT FROM data.selection s WHERE s.release_id=r AND s.realization_id=z AND s.fact_id=a.fact_id AND s.selected)
+    EXISTS(SELECT FROM data.selection s WHERE s.release_id=r AND s.realization_id=z AND s.fact_id=a.fact_id)
      IS DISTINCT FROM (admission.decision='accepted')) THEN
   RAISE EXCEPTION 'whole-record admission caps every field fact selection' USING ERRCODE='23514'; END IF;
 END $fn$;
@@ -578,7 +578,7 @@ BEGIN
  SELECT convert_from(content,'UTF8')::jsonb INTO projection FROM sem.artifact
   WHERE release_id=r AND artifact_name='record_projection.json';
  IF projection->>'abi' NOT IN ('source-record-projection-1','source-record-projection-2') OR
-  (projection->'policy'-'admission_overlay') IS DISTINCT FROM '{"id":"m1-candidate-only","version":"1","calibration":"not_calibrated","accepted":false}'::jsonb THEN
+  ((projection->'policy')-'admission_overlay') IS DISTINCT FROM '{"id":"m1-candidate-only","version":"1","calibration":"not_calibrated","accepted":false}'::jsonb THEN
   RAISE EXCEPTION 'unsupported public record projection policy' USING ERRCODE='23514'; END IF;
  IF source_record->>'standing'='accepted' THEN
   RAISE EXCEPTION 'record is outside released candidate-only family' USING ERRCODE='23514'; END IF;

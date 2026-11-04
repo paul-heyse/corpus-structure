@@ -306,6 +306,7 @@ _CURRENT_SOURCE_GUARDS = {
     ("ops", "guard_execution_run"): "execution_guards.sql",
     ("ops", "validate_measurement_definition"): "source_views.sql",
     ("ops", "add_source_task_dependency"): "source_views.sql",
+    ("ops", "valid_reuse"): "task_dependency_scope.sql",
 }
 
 
@@ -556,6 +557,13 @@ def series_native_definitions(connection, *, include_selected=True):
         Path(__file__).with_name("sql").joinpath("record_publication.sql").read_text()
     )
     reference_sql = Path(__file__).with_name("sql").joinpath("record_references.sql").read_text()
+    reuse_sql = Path(__file__).with_name("sql").joinpath("task_dependency_scope.sql").read_text()
+    for name in ("task_dependency_scope",):
+        definitions.append(
+            _task_call_definition(
+                connection, reuse_sql, name=name, source="operation-scoped reuse:forward"
+            )
+        )
     split_sql = Path(__file__).with_name("sql").joinpath("split_decisions.sql").read_text()
     definitions.append(
         _task_call_definition(
@@ -567,6 +575,35 @@ def series_native_definitions(connection, *, include_selected=True):
             grants=(("corpus_sem_evaluator", "EXECUTE", False),),
         )
     )
+    definitions.append(
+        _task_call_definition(
+            connection,
+            Path(__file__).with_name("sql").joinpath("closure.sql").read_text(),
+            name="has_record_assertion_support",
+            schema="data",
+            source="direct reading support:forward",
+            grants=(),
+        )
+    )
+    policy_sql = Path(__file__).with_name("sql").joinpath("record_policy.sql").read_text()
+    for schema, name, roles in (
+        ("eval", "record_policy_prediction_frame", ("corpus_sem_evaluator",)),
+        ("eval", "record_policy_field_meaning", ()),
+        ("eval", "record_policy_field_evidence", ()),
+        ("eval", "record_policy_full_correct", ()),
+        ("eval", "validate_record_policy_product", ()),
+        ("sem", "require_record_policy_binding", ()),
+    ):
+        definitions.append(
+            _task_call_definition(
+                connection,
+                policy_sql,
+                name=name,
+                schema=schema,
+                source="record policy:forward",
+                grants=tuple((role, "EXECUTE", False) for role in roles),
+            )
+        )
     reference_roles = {
         "assign_record_reference_origin": ("corpus_sem_evaluator",),
         "record_reference_source_binding": ("corpus_sem_evaluator",),
@@ -591,6 +628,12 @@ def series_native_definitions(connection, *, include_selected=True):
             )
         )
     for name in (
+        "record_feature_score",
+        "record_source_float",
+        "record_source_json",
+        "record_json_meaning",
+        "validate_record_admission_overlay",
+        "validate_record_reading_cut",
         "validate_source_record_structure",
         "validate_record_relationships",
         "validate_record_projection",

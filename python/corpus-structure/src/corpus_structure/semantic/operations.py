@@ -12,7 +12,8 @@ from hashlib import sha256
 from typing import Any
 
 from pydantic import BaseModel, JsonValue
-from sqlalchemy import Connection, func, insert, select
+from sqlalchemy import Connection, cast, func, insert, literal, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from corpus_structure.core.method import (
@@ -247,12 +248,16 @@ def create_task(
         raise OperationConflict("run no longer accepts tasks")
     t = table("ops.task")
     old_run = r.alias("origin_run")
+    config = table("ops.method_config")
+    method = table("ops.method")
     twin = (
         None
         if fresh or skip_reason is not None
         else conn.execute(
             select(t.c.id)
             .join(old_run, t.c.run_id == old_run.c.id)
+            .join(config, t.c.method_config_id == config.c.id)
+            .join(method, config.c.method_id == method.c.id)
             .where(
                 t.c.method_config_id == config_id,
                 t.c.input_hash == input_hash,
@@ -265,7 +270,13 @@ def create_task(
                 old_run.c.release_id == run["release_id"],
                 old_run.c.input_realization_id == run["input_realization_id"],
                 old_run.c.input_revision == run["input_revision"],
-                old_run.c.dependency_digest == run["dependency_digest"],
+                func.ops.task_dependency_scope(
+                    cast(func.convert_from(old_run.c.dependencies, "UTF8"), JSONB), method.c.name
+                )
+                == func.ops.task_dependency_scope(
+                    cast(func.convert_from(literal(run["dependencies"]), "UTF8"), JSONB),
+                    method.c.name,
+                ),
             )
             .order_by(t.c.id)
             .limit(1)
@@ -394,8 +405,9 @@ def complete_task(
     require_bound_operation(prepared, "complete")
     if outcome not in {"done", "empty", "failed"}:
         raise ValueError("invalid terminal outcome")
-    if (outcome == "done") != bool(observations):
-        raise ValueError("terminal outcome contradicts observations")
+    has_output = bool(observations) or bool((envelope or {}).get("records"))
+    if (outcome == "done") != has_output:
+        raise ValueError("terminal outcome contradicts source outputs")
     if (outcome == "failed") != bool(error):
         raise ValueError("failure requires explicit error")
     t = table("ops.task")

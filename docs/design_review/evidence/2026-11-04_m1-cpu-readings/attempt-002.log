@@ -1,0 +1,179 @@
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: source https://corpus-structure.dev/execution/source
+Ambiguous attribute: multivalued https://corpus-structure.dev/execution/multivalued
+Ambiguous attribute: nullable https://corpus-structure.dev/execution/nullable
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: nullable https://corpus-structure.dev/execution/nullable
+Ambiguous attribute: multivalued https://corpus-structure.dev/execution/multivalued
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: source https://corpus-structure.dev/execution/source
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: source https://corpus-structure.dev/execution/source
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: symbol https://corpus-structure.dev/execution/symbol
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: multivalued https://corpus-structure.dev/execution/multivalued
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: name https://corpus-structure.dev/execution/name
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: source https://corpus-structure.dev/execution/source
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: source https://corpus-structure.dev/execution/source
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: release_id https://corpus-structure.dev/execution/release_id
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Ambiguous attribute: kind https://corpus-structure.dev/execution/kind
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1958, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.InsufficientPrivilege: native admission requires restricted admission phase
+CONTEXT:  PL/pgSQL function data.require_execution_release(text) line 181 at RAISE
+SQL statement "SELECT data.require_execution_release(NEW.release_id)"
+PL/pgSQL function data.guard_execution_admission() line 2 at PERFORM
+SQL statement "INSERT INTO data.realization(realization_id,project_id,release_id) VALUES(z,p,r) ON CONFLICT DO NOTHING"
+PL/pgSQL function data.initialize_source_project(text,text,text) line 8 at SQL statement
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-04_m1-cpu-readings/run.py", line 34, in <module>
+    initialize_source_project(conn,project_id=ProjectId(project),release_id=ReleaseId(prepared.release_id),realization_id=RealizationId(realization),projection_context=prepared)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/_operation_calls.py", line 299, in initialize_source_project
+    _native_result = conn.execute(_statement)
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1463, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/sql/elements.py", line 533, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1683, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<9 lines>...
+        param_dict=param_dict,
+    )
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1837, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1977, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 2347, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1958, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.ProgrammingError: (psycopg.errors.InsufficientPrivilege) native admission requires restricted admission phase
+CONTEXT:  PL/pgSQL function data.require_execution_release(text) line 181 at RAISE
+SQL statement "SELECT data.require_execution_release(NEW.release_id)"
+PL/pgSQL function data.guard_execution_admission() line 2 at PERFORM
+SQL statement "INSERT INTO data.realization(realization_id,project_id,release_id) VALUES(z,p,r) ON CONFLICT DO NOTHING"
+PL/pgSQL function data.initialize_source_project(text,text,text) line 8 at SQL statement
+[SQL: SELECT data.initialize_source_project(%(project_id)s::VARCHAR, %(release_id)s::VARCHAR, %(realization_id)s::VARCHAR) AS initialize_source_project_1]
+[parameters: {'project_id': 'm1-source-grinstead-snell', 'release_id': 'release:f59109fe1731a77beef61f11487e6b8eb18f8c167ac23314baba2cc809c3c77e', 'realization_id': 'm1-reading-input:grinstead-snell:release:f59109fe1731a77beef61f11487e6b8eb18f8c167ac23314baba2cc809c3c77e'}]
+(Background on this error at: https://sqlalche.me/e/21/f405)

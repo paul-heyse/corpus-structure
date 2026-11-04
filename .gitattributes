@@ -69,3 +69,6 @@ docs/design_review/evidence/2026-11-03_audit-closure/candidate-*/* filter=lfs di
 docs/design_review/evidence/2026-11-03_ac14-acceptance/**/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_ac14-acceptance/**/attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_ac14-acceptance/native*/candidate-*/* filter=lfs diff=lfs merge=lfs -text
+
+# Hash-bound generated native DDL retains the original compiler bytes.
+python/corpus-structure/semantic_alembic/versions/semantic_m1_admission_20261104_physical.sql filter=lfs diff=lfs merge=lfs -text

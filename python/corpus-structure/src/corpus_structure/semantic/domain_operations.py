@@ -2229,7 +2229,7 @@ def _project_cut(
 
         projection = project_record_reports(prepared, record_reports)
         lowered = lower_record_assertions(prepared, output, batch.batch_id, record_reports)
-        additions = {}
+        additions: dict[str, Any] = {}
         for field in fields(PublicationBatch):
             left, right = getattr(batch, field.name), getattr(lowered.batch, field.name)
             if isinstance(left, tuple) and isinstance(right, tuple):
