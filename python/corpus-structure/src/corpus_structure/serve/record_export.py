@@ -99,6 +99,7 @@ def write_record_relations(
         projection_digest=projection.projection_digest,
         source_view_ids=projection.source_view_ids,
         report_source_view_ids=dict(projection.report_source_view_ids),
+        coverage=[asdict(report) for report in projection.coverage],
         released_projection=read_record_projection(projection.prepared),
         semantic_release_manifest=json.loads(projection.prepared.manifest),
         logical_digest=sha256(
@@ -110,6 +111,7 @@ def write_record_relations(
                         name: [asdict(row) for row in rows] for name, rows in row_relations.items()
                     },
                     report_source_view_ids=dict(projection.report_source_view_ids),
+                    coverage=[asdict(report) for report in projection.coverage],
                 )
             )
         ).hexdigest(),

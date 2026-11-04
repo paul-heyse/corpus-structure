@@ -68,7 +68,7 @@ def _stamp_mcp_result(wire: CallToolResult) -> CallToolResult:
 
 
 def _bounded_mcp_result(
-    value: NativeSourceResponse | SourceSearchResponse | service.QueueNext, max_bytes: int
+    value: BaseModel, max_bytes: int
 ) -> ToolResult:
     """Admit the actual full text-plus-structured result, retaining its exact wire form."""
     from corpus_structure.semantic.query import ReadLimit
