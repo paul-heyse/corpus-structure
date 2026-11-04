@@ -996,7 +996,7 @@ RC03, RC05, RC06). F4 no longer hand-writes table metadata.
     exception there as a connection failure (`CLIENT_EXCEPTIONS = Exception`, `pool.py:35` at tag
     `pool-3.3.3`), so a mismatch would turn into retries and then a `PoolTimeout` that hides the
     cause. Source-checked by the review's contributor B;
-    [psycopg-pool overview](../../libraries/psycopg-pool.md) §5.1, §7.2; R11.
+    [psycopg-pool overview](../../libraries/postgresql/psycopg-pool.md) §5.1, §7.2; R11.
 - **Session state** is set only with `SET LOCAL`.
 - **COPY.** A COPY inside an SQLAlchemy transaction uses `connection.driver_connection`, never its
   own commit.

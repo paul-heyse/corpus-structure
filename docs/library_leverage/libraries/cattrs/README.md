@@ -3,7 +3,7 @@
 **Realization assessed:** cattrs 26.2.1, which the pivot adopted.
 
 **Researched:** 2026-10-29 by the R4 cluster.
-- The [overview](../../../libraries/msgspec_attrs_and_cattrs.md) was read end to end. msgspec and
+- The [overview](../../../libraries/data_model/msgspec_attrs_and_cattrs.md) was read end to end. msgspec and
   attrs are deferred, so their sections got only what CBO-017 needs.
 - The installed `cattrs/gen/__init__.py` was inspected.
 

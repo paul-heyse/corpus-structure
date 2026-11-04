@@ -3,7 +3,7 @@
 **Realization assessed:** adbc-driver-postgresql 1.13.0 (driver-manager 1.13.0).
 
 **Researched:** 2026-10-29 by the R5 cluster.
-- The [overview](../../../libraries/adbc-driver-postgresql.md) was read end to end.
+- The [overview](../../../libraries/postgresql/adbc-driver-postgresql.md) was read end to end.
 - Context7 documents main; it was cross-checked against the installed `dbapi.py`.
 - ADBC `database.cc` was read at tag `apache-arrow-adbc-25`.
 - No database connection was made

@@ -3,7 +3,7 @@
 **Realization assessed:** rule-engine 5.1.0, pinned.
 
 **Researched:** 2026-10-29 by the R6 cluster.
-- The [overview](../../../libraries/rule-engine.md) was read end to end.
+- The [overview](../../../libraries/scientific_compute/rule-engine.md) was read end to end.
 - Context7 (`/zerosteiner/rule-engine`) documents master, so decisions rest on the installed 5.1.0
   source: `engine/context.py`, `types/datatype.py`, `types/dataclass.py` and
   `ast/expression/access.py`.

@@ -28,8 +28,8 @@ composition: [target model](docling-nemotron-triple-pass_2026-10-31_target-model
 ## Baseline and evidence limits
 
 Inspected production baseline: `39eda6e55020c1b5b50f5bfcb4ae682757334741`, 2026-10-31.
-Concurrent inputs are the modified [OCR reference](../libraries/docling_ocr.md) and untracked
-[triple-pass reference](../libraries/docling_nemotron_triple_pass_reference.md); both are preserved.
+Concurrent inputs are the modified [OCR reference](../libraries/primary_intake/docling_ocr.md) and untracked
+[triple-pass reference](../libraries/primary_intake/docling_nemotron_triple_pass_reference.md); both are preserved.
 The latter describes `1513b29`, so its run-4 recovery narrative and some API alternatives are stale.
 Current [STATUS](../../STATUS.md) and the [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md)
 record schema 0055, retained full-book native publication, run5/task7 selected enrichment (648 aligned

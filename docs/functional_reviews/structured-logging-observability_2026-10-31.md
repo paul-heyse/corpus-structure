@@ -24,11 +24,11 @@ sites during implementation planning rather than freezing that work to this revi
 
 The five supplied guides are the capability inputs:
 
-- [Python structured logging and observability](../libraries/Python_Structured_Logging_and_Observability.md), especially §§2–12.
-- [OpenTelemetry Python](../libraries/OpenTelemetry_Python.md), §§2–12.
-- [Typer](../libraries/typer.md), particularly context/lifecycle, sources, testing and the 0.27.3 addendum.
-- [Rich](../libraries/rich.md), especially §§5–10 and the exact Typer integration boundaries.
-- [FastMCP](../libraries/fastmcp.md), context, middleware/lifespans, security, client handlers and telemetry.
+- [Python structured logging and observability](../libraries/logging/Python_Structured_Logging_and_Observability.md), especially §§2–12.
+- [OpenTelemetry Python](../libraries/logging/OpenTelemetry_Python.md), §§2–12.
+- [Typer](../libraries/python_introspection/typer.md), particularly context/lifecycle, sources, testing and the 0.27.3 addendum.
+- [Rich](../libraries/python_introspection/rich.md), especially §§5–10 and the exact Typer integration boundaries.
+- [FastMCP](../libraries/python_introspection/fastmcp.md), context, middleware/lifespans, security, client handlers and telemetry.
 
 Architecture context: [D6](../design/D6-orchestration-metrics-policies.md) owns task/outcome and
 operational policy meaning; [D8](../design/D8-agent-and-query-interfaces.md) owns interfaces;

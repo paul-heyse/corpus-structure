@@ -3,7 +3,7 @@
 **Realization assessed:** psycopg 3.3.6 (binary) and psycopg-pool 3.3.3.
 
 **Research:** done 2026-10-29 by the R1 relational cluster.
-- Overviews read end to end: [psycopg](../../../libraries/psycopg.md) and [psycopg-pool](../../../libraries/psycopg-pool.md).
+- Overviews read end to end: [psycopg](../../../libraries/postgresql/psycopg.md) and [psycopg-pool](../../../libraries/postgresql/psycopg-pool.md).
 - Follow-ups: Context7 for psycopg 3.3.6, the installed source, and a compile-only probe
   ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-relational/README.md)).
 - The two libraries share one account. Each type keeps its own namespaced handle.

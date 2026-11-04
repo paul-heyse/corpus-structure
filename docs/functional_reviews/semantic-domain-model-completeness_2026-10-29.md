@@ -252,22 +252,22 @@ The capability overviews supplied by the operator informed the inquiry. Concrete
 
 | Library and inspected baseline | Selected role and material limit |
 |---|---|
-| [LinkML/runtime 1.12.1](../libraries/linkml.md) | SchemaView, classes/slots/enums/keys and supported conditional expressions; typed companion contracts. Native language expressiveness does not establish parity between repository adapters and generators. |
-| [valuesets 0.4.2](../libraries/valuesets.md) | Reusable semantic enumerations and ontology meanings; preserve explicit acquisition and frozen expansion. It is not a lifecycle engine. |
-| [PySHACL 0.40.1](../libraries/pyshacl.md) | validate, Core/path/SPARQL constraints and structured reports over declared projections. SHACL rules are optional derived-graph behavior, not transaction updates. |
-| [RDFLib 7.6.0](../libraries/rdflib.md) | Graph/Dataset/typed terms and generator interoperability. Set semantics require explicit occurrence/member records to preserve duplicates and order. |
-| [PyOxigraph 0.5.13](../libraries/PyOxigraph.md) | Retain existing native canonicalization; direct validation/query backend is a candidate. Its store transaction does not cover PostgreSQL; decimal arithmetic has a bounded fixed-point envelope. |
-| [Oxrdflib](../libraries/Oxrdflib.md) | Defer unless a concrete consumer requires RDFLib's store interface over Oxigraph. It adds an adapter and documented fallback/transaction limitations. |
-| [linkml-map](../libraries/linkml-map.md) | Candidate for a concrete supported source/import/export mapping using TransformationSpecification/ObjectTransformer with strict behavior. Do not make completeness depend on it; SQLCompiler/DuckDBTransformer are not a complete lowering of the mapping language. |
-| [linkml-datalog](../libraries/linkml-datalog.md) | Defer package adoption. Its inspected generator does not supply this application's exact qualified numeric, occurrence and proof contract. Existing finite qualified relational inference remains selected. |
-| [SQLAlchemy 2.1.5](../libraries/sqlalchemy.md) | Shared MetaData, Core joins/constraints, guarded DML, RETURNING and locking. Domain definitions own meaning; no ORM or FSM replacement. |
-| [psycopg 3.3.6](../libraries/psycopg.md), [pool 3.3.3](../libraries/psycopg-pool.md) | COPY and connection lending through the existing single pool/SQLAlchemy transaction owner. No independent driver commit owner. |
-| [pglast 8.7](../libraries/pglast.md) | AST and dependency inspection for authored SQL; restricted PostgreSQL analysis still establishes catalog/type/access binding. Parsing does not prove semantic equivalence. |
-| [pgpq 0.12.0](../libraries/pgpq.md) | Typed binary encoding into protected staging on the existing connection. Wire compatibility does not authorize domain publication. |
-| [Alembic 1.20.0](../libraries/alembic.md) | New frozen deployment revisions from trusted model changes. Autogeneration alone does not establish behavioral guard equivalence. |
-| [PyArrow 26.0.0](../libraries/pyarrow.md), [DuckDB 2.0.0](../libraries/duckdb_2.md) | Explicit typed relations, conversions and local set operations with owned reader/connection lifetimes. Preserve accepted decimal policy and snapshot semantics. |
-| [Pydantic 2.14.1](../libraries/pydantic.md), [Settings 2.16.1](../libraries/pydantic-settings.md) | Strict boundary/result types and one entry-point configuration resolution. Local validation does not establish relational/concurrency authorization; settings cannot override semantic policy. |
-| [rule-engine 5.1.0](../libraries/rule-engine.md) | Released typed scientific decision rules; reuse typed input definitions where compatible. It does not establish scientific equivalence, grounded proof or transaction lifecycle. |
+| [LinkML/runtime 1.12.1](../libraries/data_model/linkml.md) | SchemaView, classes/slots/enums/keys and supported conditional expressions; typed companion contracts. Native language expressiveness does not establish parity between repository adapters and generators. |
+| [valuesets 0.4.2](../libraries/data_model/valuesets.md) | Reusable semantic enumerations and ontology meanings; preserve explicit acquisition and frozen expansion. It is not a lifecycle engine. |
+| [PySHACL 0.40.1](../libraries/data_model/pyshacl.md) | validate, Core/path/SPARQL constraints and structured reports over declared projections. SHACL rules are optional derived-graph behavior, not transaction updates. |
+| [RDFLib 7.6.0](../libraries/data_model/rdflib.md) | Graph/Dataset/typed terms and generator interoperability. Set semantics require explicit occurrence/member records to preserve duplicates and order. |
+| [PyOxigraph 0.5.13](../libraries/data_model/PyOxigraph.md) | Retain existing native canonicalization; direct validation/query backend is a candidate. Its store transaction does not cover PostgreSQL; decimal arithmetic has a bounded fixed-point envelope. |
+| [Oxrdflib](../libraries/data_model/Oxrdflib.md) | Defer unless a concrete consumer requires RDFLib's store interface over Oxigraph. It adds an adapter and documented fallback/transaction limitations. |
+| [linkml-map](../libraries/data_model/linkml-map.md) | Candidate for a concrete supported source/import/export mapping using TransformationSpecification/ObjectTransformer with strict behavior. Do not make completeness depend on it; SQLCompiler/DuckDBTransformer are not a complete lowering of the mapping language. |
+| [linkml-datalog](../libraries/data_model/linkml-datalog.md) | Defer package adoption. Its inspected generator does not supply this application's exact qualified numeric, occurrence and proof contract. Existing finite qualified relational inference remains selected. |
+| [SQLAlchemy 2.1.5](../libraries/postgresql/sqlalchemy.md) | Shared MetaData, Core joins/constraints, guarded DML, RETURNING and locking. Domain definitions own meaning; no ORM or FSM replacement. |
+| [psycopg 3.3.6](../libraries/postgresql/psycopg.md), [pool 3.3.3](../libraries/postgresql/psycopg-pool.md) | COPY and connection lending through the existing single pool/SQLAlchemy transaction owner. No independent driver commit owner. |
+| [pglast 8.7](../libraries/postgresql/pglast.md) | AST and dependency inspection for authored SQL; restricted PostgreSQL analysis still establishes catalog/type/access binding. Parsing does not prove semantic equivalence. |
+| [pgpq 0.12.0](../libraries/postgresql/pgpq.md) | Typed binary encoding into protected staging on the existing connection. Wire compatibility does not authorize domain publication. |
+| [Alembic 1.20.0](../libraries/postgresql/alembic.md) | New frozen deployment revisions from trusted model changes. Autogeneration alone does not establish behavioral guard equivalence. |
+| [PyArrow 26.0.0](../libraries/analytical_infrastructure/pyarrow.md), [DuckDB 2.0.0](../libraries/analytical_infrastructure/duckdb_2.md) | Explicit typed relations, conversions and local set operations with owned reader/connection lifetimes. Preserve accepted decimal policy and snapshot semantics. |
+| [Pydantic 2.14.1](../libraries/data_model/pydantic.md), [Settings 2.16.1](../libraries/data_model/pydantic-settings.md) | Strict boundary/result types and one entry-point configuration resolution. Local validation does not establish relational/concurrency authorization; settings cannot override semantic policy. |
+| [rule-engine 5.1.0](../libraries/scientific_compute/rule-engine.md) | Released typed scientific decision rules; reuse typed input definitions where compatible. It does not establish scientific equivalence, grounded proof or transaction lifecycle. |
 
 ### Consequential primary-source findings
 

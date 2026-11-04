@@ -68,11 +68,11 @@ derivation does not transfer from the production engine.
 framework is needed.
 
 **Research leads.**
-- [typer](../../libraries/typer.md): sub-app composition.
-- [pydantic-settings](../../libraries/pydantic-settings.md): nested per-principal sections.
-- [psycopg-pool](../../libraries/psycopg-pool.md) and [sqlalchemy](../../libraries/sqlalchemy.md):
+- [typer](../../libraries/python_introspection/typer.md): sub-app composition.
+- [pydantic-settings](../../libraries/data_model/pydantic-settings.md): nested per-principal sections.
+- [psycopg-pool](../../libraries/postgresql/psycopg-pool.md) and [sqlalchemy](../../libraries/postgresql/sqlalchemy.md):
   one engine per principal composed with the single-pool rule.
-- [alembic](../../libraries/alembic.md): the command API is already wrapped.
+- [alembic](../../libraries/postgresql/alembic.md): the command API is already wrapped.
 
 **Questions for library research.**
 1. How should Settings model distinct publisher, writer and reader connections, and should each
@@ -114,7 +114,7 @@ The consumers are developers, the SP-08 consumer tests and the SP-10 qualificati
   - hierarchical templates through `depends_on` (§5);
   - `DatabaseJanitor` cleanup.
 
-  See [pytest-postgresql](../../libraries/pytest-postgresql.md). Another agent researched it during
+  See [pytest-postgresql](../../libraries/postgresql/pytest-postgresql.md). Another agent researched it during
   this audit.
 
 **Patterns.** LOP-07, LOP-08, LOP-12.
@@ -158,7 +158,7 @@ The consumer is the SP-10 assembled qualification.
 **Capability candidates.**
 - pytest's built-in JUnit XML and `-r` skip reporting.
 - Per-test timeouts; pytest-timeout is not declared and has no overview page.
-- An explicit Hypothesis profile selection in the route ([hypothesis](../../libraries/hypothesis.md)).
+- An explicit Hypothesis profile selection in the route ([hypothesis](../../libraries/analytical_infrastructure/hypothesis.md)).
 - nextest without `--no-tests=pass`.
 
 Current configuration: `pyproject.toml` `[tool.pytest.ini_options]` (`-q`) and the `justfile`

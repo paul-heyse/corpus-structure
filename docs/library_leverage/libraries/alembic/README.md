@@ -3,7 +3,7 @@
 **Realization assessed:** Alembic 1.20.0, used with SQLAlchemy 2.1.5.
 
 **Researched:** 2026-10-29 by the R2 cluster.
-- The [overview](../../../libraries/alembic.md) was read end to end.
+- The [overview](../../../libraries/postgresql/alembic.md) was read end to end.
 - Follow-ups: Context7 and the installed source (`ddl/postgresql.py`, `command.py`,
   `autogenerate/compare/tables.py`).
 - One offline probe was run under two hash seeds

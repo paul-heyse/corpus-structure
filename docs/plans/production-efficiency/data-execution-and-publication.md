@@ -73,8 +73,8 @@ caller-specific selection flags.
 Sources: [Arrow IPC](https://arrow.apache.org/docs/python/ipc.html),
 [Psycopg COPY](https://www.psycopg.org/psycopg3/docs/basic/copy.html),
 [pgpq](https://github.com/adriangb/pgpq), and repository capability orientation in
-[PyArrow](../../libraries/pyarrow.md), [Psycopg](../../libraries/psycopg.md),
-[pgpq](../../libraries/pgpq.md) and [SQLAlchemy](../../libraries/sqlalchemy.md).
+[PyArrow](../../libraries/analytical_infrastructure/pyarrow.md), [Psycopg](../../libraries/postgresql/psycopg.md),
+[pgpq](../../libraries/postgresql/pgpq.md) and [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md).
 Use the pinned APIs and installed sources for consequential details during implementation.
 
 ### Completion evidence
@@ -179,9 +179,9 @@ Primary references: [Arrow record batches](https://arrow.apache.org/docs/python/
 [Arrow dataset scanner](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Scanner.html),
 [DuckDB relational API](https://duckdb.org/docs/stable/clients/python/relational_api.html),
 [RDFLib Graph](https://rdflib.readthedocs.io/en/stable/apidocs/rdflib.graph.html).
-Capability orientation: [ADBC PostgreSQL](../../libraries/adbc-driver-postgresql.md),
-[DuckDB](../../libraries/duckdb_2.md), [PyArrow](../../libraries/pyarrow.md),
-[RDFLib](../../libraries/rdflib.md) and [PySHACL](../../libraries/pyshacl.md).
+Capability orientation: [ADBC PostgreSQL](../../libraries/postgresql/adbc-driver-postgresql.md),
+[DuckDB](../../libraries/analytical_infrastructure/duckdb_2.md), [PyArrow](../../libraries/analytical_infrastructure/pyarrow.md),
+[RDFLib](../../libraries/data_model/rdflib.md) and [PySHACL](../../libraries/data_model/pyshacl.md).
 
 Completion requires the capacity decision and both required physical realizations, all actual
 capture/analysis/export consumers migrated, and independent equality of logical schema, scope,

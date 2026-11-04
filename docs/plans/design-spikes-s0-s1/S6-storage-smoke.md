@@ -22,7 +22,7 @@ and the revised statement key's agreement figures exist. Its evidence decides wh
 store packages.
 
 **Prerequisites.** pg_textsearch 1.5.1 is installed (package `postgresql-18-pg-textsearch`,
-[overview](../../libraries/postgresql-18-pg-textsearch.md)) but loads only through
+[overview](../../libraries/postgresql/postgresql-18-pg-textsearch.md)) but loads only through
 `shared_preload_libraries`, and neither it nor `vector` is a trusted extension. The operator adds it
 to `shared_preload_libraries`, restarts, and creates both extensions as `postgres` in
 `cs_spike_s6`; alternatively S6 runs in a throwaway cluster from `pg_virtualenv -o

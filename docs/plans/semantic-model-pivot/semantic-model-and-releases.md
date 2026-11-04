@@ -40,7 +40,7 @@ Use generated or dynamically built Pydantic boundary models as a lowering of the
 
 Derive range, aliases, requiredness, multiplicity and missing/null policy from one normalized definition. Avoid independently hand-authoring a Pydantic domain model alongside LinkML. Structural generation does not automatically implement ontology membership or relational constraints; those have explicit term-validator/publication owners. Intentional coercions must be declared lossless boundary translations; canonical scientific values cannot silently change type or precision. Immutable model configuration does not deeply freeze nested mutable containers: use frozen structural products or controlled copies for shared bindings.
 
-Acceptance covers strict JSON/Python differences, serialization aliases, absent/null/default distinctions, recursive values, rejected extras and schema diagnostics. JSON Schema generation and serialization round trips alone do not establish semantic correctness. Sources: [Pydantic overview](../../libraries/pydantic.md), [dynamic models](https://docs.pydantic.dev/latest/concepts/models/#dynamic-model-creation), [TypeAdapter](https://docs.pydantic.dev/latest/concepts/type_adapter/).
+Acceptance covers strict JSON/Python differences, serialization aliases, absent/null/default distinctions, recursive values, rejected extras and schema diagnostics. JSON Schema generation and serialization round trips alone do not establish semantic correctness. Sources: [Pydantic overview](../../libraries/data_model/pydantic.md), [dynamic models](https://docs.pydantic.dev/latest/concepts/models/#dynamic-model-creation), [TypeAdapter](https://docs.pydantic.dev/latest/concepts/type_adapter/).
 
 ### Identity and interpretation contract
 
@@ -84,7 +84,7 @@ Inputs are candidate sources, expected parent and resolved dependencies. Outputs
 
 Reuse existing frozen lookup/dynamic validators before adding wrappers. Generate relational metadata from SP-01 mappings under the [PostgreSQL plan](postgresql-and-publication.md), not from ad hoc per-domain SQL names. LinkML SQLStore/DDL generators are not assumed to supply runtime admission or migrations. LinkML-Datalog is deferred until a required rule exceeds the selected profile and exact values, qualification, modern LinkML coverage and derivation provenance are qualified.
 
-Sources: [review O01](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O01), [O02](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O02), [LinkML overview](../../libraries/linkml.md), [term-validator plugins](https://linkml.io/linkml-term-validator/plugin-reference/), [SchemaView](https://linkml.io/linkml/_modules/linkml_runtime/utils/schemaview.html). These are mechanism evidence, not native integration results.
+Sources: [review O01](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O01), [O02](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O02), [LinkML overview](../../libraries/data_model/linkml.md), [term-validator plugins](https://linkml.io/linkml-term-validator/plugin-reference/), [SchemaView](https://linkml.io/linkml/_modules/linkml_runtime/utils/schemaview.html). These are mechanism evidence, not native integration results.
 
 ## Execution checkpoint — 2026-10-29
 

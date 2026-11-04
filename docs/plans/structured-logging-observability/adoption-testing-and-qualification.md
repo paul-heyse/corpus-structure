@@ -90,5 +90,5 @@ no plan deletion, additional status ledger or periodic full-audit machinery is i
 Sources: [test assessment](../../design_review/design_principles/core/test-assessment.md),
 [structlog](../../libraries/logging/structlog.md) §9,
 [Logfire](../../libraries/logging/pydantic-logfire.md) §15,
-[Typer](../../libraries/typer.md) testing and advanced addendum §7,
-[Rich](../../libraries/rich.md) §7.13.
+[Typer](../../libraries/python_introspection/typer.md) testing and advanced addendum §7,
+[Rich](../../libraries/python_introspection/rich.md) §7.13.

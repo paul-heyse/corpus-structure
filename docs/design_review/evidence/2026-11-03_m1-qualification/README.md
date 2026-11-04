@@ -2,7 +2,7 @@
 
 **Tested at bounded scope, 2026-11-03.** The operator requested closeout of the active increment.
 The native publication/reference machinery, CLI integration and finite-cut calculations are
-complete at the scope below. The [M1 coordinator](../../../plans/first-production-milestone_2026-11-03.md#qualification-increment-closeout--2026-11-03)
+complete at the scope below. The [M1 coordinator](../../../plans/first-production-milestone_2026-11-03.md#historical-qualification-increment--bounded-receipt)
 owns remaining package/finding disposition. No qualified M1 release or default switch follows.
 
 ## Approved decisions and host prerequisite

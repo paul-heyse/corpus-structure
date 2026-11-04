@@ -89,9 +89,9 @@ but unused), LOP-10 (structure as JSON in annotations), [LOP-X001](../assessment
 - The legacy store has a richer precedent: catalog diff plus `alembic check`, with its blind spots
   documented.
 
-**Research leads.** [alembic](../../libraries/alembic.md): `compare_metadata`, `command.check`,
-`produce_migrations`. [sqlalchemy](../../libraries/sqlalchemy.md): DDL compiler.
-[linkml](../../libraries/linkml.md): structured annotation values.
+**Research leads.** [alembic](../../libraries/postgresql/alembic.md): `compare_metadata`, `command.check`,
+`produce_migrations`. [sqlalchemy](../../libraries/postgresql/sqlalchemy.md): DDL compiler.
+[linkml](../../libraries/data_model/linkml.md): structured annotation values.
 
 **Questions for library research.**
 1. Does `compare_metadata` against a head-migrated database come back clean, or explainable, today?
@@ -191,7 +191,7 @@ side. Exponent-form decimals or float edge cases are where copies diverge.
 one specification, generated conformance testing and removing the extra copies on the application
 side.
 
-**Research leads.** [hypothesis](../../libraries/hypothesis.md): property or differential testing
+**Research leads.** [hypothesis](../../libraries/analytical_infrastructure/hypothesis.md): property or differential testing
 of Python against native implementations; it is already a root dev dependency.
 
 **Questions for library research.**
@@ -224,7 +224,7 @@ grows.
 
 **Counterevidence.** Current relation names are distinctive, so collision exposure is low.
 
-**Research leads.** [duckdb_2](../../libraries/duckdb_2.md): replacement scans and
+**Research leads.** [duckdb_2](../../libraries/analytical_infrastructure/duckdb_2.md): replacement scans and
 `query_table()`, table macros, a schema per operation with `search_path`, relation `query()`.
 
 **Question for library research.** Which DuckDB binding mechanism gives scoped names without
@@ -298,7 +298,7 @@ proofs.
 kinds must hold.
 
 **Research leads.** Native semi-naive delta tables, or `WITH RECURSIVE` per linear stratum;
-[linkml-datalog](../../libraries/linkml-datalog.md) only as the deferred trigger.
+[linkml-datalog](../../libraries/data_model/linkml-datalog.md) only as the deferred trigger.
 
 **Question for library research.** Does a delta-driven loop keep identical conclusions and proofs?
 

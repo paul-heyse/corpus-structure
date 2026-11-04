@@ -88,10 +88,10 @@ explanation), LOP-09 (two token schemes; consumer-local decoding), LOP-12.
   work.
 - Rich, JSON and Arrow rendering legitimately differ.
 
-**Research leads.** [sqlalchemy](../../libraries/sqlalchemy.md): Core composition,
-`yield_per`/`stream_results`, lateral and `table_valued`. [psycopg](../../libraries/psycopg.md):
-server-side cursors. [pydantic](../../libraries/pydantic.md): `TypeAdapter` over `QuerySpec` for
-wire validation and JSON Schema. [fastmcp](../../libraries/fastmcp.md): `ResponseLimitingMiddleware`.
+**Research leads.** [sqlalchemy](../../libraries/postgresql/sqlalchemy.md): Core composition,
+`yield_per`/`stream_results`, lateral and `table_valued`. [psycopg](../../libraries/postgresql/psycopg.md):
+server-side cursors. [pydantic](../../libraries/data_model/pydantic.md): `TypeAdapter` over `QuerySpec` for
+wire validation and JSON Schema. [fastmcp](../../libraries/python_introspection/fastmcp.md): `ResponseLimitingMiddleware`.
 
 **Questions for library research.**
 1. Can a release-checked predicate builder over `typed_value`/`value_role` express current domain
@@ -158,9 +158,9 @@ rule-engine and comparator access).
 - Projecting into the legacy views keeps existing authored rule text running unchanged. Rule-text
   compatibility may be the real contract.
 
-**Research leads.** [rule-engine](../../libraries/rule-engine.md): `type_resolver_from_dict`,
+**Research leads.** [rule-engine](../../libraries/scientific_compute/rule-engine.md): `type_resolver_from_dict`,
 dataclass resolvers, `DataType.from_type`, public AST traversal.
-[pydantic](../../libraries/pydantic.md): release-generated models as the typed subject.
+[pydantic](../../libraries/data_model/pydantic.md): release-generated models as the typed subject.
 
 **Questions for library research.**
 1. Can a rule-engine object schema be derived from release-generated types (optional, nested, map
@@ -203,8 +203,8 @@ otherwise write a second translator into a model that SP-09 retires.
 
 **Counterevidence.** The kernels are sound library users. Only their operand model is the issue.
 
-**Research leads.** [pydantic](../../libraries/pydantic.md): one adapter from release-validated
-values. [PostgreSQL system tooling](../../libraries/PostgreSQL_System_Tooling_for_Ubuntu.md):
+**Research leads.** [pydantic](../../libraries/data_model/pydantic.md): one adapter from release-validated
+values. [PostgreSQL system tooling](../../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md):
 role/schema separation, if goldens become a separate realization whose isolation is enforced by
 privileges.
 
@@ -255,9 +255,9 @@ driver selection, resource settings, scope and output format by itself.
 - A whole-spine packet may be deliberate, for replayability.
 - Some exports may belong on the query path ([CBO-001](#cbo-001)) instead.
 
-**Research leads.** [duckdb_2](../../libraries/duckdb_2.md): `COPY … TO` Parquet with key-value
-metadata. [pyarrow](../../libraries/pyarrow.md): Parquet and dataset writers that keep schema
-metadata. [adbc-driver-postgresql](../../libraries/adbc-driver-postgresql.md).
+**Research leads.** [duckdb_2](../../libraries/analytical_infrastructure/duckdb_2.md): `COPY … TO` Parquet with key-value
+metadata. [pyarrow](../../libraries/analytical_infrastructure/pyarrow.md): Parquet and dataset writers that keep schema
+metadata. [adbc-driver-postgresql](../../libraries/postgresql/adbc-driver-postgresql.md).
 
 **Questions for library research.**
 1. Does a DuckDB or pyarrow writer carry `cs.*` identity metadata end to end?
@@ -304,9 +304,9 @@ Mapping refusals consistently is one decision that is currently made in many pla
 **Counterevidence.** A per-release tool input schema would need tools registered per run, and
 listings the agent reads would grow. Serving the schema through pages may be deliberate.
 
-**Research leads.** [fastmcp](../../libraries/fastmcp.md): error-translation and response-limiting
+**Research leads.** [fastmcp](../../libraries/python_introspection/fastmcp.md): error-translation and response-limiting
 middleware; providers and tool transforms for schemas bound to a release.
-[typer](../../libraries/typer.md): mapping exceptions to exit codes.
+[typer](../../libraries/python_introspection/typer.md): mapping exceptions to exit codes.
 
 **Questions for library research.**
 1. Can FastMCP middleware own error translation and size bounds for both servers?
@@ -350,7 +350,7 @@ where reference semantics can drift.
 **Counterevidence.** The walkers carry domain policy. A library can discharge the traversal, not
 the policy.
 
-**Research leads.** [pydantic](../../libraries/pydantic.md): `model_dump` and core-schema
+**Research leads.** [pydantic](../../libraries/data_model/pydantic.md): `model_dump` and core-schema
 traversal. A descriptor visitor exposed by the prepared release
 ([CBO-013](release-preparation.md#cbo-013)).
 
@@ -389,7 +389,7 @@ cut's reference set. That matters for SP-09 regeneration runs that reuse prior k
 - Known-input realizations may be small reference catalogs.
 
 **Research leads.** A PostgreSQL recursive CTE over value roles, the pattern `query.py` already
-uses. [sqlalchemy](../../libraries/sqlalchemy.md).
+uses. [sqlalchemy](../../libraries/postgresql/sqlalchemy.md).
 
 **Question for library research.** Which attributes does identity resolution need globally, and can
 the rest be fetched by reachability inside the database?
@@ -421,7 +421,7 @@ executes synchronous tools was not examined.
 grammar. Bounded parse time is a real protection.
 
 **Research leads.** A process-based deadline (`concurrent.futures` process pool);
-[fastmcp](../../libraries/fastmcp.md) execution model.
+[fastmcp](../../libraries/python_introspection/fastmcp.md) execution model.
 
 **Question for library research.** How does FastMCP execute synchronous tools, and which SP-08
 paths would run the grammar off the main thread?

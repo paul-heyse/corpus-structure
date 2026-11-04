@@ -4,7 +4,7 @@
 It received a light pass because CBO-010 names it directly.
 
 **Researched:** 2026-10-29 by the R2 cluster.
-- Overview sections read: [overview](../../../libraries/pytest-postgresql.md) §1–6, §9, §10.3 and §11.
+- Overview sections read: [overview](../../../libraries/postgresql/pytest-postgresql.md) §1–6, §9, §10.3 and §11.
 - Source read at tag `v9.1.1`: `janitor.py`, `noprocess.py`, `client.py` and `executors/noop.py`.
 
 ## Reusable opportunity types

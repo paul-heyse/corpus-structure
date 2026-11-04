@@ -146,8 +146,8 @@ Use existing LinkML `SchemaView.class_induced_slots` and normalized release defi
 ranges/defaults; Pydantic `TypeAdapter` and explicit validation context at the actual typed boundary;
 existing model-derived Core/native row projections for persisted obligations. Extend the current
 contract schema, not a parallel hand-maintained dictionary of stage policy. Relevant orientation:
-[LinkML](../../libraries/linkml.md), [Pydantic](../../libraries/pydantic.md),
-[SQLAlchemy](../../libraries/sqlalchemy.md). Concrete algorithm APIs and version limits belong to
+[LinkML](../../libraries/data_model/linkml.md), [Pydantic](../../libraries/data_model/pydantic.md),
+[SQLAlchemy](../../libraries/postgresql/sqlalchemy.md). Concrete algorithm APIs and version limits belong to
 the consuming plans, preventing this foundation from freezing a backend-neutral abstraction that
 cannot express their useful capabilities.
 

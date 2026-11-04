@@ -2,7 +2,7 @@
 
 **Realization assessed:** Typer 0.27.3, which ships a vendored Click.
 
-**Researched:** 2026-10-29 by the R6 cluster. The [overview](../../../libraries/typer.md) was read
+**Researched:** 2026-10-29 by the R6 cluster. The [overview](../../../libraries/python_introspection/typer.md) was read
 end to end. Follow-ups were Context7 (`/websites/typer_tiangolo`) and the installed source:
 `core.py`, `main.py`, `exceptions.py` and `__init__.py`.
 

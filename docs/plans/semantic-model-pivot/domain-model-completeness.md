@@ -204,8 +204,8 @@ Selected: LinkML SchemaView/typed metamodel definitions, existing Pydantic creat
 boundaries, immutable prepared products, Core predicates, exact archives and current admission.
 Sources and exact-version limits are retained in
 [review §6](../../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#6-library-selections-and-boundaries),
-[LinkML](../../libraries/linkml.md), [Pydantic](../../libraries/pydantic.md) and
-[valuesets](../../libraries/valuesets.md). Context7 precedes primary/installed source lookup when
+[LinkML](../../libraries/data_model/linkml.md), [Pydantic](../../libraries/data_model/pydantic.md) and
+[valuesets](../../libraries/data_model/valuesets.md). Context7 precedes primary/installed source lookup when
 implementation needs consequential API details; prior review research need not be repeated
 without changed premises.
 

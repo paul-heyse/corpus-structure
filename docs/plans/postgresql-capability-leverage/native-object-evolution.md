@@ -83,7 +83,7 @@ Their existence does not transfer unfinished PDF obligations into this series.
   compile Core DDL, assemble semantic SQL and inspect functions/grants/triggers for expected
   deployment descriptors. `source_view_native.native_admission_sql` refreshes successor
   inventories while retaining explicitly frozen predecessor material.
-- [Record](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_record_native.py)
+- [Record](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_publication_native.py)
   and [staging](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_staging_native.py)
   authors combine physical changes, grants, functions and admission. Current
   [published readers](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_record_reader_native.py)

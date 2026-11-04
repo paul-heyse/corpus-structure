@@ -3,7 +3,7 @@
 **Realization assessed:** Hypothesis 6.170.12, run as a pytest plugin.
 
 **Research:** 2026-10-29 by the R2 cluster.
-- The [overview](../../../libraries/hypothesis.md) was read end to end.
+- The [overview](../../../libraries/analytical_infrastructure/hypothesis.md) was read end to end.
 - The installed `_hypothesis_pytestplugin.py` and `hypothesis/_settings.py` were inspected.
 - A pytest route probe compared the `ci` and default profiles
   ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-postgres-migrations/README.md)).

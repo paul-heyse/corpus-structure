@@ -82,8 +82,8 @@ not an explanation of the retained mathematical-processing duration.
 
 Sources: [SQLAlchemy Core expressions](https://docs.sqlalchemy.org/en/21/core/selectable.html),
 [transactions](https://docs.sqlalchemy.org/en/21/core/connections.html), and capability orientation
-in [SQLAlchemy](../../libraries/sqlalchemy.md), [FastMCP](../../libraries/fastmcp.md) and
-[Pydantic](../../libraries/pydantic.md). Preserve the installed typed API/refusal boundaries rather
+in [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [FastMCP](../../libraries/python_introspection/fastmcp.md) and
+[Pydantic](../../libraries/data_model/pydantic.md). Preserve the installed typed API/refusal boundaries rather
 than constructing a parallel packet schema.
 
 <a id="PE-11"></a>
@@ -152,8 +152,8 @@ faster. The review's 1.51s/325,196KiB observation remains a dated baseline, not 
 Sources: [SQLAlchemy connections](https://docs.sqlalchemy.org/en/21/core/connections.html),
 [Typer command groups](https://typer.tiangolo.com/tutorial/subcommands/add-typer/),
 [Typer context](https://typer.tiangolo.com/tutorial/commands/context/), and repository orientation
-in [Typer](../../libraries/typer.md), [Pydantic settings](../../libraries/pydantic-settings.md)
-and [FastMCP](../../libraries/fastmcp.md). The pinned Typer vendors Click; external Click
+in [Typer](../../libraries/python_introspection/typer.md), [Pydantic settings](../../libraries/data_model/pydantic-settings.md)
+and [FastMCP](../../libraries/python_introspection/fastmcp.md). The pinned Typer vendors Click; external Click
 integration is not assumed. Consult Context7/installed sources before choosing any nontrivial
 registration mechanism beyond these existing APIs.
 

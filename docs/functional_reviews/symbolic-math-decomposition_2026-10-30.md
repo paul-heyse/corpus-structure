@@ -27,8 +27,8 @@ compose; they do not require competing mathematical interpretations.
 
 The inquiry covers current source extraction/normalization, rule projections, consolidation,
 reference comparison, mathematical identity and credible downstream mathematical questions.
-It reads the full capability guides [SymPy](../libraries/Sympy.md) and
-[Tokenizers](../libraries/tokenizers.md), current Context7 documentation, installed SymPy 1.14.0
+It reads the full capability guides [SymPy](../libraries/parsing/Sympy.md) and
+[Tokenizers](../libraries/parsing/tokenizers.md), current Context7 documentation, installed SymPy 1.14.0
 and Lark 1.3.1 source, and consequential upstream changes. Static code mapping and independent
 architecture/library contributions inform the recommendations. No new product test campaign,
 benchmark, dependency installation or database operation was performed for this review.

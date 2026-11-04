@@ -494,8 +494,8 @@ built by hand.
 
   Both target Pydantic 2.14's `MISSING` (stable in 2.14.1), `TypeAliasType` and
   `Field(discriminator=…)`.
-- References: [linkml overview](../../libraries/linkml.md) §3.4, §5.2–§5.4;
-  [pydantic overview](../../libraries/pydantic.md) §3.4, §4.1–§4.2;
+- References: [linkml overview](../../libraries/data_model/linkml.md) §3.4, §5.2–§5.4;
+  [pydantic overview](../../libraries/data_model/pydantic.md) §3.4, §4.1–§4.2;
   [schema-rules note](../evidence/2026-10-28_library-schema-rules/README.md) L-01–L-03.
 
 **Challenges.**
@@ -689,7 +689,7 @@ integrity). Prerequisite: R01 (system module).*
 - **Static closed sets.** They become `text` columns with an explicit-name `CheckConstraint` whose
   name carries a digest of its member list. Alembic's opt-in `checkconstraint_byname` detects
   additions and removals *by name only* (Interface-checked: present in Alembic 1.20.0;
-  [alembic overview](../../libraries/alembic.md) §4.2). The digest turns any member change into a
+  [alembic overview](../../libraries/postgresql/alembic.md) §4.2). The digest turns any member change into a
   detectable drop and add.
 - **Invariant templates.** Each becomes a CHECK beside its generated validator (F01).
 - **References.**
@@ -757,7 +757,7 @@ intermediate pass (A4, H16).
 by a pglast-normalized comparison. The comparison projects each table to its columns (name, type,
 nullability, default), its set of constraints and each index's `USING`, `WITH` and `WHERE`, because
 raw AST equality fails on harmless differences (pglast 8.7 `parse_sql`, whose `Node` equality
-ignores locations; contributor A, GitHub tag `v8.7`; [pglast overview](../../libraries/pglast.md)
+ignores locations; contributor A, GitHub tag `v8.7`; [pglast overview](../../libraries/postgresql/pglast.md)
 §3.1, §4.3). pglast's `referenced_relations` also checks that D3 §9's queries name only tables the
 `MetaData` holds. After that, D3 cites the generated DDL rendering. D3 §1's planned catalog
 comparison (after `upgrade head`, against `create_all`) stays the database-level check.
@@ -777,8 +777,8 @@ comparison (after `upgrade head`, against `create_all`) stays the database-level
   Pydantic `TypeAdapter` for nested columns;
 - Alembic 1.20: autogenerate from this `MetaData`, and `comparators.dispatch_for` or
   `Plugin.add_autogenerate_comparator` if a further comparison is needed;
-- [sqlalchemy overview](../../libraries/sqlalchemy.md) §3.1–§3.2, §3.5, §4.2;
-  [alembic overview](../../libraries/alembic.md) §4.1–§4.2, §5.5–§5.6, §6.5.
+- [sqlalchemy overview](../../libraries/postgresql/sqlalchemy.md) §3.1–§3.2, §3.5, §4.2;
+  [alembic overview](../../libraries/postgresql/alembic.md) §4.1–§4.2, §5.5–§5.6, §6.5.
 
 **Limits.**
 
@@ -829,7 +829,7 @@ comparison (after `upgrade head`, against `create_all`) stays the database-level
   refuses to generate a revision whose model revision is unregistered. `on_version_apply` records
   the application. Branch labels can carry a separate data-migration lineage
   (Interface-checked: Alembic 1.20 `runtime/environment.py`, contributor A, 2026-10-28;
-  [alembic overview](../../libraries/alembic.md) §2.5, §5.2, §7.5).
+  [alembic overview](../../libraries/postgresql/alembic.md) §2.5, §5.2, §7.5).
 - **Change records.** One record per revision step, holding:
   - the from and to revisions;
   - the element changes, computed by a `SchemaView` diff (LinkML has none, so this is own code);
@@ -876,10 +876,10 @@ PostgreSQL by itself:
 
 - pgpq writes a struct only as a composite type, which is DDL that needs OIDs. It cannot write a
   struct containing `List<Struct>`, unions, dictionaries or nested lists (Documented,
-  [pgpq overview](../../libraries/pgpq.md) §3.2, §4.2–§4.3).
+  [pgpq overview](../../libraries/postgresql/pgpq.md) §3.2, §4.2–§4.3).
 - ADBC has no struct writer. It writes JSONB only from an `arrow.json` field into a `jsonb` column
   (source-checked by contributor B at tag `apache-arrow-adbc-25`;
-  [adbc overview](../../libraries/adbc-driver-postgresql.md) §4, §5.3, §5.7).
+  [adbc overview](../../libraries/postgresql/adbc-driver-postgresql.md) §4, §5.3, §5.7).
 
 So the payload crosses into PostgreSQL as JSON text, which the server parses into JSONB, beside
 the registry id.
@@ -1052,9 +1052,9 @@ seam (FP-02), and fixtures are Arrow tables with no server, so FP-06 is preserve
 |---|---|---|
 | `canonical_json`, digests, keys, text and label forms, token form, locators, the quote cascade, math grammar and SymPy, symbol-binding rules, z3, pgmpy, `linear_sum_assignment`, bootstrap | **Python** | Identity must have one implementation. DuckDB 2.0 has no casefold (`lower('Straße')` keeps `ß`; Interface-checked by contributor B on 2.0.0); Unicode table versions differ by engine; VARIANT and JSONB reorder keys and collapse duplicates. Grammar, solver and inference are non-relational |
 | Mention clustering (span overlap within a segment), alias-equality linking, slot grouping, alternative grouping, fusion by key, conflict self-joins (subject + functional predicate + interval overlap), pack `views:`, rule-view cached facts (`same_slot`, `alternative_of`, statement premises), noisy-OR, run diffs, evaluation candidate pairs, score aggregates, exports | **DuckDB 2.0, in process, over the pool relations** | Set-based joins, group-bys, anti-joins, windows and ordered aggregates with an optimizer and spilling. Pack `views:` declarations (source predicate, match, project) *are* a join spec, so they compile to one |
-| Connected components for merges (phase 2) | DuckDB `WITH RECURSIVE … USING KEY (node, min(comp))` with `UNION` (Documented, [duckdb overview](../../libraries/duckdb_2.md) §6.5; components Interface-checked by contributor B on 2.0.0), *only if* cannot-link refusal is made order-independent | See F03: D5 §3.6's refusal rule is order-dependent |
+| Connected components for merges (phase 2) | DuckDB `WITH RECURSIVE … USING KEY (node, min(comp))` with `UNION` (Documented, [duckdb overview](../../libraries/analytical_infrastructure/duckdb_2.md) §6.5; components Interface-checked by contributor B on 2.0.0), *only if* cannot-link refusal is made order-independent | See F03: D5 §3.6's refusal rule is order-dependent |
 | Materialization, deletion, fates, `kb.run_observation`, coverage, typed queries | **PostgreSQL SQL** | Transactional, index-backed, the instance authority |
-| Streaming re-encodes (read → project/cast → write) | PyArrow 26 Acero, optional | `Declaration.from_sequence(…)` with the v26 `RecordBatchReaderSourceNodeOptions`, `filter`/`project`/`aggregate`/`hashjoin` (left/right semi and anti) and `.to_reader()`, without materializing a Table (Documented, [pyarrow overview](../../libraries/pyarrow.md) §4.2, §13.1). Experimental API; no window or recursion nodes; joins and aggregates hold state (§14.2) |
+| Streaming re-encodes (read → project/cast → write) | PyArrow 26 Acero, optional | `Declaration.from_sequence(…)` with the v26 `RecordBatchReaderSourceNodeOptions`, `filter`/`project`/`aggregate`/`hashjoin` (left/right semi and anti) and `.to_reader()`, without materializing a Table (Documented, [pyarrow overview](../../libraries/analytical_infrastructure/pyarrow.md) §4.2, §13.1). Experimental API; no window or recursion nodes; joins and aggregates hold state (§14.2) |
 | Rule evaluation | Python, rule-engine | Per-row typed contexts; a DuckDB UDF would bring back per-row crossings |
 
 **Determinism (DP-11).**
@@ -1064,7 +1064,7 @@ seam (FP-02), and fixtures are Arrow tables with no server, so FP-06 is preserve
 - Any output whose order or floating-point value matters carries an explicit order: `ORDER BY`
   key, ordered aggregates such as `product(x ORDER BY key)`, and deterministic tie-breaks by key.
   DuckDB 2.0 gives no row order and no bitwise float reduction otherwise (Documented,
-  [duckdb overview](../../libraries/duckdb_2.md) §13.2).
+  [duckdb overview](../../libraries/analytical_infrastructure/duckdb_2.md) §13.2).
 - D5 §1's claim, "the same rows with the same keys whatever order the queue was worked", then
   holds by construction.
 
@@ -1077,7 +1077,7 @@ procedural union-find deterministic and comparable with a set-based variant (pro
 
 - The pool moves once per pass from PostgreSQL to Arrow. ADBC's `fetch_record_batch` runs binary
   `COPY … TO STDOUT`, with JSONB as `arrow.json` text and NUMERIC as text with typmod metadata
-  (Documented, [adbc overview](../../libraries/adbc-driver-postgresql.md) §3.1, §5.1–§5.3). DuckDB
+  (Documented, [adbc overview](../../libraries/postgresql/adbc-driver-postgresql.md) §3.1, §5.1–§5.3). DuckDB
   consumes Arrow without a Python per-row loop.
 - Hydrating typed objects for procedural steps is a per-row Python crossing, the same one the
   current design pays.
@@ -1104,7 +1104,7 @@ A speed benefit is a hypothesis until measured (DP-22).
 
 - DuckDB 2.0 is a week old, and its Python result lifecycle changed: an open `execute()` result
   blocks its connection, and Arrow output is only available through relations (Documented,
-  [duckdb overview](../../libraries/duckdb_2.md) §3.5–§3.6). DuckDB becomes a product dependency,
+  [duckdb overview](../../libraries/analytical_infrastructure/duckdb_2.md) §3.5–§3.6). DuckDB becomes a product dependency,
   pinned at 2.0.0; today it is only in `tools/evidence`.
 - The `postgres` extension maps unconstrained NUMERIC to DOUBLE by default, which is lossy (read
   at duckdb-postgres `main` `719691f`, not the 2.0 tag). Reading through ADBC or Parquet avoids
@@ -1123,16 +1123,16 @@ A speed benefit is a hypothesis until measured (DP-22).
 - **No custom Arrow extension types** initially. Extension types bring a registration lifecycle in
   every consumer (H25, DP-16). DuckDB does not treat Arrow extension metadata as semantics
   (inferred by contributor B; probe 4 of note B). Unregistered readers see `UnknownExtensionType`
-  or the storage type (Documented, [pyarrow overview](../../libraries/pyarrow.md) §10.1). Use
+  or the storage type (Documented, [pyarrow overview](../../libraries/analytical_infrastructure/pyarrow.md) §10.1). Use
   canonical `arrow.json` where ADBC needs it (§10.2).
 - **JSON Schemas** get `$id = https://corpus-structure.dev/schema/<model revision>/<name>` in
   `CoreJsonSchema.generate`. External validation uses a `referencing.Registry` built with
   `with_resources`, `Draft202012Validator` and `check_schema` (Documented,
-  [jsonschema overview](../../libraries/jsonschema.md) §4.1–§4.3). The decoding form stays a pure
+  [jsonschema overview](../../libraries/data_model/jsonschema.md) §4.1–§4.3). The decoding form stays a pure
   transform.
 - **DuckDB exports** use `COPY … (FORMAT parquet, KV_METADATA {schema_id: …})`. Payload analytics
   use VARIANT `SHREDDING` specs generated from payload classes. Reads use `read_parquet(schema=…)`
-  or `parquet_kv_metadata` (Documented, [duckdb overview](../../libraries/duckdb_2.md) §7.2,
+  or `parquet_kv_metadata` (Documented, [duckdb overview](../../libraries/analytical_infrastructure/duckdb_2.md) §7.2,
   §8.1, §8.4).
 - **The evidence catalog** derives its DuckDB tables from the `Record` model through its Arrow
   schema (`from_arrow`, or generated DDL), not from hand-written DDL (DA-021).
@@ -1141,7 +1141,7 @@ A speed benefit is a hypothesis until measured (DP-22).
   partial HNSW index with a literal predicate generated from the registry, because a bound
   parameter likely defeats the partial index, by analogy with S6's BM25 finding (inferred). So it
   takes the migration route. This keeps CI-13's index-and-query specification compatibility
-  explicit ([pgvector overview](../../libraries/pgvector.md) §5.3, §5.5–§5.6).
+  explicit ([pgvector overview](../../libraries/postgresql/pgvector.md) §5.3, §5.5–§5.6).
 
 <a id="r11"></a>
 
@@ -1160,7 +1160,7 @@ A speed benefit is a hypothesis until measured (DP-22).
   Check at startup with `SELECT extname, extversion FROM pg_extension`, not inside psycopg-pool's
   `configure`. There `CLIENT_EXCEPTIONS = Exception` turns a mismatch into retries and then a
   `PoolTimeout` (source-checked by contributor B, tag `pool-3.3.3`, `pool.py:35`;
-  [psycopg-pool overview](../../libraries/psycopg-pool.md) §5.1, §7.2). psycopg-pool, which D3 §1
+  [psycopg-pool overview](../../libraries/postgresql/psycopg-pool.md) §5.1, §7.2). psycopg-pool, which D3 §1
   names as the connection owner, is unpinned and uninstalled. That is a pin addition when the
   repository layer lands.
 - **DA-019, the template sweep.** Retain templates by lease or age, not "not current, so drop".

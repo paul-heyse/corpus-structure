@@ -40,8 +40,8 @@ Inputs include the ten uncommitted PostgreSQL/Docling reference expansions and t
 [complex Arrow storage assessment](../libraries/postgresql/Storing_complex_PyArrow_schemas_and_data_in_postgresql.md).
 Their contents were not changed or committed. The new assessment's SHA256 is
 `8abf10426d996f04d3a31cb56a51d676b9fe4a41c2f3dea8940291b85acbf686`.
-Supporting sources include [PyArrow](../libraries/pyarrow.md),
-[Pydantic](../libraries/pydantic.md), [Settings](../libraries/pydantic-settings.md), the
+Supporting sources include [PyArrow](../libraries/analytical_infrastructure/pyarrow.md),
+[Pydantic](../libraries/data_model/pydantic.md), [Settings](../libraries/data_model/pydantic-settings.md), the
 [Docling](../libraries/primary_intake/docling.md), [OCR](../libraries/primary_intake/docling_ocr.md)
 and [triple-pass](../libraries/primary_intake/docling_nemotron_triple_pass_reference.md) references,
 and PostgreSQL transport, Core metadata and migration references. Version claims were checked

@@ -56,7 +56,7 @@ No audit baseline or premise was refreshed. Two independent source assessments c
 publication and consumer/lifetime composition; recommendations below integrate those perspectives.
 
 Context7 was the first library lookup, followed by official documentation and source inspection.
-[PyArrow26 reference](../libraries/pyarrow.md) was assessed across nested types/nulls, compute/Acero,
+[PyArrow26 reference](../libraries/analytical_infrastructure/pyarrow.md) was assessed across nested types/nulls, compute/Acero,
 datasets/Parquet, IPC, memory/threading, C Stream and extension/interoperability capabilities.
 No runtime probe was needed to settle these design recommendations; uncertain integration remains
 explicit below. Latest/general docs are orientation, not a claim of installed support for every API.

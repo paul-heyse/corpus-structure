@@ -4,9 +4,9 @@
 rdflib 7.6.0.
 
 **Researched:** 2026-10-29 by the R3 LinkML cluster.
-- Read end to end: the [linkml overview](../../../libraries/linkml.md) and the
-  [extension-libraries overview](../../../libraries/linkml_extension_libraries.md).
-- Read light: [PyOxigraph](../../../libraries/PyOxigraph.md), canonicalization only.
+- Read end to end: the [linkml overview](../../../libraries/data_model/linkml.md) and the
+  [extension-libraries overview](../../../libraries/data_model/linkml_extension_libraries.md).
+- Read light: [PyOxigraph](../../../libraries/data_model/PyOxigraph.md), canonicalization only.
 - Follow-ups: Context7 (`/linkml/linkml`; it documents current main, not exactly 1.12.1), the
   installed source, and one pure-Python probe
   ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-linkml/README.md)).

@@ -5,8 +5,8 @@
 
 **Research:** done on 2026-10-29 by the R3 cluster, at low priority because the pivot gives these
 libraries little weight.
-- Overviews read end to end: [oaklib](../../../libraries/oaklib.md) and
-  [linkml_extension_libraries](../../../libraries/linkml_extension_libraries.md) §2.2.
+- Overviews read end to end: [oaklib](../../../libraries/data_model/oaklib.md) and
+  [linkml_extension_libraries](../../../libraries/data_model/linkml_extension_libraries.md) §2.2.
 - Follow-ups: the installed source and the PyPI listing.
 
 These two related libraries share one account; each type keeps its own namespaced handle.

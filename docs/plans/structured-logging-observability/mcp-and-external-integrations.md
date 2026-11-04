@@ -72,7 +72,7 @@ Completion: local export/config works without a backend; real selected remote wr
 with actual credentials and retention/ingestion conditions. Missing I06 credentials/endpoint marks
 remote acceptance blocked, never passed by mocks. Other selected scope is independently executable.
 
-Sources: [FastMCP](../../libraries/fastmcp.md) §§2.4,5,7,8.4,11;
+Sources: [FastMCP](../../libraries/python_introspection/fastmcp.md) §§2.4,5,7,8.4,11;
 [Logfire](../../libraries/logging/pydantic-logfire.md) §§8–10,13–16;
 [OTel](../../libraries/logging/OpenTelemetry_Python.md) §§5,9–10;
 [ECS](../../libraries/logging/ecs-logging.md) §§3–8;

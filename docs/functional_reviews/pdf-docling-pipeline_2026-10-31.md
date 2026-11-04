@@ -21,7 +21,7 @@ units, not new document sections or persistent semantic chunks.
 Inspected production baseline: `5a6045f4813769af5706c2530b6c6da398450b91`, with current
 `STATUS.md` and completed PP-00–PP-10 coordinator. Concurrent modifications to the supplied
 `docs/libraries/docling.md` and untracked `docs/libraries/pdf_rendering_libraries.md` are operator
-inputs, not review-authored changes. The 1,601-line Docling reference and [OCR guide](../libraries/docling_ocr.md), including the added technical-PDF guidance at lines 867–1044, were reviewed.
+inputs, not review-authored changes. The 1,601-line Docling reference and [OCR guide](../libraries/primary_intake/docling_ocr.md), including the added technical-PDF guidance at lines 867–1044, were reviewed.
 The standard is core 3.3, efficiency heuristics 1.0, applicable code-intelligence fidelity and
 relationship guidance 1.4, and the repository binding. This functional inquiry requires no
 broad diagnostic audit; no audit premises were changed.

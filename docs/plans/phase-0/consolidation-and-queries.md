@@ -963,7 +963,7 @@ No spike module is ported into this document's packages. Read-only references fo
     indexes; JSONB comparators for what stays nested; the recursive CTE (store note §2; SQLAlchemy
     Core);
   - `EXPLAIN (ANALYZE, BUFFERS)` read on F-Q4's volume data;
-  - pg_textsearch BM25 with the named partial index (D3 §5, [overview](../../libraries/postgresql-18-pg-textsearch.md)
+  - pg_textsearch BM25 with the named partial index (D3 §5, [overview](../../libraries/postgresql/postgresql-18-pg-textsearch.md)
     §3.3), its kind predicate from the generated `search_block` constant;
   - Pydantic result models;
   - Typer groups with `--json` (interfaces note §3).

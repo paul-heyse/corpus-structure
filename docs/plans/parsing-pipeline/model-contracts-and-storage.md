@@ -97,9 +97,9 @@ Reuse existing transition/effect machinery only where durable lifecycle is actua
   mutation disabled). Any rules/inference is separately admitted derived work, not silently
   enabled validation. Focused shape execution does not find all change-affected nodes for free.
 
-Sources: local [LinkML](../../libraries/linkml.md), [Pydantic](../../libraries/pydantic.md),
-[JSON Schema](../../libraries/jsonschema.md), [RDFLib](../../libraries/rdflib.md),
-[pySHACL](../../libraries/pyshacl.md); review's version/source table applies. Standard `gen-sqla`
+Sources: local [LinkML](../../libraries/data_model/linkml.md), [Pydantic](../../libraries/data_model/pydantic.md),
+[JSON Schema](../../libraries/data_model/jsonschema.md), [RDFLib](../../libraries/data_model/rdflib.md),
+[pySHACL](../../libraries/data_model/pyshacl.md); review's version/source table applies. Standard `gen-sqla`
 or SQLStore is not a replacement for this repository's PostgreSQL admission/migration protocol.
 
 **Acceptance:** independent source-defined examples reject swapped coordinate spaces, missing
@@ -130,7 +130,7 @@ Implement shared `Table`/`select`, joins, `exists`, set-based `insert().from_sel
 `returning` where useful. A recursive `.cte(recursive=True)` has explicit relation universe and
 cycle termination; not every source relation is containment. ORM association objects/view-only
 relationships are conditional on actual navigation benefit; they cannot bypass native authority.
-See [SQLAlchemy](../../libraries/sqlalchemy.md) and its cited Core selectable/DML references.
+See [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md) and its cited Core selectable/DML references.
 
 Store product identity and producing build separately from content-identical renditions. Preserve
 source custody, release/recipe/dependency bindings, coverage, immutable original artifact references

@@ -55,7 +55,7 @@ Dependent consumer migration cannot assume an undecided algorithm or changed OK/
 Sources: [Lark forest APIs](https://github.com/lark-parser/lark/blob/1.3.1/docs/forest.rst),
 [parser alternatives](https://github.com/lark-parser/lark/blob/1.3.1/docs/parsers.md),
 [pylatexenc2.10](https://pylatexenc.readthedocs.io/en/v2.10/latexwalker/), and local
-[Lark](../../libraries/lark.md)/[pylatexenc](../../libraries/pylatexenc.md) capability orientation.
+[Lark](../../libraries/parsing/lark.md)/[pylatexenc](../../libraries/parsing/pylatexenc.md) capability orientation.
 
 <a id="PE-03"></a>
 ## PE-03 — Migrate mathematical consumers to prepared interpretation
@@ -116,7 +116,7 @@ operands and document that evidence rather than leave an unused execution branch
 Sources: [SymPy best practices](https://docs.sympy.org/latest/explanation/best-practices.html),
 [lambdify](https://docs.sympy.org/latest/modules/utilities/lambdify.html),
 [numeric computation](https://docs.sympy.org/latest/modules/numeric-computation.html),
-[local capability orientation](../../libraries/Sympy.md). Check consequential APIs against the
+[local capability orientation](../../libraries/parsing/Sympy.md). Check consequential APIs against the
 pinned installation through Context7 and primary/installed sources; newer docs are not pin evidence.
 
 ## Execution —2026-10-30

@@ -95,8 +95,8 @@ proof of successful domain completion.
 
 ## Sources
 
-[Typer](../../libraries/typer.md) §§2–8 and advanced addendum §§1–9;
-[Rich](../../libraries/rich.md) §§2–10;
+[Typer](../../libraries/python_introspection/typer.md) §§2–8 and advanced addendum §§1–9;
+[Rich](../../libraries/python_introspection/rich.md) §§2–10;
 [Logfire](../../libraries/logging/pydantic-logfire.md) §15.2 for instrumentation-health capabilities.
 Prefer supported Context, file parameters, RichHandler/renderables and native export over custom
 command engines or terminal UI frameworks. Exact public request/result schemas are settled in

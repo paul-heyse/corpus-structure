@@ -15,7 +15,7 @@ linking in phase 1 or stay in phase 2 is the roadmap's phase 1 question for S7. 
 - **Runtime.** `sentence-transformers` in process is primary: the `encoder` worker already holds
   M05–M07 in one process (D6 §3.2), and vLLM's documentation says its pooling runner is a
   convenience with no performance guarantee over SentenceTransformers
-  ([vLLM overview](../../libraries/vllm.md) §6.3), while a second vLLM process reserves its own
+  ([vLLM overview](../../libraries/analytical_infrastructure/vllm.md) §6.3), while a second vLLM process reserves its own
   `gpu_memory_utilization` share beside the generation server. The pooling runner is variant V2.
 - **Dimension.** Candidates are 0.6B at its native 1024 and 8B truncated to 1024 or 2048. The 8B's
   native 4096 is never a candidate (HNSW on `halfvec` indexes up to 4,000 dimensions, D3 §5); its
@@ -35,7 +35,7 @@ linking in phase 1 or stay in phase 2 is the roadmap's phase 1 question for S7. 
   similarity, replaces the brief's and D4 M14's `token_set_ratio`, which the instruments rejected
   because it scores a label contained in a longer one as identical ("normal distribution" against
   "standard normal distribution"; [instruments](comparison-instruments.md) §5.1,
-  [rapidfuzz overview](../../libraries/rapidfuzz.md) §3.3). The instruments also found that every
+  [rapidfuzz overview](../../libraries/parsing/rapidfuzz.md) §3.3). The instruments also found that every
   v0 global class's identity can turn on a prefix or one word ("normal" / "lognormal" 92.7), so the
   aligner never accepts a fuzzy-only match (`FUZZY_TYPES` empty in `code/instruments/align.py`). S7 measures whether any cutoff
   separates spelling variants from distinct entities; if none does, fuzzy matches stay candidates.
@@ -60,7 +60,7 @@ is G1's (§3.5).
 | 4 Linking | (a) exact after D1 §6.2 normalization; (b) plus the D2 §12.1 alias rules (the aligner's `alias_norm`) and spaCy lemmas; (c) plus `process.cdist(cases, aliases, scorer=fuzz.token_sort_ratio, processor=…)` per class at three cutoffs (`cdist` defaults to `fuzz.ratio`, so the scorer is explicit); (d) plus cosine neighbours per embedding configuration. Candidates ranked in that fixed order (D4 M14 before a fitted model). acc@1, acc@5, new-entity precision and recall at three thresholds, over all cases and the cross-unit parameter cases; distinct labelled entities that a fuzzy cutoff admits listed as hazards | D4 M14; instruments §5.1; rapidfuzz overview §3.3, §6.1 |
 | 5 Retrieval | As the brief, by exact cosine on the stored-precision vectors. Neighbours of every configuration are pooled, deduplicated and shuffled, then labelled relevant or not by two fresh Sonnet labellers who do not see which configuration retrieved them; precision@5 per configuration | D4 §4.2; §3.5 |
 | 6 Cost | Throughput and peak memory (`torch.cuda.max_memory_allocated`) per model and dimension, exclusive on the card; the co-residency check moves to G1 | §3.5 GPU; D6 §5 |
-| 7 Index check (new) | Where a `vector` database exists (S6's, or a `pg_virtualenv` cluster): the chosen configuration's vectors as `halfvec` (`register_vector`, `HalfVector`) with one partial HNSW index per `target_type`; top-k of the linking query (aliases of one class) and the retrieval query (units, own page excluded) with `hnsw.iterative_scan = relaxed_order`, against the exact results | D3 §5; [pgvector overview](../../libraries/pgvector.md) §5.5–§5.6 |
+| 7 Index check (new) | Where a `vector` database exists (S6's, or a `pg_virtualenv` cluster): the chosen configuration's vectors as `halfvec` (`register_vector`, `HalfVector`) with one partial HNSW index per `target_type`; top-k of the linking query (aliases of one class) and the retrieval query (units, own page excluded) with `hnsw.iterative_scan = relaxed_order`, against the exact results | D3 §5; [pgvector overview](../../libraries/postgresql/pgvector.md) §5.5–§5.6 |
 
 ## 3. Variants
 

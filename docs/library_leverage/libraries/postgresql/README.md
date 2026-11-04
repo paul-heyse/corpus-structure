@@ -3,7 +3,7 @@
 **Realization assessed:** PostgreSQL 18, using the 18/corpus cluster's server capabilities.
 
 **Researched:** 2026-10-29 by the R2 cluster (PostgreSQL native, migrations, harness).
-- The [overview](../../../libraries/PostgreSQL_System_Tooling_for_Ubuntu.md) was read end to end.
+- The [overview](../../../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md) was read end to end.
 - Follow-ups: Context7 (PostgreSQL 18 docs) and upstream `signalfuncs.c` at REL_18_STABLE.
 - No database was used ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-postgres-migrations/README.md)).
 

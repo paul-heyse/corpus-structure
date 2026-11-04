@@ -16,7 +16,7 @@ This is a moving-tree assessment, not a frozen product acceptance. The [capabili
 separates reusable mechanisms from contextual applicability.
 
 Inputs are the [Python ecosystem overview](../libraries/python_protobuf_ecosystem.md) and
-[installed tools](../protobuf-grpc-installed-tools.md), with Context7, primary documentation,
+[installed tools](../libraries/protobuf-grpc-installed-tools.md), with Context7, primary documentation,
 installed LinkML source and current code as consequential checks. Overview release statements
 are orientation, not implicit upgrades. Criteria: core 3.3, heuristics 1.0, applicable
 code-intelligence 1.4 and library-leverage base/additional patterns. Relevant patterns include

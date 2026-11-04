@@ -1,7 +1,7 @@
 # SQLAlchemy
 
 **Realization assessed:** SQLAlchemy 2.1.5, with the psycopg 3.3.6 dialect.
-**Researched:** 2026-10-29 by the R1 relational cluster. The [overview](../../../libraries/sqlalchemy.md)
+**Researched:** 2026-10-29 by the R1 relational cluster. The [overview](../../../libraries/postgresql/sqlalchemy.md)
 was read end to end. Context7 returned SQLAlchemy 2.0 pages, so 2.1 behaviour was confirmed in the
 installed source. One compile-only probe was run, with no database connection
 ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-relational/README.md)).

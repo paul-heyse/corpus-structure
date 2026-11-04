@@ -39,12 +39,12 @@ inspected live.
 
 **Evidence and method.**
 - Three read-only mapping passes and coordinator source inspection.
-- The supplied overviews: [typer](../libraries/typer.md), [rich](../libraries/rich.md),
-  [libcst](../libraries/libcst.md), [tree-sitter](../libraries/tree-sitter.md),
-  [ast-grep-py](../libraries/ast-grep-py.md), [ast](../libraries/ast.md),
-  [linkml](../libraries/linkml.md), [gliner2](../libraries/gliner2.md),
-  [vllm](../libraries/vllm.md), and the operator-supplied
-  [Python concurrency and worker management](../libraries/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md)
+- The supplied overviews: [typer](../libraries/python_introspection/typer.md), [rich](../libraries/python_introspection/rich.md),
+  [libcst](../libraries/python_introspection/libcst.md), [tree-sitter](../libraries/python_introspection/tree-sitter.md),
+  [ast-grep-py](../libraries/python_introspection/ast-grep-py.md), [ast](../libraries/python_introspection/ast.md),
+  [linkml](../libraries/data_model/linkml.md), [gliner2](../libraries/parsing/gliner2.md),
+  [vllm](../libraries/analytical_infrastructure/vllm.md), and the operator-supplied
+  [Python concurrency and worker management](../libraries/analytical_infrastructure/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md)
   overview.
 - Context7 for ruamel.yaml (round-trip `CommentedMap.insert`, `yaml.indent`) and LibCST
   (`transform_module`, `AddImportsVisitor`, `CodemodTest`).
@@ -283,7 +283,7 @@ byte-identical with diagnostics the agent can act on.
      value)` positions new entries, and the packs' flow collections (`slots: [registry_id, owns]`)
      stay flow.
    - Python edits use libcst. It gives lossless output and structured
-     `TransformSuccess/Failure/Skip` results ([libcst.md](../libraries/libcst.md) §6.1, §6.4).
+     `TransformSuccess/Failure/Skip` results ([libcst.md](../libraries/python_introspection/libcst.md) §6.1, §6.4).
    - New files come from templates.
    - Planned Python goes through `ruff format -` and `ruff check --fix` **in memory**. Otherwise
      `just turn-end` would rewrite the landed code and break the "no further edits" promise.
@@ -336,7 +336,7 @@ The shadow route adds several obligations:
   tree unchanged.
 - **Supervised validation processes.** Each check runs as a subprocess in a new session with a
   deadline, terminated by process group. This reuses the `start_new_session` / `killpg` pattern
-  already in `intervene/automated.py:169-187` ([concurrency overview](../libraries/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md)
+  already in `intervene/automated.py:169-187` ([concurrency overview](../libraries/analytical_infrastructure/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md)
   §9.4, §10.2: subprocess timeouts can actually terminate work, whereas `Future.result(timeout)`
   cannot).
 - **Provenance.** Outside Git, `code_commit()` reports `unknown`. Results must say that validation
@@ -382,8 +382,8 @@ $ ci model add relation ... --range Assett --json
 - Planners edit `semantic.yaml` and `schema/rules.yaml`.
 - Nested kinds, such as a qualified n-ary relation (completeness review §8 scenario 1), take a
   `--spec file.yaml` validated by the kind's model. Typer's cardinality forms cannot express
-  nesting ([typer.md](../libraries/typer.md) §3.2).
-- LinkML `SchemaBuilder`/`SchemaView` ([linkml.md](../libraries/linkml.md) §5.3–5.4) help build and
+  nesting ([typer.md](../libraries/python_introspection/typer.md) §3.2).
+- LinkML `SchemaBuilder`/`SchemaView` ([linkml.md](../libraries/data_model/linkml.md) §5.3–5.4) help build and
   check fragments. They do not serialize reviewed files.
 - Changes to the `domains/core` rules fan out to every pack, so validation and the delta cover all
   affected packs.
@@ -434,7 +434,7 @@ per-effect test tagging would be diligence-proof machinery.
 
 **Where operation-id literals are handled.** They stay in the supplied implementation and are
 enforced when the contract resolves. ast-grep-py may *locate* them for `describe`
-([ast-grep-py.md](../libraries/ast-grep-py.md) §5.1). It must not edit them, because overlapping
+([ast-grep-py.md](../libraries/python_introspection/ast-grep-py.md) §5.1). It must not edit them, because overlapping
 edits are silently skipped (§7.3).
 
 <a id="O05"></a>
@@ -463,9 +463,9 @@ in the result.
 refusal should say how to fix it.
 
 **Mechanisms**, all generated from the O01 catalog:
-- help panels per tier (`rich_help_panel`, [rich.md](../libraries/rich.md) §7.4);
+- help panels per tier (`rich_help_panel`, [rich.md](../libraries/python_introspection/rich.md) §7.4);
 - `Enum`/`Literal` choices from the shared allowlists and vocabularies
-  ([typer.md](../libraries/typer.md) §3.1);
+  ([typer.md](../libraries/python_introspection/typer.md) §3.1);
 - `autocompletion=` callbacks for class, slot and enum names that read pack files and guard
   `ctx.resilient_parsing` (§6.2, D8:291);
 - epilog examples;
@@ -535,9 +535,9 @@ The criterion is not "model-backed versus deterministic".
 
 | Family | Providers | Port? |
 |---|---|---|
-| Span/record extraction | GLiNER2.5 `AutoExtractor.batch_extract`/`extract_long`; `JointIE`; spaCy candidates scored with `score_explicit_spans` ([gliner2.md](../libraries/gliner2.md) §2.4, §4.2, §5.2, §6.3) | Yes |
+| Span/record extraction | GLiNER2.5 `AutoExtractor.batch_extract`/`extract_long`; `JointIE`; spaCy candidates scored with `score_explicit_spans` ([gliner2.md](../libraries/parsing/gliner2.md) §2.4, §4.2, §5.2, §6.3) | Yes |
 | Classification | GLiNER2 `Classifier` (constraint decoding, `feasible`/`violations`); GLiNER2.5-Decide (§4.1, §7.5) | Yes |
-| Structured generation | vLLM OpenAI-compatible chat with `structured_outputs` ([vllm.md](../libraries/vllm.md) §7.1, §9.1) | Yes |
+| Structured generation | vLLM OpenAI-compatible chat with `structured_outputs` ([vllm.md](../libraries/analytical_infrastructure/vllm.md) §7.1, §9.1) | Yes |
 | Judgment/scoring | vLLM `choice` constraint; structured decisions; generative scoring (§7.1, §7.4–7.5). These are not interchangeable measures | Yes |
 | Embedding | vLLM pooling `/v1/embeddings`; sentence-transformers (§6.3) | Yes |
 | Document conversion | Docling; MinerU (both GPU, ML-model-backed) | Yes |
@@ -614,7 +614,7 @@ model loads inside the synchronous in-process `method.run` would waste both.
 
 **Realization**, scoped to the first consumers. The full D6 cpu/encoder/llm topology is deferred
 until a corpus-scale run needs it. Mechanisms from the
-[concurrency overview](../libraries/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md):
+[concurrency overview](../libraries/analytical_infrastructure/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md):
 
 - **The durable task registry already exists.** The PostgreSQL claim with attempt/lease fencing
   (S6 `s6.queue`, Tested) separates pending, assigned, acknowledged and failed work, and a
@@ -713,7 +713,7 @@ access. This opportunity waits for the runtime proposal path.
 | LinkML `SchemaBuilder`/`SchemaView` | Fragment construction and checks; induced slots for `describe` | Serializing reviewed files |
 | ast-grep-py | Locating sites for `describe` | Edits (overlaps silently skipped); new lint rules |
 | `ast`/`compile` | Cheap syntax pre-check | Rewrites |
-| tree-sitter | None: edits are batch edits over valid source ([tree-sitter.md](../libraries/tree-sitter.md) §9.4, §11.3) | — |
+| tree-sitter | None: edits are batch edits over valid source ([tree-sitter.md](../libraries/python_introspection/tree-sitter.md) §9.4, §11.3) | — |
 | Typer / Rich | Commands, choices, completion, panels, docs; diffs and diagnostics | Deriving commands from database rows |
 | subprocess + process groups, `asyncio`, `ProcessPoolExecutor`, `threadpoolctl` | Validation and provider supervision, async LLM client, CPU pools | Duplicating the PostgreSQL task registry |
 | GLiNER2 2.1.0 / vLLM | Providers of O08 families | Owning thresholds, labels or routing |

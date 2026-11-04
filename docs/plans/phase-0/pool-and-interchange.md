@@ -17,7 +17,7 @@ RC15. The operator directed on 2026-10-28 that these foundations be built in pha
 review places most of their use from phase 1.
 
 **The libraries.** DuckDB 2.0 and PyArrow 26 are recent, major releases. Their mechanisms here come from
-the operator's overviews ([DuckDB 2.0](../../libraries/duckdb_2.md), [PyArrow 26](../../libraries/pyarrow.md)),
+the operator's overviews ([DuckDB 2.0](../../libraries/analytical_infrastructure/duckdb_2.md), [PyArrow 26](../../libraries/analytical_infrastructure/pyarrow.md)),
 their versioned documentation, and the review's library notes, which include DuckDB 2.0.0 checks run on
 scratch data on 2026-10-28 (Interface-checked).
 

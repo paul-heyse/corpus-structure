@@ -3,7 +3,7 @@
 **Realization assessed:** Pydantic 2.14.1 with pydantic-core 2.50.1.
 
 **Researched:** 2026-10-29 by the R4 cluster.
-- The [overview](../../../libraries/pydantic.md) was read end to end.
+- The [overview](../../../libraries/data_model/pydantic.md) was read end to end.
 - Context7 was consulted at `/pydantic/pydantic/v2.14.1`, which matches the installed release.
 - Installed source was read: `type_adapter.py`, `json_schema.py`, `networks.py` and
   `_generate_schema.py`.

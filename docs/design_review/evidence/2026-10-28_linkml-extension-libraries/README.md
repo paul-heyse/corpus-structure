@@ -2,7 +2,7 @@
 
 **Status, 2026-10-28: done.** This is the evidence behind a focused review, run by a fresh
 design-reviewer. The review asked whether the LinkML extension libraries change the phase 0 target
-design. The operator's overview ([linkml extension libraries](../../../libraries/linkml_extension_libraries.md))
+design. The operator's overview ([linkml extension libraries](../../../libraries/data_model/linkml_extension_libraries.md))
 was used for feature discovery. The conclusion is that they refine the design without changing it:
 no library is adopted in phase 0, and every bespoke piece the plan builds stays bespoke.
 

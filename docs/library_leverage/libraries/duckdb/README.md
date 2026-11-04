@@ -1,7 +1,7 @@
 # DuckDB
 
 **Realization assessed:** DuckDB 2.0.0 LTS (released 2026-10-21), the installed Python package.
-**Researched:** 2026-10-29 by the coordinator. The [overview](../../../libraries/duckdb_2.md) was read
+**Researched:** 2026-10-29 by the coordinator. The [overview](../../../libraries/analytical_infrastructure/duckdb_2.md) was read
 end to end. Decisive behaviour was then checked against the installed package's API and docstrings,
 with one pure-Python probe ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-duckdb/README.md)).
 Context7 did not yet cover 2.0. **Pin:** `docs/pins.md` holds duckdb 2.0.0.

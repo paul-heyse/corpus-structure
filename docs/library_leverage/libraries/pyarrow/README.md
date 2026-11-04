@@ -3,7 +3,7 @@
 **Realization assessed:** pyarrow 26.0.0.
 
 **Researched:** 2026-10-29 by the R5 columnar cluster.
-- The [overview](../../../libraries/pyarrow.md) was read end to end.
+- The [overview](../../../libraries/analytical_infrastructure/pyarrow.md) was read end to end.
 - Context7 was consulted on `pc.round`/`RoundOptions` and the `store_schema` option.
 - Several pure-Python probes were run
   ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-arrow/README.md)).

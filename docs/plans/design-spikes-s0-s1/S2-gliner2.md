@@ -25,7 +25,7 @@ checkpoint and the installed package (inspected 2026-10-28):
   `extract_long` chunks by GLiNER2 word tokens (384 by default), and its splitter makes every
   non-word character a token, so raw LaTeX chunks more units than the 17 over 384 words.
 - **Loader.** `GLiNER2.from_pretrained` is the span-architecture class; boundary checkpoints load
-  through `AutoExtractor.from_pretrained` ([GLiNER2 overview](../../libraries/gliner2.md) §2.4;
+  through `AutoExtractor.from_pretrained` ([GLiNER2 overview](../../libraries/parsing/gliner2.md) §2.4;
   `gliner2/inference/engine.py`), which `JointIE.from_pretrained` also uses. D4 M06's realization
   line is corrected through the report.
 

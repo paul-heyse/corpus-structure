@@ -45,7 +45,7 @@ is used, because keys never depend on parse success (D1 §6.2).
 | 7 Symbols (M09) | As the brief, with the grammar's `occurrences` |
 | 8 Scoping (M13) | As the brief, with two binder variants: the spike patterns, and the refined ones (`Matcher(validate=True)`, `PhraseMatcher(attr="LOWER")` for multi-word phrases, "again" tied to the binder's sentence). The sample of assignments on the twenty math-heavy units is judged by a fresh Sonnet subagent with instructed blindness and transcript audit, not by the root (§3.5) |
 | 9 Equivalence | As the brief, with the numeric points drawn from a generator seeded by the two claims' keys (D7 §5.3) and timeouts measured per tier (OPEN-D7-2) |
-| 10 z3 | As the brief; untranslatable leaves recorded; unsat cores through `assert_and_track`; a per-check timeout with `unknown` reported as such ([z3 overview](../../libraries/z3-solver.md)) |
+| 10 z3 | As the brief; untranslatable leaves recorded; unsat cores through `assert_and_track`; a per-check timeout with `unknown` reported as such ([z3 overview](../../libraries/scientific_compute/z3-solver.md)) |
 | 11 Verifiers | As the brief |
 
 ## 3. Variants

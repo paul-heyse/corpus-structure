@@ -3,7 +3,7 @@
 **Realization assessed:** FastMCP 4.1.3.
 
 **Researched:** 2026-10-29 by the R6 interfaces cluster.
-- The [overview](../../../libraries/fastmcp.md) was read end to end.
+- The [overview](../../../libraries/python_introspection/fastmcp.md) was read end to end.
 - Follow-ups:
   - Context7 `/prefecthq/fastmcp/v4.1.3`, which matches the installed release.
   - Installed source: `server/server.py`, `tools/function_tool.py`, `tools/tool_transform.py`,

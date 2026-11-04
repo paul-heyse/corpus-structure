@@ -83,11 +83,11 @@ routes), LOP-03 (dictionary edits where LinkML offers an API).
   statement kinds).
 - Minimal test releases may be deliberate.
 
-**Research leads.** [linkml](../../libraries/linkml.md): linkml-runtime 1.12.1 `SchemaView`
+**Research leads.** [linkml](../../libraries/data_model/linkml.md): linkml-runtime 1.12.1 `SchemaView`
 accepts an `importmap` of in-memory schema dictionaries, loaded without filesystem or network
 access (seen in the installed `schemaview.py`; not yet assessed). Also one synthesized root with an
 ordered import list, and `SchemaBuilder` for the agent module.
-[linkml_extension_libraries](../../libraries/linkml_extension_libraries.md).
+[linkml_extension_libraries](../../libraries/data_model/linkml_extension_libraries.md).
 
 **Questions for library research.**
 1. Can one root schema with ordered imports plus importmap dictionaries express every current
@@ -161,7 +161,7 @@ demand), LOP-09 (consumer-local caches), LOP-05.
 
 **Research leads.** Mostly not a library question. Candidates are a native verification record
 keyed by release id and content digest, a digest-keyed in-process reuse scope, and
-[pydantic](../../libraries/pydantic.md) `models_json_schema` for one shared-`$defs` schema.
+[pydantic](../../libraries/data_model/pydantic.md) `models_json_schema` for one shared-`$defs` schema.
 
 **Questions for library research.**
 1. Which reload checks are needed once per release and process, and which on every session?
@@ -214,8 +214,8 @@ label).
 bump. The determinants have to be chosen deliberately.
 
 **Research leads.** Python `importlib.metadata` (`requires`, `packages_distributions`) to derive the
-set; declaring and pinning pyoxigraph ([PyOxigraph](../../libraries/PyOxigraph.md));
-[valuesets](../../libraries/valuesets.md).
+set; declaring and pinning pyoxigraph ([PyOxigraph](../../libraries/data_model/PyOxigraph.md));
+[valuesets](../../libraries/data_model/valuesets.md).
 
 **Questions for library research.**
 1. Which libraries actually change prepared bytes or run outputs?
@@ -280,8 +280,8 @@ exercising a `native_range` fallback that production never takes.
 
 **Counterevidence.** Each lookup is cheap alone. No hot path has been measured.
 
-**Research leads.** [pydantic](../../libraries/pydantic.md) (build `TypeAdapter`s once per field);
-[linkml](../../libraries/linkml.md) (`SchemaView.type_ancestors`); `curies`, installed transitively,
+**Research leads.** [pydantic](../../libraries/data_model/pydantic.md) (build `TypeAdapter`s once per field);
+[linkml](../../libraries/data_model/linkml.md) (`SchemaView.type_ancestors`); `curies`, installed transitively,
 for a `Converter` built from archived prefix rows (no overview page).
 
 **Questions for library research.**
@@ -335,8 +335,8 @@ through four forms and hand reference checks.
 
 **Research leads.** `linkml_runtime` `ReferenceValidator`; whether it checks dangling references is
 unverified. LinkML generators for a trusted, code-owned schema; ADR-0020's rejection concerned domain
-releases. [linkml](../../libraries/linkml.md),
-[msgspec/attrs/cattrs](../../libraries/msgspec_attrs_and_cattrs.md).
+releases. [linkml](../../libraries/data_model/linkml.md),
+[msgspec/attrs/cattrs](../../libraries/data_model/msgspec_attrs_and_cattrs.md).
 
 **Questions for library research.**
 1. Should the release compiler check in-document references for non-inlined class ranges? That
@@ -380,7 +380,7 @@ shares the importmap lead.
 
 **Counterevidence.** The copies are correct defences against a real upstream mutation hazard.
 
-**Research leads.** [linkml](../../libraries/linkml.md): `importmap` dictionaries and
+**Research leads.** [linkml](../../libraries/data_model/linkml.md): `importmap` dictionaries and
 `SchemaView.materialize_derived_schema()`.
 
 **Question for library research.** Can one derived, read-only schema built once per preparation
@@ -403,8 +403,8 @@ serve all three consumers, given that the generators take a `SchemaDefinition`?
 
 **Patterns.** LOP-11 (revisit when the validator's order changes), LOP-07.
 
-**Research leads.** [oaklib](../../libraries/oaklib.md),
-[linkml_extension_libraries](../../libraries/linkml_extension_libraries.md).
+**Research leads.** [oaklib](../../libraries/data_model/oaklib.md),
+[linkml_extension_libraries](../../libraries/data_model/linkml_extension_libraries.md).
 
 **Question for library research.** Does a newer linkml-term-validator compose `minus` over the full
 union, and can OAK adapters be built from in-memory bytes?

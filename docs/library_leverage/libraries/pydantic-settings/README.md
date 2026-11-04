@@ -3,7 +3,7 @@
 **Realization assessed:** pydantic-settings 2.16.1.
 
 **Research.** The R4 cluster did this work on 2026-10-29. It read the
-[overview](../../../libraries/pydantic-settings.md) end to end, then inspected the installed source
+[overview](../../../libraries/data_model/pydantic-settings.md) end to end, then inspected the installed source
 (`pydantic_settings/main.py`; `pydantic/networks.py`) and ran one probe
 ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-pydantic/README.md), probe
 P4).

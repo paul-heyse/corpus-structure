@@ -49,9 +49,9 @@ a `p.dfm` definition (`pdf1`), LogNormal an unclosed `p.math` (unit without id),
 ## 3. HTML extraction mechanisms
 
 Six libraries were assessed against the responsibilities above, from the
-[pylatexenc overview](../../libraries/pylatexenc.md), the
-[lxml overview](../../libraries/lxml.md) and the
-[parsel, cssselect, cssselect2, trafilatura and extruct overview](../../libraries/parsel_cssselect_cssselect2_trafilatura_extruct.md),
+[pylatexenc overview](../../libraries/parsing/pylatexenc.md), the
+[lxml overview](../../libraries/primary_intake/lxml.md) and the
+[parsel, cssselect, cssselect2, trafilatura and extruct overview](../../libraries/primary_intake/parsel_cssselect_cssselect2_trafilatura_extruct.md),
 checked against Context7, the lxml 6.1.3 changelog and the libxml2 2.14 release notes.
 
 ### 3.1 Selection
