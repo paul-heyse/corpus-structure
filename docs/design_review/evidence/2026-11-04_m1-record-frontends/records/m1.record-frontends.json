@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "m1.record-frontends",
+  "title": "Checked native list/latent record frontends and legacy compatibility",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does policy6/native pack-v2 preserve exact source and logical contracts through compiler, report inspection, assembly and score attribution?",
+  "answers": [
+    "M1-INT-F23"
+  ],
+  "method": "Targeted production method tests, checked actual independently frozen fragment spans, legacy pack identity comparison, scoped Ruff/Pyrefly and full current typing; independent read-only implementation review.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/methods/test_m1_record_frontends.py python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/methods/test_record_readings.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/methods/test_m1_source_profile.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_readings.py --report-log=docs/design_review/evidence/2026-11-04_m1-record-frontends/final-targeted-004.jsonl",
+    "just types"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "final-targeted-004.jsonl",
+      "role": null,
+      "sha256": "29072513665972cdb5ac3bb7ce2759ff0dff74180257206fa5f916ebeca46200"
+    },
+    {
+      "path": "baseline-pack-identities.log",
+      "role": null,
+      "sha256": "89e74fc099f4f7ac7ebadeed7f9562f61b9c646df01ee006d553ebe0aace510a"
+    },
+    {
+      "path": "ruff-002.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "pyrefly-002.log",
+      "role": null,
+      "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+    },
+    {
+      "path": "attempt-types130.log",
+      "role": null,
+      "sha256": "f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Focused functional controls",
+      "value": 147,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Unchanged legacy pack identities",
+      "value": 21,
+      "of": null,
+      "unit": "packs",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Source policy6 routes equivalent whole-block prose requests with preserved dependencies/dispositions; exact native fragment lists lift through existing Text/TextSequence policy and latent assertions retain SPO occurrence semantics. All147focused cases and21legacy pack identity checks pass. Fragment scores retain source/group/field/fragment attribution with no aggregate probability or semantic feature-ABI change. No model, quality, adaptation, accepted-source or whole-M1 conclusion from these controlled checks.",
+  "consumed_by": [
+    "M1-05",
+    "M1-07",
+    "M1-14",
+    "M1-15"
+  ]
+}

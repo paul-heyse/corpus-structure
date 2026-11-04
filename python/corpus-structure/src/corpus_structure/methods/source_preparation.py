@@ -47,6 +47,7 @@ from corpus_structure.semantic.source_contexts import (
 PROSE_FAMILIES = ("definition", "assertion", "measurement")
 POLICY = "m1-canonical-related-context-candidates-4"
 POLICY_V5 = "m1-canonical-related-context-candidates-5"
+POLICY_V6 = "m1-canonical-related-context-candidates-6"
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,7 +384,9 @@ def prepare_source(
     """
     if min(max_chars, max_pieces, max_annotation_chars) < 1:
         raise ValueError("source preparation bounds must be positive")
-    if policy not in {POLICY, POLICY_V5} or (formula_prose and policy != POLICY_V5):
+    if policy not in {POLICY, POLICY_V5, POLICY_V6} or (
+        formula_prose and policy not in {POLICY_V5, POLICY_V6}
+    ):
         raise ValueError("unsupported source preparation/routing policy")
     profile = profile or AnnotationProfile()
     frame = native_source_frame(view, ())
@@ -638,8 +641,9 @@ def prepare_source(
     preparation = PreparedNativeSources(
         (frame, *(entry.source for entry in related)), max_sources=9
     )
-    if policy == POLICY_V5:
+    if policy in {POLICY_V5, POLICY_V6}:
         selections = [replace(selection, policy=policy) for selection in selections]
+        original_count = len(selections)
         selections, regions = _formula_windows(
             view,
             frame,
@@ -652,6 +656,10 @@ def prepare_source(
             max_pieces=max_pieces,
             check_active=check_active,
         )
+        if policy == POLICY_V6:
+            selections, regions = _prose_formula_neighborhoods(
+                selections, regions, first_window=original_count
+            )
     return PreparedCandidateSource(
         frame,
         tuple(products),
@@ -681,7 +689,7 @@ def _render_formula_window(
         max_pieces=max_pieces,
         related=related,
         preparation=preparation,
-        policy=POLICY_V5,
+        policy=selection.policy,
     )
     return candidate
 
@@ -883,6 +891,93 @@ def _formula_windows(
         for r in regions
     ]
     return output, regions
+
+
+def _prose_formula_neighborhoods(selections, regions, *, first_window):
+    """Share complete formula neighborhoods with prose, retaining every region link.
+
+    Equal consumed pieces and selected/rejected retrieval dependencies permit one prose
+    request across distinct formula primaries. Formula requests retain their own identity.
+    Local routing dispositions are preserved as provenance, including failures; no report
+    is replayed, retagged or cached under a different context.
+    """
+    output = list(selections)
+    requests = {}
+    linked = {}
+    for index in range(first_window, len(selections)):
+        selection = selections[index]
+        if selection.families != ("formula_context",):
+            continue
+        key = canonical_bytes(
+            dict(
+                pieces=[asdict(piece) for piece in selection.pieces],
+                retrievals=[asdict(retrieval) for retrieval in selection.retrievals],
+                relationships=selection.relationships,
+                missing_roles=selection.missing_roles,
+                policy=selection.policy,
+            )
+        )
+        if key not in requests:
+            requests[key] = len(output)
+            output.append(
+                replace(
+                    selection,
+                    families=PROSE_FAMILIES,
+                    reason="whole-native-block formula neighborhood shared with prose families",
+                )
+            )
+        else:
+            shared_index = requests[key]
+            shared = output[shared_index]
+            output[shared_index] = replace(
+                shared,
+                local_dispositions=tuple(
+                    dict.fromkeys(
+                        (
+                            *shared.local_dispositions,
+                            *selection.local_dispositions,
+                        )
+                    )
+                ),
+                local_relationships=tuple(
+                    dict.fromkeys(
+                        (
+                            *shared.local_relationships,
+                            *selection.local_relationships,
+                        )
+                    )
+                ),
+            )
+        linked[index] = requests[key]
+    return output, [
+        replace(
+            region,
+            families=tuple(
+                dict.fromkeys(
+                    (
+                        *region.families,
+                        *(
+                            family
+                            for index in region.selections
+                            if index in linked
+                            for family in PROSE_FAMILIES
+                        ),
+                    )
+                )
+            ),
+            selections=tuple(
+                dict.fromkeys(
+                    index
+                    for original in region.selections
+                    for index in (
+                        original,
+                        *((linked[original],) if original in linked else ()),
+                    )
+                )
+            ),
+        )
+        for region in regions
+    ]
 
 
 def _widen_contexts(

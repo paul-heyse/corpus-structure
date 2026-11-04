@@ -95,11 +95,14 @@ def family_pack(
     anchor_role: str,
     descriptions: Mapping[str, str] | None = None,
     source_inspection: bool = False,
+    pack_version: str = "native-combined-v1",
 ) -> GlinerPack:
-    """Choose natural grouping explicitly; optional native fields never decide source absence.
+    """Versioned native frontends; optional fields never decide source absence.
 
     Native locations and transformed fields come from their owners, not model strings.
     Description/anchor choices are extraction policy; family roles and choices are released.
+    V2 selects definition fragments and latent assertion formation. The supplied anchor
+    still identifies the logical occurrence role; latent formation has no fixed seed role.
     """
     definition, roles = family_roles(prepared, contract)
     descriptions = descriptions or {}
@@ -111,6 +114,12 @@ def family_pack(
         if kind not in {"literal", "classified"}:
             continue
         field: dict[str, Any] = dict(name=role.name, dtype="str", cardinality="optional_one")
+        if (
+            pack_version == "native-combined-v2"
+            and contract == "DefinitionRecordFields"
+            and role.name == "defining_text"
+        ):
+            field.update(dtype="list", cardinality="zero_or_more")
         if kind == "classified":
             field["choices"] = list(classification(prepared, role)[1])
         if role.name in descriptions:
@@ -123,13 +132,20 @@ def family_pack(
     ).get("choices"):
         raise GlinerRefused("native natural grouping requires an explicit literal anchor role")
     family = next(prop.equals_string for prop in definition.properties if prop.name == "family")
+    structure = dict(mode="natural", anchor=anchor_role, fields=fields)
+    if pack_version == "native-combined-v2" and contract == "AssertionRecordFields":
+        # Latent seeds come from the shared field-candidate pool, not learned queries.
+        structure = dict(mode="latent", fields=fields)
     return GlinerPack.from_declaration(
         prepared.release_id,
-        {"structures": {family: dict(mode="natural", anchor=anchor_role, fields=fields)}},
+        {"structures": {family: structure}},
+        version=pack_version,
     )
 
 
-def formula_pack_variants(prepared, *, descriptions=None, source_inspection=False):
+def formula_pack_variants(
+    prepared, *, descriptions=None, source_inspection=False, pack_version="native-combined-v1"
+):
     """Explicit natural instance seeds; neither variant manufactures source states.
 
     Symbol anchors can represent several bindings sharing one formula. Formula
@@ -146,6 +162,7 @@ def formula_pack_variants(prepared, *, descriptions=None, source_inspection=Fals
                 anchor_role=anchor,
                 descriptions=descriptions,
                 source_inspection=source_inspection,
+                pack_version=pack_version,
             ),
         )
         for variant, anchor in (("symbol_binding", "symbol"), ("formula_reading", "formula"))

@@ -481,12 +481,13 @@ feed separately configured reading resolution. Other methods retain the full-bin
 
 > Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 
-**Accepted target; Proposed implementation (2026-11-04).** M1 native pack-v2 may map explicitly
-declared exact source fragments to one existing logical TextSequence and use latent assertion
+**Implemented; bounded Tested (2026-11-04).** M1 native pack-v2 maps explicitly declared
+exact source fragments through the existing Text/TextSequence policy and uses latent assertion
 grouping. Native formatter confidence order cannot define source order; fragment ordering,
 custody, states and cues remain checked. Source policy6 routes whole-block contexts while
-retaining coverage and bounded inputs. New physical frontends require fresh affected model/
-fitting/calibration evidence, preserve original references and establish no quality by themselves.
+retaining coverage and bounded inputs.147focused controls and actual native interface settlement
+pass. The changed physical frontend still requires fresh affected predictions/fitting/calibration;
+original references remain immutable and these controls establish no extraction quality.
 
 > Decision: [ADR-0061](../adr/0061-m1-native-record-frontends.md)
 

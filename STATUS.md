@@ -12,7 +12,7 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 
 ## Development workflow
 
-- Persistent corpus_structure_dev on5434 retains real source products at native129/160objects.
+- Persistent corpus_structure_dev on5434 retains real source products at native130/160objects.
   Operator paul has development administration rights; six actual purpose connections passed.
   [ADR-0056](docs/adr/0056-persistent-development-database.md) removes mandatory disposable DBs.
   All worktrees are removed. No PDF conversion/OCR/recognition reran in this increment.
@@ -42,12 +42,13 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 - [Protected development assessment](docs/design_review/evidence/2026-11-04_m1-independent-assessment/README.md)
   fails quality:0accepted readings,190missing/80unaccepted occurrences. All five fitting attempts
   refuse runtime authority (0positive/no events); no final feature/calibration policy exists.
-- Contextual source policy5/codepoint profile is implemented;143focused cases and2actual maximum-input
-  native calls pass. Integrated run20 was interrupted by ENOSPC and explicitly cancelled; no result.
-  Dedicated cluster and space recovered. APT cache was not cleared.
+- Policy6/native pack-v2 adds exact definition fragments, latent assertions and shared prose routing.
+ 147focused controls/globaltypes pass; independent review found no material issues. Actual3long CPU
+  calls/warm request cancellation settle; internal phase/distributed cancellation remain unqualified.
+- Run20 ENOSPC/cancellation receipts remain; cluster/space recovered. APT cache was not cleared.
 - Fixed-schema native positive/zero training step passes numerical checks; isolated checkpoint,
-  no efficacy claim. Full-visible target reconstruction passes124examples/reloads covering217/270;
-  exclusions remain explicit. Context/role-gap investigation precedes one bounded learning epoch.
+  no efficacy claim. Correct production-profile004 passes261examples/reloads covering239/270decoder
+  readings (226primary-custody/13neighbor-only);31exclusions remain. One fresh-base epoch is active.
 - Corrected scoped inspection passes90pure/58actual comparisons at1MiB; chart-parent/inventory
   review findings are closed. Current finding disposition stays in M1.
 - Run14 sampled process-tree peak PSS4190578KiB; PostgreSQL excluded and late backend snapshots
@@ -55,5 +56,5 @@ _Updated2026-11-04; selected AC complete; M1 execution continues._
 
 ## Next
 
-Finish targeted context/role repairs and bounded native adaptation. Next fresh predictions and feature fit,
+Finish the bounded native epoch and settlement, then isolated-artifact predictions and feature fit,
 held-out calibration/final assessment, five-family gates and remaining M1 release qualification.

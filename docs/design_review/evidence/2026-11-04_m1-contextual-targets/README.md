@@ -1,8 +1,8 @@
 # Contextual fixed-schema target reconstruction
 
-2026-11-04. **Tested: both checked reconstructions passed and are frozen.** This bounded experiment
+2026-11-04. **Tested:004 is the current production-constructor metadata dataset;001–004 are frozen.** This bounded experiment
 reconstructs original protected feature-fit C set1 against a completed retained
-source-and-annotation run, the explicitly frozen named contextual v5 configuration,
+source-and-annotation run, the explicitly frozen named contextual configuration,
 and native fixed-schema tokenizer/collation. No model, forward, training,
 held-out labels, PDF rerun or database mutation is part of this package.
 
@@ -28,7 +28,7 @@ Full conditioning includes native record specifications (anchor, mode, cardinali
 exclusivity and occurrence policy) as well as encoder/query preparation. The two
 natural variants therefore remain distinct even when their encoder tokens coincide.
 
-Checked reconstruction uses completed source/annotation run21, final cut21, release
+Attempts001/002 use completed source/annotation run21, final cut21, release
 `b97a1bbe1b8487f798773945efa0936486794bd15ca1ef7eeaecb654b72ff7fb`.
 The interrupted contextual attempt013 supplies no completed-run premise.
 The named `extract.m1_candidates/contextual` configuration is resolved by the actual
@@ -46,14 +46,14 @@ Attempt001 reconstructed291 proposed source contexts and781 context/variant requ
 Its118 emitted/reloaded raw examples contain113 positives and5 genuine zero-record
 examples, with253 target instances representing205 distinct original C readings.
 
-| Family | Original C | Complete mapping001 | Initially collated001 | Emitted001 | Emitted002 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Definition | 14 | 10 | 8 | 8 | 8 |
-| Assertion | 56 | 50 | 41 | 41 | 41 |
-| Measurement | 32 | 29 | 29 | 29 | 29 |
-| Table | 80 | 80 | 80 | 80 | 80 |
-| Formula | 88 | 82 | 72 | 47 | 59 |
-| Total | 270 | 251 | 230 | 205 | 217 |
+| Family | Original C | Complete mapping001 | Initially collated001 | Emitted001 | Emitted002 | Emitted004 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Definition | 14 | 10 | 8 | 8 | 8 | 14 |
+| Assertion | 56 | 50 | 41 | 41 | 41 | 56 |
+| Measurement | 32 | 29 | 29 | 29 | 29 | 30 |
+| Table | 80 | 80 | 80 | 80 | 80 | 80 |
+| Formula | 88 | 82 | 72 | 47 | 59 | 59 |
+| Total | 270 | 251 | 230 | 205 | 217 | 239 |
 
 The65 exclusions in001 are19 readings with no complete exact mapped request,21 lost
 to whole-request completeness/collision/scope gates, and25 lost only at the final
@@ -70,7 +70,7 @@ Seven further assertions are blocked by incomplete neighboring C readings; two h
 natural predicate-anchor collisions. Neither family loses readings at the final
 conditioning gate. These are representation limits, not recognition quality results.
 
-All actual-request native preparation stayed at or below3427 source words,123 prefix
+For001/002, actual-request native preparation stayed at or below3427 source words,123 prefix
 words and4049 total subwords;356 requests would exceed the old facade's512-word/
 2048-subword bounds. Metadata preparation does not qualify an encoder/resource workload.
 
@@ -94,8 +94,8 @@ All781 requests remain audited (155 initially collated,626 excluded). The mixed
 present-symbol/unstated-meaning C reading is natively represented in002 and retains
 its explicit current assembly exclusion. These are decoder targets, not a claim
 that every neighbor can publish through the selected-primary assembly route.
-The coordinator holds actual epoch execution while deciding whether targeted
-context/representation repairs should precede it.
+That population investigation preceded the coordinator's later approved v2
+context/representation work and004 epoch boundary, described below.
 
 The same original protected C, generated source contexts, named configuration and
 source reconstruction are byte-identical across001/002, recorded in
@@ -147,8 +147,110 @@ in [routing-diagnostic.jsonl](attempt-002/routing-diagnostic.jsonl).
 
 The native record-mode distinction remains important for the coordinator's separate
 challenger inquiry: latent mode seeds from field candidates/shared pool, while the
-32 learned record-instance queries belong to anchorless mode. No mode, query count,
-field cardinality, source profile or model is changed by this reconstruction.
+32 learned record-instance queries belong to anchorless mode. The001/002 experiments
+retain their original modes/cardinalities;003/004 consume the separately implemented
+frontend-v2 contract below, without resizing or model changes.
+
+## ADR-0061/policy6/frontend-v2 reconstruction
+
+Attempts003/004 consume completed source-and-annotation run22, final cut23,
+release `407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25`.
+The separately implemented policy6/native-combined-v2 frontend routes whole-block
+neighborhoods to prose families, carries `definition.defining_text` as native
+list/zero_or_more fragments, and uses native latent assertion grouping without an
+anchor. The logical predicate hint is never treated as a native latent anchor.
+The original logical field meaning, states, cues, field order and270 C IDs survive.
+Any original S/P/O literal identity-anchor overlap establishes a partially visible
+assertion occurrence that must have complete roles before the whole request enters
+loss. A standalone modifier/cue does not create an assertion target when its logical
+occurrence lies wholly outside the input. This logical population scope is distinct
+from native latent formation's ability to seed from any field candidate.
+
+The new evidence-only [fixed_schema_processor_v2.py](fixed_schema_processor_v2.py)
+uses the same supported `ExtractorTrainer(processor=...)` seam, deterministic native
+fixed-schema inference preparation, and exported native target builder. It changes
+no trainer/model/loss. A present defining-text target is a nonempty ordered list of
+exact `{start,end,text}` dictionaries. Each source-monotone, nonoverlapping fragment
+has its own original anchor and source→word→source receipt. Each native list entry
+is a **distinct value**, with exact nested `RecordFieldTarget.values` comparison;
+scalar prefix occurrences remain alternatives of one scalar value. One mapped real
+piece lifts to the existing Text/original shape; multiple pieces lift to one logical
+TextSequence/original_pieces. No intervening text is flattened, no strings are joined,
+and native confidence order is not represented as source order or a field probability.
+Native list targets themselves do not learn an arbitrary logical ordering.
+
+Both v2 metadata runs passed261 exact serialized/native reloads:256 positive examples
+and5 genuine zero-record examples, with1202 record instances representing239 unique
+C readings. The proposed universe has432 contexts and1204 context/variant requests;
+369 collated requests became261 examples after108 equal-input/target duplicates were
+merged with all origins. There are zero full-native-conditioning conflicts. All14
+definitions and56 assertions now have emitted native targets. The native nested-value
+audit covers every emitted definition, including the two five/thirteen-fragment
+readings, and all56 latent assertions have `anchor_query_id=None`.
+
+There remain31 exclusions: two measurements lack complete exact role mappings; five
+formulas lack co-located exact meaning/domain roles;24 other formulas map completely
+somewhere but fail whole-request completeness/scope/natural-formula-anchor gates.
+The full31-record source/role audit is
+[exclusion-causes.jsonl](attempt-004/exclusion-causes.jsonl). No capacity failure was
+observed; strict64 gold/query and candidate/training/shared-pool192 remain unchanged.
+Eighty-two requests were refused by the4096 schema-conditioned subword limit, without
+dropping fields or truncating. Admitted request maxima are3427 source words,123 prefix
+words and4077 subwords. Of239 decoder-supervised readings,226 have at least one emitted
+request with primary assembly custody;13 remain neighbor-only in these examples.
+The known mixed symbol-present/meaning-unstated reading remains separately blocked by
+the current assembly gate. None of these counts establishes assembled capture or quality.
+
+Attempt003's native metadata passed, but the separate interface002 control refused
+**before model/worker creation** because raw registry defaults left the live timeout
+attribute as int120, producing profile `0383c6…`, while production registry resolution
+produces float120.0/profile `788712…`. Its
+[interface disposition](attempt-003/interface-disposition.json) preserves this blocker.
+Attempt004 uses exactly
+`MethodRegistry.config('extract.m1_candidates','contextual').config`, with profile
+`78871269cc270839a432a0d7a36cbc09e325de1cc87f64e6fe6bae215514e3e7`.
+The [constructor difference proof](constructor-difference-proof-004.json) requires
+byte-identical protected C, source text, schemas/native preparation, native targets,
+raw training payloads/origins and reloads across003/004. Serialized configuration
+params are also identical: Pydantic serialization had already coerced the numeric
+default. Only the live profile's timeout spelling and configuration/profile/launch
+binding change. Request-audit/ledger content is equal except traceback source-line
+provenance, whose raw versions remain untouched. Two failed comparison assumptions
+are retained with their executed sources/logs before this final passed proof.
+
+Attempt004 [freeze.json](attempt-004/freeze.json) binds39 immutable files/277551189
+bytes and reconciles the full270 IDs and261 dataset/origin/reload pairs. The raw
+[training-targets.jsonl](attempt-004/training-targets.jsonl) is3513448 bytes, SHA-256
+`a98a7cdaaae94a755ca61441770ef7551a9572d9e4497a3ac40288d7b3f35a2b`.
+The data is byte-identical to metadata-pass003, whose40-file freeze additionally
+retains its interface blocker. The separately frozen
+[source whitelist](attempt-004/source-whitelist-freeze.json) contains no supervised
+targets/record IDs and supports source-only interface qualification without reading
+the target corpus. Actual interface/epoch execution is separately owned in the
+coordinator's contextual-profile/adaptation evidence; this folder loads no model or
+weights and performs no forward, training, heldout read or database mutation.
+
+The loader contract is explicit in
+[processor-contract.json](attempt-004/processor-contract.json):
+
+- Payload FORMAT `m1-fixed-schema-native-targets-experiment-2`, pack `native-combined-v2`.
+- Exact immutable processor source
+  [fixed_schema_processor-executed.py.txt](attempt-004/fixed_schema_processor-executed.py.txt),
+  15494 bytes, SHA-256 `b0ecf2152aebfe4023496b8a01fc96d7d24c35b9a6a6d6b14a00a7a24ea94d95`.
+- Raw dictionary loader with `validate_data=False`, no InputExample sanitation, exact
+  insertion order, `dedupe_contained_entity_spans=False`, strict raises/max-gold64,
+  and no actual truncation. Full conditioning includes encoder/query preparation,
+  native record specs and original schemas, independently of gold targets.
+
+The actual004 command was:
+
+```bash
+uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-targets/reconstruct.py --run-id 22 --attempt attempt-004 --population-mode full-visible --frontend-version 2 --expected-release release:407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25 --completed-run-authorized
+```
+
+Metadata-only preparation guards, source/fragment audits and actual reconstruction
+are distinct receipts. All frozen001/002 artifacts and finalized record outputs
+remain unchanged; working script formatting never replaces executed snapshots.
 
 The script performs these bounded stages:
 
@@ -228,10 +330,23 @@ uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-targets/fr
 Existing output files and frozen attempts are immutable. Any subsequent experiment
 uses a new attempt and records its own explicit manifest and executed bytes.
 
+The final v2 endpoint **passed**,2026-11-04: all153 files in the four frozen attempts
+match their stored bytes/SHA-256; both003/004 source whitelists are unchanged; the
+production-constructor difference proof passed
+([final-integrity-v2.log](final-integrity-v2.log)). Scoped Ruff F passed for all eight
+working evidence scripts ([final-ruff-v2.log](final-ruff-v2.log)). The actual metadata
+commands/logs are [003](attempt-003.log) and [004](attempt-004.log); independent nested
+fragment/latent/source receipt checks are [003](frontend-audit-003.log) and
+[004](frontend-audit-004.log). The failed constructor comparison controls remain in
+[first log](constructor-comparison-004-failed.log) and
+[second log](constructor-comparison-004-failed-002.log), with executed source snapshots;
+the final passed comparison is [here](constructor-comparison-004-final.log).
+This endpoint adds no model/epoch, heldout, DB-write or full-M1 qualification claim.
+
 ## Records
 
 <!-- evidence-index:start -->
-Generated by `just evidence index` from `records/`; do not edit by hand. 1 current, 0 superseded.
+Generated by `just evidence index` from `records/`; do not edit by hand. 2 current, 0 superseded.
 
 
 **M1**
@@ -239,4 +354,5 @@ Generated by `just evidence index` from `records/`; do not edit by hand. 1 curre
 | Record | Package | Outcome | Informs | Finalized |
 |---|---|---|---|---|
 | [Faithful full-visible contextual decoder targets and remaining gaps](records/m1.contextual-targets.json) | M1-07 | partial | M1-INT-F23 | 2026-11-04 |
+| [Faithful policy6 native v2 decoder targets and retained exclusions](records/m1.contextual-targets-v2.json) | M1-07 | partial | M1-INT-F23 | 2026-11-04 |
 <!-- evidence-index:end -->

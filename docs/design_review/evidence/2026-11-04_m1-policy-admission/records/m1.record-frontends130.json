@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "id": "m1.record-frontends130",
+  "title": "Native130 frontend admission and controlled record publication",
+  "group": "M1",
+  "package": "M1-11",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does current native130 admit the exact frontend release and preserve controlled reading publication, closure, alternatives and support?",
+  "answers": [
+    "M1-INT-F23"
+  ],
+  "method": "Rollback-only persistent DB authoring, forward migration and serial current native publication/closure/alternative/support tests; no model or source reference grading.",
+  "commands": [
+    "uv run ci schema native-candidate --out docs/design_review/evidence/2026-11-04_m1-policy-admission/current-head-038 --json",
+    "uv run pytest python/corpus-structure/tests/semantic/test_record_publication_native.py python/corpus-structure/tests/semantic/test_record_reading_closure_native.py python/corpus-structure/tests/semantic/test_record_alternative_publication_native.py python/corpus-structure/tests/semantic/test_record_support_native.py --junitxml=docs/design_review/evidence/2026-11-04_m1-policy-admission/native-publication130.xml"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "current-head-037",
+      "role": null,
+      "sha256": "adc7ddc8de1391057966b29f861bea6183c936e09fc8e7c2a7166365db10bfb6"
+    },
+    {
+      "path": "current-head-038",
+      "role": null,
+      "sha256": "a8d3db10d412a5e0dd5ee440466c63b23e13a994fbfad80d7089728d8db48db6"
+    },
+    {
+      "path": "attempt-upgrade-025.log",
+      "role": null,
+      "sha256": "edade92695ebc6d050277a128b232ba6a20ff6c6c4f19ae135f5e852aeff26b1"
+    },
+    {
+      "path": "attempt-native-publication130.log",
+      "role": null,
+      "sha256": "4af5cfe8b07aa77ccd8cfd76fe94b5bf0418b13cb4b1a31a02abb052da028581"
+    },
+    {
+      "path": "native-publication130.xml",
+      "role": null,
+      "sha256": "ccf3f7ea4c68a3d81529ce5408742fb2ee2d2eb5f9d879e06c6f17ec4980006b"
+    },
+    {
+      "path": "attempt-turn-end130-002.log",
+      "role": null,
+      "sha256": "57f4e7228405ebe034944a82683b629711ed3d17d9344430f178d81553ef9665"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-record-frontends/m1.record-frontends"
+  ],
+  "results": [
+    {
+      "name": "Managed native objects",
+      "value": 160,
+      "of": null,
+      "unit": "objects",
+      "note": null
+    },
+    {
+      "name": "Current native functional controls",
+      "value": 26,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Current unplanned native changes",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    },
+    {
+      "name": "Current unplanned ordinary changes",
+      "value": 0,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Frozen130rotates the executable descriptor for source policy6/native pack-v2, with160managed objects and no ordinary schema change. Persistent upgrade/current-head controls pass;26controlled native publication/closure/alternative/support cases pass. This establishes targeted native mechanisms only, not actual source fidelity, fitted policy, all-family accepted output or whole-M1 qualification.",
+  "consumed_by": [
+    "M1-07",
+    "M1-11",
+    "M1-14"
+  ]
+}

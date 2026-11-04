@@ -23,6 +23,7 @@ sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[3]
 PROCESSOR = HERE.parent / "2026-11-04_m1-fixed-schema-loss/fixed_schema_processor.py"
+PROCESSOR_V2 = HERE / "fixed_schema_processor_v2.py"
 DENOMINATOR = {"definition": 14, "assertion": 56, "measurement": 32, "table": 80, "formula_context": 88}
 POPULATION = {
     "version": "m1-contextual-target-population-experiment-1",
@@ -42,7 +43,11 @@ def digest(value):
 def full_conditioning_digest(receipt):
     # Record specs select natural instance formation and constrained assignment.
     # Equal encoder tokens alone do not make symbol/formula anchor packs equal.
-    return digest({"encoding": receipt["conditioning"], "record_specs": receipt["record_specs"]})
+    native = {"encoding": receipt["conditioning"], "record_specs": receipt["record_specs"]}
+    if receipt.get("payload_format") == "m1-fixed-schema-native-targets-experiment-2":
+        native["original_schemas"] = receipt["original_schemas"]
+        assert digest(native) == receipt["full_conditioning_digest"]
+    return digest(native)
 
 
 def file_receipt(path):
@@ -62,12 +67,21 @@ def append(path, value):
         stream.write(json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n")
 
 
-def load_wrapper():
-    spec = importlib.util.spec_from_file_location("settled_m1_fixed_schema_processor", PROCESSOR)
+def load_wrapper(path=PROCESSOR):
+    spec = importlib.util.spec_from_file_location("selected_m1_fixed_schema_processor", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def fixed_payload(wrapper, fixed, request, family, source, declaration, targets, pack_version):
+    payload = dict(format=wrapper.FORMAT, sample_id=request, family=family, source=source,
+        released_schema=declaration, released_schema_digest=fixed.digest(declaration),
+        target_records=targets, target_records_digest=fixed.digest(targets))
+    if wrapper.FORMAT == "m1-fixed-schema-native-targets-experiment-2":
+        payload["native_pack_version"] = pack_version
+    return payload
 
 
 def literal_anchors(record, role, usage="literal"):
@@ -180,11 +194,55 @@ def map_record(record, context, pack, correspondence, prepared, processor):
                     target[name] = {"choices": field["choices"], "value": label}
             elif value["state"] != "present":
                 target[name] = None
+            elif field["dtype"] == "list":
+                if (pack.version != "native-combined-v2" or record["family"] != "definition"
+                    or role != "defining_text" or field["cardinality"] != "zero_or_more"):
+                    raise ValueError("unqualified list field outside ADR-0061 frontend")
+                target[name], mappings[name] = map_fragments(context, literal_anchors(record, role),
+                    correspondence, prepared, processor, value)
             else:
                 target[name], mappings[name] = map_anchors(context, literal_anchors(record, role), correspondence, prepared, processor)
         except (ValueError, KeyError, TypeError) as error:
             errors.append({"role": name, "reason": str(error), "type": type(error).__name__})
     return target, mappings, errors
+
+
+def map_fragments(context, anchors, correspondence, prepared, processor, gold_field):
+    """One logical OriginalTextSequence, carried by distinct native span values."""
+    if not anchors:
+        raise ValueError("present defining_text needs independent exact fragments")
+    if len({anchor["pin"]["source_view_id"] for anchor in anchors}) != 1:
+        raise ValueError("literal fragments require one original source coordinate space")
+    values, mappings, previous_source_end, previous_model_end = [], [], -1, -1
+    for anchor in anchors:
+        if anchor["start"] < previous_source_end:
+            raise ValueError("original logical fragments overlap or are not source-monotone")
+        value, mapped = map_anchors(context, [anchor], correspondence, prepared, processor)
+        if value["start"] < previous_model_end:
+            raise ValueError("logical fragments overlap or disagree with model/source order")
+        values.append(value)
+        mappings.append(dict(anchor_id=anchor["anchor_id"], **mapped))
+        previous_source_end, previous_model_end = anchor["end"], value["end"]
+    pieces = [anchor["source_piece"] for anchor in anchors]
+    if gold_field.get("original_pieces") is not None and list(gold_field["original_pieces"]) != pieces:
+        raise ValueError("native fragments differ from independently authored logical TextSequence pieces")
+    if len(pieces) == 1 and gold_field.get("original") is not None and gold_field["original"] != pieces[0]:
+        raise ValueError("single fragment differs from independently authored original Text")
+    return values, dict(kind="Text" if len(pieces) == 1 else "TextSequence", native_values="distinct-fragments",
+        logical_original=pieces[0] if len(pieces) == 1 else None,
+        logical_original_pieces=pieces if len(pieces) > 1 else None, fragments=mappings, source_monotone=True,
+        ordering="verified original-source/model offsets; no confidence order or string joins")
+
+
+def presence_anchors(record, declaration, logical_hint, population_mode):
+    if record["family"] == "assertion" and declaration["mode"] == "latent":
+        # Native latent seeds may use any field; logical occurrence presence is
+        # the accepted S/P/O identity recipe, never a standalone remote modifier.
+        return [anchor for role in ("subject", "predicate", "object") for anchor in literal_anchors(record, role)]
+    anchors = literal_anchors(record, "formula" if record["family"] == "formula_context" else logical_hint)
+    if record["family"] == "formula_context" and population_mode == "full-visible" and logical_hint != "formula":
+        anchors += literal_anchors(record, logical_hint)
+    return anchors
 
 
 def scope_errors(context, reference):
@@ -284,8 +342,10 @@ def inspect_widened_routes(out, ids, records, selection, view, context, packs, c
         if not targeted:
             continue
         _, anchor_role, pack = packs[family][0]
+        declaration = json.loads(pack.declaration_json)
+        native_declaration = declaration["structures"][family]
         for record in targeted:
-            if not overlaps(context, literal_anchors(record, anchor_role), correspondence):
+            if not overlaps(context, presence_anchors(record, native_declaration, anchor_role, "full-visible"), correspondence):
                 continue
             target, mappings, errors = map_record(record, context, pack, correspondence, prepared, wrapper.native)
             row = dict(record_id=record["record_id"], family=family, context_id=context.dependency_digest,
@@ -294,14 +354,12 @@ def inspect_widened_routes(out, ids, records, selection, view, context, packs, c
                 errors=errors, mapped_roles=list(mappings), scope_errors=scope_errors(context, reference),
                 pack_fingerprint=pack.fingerprint, native_preparation=None, whole_family_errors=[])
             if not errors:
-                declaration = json.loads(pack.declaration_json)
-                payload = dict(format=wrapper.FORMAT, sample_id="routing-diagnostic", family=family, source=view.ref.id,
-                    released_schema=declaration, released_schema_digest=fixed.digest(declaration),
-                    target_records=[], target_records_digest=fixed.digest([]))
+                payload = fixed_payload(wrapper, fixed, "routing-diagnostic", family, view.ref.id,
+                    declaration, [], pack.version)
                 try:
                     batch = wrapper.collate_fn_inference([(context.text, payload)], max_len=cfg.max_words,
                         build_targets=False, architecture="boundary", max_gold_per_query=64,
-                        on_capacity_exceeded="raise", error_policy="raise")
+                        on_capacity_exceeded="raise", error_policy="raise", dedupe_contained_entity_spans=False)
                     assert batch.original_lengths[0] <= cfg.max_subwords, "schema-conditioned subword bound exceeded"
                     row["native_preparation"] = dict(admitted=True, source_words=wrapper.last_receipt["source_word_counts"][0],
                         prefix_words=wrapper.last_receipt["samples"][0]["prefix_length"], subwords=batch.original_lengths[0],
@@ -310,14 +368,15 @@ def inspect_widened_routes(out, ids, records, selection, view, context, packs, c
                     row["native_preparation"] = dict(admitted=False, reason=str(error), type=type(error).__name__)
                 anchors = defaultdict(list)
                 for neighbor in records:
-                    if neighbor["family"] != family or not overlaps(context, literal_anchors(neighbor, anchor_role), correspondence):
+                    if neighbor["family"] != family or not overlaps(context, presence_anchors(neighbor, native_declaration, anchor_role, "full-visible"), correspondence):
                         continue
                     neighbor_target, _, neighbor_errors = map_record(neighbor, context, pack, correspondence, prepared, wrapper.native)
                     if neighbor_errors:
                         row["whole_family_errors"].append(dict(record_id=neighbor["record_id"], errors=neighbor_errors))
                     else:
-                        anchor = neighbor_target[anchor_role]
-                        anchors[anchor["start"], anchor["end"]].append(neighbor["record_id"])
+                        if native_declaration["mode"] == "natural":
+                            anchor = neighbor_target[native_declaration["anchor"]]
+                            anchors[anchor["start"], anchor["end"]].append(neighbor["record_id"])
                 row["natural_anchor_collisions"] = [values for values in anchors.values() if len(values) > 1]
             append(out / "routing-diagnostic.jsonl", row)
 
@@ -383,6 +442,7 @@ def main(args):
 
     torch.set_num_threads(4)
     torch.set_num_interop_threads(1)
+    processor_path = PROCESSOR_V2 if args.frontend_version == 2 else PROCESSOR
     population = dict(POPULATION)
     if args.population_mode == "full-visible":
         population.update(version="m1-contextual-target-population-experiment-2",
@@ -390,21 +450,32 @@ def main(args):
             formula_reading="all fully located C decoder readings visible in context, including bindings and neighbor formulas",
             native_formula_context="selected-primary custody is assembly-only; decoder population includes located neighbors",
             structural_sidecar="authenticate owned source scope without claiming an actual primary supplement or publication")
+    if args.frontend_version == 2:
+        population.update(version="m1-contextual-target-population-experiment-3",
+            native_frontend="ADR-0061 policy6/native-combined-v2; definition fragments and latent assertions",
+            literal_fragments="native distinct values map to one Text for one real piece, otherwise one ordered OriginalTextSequence",
+            assertion_presence="any original S/P/O literal identity anchor overlap; any partially visible occurrence requires complete roles",
+            assertion_seed="native latent seeds from all field candidates; logical predicate hint is not a native anchor",
+            nonoccurrence_modifiers="standalone modifier/cue for wholly outside S/P/O occurrence does not create an assertion target")
     out = HERE / args.attempt
     out.mkdir(exist_ok=False)
     write(out / "launch.json", {"at": datetime.now(timezone.utc).isoformat(), "run_id": args.run_id,
-          "source": file_receipt(Path(__file__)), "processor": file_receipt(PROCESSOR), "population": population,
+          "source": file_receipt(Path(__file__)), "processor": file_receipt(processor_path), "population": population,
+          "frontend_version": args.frontend_version, "expected_release": args.expected_release,
           "scope": "protected set1 and native metadata only; no model/forward/training"})
     (out / "reconstruct-executed.py.txt").write_bytes(Path(__file__).read_bytes())
-    (out / "fixed_schema_processor-executed.py.txt").write_bytes(PROCESSOR.read_bytes())
+    (out / "fixed_schema_processor-executed.py.txt").write_bytes(processor_path.read_bytes())
     try:
         assert importlib.metadata.version("gliner2") == "2.1.0"
         registry_path = REPO / "domains/statistics/m1-methods.yaml"
-        contextual_params = registry(registry_path.parent).file.configs["extract.m1_candidates"]["contextual"]
-        contextual_cfg = M1Config.model_validate(contextual_params)
-        configuration = dict(origin="native named statistics registry; independent of model predictions",
+        resolved_configuration = registry(registry_path.parent).config("extract.m1_candidates", "contextual")
+        contextual_cfg = resolved_configuration.config
+        assert isinstance(contextual_cfg, M1Config)
+        configuration = dict(origin="native production resolved statistics registry; independent of model predictions",
+            constructor="MethodRegistry.config('extract.m1_candidates','contextual').config",
             name="extract.m1_candidates/contextual", registry=file_receipt(registry_path),
             params=contextual_cfg.model_dump(mode="json"),
+            resolved_params=dict(resolved_configuration.params), resolved_config_hash=resolved_configuration.config_hash,
             config_digest=sha256(canonical_bytes(contextual_cfg.model_dump(mode="json"))).hexdigest(),
             profile=asdict(contextual_cfg.profile()))
         configuration["profile"]["snapshot"] = str(contextual_cfg.snapshot)
@@ -433,6 +504,8 @@ def main(args):
         applicability = refs[0]["applicability"]
         assert all(row["applicability"] == applicability for row in refs)
         assert applicability["run_id"] == args.run_id
+        if args.expected_release is not None:
+            assert applicability["prediction_release_id"] == args.expected_release
         states, ledger, proposals = {}, {}, []
         all_conditioning_audits = defaultdict(list)
         diagnostic_ids = set()
@@ -462,7 +535,14 @@ def main(args):
                         rule=population["version"])
                     if (by_role["symbol"]["state"], by_role["meaning"]["state"]) not in {("present", "present"), ("unstated", "unstated")}:
                         ledger[record["record_id"]]["assembly_exclusions"].append("current formula occurrence adapter requires both symbol/meaning present or both unstated")
-        fixed = load_wrapper()
+        fixed = load_wrapper(processor_path)
+        write(out / "processor-contract.json", dict(format=fixed.FixedSchemaProcessor.FORMAT,
+            frontend_version=args.frontend_version, working_source=file_receipt(processor_path),
+            immutable_executed_source=file_receipt(out / "fixed_schema_processor-executed.py.txt"),
+            injection="ExtractorTrainer(processor=...) supported seam; no custom loss/model changes",
+            dedupe_contained_entity_spans=False,
+            full_conditioning="encoder/query preparation, native record specs and v2 original schemas",
+            source_authority="protected C and per-fragment origin/roundtrip receipts; native targets alone do not prove truth"))
         with open_runtime_engine(Settings(), "m1-contextual-targets-source", purpose="read") as engine, read_snapshot(engine) as conn:
             prepared = open_release(conn, applicability["prediction_release_id"])
             reader = BoundReader(conn, args.run_id, prepared, applicability["cut_id"], analysis=False)
@@ -476,7 +556,8 @@ def main(args):
                 cfg = contextual_cfg
                 if row is not None:
                     assert canonical_bytes(M1Config.model_validate(row["params"]).model_dump(mode="json")) == canonical_bytes(cfg.model_dump(mode="json"))
-                assert cfg.policy == POLICY_V5 and cfg.execution_profile == CODEPOINT_PROFILE and cfg.source_inspection
+                expected_policy = "m1-canonical-related-context-candidates-6" if args.frontend_version == 2 else POLICY_V5
+                assert cfg.policy == expected_policy and cfg.execution_profile == CODEPOINT_PROFILE and cfg.source_inspection
                 assert cfg.max_words == cfg.max_subwords == cfg.max_context_chars == 4096
                 assert cfg.max_context_pieces == 128 and cfg.formula_prose
                 cfg.profile().verify_artifacts()
@@ -498,6 +579,8 @@ def main(args):
                     reader=reader, persisted_annotations=annotations, annotation_errors=annotation_errors,
                     policy=cfg.policy, formula_prose=cfg.formula_prose)
                 packs = configured_pack_variants(prepared, cfg)
+                expected_pack = "native-combined-v2" if args.frontend_version == 2 else "native-combined-v1"
+                assert all(pack.version == expected_pack for variants in packs.values() for _, _, pack in variants)
                 actual_task = (row["reused_task_id"] or row["id"]) if row is not None else None
                 reports = metadata_reports(conn, actual_task) if actual_task is not None else []
                 source_meta = source_metadata(conn, actual_task) if actual_task is not None else {}
@@ -534,8 +617,13 @@ def main(args):
                     for family in selection.families:
                         for variant, anchor_role, pack in packs[family]:
                             request = f"{source_id}:{index}:{family}:{variant}"
+                            declaration = json.loads(pack.declaration_json)
+                            native_declaration = declaration["structures"][family]
+                            native_anchor = native_declaration.get("anchor")
                             audit = dict(request=request, source_view_id=source_id, index=index, family=family,
                                 variant=variant, anchor_role=anchor_role, context_id=context.dependency_digest,
+                                logical_occurrence_hint=anchor_role, native_mode=native_declaration["mode"], native_anchor=native_anchor,
+                                native_pack_version=pack.version,
                                 pack_fingerprint=pack.fingerprint, request_standing="source-only proposed input" if row is None else "actual source preparation",
                                 relevant=[], outside_population=[], errors=[], mapped=[], status="pending")
                             actual = report_index.get((index, family, variant))
@@ -562,17 +650,15 @@ def main(args):
                                     audit["errors"].append({"reason": "actual preparation metadata differs from reconstruction"})
                             audit["scope_errors"] = scope_errors(context, reference)
                             audit["errors"].extend(audit["scope_errors"])
-                            declaration = json.loads(pack.declaration_json)
-                            preparation_payload = dict(format=wrapper.FORMAT, sample_id=request, family=family, source=source_id,
-                                released_schema=declaration, released_schema_digest=fixed.digest(declaration),
-                                target_records=[], target_records_digest=fixed.digest([]))
+                            preparation_payload = fixed_payload(wrapper, fixed, request, family, source_id, declaration, [], pack.version)
                             try:
                                 # No gold supplied and build_targets=False: this is not a
                                 # negative example. Prepare even excluded requests so an
                                 # unencoded primary cannot hide a conditioning conflict.
                                 native_prepared = wrapper.collate_fn_inference([(context.text, preparation_payload)],
                                     architecture="boundary", max_len=cfg.max_words, build_targets=False,
-                                    max_gold_per_query=max_gold, on_capacity_exceeded="raise", error_policy="raise")
+                                    max_gold_per_query=max_gold, on_capacity_exceeded="raise", error_policy="raise",
+                                    dedupe_contained_entity_spans=False)
                                 assert native_prepared.targets is None
                                 assert native_prepared.original_lengths[0] <= cfg.max_subwords, "schema-conditioned subword bound exceeded"
                                 audit.update(conditioning_digest=full_conditioning_digest(wrapper.last_receipt),
@@ -581,19 +667,34 @@ def main(args):
                                     prefix_words=wrapper.last_receipt["samples"][0]["prefix_length"],
                                     total_subwords=native_prepared.original_lengths[0])
                                 audit["old_facade_admissible"] = audit["source_words"] <= 512 and audit["total_subwords"] <= 2048
-                                append(out / "native-preparation.jsonl", dict(request=request, preparation_only=True,
-                                    supervised_targets=False, full_conditioning_digest=audit["conditioning_digest"], **wrapper.last_receipt))
+                                append(out / "native-preparation.jsonl", {**wrapper.last_receipt, "request": request,
+                                    "preparation_only": True, "supervised_targets": False,
+                                    "full_conditioning_digest": audit["conditioning_digest"],
+                                    "released_schema": declaration, "pack_fingerprint": pack.fingerprint,
+                                    "native_pack_version": pack.version})
+                                append(out / "source-only-request-inventory.jsonl", dict(request=request,
+                                    context_id=context.dependency_digest, source_view_id=source_id, index=index,
+                                    family=family, variant=variant, native_mode=native_declaration["mode"],
+                                    native_anchor=native_anchor, native_pack_version=pack.version, pack_fingerprint=pack.fingerprint,
+                                    input_sha256=sha256(context.text.encode()).hexdigest(), input_utf8_bytes=len(context.text.encode()),
+                                    admitted=True, source_words=audit["source_words"], prefix_words=audit["prefix_words"],
+                                    total_subwords=audit["total_subwords"], full_conditioning_digest=audit["conditioning_digest"],
+                                    scope="source/schema-only native preparation; no target eligibility or labels"))
                                 all_conditioning_audits[audit["conditioning_digest"]].append(audit)
                             except Exception as error:
+                                append(out / "source-only-request-inventory.jsonl", dict(request=request,
+                                    context_id=context.dependency_digest, source_view_id=source_id, index=index,
+                                    family=family, variant=variant, native_pack_version=pack.version, pack_fingerprint=pack.fingerprint,
+                                    input_sha256=sha256(context.text.encode()).hexdigest(), input_utf8_bytes=len(context.text.encode()),
+                                    admitted=False, reason=str(error), type=type(error).__name__,
+                                    scope="source/schema-only native preparation; no target eligibility or labels"))
                                 audit["errors"].append(dict(reason=str(error), type=type(error).__name__,
                                     stage="gold-independent native preparation", traceback=traceback.format_exc()))
                             targets, origins, anchors_seen = [], [], defaultdict(list)
                             family_records = [r for r in reference["authored"]["records"] if r["family"] == family]
                             for record in family_records:
                                 identity = record["record_id"]
-                                relevant_anchors = literal_anchors(record, "formula" if family == "formula_context" else anchor_role)
-                                if family == "formula_context" and args.population_mode == "full-visible" and anchor_role != "formula":
-                                    relevant_anchors += literal_anchors(record, anchor_role)
+                                relevant_anchors = presence_anchors(record, native_declaration, anchor_role, args.population_mode)
                                 if not overlaps(context, relevant_anchors, correspondence):
                                     continue
                                 audit["relevant"].append(identity)
@@ -606,15 +707,16 @@ def main(args):
                                             ledger[identity]["outside_population"].append({"request": request, "reason": reason})
                                             continue
                                     target, mappings, errors = map_record(record, context, pack, correspondence, prepared, wrapper.native)
-                                    anchor = target.get(anchor_role)
-                                    if not anchor or "start" not in anchor:
-                                        errors.append({"role": anchor_role, "reason": "natural instance needs exact present anchor despite optional field cardinality"})
+                                    anchor = target.get(native_anchor) if native_anchor is not None else None
+                                    if native_declaration["mode"] == "natural" and (not anchor or "start" not in anchor):
+                                        errors.append({"role": native_anchor, "reason": "natural instance needs exact present anchor despite optional field cardinality"})
                                     append(out / "mapping-attempts.jsonl", dict(request=request, record_id=identity,
                                         target=target, mappings=mappings, errors=errors))
                                     if errors:
                                         raise ValueError(json.dumps(errors, ensure_ascii=False))
                                     custody = structural_custody(record, selection, view, context, target, args.population_mode)
-                                    anchors_seen[(anchor["start"], anchor["end"])].append(identity)
+                                    if native_declaration["mode"] == "natural":
+                                        anchors_seen[(anchor["start"], anchor["end"])].append(identity)
                                     targets.append(target)
                                     origins.append(dict(record_id=identity, mappings=mappings, structural_custody=custody,
                                         native_structural_gold=[f for f in record["fields"] if f["kind"] not in {"literal", "classified"}]))
@@ -633,13 +735,12 @@ def main(args):
                             if audit["errors"]:
                                 audit["status"] = "excluded"
                             else:
-                                payload = dict(format=wrapper.FORMAT, sample_id=request, family=family, source=source_id,
-                                    released_schema=declaration, released_schema_digest=fixed.digest(declaration),
-                                    target_records=targets, target_records_digest=fixed.digest(targets))
+                                payload = fixed_payload(wrapper, fixed, request, family, source_id, declaration, targets, pack.version)
                                 try:
                                     batch = wrapper.collate_fn_train([(context.text, payload)], architecture="boundary",
                                         max_len=cfg.max_words, max_gold_per_query=max_gold,
-                                        on_capacity_exceeded="raise", error_policy="raise", ignore_missing_entities=False)
+                                        on_capacity_exceeded="raise", error_policy="raise", ignore_missing_entities=False,
+                                        dedupe_contained_entity_spans=False)
                                     receipt = wrapper.last_receipt
                                     consumed = context.text + ("" if context.text.endswith((".", "!", "?")) else ".")
                                     assert batch.original_texts == [consumed]
@@ -648,8 +749,8 @@ def main(args):
                                     assert full_conditioning_digest(receipt) == audit["conditioning_digest"]
                                     assert receipt["conditioning_digest"] == audit["encoding_digest"]
                                     assert receipt["samples"][0]["expected_records"] == len(targets)
-                                    if targets:
-                                        assert all(record.field_for_query(next(f.query_id for f in batch.record_specs[0][0].fields if f.name == anchor_role)).values
+                                    if targets and native_declaration["mode"] == "natural":
+                                        assert all(record.field_for_query(next(f.query_id for f in batch.record_specs[0][0].fields if f.name == native_anchor)).values
                                                    for record in batch.targets.records[0])
                                     audit.update(status="collated", source_words=receipt["source_word_counts"][0],
                                         total_subwords=batch.original_lengths[0], conditioning_digest=full_conditioning_digest(receipt),
@@ -668,6 +769,18 @@ def main(args):
                                 for identity in audit["mapped"]:
                                     ledger[identity]["excluded_requests"].append(dict(request=request,
                                         reason="whole context/variant excluded", causes=audit["errors"]))
+        # These files are complete and never written again below. They contain
+        # source/config/schema preparation only, so interface qualification need
+        # not read or wait for supervised target/ledger artifacts.
+        assert source_receipts == [file_receipt(source_root / p) for p in source_modules]
+        source_whitelist = ["source-contexts.jsonl", "native-preparation.jsonl", "source-only-request-inventory.jsonl",
+            "contextual-configuration.json", "source-receipts.json", "launch.json", "processor-contract.json"]
+        write(out / "source-whitelist-freeze.json", dict(outcome="passed", immutable_scope="source-whitelist-only",
+            run_id=args.run_id, cut_id=applicability["cut_id"], release_id=applicability["prediction_release_id"],
+            files=[dict(file_receipt(out / name), path=f"{args.attempt}/{name}") for name in source_whitelist],
+            note="No supervised targets/labels/record IDs. Whitelisted files are closed and never appended after this receipt; complete attempt freeze follows separately."))
+        print(json.dumps(dict(kind="source_whitelist_ready", path=str(out / "source-whitelist-freeze.json"),
+            run_id=args.run_id, cut_id=applicability["cut_id"], release_id=applicability["prediction_release_id"])), flush=True)
         conditioning_groups = defaultdict(list)
         for proposal in proposals:
             conditioning_groups[proposal["audit"]["conditioning_digest"]].append(proposal)
@@ -718,7 +831,7 @@ def main(args):
                 payload = json.loads(line)
                 wrapper = next(iter(states.values()))
                 wrapper.collate_fn_train([(payload["input"], payload["output"])], max_len=4096,
-                    max_gold_per_query=64, on_capacity_exceeded="raise", error_policy="raise")
+                    max_gold_per_query=64, on_capacity_exceeded="raise", error_policy="raise", dedupe_contained_entity_spans=False)
                 assert wrapper.last_receipt["exact_conditioning"]
                 assert full_conditioning_digest(wrapper.last_receipt) == original_receipts[payload["output"]["sample_id"]]["conditioning_digest"]
                 assert wrapper.last_receipt["conditioning_digest"] == original_receipts[payload["output"]["sample_id"]]["encoding_digest"]
@@ -740,7 +853,7 @@ def main(args):
         assert source_receipts == [file_receipt(source_root / p) for p in source_modules], "trusted source changed during reconstruction"
         assert configuration["registry"] == file_receipt(registry_path), "contextual registry changed during reconstruction"
         frozen_processor = out / "fixed_schema_processor-executed.py.txt"
-        assert frozen_processor.read_bytes() == PROCESSOR.read_bytes(), "settled processor changed during reconstruction"
+        assert frozen_processor.read_bytes() == processor_path.read_bytes(), "selected processor changed during reconstruction"
         write(out / "summary.json", summary)
         print(json.dumps(summary, ensure_ascii=False), flush=True)
     except BaseException as error:
@@ -754,8 +867,12 @@ if __name__ == "__main__":
     parser.add_argument("--attempt", default="attempt-001")
     parser.add_argument("--population-mode", choices=("selected-primary", "full-visible"), default="selected-primary")
     parser.add_argument("--routing-diagnostic", action="store_true")
+    parser.add_argument("--frontend-version", choices=(1, 2), type=int, default=1)
+    parser.add_argument("--expected-release")
     parser.add_argument("--completed-run-authorized", required=True, action="store_true")
     args = parser.parse_args()
     if Path(args.attempt).name != args.attempt or not args.attempt.startswith("attempt-"):
         parser.error("attempt must be one new local attempt-* folder name")
+    if args.frontend_version == 2 and (args.population_mode != "full-visible" or not args.expected_release):
+        parser.error("frontend2 requires full-visible population and coordinator-supplied --expected-release")
     main(args)

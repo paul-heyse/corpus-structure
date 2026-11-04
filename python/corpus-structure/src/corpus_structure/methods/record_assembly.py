@@ -11,6 +11,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
+from itertools import pairwise
 from typing import Any
 
 from pydantic import BaseModel
@@ -158,13 +159,44 @@ def _first_exact_formula_use(source_text, formula_pieces, spelling):
     return None
 
 
-def inspected_groups(prepared, context, *, contract, groups, supplements):
+def _fragment_field(pack, family, role):
+    if pack is None or pack.version != "native-combined-v2":
+        return False
+    return family == "definition" and role == "defining_text"
+
+
+def _decoder_literal_spans(raw, *, fragments=False):
+    """Restore confidence-ranked fragments to exact model/source order, without joining."""
+    values = raw if fragments else [raw]
+    if not isinstance(values, list) or not values:
+        raise GlinerRefused("literal decoder field requires nonempty source coordinates")
+    spans = []
+    for value in values:
+        if not isinstance(value, dict):
+            raise GlinerRefused("literal decoder field lacks source coordinates")
+        start, end, text = value.get("start"), value.get("end"), value.get("text")
+        if type(start) is not int or type(end) is not int or not isinstance(text, str):
+            raise GlinerRefused("literal decoder field lacks typed source coordinates")
+        spans.append(LiteralSpan(start, end, text))
+    if fragments:
+        spans.sort(key=lambda span: (span.start, span.end))
+        if any(left.end > right.start for left, right in pairwise(spans)):
+            raise GlinerRefused("literal fragments overlap or duplicate source coordinates")
+    return tuple(spans)
+
+
+def inspected_groups(prepared, context, *, contract, groups, supplements, pack=None):
     """Translate independently emitted state/cue proposals, never decoder omissions.
 
     The located inspection scope is exactly the real pieces sent to the model, including
     related declarations. It does not claim that an enclosing, unconsumed section was read.
     """
     _, roles = family_roles(prepared, contract)
+    family = next(
+        prop.equals_string
+        for prop in prepared.index.definitions[contract].properties
+        if prop.name == "family"
+    )
     inspected = tuple(
         LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
         for row in context.intervals
@@ -176,12 +208,16 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
         fields = {field.role: field for field in supplied.fields}
         for role in roles:
             kind = field_kind(prepared, role)
+            value = raw.get(role.name)
+            has_value = value is not None and not (
+                _fragment_field(pack, family, role.name) and value == []
+            )
             if role.name in fields:
                 structural = fields[role.name]
                 if (
                     structural.state == "unresolved"
                     and kind in {"literal", "classified"}
-                    and raw.get(role.name) is not None
+                    and has_value
                 ):
                     # Unresolved native geometry does not disprove a separately
                     # located model proposal. Keep the structural reading intact
@@ -207,9 +243,7 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
                 )
             elif state in {"unstated", "unresolved", "inapplicable"}:
                 # A contradictory value/cue cannot be erased by a state proposal.
-                conflicting = (
-                    raw.get(role.name) is not None or raw.get(role.name + "__cue") is not None
-                )
+                conflicting = has_value or raw.get(role.name + "__cue") is not None
                 resolved_state = "unresolved" if conflicting or state == "inapplicable" else state
                 fields[role.name] = RoleInput(
                     role.name,
@@ -256,7 +290,7 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
                         "the raw label remains a retained proposal only",
                         dependencies=dependency,
                     )
-            elif raw.get(role.name) is None:
+            elif not has_value:
                 fields[role.name] = RoleInput(
                     role.name,
                     state="unresolved",
@@ -408,6 +442,8 @@ def _assemble(
             spans: tuple[LiteralSpan, ...], role: str, *, cue=False, _anchors=anchors
         ) -> list[dict[str, Any]]:
             mapped: list[dict[str, Any]] = []
+            fragment_source = None
+            fragment_end = 0
             for span in spans:
                 raw = asdict(span)
                 if report is not None and pack is not None:
@@ -428,6 +464,14 @@ def _assemble(
                             "captured recognition evidence is unsupported by this "
                             "canonical assembler"
                         )
+                    if not cue and _fragment_field(pack, family, role):
+                        if fragment_source is not None and (
+                            piece.source != fragment_source or piece.start < fragment_end
+                        ):
+                            raise GlinerRefused(
+                                "literal fragments require one source-monotone coordinate space"
+                            )
+                        fragment_source, fragment_end = piece.source, piece.end
                     piece_source = sources[piece.source.source_view_id]
                     piece_pin = _source_pin(piece_source)
                     if piece.source_field not in {None, "text", "orig", "cell_text"}:
@@ -489,6 +533,9 @@ def _assemble(
             )
             supplied = explicit.get(role.name)
             raw = group.get(role.name)
+            fragments = _fragment_field(pack, family, role.name)
+            if fragments and raw == []:
+                raw = None  # No value proposal; independent state output still governs inspection.
             try:
                 pieces = []
                 usage = "literal"
@@ -576,16 +623,23 @@ def _assemble(
                             "normalization/derivation requires a separate declared operation"
                         )
                 elif raw is not None and kind == "literal":
-                    if not isinstance(raw, dict):
-                        raise GlinerRefused("literal decoder field lacks source coordinates")
-                    start, end, text = raw.get("start"), raw.get("end"), raw.get("text")
-                    if type(start) is not int or type(end) is not int or not isinstance(text, str):
-                        raise GlinerRefused("literal decoder field lacks typed source coordinates")
-                    pieces = literal_anchors((LiteralSpan(start, end, text),), role.name)
-                    original = "".join(piece["source_piece"] for piece in pieces)
-                    field.update(
-                        state="present", original=original, value=dict(kind="text", text=original)
+                    pieces = literal_anchors(
+                        _decoder_literal_spans(raw, fragments=fragments), role.name
                     )
+                    if fragments and len(pieces) > 1:
+                        originals = tuple(piece["source_piece"] for piece in pieces)
+                        field.update(
+                            state="present",
+                            original_pieces=originals,
+                            value=dict(kind="text_sequence", items=originals),
+                        )
+                    else:
+                        original = "".join(piece["source_piece"] for piece in pieces)
+                        field.update(
+                            state="present",
+                            original=original,
+                            value=dict(kind="text", text=original),
+                        )
                 elif raw is not None and kind == "classified":
                     label = raw.get("text", raw.get("label")) if isinstance(raw, dict) else raw
                     value_kind, choices = classification(prepared, role)
@@ -642,10 +696,8 @@ def _assemble(
                         evidence_status="available",
                     )
                     if kind == "literal":
-                        if not isinstance(raw, dict):
-                            raise GlinerRefused("literal value proposal lacks source coordinates")
                         proposed_pieces = literal_anchors(
-                            (LiteralSpan(raw["start"], raw["end"], raw["text"]),), role.name
+                            _decoder_literal_spans(raw, fragments=fragments), role.name
                         )
                         originals = tuple(piece["source_piece"] for piece in proposed_pieces)
                         if len(originals) == 1:
@@ -868,7 +920,15 @@ def assemble_records(
     if not family:
         raise GlinerRefused("released family identifier is missing")
     structure = json.loads(pack.declaration_json)["structures"][family]
-    if structure["anchor"] != anchor_role or structure["mode"] != "natural":
+    natural = structure.get("mode") == "natural" and structure.get("anchor") == anchor_role
+    latent = (
+        pack.version == "native-combined-v2"
+        and family == "assertion"
+        and structure.get("mode") == "latent"
+        and structure.get("anchor") is None
+        and anchor_role == "predicate"
+    )
+    if not (natural or latent):
         raise GlinerRefused("pack grouping anchor differs from the explicit profile")
     declared = {field["name"]: field for field in structure["fields"]}
     expected = {
@@ -884,11 +944,18 @@ def assemble_records(
         raise GlinerRefused("pack fields differ from released literal/classified roles")
     for role in roles:
         if role.name in declared:
+            dtype, cardinality = (
+                ("list", "zero_or_more")
+                if _fragment_field(pack, family, role.name)
+                else ("str", "optional_one")
+            )
             if (
-                declared[role.name].get("dtype") != "str"
-                or declared[role.name].get("cardinality") != "optional_one"
+                declared[role.name].get("dtype") != dtype
+                or declared[role.name].get("cardinality") != cardinality
             ):
-                raise GlinerRefused("pack requires optional_one literal/classified string fields")
+                raise GlinerRefused(
+                    f"pack requires the versioned {dtype}/{cardinality} field frontend"
+                )
             choices = declared[role.name].get("choices", ())
             expected_choices = (
                 classification(prepared, role)[1]
@@ -907,7 +974,12 @@ def assemble_records(
         raise GlinerRefused("native report group names fields outside its released family pack")
     if inspection:
         supplements = inspected_groups(
-            prepared, context, contract=contract, groups=groups, supplements=supplements or {}
+            prepared,
+            context,
+            contract=contract,
+            groups=groups,
+            supplements=supplements or {},
+            pack=pack,
         )
     return _assemble(
         prepared,

@@ -152,8 +152,10 @@ class GlinerPack:
     version: str = "native-combined-v1"
 
     @classmethod
-    def from_declaration(cls, release: str, declaration: dict[str, Any]) -> GlinerPack:
-        pack = cls(release, _json(declaration))
+    def from_declaration(
+        cls, release: str, declaration: dict[str, Any], *, version: str = "native-combined-v1"
+    ) -> GlinerPack:
+        pack = cls(release, _json(declaration), version)
         pack.compile()
         return pack
 
@@ -161,7 +163,10 @@ class GlinerPack:
         # Lazy method-boundary import. No model object crosses the worker boundary.
         from gliner2.inference.schema import Schema
 
-        if not self.release.strip() or self.version != "native-combined-v1":
+        if not self.release.strip() or self.version not in {
+            "native-combined-v1",
+            "native-combined-v2",
+        }:
             raise GlinerRefused("pack requires a released identity and supported operation")
         declaration = json.loads(self.declaration_json)
         if not isinstance(declaration, dict):
@@ -170,8 +175,13 @@ class GlinerPack:
             names = [field["name"] for field in structure.get("fields", [])]
             if len(names) != len(set(names)):
                 raise GlinerRefused("duplicate structure field names are unsupported")
-            if structure.get("mode") != "natural" or not structure.get("anchor"):
+            mode, anchor = structure.get("mode"), structure.get("anchor")
+            if self.version == "native-combined-v1" and (mode != "natural" or not anchor):
                 raise GlinerRefused("initial packs require an explicit natural occurrence anchor")
+            if self.version == "native-combined-v2" and not (
+                (mode == "natural" and anchor) or (mode == "latent" and anchor is None)
+            ):
+                raise GlinerRefused("v2 packs require natural anchored or latent grouping")
         schema = Schema.from_dict(declaration)
         effective = schema.to_dict()
         if Schema.from_dict(effective).to_dict() != effective:

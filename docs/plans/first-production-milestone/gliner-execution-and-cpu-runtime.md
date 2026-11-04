@@ -9,7 +9,7 @@ verification. Remaining targets below are not blanket claims that every listed c
 unimplemented. Whole-M1 qualification remains open.
 
 **Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
-Subsequent M1 native107–129, actual CPU publication/reuse/recovery, independent source-only references
+Subsequent M1 native107–130, actual CPU publication/reuse/recovery, independent source-only references
 and candidate consumer results have their own receipts in the coordinator. Actual development
 quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
 functional and quality boundaries; no whole M1 package is complete.
@@ -21,11 +21,15 @@ The coordinator's F23 owns the concrete capture/representation losses. The targe
 [protected alignment](../../design_review/evidence/2026-11-04_m1-training-alignment/README.md) and
 [one-step numerical result](../../design_review/evidence/2026-11-04_m1-training-feasibility/README.md)
 separate native API support, exact target representation and actual loss/optimizer execution.
-The isolated one-step checkpoint is not an adopted model. Repair source-available word boundaries,
-coherent formula context and faithful fixed-schema ABSENT/zero-record targets before claiming a
-five-family learning benefit. Keep source normalization, gold-derived inference candidates and
-partial-reference negatives out of this route. Every changed profile/universe needs fresh
-predictions and affected fitting/calibration; held-out labels remain excluded from development.
+The isolated one-step checkpoint is not an adopted model. Policy6/native pack-v2 now supplies
+checked definition fragment lists, latent assertion grouping and shared prose routing under the
+unchanged bounds. Production-constructor004target reconstruction and actual interface004pass;
+[the coordinator](../first-production-milestone_2026-11-03.md#current-m1-execution-checkpoint--2026-11-04)
+owns exact counts, current epoch and remaining quality obligations. The faithful native epoch is
+active on the frozen development-only261rows; no trained checkpoint is selected and no held-out
+labels are used. Fresh uninjected predictions, full270reading grading and affected feature/
+calibration evidence decide benefit. Source normalization, gold-derived inference candidates,
+partial-reference negatives and training-loss authority remain excluded.
 
 ## Basis, foundation assessment and responsibility
 
@@ -296,7 +300,7 @@ positive/zero CPU optimizer step pass; the isolated checkpoint is unselected. Fi
 weight updates establish no efficacy. Three uninjected loss-only calls leave weights unchanged
 but miss gold anchors and have zero record-field loss; that limitation remains explicit.
 
-Current preparation reconstructs source-generated policy5 contexts and codepoint coordinates
+Current preparation004 reconstructs source-generated policy6/native pack-v2 contexts and codepoint coordinates
 against immutable original development C through checked reference applicability. Its complete
 denominator remains270. Loss-bearing examples require complete relevant target groups, exact
 source round trips, fixed inference conditioning, native64gold capacity and explicit4096source/

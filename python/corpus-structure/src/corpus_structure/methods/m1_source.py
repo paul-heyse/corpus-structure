@@ -25,6 +25,7 @@ from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerErr
 from corpus_structure.methods.source_preparation import (
     POLICY,
     POLICY_V5,
+    POLICY_V6,
     native_table_geometry,
     prepare_source,
 )
@@ -140,7 +141,9 @@ def _structural_groups(view, selection, context):
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     policy: Literal[
-        "m1-canonical-related-context-candidates-4", "m1-canonical-related-context-candidates-5"
+        "m1-canonical-related-context-candidates-4",
+        "m1-canonical-related-context-candidates-5",
+        "m1-canonical-related-context-candidates-6",
     ] = POLICY
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: Literal["extract.m1_annotations"] = "extract.m1_annotations"
@@ -172,8 +175,8 @@ class M1Config(BaseModel):
 
     @model_validator(mode="after")
     def prose_formula_policy(self):
-        if self.formula_prose and self.policy != POLICY_V5:
-            raise ValueError("ordinary prose formula routing requires source policy5")
+        if self.formula_prose and self.policy not in {POLICY_V5, POLICY_V6}:
+            raise ValueError("ordinary prose formula routing requires source policy5 or6")
         return self
 
     @field_validator("pack_descriptions")
@@ -212,31 +215,33 @@ def configured_packs(prepared, cfg):
             anchor_role=anchor,
             descriptions=cfg.pack_descriptions.get(family),
             source_inspection=cfg.source_inspection,
+            pack_version="native-combined-v2" if cfg.policy == POLICY_V6 else "native-combined-v1",
         )
         for family, (contract, anchor) in FAMILIES.items()
     }
 
 
 def configured_pack_variants(prepared, cfg):
-    """Version5 adds one explicit natural binding request, sharing the resident model."""
+    """Policies5/6 add a natural binding request, sharing the resident model."""
     from corpus_structure.methods.record_packs import formula_pack_variants
 
     packs = configured_packs(prepared, cfg)
     variants: dict[str, tuple[tuple[str, str, GlinerPack], ...]] = {
         family: (("default", FAMILIES[family][1], pack),) for family, pack in packs.items()
     }
-    if cfg.policy == POLICY_V5:
+    if cfg.policy in {POLICY_V5, POLICY_V6}:
         variants["formula_context"] = formula_pack_variants(
             prepared,
             descriptions=cfg.pack_descriptions.get("formula_context"),
             source_inspection=cfg.source_inspection,
+            pack_version="native-combined-v2" if cfg.policy == POLICY_V6 else "native-combined-v1",
         )
     return variants
 
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "5"
+    version = "6"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -377,7 +382,11 @@ class M1Candidates:
                 family=family,
                 outcome="pending",
                 reason="not yet executed",
-                **(dict(variant=variant, anchor_role=anchor) if cfg.policy == POLICY_V5 else {}),
+                **(
+                    dict(variant=variant, anchor_role=anchor)
+                    if cfg.policy in {POLICY_V5, POLICY_V6}
+                    else {}
+                ),
             )
             for index, selection in enumerate(prepared_source.selections)
             for family in selection.families
@@ -431,7 +440,7 @@ class M1Candidates:
                         )
                         metadata = (
                             dict(variant=variant, anchor_role=anchor)
-                            if cfg.policy == POLICY_V5
+                            if cfg.policy in {POLICY_V5, POLICY_V6}
                             else {}
                         )
                         details["reports"].append(
@@ -462,7 +471,9 @@ class M1Candidates:
             ):
                 contract = FAMILIES[family][0]
                 metadata = (
-                    dict(variant=variant, anchor_role=anchor) if cfg.policy == POLICY_V5 else {}
+                    dict(variant=variant, anchor_role=anchor)
+                    if cfg.policy in {POLICY_V5, POLICY_V6}
+                    else {}
                 )
                 scope = f"{selection.region}:{selection.start}:{selection.end}"
                 if metadata:

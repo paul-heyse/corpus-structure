@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "id": "m1.contextual-interface-v2",
+  "title": "Actual CPU v2 interface and warm request cancellation settlement",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the accepted v2 production profile execute the largest source-only admitted definition/assertion requests intact and settle a cancelled warm owned request?",
+  "answers": [
+    "M1-INT-F23"
+  ],
+  "method": "Source-only whitelist004, actual existing GlinerWorker CPU FP32 cold/warm calls, timed existing callback cancellation, process identity settlement and external whole-tree sampling. No references or target labels read.",
+  "commands": [
+    "uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-profile/run_interface_v2.py --dataset docs/design_review/evidence/2026-11-04_m1-contextual-targets/attempt-004 --release-id release:407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25 --source-run-id 22 --source-cut-id 23 --attempt interface-004",
+    "uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-profile/finalize_interface_v2.py --attempt interface-004 --resources docs/design_review/evidence/2026-11-04_m1-contextual-profile/resources-interface-004.jsonl"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "interface-002",
+      "role": null,
+      "sha256": "008a78c067dec6702d7aa9437e8ccfa66b7fc2b8e157f24dd7ab545a484a44da"
+    },
+    {
+      "path": "interface-003",
+      "role": null,
+      "sha256": "bd4d6f7b74c55091bef20bcafc7bf1bc4f02c6c96b8c5c0bc7073543aea73afe"
+    },
+    {
+      "path": "interface-004",
+      "role": null,
+      "sha256": "54be2393f1749bbfd68f860cbf0af63d56fd4dfe4c2431879b96099ebe3ccbe6"
+    },
+    {
+      "path": "interface-preflight-001",
+      "role": null,
+      "sha256": "1bed604be007c2b0da0b3332d241cae6decf469e50e860691e4dd540daef47ae"
+    },
+    {
+      "path": "resources-interface-004.jsonl",
+      "role": null,
+      "sha256": "c4b4c245879a03cd4e9800cdcf9376f1ad18e4256322ac486e3b58dec1065ab6"
+    },
+    {
+      "path": "attempt-interface-002.log",
+      "role": null,
+      "sha256": "f974ea46914611dbfb7a2a34735c43e08d096266f379874819a15105b2a2bdf2"
+    },
+    {
+      "path": "attempt-interface-003.log",
+      "role": null,
+      "sha256": "16860cedd0afe00f9b80575a5b7ea80e638c20a1f8f7b271873f3b74720c2ad8"
+    },
+    {
+      "path": "attempt-interface-004.log",
+      "role": null,
+      "sha256": "2c84954e19d9189fd7043e6211d24d3b0651be17383217988942dadcb5e90477"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-contextual-targets/m1.contextual-targets-v2"
+  ],
+  "results": [
+    {
+      "name": "Complete actual native reports",
+      "value": 3,
+      "of": null,
+      "unit": "calls",
+      "note": null
+    },
+    {
+      "name": "Externally absent observed identities",
+      "value": 4,
+      "of": null,
+      "unit": "process identities",
+      "note": null
+    },
+    {
+      "name": "Definition conditioned subwords",
+      "value": 4039,
+      "of": null,
+      "unit": "subwords",
+      "note": null
+    },
+    {
+      "name": "Assertion conditioned subwords",
+      "value": 4077,
+      "of": null,
+      "unit": "subwords",
+      "note": null
+    },
+    {
+      "name": "Warm cancellation delay",
+      "value": 0.50194,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Complete-sample peak proportional resident share",
+      "value": 7579291,
+      "of": null,
+      "unit": "KiB",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Three full ungraded actual CPU native reports complete intact in one child; the fourth warm request raises typed cancellation after dispatch/IPC and observed CPU growth. Child/IPC settle and all four observed external process identities are absent. Earlier002/003fail before model creation and remain retained. Internal native phase and distributed cancellation are unqualified. Resource scope is partial (149samples,1missing-PSSsample and3discoveryraces), excludes PostgreSQL and establishes no capacity, training benefit, source quality or whole-M1 pass.",
+  "consumed_by": [
+    "M1-05",
+    "M1-07",
+    "M1-14",
+    "M1-15"
+  ]
+}

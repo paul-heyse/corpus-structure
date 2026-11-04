@@ -164,7 +164,18 @@ def native_model_observations(
 
     observations = {}
     for group_index, group in enumerate(report.raw.get(family, ())):
-        for field, output in group.items():
+        # Native list order is confidence order, so retain the actually returned position
+        # and raw span. Source-order assembly does not rewrite this model observation.
+        outputs = (
+            (field, fragment, {"fragment_index": index})
+            if isinstance(output, list)
+            else (field, output, {})
+            for field, output in group.items()
+            for index, fragment in (
+                enumerate(output) if isinstance(output, list) else [(0, output)]
+            )
+        )
+        for field, output, position in outputs:
             if field == "confidence":
                 confidence, raw = output, output
             elif isinstance(output, dict) and "confidence" in output:
@@ -196,6 +207,7 @@ def native_model_observations(
                     context=context.dependency_digest,
                     decoder=report.pack,
                 ),
+                **position,
             )
             key = _digest({k: v for k, v in row.items() if k != "group_index"})
             if key in observations:

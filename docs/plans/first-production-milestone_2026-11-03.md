@@ -60,11 +60,13 @@ refining implementation requirements; do not introduce new approval steps for th
 ## Current M1 execution checkpoint — 2026-11-04
 
 **Implemented with bounded Tested results; no whole M1 package complete.** Native106 source
-preparation remains frozen. Forward107–129 add whole-reading overlays, direct sealed field/set/
+preparation remains frozen. Forward107–130 add whole-reading overlays, direct sealed field/set/
 anchor custody, protected finite policy products, operation-scoped reuse and compatible-reference
-applicability.160 native objects are managed. Persistent corpus_structure_dev is at129 with its
-retained source population. Rollback-only `current-head-036` reports zero native and zero ordinary
-changes. Native125 retains11passing reuse controls. All16affected reference/policy native cases
+applicability and policy6/native pack-v2.160 native objects are managed. Persistent
+corpus_structure_dev is at130 with its retained source population. Rollback-only
+`current-head-038` reports zero native and zero ordinary changes.26current130publication,
+closure, alternative and support native controls pass. Root `just types` passes; the earlier
+16reference/policy native results retain their129source boundary. Native125 retains11passing reuse controls. All16affected reference/policy native cases
 pass at129;200related pure/authoring cases, typing and scoped Ruff pass separately. The127broader
 run was interrupted by ENOSPC;128passed14/16 and exposed a no-report alias regression corrected
 by129. Retain those failures and incomplete receipts. Environment `just ready` passes after
@@ -83,7 +85,7 @@ projection controls orchestration hashing, twin selection and origin validation;
 unknown determinants and complete run provenance remain bound. DA-054 implementation is present;
 actual resolver-only configuration run16 reuses annotations/raw output and publishes a new nondefault result; fitted-policy change qualification remains open.
 
-The opt-in `contextual` profile is implemented through the same graph: explicit source policy5,
+The frozen policy5 `contextual` configuration is supported through the same graph: explicit source policy5,
 whole-block formula neighborhoods/prose routing, natural symbol/formula pack variants and an exact
 codepoint CPU FP32 profile with4096bounds.143focused profile/assembly/CLI cases pass. Two actual
 native calls on the largest independently source-prepared input preserve3427source tokens and
@@ -96,21 +98,41 @@ Completed source-and-annotation-only run21/finalcut21 underb97a1bbe… supplies 
 inputs without model work. Actual protected fitting reads, evaluation2 and paired comparison
 against original evaluation1 preserve originalBC69C23/24, exact22→35/23→36physical correspondence
 and270readings. Intentional zero predictions yield270no_outputgaps. This establishes successor
-reference mechanics, not model quality. Current full-visible fixed-schema reconstruction passes
-124examples/reloads covering217unique C readings, retaining all53exclusions and the270ledger.
-One bounded native learning epoch remains pending targeted context/role-gap investigation.
+reference mechanics, not model quality. Those policy5targets remain frozen at their original
+scope; the current policy6target reconstruction is detailed below.
 
-**Selected pre-learning amendment; Proposed implementation,2026-11-04.**
-[ADR-0061](../adr/0061-m1-native-record-frontends.md) selects source policy6/native pack-v2:
-route existing whole-block neighborhoods to prose families, adapt native definition fragment
-lists into exact ordered logical TextSequences, and use latent assertion grouping for coincident
-predicate anchors. Existing profiles/occurrence semantics, capacities, original references and
-quality gates survive. Eleven native metadata controls pass, but production guards still reject
-drop-in use. Finish compiler/inspection/assembly/score-report integration and focused checks,
-reconstruct all270readings under the new profile, then qualify actual native execution and one
-bounded faithful-data epoch. No source normalization, hidden negative omissions or model benefit
-is inferred from these metadata controls.
+**Implemented; bounded Tested pre-learning amendment,2026-11-04.**
+[ADR-0061](../adr/0061-m1-native-record-frontends.md) and
+[frontend controls](../design_review/evidence/2026-11-04_m1-record-frontends/README.md)
+select source policy6/native pack-v2: existing whole-block neighborhoods also route prose families,
+exact definition fragment lists map to the existing Text/TextSequence readings, and latent assertion
+grouping preserves the existing SPO occurrence policy.147focused cases and all21legacy pack
+identities pass; independent implementation review found no material findings. Actual fragment
+scores retain their field/fragment attribution and dependency; no aggregate probability or new
+feature ABI is inferred. Capacities, original references and five quality gates remain unchanged.
 
+Completed retained-source preparation22/finalcut23 under407d64d3… supplies the current source-only
+inputs and212annotation reports, without model/PDF work. Correct production-constructor
+[reconstruction004](../design_review/evidence/2026-11-04_m1-contextual-targets/README.md)
+passes261examples/reloads (256positive,5genuinezero), representing239/270C readings:14definition,
+56assertion,30measurement,80table and59formula.226have some primary assembly custody;13are
+neighbor-only decoder targets.31exclusions and the complete270ledger remain. Exact complete native
+conditioning, nested fragments, independent source-state targets and capacity refusals remain
+checked. Incorrect constructor/interface predecessors are retained, with no equality guard weakened.
+
+[Actual v2 interface004](../design_review/evidence/2026-11-04_m1-contextual-profile/interface-v2.md)
+passes three ungraded maximum-input CPU FP32 calls (cold/warm definition and warm latent assertion),
+then cancellation while awaiting a fourth warm request. One child and its IPC settle; external
+PID/start identities are absent. Internal inference phase and distributed cancellation remain
+unqualified. Partial process-only resource observations establish no aggregate capacity envelope.
+
+One fresh-base native261-row CPU epoch is active with exact once-only membership, batch1,
+native scheduled gold training and unchanged4096/192/64bounds. The first attempt's evidence-hook
+failure on a valid zero-record batch is preserved; corrected attempt002 starts again from the
+unchanged base and retains genuine zero rows. No checkpoint is adopted, held-out labels are not
+used and finite loss supplies no quality claim. Next: settle the full epoch, verify its actual
+artifact inventory, run fresh uninjected ordinary owned development predictions, then fit and
+qualify only what the independent source evidence supports.
 Release-derived reading assertions enter ordinary consolidation with whole-record selection caps.
 Private records retain candidate standing; public admission supplies effective standing for readers,
 exports and grading. LinkML owns persisted policy products, with numerical DTOs internal. Protected
@@ -169,7 +191,7 @@ Implementation review and native findings stay in this owning plan:
 | M1-INT-F20 | Actual frozen-source run14 emitted232raw readings (50definition/182table), with no located assertion/measurement/formula readings, then published464raw/resolver candidate interpretations at cut13. Actual transport/export/census checks pass, but no accepted or five-family output follows. Protected C development grading now reports190missing/80unaccepted occurrences and0accepted readings; policy fits refuse0positive/no-event populations. Targeted native training alignment is investigating exact representability/conditioning before adaptation. This is a failed development quality boundary, not calibrated release success. |
 | M1-INT-F21 | Actual heading cancellation closed run17, rejected its late task result and settled the child. Identical recovery run18 reused a successful retained-ingest task but selected no views: source-view reuse compared the ingestion task69 with the original native producer1. Native125 repairs this by replaying valid reused-run selections tied to the exact declared retained product, current source digest/project/release and full native reuse guard; ordinary own-produced output remains valid even when a retained input is configured. Run-level selected-view authority is preserved, without invented task ownership. All11native controls pass. Actual run19 reuses73→69/74→34, selects only22, joins its actual CPU child and publishes/replays nondefault cut19; cancelled71 has no durable output and is excluded. Initial125publication refused stale deployment admission; normal restricted readmission resolved it without rerunning source. Inference interruption is not demonstrated. |
 | M1-INT-F22 | Closed at the bounded inspection scope: compact formula metadata/observations and exact cell-plus-parent composition remove whole-view/sibling inflation. Independent chart-parent and matching-hash inventory findings are corrected; all projection item/ancestor addresses validate through the existing protected scalar port before selected-body hydration.90focused pure cases and58actual retained query/CLI/registered in-process MCP comparisons pass at unchanged1MiB, with complete formula/cell envelopes20859/35959–35983bytes. A superseding finalized record preserves earlier results/hashes/raw receipts. Chart-parent controls are focused tests; no actual chart-recognition quality, public budget/grant/default change or whole-M1 claim follows. |
-| M1-INT-F23 | Original protected alignment maps143/270C readings;48safe examples cover118, with every exclusion retained. Fixed-schema native target construction preserves zero/ABSENT/multi-record conditioning; an actual positive/zero native CPU optimizer step passes finite loss/gradients/update, but isolated checkpoints remain unselected and establish no efficacy. Source-only codepoint/wider-context investigation reaches238/270combined actual-primary mappings under its investigated context universe; this is representability, not recall. Policy5/contextual production integration and143focused controls plus two actual maximum-input native calls pass. Current270-reading reconstruction must use checked successor correspondence, exact source/codepoint round trips, complete request target populations and explicit pack/primary applicability; shared natural anchors and conflicting identical conditioning exclude whole examples.68/88formula readings share a formula anchor, while85present-symbol anchors are distinct; one symbol-present/meaning-unstated reading remains an explicit occurrence-adapter exclusion. All five quality gates and the270denominator remain unchanged. |
+| M1-INT-F23 | Open actual quality/benefit: policy6/native pack-v2 is implemented with147focused passes and actual three-call/cancellation interface settlement. Current production-constructor004reconstruction retains all270C readings and261faithful examples representing239decoder readings (226with primary custody/13neighbor-only), with31explicit exclusions. Exact fragment/state/full-conditioning and request completeness controls pass; source/runtime semantics and capacities remain unchanged. A fresh-base native epoch002 is active; failed hook attempt001 remains retained. No trained artifact, fit/calibration, accepted all-family output or efficacy is yet established. Fresh uninjected development predictions and all five unchanged quality gates decide adoption; representability and loss never close this finding. |
 | M1-INT-F24 | Closed at the reference-applicability mechanism: ADR-0060's dual-release physical correspondence is implemented in grading, gaps, policy events and restricted fitter reads while preserving original authored bytes/IDs. Frozen126–129 retain all earlier failures and repair SQL scopes plus no-report logical coordinates without allowing genuine alias/policy changes. All16affected native cases and200related pure/authoring cases pass. Actual completed preparation21 supports checked fitter reads, evaluation2 and paired evaluation1→2 with originalC23/24 and270readings;0intentional predictions yield270no_outputgaps. Changed predictions and affected feature/calibration evidence remain separate M1-07/10/14 obligations; no inherited fitted authority or extraction-quality pass is claimed. |
 
 
@@ -608,7 +630,8 @@ There is no supported frame/pass copy or relocation operation. Resolve fitting/c
 bindings and release stability early in M1-10/13. Answers from an earlier release packet cannot be
 registered as newly authored under a later release. ADR-0060 permits a new dual-release evaluation
 against unchanged original judgments only after explicit source/semantic correspondence; its
-implementation is open. Neither route authorizes predecessor execution or copied frame identity. Source/guideline review can proceed early; final A/B/C
+implementation and bounded actual successor/fitter/evaluation controls pass (F24). Neither route
+authorizes predecessor execution, inherited fitted authority or copied frame identity. Source/guideline review can proceed early; final A/B/C
 packets must use their intended stable release. Source-only authoring still precedes prediction
 completion, and the coordinator registers exact attributed bytes through existing protected APIs.
 

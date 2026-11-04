@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "id": "m1.contextual-targets-v2",
+  "title": "Faithful policy6 native v2 decoder targets and retained exclusions",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which original development C readings admit exact complete native targets after the accepted fragment/latent/context amendment?",
+  "answers": [
+    "M1-INT-F23"
+  ],
+  "method": "Production-resolved contextual constructor and compatible original protected C; metadata-only source preparation, exact native target roundtrips, full-conditioning conflict checks and immutable dataset/source whitelists. Failed constructor/preflight diagnostic predecessors preserved.",
+  "commands": [
+    "uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-targets/reconstruct.py --run-id 22 --attempt attempt-004 --population-mode full-visible --routing-diagnostic --completed-run-authorized --frontend-version 2 --expected-release release:407d64d35766538fcb4d270f0a4e0ad5192a364349e4a667a84bc3c2a5b6bd25"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-003",
+      "role": null,
+      "sha256": "e02e55a00c6e593a3d14a24bd5c938c88b114aa5776979e8e2d68b285bf99432"
+    },
+    {
+      "path": "attempt-004",
+      "role": null,
+      "sha256": "0acc4edb8e0361df77a8622059e2040a92a3fa73e5500e7a80d61f2c981160be"
+    },
+    {
+      "path": "final-integrity-v2.log",
+      "role": null,
+      "sha256": "2ea4c3639ee1b4f059e67e16326966f6862234b69a82a80cd923081982bce2bb"
+    },
+    {
+      "path": "constructor-difference-proof-004.json",
+      "role": null,
+      "sha256": "261ab66baea473e3924dc60d24d6edbbf9efa98ec0713b5c6547c4098af032a1"
+    },
+    {
+      "path": "frontend-audit-004.log",
+      "role": null,
+      "sha256": "0e2aa8494be5069d3a04528b77fecc644fc51b441986e6b8299a2770057992e2"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-contextual-targets/m1.contextual-targets",
+    "2026-11-04_m1-record-frontends/m1.record-frontends"
+  ],
+  "results": [
+    {
+      "name": "Original denominator",
+      "value": 270,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Faithful emitted/reloaded examples",
+      "value": 261,
+      "of": null,
+      "unit": "examples",
+      "note": null
+    },
+    {
+      "name": "Unique represented decoder readings",
+      "value": 239,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Represented with some primary assembly custody",
+      "value": 226,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Neighbor-only represented decoder readings",
+      "value": 13,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Remaining exclusions",
+      "value": 31,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Full-conditioning conflicts",
+      "value": 0,
+      "of": null,
+      "unit": "requests",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Correct production-constructor004preserves all270original C readings and261faithful examples (256positive/5genuinezero),1202target instances and239unique decoder readings:14definition/56assertion/30measurement/80table/59formula.226have primary assembly custody and13are neighbor-only; these are not runtime captures.31exclusions remain explicit.003had equal dataset bytes but wrong live profile constructor; no equality guard was weakened.153frozen files/source whitelists verify. No model, loss/training, heldout, quality, accepted policy or whole-M1 claim.",
+  "consumed_by": [
+    "M1-05",
+    "M1-07",
+    "M1-14",
+    "M1-15"
+  ]
+}
