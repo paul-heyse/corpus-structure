@@ -173,6 +173,66 @@ BEGIN
 END
 $body$;
 
+-- Direct record support owns native custody independently of Agent observations.
+-- Immutable sealed report membership is reused here; full graph/role completeness
+-- remains validate_record_reading_cut's responsibility at initial record publication.
+CREATE OR REPLACE FUNCTION data.has_record_assertion_support(r text,z text,p_occurrence text,p_evidence text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+ SELECT EXISTS(
+  SELECT FROM data.record_assertion assertion
+  JOIN data.record_assertion_support support ON
+   (support.release_id,support.realization_id,support.record_id,support.interpretation_id,support.role,support.occurrence_id)=
+   (assertion.release_id,assertion.realization_id,assertion.record_id,assertion.interpretation_id,assertion.role,assertion.occurrence_id)
+  JOIN data.record_report_member member ON
+   (member.release_id,member.realization_id,member.record_id,member.interpretation_id)=
+   (assertion.release_id,assertion.realization_id,assertion.record_id,assertion.interpretation_id)
+  JOIN data.record_report report ON
+   (report.release_id,report.realization_id,report.selected_task_id,report.origin_task_id)=
+   (member.release_id,member.realization_id,member.selected_task_id,support.origin_task_id)
+  JOIN ops.cut_task cut_task ON (cut_task.cut_id,cut_task.task_id,cut_task.origin_task_id)=
+   (report.cut_id,report.selected_task_id,support.origin_task_id)
+  JOIN ops.input_cut cut ON cut.id=cut_task.cut_id AND cut.final AND cut.release_id=r
+  JOIN ops.run job ON job.id=cut.run_id AND job.release_id=r AND job.result_realization_id=z
+   AND job.sealed AND job.status IN ('consolidating','finished')
+  JOIN ops.task selected ON selected.id=cut_task.task_id AND selected.run_id=job.id
+   AND selected.release_id=r AND selected.status IN ('done','empty','reused')
+   AND cut_task.origin_task_id=COALESCE(selected.reused_task_id,selected.id)
+  JOIN ops.task origin ON origin.id=support.origin_task_id AND origin.release_id=r
+  JOIN ops.task_result result ON result.task_id=origin.id
+  JOIN ops.method_config config ON config.id=origin.method_config_id
+  JOIN ops.method method ON method.id=config.method_id
+  JOIN kb.source_view view ON origin.unit_type='source_view' AND view.id=origin.unit_id AND view.release_id=r
+  JOIN kb.document document ON document.id=view.document_id
+  JOIN data.occurrence occurrence ON
+   (occurrence.release_id,occurrence.realization_id,occurrence.occurrence_id,occurrence.fact_id)=
+   (assertion.release_id,assertion.realization_id,assertion.occurrence_id,assertion.fact_id)
+  JOIN data.evidence evidence ON
+   (evidence.release_id,evidence.realization_id,evidence.evidence_id)=(support.release_id,support.realization_id,support.evidence_id)
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(result.body->'records','[]')) record_value
+  CROSS JOIN LATERAL jsonb_array_elements(record_value->'fields') field_value
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(record_value->'evidence_sets','[]')) set_value
+  CROSS JOIN LATERAL jsonb_array_elements(record_value->'anchors') anchor_value
+  WHERE assertion.release_id=r AND assertion.realization_id=z AND assertion.occurrence_id=p_occurrence
+   AND support.evidence_id=p_evidence
+   AND (record_value->>'record_id',record_value->>'interpretation_id')=(assertion.record_id,assertion.interpretation_id)
+   AND field_value->>'role'=assertion.role AND field_value->>'evidence_status'='available'
+   AND (set_value->>'set_id',set_value->>'role')=(support.set_id,assertion.role)
+   AND field_value->'evidence_sets' ? support.set_id
+   AND anchor_value->>'anchor_id'=support.anchor_id AND set_value->'anchors' ? support.anchor_id
+   AND occurrence.source=record_value->'pin'->>'source'
+   AND occurrence.item=assertion.reading_id||'/'||assertion.role
+   AND (evidence.source_uri,evidence.provider,evidence.operation_version)=
+    (document.source_uri,method.name,method.version)
+   AND evidence.evidence_id='reading-evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+    r,origin.id,record_value->'record_id',record_value->'interpretation_id',field_value->'role',set_value->'set_id',anchor_value->'anchor_id')),'UTF8')),'hex')
+   AND evidence.locator::jsonb=jsonb_build_object('space',anchor_value->'space','pointer',anchor_value->'pointer',
+    'precision',anchor_value->'precision','record_id',record_value->'record_id','interpretation_id',record_value->'interpretation_id',
+    'role',field_value->'role','set_id',set_value->'set_id','anchor_id',anchor_value->'anchor_id')
+    ||CASE WHEN anchor_value ? 'start' THEN jsonb_build_object('start',anchor_value->'start','end',anchor_value->'end') ELSE '{}'::jsonb END
+ )
+$fn$;
+REVOKE ALL ON FUNCTION data.has_record_assertion_support(text,text,text,text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LANGUAGE plpgsql
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE observation kb.observation; ev data.evidence; method_name text;
@@ -244,6 +304,34 @@ DECLARE o data.occurrence; context data.occurrence_context; observation kb.obser
  source data.evidence_source; claim jsonb; statement jsonb; expected_statement text;
  expected_role text; source_rendition_key text; synthesis jsonb; attribute jsonb; attribute_index bigint; attribute_local_id text; establishment text;
 BEGIN
+ -- SourceReading membership is a released, record-owned source assertion basis.
+ -- This check is unconditional: an ordinary append with no record staging must
+ -- not evade the record publication gate, including through a released subclass.
+ IF EXISTS(SELECT FROM data.membership membership JOIN sem.class_definition cls
+   ON cls.release_id=membership.release_id AND cls.class_id=membership.class_id
+   WHERE membership.release_id=r AND membership.realization_id=z AND
+    (cls.name='SourceReading' OR EXISTS(SELECT FROM sem.class_hierarchy hierarchy
+     JOIN sem.class_definition root ON root.release_id=hierarchy.release_id AND root.class_id=hierarchy.ancestor_id
+     WHERE hierarchy.release_id=r AND hierarchy.class_id=cls.class_id AND root.name='SourceReading'))
+    AND NOT EXISTS(SELECT FROM data.record_assertion assertion JOIN data.source_record record_value ON
+     (record_value.release_id,record_value.realization_id,record_value.record_id,record_value.interpretation_id)=
+     (assertion.release_id,assertion.realization_id,assertion.record_id,assertion.interpretation_id)
+     WHERE assertion.release_id=r AND assertion.realization_id=z AND assertion.reading_id=membership.entity_id
+      AND membership.establishment='stated' AND cls.name=CASE record_value.family
+       WHEN 'definition' THEN 'DefinitionReading' WHEN 'assertion' THEN 'QualifiedAssertionReading'
+       WHEN 'measurement' THEN 'MeasurementReading' WHEN 'table' THEN 'TableAssertionReading'
+       WHEN 'formula_context' THEN 'FormulaContextReading' END)) THEN
+  RAISE EXCEPTION 'source-reading membership requires its exact sealed record basis' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM data.fact fact JOIN data.membership membership ON
+    (membership.release_id,membership.realization_id,membership.entity_id)=(fact.release_id,fact.realization_id,fact.subject_id)
+   JOIN sem.class_definition cls ON cls.release_id=membership.release_id AND cls.class_id=membership.class_id
+   WHERE fact.release_id=r AND fact.realization_id=z AND
+    (cls.name='SourceReading' OR EXISTS(SELECT FROM sem.class_hierarchy hierarchy
+     JOIN sem.class_definition root ON root.release_id=hierarchy.release_id AND root.class_id=hierarchy.ancestor_id
+     WHERE hierarchy.release_id=r AND hierarchy.class_id=cls.class_id AND root.name='SourceReading'))
+    AND NOT EXISTS(SELECT FROM data.record_assertion assertion WHERE assertion.release_id=r AND assertion.realization_id=z
+     AND assertion.fact_id=fact.fact_id AND assertion.reading_id=fact.subject_id)) THEN
+  RAISE EXCEPTION 'source-reading fact requires complete sealed record membership' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.occurrence_establishment e
   WHERE e.release_id=r AND e.realization_id=z
    AND EXISTS(SELECT FROM sem.vocabulary_member v WHERE v.release_id=r AND v.vocabulary_id='Establishment')
@@ -269,6 +357,17 @@ BEGIN
  FOR o IN SELECT * FROM data.occurrence WHERE release_id=r AND realization_id=z LOOP
   SELECT * INTO context FROM data.occurrence_context c WHERE c.release_id=r AND c.realization_id=z
     AND c.occurrence_id=o.occurrence_id;
+  IF EXISTS(SELECT FROM data.record_assertion assertion WHERE assertion.release_id=r AND assertion.realization_id=z
+    AND assertion.fact_id=o.fact_id) THEN
+   IF NOT EXISTS(SELECT FROM data.record_assertion assertion JOIN data.source_record record_value ON
+     (record_value.release_id,record_value.realization_id,record_value.record_id,record_value.interpretation_id)=
+     (assertion.release_id,assertion.realization_id,assertion.record_id,assertion.interpretation_id)
+     WHERE assertion.release_id=r AND assertion.realization_id=z AND assertion.fact_id=o.fact_id
+      AND assertion.occurrence_id=o.occurrence_id AND record_value.source=o.source
+      AND o.item=assertion.reading_id||'/'||assertion.role) OR context.occurrence_id IS NOT NULL THEN
+    RAISE EXCEPTION 'source-reading occurrence differs from its exact record membership' USING ERRCODE='23514'; END IF;
+   CONTINUE;
+  END IF;
   SELECT * INTO observation FROM kb.observation ob WHERE ob.release_id=r AND ob.observation_key=o.source;
   IF NOT FOUND THEN CONTINUE; END IF;
   IF observation.payload_definition='AgentStoredBatch' AND o.item ~ '^claims/[0-9]+$' THEN
@@ -342,6 +441,13 @@ BEGIN
    WHERE es.release_id=r AND es.realization_id=z AND es.evidence_id=edge.evidence_id;
   SELECT * INTO STRICT o FROM data.occurrence occurrence WHERE occurrence.release_id=r AND occurrence.realization_id=z
    AND occurrence.occurrence_id=edge.occurrence_id;
+  IF EXISTS(SELECT FROM data.record_assertion assertion WHERE assertion.release_id=r AND assertion.realization_id=z
+    AND assertion.occurrence_id=o.occurrence_id) THEN
+   IF source.evidence_id IS NOT NULL OR citation_role.occurrence_id IS NOT NULL OR
+    NOT data.has_record_assertion_support(r,z,o.occurrence_id,edge.evidence_id) THEN
+    RAISE EXCEPTION 'source-reading evidence differs from sealed task field set anchor custody' USING ERRCODE='23514'; END IF;
+   CONTINUE;
+  END IF;
   SELECT * INTO observation FROM kb.observation ob WHERE ob.release_id=r AND ob.observation_key=o.source;
   IF NOT FOUND THEN CONTINUE; END IF;
   IF source.observation_id IS NOT NULL AND source.observation_id<>observation.id THEN

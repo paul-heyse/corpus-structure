@@ -1,0 +1,199 @@
+"""Native direct-reading custody and structural-predictor controls.
+
+These require the coherent forward native head. Pure checks do not qualify them.
+"""
+
+from dataclasses import replace
+from types import SimpleNamespace
+
+import pytest
+from sqlalchemy import bindparam, select, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import DBAPIError
+
+from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
+from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
+from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.record_assertions import source_reading_inputs
+from corpus_structure.semantic.record_projection import project_record_reports
+
+from .test_record_publication_native import record_cut
+
+
+@pytest.fixture
+def reading_source(semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch):
+    from . import test_private_records as support
+
+    original = support.observation_inputs
+    monkeypatch.setattr(
+        support, "observation_inputs", lambda bundle: source_reading_inputs(original(bundle))
+    )
+    return support.private_source.__wrapped__(semantic_db_engine, semantic_writer_engine, tmp_path)
+
+
+def test_plain_graph_append_cannot_bypass_record_admission(reading_source):
+    case = reading_source
+    cut = record_cut(case)
+    inputs = _cut_input(case.writer, cut, "unbound-reading-result")
+    assert inputs.batch.record_assertion
+    # Preserve the real graph and its independently located evidence while omitting
+    # all record transport. Ordinary graph validity must not authorize this source basis.
+    plain = replace(inputs.batch, **project_record_reports(case.prepared, ()), _analysis_input=None)
+    with (
+        case.writer.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin() as transaction,
+    ):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,:out)"),
+            dict(cut=cut, out=inputs.output_realization_id),
+        )
+        with pytest.raises(DBAPIError, match="source-reading membership"), conn.begin_nested():
+            transport = AppendPublication.from_rows(plain)
+            stage_arrow(conn, transport)
+            conn.execute(
+                text("SELECT data.publish_batch(:r,:z,:b,:body)"),
+                dict(
+                    r=plain.release_id,
+                    z=plain.realization_id,
+                    b=plain.batch_id,
+                    body=transport.content,
+                ),
+            )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM data.batch WHERE realization_id=:out"),
+                dict(out=inputs.output_realization_id),
+            )
+            == 0
+        )
+        transaction.rollback()
+
+
+def test_bound_reading_uses_exact_direct_support_without_agent_observation(
+    reading_source, semantic_db_engine
+):
+    case = reading_source
+    result = consolidate_cut(case.writer, record_cut(case), "bound-reading-result")
+    relation = table("data.record_assertion_support")
+    with semantic_db_engine.connect() as conn:
+        rows = (
+            conn.execute(
+                select(relation).where(
+                    relation.c.release_id == case.prepared.release_id,
+                    relation.c.realization_id == result.realization_id,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        assert rows
+        statement = text("SELECT data.has_record_assertion_support(:r,:z,:o,:e)")
+        for row in rows:
+            assert (
+                conn.scalar(
+                    statement,
+                    dict(
+                        r=case.prepared.release_id,
+                        z=result.realization_id,
+                        o=row["occurrence_id"],
+                        e=row["evidence_id"],
+                    ),
+                )
+                is True
+            )
+            assert (
+                conn.scalar(
+                    statement,
+                    dict(
+                        r=case.prepared.release_id,
+                        z=result.realization_id,
+                        o=row["occurrence_id"],
+                        e="foreign-evidence",
+                    ),
+                )
+                is False
+            )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM data.evidence_source WHERE realization_id=:z"),
+                dict(z=result.realization_id),
+            )
+            == 0
+        )
+
+
+def predictor_input():
+    names = [
+        "present_fraction",
+        "located_fraction",
+        "exact_anchor_fraction",
+        "unresolved_fraction",
+        "classified_fraction",
+        "changed_fraction",
+        "alternative_count",
+        "diagnostic_count",
+    ]
+    record = dict(
+        fields=[
+            dict(
+                state="present",
+                evidence_status="available",
+                kind="classified",
+                alternatives=[{}, {}],
+            ),
+            dict(
+                state="unresolved",
+                evidence_status="available",
+                kind="normalized",
+                alternatives=[{}],
+            ),
+        ],
+        anchors=[dict(precision="exact"), dict(precision="item")],
+    )
+    feature = dict(
+        algorithm=dict(features=[dict(name=name) for name in names]),
+        parameters=dict(
+            names=names,
+            center=[0.0] * 8,
+            scale=[1.0] * 8,
+            coefficients=list(range(1, 9)),
+            intercept=0.25,
+        ),
+    )
+    return SimpleNamespace(record=record, feature=feature, diagnostics=["one", "two"])
+
+
+def score_statement():
+    return text("SELECT data.record_feature_score(:record,:diagnostics,:feature)").bindparams(
+        bindparam("record", type_=JSONB),
+        bindparam("diagnostics", type_=JSONB),
+        bindparam("feature", type_=JSONB),
+    )
+
+
+def test_native_predictor_independently_uses_all_eight_structural_signals(semantic_db_engine):
+    sample = predictor_input()
+    with semantic_db_engine.connect() as conn:
+        # Independent vector: [.5, 1, .5, .5, .5, .5, 3, 2].
+        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(48.75, abs=1e-12)
+        sample.feature["parameters"]["center"][0] = 0.25
+        sample.feature["parameters"]["scale"][0] = 0.5
+        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(48.75, abs=1e-12)
+        sample.feature["parameters"]["coefficients"][0] = 2.0
+        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(49.25, abs=1e-12)
+
+
+@pytest.mark.parametrize("kind", ["unavailable", "unknown", "misordered", "zero_scale"])
+def test_native_predictor_refuses_unavailable_or_unreleased_inputs(semantic_db_engine, kind):
+    sample = predictor_input()
+    if kind == "unavailable":
+        sample.diagnostics = None
+    elif kind == "unknown":
+        sample.feature["algorithm"]["features"][0]["name"] = "raw_confidence"
+        sample.feature["parameters"]["names"][0] = "raw_confidence"
+    elif kind == "misordered":
+        sample.feature["parameters"]["names"].reverse()
+    else:
+        sample.feature["parameters"]["scale"][0] = 0.0
+    with semantic_db_engine.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
+        conn.scalar(score_statement(), vars(sample))

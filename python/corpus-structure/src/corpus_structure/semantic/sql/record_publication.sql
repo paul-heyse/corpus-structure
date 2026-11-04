@@ -39,12 +39,77 @@ BEGIN
 END $fn$;
 REVOKE ALL ON FUNCTION data.record_source_json(jsonb) FROM PUBLIC;
 
+-- The declared finite linear predictor is reconstructed from immutable structural
+-- inputs. A producer-supplied logit alone is never acceptance authority.
+CREATE OR REPLACE FUNCTION data.record_feature_score(p_record jsonb,p_diagnostics jsonb,p_feature jsonb)
+RETURNS double precision LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE parameters jsonb:=p_feature->'parameters'; names jsonb:=parameters->'names';
+ field_count bigint; anchor_count bigint; position integer; name text; signal double precision;
+ center_value double precision; scale_value double precision; coefficient double precision;
+ contribution double precision; total numeric; result double precision; declared_names jsonb;
+BEGIN
+ SELECT jsonb_agg(value->'name' ORDER BY ordinal) INTO declared_names
+  FROM jsonb_array_elements(p_feature->'algorithm'->'features') WITH ORDINALITY item(value,ordinal);
+ IF jsonb_typeof(names) IS DISTINCT FROM 'array' OR jsonb_array_length(names)=0 OR names IS DISTINCT FROM declared_names OR
+  jsonb_array_length(parameters->'center') IS DISTINCT FROM jsonb_array_length(names) OR
+  jsonb_array_length(parameters->'scale') IS DISTINCT FROM jsonb_array_length(names) OR
+  jsonb_array_length(parameters->'coefficients') IS DISTINCT FROM jsonb_array_length(names) THEN
+  RAISE EXCEPTION 'record feature parameters differ from declared order' USING ERRCODE='23514'; END IF;
+ field_count:=jsonb_array_length(p_record->'fields'); anchor_count:=jsonb_array_length(p_record->'anchors');
+ IF field_count IS NULL OR field_count=0 THEN
+  RAISE EXCEPTION 'record feature universe is empty' USING ERRCODE='23514'; END IF;
+ total:=(parameters->>'intercept')::double precision::numeric;
+ FOR position IN 0..jsonb_array_length(names)-1 LOOP
+  name:=names->>position;
+  CASE name
+  WHEN 'present_fraction' THEN SELECT count(*)::double precision/field_count INTO signal
+   FROM jsonb_array_elements(p_record->'fields') item WHERE item->>'state'='present';
+  WHEN 'located_fraction' THEN SELECT count(*)::double precision/field_count INTO signal
+   FROM jsonb_array_elements(p_record->'fields') item WHERE item->>'evidence_status'='available';
+  WHEN 'exact_anchor_fraction' THEN
+   IF anchor_count IS NULL OR anchor_count=0 THEN
+    RAISE EXCEPTION 'required exact-anchor feature is unavailable' USING ERRCODE='23514'; END IF;
+   SELECT count(*)::double precision/anchor_count INTO signal
+    FROM jsonb_array_elements(p_record->'anchors') item WHERE item->>'precision'='exact';
+  WHEN 'unresolved_fraction' THEN SELECT count(*)::double precision/field_count INTO signal
+   FROM jsonb_array_elements(p_record->'fields') item WHERE item->>'state'='unresolved';
+  WHEN 'classified_fraction' THEN SELECT count(*)::double precision/field_count INTO signal
+   FROM jsonb_array_elements(p_record->'fields') item WHERE item->>'kind'='classified';
+  WHEN 'changed_fraction' THEN SELECT count(*)::double precision/field_count INTO signal
+   FROM jsonb_array_elements(p_record->'fields') item WHERE item->>'kind' IN ('normalized','derived');
+  WHEN 'alternative_count' THEN SELECT sum(jsonb_array_length(COALESCE(item->'alternatives','[]')))::double precision INTO signal
+   FROM jsonb_array_elements(p_record->'fields') item;
+  WHEN 'diagnostic_count' THEN
+   IF jsonb_typeof(p_diagnostics) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'required diagnostic feature is unavailable' USING ERRCODE='23514'; END IF;
+   signal:=jsonb_array_length(p_diagnostics);
+  ELSE RAISE EXCEPTION 'record feature is outside released structural subset: %',name USING ERRCODE='23514';
+  END CASE;
+  center_value:=(parameters->'center'->>position)::double precision;
+  scale_value:=(parameters->'scale'->>position)::double precision;
+  coefficient:=(parameters->'coefficients'->>position)::double precision;
+  IF signal IS NULL OR center_value IS NULL OR scale_value IS NULL OR coefficient IS NULL OR scale_value<=0 OR
+   signal::text IN ('NaN','Infinity','-Infinity') OR center_value::text IN ('NaN','Infinity','-Infinity') OR
+   scale_value::text IN ('NaN','Infinity','-Infinity') OR coefficient::text IN ('NaN','Infinity','-Infinity') THEN
+   RAISE EXCEPTION 'record feature predictor has unavailable or nonfinite input' USING ERRCODE='23514'; END IF;
+  contribution:=((signal-center_value)/scale_value)*coefficient;
+  IF contribution::text IN ('NaN','Infinity','-Infinity') THEN
+   RAISE EXCEPTION 'record feature predictor has nonfinite contribution' USING ERRCODE='23514'; END IF;
+  total:=total+contribution::numeric;
+ END LOOP;
+ result:=total::double precision;
+ IF result IS NULL OR result::text IN ('NaN','Infinity','-Infinity') THEN
+  RAISE EXCEPTION 'record feature predictor is nonfinite' USING ERRCODE='23514'; END IF;
+ RETURN result;
+END $fn$;
+REVOKE ALL ON FUNCTION data.record_feature_score(jsonb,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION data.validate_record_admission_overlay(r text,z text) RETURNS void
 LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 #variable_conflict use_column
 DECLARE entry record; a data.record_admission; rec jsonb; binding jsonb; event jsonb;
  feature jsonb; calibration jsonb; score double precision; predictor double precision;
- probability double precision; threshold double precision; event_count bigint;
+ probability double precision; threshold double precision; event_count bigint; reconstructed_score double precision;
 BEGIN
  IF EXISTS(SELECT FROM data.source_record s LEFT JOIN data.record_admission a ON
    (a.release_id,a.realization_id,a.record_id,a.interpretation_id)=(s.release_id,s.realization_id,s.record_id,s.interpretation_id)
@@ -92,6 +157,7 @@ BEGIN
   IF event_count<>1 OR data.report_field(event,'outcome')->>'text' IS DISTINCT FROM 'completed' OR
    data.report_field(event,'feature_instance_digest')->>'text' IS DISTINCT FROM calibration->>'feature_instance_digest' OR
    data.report_field(event,'event_procedure')->>'text' IS DISTINCT FROM calibration->>'event_procedure' OR
+   data.report_field(event,'event_procedure')->>'text' IS DISTINCT FROM 'independent-complete-reading-logistic-1' OR
    COALESCE(data.report_field(event,'feature_input_digest')->>'text','') !~ '^[0-9a-f]{64}$' OR
    rec->>'policy_version' IS DISTINCT FROM feature->'algorithm'->>'version' OR
    data.report_field(event,'feature_input_canonical_json')->>'text' IS NULL OR
@@ -101,6 +167,9 @@ BEGIN
     jsonb_build_array(rec,data.record_source_json(data.report_field(event,'diagnostics'))) THEN
    RAISE EXCEPTION 'accepted record lacks its complete sealed calibrated event' USING ERRCODE='23514'; END IF;
   score:=data.record_source_float(data.report_field(event,'final_event_score'));
+  reconstructed_score:=data.record_feature_score(rec,data.record_source_json(data.report_field(event,'diagnostics')),feature);
+  IF abs(score-reconstructed_score)>1e-12*greatest(1.0,abs(reconstructed_score)) THEN
+   RAISE EXCEPTION 'sealed record event score differs from frozen structural predictor' USING ERRCODE='23514'; END IF;
   predictor:=(calibration->>'slope')::double precision*score+(calibration->>'intercept')::double precision;
   IF predictor>=700 THEN probability:=1;
   ELSIF predictor<=-700 THEN probability:=0;
