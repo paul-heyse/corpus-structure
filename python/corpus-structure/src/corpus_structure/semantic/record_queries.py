@@ -212,10 +212,19 @@ def read_completed_record_projection(
             & (roots.c.record_id == members.c.record_id)
             & (roots.c.interpretation_id == members.c.interpretation_id),
         )
+        admission = table("data.record_admission")
+        root_query = root_query.join(
+            admission,
+            scope(admission)
+            & (admission.c.record_id == roots.c.record_id)
+            & (admission.c.interpretation_id == roots.c.interpretation_id),
+        )
         for column in ("family", "standing", "record_id", "interpretation_id"):
             value = getattr(selection, column)
             if value is not None:
-                root_query = root_query.where(roots.c[column] == value)
+                root_query = root_query.where(
+                    (admission.c.decision if column == "standing" else roots.c[column]) == value
+                )
         matching_records = conn.scalar(select(func.count()).select_from(root_query.subquery()))
         if selection.after is not None:
             if (

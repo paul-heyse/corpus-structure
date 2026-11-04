@@ -271,8 +271,8 @@ class QueryResult(_Envelope):
 
 
 class SourceCustody(_Envelope):
-    observation_id: int
-    observation_key: str
+    observation_id: int | None
+    observation_key: str | None
     task_id: int
     run_id: int
     rendition_id: int | None
@@ -282,6 +282,11 @@ class SourceCustody(_Envelope):
     payload_definition: str
     kind: str
     input_observation_keys: tuple[str, ...]
+    record_id: str | None = None
+    interpretation_id: str | None = None
+    role: str | None = None
+    set_id: str | None = None
+    anchor_id: str | None = None
 
 
 class SourceObservationReport(_Envelope):
@@ -2510,7 +2515,7 @@ class ReadSession:
             raise ReadLimit("source custody input reference budget exhausted", reason="work_limit")
         for row in input_rows:
             dependencies[row["observation_id"]].append(row["source_observation_key"])
-        return {
+        custody = {
             row["evidence_id"]: SourceCustody(
                 observation_id=row["id"],
                 observation_key=row["observation_key"],
@@ -2526,6 +2531,61 @@ class ReadSession:
             )
             for row in receipts
         }
+        support, anchor = (
+            table("data." + name) for name in ("record_assertion_support", "record_anchor")
+        )
+        direct = (
+            select(
+                support,
+                anchor.c.source,
+                anchor.c.source_view_id,
+                anchor.c.pointer,
+                anchor.c.space,
+                anchor.c.precision,
+                anchor.c.start,
+                anchor.c.end,
+                task.c.run_id,
+            )
+            .select_from(
+                support.join(
+                    anchor,
+                    (support.c.realization_id == anchor.c.realization_id)
+                    & (support.c.release_id == anchor.c.release_id)
+                    & (support.c.record_id == anchor.c.record_id)
+                    & (support.c.interpretation_id == anchor.c.interpretation_id)
+                    & (support.c.anchor_id == anchor.c.anchor_id),
+                ).join(task, task.c.id == support.c.origin_task_id)
+            )
+            .where(self.scope(support), support.c.evidence_id.in_(evidence_ids))
+        )
+        self._admit_hydration(direct)
+        for row in self.connection.execute(direct).mappings():
+            if row["evidence_id"] in custody:
+                raise SemanticRefusal("evidence has conflicting Agent and sealed-record custody")
+            custody[row["evidence_id"]] = SourceCustody(
+                observation_id=None,
+                observation_key=None,
+                task_id=row["origin_task_id"],
+                run_id=row["run_id"],
+                rendition_id=None,
+                span_id=None,
+                source_view_id=row["source_view_id"],
+                native_address=canonical_bytes(
+                    {
+                        key: row[key]
+                        for key in ("space", "pointer", "precision", "start", "end")
+                        if row[key] is not None
+                    }
+                ).decode(),
+                payload_definition="SourceRecord",
+                kind="source_reading",
+                input_observation_keys=(),
+                **{
+                    key: row[key]
+                    for key in ("record_id", "interpretation_id", "role", "set_id", "anchor_id")
+                },
+            )
+        return custody
 
     def qualification(
         self, value_id: str, decoded: dict[str, Any], nodes: tuple[ValueNode, ...]

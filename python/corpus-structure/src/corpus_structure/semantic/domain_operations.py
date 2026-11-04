@@ -10,7 +10,7 @@ import json
 from collections import defaultdict
 from collections.abc import Mapping
 from contextlib import suppress
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, fields, replace
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
@@ -46,6 +46,7 @@ from .publication import (
     _publish,
 )
 from .query import SnapshotBinding
+from .record_projection import RecordAdmissionRow
 from .refusals import (
     SemanticOperationRefusal,
     SemanticReason,
@@ -374,6 +375,7 @@ class CutInput:
     source_links: Mapping[str, tuple[int, int, int, int] | NativeEvidenceLink]
     source_binding: SnapshotBinding
     record_reports: tuple[Mapping[str, Any], ...] = ()
+    record_policy_bindings: tuple[Mapping[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -383,6 +385,7 @@ class PolicyDecision:
     alternative_group: tuple[AlternativeGroupRow, ...] = ()
     alternative_member: tuple[AlternativeMemberRow, ...] = ()
     scientific_representative: tuple[ScientificRepresentativeRow, ...] = ()
+    record_admission: tuple[RecordAdmissionRow, ...] = ()
 
 
 class DomainPolicy(Protocol):
@@ -927,10 +930,28 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
             from .operations import BoundReader
             from .records import read_private_record_reports
 
+            origin = table("ops.task").alias("record_origin")
+            config, method = table("ops.method_config"), table("ops.method")
+            view, document = table("kb.source_view"), table("kb.document")
             selected_tasks = (
                 conn.execute(
-                    select(cut_tasks.c.task_id, cut_tasks.c.origin_task_id, t.c.unit_key)
+                    select(
+                        cut_tasks.c.task_id,
+                        cut_tasks.c.origin_task_id,
+                        t.c.unit_key,
+                        document.c.source_uri,
+                        method.c.name.label("provider"),
+                        method.c.version.label("operation_version"),
+                    )
                     .join(t, t.c.id == cut_tasks.c.task_id)
+                    .join(origin, origin.c.id == cut_tasks.c.origin_task_id)
+                    .join(config, config.c.id == origin.c.method_config_id)
+                    .join(method, method.c.id == config.c.method_id)
+                    .outerjoin(
+                        view,
+                        (origin.c.unit_type == "source_view") & (view.c.id == origin.c.unit_id),
+                    )
+                    .outerjoin(document, document.c.id == view.c.document_id)
                     .where(
                         cut_tasks.c.cut_id == cut_id, t.c.status.in_(("done", "empty", "reused"))
                     )
@@ -943,6 +964,9 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
             private = read_private_record_reports(
                 bound, tuple(row["task_id"] for row in selected_tasks)
             )
+            from .observations import source_python
+
+            report_bodies = {row["task_id"]: row["body"] for row in envelopes}
             record_reports = tuple(
                 dict(
                     selected_task_id=report.selected_task_id,
@@ -951,6 +975,14 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                     source=report.source or selected["unit_key"],
                     outcome=report.outcome or "unknown",
                     records=report.records,
+                    source_uri=selected["source_uri"],
+                    provider=selected["provider"],
+                    operation_version=selected["operation_version"],
+                    record_policy_events=source_python(
+                        report_bodies[report.origin_task_id]["parse_detail"]
+                    ).get("record_policy_events", ())
+                    if report_bodies.get(report.origin_task_id, {}).get("parse_detail")
+                    else (),
                 )
                 for selected, report in zip(selected_tasks, private, strict=True)
             )
@@ -2188,9 +2220,28 @@ def _project_cut(
     # Assembly was extended with cut-specific selections, provenance and coverage.
     # Bind once to those final rows before exposing the input to transport consumers.
     if record_reports:
-        from .record_projection import project_record_reports
+        from .record_assertions import lower_record_assertions
+        from .record_projection import (
+            RecordAssertionRow,
+            RecordAssertionSupportRow,
+            project_record_reports,
+        )
 
-        batch = replace(batch, **project_record_reports(prepared, record_reports))
+        projection = project_record_reports(prepared, record_reports)
+        lowered = lower_record_assertions(prepared, output, batch.batch_id, record_reports)
+        additions = {}
+        for field in fields(PublicationBatch):
+            left, right = getattr(batch, field.name), getattr(lowered.batch, field.name)
+            if isinstance(left, tuple) and isinstance(right, tuple):
+                additions[field.name] = tuple(dict.fromkeys((*left, *right)))
+        batch = replace(batch, **additions)
+        projection["record_assertion"] = tuple(
+            RecordAssertionRow(**asdict(row)) for row in lowered.assertions
+        )
+        projection["record_assertion_support"] = tuple(
+            RecordAssertionSupportRow(**asdict(row)) for row in lowered.support
+        )
+        batch = replace(batch, **projection)
     batch = batch.bind_preparation(prepared)
     return CutInput(
         CutId(cut["id"]),
@@ -2216,6 +2267,9 @@ def _project_cut(
             "cut:" + str(cut["id"]),
         ),
         tuple(record_reports),
+        tuple(json.loads(job["dependencies"]).get("record_acceptance", ()))
+        if job.get("dependencies")
+        else (),
     )
 
 
@@ -2256,13 +2310,23 @@ def consolidate_cut(
     facts = {f.fact_id for f in inputs.batch.fact}
     if not decision.selected.issubset(facts):
         raise DomainOperationRefused("policy selected facts outside its input universe")
+    from .record_admission import cap_record_selections
+
+    selected, record_admission = cap_record_selections(
+        inputs.batch, decision.selected, decision.record_admission
+    )
     batch = replace(
         inputs.batch,
-        selection=tuple(SelectionRow(f) for f in sorted(decision.selected)),
+        record_admission=record_admission,
+        selection=tuple(SelectionRow(f) for f in sorted(selected)),
         assessment=decision.assessments,
         alternative_group=decision.alternative_group,
         alternative_member=decision.alternative_member,
-        scientific_representative=decision.scientific_representative,
+        scientific_representative=tuple(
+            row
+            for row in decision.scientific_representative
+            if row.fact_id in selected and row.representative_fact_id in selected
+        ),
     )
     source_links = inputs.source_links
 
@@ -3621,10 +3685,28 @@ class ReleasedRulesPolicy:
             )
             for fact in sorted(selected - covered)
         )
+        from .record_admission import cap_record_selections, evaluate_record_admissions
+
+        record_admission = evaluate_record_admissions(
+            self.prepared, inputs.record_reports, inputs.record_policy_bindings
+        )
+        selected, record_admission = cap_record_selections(
+            inputs.batch, frozenset(selected), record_admission
+        )
         return PolicyDecision(
             frozenset(selected),
             tuple(sorted(assessments, key=lambda a: a.assessment_id)),
             alternative_groups,
             alternative_members,
-            tuple(sorted(representative_rows, key=lambda row: row.fact_id)),
+            tuple(
+                sorted(
+                    (
+                        row
+                        for row in representative_rows
+                        if row.fact_id in selected and row.representative_fact_id in selected
+                    ),
+                    key=lambda row: row.fact_id,
+                )
+            ),
+            record_admission,
         )

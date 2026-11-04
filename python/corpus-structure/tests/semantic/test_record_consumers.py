@@ -346,7 +346,14 @@ def test_atomic_captured_export_keeps_all_released_record_relations(projection, 
             if name == "record_field":
                 assert table.schema.field("decimal_lexical").type == pa.string()
             if name == "record_assertion":
-                assert table.schema.names == ["record_id", "interpretation_id", "fact_id"]
+                assert table.schema.names == [
+                    "record_id",
+                    "interpretation_id",
+                    "role",
+                    "reading_id",
+                    "fact_id",
+                    "occurrence_id",
+                ]
         assert actual == expected
     with pytest.raises(FileExistsError):
         export_packet(packet, out, records=projection, format=format)
