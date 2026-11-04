@@ -2,3 +2,4 @@ candidate-*/* filter=lfs diff=lfs merge=lfs -text
 attempt-*.log filter=lfs diff=lfs merge=lfs -text
 current-head-*/* filter=lfs diff=lfs merge=lfs -text
 binding-text-*/* filter=lfs diff=lfs merge=lfs -text
+*.xml filter=lfs diff=lfs merge=lfs -text

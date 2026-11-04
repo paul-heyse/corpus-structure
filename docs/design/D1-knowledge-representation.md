@@ -2,7 +2,7 @@
 
 ## M1 admitted source-reading assertions
 
-**Accepted target, Proposed until implemented (2026-11-04).** M1 preserves sealed private
+**Implemented; bounded native controls Tested (2026-11-04).** M1 preserves sealed private
 interpretations and derives ordinary scoped source-reading entities and stateful field assertions
 from effective family roles. A reading's polarity/modality is a field; the graph assertion about
 that field does not assert the underlying scientific proposition. Native support authenticates
@@ -10,7 +10,9 @@ actual origin task, record, field, set and anchor without invented Agent observa
 Assertions about supported source-reading fields use stated establishment, including truthful
 inspected nonpresent states; this neither invents Agent authorship nor asserts scientific truth. Compatible
 reading occurrence membership follows statistics-reading-occurrence-2, independently of decoder
-group anchors. Private product graph fences and historical meanings remain enforced.
+group anchors. Private product graph fences and historical meanings remain enforced. Controlled
+accepted-publication/direct-field-support tests pass; actual source runs14/15 retain candidate
+standing. Independent accepted all-family quality remains an open M1 obligation.
 
 > Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 

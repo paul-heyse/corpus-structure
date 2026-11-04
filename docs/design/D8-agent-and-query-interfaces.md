@@ -124,6 +124,16 @@ exact diagnostics through qualified companion references. A source reader borrow
 per operation; concurrent analysis workers do not share a checked-out connection. These component
 controls do not establish current external attachment or full-book adoption; PDF-24/25/10/11 own them.
 
+**Implemented; scoped Tested (2026-11-04).** Ordinary formula inspection validates retained
+projection/recipe bytes and complete item/ancestor address membership through a protected scalar
+projection, then hydrates only the selected formula and observations. Analytical full-view
+consumers retain their full preparation. Cell companions retain exact cell-plus-parent custody,
+including the distinct table/chart parent kind. Existing API v4 shared work and complete response
+budgets remain.90focused controls and58actual retained query/CLI/registered in-process MCP
+comparisons pass at unchanged1MiB; actual chart-provider quality and external host attachment
+are not established by these results. The [M1 coordinator](../plans/first-production-milestone_2026-11-03.md)
+owns their disposition and remaining consumer qualification.
+
 Cancellation follows the actual read borrower through cursor, decoding, sink and snapshot
 settlement. The CLI stages its export and publishes the final path only after successful snapshot
 settlement, with no-replace semantics. A direct connection caller owns its transaction boundary.

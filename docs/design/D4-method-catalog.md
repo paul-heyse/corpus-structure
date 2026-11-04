@@ -1,5 +1,35 @@
 # D4 · Method catalog
 
+## M1 retained-source extraction profiles
+
+**Implemented; bounded Tested, 2026-11-04.** The explicit `contextual` profile extends
+`readings` through the existing retained-source graph. Source policy5 keeps original selections
+and adds bounded whole-block formula neighborhoods and prose formula routing. Each context keeps
+its actual source pieces, primary occurrence and incomplete dependency diagnostics. Formula
+requests use two natural released packs, anchored respectively on a symbol or a formula, in one
+serial resident worker. They retain their separate schema fingerprints and coverage; neither
+variant forces absence or supplies scientific authority.
+
+Its explicit CPU FP32 profile uses non-whitespace Unicode codepoints with unchanged source
+offsets, and 4,096 source-token/subword bounds. Existing whitespace/default profiles retain their
+fingerprints and behavior. The largest observed source-prepared request executed intact in two
+actual native calls; 143 focused profile/CLI/assembly cases passed. This is callable and bounded
+representation evidence, not extraction efficacy. The
+[M1 coordinator](../plans/first-production-milestone_2026-11-03.md) owns the ongoing integrated
+baseline, faithful target reconstruction, conditional adaptation and independent quality gates.
+
+> Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
+
+**Accepted target; Proposed implementation (2026-11-04).** Policy6/native pack-v2 adds checked
+definition fragments and latent assertion grouping, retaining older profile identities and
+unchanged native capacities. An explicit source-order bridge maps native list values to one
+logical TextSequence; raw scores stay uncalibrated and dependent. Wider source-generated
+neighborhoods also route prose families with complete coverage/dependencies and equivalent-input
+deduplication. Metadata controls settle representability only; implementation, actual native
+execution, faithful targets and a bounded learning epoch remain in M1 F23.
+
+> Decision: [ADR-0061](../adr/0061-m1-native-record-frontends.md)
+
 **Proposed (2026-10-28).** Every analysis method the pipeline can run: what it reads, which
 observations it writes ([D1 §9](D1-knowledge-representation.md#9-observations)), how a library
 realizes it, how it is configured and measured, and when it enters. Policies decide which

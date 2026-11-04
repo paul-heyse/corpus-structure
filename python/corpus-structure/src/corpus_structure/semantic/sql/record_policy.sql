@@ -4,7 +4,7 @@
 CREATE OR REPLACE FUNCTION eval.record_policy_prediction_frame(p_project text,p_run bigint,p_set bigint,p_family text,p_kind text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE reference_set eval.reference_set; completed ops.completed_result; snapshot jsonb;
- units jsonb; method_name text;
+ units jsonb; method_name text; applicability jsonb; frame_unit jsonb; producer_report jsonb; prediction_record jsonb;
 BEGIN
  SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
  SELECT * INTO STRICT completed FROM ops.completed_result WHERE run_id=p_run;
@@ -12,17 +12,19 @@ BEGIN
   OR p_family NOT IN ('definition','assertion','measurement','table','formula_context') OR p_family IS NULL
   OR reference_set.sampling->>'record_protocol' IS DISTINCT FROM 'source-record-reference-1'
   OR reference_set.sampling->>'partition' IS DISTINCT FROM p_kind
-  OR completed.release_id IS DISTINCT FROM reference_set.release_id
   OR NOT EXISTS(SELECT FROM ops.run WHERE id=p_run AND project_id=p_project) THEN
-  RAISE EXCEPTION 'policy fitting requires a completed same-release run and declared fit partition' USING ERRCODE='23514'; END IF;
- PERFORM sem.require_execution_operation(reference_set.release_id,'reference_record_calibrate');
+  RAISE EXCEPTION 'policy fitting requires a completed compatible run and declared fit partition' USING ERRCODE='23514'; END IF;
+ PERFORM sem.require_execution_operation(completed.release_id,'reference_record_calibrate');
+ applicability:=eval.record_reference_applicability(p_project,p_run,p_set);
  snapshot:=eval.native_reference_snapshot(p_set);
  IF jsonb_array_length(snapshot)=0 OR jsonb_array_length(snapshot)<>(SELECT count(*) FROM eval.reference_unit WHERE set_id=p_set) THEN
   RAISE EXCEPTION 'policy fitting needs every frozen source unit adjudicated, including empty units' USING ERRCODE='23514'; END IF;
  method_name:=CASE p_kind WHEN 'feature_fit' THEN 'extract.m1_candidates' ELSE 'resolve.m1_readings' END;
  -- LEFT LATERAL preserves each independently selected no-output unit in coverage.
  SELECT jsonb_agg(jsonb_build_object(
-  'unit_id',u.id,'source_view_id',u.source_view_id,'unit_key',u.unit_key,
+  'unit_id',u.id,'source_view_id',(binding.value->'prediction_frame'->'evaluation_frame'->'pin'->>'source_view_id')::bigint,
+  'reference_source_view_id',u.source_view_id,'unit_key',u.unit_key,
+  'prediction_frame',binding.value->'prediction_frame','correspondence',binding.value->'views',
   'origin_group',eligible->>'origin_group','source_frame',f.source_frame,
   'reference_records',COALESCE((SELECT jsonb_agg(rec ORDER BY ordinal) FROM
     jsonb_array_elements(convert_from(p.authored,'UTF8')::jsonb->'records') WITH ORDINALITY entry(rec,ordinal)
@@ -34,6 +36,7 @@ BEGIN
  JOIN eval.reference_frame f ON f.id=(frozen->>'frame_id')::bigint AND f.pass_id=p.id
  JOIN LATERAL jsonb_array_elements(reference_set.sampling->'eligible_units') eligible
   ON eligible->>'unit_key'=u.unit_key
+ CROSS JOIN LATERAL (SELECT eval.record_reference_unit_binding(p_run,u.id,p.id,f.id) AS value) binding
  LEFT JOIN LATERAL (
   SELECT jsonb_agg(jsonb_build_object('selected_task_id',selected.id,'origin_task_id',origin.id,
     'source',COALESCE(result.body->>'source',selected.unit_key),'outcome',selected.status,
@@ -46,7 +49,7 @@ BEGIN
   JOIN ops.method_config config ON config.id=selected.method_config_id
   JOIN ops.method method ON method.id=config.method_id
   LEFT JOIN ops.task_result result ON result.task_id=origin.id AND result.release_id=origin.release_id
-  WHERE ct.cut_id=completed.cut_id AND selected.unit_type='source_view' AND selected.unit_id=u.source_view_id
+  WHERE ct.cut_id=completed.cut_id AND selected.unit_type='source_view' AND selected.unit_id=(binding.value->'prediction_frame'->'evaluation_frame'->'pin'->>'source_view_id')::bigint
    AND method.name=method_name
    AND ct.origin_task_id=COALESCE(selected.reused_task_id,selected.id)
  ) reports ON true
@@ -55,7 +58,23 @@ BEGIN
   OR EXISTS(SELECT FROM jsonb_array_elements(units) unit WHERE NOT EXISTS(
    SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=(unit->>'source_view_id')::bigint)) THEN
   RAISE EXCEPTION 'policy fitting source frame is outside the completed source closure' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_object('release_id',reference_set.release_id,'run_id',p_run,'set_id',p_set,
+ FOR frame_unit IN SELECT value FROM jsonb_array_elements(units) LOOP
+  FOR producer_report IN SELECT value FROM jsonb_array_elements(frame_unit->'reports') LOOP
+   PERFORM ops.validate_source_record_coordinates(p_run,(frame_unit->>'source_view_id')::bigint,
+    frame_unit->'prediction_frame'->'evaluation_frame'->'pin'->>'source',producer_report->'records');
+   FOR prediction_record IN SELECT value FROM jsonb_array_elements(producer_report->'records') LOOP
+    IF prediction_record->>'policy_version' IS DISTINCT FROM frame_unit->'prediction_frame'->'evaluation_frame'->>'prediction_policy_version' THEN
+     RAISE EXCEPTION 'policy candidate differs from frozen evaluation policy' USING ERRCODE='23514'; END IF;
+    PERFORM data.validate_source_record_structure(completed.release_id,prediction_record);
+    IF prediction_record->'pin' IS DISTINCT FROM frame_unit->'prediction_frame'->'evaluation_frame'->'pin' OR EXISTS(
+     SELECT FROM jsonb_array_elements(prediction_record->'anchors') anchor WHERE NOT eval.record_reference_anchor_allowed(
+      anchor,frame_unit->'correspondence',frame_unit->'source_frame'->'evaluation_frame')) THEN
+     RAISE EXCEPTION 'policy candidate differs from authenticated mapped source cut' USING ERRCODE='23514'; END IF;
+   END LOOP;
+  END LOOP;
+ END LOOP;
+ RETURN jsonb_build_object('release_id',completed.release_id,'reference_release_id',reference_set.release_id,
+  'applicability',applicability,'run_id',p_run,'set_id',p_set,
   'family',p_family,'kind',p_kind,'method',method_name,'units',units,
   'reference_digest',encode(sha256(convert_to(data.canonical_json(snapshot),'UTF8')),'hex'));
 END $$;
@@ -81,12 +100,20 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION eval.record_policy_field_evidence(jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION eval.record_policy_full_correct(p_release text,candidate jsonb,p_references jsonb)
+CREATE OR REPLACE FUNCTION eval.record_policy_full_correct(p_release text,candidate jsonb,p_references jsonb,p_views jsonb)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT EXISTS(SELECT FROM jsonb_array_elements(p_references) reference
-  WHERE reference->>'record_id'=candidate->>'record_id' AND reference->>'family'=candidate->>'family'
-   AND NOT EXISTS(SELECT FROM jsonb_array_elements(candidate->'fields') prediction
-    LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(reference->'fields')
+ WITH predicted AS (SELECT CASE WHEN p_views IS NULL THEN
+  jsonb_build_object('occurrence',candidate->'record_id','fields',candidate->'fields')
+  ELSE eval.record_reference_comparison_record(candidate,p_views,'prediction') END AS value),
+ expected AS (SELECT reference,CASE WHEN p_views IS NULL THEN
+  jsonb_build_object('occurrence',reference->'record_id','fields',reference->'fields')
+  ELSE eval.record_reference_comparison_record(reference,p_views,'reference') END AS value
+  FROM jsonb_array_elements(p_references) reference)
+ SELECT EXISTS(SELECT FROM expected reference,predicted
+  WHERE reference.value->'occurrence'=predicted.value->'occurrence'
+   AND reference.reference->>'family'=candidate->>'family'
+   AND NOT EXISTS(SELECT FROM jsonb_array_elements(predicted.value->'fields') prediction
+    LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(reference.value->'fields')
      WHERE value->>'role'=prediction->>'role') expected ON true
     WHERE expected.value IS NULL OR eval.record_policy_field_meaning(prediction) IS DISTINCT FROM eval.record_policy_field_meaning(expected.value)
      OR ((prediction->'meaning_changing'='true'::jsonb OR EXISTS(
@@ -95,6 +122,12 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,
        WHERE artifact.release_id=p_release AND artifact.artifact_name='record_projection.json'
         AND family->>'family'=candidate->>'family' AND role->>'role'=prediction->>'role' AND role->'required'='true'::jsonb)) AND
       eval.record_policy_field_evidence(prediction) IS DISTINCT FROM eval.record_policy_field_evidence(expected.value))))
+$$;
+REVOKE ALL ON FUNCTION eval.record_policy_full_correct(text,jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.record_policy_full_correct(p_release text,candidate jsonb,p_references jsonb)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT eval.record_policy_full_correct(p_release,candidate,p_references,NULL::jsonb)
 $$;
 REVOKE ALL ON FUNCTION eval.record_policy_full_correct(text,jsonb,jsonb) FROM PUBLIC;
 
@@ -105,7 +138,8 @@ DECLARE source_release text; contract json; input jsonb; unit jsonb; report json
  feature_eval eval.reference_evaluation; members jsonb:='[]'; coverage jsonb:='[]'; coverage_reports jsonb;
  positive bigint:=0; negative bigint:=0; origin_count bigint; exact_bytes text; count_members bigint:=0;
 BEGIN
- SELECT release_id INTO STRICT source_release FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+ SELECT c.release_id INTO STRICT source_release FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id
+  JOIN eval.reference_set s ON s.id=p_set AND s.project_id=r.project_id WHERE c.run_id=p_run AND r.project_id=p_project;
  PERFORM sem.require_execution_operation(source_release,'reference_record_calibrate');
  SELECT convert_from(content,'UTF8')::json INTO STRICT contract FROM sem.artifact
   WHERE release_id=source_release AND artifact_name='json_schema/RecordPolicyCalibrationProduct';
@@ -193,7 +227,7 @@ BEGIN
      WHERE value->>'record_id'=candidate->>'record_id' AND value->>'interpretation_id'=candidate->>'interpretation_id'
       AND value->'selected_task_id'=report->'selected_task_id';
     IF member IS NULL OR member->'source' IS DISTINCT FROM report->'source'
-     OR member->'correct' IS DISTINCT FROM to_jsonb(eval.record_policy_full_correct(source_release,candidate,unit->'reference_records')) THEN
+     OR member->'correct' IS DISTINCT FROM to_jsonb(eval.record_policy_full_correct(source_release,candidate,unit->'reference_records',unit->'correspondence')) THEN
      RAISE EXCEPTION 'policy event label differs from complete sealed candidate/adjudicated reading' USING ERRCODE='23514'; END IF;
     IF p_product->>'kind'='final_event_calibration' THEN
      SELECT COALESCE(jsonb_agg(value),'[]'::jsonb) INTO events FROM jsonb_array_elements(
@@ -289,8 +323,10 @@ BEGIN
  -- Later adjudication does not silently rebind or revoke this frozen instance.
  IF evaluation.content_digest IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(
    jsonb_build_object('snapshot',evaluation.reference_snapshot,'result',evaluation.result)),'UTF8')),'hex')
-  OR NOT EXISTS(SELECT FROM eval.reference_set WHERE id=evaluation.set_id AND release_id=p_release
-   AND sampling->>'partition'='final_event_calibration') THEN
+  OR NOT EXISTS(SELECT FROM eval.reference_set WHERE id=evaluation.set_id
+   AND sampling->>'partition'='final_event_calibration'
+   AND evaluation.result->>'reference_release_id'=release_id)
+  OR evaluation.result->'applicability'->>'prediction_release_id' IS DISTINCT FROM p_release THEN
   RAISE EXCEPTION 'record policy evaluation custody differs from immutable protected bytes' USING ERRCODE='23514'; END IF;
  PERFORM sem.require_execution_operation(p_release,'reference_record_calibrate');
 END $$;

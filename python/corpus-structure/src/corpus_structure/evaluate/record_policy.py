@@ -66,31 +66,48 @@ def whole_reading_correct(
     frame,
     *,
     coordinate_texts: Sequence[Mapping[str, Any]],
+    reference_prepared: PreparedRelease | None = None,
+    prediction_frame=None,
+    prediction_coordinate_texts: Sequence[Mapping[str, Any]] | None = None,
+    correspondence: Sequence[Mapping[str, Any]] | None = None,
 ) -> bool:
     """Apply the same full-reading semantics without changing sealed standing or IDs.
 
     An accepted comparison copy exists only in this private evaluator calculation. It
     does not enter a producer result, public projection or admission decision.
     """
+    reference_prepared = reference_prepared or prepared
+    prediction_frame = prediction_frame or frame
+    options = dict(
+        coordinate_texts=coordinate_texts,
+        prediction_prepared=prepared,
+        prediction_coordinate_texts=prediction_coordinate_texts,
+        correspondence=correspondence,
+    )
     # Validate source/frame/policy even when the candidate cannot be accepted.
     align_records(
         RecordSide(frame, reference_records),
-        RecordSide(frame, (candidate,)),
-        prepared,
-        coordinate_texts=coordinate_texts,
+        RecordSide(prediction_frame, (candidate,)),
+        reference_prepared,
+        **options,
     )
     comparison = dict(candidate, standing="accepted")
     try:
         aligned = align_records(
             RecordSide(frame, reference_records),
-            RecordSide(frame, (comparison,)),
-            prepared,
-            coordinate_texts=coordinate_texts,
+            RecordSide(prediction_frame, (comparison,)),
+            reference_prepared,
+            **options,
         )
     except ValueError:
         # The original candidate was valid; accepted-only completeness/precision
         # requirements can legitimately make this full reading incorrect.
         return False
+    if correspondence is not None:
+        return any(
+            value["prediction_record_id"] == candidate["record_id"] and "full" in value["tiers"]
+            for value in aligned.match_bindings
+        )
     return candidate["record_id"] in aligned.matches["full"]
 
 
@@ -134,6 +151,7 @@ def fit_record_policy(
         k=kind,
     ).scalar_one()
     prepared = open_release(conn, raw["release_id"])
+    reference_prepared = open_release(conn, raw.get("reference_release_id", raw["release_id"]))
     require_bound_operation(prepared, "reference_record_calibrate")
     feature = None
     feature_evaluation_digest = None
@@ -163,11 +181,12 @@ def fit_record_policy(
     final_observations = []
     members: list[dict[str, Any]] = []
     coverage = []
-    from .record_references import _coordinates
+    from .record_references import _coordinates, _prediction_coordinates
     from .semantic import _unit
 
     for unit in raw["units"]:
         frame = decode_frame(unit["source_frame"])
+        prediction_frame = decode_frame(unit.get("prediction_frame", unit["source_frame"]))
         coverage.append(
             {
                 "unit_id": unit["unit_id"],
@@ -183,7 +202,7 @@ def fit_record_policy(
             }
         )
         reference = tuple(
-            prepared.validate_json("SourceRecord", canonical_bytes(record)).model_dump(
+            reference_prepared.validate_json("SourceRecord", canonical_bytes(record)).model_dump(
                 mode="python", exclude_unset=True
             )
             for record in unit["reference_records"]
@@ -202,12 +221,23 @@ def fit_record_policy(
         )
         bound_unit = _unit(conn, unit["unit_id"])
         candidates = tuple(record for _, records in reports for record in records)
-        coordinates = _coordinates(conn, prepared, bound_unit, (*reference, *candidates))
+        coordinates = _coordinates(conn, reference_prepared, bound_unit, reference)
+        prediction_coordinates = _prediction_coordinates(
+            conn, prepared, run_id, prediction_frame, candidates
+        )
         for report, records in reports:
             detail = source_python(report["parse_detail"]) if report["parse_detail"] else {}
             for record in records:
                 correct = whole_reading_correct(
-                    prepared, record, reference, frame, coordinate_texts=coordinates
+                    prepared,
+                    record,
+                    reference,
+                    frame,
+                    coordinate_texts=coordinates,
+                    reference_prepared=reference_prepared,
+                    prediction_frame=prediction_frame,
+                    prediction_coordinate_texts=prediction_coordinates,
+                    correspondence=unit.get("correspondence"),
                 )
                 label = WholeReadingLabel(
                     event_id=record["interpretation_id"],

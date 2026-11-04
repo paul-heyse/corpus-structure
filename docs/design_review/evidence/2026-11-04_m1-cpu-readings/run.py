@@ -33,13 +33,14 @@ def main():
     parser.add_argument('origin', choices=(*ORIGINS, 'all'))
     parser.add_argument('output_name')
     parser.add_argument('configuration', nargs='?', default='readings',
-                        choices=('source-only', 'default', 'described', 'readings'))
+                        choices=('source-only', 'default', 'described', 'readings', 'contextual'))
     parser.add_argument('--record-policy', type=Path)
     parser.add_argument('--publish', action='store_true',
                         help='Finish a NONDEFAULT result; source-only always finishes its source snapshot.')
     args = parser.parse_args()
     out = HERE / args.output_name
     out.mkdir(exist_ok=False)
+    (out / 'executed-runner.py.txt').write_bytes(Path(__file__).read_bytes())
     policy = json.loads(args.record_policy.read_bytes()) if args.record_policy else None
     settings = Settings()
     bundle, deps, profile, prepared = prepare_pack(Path('domains/statistics'))

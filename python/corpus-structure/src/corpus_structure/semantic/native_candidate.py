@@ -208,20 +208,43 @@ def _task_call_definition(
     grants=(("corpus_sem_writer", "EXECUTE", False),),
     schema="ops",
 ):
-    """Bind the existing generated-call ABI to normalized argument/result/ACL facts."""
+    """Select the existing singular ABI; overloaded owners select all explicitly."""
+    return _task_call_definitions(
+        connection, sql, name=name, source=source, grants=grants, schema=schema, _first_only=True
+    )[0]
+
+
+def _task_call_definitions(
+    connection,
+    sql,
+    *,
+    name,
+    source,
+    grants=(("corpus_sem_writer", "EXECUTE", False),),
+    schema="ops",
+    _first_only=False,
+):
+    """Bind every declared overload with its own normalized ABI and ACL facts."""
+    definitions = []
     prepared = prepare_sql(sql, source=source)
     for index, raw in enumerate(prepared.statements):
         statement = raw.stmt
         if isinstance(statement, ast.CreateFunctionStmt) and tuple(
             part.sval for part in statement.funcname or ()
         ) == (schema, name):
-            return definition_from_sql(
-                connection,
-                prepared.excerpt(index),
-                source=source,
-                owner="corpus_sem_publisher",
-                grants=grants,
+            definitions.append(
+                definition_from_sql(
+                    connection,
+                    prepared.excerpt(index),
+                    source=source,
+                    owner="corpus_sem_publisher",
+                    grants=grants,
+                )
             )
+            if _first_only:
+                break
+    if definitions:
+        return tuple(definitions)
     raise NativeAuthoringError(f"native task-call ABI declaration is absent: {name}")
 
 
@@ -587,6 +610,17 @@ def series_native_definitions(connection, *, include_selected=True):
             grants=(),
         )
     )
+    # The SQL correctness overload resolves this dependency at CREATE time.
+    definitions.append(
+        _task_call_definition(
+            connection,
+            reference_sql,
+            name="record_reference_comparison_record",
+            source="source record comparison:forward",
+            schema="eval",
+            grants=(),
+        )
+    )
     policy_sql = Path(__file__).with_name("sql").joinpath("record_policy.sql").read_text()
     for schema, name, roles in (
         ("eval", "record_policy_prediction_frame", ("corpus_sem_evaluator",)),
@@ -596,8 +630,8 @@ def series_native_definitions(connection, *, include_selected=True):
         ("eval", "validate_record_policy_product", ()),
         ("sem", "require_record_policy_binding", ()),
     ):
-        definitions.append(
-            _task_call_definition(
+        definitions.extend(
+            _task_call_definitions(
                 connection,
                 policy_sql,
                 name=name,
@@ -607,6 +641,11 @@ def series_native_definitions(connection, *, include_selected=True):
             )
         )
     reference_roles = {
+        "record_reference_contract": (),
+        "record_reference_physical_source": (),
+        "record_reference_applicability": ("corpus_sem_evaluator",),
+        "record_reference_unit_binding": ("corpus_sem_evaluator",),
+        "record_reference_anchor_allowed": (),
         "assign_record_reference_origin": ("corpus_sem_evaluator",),
         "record_reference_source_binding": ("corpus_sem_evaluator",),
         "create_source_record_reference_set": ("corpus_sem_evaluator",),
@@ -620,8 +659,8 @@ def series_native_definitions(connection, *, include_selected=True):
         "source_record_author_packet": ("corpus_sem_evaluator",),
     }
     for name, roles in reference_roles.items():
-        definitions.append(
-            _task_call_definition(
+        definitions.extend(
+            _task_call_definitions(
                 connection,
                 reference_sql,
                 name=name,

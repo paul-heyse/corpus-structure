@@ -182,3 +182,38 @@ def test_native_candidate_restores_deployment_role_instead_of_authoring_login(mo
         "SET LOCAL ROLE corpus_sem_publisher",
         'SET LOCAL ROLE "deployment_owner"',
     ]
+
+
+def test_explicit_overload_owner_keeps_each_abi_and_its_grants(monkeypatch):
+    from corpus_structure.semantic import native_candidate
+
+    calls = []
+
+    def capture(connection, declaration, **facts):
+        calls.append((declaration, facts))
+        return SimpleNamespace(sql=declaration)
+
+    monkeypatch.setattr(native_candidate, "definition_from_sql", capture)
+    sql = """
+    CREATE FUNCTION eval.fit(bigint) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+    CREATE FUNCTION eval.unrelated(text) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+    CREATE FUNCTION eval.fit(bigint,bigint) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+    """
+    grants = (("corpus_sem_fitter", "EXECUTE", False),)
+    actual = native_candidate._task_call_definitions(
+        object(), sql, schema="eval", name="fit", source="declared fitting ABI", grants=grants
+    )
+    assert len(actual) == 2
+    assert "eval.fit(bigint)" in actual[0].sql
+    assert "eval.fit(bigint,bigint)" in actual[1].sql
+    assert all(facts["owner"] == "corpus_sem_publisher" for _, facts in calls)
+    assert all(facts["grants"] == grants for _, facts in calls)
+    assert all("unrelated" not in definition.sql for definition in actual)
+    calls.clear()
+    assert (
+        native_candidate._task_call_definition(
+            object(), sql, schema="eval", name="fit", source="legacy singular ABI", grants=grants
+        )
+        == actual[0]
+    )
+    assert len(calls) == 1

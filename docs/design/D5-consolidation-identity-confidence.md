@@ -2,7 +2,7 @@
 
 ## M1 evaluated record admission
 
-**Accepted target, Proposed until implemented (2026-11-04).** Bounded interpretation runs before
+**Implemented; bounded native controls Tested (2026-11-04).** Bounded interpretation runs before
 private task-result sealing; an exact candidate-relative event score grants no acceptance. Existing
 domain policy returns whole-record admission alongside ordinary selections. Every record-produced
 field fact is capped by that decision. Common consolidation applies a native-verified admission
@@ -10,7 +10,9 @@ overlay, complete assertion/field/set membership and direct source custody, then
 source publication, finite inference and terminal settlement. Learned finite instances are canonical
 run dependencies under a release-defined algorithm contract; configuration alone is not evaluated
 authority. Fitting scores are supervised compatibility potentials, not automatically LLRs or
-structured-likelihood estimates. Production coupling requires its fixed-universe benefit comparison.
+structured-likelihood estimates. Controlled native fit/calibration/admission and refusal tests
+pass; actual development fitting currently refuses inadequate support. No fitted source-quality
+authority exists. Production coupling requires its fixed-universe benefit comparison.
 
 > Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 

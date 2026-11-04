@@ -478,6 +478,35 @@ class PublishedPdfReader:
             raise ValueError("published native item selection is absent or ambiguous")
         return values
 
+    def require_native_item_inventory(self, pointers: Sequence[str]) -> None:
+        """Validate complete address membership without transferring sibling bodies."""
+        from ._operation_calls import prepare_read_published_items
+        from .published_document import PublishedDocumentBinding
+
+        wanted = tuple(dict.fromkeys(pointers))
+        binding = PublishedDocumentBinding.from_revision(self.reference, self.revision)
+        with self._projection_scope() as pin:
+            selected = prepare_read_published_items(**pin, pointers=wanted)
+            columns = selected.selected_columns
+            statement = selected.with_only_columns(
+                columns.product_id,
+                columns.revision_id,
+                columns.pointer,
+                maintain_column_froms=True,
+            ).order_by(None)
+            rows = self._raw_rows(statement)
+        actual = []
+        for product, revision, pointer in rows:
+            row = self._admit_value(dict(product_id=product, revision_id=revision, pointer=pointer))
+            if (row["product_id"], row["revision_id"]) != (
+                binding.native_build_id,
+                binding.native_revision_id,
+            ):
+                raise ValueError("published inventory escaped its exact placement")
+            actual.append(row["pointer"])
+        if len(actual) != len(wanted) or set(actual) != set(wanted):
+            raise ValueError("published native inventory is absent or ambiguous")
+
     def item_page(self, *, section=None, membership="direct", pointer=None, after=-1, limit=100):
 
         if membership not in {"direct", "descendants"}:

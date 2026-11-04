@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from corpus_structure.semantic.metadata import table
 
-from .record_alignment import FAMILIES, TIERS
+from .record_alignment import APPLICABILITY_PROTOCOL, FAMILIES, TIERS
 from .record_references import EVALUATION_PROTOCOL
 from .semantic import ReferenceError
 
@@ -47,6 +47,7 @@ def inspect_gaps(evaluation: Mapping[str, Any]) -> dict[str, Any]:
         content_digest=evaluation["content_digest"],
         set_id=evaluation["set_id"],
         release_id=result["release_id"],
+        reference_release_id=result.get("reference_release_id", result["release_id"]),
         output_realization_id=result["output_realization_id"],
         partition=result["partition"],
         sampling_digest=result["sampling_digest"],
@@ -71,7 +72,6 @@ def compare_evaluations(baseline: Mapping[str, Any], revised: Mapping[str, Any])
             before.get(key) != after.get(key)
             for key in (
                 "protocol",
-                "release_id",
                 "comparison_policy",
                 "grain",
                 "partition",
@@ -80,9 +80,8 @@ def compare_evaluations(baseline: Mapping[str, Any], revised: Mapping[str, Any])
         )
         or before.get("protocol") != EVALUATION_PROTOCOL
     ):
-        raise ReferenceError(
-            "comparison requires the same frozen reference/sampling/release target"
-        )
+        raise ReferenceError("comparison requires the same frozen reference/sampling target")
+    provenance = _paired_applicability(baseline, revised)
     old_units = {unit["unit"]: unit for unit in before["units"]}
     new_units = {unit["unit"]: unit for unit in after["units"]}
     if (
@@ -104,6 +103,17 @@ def compare_evaluations(baseline: Mapping[str, Any], revised: Mapping[str, Any])
             )
         ):
             raise ReferenceError("comparison changed unit origin/guideline/policy")
+        for tier in TIERS:
+            if old["tiers"][tier]["reference"] != new["tiers"][tier]["reference"]:
+                raise ReferenceError("comparison changed an independent unit denominator")
+            for family in FAMILIES:
+                if (
+                    old["families"][family][tier]["reference"]
+                    != new["families"][family][tier]["reference"]
+                ):
+                    raise ReferenceError(
+                        "comparison changed an independent unit family denominator"
+                    )
         pairs.append(
             dict(
                 unit=name,
@@ -132,11 +142,136 @@ def compare_evaluations(baseline: Mapping[str, Any], revised: Mapping[str, Any])
         baseline_content_digest=baseline["content_digest"],
         revised_content_digest=revised["content_digest"],
         set_id=baseline["set_id"],
-        release_id=before["release_id"],
+        baseline_prediction_release_id=before["release_id"],
+        revised_prediction_release_id=after["release_id"],
+        reference_release_id=provenance["reference_release_id"],
+        reference_applicability=provenance,
         sampling_digest=before["sampling_digest"],
         partition=before["partition"],
         families=families,
         paired_units=pairs,
         quality_claim="not_established",
         decision_owner="M1-15 coordinator",
+    )
+
+
+def _checked_applicability(evaluation):
+    """Consume native-validated immutable store metadata, never author a mapping.
+
+    The public caller obtains these rows through ``read_evaluation`` with evaluator
+    credentials. This pure comparison is not another protected insertion boundary.
+    """
+    result = evaluation["result"]
+    app = result.get("applicability")
+    if app is None:
+        return None
+    if (
+        app.get("protocol") != APPLICABILITY_PROTOCOL
+        or app.get("run_id") != evaluation["run_id"]
+        or app.get("prediction_release_id") != result["release_id"]
+        or app.get("reference_release_id") != result.get("reference_release_id")
+        or app.get("comparison_policy") != result["comparison_policy"]
+        or not app.get("contract_digest")
+        or not app.get("guideline_digest")
+    ):
+        raise ReferenceError("comparison has inconsistent native applicability provenance")
+    views = app.get("views", ())
+    if (
+        not views
+        or len({row["reference_view_id"] for row in views}) != len(views)
+        or len({row["prediction_view_id"] for row in views}) != len(views)
+        or len({row["physical_digest"] for row in views}) != len(views)
+    ):
+        raise ReferenceError("comparison has incomplete or nonbijective source correspondence")
+    actual = {row["reference_view_id"]: row for row in views}
+    consumed = set()
+    for unit in result["units"]:
+        evidence = unit["gap_evidence"]
+        if (
+            evidence["source_run_id"] != app["source_run_id"]
+            or evidence["source_cut_id"] != app["source_cut_id"]
+            or evidence["run_id"] != app["run_id"]
+            or evidence["cut_id"] != app["cut_id"]
+            or unit["reference_policy_version"] != app["reference_policy_version"]
+            or unit["prediction_policy_version"] != app["prediction_policy_version"]
+        ):
+            raise ReferenceError("comparison unit differs from native source/policy provenance")
+        for pair in unit.get("correspondence", ()):
+            original = pair["reference_pin"]["source_view_id"]
+            mapped = actual.get(original)
+            if (
+                mapped is None
+                or mapped["prediction_view_id"] != pair["prediction_pin"]["source_view_id"]
+                or mapped["physical_digest"] != pair["physical_digest"]
+            ):
+                raise ReferenceError("comparison unit correspondence differs from frozen closure")
+            consumed.add(original)
+    if consumed != actual.keys():
+        raise ReferenceError("comparison omitted part of the frozen source closure")
+    return app
+
+
+def _paired_applicability(baseline, revised):
+    before, after = baseline["result"], revised["result"]
+    old, new = _checked_applicability(baseline), _checked_applicability(revised)
+    if old is None and new is None:
+        if before["release_id"] != after["release_id"]:
+            raise ReferenceError("comparison requires native applicability for a successor release")
+        return dict(
+            reference_release_id=before["release_id"], provenance="legacy_same_release_grades"
+        )
+    if old is not None and new is not None:
+        keys = (
+            "reference_release_id",
+            "comparison_policy",
+            "source_run_id",
+            "source_cut_id",
+            "contract_digest",
+            "guideline_digest",
+            "reference_policy_version",
+            "prediction_policy_version",
+        )
+
+        def closure(app):
+            return sorted(
+                (row["reference_view_id"], row["reference_key"], row["physical_digest"])
+                for row in app["views"]
+            )
+
+        if any(old[key] != new[key] for key in keys) or closure(old) != closure(new):
+            raise ReferenceError(
+                "comparison changed the source-reading contract or frozen physical closure"
+            )
+        return dict(
+            reference_release_id=old["reference_release_id"],
+            provenance="native_applicability_both_sides",
+            contract_digest=old["contract_digest"],
+            guideline_digest=old["guideline_digest"],
+            source_run_id=old["source_run_id"],
+            source_cut_id=old["source_cut_id"],
+        )
+    # An original native grade already authenticated its frozen source/frame exactly.
+    # It need not be rewritten or executed again to compare a compatible successor.
+    if old is not None or new is None or before["release_id"] != new["reference_release_id"]:
+        raise ReferenceError(
+            "legacy comparison side is not the immutable original-reference release"
+        )
+    views = {row["reference_view_id"] for row in new["views"]}
+    for unit in before["units"]:
+        evidence = unit["gap_evidence"]
+        if (
+            evidence["source_run_id"] != new["source_run_id"]
+            or evidence["source_cut_id"] != new["source_cut_id"]
+            or evidence["source_view_id"] not in views
+        ):
+            raise ReferenceError(
+                "legacy original-side grade does not bind the frozen source closure"
+            )
+    return dict(
+        reference_release_id=new["reference_release_id"],
+        provenance="legacy_original_side_native_grade",
+        contract_digest=new["contract_digest"],
+        guideline_digest=new["guideline_digest"],
+        source_run_id=new["source_run_id"],
+        source_cut_id=new["source_cut_id"],
     )

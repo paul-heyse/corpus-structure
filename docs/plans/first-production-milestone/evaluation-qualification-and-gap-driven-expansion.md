@@ -9,7 +9,7 @@ verification. Remaining targets below are not blanket claims that every listed c
 unimplemented. Whole-M1 qualification remains open.
 
 **Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
-Subsequent M1 native125, actual CPU publication/reuse/recovery, independent source-only references
+Subsequent M1 native107–129, actual CPU publication/reuse/recovery, independent source-only references
 and candidate consumer results have their own receipts in the coordinator. Actual development
 quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
 functional and quality boundaries; no whole M1 package is complete.

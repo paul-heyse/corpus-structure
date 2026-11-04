@@ -1,0 +1,13 @@
+{
+  "outcome": "partial",
+  "reason": "filesystem_ENOSPC_interruption",
+  "run_id": 20,
+  "completed_result": false,
+  "valid_samples": 440,
+  "invalid_line_numbers": [
+    442
+  ],
+  "has_sampler_summary": false,
+  "peak_complete_pss_kib": 4292935,
+  "scope": "partial process tree only; no aggregate capacity claim"
+}

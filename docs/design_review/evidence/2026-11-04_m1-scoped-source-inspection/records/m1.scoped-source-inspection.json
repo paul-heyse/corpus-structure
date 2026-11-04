@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "m1.scoped-source-inspection",
+  "title": "Scoped ordinary formula and cell native inspection",
+  "group": "M1",
+  "package": "M1-12",
+  "finalized": "2026-11-04",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "m1.scoped-source-inspection-correction",
+  "question": "Can ordinary 1 MiB source inspection retain exact formula/cell custody without full-view or sibling-cell context inflation?",
+  "answers": [
+    "F22"
+  ],
+  "method": "Existing exact occurrence and selected source-reference readers; retained projection/recipe validation; focused pure controls and actual read-only query/CLI/registered in-process MCP over old pinned runs 11 and 14.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_scoped_native_inspection.py python/corpus-structure/tests/semantic/test_native_source_published.py python/corpus-structure/tests/semantic/test_native_source_budgets.py python/corpus-structure/tests/semantic/test_mcp_source_transport.py -k 'not postgresql and not source_search_preflights_selected_scalar_bytes and not native_queue_ack_refusal'",
+    "uv run ruff check python/corpus-structure/src/corpus_structure/serve/native_source.py python/corpus-structure/src/corpus_structure/semantic/native_analysis.py python/corpus-structure/src/corpus_structure/semantic/operations.py python/corpus-structure/src/corpus_structure/semantic/source_views.py python/corpus-structure/tests/semantic/test_scoped_native_inspection.py",
+    "uv run pyrefly check python/corpus-structure/src/corpus_structure/serve/native_source.py python/corpus-structure/src/corpus_structure/semantic/native_analysis.py python/corpus-structure/src/corpus_structure/semantic/operations.py python/corpus-structure/src/corpus_structure/semantic/source_views.py python/corpus-structure/tests/semantic/test_scoped_native_inspection.py",
+    "uv run python docs/design_review/evidence/2026-11-04_m1-scoped-source-inspection/run.py actual-002"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "run.py",
+      "role": null,
+      "sha256": "4d8bad10d4d0dcdf44744194a43b18e96f95741ab1f332ba5eca468a7a0162d6"
+    },
+    {
+      "path": "finalize_record.py",
+      "role": null,
+      "sha256": "98f3e6b4d0867590fbb5b4f4355ef5d88045ceec93e45944f313d4856ea13cb6"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "b38bd4d6396c3c6214eea56d1a7f87cc16a6e2f938ea61c9e8aae79a4e015443"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-actual-consumers/m1.actual-candidate-consumers124"
+  ],
+  "results": [
+    {
+      "name": "Final-source selected pure controls passed",
+      "value": 82,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Native database-mutating cases deliberately not selected",
+      "value": 3,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Final-source actual retained-read comparisons passed",
+      "value": 58,
+      "of": null,
+      "unit": "comparisons",
+      "note": null
+    },
+    {
+      "name": "Actual formula complete MCP envelope",
+      "value": 20859,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Actual run11 cell complete MCP envelope",
+      "value": 35959,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Actual run14 cell complete MCP envelope",
+      "value": 35983,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Request byte-work and response allowance",
+      "value": 1048576,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Final-source focused controls and actual retained run11/run14 query, CLI and registered in-process MCP reads pass at unchanged 1 MiB. Compact source projection/recipe bytes are charged and validated; exact formula health, selected observations and cell-plus-parent custody retain their bindings and support endpoints. Typed small-budget refusals remain. Existing analytical full-view consumers and API v4 work/egress meaning remain. Historical larger-budget/failure receipts remain unchanged. Native127 integration, complete source-context execution, five-family source quality, accepted-reading/default adoption and whole-M1 qualification are separate coordinator obligations.",
+  "consumed_by": [
+    "M1-12",
+    "M1-14"
+  ]
+}

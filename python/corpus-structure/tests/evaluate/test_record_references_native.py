@@ -121,7 +121,7 @@ def expected_reading(case, logical_source):
             value=dict(kind="native_location", pointer=pointer),
         ),
     )
-    row = dict(
+    row: dict[str, Any] = dict(
         contract="FixtureRecordFields",
         family="table",
         occurrence_recipe="source-anchor-membership-1",
@@ -156,7 +156,15 @@ def expected_reading(case, logical_source):
     return row, frame
 
 
-def create_case(conn, case, partition, *, captured_coordinates=(), include_empty_secondary=False):
+def create_case(
+    conn,
+    case,
+    partition,
+    *,
+    captured_coordinates=(),
+    include_empty_secondary=False,
+    anchor_ids_only=False,
+):
     uri = conn.scalar(
         select(table("kb.document").c.source_uri).where(
             table("kb.document").c.id == case.view_row["document_id"]
@@ -184,6 +192,12 @@ def create_case(conn, case, partition, *, captured_coordinates=(), include_empty
         conn, source_run_id=case.run, source_view_id=case.view, source_cut_id=case.cut
     )
     row, frame = expected_reading(case, logical)
+    if anchor_ids_only:
+        frame = replace(
+            frame,
+            anchor_ids=frozenset(anchor["anchor_id"] for anchor in row["anchors"]),
+            anchor_scopes=(),
+        )
     frames = {frame.unit: frame}
     if include_empty_secondary:
         other = (
@@ -512,6 +526,8 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
             grain="accepted_source_record_occurrence",
             unit=frame.unit,
             release_id=frame.release_id,
+            reference_release_id=frame.release_id,
+            match_bindings=[],
             guideline_version=frame.guideline_version,
             reference_policy_version=frame.reference_policy_version,
             prediction_policy_version=frame.prediction_policy_version,
@@ -539,6 +555,11 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
         result: dict[str, Any] = dict(
             protocol="source-record-evaluation-1",
             release_id=frame.release_id,
+            reference_release_id=frame.release_id,
+            applicability=conn.scalar(
+                text("SELECT eval.record_reference_applicability('private-records',:r,:s)"),
+                dict(r=target, s=created["set_id"]),
+            ),
             output_realization_id=output.realization_id,
             family="source_records",
             comparison_policy="strict-source-occurrence-1",
@@ -554,6 +575,19 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
         frozen_by_unit = {value["unit_id"]: value for value in snapshot}
         for scored_unit, source_unit in ((scored, unit), (empty_scored, secondary)):
             frozen = frozen_by_unit[source_unit["id"]]
+            if changed_producer_alias:
+                with pytest.raises(DBAPIError, match="logical source binding"), conn.begin_nested():
+                    conn.scalar(
+                        text("SELECT eval.record_reference_unit_binding(:r,:u,:p,:f)"),
+                        dict(
+                            r=target, u=source_unit["id"], p=frozen["pass_id"], f=frozen["frame_id"]
+                        ),
+                    )
+                return
+            scored_unit["correspondence"] = conn.scalar(
+                text("SELECT eval.record_reference_unit_binding(:r,:u,:p,:f)->'views'"),
+                dict(r=target, u=source_unit["id"], p=frozen["pass_id"], f=frozen["frame_id"]),
+            )
             scored_unit["gap_evidence"] = conn.scalar(
                 text("SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)"),
                 dict(r=target, u=source_unit["id"], p=frozen["pass_id"], f=frozen["frame_id"]),
@@ -601,7 +635,17 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
                 }
             else:
                 assert gap_evidence["tasks"] == []
-            for change in ("omit", "foreign_reference", "invent_stage", "source_cut", "fake_task"):
+            for change in (
+                "omit",
+                "foreign_reference",
+                "invent_stage",
+                "source_cut",
+                "fake_task",
+                "physical_correspondence",
+                "reference_release",
+                "unit_correspondence",
+                "match_identity",
+            ):
                 invalid = deepcopy(result)
                 evidence = invalid["units"][0]["gap_evidence"]
                 if change == "omit":
@@ -612,8 +656,20 @@ def test_native_missing_producer_keeps_denominator_but_real_alias_change_refuses
                     evidence["gaps"][0]["kind"] = "missing"
                 elif change == "source_cut":
                     evidence["source_cut_id"] += 1
-                else:
+                elif change == "fake_task":
                     evidence["tasks"] = [dict(selected_task_id=999)]
+                elif change == "physical_correspondence":
+                    invalid["applicability"]["views"][0]["physical_digest"] = "e" * 64
+                elif change == "reference_release":
+                    invalid["reference_release_id"] = "foreign-release"
+                elif change == "unit_correspondence":
+                    invalid["units"][0]["correspondence"][0]["prediction_pin"]["source"] = (
+                        "foreign-alias"
+                    )
+                else:
+                    invalid["units"][0]["match_bindings"] = [
+                        dict(reference_record_id="invented-match")
+                    ]
                 with pytest.raises(DBAPIError), conn.begin_nested():
                     conn.execute(statement, dict(parameters, v=canonical_bytes(invalid).decode()))
             with case.writer.connect() as producer:
@@ -698,3 +754,524 @@ def test_unused_captured_coordinate_refuses_out_of_view_before_product_lookup(
             conn.begin_nested(),
         ):
             create_case(conn, case, "development", captured_coordinates=(captured,))
+
+
+@pytest.fixture
+def compatible_reference_source(monkeypatch, request):
+    """Reuse the admitted source fixture and its exact preparation inputs."""
+    original = source_fixture.prepare_release
+    inputs = []
+
+    def capture(bundle, dependencies, profile):
+        inputs.append((bundle, dependencies, profile))
+        return original(bundle, dependencies, profile)
+
+    monkeypatch.setattr(source_fixture, "prepare_release", capture)
+    case = request.getfixturevalue("reference_source")
+    case.preparation_inputs = inputs[0]
+    return case
+
+
+@pytest.mark.parametrize("candidate_output", [False, True])
+def test_native_compatible_successor_keeps_original_reference_custody_and_fitter_sidecar(
+    compatible_reference_source,
+    semantic_db_engine,
+    semantic_evaluator_engine,
+    native_settings,
+    candidate_output,
+):
+    """A new release/view/alias consumes original native bytes without reauthoring C.
+
+    No PDF conversion or model runs. The successor changes an unrelated declaration;
+    source-reading declarations and the complete physical source remain identical.
+    """
+    import yaml
+    from sqlalchemy import insert
+
+    from corpus_structure.core.method import UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+    from corpus_structure.semantic import SourceArtifact, prepare_release
+    from corpus_structure.semantic.domain_operations import consolidate_cut
+    from corpus_structure.semantic.operations import (
+        OperationBinding,
+        claim_tasks,
+        complete_task,
+        create_run,
+        create_task,
+        record_method,
+    )
+    from corpus_structure.semantic.pdf_contracts import store_pdf_original
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.source_views import store_source_view
+
+    case = compatible_reference_source
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, row, frame = create_case(conn, case, "feature_fit", anchor_ids_only=True)
+        a = native_pass(conn, unit, row, frame, "A", "independent-A")
+        b = native_pass(conn, unit, row, frame, "B", "independent-B")
+        c = native_pass(conn, unit, row, frame, "C", "independent-C", (a, b))
+        original_pass = dict(
+            conn.execute(
+                select(table("eval.reference_pass")).where(table("eval.reference_pass").c.id == c)
+            )
+            .mappings()
+            .one()
+        )
+    bundle, dependencies, profile = case.preparation_inputs
+    sources = []
+    for source in bundle.sources:
+        if source.name == "domain":
+            domain = yaml.safe_load(source.content)
+            domain["classes"]["UnconsumedSuccessorMarker"] = {}
+            source = SourceArtifact(source.name, yaml.safe_dump(domain).encode())
+        sources.append(source)
+    bundle = replace(bundle, sources=tuple(sources))
+    successor = prepare_release(bundle, dependencies, profile)
+    assert successor.release_id != case.prepared.release_id
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, dependencies, profile, successor)
+        conn.execute(
+            insert(table("data.realization")).values(
+                project_id="private-records",
+                realization_id="successor-input",
+                release_id=successor.release_id,
+            )
+        )
+        recipe = conn.scalar(
+            select(table("kb.source_artifact").c.content).where(
+                table("kb.source_artifact").c.artifact_digest == case.view_row["recipe_digest"]
+            )
+        )
+    with case.writer.begin() as conn:
+        run = create_run(
+            conn,
+            project_id="private-records",
+            binding=OperationBinding(successor.release_id, "successor-input", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="compatible-successor-control",
+        )
+        method = source_fixture.SimpleNamespace(
+            name="private.source",
+            version="1",
+            family="ingest",
+            tier="deterministic",
+            confidence_source=None,
+            unit_type="document",
+            Config=source_fixture.create_model("PrivateSourceConfig"),
+        )
+        config = record_method(
+            conn, method, "default", {}, "private-source-config", prepared=successor
+        )
+        source_config = config
+        task = create_task(
+            conn,
+            run_id=run,
+            config_id=config,
+            stage="ingest",
+            unit_type="document",
+            unit_id=case.view_row["document_id"],
+            unit_key="source.pdf",
+            input_hash="successor-retained-source",
+        )
+        held = claim_tasks(conn, run_id=run, config_id=config, holder="successor-source")[0]
+        store_pdf_original(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="successor-source",
+            original=b"%PDF-1.7\nprivate source record fixture",
+            recipe_bytes=b'{"recipe":"private-records-1"}',
+        )
+        view = case.view_row
+        projection = view["projection"]
+        draft = source_fixture.SourceViewDraft(
+            "compatible-successor-view",
+            view["document_id"],
+            source_fixture.ProductReference(
+                view["native_task_id"], view["native_product_key"], view["native_content_digest"]
+            ),
+            view["section_pointer"],
+            view["membership"],
+            projection["text"],
+            tuple(projection["pieces"]),
+            tuple(projection["items"]),
+            tuple(projection.get("ancestors", ())),
+            projection["health"],
+            bytes(recipe),
+            analysis_eligible=view["analysis_eligible"],
+        )
+        actual_view = store_source_view(
+            conn,
+            run_id=run,
+            task_id=task,
+            attempt=held.attempt,
+            holder="successor-source",
+            draft=draft,
+            position=0,
+        )
+        # An extra selected source with changed physical eligibility is unrelated
+        # to this frozen unit. It must neither replace nor erase its exact mapping.
+        changed_view = store_source_view(
+            conn,
+            run_id=run,
+            task_id=task,
+            attempt=held.attempt,
+            holder="successor-source",
+            draft=replace(draft, key="changed-eligibility-view", analysis_eligible=False),
+            position=1,
+        )
+        complete_task(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="successor-source",
+            prepared=successor,
+            observations=[],
+            outcome="empty",
+        )
+        prediction = None
+        prediction_task = None
+        if candidate_output:
+            method = source_fixture.SimpleNamespace(
+                name="extract.m1_candidates",
+                version="3",
+                family="extract",
+                tier="encoder",
+                confidence_source=None,
+                unit_type=TaskUnitType.SOURCE_VIEW,
+                Config=case.method.Config,
+            )
+            config = record_method(
+                conn, method, "default", {}, "successor-record-config", prepared=successor
+            )
+            prediction_task = create_task(
+                conn,
+                run_id=run,
+                config_id=config,
+                stage="record",
+                unit_type="source_view",
+                unit_id=actual_view,
+                unit_key=draft.key,
+                input_hash="successor-controlled-candidate",
+            )
+            claim = claim_tasks(conn, run_id=run, config_id=config, holder="successor-records")[0]
+            actual_case = source_fixture.SimpleNamespace(
+                prepared=successor,
+                view=actual_view,
+                table=case.table,
+                view_row=dict(
+                    conn.execute(
+                        select(table("kb.source_view")).where(
+                            table("kb.source_view").c.id == actual_view
+                        )
+                    )
+                    .mappings()
+                    .one()
+                ),
+            )
+            # Fresh actual-view coordinates/identities, not a retagged original C.
+            # Normal completion binds this record to the actual native source.
+            prediction, _ = expected_reading(actual_case, draft.key)
+            prediction["standing"] = "candidate"
+            prediction["policy_version"] = frame.prediction_policy_version
+            prediction["interpretation_id"] = interpretation_identity(prediction)
+            source_fixture.complete_unit_result(
+                conn,
+                task_id=prediction_task,
+                attempt=claim.attempt,
+                holder="successor-records",
+                prepared=successor,
+                method=method,
+                configuration_hash="successor-record-config",
+                source=draft.key,
+                result=UnitResult(
+                    ref=UnitRef(TaskUnitType.SOURCE_VIEW, actual_view, draft.key),
+                    outcome=ObservationOutcome.PRODUCED,
+                    records=(prediction,),
+                ),
+                records=(prediction,),
+            )
+        cut = seal_cut(conn, run, "successor-source-ready", final=True)
+    output = consolidate_cut(case.writer, cut, "compatible-empty-successor")
+    with semantic_evaluator_engine.begin() as conn:
+        snapshot = conn.scalar(
+            text("SELECT eval.native_reference_snapshot(:s)"), dict(s=created["set_id"])
+        )
+        frozen = snapshot[0]
+        args = dict(r=run, u=unit["id"], p=c, f=frozen["frame_id"])
+        applicability = conn.scalar(
+            text("SELECT eval.record_reference_applicability('private-records',:r,:s)"),
+            dict(r=run, s=created["set_id"]),
+        )
+        assert applicability["reference_release_id"] == case.prepared.release_id
+        assert applicability["prediction_release_id"] == successor.release_id
+        assert applicability["views"][0]["reference_view_id"] == case.view
+        assert applicability["views"][0]["prediction_view_id"] == actual_view != case.view
+        binding = conn.scalar(text("SELECT eval.record_reference_unit_binding(:r,:u,:p,:f)"), args)
+        assert binding["views"][0]["reference_pin"] == frame.pin
+        actual_pin = binding["views"][0]["prediction_pin"]
+        assert actual_pin["source"] == "compatible-successor-view" != frame.pin["source"]
+        assert binding["prediction_frame"]["evaluation_frame"]["anchor_ids"] == sorted(
+            frame.anchor_ids
+        )
+        actual_anchor = dict(row["anchors"][0], pin=actual_pin)
+        actual_anchor["anchor_id"] = anchor_identity(actual_anchor)
+        statement = text(
+            "SELECT eval.record_reference_anchor_allowed(CAST(:a AS jsonb),"
+            "CAST(:v AS jsonb),CAST(:f AS jsonb))"
+        )
+        allowed_args = dict(
+            a=canonical_bytes(actual_anchor).decode(),
+            v=canonical_bytes(binding["views"]).decode(),
+            f=canonical_bytes(unit["context"][0]["evaluation_frame"]).decode(),
+        )
+        foreign = dict(actual_anchor, pointer=case.table + "/data/table_cells/1")
+        foreign["anchor_id"] = anchor_identity(foreign)
+        with semantic_db_engine.connect() as maintenance:
+            assert maintenance.scalar(statement, allowed_args) is True
+            assert (
+                maintenance.scalar(
+                    statement, dict(allowed_args, a=canonical_bytes(foreign).decode())
+                )
+                is False
+            )
+        gap = conn.scalar(text("SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)"), args)
+        assert (
+            gap["source_view_id"] == case.view and gap["prediction_source_view_id"] == actual_view
+        )
+        assert gap["gaps"][0]["reference_record_id"] == row["record_id"]
+        assert gap["gaps"][0]["kind"] == ("unaccepted" if candidate_output else "no_output")
+        if candidate_output:
+            assert prediction is not None
+            assert gap["gaps"][0]["predictions"] == [
+                dict(
+                    record_id=prediction["record_id"],
+                    interpretation_id=prediction["interpretation_id"],
+                    standing="candidate",
+                )
+            ]
+            assert prediction["record_id"] != row["record_id"]
+            assert gap["match_bindings"] == []
+        policy_frame = conn.scalar(
+            text(
+                "SELECT eval.record_policy_prediction_frame('private-records',:r,:s,"
+                "'table','feature_fit')"
+            ),
+            dict(r=run, s=created["set_id"]),
+        )
+        assert policy_frame["release_id"] == successor.release_id
+        assert policy_frame["reference_release_id"] == case.prepared.release_id
+        assert policy_frame["units"][0]["reference_records"][0]["record_id"] == row["record_id"]
+        assert policy_frame["units"][0]["source_view_id"] == actual_view
+        if candidate_output:
+            reports = policy_frame["units"][0]["reports"]
+            assert len(reports) == 1
+            assert canonical_bytes(reports[0]["records"]) == canonical_bytes([prediction])
+            with semantic_db_engine.connect() as maintenance:
+                assert (
+                    maintenance.scalar(
+                        text(
+                            "SELECT eval.record_policy_full_correct(:r,CAST(:c AS jsonb),"
+                            "CAST(:e AS jsonb),CAST(:v AS jsonb))"
+                        ),
+                        dict(
+                            r=successor.release_id,
+                            c=canonical_bytes(reports[0]["records"][0]).decode(),
+                            e=canonical_bytes(
+                                policy_frame["units"][0]["reference_records"]
+                            ).decode(),
+                            v=canonical_bytes(policy_frame["units"][0]["correspondence"]).decode(),
+                        ),
+                    )
+                    is True
+                )
+        else:
+            assert policy_frame["units"][0]["reports"] == []
+        zero = dict(reference=0, prediction=0, matched=0)
+        one = dict(reference=1, prediction=0, matched=0, recall=0.0)
+        tiers = {tier: dict(one) for tier in ("core", "full", "evidence")}
+        families = {
+            family: {tier: dict(one if family == "table" else zero) for tier in tiers}
+            for family in ("definition", "assertion", "measurement", "table", "formula_context")
+        }
+        scored = dict(
+            scope="private_validated_records",
+            comparison_policy="strict-source-occurrence-1",
+            grain="accepted_source_record_occurrence",
+            unit=frame.unit,
+            release_id=successor.release_id,
+            reference_release_id=case.prepared.release_id,
+            guideline_version=frame.guideline_version,
+            reference_policy_version=frame.reference_policy_version,
+            prediction_policy_version=frame.prediction_policy_version,
+            tiers=tiers,
+            families=families,
+            matches={tier: [] for tier in tiers},
+            match_bindings=[],
+            field_failures=[],
+            prediction_standings={"candidate": 1} if candidate_output else {},
+            producer_reports=[
+                dict(
+                    selected_task_id=prediction_task,
+                    origin_task_id=prediction_task,
+                    cut_id=cut,
+                    source=draft.key,
+                    outcome="produced",
+                    records_present=True,
+                )
+            ]
+            if candidate_output
+            else [],
+            origin_group="one-original-fixture",
+            correspondence=binding["views"],
+            gap_evidence=gap,
+        )
+        report = dict(
+            protocol="source-record-evaluation-1",
+            release_id=successor.release_id,
+            reference_release_id=case.prepared.release_id,
+            applicability=applicability,
+            output_realization_id=output.realization_id,
+            family="source_records",
+            comparison_policy="strict-source-occurrence-1",
+            grain="accepted_source_record_occurrence",
+            tiers=tiers,
+            families=families,
+            units=[scored],
+            reference_units_scored=1,
+            partition="feature_fit",
+            sampling_digest=conn.scalar(
+                text(
+                    "SELECT encode(sha256(convert_to(sampling::text,'UTF8')),'hex') "
+                    "FROM eval.reference_set WHERE id=:s"
+                ),
+                dict(s=created["set_id"]),
+            ),
+            quality_claim="not_established",
+        )
+        evaluation = conn.scalar(
+            text(
+                "SELECT eval.record_source_record_reference_evaluation('private-records',"
+                ":r,:s,CAST(:n AS jsonb),CAST(:v AS jsonb))"
+            ),
+            dict(
+                r=run,
+                s=created["set_id"],
+                n=canonical_bytes(snapshot).decode(),
+                v=canonical_bytes(report).decode(),
+            ),
+        )
+        assert evaluation > 0
+        current_pass = dict(
+            conn.execute(
+                select(table("eval.reference_pass")).where(table("eval.reference_pass").c.id == c)
+            )
+            .mappings()
+            .one()
+        )
+        assert current_pass == original_pass
+    fitter = principal_engine(native_settings, "fit", semantic_db_engine.url.database)
+    try:
+        with fitter.connect() as conn:
+            rows = conn.scalar(
+                text("SELECT eval.read_record_fitting_references(:s,:r)"),
+                dict(s=created["set_id"], r=run),
+            )
+            assert rows[0]["authored"]["records"][0]["record_id"] == row["record_id"]
+            assert rows[0]["source_frame"] == unit["context"][0]
+            assert rows[0]["prediction_binding"] == binding
+            assert rows[0]["applicability"] == applicability
+    finally:
+        fitter.dispose()
+    # A selected, admitted view with a changed physical premise cannot stand in
+    # for the frozen source, even when its literal projection is unchanged.
+    with case.writer.begin() as conn:
+        changed_run = create_run(
+            conn,
+            project_id="private-records",
+            binding=OperationBinding(successor.release_id, "successor-input", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="changed-physical-source-control",
+        )
+        conn.execute(
+            text("SELECT ops.select_source_view(:r,:o,:v)"),
+            dict(r=changed_run, o=run, v=changed_view),
+        )
+        changed_cut = seal_cut(conn, changed_run, "changed-physical-source", final=True)
+    consolidate_cut(case.writer, changed_cut, "changed-physical-source-result")
+    with (
+        semantic_evaluator_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="correspondence missing or ambiguous"),
+        conn.begin_nested(),
+    ):
+        conn.scalar(
+            text("SELECT eval.record_reference_applicability('private-records',:r,:s)"),
+            dict(r=changed_run, s=created["set_id"]),
+        )
+    # Two genuinely admitted views of the same physical closure are ambiguous;
+    # neither array order nor a preferred logical alias can choose the mapping.
+    with case.writer.begin() as conn:
+        ambiguous_run = create_run(
+            conn,
+            project_id="private-records",
+            binding=OperationBinding(successor.release_id, "successor-input", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="ambiguous-physical-source-control",
+        )
+        conn.execute(
+            text("SELECT ops.select_source_view(:r,:o,:v)"),
+            dict(r=ambiguous_run, o=run, v=actual_view),
+        )
+        task = create_task(
+            conn,
+            run_id=ambiguous_run,
+            config_id=source_config,
+            stage="ingest",
+            unit_type="document",
+            unit_id=case.view_row["document_id"],
+            unit_key="source.pdf",
+            input_hash="ambiguous-source-control",
+        )
+        held = claim_tasks(
+            conn, run_id=ambiguous_run, config_id=source_config, holder="ambiguous-source"
+        )[0]
+        store_pdf_original(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="ambiguous-source",
+            original=b"%PDF-1.7\nprivate source record fixture",
+            recipe_bytes=b'{"recipe":"private-records-1"}',
+        )
+        store_source_view(
+            conn,
+            run_id=ambiguous_run,
+            task_id=task,
+            attempt=held.attempt,
+            holder="ambiguous-source",
+            draft=replace(draft, key="ambiguous-physical-clone"),
+            position=1,
+        )
+        complete_task(
+            conn,
+            task_id=task,
+            attempt=held.attempt,
+            holder="ambiguous-source",
+            prepared=successor,
+            observations=[],
+            outcome="empty",
+        )
+        ambiguous_cut = seal_cut(conn, ambiguous_run, "ambiguous-physical-source", final=True)
+    consolidate_cut(case.writer, ambiguous_cut, "ambiguous-physical-source-result")
+    with (
+        semantic_evaluator_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="correspondence missing or ambiguous"),
+        conn.begin_nested(),
+    ):
+        conn.scalar(
+            text("SELECT eval.record_reference_applicability('private-records',:r,:s)"),
+            dict(r=ambiguous_run, s=created["set_id"]),
+        )

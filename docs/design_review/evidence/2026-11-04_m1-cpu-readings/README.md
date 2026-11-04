@@ -15,8 +15,23 @@ counts; records `m1.cpu-baseline122` and `m1.cpu-resources122` retain the distin
 boundaries. State/value conflicts and whole-table context limits drive current repairs.
 
 `run.py <origin> <new-output-name> source-only` freezes retained product/view custody without
-requesting annotation, model or resolution work. The final-release source-only profile and
-independent reference acquisition remain to be exercised; ordinary calls default to readings.
+requesting annotation, model or resolution work. Actual runs11–13 completed those snapshots;
+independent A/B/C passes1–33 are registered under their unchanged original release/frames.
+Actual readings runs14/15 completed nondefault publication; run14 retains464candidate
+interpretations, with source quality assessed separately by protected evaluation.
+
+`contextual` is an opt-in policy5/codepoint successor. Attempt013/run20 was interrupted by
+filesystem ENOSPC, including a truncated process-tree resource stream, then explicitly cancelled
+through `ci run cancel 20`. Completed upstream source/annotation products and one raw source task
+remain; the open raw task was cancelled. The worker process exited and no completed result exists.
+The dedicated5434cluster recovered. Its interruption establishes no contextual quality or
+accepted publication; defaults and PDF conversion/OCR/recognition remain unchanged.
+
+`prepare_only.py <new-output-name>` composes the existing owned retained-source and annotation
+operations into a completed nondefault preparation result, with no extraction model or resolver.
+This supplies current physical correspondence/annotation inputs for faithful target reconstruction
+without repeating the entire unadapted CPU baseline solely to obtain those bindings. Generated
+contextual requests remain proposed inputs until actually executed; no model reports are invented.
 
 ## Records
 

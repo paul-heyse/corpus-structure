@@ -18,28 +18,51 @@ def stored_native_analysis(
     reader: Any, source_view_id: int, pointer: str | None = None
 ) -> dict[str, dict[str, Any]]:
     """Return recorded stage results with observation identities, refusing stale references."""
-    view = reader.source_view(source_view_id)
-    formulas = {item["self_ref"] for item in view.items if item.get("label") == "formula"}
-    if pointer is not None and pointer not in formulas:
-        raise NativeAnalysisUnavailable("formula selector is outside the pinned native source view")
-    pointers = sorted(formulas) if pointer is None else [pointer]
+    methods = ("extract.math", "normalize.formula")
+    if pointer is None:
+        view = reader.source_view(source_view_id)
+        reference = view.ref
+        pointers = sorted(
+            {item["self_ref"] for item in view.items if item.get("label") == "formula"}
+        )
+        health = {
+            item["pointer"]: item["outcome"] for item in view.health.get("formula_outcomes", ())
+        }
+        by_method = {
+            method: list(reader.source_observations(source_view_id, method, ObservationKind.RECORD))
+            for method in methods
+        }
+    else:
+        reference, health = reader.source_formula_metadata(source_view_id, pointer)
+        pointers = [pointer]
+        by_method = {
+            method: list(
+                reader.source_observations_for_ref(reference, method, ObservationKind.RECORD)
+            )
+            for method in methods
+        }
+    return _resolve_native_analysis(reference, pointers, health, by_method)
+
+
+def _resolve_native_analysis(reference, pointers, health, by_method):
+    """Preserve retained analysis validation for both complete and occurrence reads."""
+    source_view_id = reference.id
     rows = {}
-    by_method = {}
     for method in ("extract.math", "normalize.formula"):
-        values = list(reader.source_observations(source_view_id, method, ObservationKind.RECORD))
+        values = by_method[method]
         for row in values:
             payload = row.payload
             if payload.get("demand") not in {"occurrences", "symbolic"}:
                 raise NativeAnalysisUnavailable("native analysis record ABI is unsupported")
             if (
                 payload.get("source_view_id") != source_view_id
-                or payload.get("native_product") != view.ref.native_product.values()
-                or payload.get("projection_digest") != view.ref.projection_digest
+                or payload.get("native_product") != reference.native_product.values()
+                or payload.get("projection_digest") != reference.projection_digest
             ):
                 raise NativeAnalysisUnavailable(
                     "analysis record differs from its pinned source view"
                 )
-            if payload.get("recipe_digest") != view.ref.recipe_digest:
+            if payload.get("recipe_digest") != reference.recipe_digest:
                 raise NativeAnalysisUnavailable(
                     "analysis recipe differs from its pinned source view"
                 )
@@ -52,7 +75,6 @@ def stored_native_analysis(
             raise NativeAnalysisUnavailable(
                 "native analysis has competing producers; select its origin"
             )
-        by_method[method] = values
 
     def resolve(key: str, ref: str, path: frozenset[str]):
         if key in path:
@@ -98,7 +120,6 @@ def stored_native_analysis(
             return dict(interpretation=weak, normalization=item, observations=[identity])
         return dict(interpretation=item, normalization=None, observations=[identity])
 
-    health = {item["pointer"]: item["outcome"] for item in view.health.get("formula_outcomes", ())}
     result = {}
     for ref in pointers:
         normal = by_method["normalize.formula"]
@@ -121,8 +142,8 @@ def stored_native_analysis(
         result[ref] = dict(
             source_view_id=source_view_id,
             pointer=ref,
-            native_product=view.ref.native_product.values(),
-            projection_digest=view.ref.projection_digest,
+            native_product=reference.native_product.values(),
+            projection_digest=reference.projection_digest,
             recognition_health=health.get(ref, "unknown"),
             **value,
         )

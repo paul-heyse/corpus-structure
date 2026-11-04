@@ -203,6 +203,96 @@ def load_source_view(
     )
 
 
+def source_formula_metadata(
+    conn: Connection,
+    reference: SourceViewRef,
+    pointer: str,
+    *,
+    read_budget: Any = None,
+) -> dict[str, str]:
+    """Qualify one retained formula without preparing the containing source view.
+
+    The caller owns run selection. Physical placement, projection membership and
+    the archived native formula kind are checked here; no partial view is made.
+    """
+    views, artifacts = table("kb.source_view"), table("kb.source_artifact")
+    statement = (
+        select(
+            views.c.release_id,
+            views.c.native_build_id,
+            views.c.native_revision_id,
+            views.c.projection,
+            artifacts.c.content.label("recipe"),
+        )
+        .select_from(
+            views.outerjoin(artifacts, artifacts.c.artifact_digest == views.c.recipe_digest)
+        )
+        .where(
+            views.c.id == reference.id,
+            views.c.native_task_id == reference.native_product.task_id,
+            views.c.native_product_key == reference.native_product.product_key,
+            views.c.native_content_digest == reference.native_product.content_digest,
+            views.c.projection_digest == reference.projection_digest,
+            views.c.recipe_digest == reference.recipe_digest,
+            views.c.projection["items"].contains([pointer]),
+        )
+    )
+    if read_budget is not None:
+        read_budget.preflight(conn, statement)
+    row = conn.execute(statement).mappings().one_or_none()
+    if row is None:
+        raise ValueError("formula selector is outside the pinned native source view")
+    if row["recipe"] is None:
+        raise ValueError("source view recipe is unavailable")
+    recipe = bytes(row["recipe"])
+    if read_budget is not None:
+        read_budget.value({key: value for key, value in row.items() if key != "recipe"})
+        read_budget.reserve(len(recipe))
+    projection = row["projection"]
+    draft = SourceViewDraft(
+        key=reference.key,
+        document_id=reference.document_id,
+        native_product=reference.native_product,
+        section_pointer=reference.section_pointer,
+        membership=reference.membership,
+        text=projection["text"],
+        pieces=tuple(projection["pieces"]),
+        items=tuple(projection["items"]),
+        ancestors=tuple(projection["ancestors"]),
+        health=projection["health"],
+        recipe_bytes=recipe,
+        analysis_eligible=reference.analysis_eligible,
+    )
+    if draft.projection_digest != reference.projection_digest:
+        raise ValueError("source projection differs from its retained digest")
+    if draft.recipe_digest != reference.recipe_digest:
+        raise ValueError("source view recipe differs from its retained digest")
+    from .pdf_record_reader import published_record_reader
+    from .published_document import PublishedDocumentBinding
+    from .releases import open_release
+
+    native_reader = published_record_reader(
+        conn,
+        reference.native_product,
+        projection_context=open_release(conn, row["release_id"]),
+        read_budget=read_budget,
+    )
+    if native_reader is None:
+        raise ValueError("current source view has no published record binding")
+    PublishedDocumentBinding.from_revision(
+        reference.native_product, native_reader.revision
+    ).require_placement(row)
+    native_reader.require_native_item_inventory((*draft.items, *draft.ancestors))
+    native = native_reader.selected_native_items((pointer,))[pointer]
+    if native.get("label") != "formula":
+        raise ValueError("formula selector does not name a native formula")
+    return {
+        item["pointer"]: item["outcome"]
+        for item in projection["health"].get("formula_outcomes", ())
+        if item["pointer"] == pointer
+    }
+
+
 def read_context_sources(conn, run_id, source, request, *, limit, read_budget):
     """Select compact same-product relation metadata, then admit owned bodies.
 

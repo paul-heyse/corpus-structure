@@ -780,3 +780,68 @@ def test_heldout_calibration_binding_and_native_whole_reading_admission(
         )
         # Only the other correctly scored complete reading can be accepted.
         assert decisions.count("accepted") == 1
+
+
+@pytest.fixture
+def mismatched_prediction_policy_source(monkeypatch, request):
+    """Seal a structurally valid actual candidate with a different policy and ID."""
+    original = _four_candidates
+
+    def changed(case, source="private-unit"):
+        records = original(case, source=source)
+        records[0]["policy_version"] = "different-sealed-prediction-policy"
+        records[0]["interpretation_id"] = interpretation_identity(records[0])
+        case.different_policy_candidate = deepcopy(records[0])
+        return records
+
+    monkeypatch.setitem(globals(), "_four_candidates", changed)
+    return request.getfixturevalue("policy_source")
+
+
+def test_native_gap_and_complete_fit_frame_refuse_actual_different_prediction_policy(
+    mismatched_prediction_policy_source, semantic_evaluator_engine, semantic_db_engine
+):
+    case = mismatched_prediction_policy_source
+    candidate = case.different_policy_candidate
+    # Ordinary producer sealing and publication succeeded with a truthful private
+    # candidate. Its policy does not match this independent evaluation's frozen frame.
+    assert candidate["policy_version"] != ALGORITHM.version
+    assert candidate["interpretation_id"] == interpretation_identity(candidate)
+    with semantic_db_engine.connect() as conn:
+        conn.execute(
+            text("SELECT data.validate_source_record_structure(:r,CAST(:v AS jsonb))"),
+            dict(r=case.prepared.release_id, v=canonical_bytes(candidate).decode()),
+        )
+        sealed = conn.scalar(
+            select(table("ops.task_result").c.body).where(
+                table("ops.task_result").c.task_id == case.task
+            )
+        )
+        assert any(
+            record["interpretation_id"] == candidate["interpretation_id"]
+            and record["policy_version"] == candidate["policy_version"]
+            for record in sealed["records"]
+        )
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, row, frame = references.create_case(conn, case, "feature_fit")
+        refs = [row, _second_reference(case, row)]
+        a = _pass(conn, unit, refs, frame, "A")
+        b = _pass(conn, unit, refs, frame, "B")
+        _pass(conn, unit, refs, frame, "C", (a, b))
+        frozen = conn.scalar(
+            text("SELECT eval.native_reference_snapshot(:s)"), dict(s=created["set_id"])
+        )[0]
+        statements = (
+            (
+                "SELECT eval.source_record_gap_evidence(:r,:u,:p,:f)",
+                dict(r=case.run, u=unit["id"], p=frozen["pass_id"], f=frozen["frame_id"]),
+            ),
+            (
+                "SELECT eval.record_policy_prediction_frame('private-records',:r,:s,"
+                "'table','feature_fit')",
+                dict(r=case.run, s=created["set_id"]),
+            ),
+        )
+        for statement, params in statements:
+            with pytest.raises(DBAPIError, match="frozen evaluation policy"), conn.begin_nested():
+                conn.scalar(text(statement), params)

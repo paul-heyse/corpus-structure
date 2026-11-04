@@ -9,7 +9,7 @@ verification. Remaining targets below are not blanket claims that every listed c
 unimplemented. Whole-M1 qualification remains open.
 
 **Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
-Subsequent M1 native125, actual CPU publication/reuse/recovery, independent source-only references
+Subsequent M1 native107–129, actual CPU publication/reuse/recovery, independent source-only references
 and candidate consumer results have their own receipts in the coordinator. Actual development
 quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
 functional and quality boundaries; no whole M1 package is complete.
@@ -286,6 +286,42 @@ required head remains blocked by that named prerequisite; a mocked response is n
 Final five-family gates and consumer journeys belong to M1-13/14.
 
 ## Conditional investigations: choose by failure stage
+
+**Triggered adaptation preparation; bounded Tested mechanisms, 2026-11-04.** Actual development
+quality failed before fitting. Stock JSONL conditioning does not preserve the released schema
+for the required zero/ABSENT/multi-record cases. The supported native trainer `processor=` seam
+now has a bounded fixed-schema composition: prepare deterministic inference conditioning without
+gold, then attach separately located native boundary targets. Nine metadata cases and an actual
+positive/zero CPU optimizer step pass; the isolated checkpoint is unselected. Finite loss and
+weight updates establish no efficacy. Three uninjected loss-only calls leave weights unchanged
+but miss gold anchors and have zero record-field loss; that limitation remains explicit.
+
+Current preparation reconstructs source-generated policy5 contexts and codepoint coordinates
+against immutable original development C through checked reference applicability. Its complete
+denominator remains270. Loss-bearing examples require complete relevant target groups, exact
+source round trips, fixed inference conditioning, native64gold capacity and explicit4096source/
+subword bounds. No sanitation, broadened spans, omitted partial targets as negatives or inferred
+absence is permitted. A native trainer's explicit source-word cap is acceptable when checked to
+be inactive; literal `None` is not a requirement independently of intact inputs.
+
+Training manifests explicitly distinguish request applicability from grading denominators.
+The symbol-anchored variant supervises independently authored present-symbol readings with exact
+symbol anchors; three bare readings stay in the global ledger outside this variant's population.
+The formula-anchored variant retains applicable binding and bare readings; simultaneous targets
+sharing its natural anchor exclude the whole example. Decoder training supervises all complete,
+independently authored applicable records visible in the supplied model context. Source-selected
+primary formula custody belongs to outer assembly and does not encode a decoder target scope.
+Neighbor proposals can therefore have faithful native targets without attaching the primary's
+structural supplement or claiming their publication. Whole-request completeness remains strict
+for every relevant visible C reading, including partially visible bindings. Native scope/custody
+sidecars and actual assembly eligibility stay separate from decoder target representation.
+Identical full native conditioning/specifications with incompatible target populations refuse;
+unencoded primary metadata cannot disambiguate the labels. Every exclusion retains its reason
+and original IDs; no runtime output filter or assessment denominator changes.
+
+Only a faithfully reconstructed dataset permits a bounded adaptation experiment. Fresh uninjected
+predictions, full development grading and held-out calibration/final gates still decide usefulness.
+Neither the approved representation rules nor a fitted training loss supplies runtime authority.
 
 | Trigger and question | Settling evidence, branches and activation boundary |
 | --- | --- |

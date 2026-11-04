@@ -47,6 +47,45 @@ classes:
         multivalued: true
         value_presence: PRESENT
         minimum_cardinality: 0
+  RecordReferenceViewCorrespondence:
+    is_a: SourceRecordProduct
+    attributes:
+      reference_view_id: {range: integer, required: true}
+      prediction_view_id: {range: integer, required: true}
+      reference_key: {required: true}
+      prediction_key: {required: true}
+      physical_digest: {required: true, pattern: '^[a-f0-9]{64}$'}
+  RecordReferencePinCorrespondence:
+    is_a: SourceRecordProduct
+    attributes:
+      reference_pin: {range: RecordSourcePin, inlined: true, required: true}
+      prediction_pin: {range: RecordSourcePin, inlined: true, required: true}
+      physical_digest: {required: true, pattern: '^[a-f0-9]{64}$'}
+  RecordReferenceApplicability:
+    is_a: SourceRecordProduct
+    description: Native-derived correspondence over the complete consumed immutable source closure. No reference payload is rebound.
+    attributes:
+      protocol: {required: true, equals_string: source-record-reference-applicability-1}
+      comparison_policy: {required: true, equals_string: strict-source-occurrence-1}
+      reference_release_id: {required: true}
+      prediction_release_id: {required: true}
+      source_run_id: {range: integer, required: true}
+      source_cut_id: {range: integer, required: true}
+      run_id: {range: integer, required: true}
+      cut_id: {range: integer, required: true}
+      contract_digest: {required: true, pattern: '^[a-f0-9]{64}$'}
+      guideline_digest: {required: true, pattern: '^[a-f0-9]{64}$'}
+      reference_policy_version: {required: true}
+      prediction_policy_version: {required: true}
+      views: {range: RecordReferenceViewCorrespondence, inlined: true, multivalued: true, required: true}
+  ReferenceRecordMatchBinding:
+    is_a: SourceRecordProduct
+    attributes:
+      reference_record_id: {required: true}
+      reference_interpretation_id: {required: true}
+      prediction_record_id: {required: true}
+      prediction_interpretation_id: {required: true}
+      tiers: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
   ReferenceRecordTierCounts:
     is_a: SourceRecordProduct
     attributes:
@@ -130,6 +169,9 @@ classes:
   ReferenceRecordFieldFailure:
     is_a: SourceRecordProduct
     attributes:
+      reference_interpretation_id: {}
+      prediction_record_id: {}
+      prediction_interpretation_id: {}
       record_id:
         required: true
       family:
@@ -179,6 +221,9 @@ classes:
   ReferenceRecordUnitEvaluation:
     is_a: SourceRecordProduct
     attributes:
+      reference_release_id: {}
+      correspondence: {range: RecordReferencePinCorrespondence, inlined: true, multivalued: true}
+      match_bindings: {range: ReferenceRecordMatchBinding, inlined: true, multivalued: true, minimum_cardinality: 0}
       scope:
         required: true
         equals_string: private_validated_records
@@ -235,6 +280,7 @@ classes:
   ReferenceRecordGapPrediction:
     is_a: SourceRecordProduct
     attributes:
+      record_id: {}
       interpretation_id: {required: true}
       standing: {range: RecordStanding, required: true}
   ReferenceRecordGap:
@@ -242,6 +288,7 @@ classes:
     description: Protected links into independent C and native publication, without copied reference labels.
     attributes:
       reference_record_id: {required: true}
+      reference_interpretation_id: {}
       family: {required: true}
       reference_anchor_ids: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       kind: {range: ReferenceRecordGapKind, required: true}
@@ -275,6 +322,10 @@ classes:
   ReferenceRecordGapEvidence:
     is_a: SourceRecordProduct
     attributes:
+      match_bindings: {range: ReferenceRecordMatchBinding, inlined: true, multivalued: true, minimum_cardinality: 0}
+      prediction_source_view_id: {range: integer}
+      reference_release_id: {}
+      prediction_release_id: {}
       unit_id: {range: integer, required: true}
       pass_id: {range: integer, required: true}
       frame_id: {range: integer, required: true}
@@ -289,6 +340,8 @@ classes:
   ReferenceRecordEvaluationReport:
     is_a: SourceRecordProduct
     attributes:
+      reference_release_id: {}
+      applicability: {range: RecordReferenceApplicability, inlined: true}
       protocol:
         required: true
         equals_string: source-record-evaluation-1

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "m1.source-boundary-fit",
+  "title": "Source-available exact boundaries and coherent formula neighborhood alternatives",
+  "group": "M1",
+  "package": "M1-05",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which source-available segmentation and whole-block contexts improve faithful role representability without editing source or using gold to choose context?",
+  "answers": [],
+  "method": "Reconstruct148frozen contexts/294receiptbindings; native tokenizer/schema preparation under unchanged and codepoint segmentation; deterministic whole-native-block neighbors at2048/64 then4096/128; gold used afterward for exact mapping and cause diagnosis.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-001",
+      "role": null,
+      "sha256": "3da38d88268f36597e9cc3a31bd1e4ea368aea52b04a09c0d453ccf2a6c50d6f"
+    },
+    {
+      "path": "attempt-002",
+      "role": null,
+      "sha256": "430d304d943e86c8ac85901b3d1d7705164499deb26fcef711113292d44f966a"
+    },
+    {
+      "path": "attempt-probe-001.log",
+      "role": null,
+      "sha256": "7c46db9af2a92c346b26cb065d7391136012ab899b32507818c0e957d5a10b3e"
+    },
+    {
+      "path": "attempt-analysis-001.log",
+      "role": null,
+      "sha256": "cd29ea57e2a086ad56062211dbaf81f27ed4f0bc045522a4a48ffea7642a5d1d"
+    },
+    {
+      "path": "freeze-receipts.jsonl",
+      "role": null,
+      "sha256": "258341f253e3d49eb24fb469f2ef0ace8ff34e98e40cb93a613d6e2d3fd849d0"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Unchanged codepoint exact mappings",
+      "value": 184,
+      "of": 270,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "Wider actual-primary formula mappings",
+      "value": 75,
+      "of": 88,
+      "unit": "records",
+      "note": null
+    },
+    {
+      "name": "Observed maximum total subwords",
+      "value": 4049,
+      "of": null,
+      "unit": "subwords",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Codepoints improve unchanged-context exact full-role mappings143→184/270, but only127fit oldfacade bounds. Source-only4096/128 formula neighborhoods reach83/88 byco-presence and75/88with actualprimaryformula identity; combined actual-primary union238/270. Required observed maximum3427sourcewords/4049schema-conditionedsubwords requires explicit newprofile and actual executionqualification. Allremainingquotes exist in retainedsource; five missingcomplete co-location contexts,13primary failures include4withoutnativeformula route. No source normalization, model/loss/inference, heldout, true recall/quality or adoption claim.",
+  "consumed_by": [
+    "M1-05",
+    "M1-07",
+    "M1-15"
+  ]
+}

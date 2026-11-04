@@ -15,8 +15,15 @@ annotation store, mutable Doc cache or replacement task engine.
 
 The explicit `source-only` M1 profile composes retained integrated-product/view custody without
 annotation, model, resolver or agent work. It permits source-only reference freezing before CPU
-extraction succeeds. Profile composition is implemented/pure-tested; its actual native source
-freeze remains a separate qualification obligation.
+extraction succeeds. Actual runs11–13 completed nondefault source snapshots and froze the
+protected reference population without model work. Actual resolver-only run16 reused annotation
+and raw products, and native125 recovery19 reused retained source selections. These are scoped
+reuse results; fitted-policy changes and the complete invalidation matrix remain open.
+
+`contextual` selects source policy5 and its explicit codepoint CPU profile through the same
+annotation/raw/resolver graph. It preserves the source-only/default/described/readings choices.
+Changing the executable release does not authorize task reuse across releases: ADR-0060's
+compatible-reference correspondence is an evaluation rule, not a producer reuse exemption.
 
 > Decision: [ADR-0060](../adr/0060-m1-reference-applicability.md)
 

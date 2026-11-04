@@ -197,6 +197,45 @@ def _published_parent_product(reader):
     return {key: parents[0][key] for key in ("task_id", "product_key", "content_digest")}
 
 
+def _cell_companion(reader, request: NativeSourceRequest, *, row_budget: int):
+    """Complete selected-cell and parent custody, excluding sibling cell occurrences."""
+    if reader.product_kind() == "native":
+        return None
+    from corpus_structure.semantic.pdf_storage import NativeDocumentUnavailable
+
+    pointer = request.pointer
+    if pointer is None or request.cell_index is None:
+        raise ValueError("cell custody requires one native cell selector")
+    if pointer.startswith("#/tables/"):
+        address = pointer + "/data/table_cells/" + str(request.cell_index)
+        parent_kind = "item"
+    elif pointer.startswith("#/pictures/"):
+        address = pointer + "/meta/tabular_chart/chart_data/table_cells/" + str(request.cell_index)
+        parent_kind = "chart"
+    else:
+        raise NativeDocumentUnavailable("cell pointer has no declared native table/chart address")
+    selected = [
+        reader._one("companion", {"family": "occurrence", "local_id": address}),
+        reader._one("companion", {"family": "occurrence", "local_id": pointer}),
+    ]
+    cell, parent = (reader.decode_companion_row(row) for row in selected)
+    if (
+        cell.get("kind") != "cell"
+        or cell.get("pointer") != pointer
+        or cell.get("cell_index") != request.cell_index
+        or cell.get("occurrence_id") != address
+        or parent.get("kind") != parent_kind
+        or parent.get("pointer") != pointer
+        or parent.get("occurrence_id") != pointer
+    ):
+        raise NativeDocumentUnavailable(
+            "selected cell/parent occurrence differs from native selector"
+        )
+    return reader.occurrence_context(
+        selected, request.section_pointer or "#/body", row_budget=row_budget
+    )
+
+
 def inspect_native_source(
     conn: Connection,
     request: NativeSourceRequest,
@@ -514,17 +553,20 @@ def _inspect_native_source(
             next_cursor = _source_cursor(request, last_ordinal)
     from corpus_structure.semantic.pdf_storage import integrated_source_context
 
-    companion = integrated_source_context(
-        conn,
-        **pin,
-        pointers=[request.pointer]
-        if request.pointer is not None
-        else [pointer for row in rows if isinstance(pointer := row.get("pointer"), str)],
-        section_pointer=request.section_pointer or "#/body",
-        membership=request.membership or "direct",
-        cancellation=cancellation,
-        read_budget=read_budget,
-    )
+    if request.view == "cell":
+        companion = _cell_companion(published, request, row_budget=request.max_rows)
+    else:
+        companion = integrated_source_context(
+            conn,
+            **pin,
+            pointers=[request.pointer]
+            if request.pointer is not None
+            else [pointer for row in rows if isinstance(pointer := row.get("pointer"), str)],
+            section_pointer=request.section_pointer or "#/body",
+            membership=request.membership or "direct",
+            cancellation=cancellation,
+            read_budget=read_budget,
+        )
     return NativeSourceResponse(
         selection=request,
         release_id=header.release_id,
@@ -743,9 +785,10 @@ def _recorded_interpretations(
 
     for view_id in view_ids:
         analysis = stored_native_analysis(reader, view_id, request.pointer)[request.pointer]
+        reference = reader.source_view_ref(view_id)
         requests = []
-        for observation in reader.source_observations(
-            view_id, "native.source_request", ObservationKind.RECORD
+        for observation in reader.source_observations_for_ref(
+            reference, "native.source_request", ObservationKind.RECORD
         ):
             payload = observation.payload
             if not isinstance(payload, dict):

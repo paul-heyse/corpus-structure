@@ -21,6 +21,7 @@ from corpus_structure.core.method import (
     Method,
     Reader,
     SourceObservationReference,
+    SourceViewRef,
     UnitResult,
 )
 from corpus_structure.core.vocab import RunKind, TaskUnitType
@@ -924,14 +925,32 @@ class BoundReader:
         self._native_view_refs = scope_source_views(self.conn, selected, scope)
         return self._native_view_refs
 
-    def source_view(self, source_view_id: int):
-        from .source_views import load_source_view, selected_source_views
+    def source_view_ref(self, source_view_id: int) -> SourceViewRef:
+        """Authorize one selected immutable reference without hydrating its contents."""
+        from .source_views import selected_source_views
 
         selected = selected_source_views(
             self.conn, self.run_id, read_budget=self._read_budget, source_view_id=source_view_id
         )
-        if source_view_id not in {ref.id for ref in selected}:
+        if len(selected) != 1 or selected[0].id != source_view_id:
             raise OperationConflict("source view is outside bound run")
+        return selected[0]
+
+    def source_formula_metadata(
+        self, source_view_id: int, pointer: str
+    ) -> tuple[SourceViewRef, dict[str, str]]:
+        """Read the selected formula's reference and scoped recognition health."""
+        from .source_views import source_formula_metadata
+
+        reference = self.source_view_ref(source_view_id)
+        return reference, source_formula_metadata(
+            self.conn, reference, pointer, read_budget=self._read_budget
+        )
+
+    def source_view(self, source_view_id: int):
+        from .source_views import load_source_view
+
+        self.source_view_ref(source_view_id)
         cache = getattr(self, "_native_views", None)
         if cache is None:
             cache = {}
@@ -1315,6 +1334,12 @@ class BoundReader:
     def source_observations(self, source_view_id: int, method: str, kind: str):
         self.source_view(source_view_id)
         return self._observations(source_view_id, method, kind)
+
+    def source_observations_for_ref(self, reference: SourceViewRef, method: str, kind: str):
+        """Read observations under an exact selected reference, without view hydration."""
+        if self.source_view_ref(reference.id) != reference:
+            raise OperationConflict("source observation reference differs from bound run")
+        return self._observations(reference.id, method, kind)
 
     def _observations(self, source_id: int, method: str, kind: str):
         from corpus_structure.core.method import payload_hash

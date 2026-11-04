@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "m1.contextual-targets",
+  "title": "Faithful full-visible contextual decoder targets and remaining gaps",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which original protected C readings have faithful complete native targets under the contextual profile?",
+  "answers": [
+    "M1-INT-F23"
+  ],
+  "method": "Checked fitter access against completed source/annotation run21; immutable original C, source-generated requests, exact source/codepoint roundtrips, full native conditioning/specification coherence and serialized target reloads. No model or numerical execution.",
+  "commands": [
+    "uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-targets/reconstruct.py --run-id 21 --attempt attempt-001 --completed-run-authorized",
+    "uv run python -B docs/design_review/evidence/2026-11-04_m1-contextual-targets/reconstruct.py --run-id 21 --attempt attempt-002 --population-mode full-visible --routing-diagnostic --completed-run-authorized"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-001",
+      "role": null,
+      "sha256": "a72031ec7c90b890129d706a0dc8b2aab41ea2d570e31350194a9ea1b74396a4"
+    },
+    {
+      "path": "attempt-002",
+      "role": null,
+      "sha256": "0fb664af37d4a5d97e4a121b3df3742d0fdd436638d298206fb64d0b1ef38132"
+    },
+    {
+      "path": "final-integrity.log",
+      "role": null,
+      "sha256": "e8644dbe26674ae26abf82af4fececda0ee807c36ea597434f0e9e8f8ff883f6"
+    },
+    {
+      "path": "decoder-assembly-custody-002.json",
+      "role": null,
+      "sha256": "5a98ad96f276a57a072c1a146bdefcfde85f68947032d27c85ec7d16e453d56f"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-independent-assessment/m1.reference-successor21"
+  ],
+  "results": [
+    {
+      "name": "Original C denominator",
+      "value": 270,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Full-visible examples and exact native reloads",
+      "value": 124,
+      "of": null,
+      "unit": "examples",
+      "note": null
+    },
+    {
+      "name": "Unique decoder-supervised C readings",
+      "value": 217,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Represented C with some primary assembly custody",
+      "value": 204,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Full-visible conditioning conflicts",
+      "value": 0,
+      "of": null,
+      "unit": "requests",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Full-visible002 preserves all270original IDs/denominators and emits124faithful examples/reloads covering217decoder readings;204have some primary assembly custody and13are neighbor-only supervision, not assembled captures.53readings remain excluded. Existing source-generated neighborhoods can route2definitions/4assertions;2definition scalar-fragment and2assertion coincident-anchor blockers need separate mechanisms. Both attempts/74frozenfiles verify. No model, forward/loss/training, efficacy, held-out, accepted policy or whole-M1 claim.",
+  "consumed_by": [
+    "M1-05",
+    "M1-07",
+    "M1-15"
+  ]
+}

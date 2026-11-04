@@ -42,6 +42,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0058](0058-native-row-location.md) | Separate native row location from quoted row labels | 2026-11-04 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0059](0059-source-reading-support.md) | Scope M1 support reports to attributed source-reading facts | 2026-11-04 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0060](0060-m1-reference-applicability.md) | Preserve source-reference provenance across compatible execution successors | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0057](0057-m1-retained-reading-execution.md) |
+| [ADR-0061](0061-m1-native-record-frontends.md) | Qualify native fragment and latent record frontends for M1 | 2026-11-04 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

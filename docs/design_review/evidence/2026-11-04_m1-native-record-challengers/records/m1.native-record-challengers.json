@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "m1.native-record-challengers",
+  "title": "Native fragment-list and coincident-anchor record metadata controls",
+  "group": "M1",
+  "package": "M1-07",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can native list fields and non-natural record modes represent the concrete scalar/anchor exclusions without resizing or source edits?",
+  "answers": [
+    "M1-INT-F23"
+  ],
+  "method": "Context7 then installed2.1.0 source, native schemas/target metadata for frozen feature-fit contexts and independent native formatter controls; no model, forward/loss or training.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_m1-native-record-challengers/probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "controls-002.json",
+      "role": null,
+      "sha256": "ec43c5ba23307a49a110ddd5623a13e1f3ec61626b9c06ed1be3a969aff495a0"
+    },
+    {
+      "path": "formatter-control-002.json",
+      "role": null,
+      "sha256": "af15c8916607bf9e93ba96d2f16aebfb193ebe30f6afe66072f82c1f9e2dc07b"
+    },
+    {
+      "path": "actual-fragment-formatter-002.json",
+      "role": null,
+      "sha256": "54be4fc6213fe9876244c8fa0b7da2e1ca1e5f283b4ac78c85aef83bfb7432bc"
+    },
+    {
+      "path": "source-receipts-002.json",
+      "role": null,
+      "sha256": "e03d6a1393b6d3453987ccfd1486b8e5c00085f8f7881dd83a2d131e63638b2d"
+    },
+    {
+      "path": "context7-receipts.json",
+      "role": null,
+      "sha256": "75738318c778c41d78541789e77fd9ec82f6337f0687c837f61c46016ff8eb66"
+    },
+    {
+      "path": "probe-002.log",
+      "role": null,
+      "sha256": "8c1c9ef133807c76b37ffa2cf97c8054d8a84aaf9070dd443b3ef21a9504b52e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-contextual-targets/m1.contextual-targets"
+  ],
+  "results": [
+    {
+      "name": "Native metadata admissions",
+      "value": 11,
+      "of": null,
+      "unit": "controls",
+      "note": null
+    },
+    {
+      "name": "Expected scalar representation refusals",
+      "value": 2,
+      "of": null,
+      "unit": "controls",
+      "note": null
+    },
+    {
+      "name": "Complete assertion targets in wider context",
+      "value": 15,
+      "of": null,
+      "unit": "records",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Native list defining_text targets preserve actual5/13exact source fragments; scalar controls refuse genuine intervening text. Latent/anchorless metadata preserves all15complete assertions in the tested wider context. Natural target metadata also accepts labels, so builder success cannot establish natural grouping realizability. Native formatter confidence order requires an explicit checked source-order bridge. Learned32queries belonganchorless, notlatent. Production natural/scalar guards correctly refuse drop-in use. No model, numerical learning, efficacy, runtime adoption, held-out or whole-M1 claim.",
+  "consumed_by": [
+    "M1-05",
+    "M1-07",
+    "M1-15"
+  ]
+}

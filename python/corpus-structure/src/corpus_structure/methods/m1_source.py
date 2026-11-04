@@ -536,9 +536,7 @@ class M1Candidates:
                                     "or formula-only reading",
                                 ),
                             )
-                            association_diagnostics.extend(
-                                asdict(d) for d in native_diagnostics
-                            )
+                            association_diagnostics.extend(asdict(d) for d in native_diagnostics)
                     from corpus_structure.methods.record_readings import native_model_observations
 
                     details["model_observations"].extend(

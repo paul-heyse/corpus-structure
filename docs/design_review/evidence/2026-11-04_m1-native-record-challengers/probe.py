@@ -1,0 +1,192 @@
+"""Frozen C metadata only: no model, database, inference, training or runtime edits."""
+from __future__ import annotations
+import os
+os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', CUDA_VISIBLE_DEVICES='', TOKENIZERS_PARALLELISM='false')
+import sys
+sys.dont_write_bytecode = True
+from pathlib import Path
+from dataclasses import asdict
+from hashlib import sha256
+from importlib.metadata import version
+import copy
+import json
+from types import SimpleNamespace
+from transformers import AutoTokenizer
+from gliner2.processor import SchemaTransformer
+from gliner2.inference.schema import Schema
+from gliner2.inference.candidate_decoder import finalize_spans
+from gliner2.models.boundary.engine import BoundaryExtractor
+from gliner2.processing.boundary_preprocessing import build_boundary_batch_metadata
+from gliner2.processing.targets import char_span_to_word_boundaries, word_boundaries_to_char_span
+
+HERE=Path(__file__).resolve().parent
+BASE=HERE.parent/'2026-11-04_m1-contextual-targets/attempt-002'
+SNAP=Path('/home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d')
+def rows(name): return [json.loads(x) for x in (BASE/name).read_text().splitlines()]
+def write(name,value): (HERE/(Path(name).stem+'-002'+Path(name).suffix)).write_text(json.dumps(value,ensure_ascii=False,indent=2,default=lambda x:x.value)+'\n')
+def receipt(p):
+    data=p.read_bytes()
+    return dict(path=str(p),bytes=len(data),sha256=sha256(data).hexdigest())
+def split(text,lower=True):
+    for i,c in enumerate(text):
+        if not c.isspace(): yield c.lower() if lower else c,i,i+1
+
+def anchors(record,role,usage='literal'):
+    a={r['anchor_id']:r for r in record['anchors']}; e={r['set_id']:r for r in record['evidence_sets']}
+    f=next(r for r in record['fields'] if r['role']==role)
+    return [a[k] for s in f.get('evidence_sets',[]) if e[s]['usage']==usage for k in e[s]['anchors']]
+
+def pointer(i):
+    p=json.loads(i['item_locator'].removeprefix('pdf:'))['pointer']
+    if i.get('cell_index') is not None and i['source_field']=='cell_text': p+=f"/data/table_cells/{i['cell_index']}"
+    return p
+
+def map_piece(a,c,corr):
+    assert a['space']=='selected_projection' and a['precision']=='exact'
+    matches=[]
+    for i in c['intervals']:
+        if 'source' not in i: continue
+        if i['source']['source_view_id']!=corr[a['pin']['source_view_id']] or pointer(i)!=a['pointer']: continue
+        if not i['source_start']<=a['start']<a['end']<=i['source_end']: continue
+        s=i['model_start']+a['start']-i['source_start']; e=s+a['end']-a['start']
+        if c['text'][s:e]==a['source_piece']: matches.append((s,e))
+    assert len(matches)==1, ('piece_matches',len(matches),a['pointer'])
+    s,e=matches[0]
+    return dict(start=s,end=e,text=c['text'][s:e],original_anchor=a)
+
+def actual_pieces(c,s,e):
+    result=[]
+    for i in c['intervals']:
+        if 'source' not in i: continue
+        x,y=max(s,i['model_start']),min(e,i['model_end'])
+        if x>=y: continue
+        result.append((i['source']['source_view_id'],pointer(i),i['source_start']+x-i['model_start'],i['source_start']+y-i['model_start'],c['text'][x:y]))
+    return result
+
+def map_field(aa,c,corr,many=False):
+    spans=[map_piece(a,c,corr) for a in aa]; assert spans
+    assert [(x['start'],x['end']) for x in spans]==sorted((x['start'],x['end']) for x in spans),'source_order'
+    expected=[(corr[a['pin']['source_view_id']],a['pointer'],a['start'],a['end'],a['source_piece']) for a in aa]
+    if many:
+        for x,exp in zip(spans,expected,strict=True): assert actual_pieces(c,x['start'],x['end'])==[exp]
+        return spans
+    s,e=spans[0]['start'],spans[-1]['end']
+    assert actual_pieces(c,s,e)==expected,'scalar adds genuine source pieces'
+    return [dict(start=s,end=e,text=c['text'][s:e])]
+
+def target(record,c,declaration,corr):
+    fields={f['role']:f for f in record['fields']}; result={}
+    for d in declaration['fields']:
+        n=d['name']; role=n.removesuffix('__state').removesuffix('__cue'); f=fields[role]
+        if n.endswith('__state'): result[n]=dict(choice=f['state'])
+        elif n.endswith('__cue'):
+            aa=anchors(record,role,'classification_cue')
+            result[n]=map_field(aa,c,corr) if aa else []
+        elif f['state']!='present': result[n]=[]
+        elif d.get('choices'): result[n]=dict(choice=f['value']['label'])
+        else: result[n]=map_field(anchors(record,role),c,corr,many=n=='defining_text' and d['dtype']=='list')
+    return result
+
+def overlaps(record,c,corr,role):
+    for a in anchors(record,role):
+        for i in c['intervals']:
+            if 'source' in i and i['source']['source_view_id']==corr[a['pin']['source_view_id']] and pointer(i)==a['pointer'] and i['source_start']<a['end'] and i['source_end']>a['start']: return True
+    return False
+
+def control(c,reference,family,mode,many):
+    corr={r['reference_pin']['source_view_id']:r['prediction_pin']['source_view_id'] for r in reference['prediction_binding']['views']}
+    original=next(r for r in rows('source-reconstruction.jsonl') if r['source_view_id']==c['source_view_id'])['packs'][family][0]['declaration']
+    schema=copy.deepcopy(original); declaration=schema['structures'][family]
+    anchor=declaration['anchor']
+    if mode!='natural': declaration['mode']=mode; declaration.pop('anchor')
+    if many:
+        field=next(f for f in declaration['fields'] if f['name']=='defining_text'); field['dtype']='list'; field['cardinality']='zero_or_more'
+    records=[r for r in reference['authored']['records'] if r['family']==family and overlaps(r,c,corr,anchor)]
+    mapped=[]; errors=[]
+    for r in records:
+        try: mapped.append((r['record_id'],target(r,c,declaration,corr)))
+        except Exception as e: errors.append(dict(record_id=r['record_id'],reason=str(e),type=type(e).__name__))
+    out=dict(context_id=c['context_id'],source_view_id=c['source_view_id'],index=c['index'],family=family,mode=mode,many=many,
+        original_schema=original,challenger_schema=schema,overlapping_records=[r['record_id'] for r in records],mapping_errors=errors)
+    # A partial target set would make omitted records false negatives. Do not build it.
+    if errors: out['outcome']='blocked'; return out
+    prepared=native.collate_fn_inference([(c['text'],Schema.from_dict(schema))],architecture='boundary',build_targets=False,max_len=None,max_gold_per_query=64,on_capacity_exceeded='raise',error_policy='raise')
+    assert len(prepared.start_mappings[0])<=4096 and prepared.original_lengths[0]<=4096
+    prefix=len(prepared.text_tokens[0])-len(prepared.start_mappings[0]); tokens=prepared.text_tokens[0][:prefix]
+    instances=[]; roundtrips=[]
+    for rid,t in mapped:
+        instance=[]
+        for f in declaration['fields']:
+            values=t[f['name']]
+            if isinstance(values,dict):
+                assert values['choice'] in f['choices']
+                pairs=[(i,i) for i,token in enumerate(tokens) if token.lower()==values['choice'].lower()]; assert pairs
+            else:
+                pairs=[]
+                for span in values:
+                    s,e=char_span_to_word_boundaries(span['start'],span['end'],prepared.start_mappings[0],prepared.end_mappings[0])
+                    assert word_boundaries_to_char_span(s,e,prepared.start_mappings[0],prepared.end_mappings[0])==(span['start'],span['end'])
+                    reread=actual_pieces(c,*word_boundaries_to_char_span(s,e,prepared.start_mappings[0],prepared.end_mappings[0]))
+                    assert reread==actual_pieces(c,span['start'],span['end'])
+                    roundtrips.append(dict(record_id=rid,field=f['name'],span=span,word_span=[s,e],source_reread=reread))
+                    pairs.append((s+prefix,e+prefix-1))
+            instance.append(pairs)
+        instances.append(instance)
+    labels=[[[len(instances),instances]]]
+    layouts,targets,specs=build_boundary_batch_metadata(schema_tokens_list=prepared.schema_tokens_list,task_types=prepared.task_types,structure_labels=labels,text_lengths=prepared.text_word_counts,record_metadata_list=[s['record_metadata'] for s in prepared.original_schemas],is_training=False,build_targets=True,max_gold_per_query=64,on_capacity_exceeded='raise',ignore_missing_entities=False,dedupe_contained_entity_spans=False,original_texts=prepared.original_texts,original_schemas=prepared.original_schemas)
+    assert layouts==prepared.query_layouts and specs==prepared.record_specs
+    assert len(targets.records[0])==len(instances)==int(targets.record_targets[2].sum())
+    spec=specs[0][0]
+    for actual,expected in zip(targets.records[0],instances,strict=True):
+        for fs,pairs in zip(spec.fields,expected,strict=True):
+            want=[(s,e+1) for s,e in pairs]
+            f=actual.field_for_query(fs.query_id)
+            assert [p for value in f.values for p in value]==want
+            assert len(f.values)==(len(want) if fs.cardinality.is_multi else int(bool(want)))
+    out.update(outcome='passed',source_words=len(prepared.start_mappings[0]),prefix_words=prefix,subwords=prepared.original_lengths[0],
+        schema_roundtrip=Schema.from_dict(schema).to_dict(),record_specs=[{k:asdict(v) for k,v in ss.items()} for ss in specs],
+        targets=[asdict(t) for t in targets.records[0]],target_record_ids=[rid for rid,_ in mapped],roundtrips=roundtrips,
+        mode_tensor=targets.record_targets[6].tolist(),record_mask=targets.record_targets[2].tolist(),
+        max_gold_per_query=64,strict_errors=True,dedupe_contained_entity_spans=False,actual_truncation=False)
+    return out
+
+def main():
+    global native
+    assert version('gliner2')=='2.1.0'
+    native=SchemaTransformer(tokenizer=AutoTokenizer.from_pretrained(str(SNAP),local_files_only=True),word_splitter=split)
+    refs=json.loads((BASE/'feature-fit-protected.json').read_text()); assert {r['sampling']['partition'] for r in refs}=={'feature_fit'}
+    reference=next(r for r in refs if r['pass_id']==24)
+    contexts={r['context_id']:r for r in rows('source-contexts.jsonl')}
+    cases=[]
+    for cid in ['3d3ba1ccebede0b5e0f547bcbcc5837c707e832427b272065513de1de0979de9','d65748886a0bee8303bead0a154c6f77a887646aeb6d122d84950a38aafcd759']:
+        for many in [False,True]: cases.append(control(contexts[cid],reference,'definition','natural',many))
+    for cid in ['9340ff327cf641ee71ca40d8943a857ba409d5fd575ba4781c1f0dba69977429','ea98f1e3e9f499a3e9608ad78c9d3503e61150c191246bcee9412f8f090f3061','ca2eaf6bd0ff20822690ea17e9da75593f7a31c3ca5e13a744ea56730332be62']:
+        for mode in ['natural','latent','anchorless']: cases.append(control(contexts[cid],reference,'assertion',mode,False))
+    write('controls.json',cases)
+    # Unequal scores deliberately show that native list formatting is score order.
+    spans=[('first',0.6,0,5),('second',0.9,10,16)]
+    ordered=finalize_spans(spans,dtype='list',overlap_policy='flat')
+    formatter=SimpleNamespace(_format_spans=lambda *args,**kwargs: BoundaryExtractor._format_spans(None,*args,**kwargs))
+    formatted=BoundaryExtractor._format_structure_field(formatter,ordered,False,True,True)
+    assert [r['text'] for r in formatted]==['second','first']
+    write('formatter-control.json',dict(outcome='passed',input=spans,native_finalized=ordered,native_public_output=formatted,scope='pure formatter helpers; no model, candidates or inference'))
+    fragment_bridge=[]
+    for case in cases:
+        if not case['many'] or case['outcome']!='passed': continue
+        context=contexts[case['context_id']]
+        for rid in case['target_record_ids']:
+            rr=[r for r in case['roundtrips'] if r['record_id']==rid and r['field']=='defining_text']
+            raw=[(r['span']['text'],(i+1)/(len(rr)+1),r['span']['start'],r['span']['end']) for i,r in enumerate(rr)]
+            finalized=finalize_spans(raw,dtype='list',overlap_policy='flat')
+            public=BoundaryExtractor._format_structure_field(formatter,finalized,False,True,True)
+            bridged=sorted(public,key=lambda r:(r['start'],r['end']))
+            expected=[r['span'] for r in rr]
+            assert [(r['text'],r['start'],r['end']) for r in bridged]==[(r['text'],r['start'],r['end']) for r in expected]
+            assert all(context['text'][r['start']:r['end']]==r['text'] for r in bridged)
+            fragment_bridge.append(dict(context_id=case['context_id'],record_id=rid,synthetic_scores=True,native_public_output=public,proposed_bridge_source_order=bridged,exact_offsets_and_order=True))
+    write('actual-fragment-formatter.json',fragment_bridge)
+    package=Path(native.__class__.__module__.replace('.','/'))
+    sources=[Path('.venv/lib/python3.14/site-packages/gliner2')/p for p in ['inference/schema.py','inference/candidate_decoder.py','inference/overlap.py','inference/runtime.py','processor.py','processing/records.py','processing/targets.py','processing/boundary_preprocessing.py','models/boundary/records.py','models/boundary/engine.py']]
+    write('source-receipts.json',dict(date='2026-11-04',versions={n:version(n) for n in ['gliner2','torch','transformers']},checkpoint_config=json.loads((SNAP/'config.json').read_text()),files=[receipt(p) for p in sources+[SNAP/'config.json',HERE/'probe.py']]+[receipt(BASE/n) for n in ['feature-fit-protected.json','source-contexts.jsonl','source-reconstruction.jsonl','freeze.json']]))
+    print(json.dumps([dict(context=c['context_id'],family=c['family'],mode=c['mode'],many=c['many'],outcome=c['outcome'],records=len(c.get('targets',[])),errors=c['mapping_errors']) for c in cases]))
+if __name__=='__main__': main()

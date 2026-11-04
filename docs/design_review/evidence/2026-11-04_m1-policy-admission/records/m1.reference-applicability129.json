@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "id": "m1.reference-applicability129",
+  "title": "Immutable reference applicability and no-output source coordinates",
+  "group": "M1",
+  "package": "M1-13",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do compatible successors preserve original reference custody and exact comparison while retaining no-output denominators?",
+  "answers": [
+    "M1-INT-F24"
+  ],
+  "method": "Frozen forward126–129 transitions, rollback authoring and serialized selected native reference/policy controls plus related pure/authoring checks.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/evaluate/test_record_references_native.py python/corpus-structure/tests/evaluate/test_record_policy_native.py python/corpus-structure/tests/evaluate/test_record_policy_authority_native.py -q",
+    "uv run ci db migrate --json",
+    "just types",
+    "just turn-end"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "native-reference-policy129.xml",
+      "role": null,
+      "sha256": "08d0ea1c3d1ebc1202bf489415a2359be48fa7ebb2783b2c266e193454c997ac"
+    },
+    {
+      "path": "attempt-native-reference-policy129.log",
+      "role": null,
+      "sha256": "255bbf9e97ebada59efc7f008e4a3e4917f942f0af4e5eb1c02a8572703a50f9"
+    },
+    {
+      "path": "native-reference-policy128.xml",
+      "role": null,
+      "sha256": "760c01bd163ce13640e1c61983e79fd64068dd91f0ecf98ca6c14fad3d5fc2f0"
+    },
+    {
+      "path": "attempt-native-reference-policy128.log",
+      "role": null,
+      "sha256": "03c9dbdaf09933aad210f19a18689bca4da7f28485387716bfbf2db85b1675f5"
+    },
+    {
+      "path": "native-reference-policy127.xml",
+      "role": null,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "attempt-native-reference-policy127.log",
+      "role": null,
+      "sha256": "10ec68b7163dd9b85051f2ac71b2946821dbeacdbe8a7e1cde594cff73778d9d"
+    },
+    {
+      "path": "native-compat127.xml",
+      "role": null,
+      "sha256": "7df9892335f6e717f5f5b7d31cedbc965adfe6699c9607fb97eadc0c55bdfe43"
+    },
+    {
+      "path": "attempt-native-compat127.log",
+      "role": null,
+      "sha256": "51eea618eca87074489a8dd9d819ed2800ed7c394c7143703a50df7538fe4c5f"
+    },
+    {
+      "path": "reference-pure127.xml",
+      "role": null,
+      "sha256": "7d3f8c092e81058eb5a00beaf0bd8d5eeae355b2468675af352f8949b842543e"
+    },
+    {
+      "path": "attempt-reference-pure127.log",
+      "role": null,
+      "sha256": "30f90dece51bb30738ff6a071ed0fddacbbaf2e231c36300fd7b1cc3a37da15c"
+    },
+    {
+      "path": "attempt-types128.log",
+      "role": null,
+      "sha256": "f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726"
+    },
+    {
+      "path": "attempt-turn-end128.log",
+      "role": null,
+      "sha256": "845eae950c4fa5ca5f20545ed62ce560eb529925f7f71fd91d8c13934e53e1f0"
+    },
+    {
+      "path": "attempt-ruff127.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "current-head-035",
+      "role": null,
+      "sha256": "b2953f77f530b8206b076f168f7fc63d44d9af1504a0f225cd9eea4499b7f159"
+    },
+    {
+      "path": "attempt-current-head-035.log",
+      "role": null,
+      "sha256": "b743082b4168c859ec5caddaa2f91207eaf86d2bd997bc8d9a4f7160aaf2b0b6"
+    },
+    {
+      "path": "attempt-current-head-034.log",
+      "role": null,
+      "sha256": "f1c590885ab160fcdc714f5a62f2fdddf4731ea41d90e9a1483192183dc8ad9e"
+    },
+    {
+      "path": "attempt-upgrade-024.log",
+      "role": null,
+      "sha256": "acf76ec76350d7a49c777f51bfbc75a7171891d833fa768d56a2a5bfa0de8363"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Selected native cases passed",
+      "value": 16,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Related pure/authoring cases passed",
+      "value": 200,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Managed native objects",
+      "value": 160,
+      "of": null,
+      "unit": "objects",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected native reference/policy union passes16cases at129, including exact original/actual correspondence, wrong physical source/policy/alias refusal, restricted fitting custody and missing/failed producer denominators. Four targeted127cases are contained in that union, not additional cases.200related pure/authoring cases pass separately.126–128 failures, interrupted127/XML and034rollback deadlock are retained. No independent five-family quality, accepted actual-source policy, complete resource, host attachment or whole-M1 qualification follows.",
+  "consumed_by": [
+    "M1-13",
+    "M1-15"
+  ]
+}

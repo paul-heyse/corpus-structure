@@ -9,7 +9,7 @@ verification. Remaining targets below are not blanket claims that every listed c
 unimplemented. Whole-M1 qualification remains open.
 
 **Execution baseline, 2026-11-04:** selected AC acceptance remains bounded to71a78774/native105.
-Subsequent M1 native125, actual CPU publication/reuse/recovery, independent source-only references
+Subsequent M1 native107–129, actual CPU publication/reuse/recovery, independent source-only references
 and candidate consumer results have their own receipts in the coordinator. Actual development
 quality fails and no fitted acceptance policy exists. Preserve those separate implementation,
 functional and quality boundaries; no whole M1 package is complete.
@@ -21,9 +21,12 @@ consumer results, the complete finite identity census, support/native handoff an
 These establish transport/custody at candidate standing, not accepted source fidelity. Controlled
 native accepted field-support tests retain their separate scope. Actual evaluated accepted
 all-family journeys, final qualification and release/default transition remain required.
-The complete SDK envelope and source-hydration work bounds remain distinct; a small final
-formula response can require a larger bounded source read. Preserve the measured refusal and
-existing bounded successful followup rather than infer source absence or a permission failure.
+The complete SDK envelope and source-hydration work bounds remain distinct. Compact formula
+metadata/observations and exact cell-plus-parent companions now pass90focused controls and58
+actual retained query/CLI/registered MCP comparisons at unchanged1MiB. Complete item/ancestor
+inventory validation retains matching-hash corruption refusal; table/chart parent kinds remain
+distinct. Preserve earlier larger-budget/refusal receipts at their original source rather than
+infer source absence or a permission failure. Actual accepted all-family adoption remains open.
 
 ## Target and responsibility
 

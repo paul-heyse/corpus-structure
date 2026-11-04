@@ -185,6 +185,19 @@ def _coordinates(conn, prepared, unit, records):
     )
 
 
+def _prediction_coordinates(conn, prepared, run_id, frame, records):
+    from corpus_structure.semantic.records import authenticated_source_record_coordinates
+
+    return authenticated_source_record_coordinates(
+        conn,
+        prepared,
+        run_id=run_id,
+        source_view_id=frame.pin["source_view_id"],
+        source=frame.pin["source"],
+        records=records,
+    )
+
+
 @dataclass(frozen=True)
 class StoredRecordReferencePass:
     id: int
@@ -412,12 +425,18 @@ def reference_evaluate(
         .mappings()
         .one()
     )
-    if definition["release_id"] != completed["release_id"]:
-        raise ReferenceError("record references and completed publication have different releases")
     if definition["sampling"].get("record_protocol") != PROTOCOL:
         raise ReferenceError("reference set does not declare the record protocol")
     prepared = open_release(conn, completed["release_id"])
     require_bound_operation(prepared, "reference_record_grade")
+    reference_prepared = open_release(conn, definition["release_id"])
+    applicability = _call(
+        conn,
+        "SELECT eval.record_reference_applicability(:p,:r,:s)",
+        p=project_id,
+        r=run_id,
+        s=set_id,
+    ).scalar_one()
     selected_units = (
         conn.execute(select(units).where(units.c.set_id == set_id).order_by(units.c.id))
         .mappings()
@@ -434,7 +453,7 @@ def reference_evaluate(
         conn,
         run_id=run_id,
         project_id=project_id,
-        source_view_ids=tuple(unit["source_view_id"] for unit in selected_units),
+        source_view_ids=tuple(row["prediction_view_id"] for row in applicability["views"]),
     )
     snapshots = {value["unit_id"]: value for value in snapshot}
     reports = []
@@ -451,24 +470,41 @@ def reference_evaluate(
     for unit in selected_units:
         frozen = snapshots[unit["id"]]
         reference = read_pass(conn, frozen["pass_id"], frame_id=frozen["frame_id"])
+        binding = _call(
+            conn,
+            "SELECT eval.record_reference_unit_binding(:r,:u,:p,:f)",
+            r=run_id,
+            u=unit["id"],
+            p=frozen["pass_id"],
+            f=frozen["frame_id"],
+        ).scalar_one()
+        prediction_frame = decode_frame(binding["prediction_frame"])
+        prediction_view = prediction_frame.pin["source_view_id"]
         prediction, outcomes = prediction_records(
             projection,
-            source=reference.frame.pin["source"],
-            source_view_id=unit["source_view_id"],
+            source=prediction_frame.pin["source"],
+            source_view_id=prediction_view,
             release_id=prepared.release_id,
             realization_id=completed["output_realization_id"],
             prepared_index=prepared_index,
-            selected_tasks=tasks_by_view.get(unit["source_view_id"], ()),
+            selected_tasks=tasks_by_view.get(prediction_view, ()),
             report_method_names=report_method_names,
         )
         bound = _unit(conn, unit["id"])
-        contexts = _coordinates(conn, prepared, bound, (*reference.records, *prediction))
+        contexts = _coordinates(conn, reference_prepared, bound, reference.records)
+        prediction_contexts = _prediction_coordinates(
+            conn, prepared, run_id, prediction_frame, prediction
+        )
         aligned = align_records(
             RecordSide(reference.frame, reference.records),
-            RecordSide(reference.frame, prediction),
-            prepared,
+            RecordSide(prediction_frame, prediction),
+            reference_prepared,
             coordinate_texts=contexts,
+            prediction_prepared=prepared,
+            prediction_coordinate_texts=prediction_contexts,
+            correspondence=binding["views"],
         ).as_dict()
+        aligned["correspondence"] = binding["views"]
         aligned["producer_reports"] = list(outcomes)
         aligned["origin_group"] = populations[unit["unit_key"]]["origin_group"]
         aligned["gap_evidence"] = _call(
@@ -504,6 +540,8 @@ def reference_evaluate(
     result = dict(
         protocol=EVALUATION_PROTOCOL,
         release_id=prepared.release_id,
+        reference_release_id=reference_prepared.release_id,
+        applicability=applicability,
         output_realization_id=completed["output_realization_id"],
         family="source_records",
         comparison_policy=COMPARISON_POLICY,
@@ -711,12 +749,21 @@ def create_reference_set(
     )
 
 
-def read_fitting_references(conn: Connection, set_id: int) -> tuple[dict[str, Any], ...]:
+def read_fitting_references(
+    conn: Connection, set_id: int, *, prediction_run_id: int | None = None
+) -> tuple[dict[str, Any], ...]:
     """Restricted fitter credentials call a protected feature-fit-only native capability.
 
     No Python partition filter and no evaluator connection fallback exists here.
+    A successor run adds native ``applicability`` and ``prediction_binding`` sidecars;
+    authored bytes, IDs and source frames retain their original provenance.
     """
-    rows = _call(conn, "SELECT eval.read_record_fitting_references(:s)", s=set_id).scalar_one()
+    if prediction_run_id is None:
+        rows = _call(conn, "SELECT eval.read_record_fitting_references(:s)", s=set_id).scalar_one()
+    else:
+        rows = _call(
+            conn, "SELECT eval.read_record_fitting_references(:s,:r)", s=set_id, r=prediction_run_id
+        ).scalar_one()
     return tuple(rows)
 
 

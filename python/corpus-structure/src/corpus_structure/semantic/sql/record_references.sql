@@ -333,6 +333,235 @@ END $$;
 REVOKE ALL ON FUNCTION eval.record_source_record_reference_pass(bigint,text,text,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.record_source_record_reference_pass(bigint,text,text,bytea,jsonb) TO corpus_sem_evaluator;
 
+-- Strict reference compatibility is a derived projection, not a compatibility store.
+CREATE OR REPLACE FUNCTION eval.record_reference_contract(p_release text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE projection jsonb; schemas jsonb; name text; schema jsonb; products jsonb; consumed text[]; ranges text[]; definitions jsonb; vocabularies jsonb; enums jsonb;
+BEGIN
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT projection FROM sem.artifact
+  WHERE release_id=p_release AND artifact_name='record_projection.json';
+ schemas:='{}';
+ FOR name IN SELECT value FROM (
+  SELECT unnest(ARRAY['SourceRecord','RecordSourcePin','RecordCoordinateText','ReferenceRecordBatch','RecordReferenceAnchorScope']) AS value
+  UNION SELECT family->>'contract' FROM jsonb_array_elements(projection->'families') family) names ORDER BY value LOOP
+  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT schema FROM sem.artifact
+   WHERE release_id=p_release AND artifact_name='json_schema/'||name;
+  schemas:=schemas||jsonb_build_object(name,schema);
+ END LOOP;
+ SELECT convert_from(prepared_bytes,'UTF8')::jsonb->'products' INTO STRICT products FROM sem.release WHERE release_id=p_release;
+ SELECT array_agg(DISTINCT value) INTO consumed FROM (
+  SELECT jsonb_object_keys(schemas) AS value UNION ALL
+  SELECT jsonb_object_keys(COALESCE(value->'$defs','{}')) FROM jsonb_each(schemas)) names;
+ SELECT COALESCE(jsonb_agg(value ORDER BY value->>'name'),'[]'::jsonb) INTO definitions
+  FROM jsonb_array_elements(products->'definitions') WHERE value->>'name'=ANY(consumed);
+ SELECT array_agg(DISTINCT property->>'range') INTO ranges FROM jsonb_array_elements(definitions) definition
+  CROSS JOIN LATERAL jsonb_array_elements(definition->'properties') property;
+ SELECT COALESCE(jsonb_agg(value ORDER BY value->>'enum'),'[]'::jsonb) INTO vocabularies
+  FROM jsonb_array_elements(products->'vocabularies') WHERE value->>'enum'=ANY(ranges);
+ SELECT COALESCE(jsonb_agg(value ORDER BY value->>'name'),'[]'::jsonb) INTO enums
+  FROM jsonb_array_elements(products->'registry_rows') WHERE value->>'kind'='enum' AND value->>'name'=ANY(ranges);
+ RETURN jsonb_build_object('comparison_policy','strict-source-occurrence-1','families',projection->'families',
+  'classification_kinds',projection->'classification_kinds','schemas',schemas,'definitions',definitions,
+  'vocabularies',vocabularies,'enum_declarations',enums);
+END $$;
+REVOKE ALL ON FUNCTION eval.record_reference_contract(text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.record_reference_physical_source(p_view bigint)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE view kb.source_view; document kb.document; recipe bytea;
+BEGIN
+ SELECT * INTO STRICT view FROM kb.source_view WHERE id=p_view;
+ SELECT * INTO STRICT document FROM kb.document WHERE id=view.document_id;
+ SELECT content INTO STRICT recipe FROM kb.source_artifact WHERE artifact_digest=view.recipe_digest;
+ IF view.projection_digest IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(view.projection),'UTF8')),'hex')
+  OR view.recipe_digest IS DISTINCT FROM encode(sha256(recipe),'hex')
+  OR document.content_hash IS NULL
+  OR NOT EXISTS(SELECT FROM ops.pdf_selected_product WHERE task_id=view.native_task_id
+   AND product_key=view.native_product_key AND content_digest=view.native_content_digest)
+  OR NOT EXISTS(SELECT FROM ops.pdf_published_revision WHERE task_id=view.native_task_id
+   AND product_key=view.native_product_key AND logical_digest=view.native_content_digest
+   AND build_id=view.native_build_id AND build_id=view.native_revision_id) THEN
+  RAISE EXCEPTION 'reference physical source custody/digests unavailable or changed' USING ERRCODE='23514'; END IF;
+ RETURN jsonb_build_object('document_id',document.id,'document_key',document.key,
+  'source_uri',document.source_uri,'content_hash',document.content_hash,
+  'native_product_task_id',view.native_task_id,'product_key',view.native_product_key,'product_digest',view.native_content_digest,
+  'native_build_id',view.native_build_id,'native_revision_id',view.native_revision_id,
+  'section_pointer',view.section_pointer,'membership',view.membership,'analysis_eligible',view.analysis_eligible,
+  'recipe_digest',view.recipe_digest,'recipe_bytes',encode(recipe,'hex'),
+  'projection_digest',view.projection_digest,'projection',view.projection);
+END $$;
+REVOKE ALL ON FUNCTION eval.record_reference_physical_source(bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.record_reference_applicability(p_project text,p_run bigint,p_set bigint)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE reference_set eval.reference_set; completed ops.completed_result; contract jsonb; physical jsonb;
+ original kb.source_view; actual kb.source_view; candidates bigint[]; views jsonb:='[]';
+BEGIN
+ SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+ SELECT c.* INTO STRICT completed FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id
+  JOIN ops.input_cut cut ON cut.id=c.cut_id AND cut.run_id=r.id AND cut.release_id=c.release_id
+  WHERE c.run_id=p_run AND r.project_id=p_project AND r.sealed AND r.status='finished' AND cut.final;
+ PERFORM sem.require_execution_operation(completed.release_id,'reference_record_grade');
+ contract:=eval.record_reference_contract(reference_set.release_id);
+ IF contract IS DISTINCT FROM eval.record_reference_contract(completed.release_id)
+  OR reference_set.sampling->>'record_protocol' IS DISTINCT FROM 'source-record-reference-1'
+  OR reference_set.sampling->>'guideline_digest' IS DISTINCT FROM encode(sha256(convert_to(reference_set.sampling->>'guideline_text','UTF8')),'hex')
+  OR btrim(COALESCE(reference_set.sampling->>'reference_policy_version',''))=''
+  OR btrim(COALESCE(reference_set.sampling->>'prediction_policy_version',''))='' THEN
+  RAISE EXCEPTION 'reference source/coordinate/family/guideline comparison contract differs' USING ERRCODE='23514'; END IF;
+ FOR original IN SELECT DISTINCT v.* FROM eval.reference_unit u
+  CROSS JOIN LATERAL jsonb_array_elements(u.context->0->'source_views') frozen
+  JOIN kb.source_view v ON v.id=(frozen->>'id')::bigint WHERE u.set_id=p_set ORDER BY v.id LOOP
+  IF NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=reference_set.source_run_id AND source_view_id=original.id) THEN
+   RAISE EXCEPTION 'reference source closure is outside original run' USING ERRCODE='23514'; END IF;
+  physical:=eval.record_reference_physical_source(original.id);
+  SELECT array_agg(v.id ORDER BY v.id) INTO candidates FROM ops.run_source_view member
+   JOIN kb.source_view v ON v.id=member.source_view_id
+   WHERE member.run_id=p_run
+    AND (v.document_id,v.native_task_id,v.native_product_key,v.native_content_digest,v.native_build_id,
+     v.native_revision_id,v.section_pointer,v.membership,v.analysis_eligible,v.recipe_digest,v.projection_digest)
+     IS NOT DISTINCT FROM (original.document_id,original.native_task_id,original.native_product_key,
+      original.native_content_digest,original.native_build_id,original.native_revision_id,original.section_pointer,
+      original.membership,original.analysis_eligible,original.recipe_digest,original.projection_digest)
+    AND eval.record_reference_physical_source(v.id)=physical;
+  IF COALESCE(cardinality(candidates),0)<>1 THEN
+   RAISE EXCEPTION 'reference source correspondence missing or ambiguous for view %',original.id USING ERRCODE='23514'; END IF;
+  SELECT * INTO STRICT actual FROM kb.source_view WHERE id=candidates[1];
+  IF EXISTS(SELECT FROM jsonb_array_elements(views) pair WHERE (pair->>'prediction_view_id')::bigint=actual.id) THEN
+   RAISE EXCEPTION 'reference source correspondence is not bijective' USING ERRCODE='23514'; END IF;
+  views:=views||jsonb_build_array(jsonb_build_object('reference_view_id',original.id,'prediction_view_id',actual.id,
+   'reference_key',original.key,'prediction_key',actual.key,
+   'physical_digest',encode(sha256(convert_to(data.canonical_json(physical),'UTF8')),'hex')));
+ END LOOP;
+ IF views='[]' THEN RAISE EXCEPTION 'reference source closure is empty' USING ERRCODE='23514'; END IF;
+ RETURN jsonb_build_object('protocol','source-record-reference-applicability-1',
+  'comparison_policy','strict-source-occurrence-1','reference_release_id',reference_set.release_id,
+  'prediction_release_id',completed.release_id,'source_run_id',reference_set.source_run_id,
+  'source_cut_id',(reference_set.sampling->>'source_cut_id')::bigint,'run_id',p_run,'cut_id',completed.cut_id,
+  'contract_digest',encode(sha256(convert_to(data.canonical_json(contract),'UTF8')),'hex'),
+  'guideline_digest',reference_set.sampling->>'guideline_digest',
+  'reference_policy_version',reference_set.sampling->>'reference_policy_version',
+  'prediction_policy_version',reference_set.sampling->>'prediction_policy_version','views',views);
+END $$;
+REVOKE ALL ON FUNCTION eval.record_reference_applicability(text,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.record_reference_applicability(text,bigint,bigint) TO corpus_sem_evaluator;
+
+CREATE OR REPLACE FUNCTION eval.record_reference_unit_binding(p_run bigint,p_unit bigint,p_pass bigint,p_frame bigint)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE unit eval.reference_unit; reference_set eval.reference_set; payload jsonb; frozen jsonb; bound jsonb;
+ applicability jsonb; pair jsonb; original_pin jsonb; actual_pin jsonb; pins jsonb:='[]'; related jsonb:='[]';
+ scopes jsonb:='[]'; ids jsonb:='[]'; scope jsonb; actual kb.source_view;
+BEGIN
+ SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit;
+ SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=unit.set_id;
+ SELECT convert_from(p.authored,'UTF8')::jsonb,f.source_frame INTO STRICT payload,frozen
+  FROM eval.reference_pass p JOIN eval.reference_frame f ON f.pass_id=p.id
+  WHERE p.id=p_pass AND p.unit_id=p_unit AND p.pass_kind='C' AND f.id=p_frame;
+ PERFORM eval.validate_source_record_reference_frame(p_unit,payload,frozen);
+ applicability:=eval.record_reference_applicability(reference_set.project_id,p_run,unit.set_id);
+ bound:=frozen->'evaluation_frame';
+ FOR original_pin IN SELECT bound->'pin' UNION ALL SELECT value FROM jsonb_array_elements(bound->'related_pins') LOOP
+  SELECT value INTO STRICT pair FROM jsonb_array_elements(applicability->'views')
+   WHERE (value->>'reference_view_id')::bigint=(original_pin->>'source_view_id')::bigint;
+  SELECT * INTO STRICT actual FROM kb.source_view WHERE id=(pair->>'prediction_view_id')::bigint;
+  actual_pin:=original_pin||jsonb_build_object('source_view_id',actual.id,'source',CASE
+   WHEN original_pin=bound->'pin' THEN eval.record_reference_source_binding(p_run,actual.id,(applicability->>'cut_id')::bigint)
+   ELSE actual.key END);
+  IF applicability->>'reference_release_id'=applicability->>'prediction_release_id' AND actual_pin IS DISTINCT FROM original_pin THEN
+   -- Missing/failed producers supply no authenticated report alias. Keep the
+   -- original frame's logical coordinate so their source denominator survives;
+   -- a genuine report with a different alias still refuses.
+   IF (actual_pin-'source') IS NOT DISTINCT FROM (original_pin-'source') AND NOT EXISTS(
+    SELECT FROM ops.cut_task ct JOIN ops.task t ON t.id=ct.origin_task_id
+     JOIN ops.task_result r ON r.task_id=t.id AND r.release_id=t.release_id
+    WHERE ct.cut_id=(applicability->>'cut_id')::bigint AND t.unit_type='source_view'
+     AND t.unit_id=actual.id AND r.body ? 'source') THEN
+    actual_pin:=original_pin;
+   ELSE
+    RAISE EXCEPTION 'record grade logical source binding changed from frozen source cut' USING ERRCODE='23514';
+   END IF;
+  END IF;
+  pins:=pins||jsonb_build_array(jsonb_build_object('reference_pin',original_pin,'prediction_pin',actual_pin,
+   'physical_digest',pair->>'physical_digest'));
+  IF original_pin<>bound->'pin' THEN related:=related||jsonb_build_array(actual_pin); END IF;
+ END LOOP;
+ FOR scope IN SELECT value FROM jsonb_array_elements(bound->'anchor_scopes') LOOP
+  SELECT value INTO STRICT pair FROM jsonb_array_elements(pins) WHERE value->'reference_pin'=scope->'pin';
+  scopes:=scopes||jsonb_build_array(scope||jsonb_build_object('pin',pair->'prediction_pin'));
+ END LOOP;
+ -- Keep the original opaque allowlist. Actual anchors are checked by deriving their
+ -- counterpart reference identity after authenticating the actual coordinate.
+ ids:=bound->'anchor_ids';
+ SELECT value->'prediction_pin' INTO STRICT actual_pin FROM jsonb_array_elements(pins) WHERE value->'reference_pin'=bound->'pin';
+ RETURN jsonb_build_object('views',pins,'prediction_frame',jsonb_build_object('protocol','source-record-frame-1',
+  'evaluation_frame',bound||jsonb_build_object('release_id',applicability->>'prediction_release_id',
+   'pin',actual_pin,'related_pins',related,'anchor_scopes',scopes,'anchor_ids',ids)));
+END $$;
+REVOKE ALL ON FUNCTION eval.record_reference_unit_binding(bigint,bigint,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.record_reference_unit_binding(bigint,bigint,bigint,bigint) TO corpus_sem_evaluator;
+
+CREATE OR REPLACE FUNCTION eval.record_reference_anchor_allowed(p_anchor jsonb,p_views jsonb,p_frame jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE pair jsonb; counterpart jsonb; identity text;
+BEGIN
+ SELECT value INTO STRICT pair FROM jsonb_array_elements(p_views) WHERE value->'prediction_pin'=p_anchor->'pin';
+ counterpart:=(p_anchor-'anchor_id')||jsonb_build_object('pin',pair->'reference_pin');
+ identity:='record-anchor:'||encode(sha256(convert_to(data.canonical_json(counterpart||jsonb_build_object(
+  'pin',(pair->'reference_pin')-'source_view_id')),'UTF8')),'hex');
+ RETURN p_frame->'anchor_ids' ? identity OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'anchor_scopes') scope
+  WHERE scope->'pin'=counterpart->'pin' AND scope->'space'=counterpart->'space'
+   AND scope->'pointer'=counterpart->'pointer' AND scope->'precision'=counterpart->'precision'
+   AND scope->'recognition' IS NOT DISTINCT FROM counterpart->'recognition'
+   AND (scope->>'precision'<>'exact' OR ((scope->>'start')::bigint<=(counterpart->>'start')::bigint
+    AND (counterpart->>'start')::bigint<(counterpart->>'end')::bigint
+    AND (counterpart->>'end')::bigint<=(scope->>'end')::bigint)));
+END $$;
+REVOKE ALL ON FUNCTION eval.record_reference_anchor_allowed(jsonb,jsonb,jsonb) FROM PUBLIC;
+
+-- Comparison-only coordinates never rewrite persisted anchor/set/record identities.
+CREATE OR REPLACE FUNCTION eval.record_reference_comparison_record(p_record jsonb,p_views jsonb,p_side text)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE anchor jsonb; evidence jsonb; item jsonb; alternative jsonb; pair jsonb; physical text; identity text;
+ anchors jsonb:='{}'; sets jsonb:='{}'; members jsonb; fields jsonb:='[]'; alternatives jsonb;
+BEGIN
+ IF p_side NOT IN ('reference','prediction') THEN RAISE EXCEPTION 'unknown reference comparison side' USING ERRCODE='23514'; END IF;
+ FOR anchor IN SELECT value FROM jsonb_array_elements(p_record->'anchors') LOOP
+  SELECT value INTO STRICT pair FROM jsonb_array_elements(p_views) WHERE value->(p_side||'_pin')=anchor->'pin';
+  identity:=encode(sha256(convert_to(data.canonical_json((anchor-'anchor_id'-'pin')||jsonb_build_object('pin',pair->>'physical_digest')),'UTF8')),'hex');
+  anchors:=anchors||jsonb_build_object(anchor->>'anchor_id',identity);
+ END LOOP;
+ FOR evidence IN SELECT value FROM jsonb_array_elements(COALESCE(p_record->'evidence_sets','[]')) LOOP
+  SELECT COALESCE(jsonb_agg(anchors->value ORDER BY CASE WHEN evidence->>'ordering'='ordered' THEN ordinal END,
+   CASE WHEN evidence->>'ordering'<>'ordered' THEN anchors->>value END COLLATE "C"),'[]'::jsonb)
+   INTO members FROM jsonb_array_elements_text(evidence->'anchors') WITH ORDINALITY entry(value,ordinal);
+  identity:=encode(sha256(convert_to(data.canonical_json((evidence-'set_id')||jsonb_build_object('anchors',members)),'UTF8')),'hex');
+  sets:=sets||jsonb_build_object(evidence->>'set_id',identity);
+ END LOOP;
+ FOR item IN SELECT value FROM jsonb_array_elements(p_record->'fields') LOOP
+  IF item ? 'evidence_sets' THEN
+   SELECT COALESCE(jsonb_agg(sets->value ORDER BY ordinal),'[]'::jsonb) INTO members
+    FROM jsonb_array_elements_text(item->'evidence_sets') WITH ORDINALITY entry(value,ordinal);
+   item:=item||jsonb_build_object('evidence_sets',members);
+  END IF;
+  IF item ? 'alternatives' THEN
+   alternatives:='[]';
+   FOR alternative IN SELECT value FROM jsonb_array_elements(item->'alternatives') LOOP
+    SELECT COALESCE(jsonb_agg(sets->value ORDER BY ordinal),'[]'::jsonb) INTO members
+     FROM jsonb_array_elements_text(COALESCE(alternative->'evidence_sets','[]')) WITH ORDINALITY entry(value,ordinal);
+    alternatives:=alternatives||jsonb_build_array(alternative||jsonb_build_object('evidence_sets',members));
+   END LOOP;
+   item:=item||jsonb_build_object('alternatives',alternatives);
+  END IF;
+  fields:=fields||jsonb_build_array(item);
+ END LOOP;
+ SELECT value->>'physical_digest' INTO STRICT physical FROM jsonb_array_elements(p_views) WHERE value->(p_side||'_pin')=p_record->'pin';
+ SELECT COALESCE(jsonb_agg(anchors->value ORDER BY anchors->>value COLLATE "C"),'[]'::jsonb) INTO members
+  FROM jsonb_array_elements_text(p_record->'occurrence_anchors');
+ RETURN jsonb_build_object('occurrence',encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+  p_record->'family',p_record->'occurrence_recipe',physical,members)),'UTF8')),'hex'),'fields',fields);
+END $$;
+REVOKE ALL ON FUNCTION eval.record_reference_comparison_record(jsonb,jsonb,text) FROM PUBLIC;
+
 -- Protected gap evidence is derived, never authored as free-form writer labels.
 -- Keep expected values in C. These rows link source anchors and actual immutable
 -- invocation diagnostics; missing diagnostics never establish a failed stage.
@@ -344,11 +573,16 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalo
 DECLARE unit eval.reference_unit; reference_set eval.reference_set; completed ops.completed_result;
  payload jsonb; tasks jsonb; predictions jsonb; expected jsonb; actual jsonb;
  readings jsonb; reading_roles jsonb; evidence_roles jsonb; gaps jsonb:='[]'; kind text;
+ binding jsonb; prediction_view bigint; reference_projection jsonb; prediction_projection jsonb; prediction_record jsonb; frozen jsonb;
+ matched_bindings jsonb:='[]'; matched_tiers jsonb; family_contract jsonb; core_match boolean; full_match boolean;
 BEGIN
  SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit;
  SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=unit.set_id;
- SELECT * INTO STRICT completed FROM ops.completed_result WHERE run_id=p_run AND release_id=reference_set.release_id;
- PERFORM sem.require_execution_operation(reference_set.release_id,'reference_record_grade');
+ SELECT * INTO STRICT completed FROM ops.completed_result WHERE run_id=p_run;
+ PERFORM sem.require_execution_operation(completed.release_id,'reference_record_grade');
+ binding:=eval.record_reference_unit_binding(p_run,p_unit,p_pass,p_frame);
+ prediction_view:=(binding->'prediction_frame'->'evaluation_frame'->'pin'->>'source_view_id')::bigint;
+ SELECT source_frame->'evaluation_frame' INTO STRICT frozen FROM eval.reference_frame WHERE id=p_frame AND pass_id=p_pass;
  IF NOT EXISTS(SELECT FROM ops.run job JOIN ops.input_cut cut ON cut.id=completed.cut_id
   AND cut.run_id=job.id AND cut.release_id=completed.release_id
   WHERE job.id=p_run AND job.project_id=reference_set.project_id AND job.sealed
@@ -375,7 +609,7 @@ BEGIN
  JOIN ops.method method ON method.id=config.method_id LEFT JOIN ops.task_result result ON result.task_id=origin.id
  WHERE selected.run_id=p_run AND selected.release_id=completed.release_id
   AND (ct.task_id IS NOT NULL OR selected.status IN ('failed','skipped','cancelled'))
-  AND selected.unit_type='source_view' AND selected.unit_id=unit.source_view_id;
+  AND selected.unit_type='source_view' AND selected.unit_id=prediction_view;
  -- Use exactly the authoritative resolver/raw source selection used by grading.
  WITH selected AS (
   SELECT value FROM jsonb_array_elements(tasks) WHERE value->>'method'=CASE
@@ -393,45 +627,79 @@ BEGIN
   WHERE record->>'record_id'=member.record_id AND record->>'interpretation_id'=member.interpretation_id)
  SELECT COALESCE(jsonb_agg(record||jsonb_build_object('standing',decision)
   ORDER BY record->>'record_id',record->>'interpretation_id'),'[]'::jsonb) INTO predictions FROM published;
+ PERFORM ops.validate_source_record_coordinates(p_run,prediction_view,
+  binding->'prediction_frame'->'evaluation_frame'->'pin'->>'source',predictions);
+ FOR prediction_record IN SELECT value FROM jsonb_array_elements(predictions) LOOP
+  IF prediction_record->>'policy_version' IS DISTINCT FROM binding->'prediction_frame'->'evaluation_frame'->>'prediction_policy_version' THEN
+   RAISE EXCEPTION 'prediction policy differs from frozen evaluation policy' USING ERRCODE='23514'; END IF;
+  PERFORM data.validate_source_record_structure(completed.release_id,prediction_record);
+  IF prediction_record->'pin' IS DISTINCT FROM binding->'prediction_frame'->'evaluation_frame'->'pin'
+   OR EXISTS(SELECT FROM jsonb_array_elements(prediction_record->'anchors') anchor WHERE
+    NOT eval.record_reference_anchor_allowed(anchor,binding->'views',frozen)) THEN
+   RAISE EXCEPTION 'prediction differs from independently authenticated mapped reference cut' USING ERRCODE='23514'; END IF;
+ END LOOP;
  FOR expected IN SELECT value FROM jsonb_array_elements(payload->'records') ORDER BY value->>'record_id' LOOP
-  SELECT COALESCE(jsonb_agg(jsonb_build_object('interpretation_id',value->>'interpretation_id','standing',value->>'standing')
+  reference_projection:=eval.record_reference_comparison_record(expected,binding->'views','reference');
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('record_id',value->>'record_id','interpretation_id',value->>'interpretation_id','standing',value->>'standing')
    ORDER BY value->>'interpretation_id'),'[]'::jsonb) INTO readings
-   FROM jsonb_array_elements(predictions) WHERE value->>'record_id'=expected->>'record_id';
+   FROM jsonb_array_elements(predictions) WHERE eval.record_reference_comparison_record(value,binding->'views','prediction')->'occurrence'=reference_projection->'occurrence';
   SELECT value INTO actual FROM jsonb_array_elements(predictions)
-   WHERE value->>'record_id'=expected->>'record_id' AND value->>'standing'='accepted';
+   WHERE eval.record_reference_comparison_record(value,binding->'views','prediction')->'occurrence'=reference_projection->'occurrence' AND value->>'standing'='accepted';
   reading_roles:='[]'; evidence_roles:='[]';
   IF actual IS NOT NULL THEN
+   prediction_projection:=eval.record_reference_comparison_record(actual,binding->'views','prediction');
    SELECT COALESCE(jsonb_agg(ref->>'role' ORDER BY ref->>'role'),'[]'::jsonb) INTO reading_roles
-    FROM jsonb_array_elements(expected->'fields') ref LEFT JOIN LATERAL
-     (SELECT value FROM jsonb_array_elements(actual->'fields') WHERE value->>'role'=ref->>'role') pred ON true
+    FROM jsonb_array_elements(reference_projection->'fields') ref LEFT JOIN LATERAL
+     (SELECT value FROM jsonb_array_elements(prediction_projection->'fields') WHERE value->>'role'=ref->>'role') pred ON true
     WHERE eval.record_policy_field_meaning(ref) IS DISTINCT FROM eval.record_policy_field_meaning(pred.value);
    SELECT COALESCE(jsonb_agg(ref->>'role' ORDER BY ref->>'role'),'[]'::jsonb) INTO evidence_roles
-    FROM jsonb_array_elements(expected->'fields') ref LEFT JOIN LATERAL
-     (SELECT value FROM jsonb_array_elements(actual->'fields') WHERE value->>'role'=ref->>'role') pred ON true
+    FROM jsonb_array_elements(reference_projection->'fields') ref LEFT JOIN LATERAL
+     (SELECT value FROM jsonb_array_elements(prediction_projection->'fields') WHERE value->>'role'=ref->>'role') pred ON true
     WHERE eval.record_policy_field_evidence(ref) IS DISTINCT FROM eval.record_policy_field_evidence(pred.value);
+   SELECT family INTO STRICT family_contract FROM sem.artifact artifact,
+    LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'families') family
+    WHERE artifact.release_id=completed.release_id AND artifact.artifact_name='record_projection.json'
+     AND family->>'family'=expected->>'family';
+   core_match:=NOT EXISTS(SELECT FROM jsonb_array_elements(family_contract->'roles') role
+    WHERE role->'required'='true'::jsonb AND reading_roles ? (role->>'role'));
+   full_match:=core_match AND reading_roles='[]' AND NOT EXISTS(
+    SELECT FROM jsonb_array_elements(family_contract->'roles') role WHERE
+     (role->'required'='true'::jsonb OR role->'meaning_changing'='true'::jsonb) AND evidence_roles ? (role->>'role'));
+   matched_tiers:='[]';
+   IF core_match THEN matched_tiers:=matched_tiers||'"core"'::jsonb; END IF;
+   IF full_match THEN matched_tiers:=matched_tiers||'"full"'::jsonb; END IF;
+   IF full_match AND evidence_roles='[]' THEN matched_tiers:=matched_tiers||'"evidence"'::jsonb; END IF;
+   matched_bindings:=matched_bindings||jsonb_build_array(jsonb_build_object(
+    'reference_record_id',expected->>'record_id','reference_interpretation_id',expected->>'interpretation_id',
+    'prediction_record_id',actual->>'record_id','prediction_interpretation_id',actual->>'interpretation_id','tiers',matched_tiers));
    IF reading_roles='[]' AND evidence_roles='[]' THEN CONTINUE; END IF;
    kind:='mismatched';
   ELSIF readings<>'[]' THEN kind:='unaccepted';
   ELSIF predictions='[]' THEN kind:='no_output';
   ELSE kind:='missing'; END IF;
-  gaps:=gaps||jsonb_build_array(jsonb_build_object('reference_record_id',expected->>'record_id','family',expected->>'family',
+  gaps:=gaps||jsonb_build_array(jsonb_build_object('reference_record_id',expected->>'record_id','reference_interpretation_id',expected->>'interpretation_id','family',expected->>'family',
    'reference_anchor_ids',COALESCE((SELECT jsonb_agg(a->>'anchor_id' ORDER BY a->>'anchor_id')
      FROM jsonb_array_elements(expected->'anchors') a),'[]'::jsonb),
    'kind',kind,'earliest_failed_stage','unknown','reading_roles',reading_roles,'evidence_roles',evidence_roles,'predictions',readings));
  END LOOP;
  RETURN jsonb_build_object('unit_id',p_unit,'pass_id',p_pass,'frame_id',p_frame,'source_view_id',unit.source_view_id,
+  'prediction_source_view_id',prediction_view,'reference_release_id',reference_set.release_id,'prediction_release_id',completed.release_id,
   'source_run_id',reference_set.source_run_id,'source_cut_id',(reference_set.sampling->>'source_cut_id')::bigint,
-  'run_id',p_run,'cut_id',completed.cut_id,'cohort',reference_set.sampling->>'cohort','tasks',tasks,'gaps',gaps);
+  'run_id',p_run,'cut_id',completed.cut_id,'cohort',reference_set.sampling->>'cohort','tasks',tasks,'gaps',gaps,'match_bindings',matched_bindings);
 END $$;
 REVOKE ALL ON FUNCTION eval.source_record_gap_evidence(bigint,bigint,bigint,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.source_record_gap_evidence(bigint,bigint,bigint,bigint) TO corpus_sem_evaluator;
 
 CREATE OR REPLACE FUNCTION eval.validate_source_record_reference_evaluation(p_project text,p_run bigint,p_set bigint,p_snapshot jsonb,p_result jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE source_release text; item jsonb; payload jsonb; frozen jsonb; report_schema json;
+DECLARE source_release text; reference_release text; item jsonb; payload jsonb; frozen jsonb; report_schema json; applicability jsonb;
 BEGIN
- SELECT release_id INTO STRICT source_release FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+ SELECT release_id INTO STRICT reference_release FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+ SELECT c.release_id INTO STRICT source_release FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id WHERE c.run_id=p_run AND r.project_id=p_project;
  PERFORM sem.require_execution_operation(source_release,'reference_record_grade');
+ applicability:=eval.record_reference_applicability(p_project,p_run,p_set);
+ IF p_result->'applicability' IS DISTINCT FROM applicability OR p_result->>'reference_release_id' IS DISTINCT FROM reference_release THEN
+  RAISE EXCEPTION 'record grade reference applicability differs from native authenticated correspondence' USING ERRCODE='23514'; END IF;
  SELECT convert_from(content,'UTF8')::json INTO STRICT report_schema FROM sem.artifact
  WHERE release_id=source_release AND artifact_name='json_schema/ReferenceRecordEvaluationReport';
  IF NOT public.json_matches_schema(report_schema,p_result::json)
@@ -453,7 +721,7 @@ BEGIN
    WHERE reported->>'unit'=u.unit_key AND eligible->>'unit_key'=u.unit_key
     AND (eligible->>'source_view_id')::bigint=u.source_view_id
     AND reported->>'origin_group'=eligible->>'origin_group'
-    AND reported->>'release_id'=s.release_id
+    AND reported->>'release_id'=source_release AND reported->>'reference_release_id'=s.release_id
     AND reported->>'guideline_version'=f.source_frame->'evaluation_frame'->>'guideline_version'
     AND reported->>'reference_policy_version'=f.source_frame->'evaluation_frame'->>'reference_policy_version'
     AND reported->>'prediction_policy_version'=f.source_frame->'evaluation_frame'->>'prediction_policy_version')) THEN
@@ -478,14 +746,18 @@ BEGIN
    IS DISTINCT FROM eval.source_record_gap_evidence(p_run,(item->>'unit_id')::bigint,
     (item->>'pass_id')::bigint,(item->>'frame_id')::bigint) THEN
    RAISE EXCEPTION 'record gaps differ from complete independent C/native publication evidence' USING ERRCODE='23514'; END IF;
-  IF EXISTS(SELECT FROM jsonb_array_elements(frozen->'source_views') v WHERE NOT EXISTS(
-    SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=(v->>'id')::bigint))
-   OR (EXISTS(SELECT FROM ops.completed_result target JOIN ops.cut_task ct ON ct.cut_id=target.cut_id
-     JOIN ops.task t ON t.id=ct.origin_task_id WHERE target.run_id=p_run AND t.unit_type='source_view'
-      AND t.unit_id=(frozen->'evaluation_frame'->'pin'->>'source_view_id')::bigint)
-    AND eval.record_reference_source_binding(p_run,(frozen->'evaluation_frame'->'pin'->>'source_view_id')::bigint)
-     IS DISTINCT FROM frozen->'evaluation_frame'->'pin'->>'source') THEN
-   RAISE EXCEPTION 'record grade logical source binding changed from frozen source cut' USING ERRCODE='23514'; END IF;
+  IF EXISTS(SELECT FROM jsonb_array_elements(p_result->'units') reported JOIN eval.reference_unit u
+    ON u.id=(item->>'unit_id')::bigint AND reported->>'unit'=u.unit_key
+    WHERE reported->'match_bindings' IS DISTINCT FROM reported->'gap_evidence'->'match_bindings'
+     OR EXISTS(SELECT FROM unnest(ARRAY['core','full','evidence']) tier WHERE reported->'matches'->tier IS DISTINCT FROM
+      (SELECT COALESCE(jsonb_agg(binding->'reference_record_id' ORDER BY binding->>'reference_record_id'),'[]'::jsonb)
+       FROM jsonb_array_elements(reported->'gap_evidence'->'match_bindings') binding WHERE binding->'tiers' ? tier))) THEN
+   RAISE EXCEPTION 'record grade matches differ from authenticated original/prediction identities' USING ERRCODE='23514'; END IF;
+  IF (SELECT reported->'correspondence' FROM jsonb_array_elements(p_result->'units') reported
+   JOIN eval.reference_unit u ON u.id=(item->>'unit_id')::bigint AND reported->>'unit'=u.unit_key)
+   IS DISTINCT FROM eval.record_reference_unit_binding(p_run,(item->>'unit_id')::bigint,
+    (item->>'pass_id')::bigint,(item->>'frame_id')::bigint)->'views' THEN
+   RAISE EXCEPTION 'record grade comparison closure differs from authenticated correspondence' USING ERRCODE='23514'; END IF;
  END LOOP;
  IF p_result ? 'policy_fit' THEN
   PERFORM eval.validate_record_policy_product(p_project,p_run,p_set,p_result->'policy_fit');
@@ -527,16 +799,23 @@ END $$;
 REVOKE ALL ON FUNCTION eval.require_record_fitting_principal() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.require_record_fitting_principal() TO corpus_sem_fitter;
 
-CREATE OR REPLACE FUNCTION eval.read_record_fitting_references(p_set bigint)
+CREATE OR REPLACE FUNCTION eval.read_record_fitting_references(p_set bigint,p_prediction_run bigint)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE reference_set eval.reference_set; result jsonb; snapshot jsonb; item jsonb; payload jsonb;
+DECLARE reference_set eval.reference_set; result jsonb; snapshot jsonb; item jsonb; payload jsonb; applicability jsonb; target_release text;
 BEGIN
  PERFORM eval.require_record_fitting_principal();
  SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=p_set;
  IF reference_set.sampling->>'record_protocol' IS DISTINCT FROM 'source-record-reference-1'
   OR reference_set.sampling->>'partition' IS DISTINCT FROM 'feature_fit' THEN
   RAISE EXCEPTION 'fitting capability exposes only isolated feature-fit references' USING ERRCODE='42501'; END IF;
- PERFORM sem.require_execution_operation(reference_set.release_id,'reference_record_fit');
+ IF p_prediction_run IS NULL THEN
+  PERFORM sem.require_execution_operation(reference_set.release_id,'reference_record_fit');
+ ELSE
+  SELECT c.release_id INTO STRICT target_release FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id
+   WHERE c.run_id=p_prediction_run AND r.project_id=reference_set.project_id;
+  PERFORM sem.require_execution_operation(target_release,'reference_record_fit');
+  applicability:=eval.record_reference_applicability(reference_set.project_id,p_prediction_run,p_set);
+ END IF;
  IF (SELECT jsonb_array_length(eval.native_reference_snapshot(p_set)))<>(SELECT count(*) FROM eval.reference_unit WHERE set_id=p_set)
   OR NOT EXISTS(SELECT FROM eval.reference_unit WHERE set_id=p_set) THEN
   RAISE EXCEPTION 'fitting requires every independently sampled unit adjudicated' USING ERRCODE='23514'; END IF;
@@ -548,13 +827,22 @@ BEGIN
  END LOOP;
  SELECT jsonb_agg(jsonb_build_object('unit_id',u.id,'unit_ref',u.unit_key,'pass_id',p.id,
   'authored',convert_from(p.authored,'UTF8')::jsonb,'content_digest',p.content_digest,
-  'source_frame',f.source_frame,'guideline',reference_set.guideline,'sampling',reference_set.sampling) ORDER BY u.id)
+  'source_frame',f.source_frame,'guideline',reference_set.guideline,'sampling',reference_set.sampling)
+  ||CASE WHEN p_prediction_run IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('applicability',applicability,
+   'prediction_binding',eval.record_reference_unit_binding(p_prediction_run,u.id,p.id,f.id)) END ORDER BY u.id)
  INTO result FROM jsonb_array_elements(snapshot) snap
  JOIN eval.reference_unit u ON u.id=(snap->>'unit_id')::bigint
  JOIN eval.reference_pass p ON p.id=(snap->>'pass_id')::bigint
  JOIN eval.reference_frame f ON f.id=(snap->>'frame_id')::bigint;
  RETURN result;
 END $$;
+REVOKE ALL ON FUNCTION eval.read_record_fitting_references(bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.read_record_fitting_references(bigint,bigint) TO corpus_sem_fitter;
+
+CREATE OR REPLACE FUNCTION eval.read_record_fitting_references(p_set bigint)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT eval.read_record_fitting_references(p_set,NULL::bigint)
+$$;
 REVOKE ALL ON FUNCTION eval.read_record_fitting_references(bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.read_record_fitting_references(bigint) TO corpus_sem_fitter;
 

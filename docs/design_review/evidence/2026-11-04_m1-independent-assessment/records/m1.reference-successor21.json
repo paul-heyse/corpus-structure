@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "m1.reference-successor21",
+  "title": "Actual compatible source-only successor evaluation and cohort comparison",
+  "group": "M1",
+  "package": "M1-13",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can real retained-source preparation reuse original protected references across executable releases without losing no-output units?",
+  "answers": [
+    "M1-INT-F24"
+  ],
+  "method": "Actual restricted evaluator grading of completed source/annotation-only run21 against immutable feature-fit C23/24, plus paired comparison against original evaluation1.",
+  "commands": [
+    "uv run ci eval run --run 21 --set-id 1 --project m1-source-grinstead-snell --json",
+    "uv run ci eval compare --baseline 1 --revised 2 --project m1-source-grinstead-snell --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "attempt-preparation-grade-001.log",
+      "role": null,
+      "sha256": "a9f4277b7b1f7d3bc50cf820659e8fcae4504e7e14f8af2905a3516b5ca09554"
+    },
+    {
+      "path": "preparation-grade-001-summary.json",
+      "role": null,
+      "sha256": "dfe6d494aa994624b9ea7aae2537aa691ba7bf54b2adc96b5b32da22fba30ea5"
+    },
+    {
+      "path": "attempt-preparation-compare-001.log",
+      "role": null,
+      "sha256": "1730d8dcd996953abc96df8d654efd2c5661909bc9d2f905c5a5ba395de23396"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-policy-admission/m1.reference-applicability129"
+  ],
+  "results": [
+    {
+      "name": "Original reference units retained",
+      "value": 2,
+      "of": null,
+      "unit": "units",
+      "note": null
+    },
+    {
+      "name": "Original reference readings retained",
+      "value": 270,
+      "of": null,
+      "unit": "readings",
+      "note": null
+    },
+    {
+      "name": "Expected no-output gaps",
+      "value": 270,
+      "of": null,
+      "unit": "gaps",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Evaluation2 and actual paired comparison pass with originalBC69references and actualb97successor binding, physicalviews22→35/23→36, originalC23/24snapshot and270readings. This preparation-only run intentionally performs no extraction:0predictions/matches and270no_outputgaps are expected. The old failed source-quality result remains current; no new quality, trained model, fitted acceptance, held-out or whole-M1 claim. No reference copy/retagging or PDF/recognition rerun occurs.",
+  "consumed_by": [
+    "M1-13",
+    "M1-15"
+  ]
+}

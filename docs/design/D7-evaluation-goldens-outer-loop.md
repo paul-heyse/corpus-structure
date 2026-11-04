@@ -2,11 +2,15 @@
 
 ## M1 fitted instances and final-event calibration
 
-**Accepted target, Proposed until implemented (2026-11-04).** The authoring release and exact source-ready frames
+**Implemented; bounded native controls Tested (2026-11-04).** The authoring release and exact source-ready frames
 freeze before A/B/C; their original identities remain immutable. A compatible execution successor
 may be evaluated through independently validated physical-source correspondence and the unchanged
 consumed reference/comparison contract, preserving both releases in its evaluation. This successor
-path is Proposed until implemented; current hard-equality behavior remains in force meanwhile. Feature fitting consumes only protected feature-fit labels.
+path passes all16affected native reference/policy controls at129, including changed physical
+source/policy/real-alias refusal and no-output denominator retention. Actual protected fitter
+reads, evaluation2 and paired evaluation1→2 preserve the originalC23/24against completed
+source/annotation-only successor21, with270expectedno_outputgaps and no quality claim.
+Feature fitting consumes only protected feature-fit labels.
 An evaluator-authorized final-event calibration operation uses a frozen feature instance and the
 complete predeclared scored-event frame, including low-score and unaccepted candidates; no-output
 source units remain in separate coverage/capture accounting. Its typed immutable product extends
@@ -46,7 +50,7 @@ Compatible successor evaluation preserves that original provenance under ADR-006
 
 > Decision: [ADR-0058](../adr/0058-native-row-location.md)
 
-**Accepted target, Proposed until native qualification (2026-11-03).** A distinct released
+**Implemented; source-only registration Tested (2026-11-04); final family qualification open.** A distinct released
 source-record protocol reuses the protected reference store. Freeze selected source membership,
 source-only frames, guideline text and immutable credible origin partitions at reference-set
 creation from a named sealed source-ready cut. Missing/empty producers remain in the denominator.
