@@ -389,6 +389,9 @@ BEGIN
      IS DISTINCT FROM frozen->'evaluation_frame'->'pin'->>'source') THEN
    RAISE EXCEPTION 'record grade logical source binding changed from frozen source cut' USING ERRCODE='23514'; END IF;
  END LOOP;
+ IF p_result ? 'policy_fit' THEN
+  PERFORM eval.validate_record_policy_product(p_project,p_run,p_set,p_result->'policy_fit');
+ END IF;
  END $$;
 REVOKE ALL ON FUNCTION eval.validate_source_record_reference_evaluation(text,bigint,bigint,jsonb,jsonb) FROM PUBLIC;
 

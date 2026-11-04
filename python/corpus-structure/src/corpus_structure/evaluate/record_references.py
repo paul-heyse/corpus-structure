@@ -368,7 +368,8 @@ def report_payload(value: Any) -> Any:
 
 
 def reference_evaluate(
-    conn: Connection, *, project_id: str, run_id: int, set_id: int
+    conn: Connection, *, project_id: str, run_id: int, set_id: int,
+    policy_fit: Mapping[str, Any] | None = None,
 ) -> ReferenceReport:
     completed = _completed(conn, run_id, project_id)
     sets, units = table("eval.reference_set"), table("eval.reference_unit")
@@ -472,6 +473,9 @@ def reference_evaluate(
         ).scalar_one(),
         quality_claim="not_established",
     )
+    if policy_fit is not None:
+        require_bound_operation(prepared, "reference_record_calibrate")
+        result["policy_fit"] = dict(policy_fit)
     result = report_payload(result)
     prepared.validate_json("ReferenceRecordEvaluationReport", _json(result))
     identity = _call(
