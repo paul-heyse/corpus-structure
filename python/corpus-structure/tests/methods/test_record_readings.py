@@ -16,6 +16,7 @@ from corpus_structure.methods.record_assembly import (
     assemble_native_records,
     assemble_records,
     native_formula_group,
+    native_group_identity,
 )
 from corpus_structure.methods.record_packs import family_pack
 from corpus_structure.methods.record_readings import (
@@ -23,7 +24,13 @@ from corpus_structure.methods.record_readings import (
     native_model_observations,
 )
 from corpus_structure.semantic import record_interpretation as ri
-from methods.test_record_assembly import context, fields, release, report, span
+from corpus_structure.semantic.source_contexts import (
+    ContextRelationship,
+    NativeSourceContext,
+    RelatedNativeSource,
+    SourceSlice,
+)
+from methods.test_record_assembly import context, fields, release, report, source, span
 
 
 def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():
@@ -97,6 +104,166 @@ def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():
         policy_version="test",
     )
     assert fields(third.records[0])["unit"]["state"] == "unresolved"
+
+
+def conflicting_measurement():
+    return dict(
+        referent={**span(0, 1, "A"), "confidence": .91},
+        referent__state={"text": "unstated", "confidence": .12},
+        property=span(2, 6, "mean"),
+        property__state={"text": "unresolved"},
+        original_value=span(7, 8, "2"),
+        original_value__state={"text": "inapplicable"},
+        value_role={"text": "mean", "confidence": .83},
+        value_role__state={"text": "unstated"},
+        value_role__cue=span(2, 6, "mean"),
+        condition__state={"text": "unstated"},
+    )
+
+
+def assemble_conflicting(groups):
+    ctx = context("A mean 2")
+    pack = family_pack(release(), contract="MeasurementRecordFields",
+                       anchor_role="original_value", source_inspection=True)
+    raw = report(ctx, pack, "measurement", groups)
+    result = assemble_records(release(), ctx, pack, raw,
+        contract="MeasurementRecordFields", anchor_role="original_value",
+        policy_version="m1-grouped-reading-logistic-1", occurrence_policy=OCCURRENCE_POLICY)
+    return ctx, raw, result
+
+
+def test_conflicting_primary_spans_keep_located_alternatives_and_one_whole_value_hypothesis():
+    group = conflicting_measurement()
+    ctx, raw, result = assemble_conflicting([group])
+    assert len(result.records) == 2
+    inspected, valued = (record.model_dump() for record in result.records)
+    assert inspected["record_id"] == valued["record_id"]
+    assert inspected["interpretation_id"] != valued["interpretation_id"]
+    assert inspected["standing"] == valued["standing"] == "candidate"
+    assert inspected["occurrence_anchors"] == valued["occurrence_anchors"]
+    by_role = {field["role"]: field for field in inspected["fields"]}
+    by_value = {field["role"]: field for field in valued["fields"]}
+    anchors = {anchor["anchor_id"]: anchor for anchor in inspected["anchors"]}
+    evidence = {entry["set_id"]: entry for entry in inspected["evidence_sets"]}
+    occurrence_spans = [
+        (anchors[key]["start"], anchors[key]["end"]) for key in inspected["occurrence_anchors"]
+    ]
+    assert occurrence_spans == [
+        (0, 1), (2, 6), (7, 8)
+    ]
+    for role, actual in (("referent", "A"), ("property", "mean"), ("original_value", "2")):
+        field = by_role[role]
+        assert field["state"] == "unresolved" and "value" not in field
+        (alternative,) = field["alternatives"]
+        assert alternative["value"] == dict(kind="text", text=actual)
+        context_set = evidence[field["evidence_sets"][0]]
+        literal_set = evidence[alternative["evidence_sets"][0]]
+        assert context_set["usage"] == "context" and literal_set["usage"] == "literal"
+        assert context_set["set_id"] != literal_set["set_id"]
+        assert "".join(anchors[key]["source_piece"] for key in literal_set["anchors"]) == actual
+        assert by_value[role]["state"] == "present"
+        assert by_value[role]["evidence_sets"] == alternative["evidence_sets"]
+        assert "alternatives" not in by_value[role]
+    assert by_value["value_role"]["value"]["label"] == "mean"
+    assert evidence[by_value["value_role"]["evidence_sets"][0]]["usage"] == "classification_cue"
+    assert by_value["unit"]["state"] == "unresolved"  # no emitted source absence
+    assert by_value["condition"]["state"] == "unstated"  # actual state + inspected scope
+    shared = native_group_identity(raw, 0, group)
+    assert all(shared in record["computation_dependencies"] for record in (inspected, valued))
+    assert "source-reading-branch:inspection" in inspected["computation_dependencies"]
+    assert "source-reading-branch:native-group-value" in valued["computation_dependencies"]
+    assert result.raw_report is raw and raw.raw["measurement"] == [group]
+    assert {item.code for item in result.diagnostics} >= {
+        "state_value_conflict", "unresolved_value_proposal", "unresolved_field"
+    }
+    observations = native_model_observations(
+        raw, context=ctx, family="measurement", context_index=0
+    )
+    assert any(
+        row["field"] == "referent__state" and row["confidence"] == .12 for row in observations
+    )
+    assert all("score" not in record for record in (inspected, valued))
+
+
+@pytest.mark.parametrize("change", ["missing", "wrong_literal", "untyped", "synthetic"])
+def test_unlocated_critical_raw_proposal_cannot_borrow_inspection_context(change):
+    group = conflicting_measurement()
+    if change == "missing":
+        group.pop("referent")
+    elif change == "wrong_literal":
+        group["referent"] = span(0, 1, "B")
+    elif change == "untyped":
+        group["referent"] = dict(start=True, end=1, text="A")
+    else:
+        group["referent"] = span(8, 9, ".")  # outside actual source, even if provider added suffix
+    _, _, result = assemble_conflicting([group])
+    assert not result.records
+    assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
+
+
+def test_repeated_group_has_two_readings_and_cueless_classification_stays_unresolved():
+    group = conflicting_measurement()
+    group.pop("value_role__cue")
+    _, _, result = assemble_conflicting([group, group])
+    assert len(result.records) == 2
+    assert len({record.model_dump()["record_id"] for record in result.records}) == 1
+    assert all(fields(record)["value_role"]["state"] == "unresolved" for record in result.records)
+    assert all("alternatives" not in fields(record)["value_role"] for record in result.records)
+
+
+def test_ambiguous_formula_binding_cannot_become_formula_only_after_value_repair():
+    ctx = context("x=2 x value")
+    pack = family_pack(release(), contract="FormulaRecordFields", anchor_role="formula",
+                       source_inspection=True)
+    group = dict(formula=span(0, 3, "x=2"), formula__state={"text": "unstated"},
+                 symbol=span(4, 5, "x"), symbol__state={"text": "unresolved"},
+                 meaning__state={"text": "unresolved"})
+    result = assemble_records(release(), ctx, pack, report(ctx, pack, "formula_context", [group]),
+        contract="FormulaRecordFields", anchor_role="formula", policy_version="test",
+        occurrence_policy=OCCURRENCE_POLICY)
+    assert not result.records
+    assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
+
+
+def test_formula_value_proposals_and_inspection_share_actual_binding_first_use():
+    ctx = context("x=2 x means value")
+    pack = family_pack(release(), contract="FormulaRecordFields", anchor_role="formula",
+                       source_inspection=True)
+    group = dict(formula=span(0, 3, "x=2"), formula__state={"text": "unstated"},
+                 symbol=span(4, 5, "x"), symbol__state={"text": "unresolved"},
+                 meaning=span(12, 17, "value"), meaning__state={"text": "unstated"})
+    result = assemble_records(release(), ctx, pack, report(ctx, pack, "formula_context", [group]),
+        contract="FormulaRecordFields", anchor_role="formula", policy_version="test",
+        occurrence_policy=OCCURRENCE_POLICY)
+    assert len(result.records) == 2
+    rows = [record.model_dump() for record in result.records]
+    assert rows[0]["record_id"] == rows[1]["record_id"]
+    assert rows[0]["interpretation_id"] != rows[1]["interpretation_id"]
+    for row in rows:
+        anchors = {anchor["anchor_id"]: anchor for anchor in row["anchors"]}
+        membership = [
+            (anchors[key]["start"], anchors[key]["end"]) for key in row["occurrence_anchors"]
+        ]
+        assert membership == [
+            (0, 3), (0, 1)
+        ]
+
+
+def test_related_literal_proposal_cannot_define_primary_occurrence():
+    primary, related = source("A"), source("mean 2", identity=2)
+    ctx = NativeSourceContext(primary,
+        (RelatedNativeSource(related, ContextRelationship.DECLARATION, "actual context"),),
+        (SourceSlice(1, 0, 1), SourceSlice(2, 0, 6)), "reading", "policy", "explicit")
+    pack = family_pack(release(), contract="MeasurementRecordFields",
+                       anchor_role="original_value", source_inspection=True)
+    group = dict(referent=span(0, 1, "A"), referent__state={"text": "unstated"},
+                 property=span(1, 5, "mean"), property__state={"text": "unresolved"},
+                 original_value=span(6, 7, "2"), original_value__state={"text": "unstated"})
+    result = assemble_records(release(), ctx, pack, report(ctx, pack, "measurement", [group]),
+        contract="MeasurementRecordFields", anchor_role="original_value", policy_version="test",
+        occurrence_policy=OCCURRENCE_POLICY)
+    assert not result.records
+    assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
 
 
 @pytest.mark.parametrize(

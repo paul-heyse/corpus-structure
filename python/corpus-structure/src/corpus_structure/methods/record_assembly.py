@@ -102,6 +102,7 @@ class AssemblyResult:
 
 OCCURRENCE_POLICY = "statistics-reading-occurrence-2"
 FORMULA_BINDING_POLICY = "formula-symbol-first-use-1"
+READING_HYPOTHESIS_POLICY = "source-reading-hypotheses-2"
 READING_ROLES = {
     "definition": ("term", "defining_text"),
     "assertion": ("subject", "predicate", "object"),
@@ -153,6 +154,10 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
                     state=resolved_state,
                     inspected_spans=inspected,
                     reason=(
+                        "native source-state proposal remains unresolved beside retained "
+                        "value/cue output"
+                        if conflicting and state == "unresolved"
+                        else
                         "native state proposal conflicts with retained value/cue output"
                         if conflicting
                         else "native inapplicability proposal lacks a family-specific justification"
@@ -202,7 +207,11 @@ def inspected_groups(prepared, context, *, contract, groups, supplements):
         output[index] = NativeRecordGroup(
             tuple(fields.values()),
             supplied.reason,
-            (*supplied.dependencies, "inspection-policy:" + INSPECTION_POLICY),
+            (
+                *supplied.dependencies,
+                "inspection-policy:" + INSPECTION_POLICY,
+                "reading-hypothesis-policy:" + READING_HYPOTHESIS_POLICY,
+            ),
         )
     return output
 
@@ -326,6 +335,7 @@ def _assemble(
         evidence_sets: dict[str, dict[str, Any]] = {}
         fields = []
         role_anchors: dict[str, tuple[str, ...]] = {}
+        value_proposals: dict[str, dict[str, Any]] = {}
 
         def native_anchor(pointer: str, _anchors=anchors) -> dict[str, Any]:
             if pointer not in pointers:
@@ -551,6 +561,96 @@ def _assemble(
                     reason=str(error),
                 )
                 role_anchors.pop(role.name, None)
+            if (
+                field["state"] == "unresolved"
+                and supplied is not None
+                and raw is not None
+                and any(value.startswith("source-inspection:") for value in supplied.dependencies)
+            ):
+                # A located value is an actual model proposal even when the
+                # independent state output disputes it. Keep its own evidence
+                # separate from the inspected context; neither observation wins.
+                try:
+                    proposal: dict[str, Any] = dict(
+                        role=role.name,
+                        kind=kind,
+                        state="present",
+                        meaning_changing=field["meaning_changing"],
+                        evidence_status="available",
+                    )
+                    if kind == "literal":
+                        if not isinstance(raw, dict):
+                            raise GlinerRefused("literal value proposal lacks source coordinates")
+                        proposed_pieces = literal_anchors(
+                            (LiteralSpan(raw["start"], raw["end"], raw["text"]),), role.name
+                        )
+                        originals = tuple(piece["source_piece"] for piece in proposed_pieces)
+                        if len(originals) == 1:
+                            proposal.update(
+                                original=originals[0], value=dict(kind="text", text=originals[0])
+                            )
+                        else:
+                            proposal.update(
+                                original_pieces=originals,
+                                value=dict(kind="text_sequence", items=originals),
+                            )
+                        proposed_usage = "literal"
+                    elif kind == "classified":
+                        label = raw.get("text", raw.get("label")) if isinstance(raw, dict) else raw
+                        value_kind, choices = classification(prepared, role)
+                        if label not in choices:
+                            raise GlinerRefused(
+                                "value proposal differs from released classification"
+                            )
+                        cue = group.get(role.name + "__cue")
+                        if not isinstance(cue, dict):
+                            raise GlinerRefused("value proposal has no independently located cue")
+                        proposed_pieces = literal_anchors(
+                            (LiteralSpan(cue["start"], cue["end"], cue["text"]),),
+                            role.name,
+                            cue=True,
+                        )
+                        proposal["value"] = dict(kind=value_kind, label=label)
+                        proposed_usage = "classification_cue"
+                    else:
+                        raise GlinerRefused("unsupported native value hypothesis kind")
+                    if not proposed_pieces:
+                        raise GlinerRefused("value proposal has no genuine located source pieces")
+                    ids = tuple(piece["anchor_id"] for piece in proposed_pieces)
+                    evidence = dict(
+                        role=role.name, usage=proposed_usage, ordering="ordered", anchors=ids
+                    )
+                    evidence["set_id"] = evidence_set_identity(evidence)
+                    proposal["evidence_sets"] = (evidence["set_id"],)
+                    prepared.validate_python(role.range, proposal)
+                    evidence_sets[evidence["set_id"]] = evidence
+                    alternative = dict(
+                        value=proposal["value"],
+                        evidence_sets=(evidence["set_id"],),
+                        reason="located native value proposal retained beside independent "
+                        "source-state inspection; neither establishes source truth",
+                    )
+                    alternative["alternative_id"] = _digest(
+                        "record-field-alternative", [role.name, alternative]
+                    )
+                    field["alternatives"] = (alternative,)
+                    value_proposals[role.name] = proposal
+                    role_anchors[role.name] = ids
+                    state = group.get(role.name + "__state")
+                    state = (
+                        state.get("text", state.get("label")) if isinstance(state, dict) else state
+                    )
+                    diagnostics.append(AssemblyDiagnostic(
+                        index, role.name,
+                        "state_value_conflict" if state in {"unstated", "inapplicable"}
+                        else "unresolved_value_proposal",
+                        "actual native value/cue and independent state proposal retained; "
+                        "inspection and coherent value hypotheses remain candidates",
+                    ))
+                except (ValueError, TypeError, KeyError) as error:
+                    diagnostics.append(AssemblyDiagnostic(
+                        index, role.name, "unlocated_value_proposal", str(error)
+                    ))
             if field["state"] == "unresolved":
                 diagnostics.append(
                     AssemblyDiagnostic(index, role.name, "unresolved_field", field["reason"])
@@ -573,7 +673,9 @@ def _assemble(
             continue
         extra_occurrence = []
         if occurrence_policy and family == "formula_context":
-            by_role = {field["role"]: field for field in fields}
+            by_role = {
+                field["role"]: value_proposals.get(field["role"], field) for field in fields
+            }
             symbol, meaning = by_role["symbol"], by_role["meaning"]
             if symbol["state"] == meaning["state"] == "unstated":
                 pass
@@ -636,6 +738,10 @@ def _assemble(
                 )
             )
         )
+        inspection = "reading-hypothesis-policy:" + READING_HYPOTHESIS_POLICY in group_dependencies
+        branch_dependencies = group_dependencies | (
+            {"source-reading-branch:inspection"} if inspection else set()
+        )
         row = dict(
             contract=contract,
             family=family,
@@ -647,11 +753,24 @@ def _assemble(
             fields=tuple(fields),
             anchors=tuple(anchors.values()),
             evidence_sets=tuple(evidence_sets.values()),
-            computation_dependencies=tuple(sorted(group_dependencies)),
+            computation_dependencies=tuple(sorted(branch_dependencies)),
         )
         row["record_id"] = record_identity(prepared.release_id, row)
         row["interpretation_id"] = interpretation_identity(row)
         records.append(row)
+        all_dependencies.update(branch_dependencies)
+        if value_proposals:
+            # One coherent alternative for this actual decoder group, never a
+            # Cartesian expansion of role combinations or an override of state.
+            value_dependencies = group_dependencies | {"source-reading-branch:native-group-value"}
+            value_row = dict(
+                row,
+                fields=tuple(value_proposals.get(field["role"], field) for field in fields),
+                computation_dependencies=tuple(sorted(value_dependencies)),
+            )
+            value_row["interpretation_id"] = interpretation_identity(value_row)
+            records.append(value_row)
+            all_dependencies.update(value_dependencies)
     # Exact duplicate native groups are observations of the same interpretation, not votes.
     unique = {(row["record_id"], row["interpretation_id"]): row for row in records}
     bound = bind_record_candidates(
