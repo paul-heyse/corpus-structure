@@ -1089,12 +1089,14 @@ def native_table_groups(
                     reason="explicit native table caption link",
                 ),
             )
+        # A missing parser row-header path supplies no label proposal. Native cell
+        # geometry still owns row location; label absence needs source inspection.
         groups.append(
             NativeRecordGroup(
                 (
                     RoleInput("table", native_pointer=table_pointer),
                     RoleInput("cell", native_pointer=cell_pointer),
-                    reading("row_identity", row_paths.get(index, ())),
+                    *((reading("row_label", row_paths[index]),) if row_paths.get(index) else ()),
                     reading("header_path", header_paths.get(index, ())),
                     value,
                     *additional,

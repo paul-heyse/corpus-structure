@@ -105,8 +105,10 @@ configs:
           condition: Exact source condition, population restriction or setting governing this measurement
             or comparison. Keep its attachment to this value.
         table:
-          row_identity: Exact native row label or complete row header path associated with this cell.
-            Do not infer row identity from flattened proximity or use another row label.
+          row_label: Exact stated row label or complete explicit row-header path associated with this
+            cell. Native table and cell addresses provide structural location. Missing row-header
+            metadata does not establish absence. Propose unstated only after inspecting the supplied
+            source; do not invent a row number, borrow another row label or copy the complete row.
           header_path: Exact full applicable header path for this cell, including required spanning
             parent headers and nested child headers. Crossing, ambiguous or missing header structure
             is unresolved rather than a fabricated path.

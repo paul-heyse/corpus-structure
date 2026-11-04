@@ -109,7 +109,7 @@ def table_record():
     pieces = {
         "table": anchor("#/tables/0", precision="item"),
         "cell": anchor("#/tables/0/cells/3", precision="item"),
-        "row_identity": anchor("#/tables/0/cells/0", "Group A", 0, 7),
+        "row_label": anchor("#/tables/0/cells/0", "Group A", 0, 7),
         "parent": anchor("#/tables/0/cells/1", "Population", 0, 10),
         "child": anchor("#/tables/0/cells/2", "mean", 0, 4),
         "value": anchor("#/tables/0/cells/3", "12", 0, 2),
@@ -118,7 +118,7 @@ def table_record():
     memberships = {
         "table": ("table",),
         "cell": ("cell",),
-        "row_identity": ("row_identity",),
+        "row_label": ("row_label",),
         "header_path": ("parent", "child"),
         "cell_value": ("value",),
         "note": ("note",),
@@ -149,10 +149,10 @@ def table_record():
             evidence=by_role["cell"],
         ),
         field(
-            "row_identity",
+            "row_label",
             {"kind": "text", "text": "Group A"},
             original="Group A",
-            evidence=by_role["row_identity"],
+            evidence=by_role["row_label"],
         ),
         field(
             "header_path",

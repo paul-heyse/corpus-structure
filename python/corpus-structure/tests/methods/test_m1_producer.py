@@ -343,7 +343,7 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
     assert len(worker.calls) == 1 and len(result.records) == 2
     zero, blank = ({f["role"]: f for f in row["fields"]} for row in result.records)
     assert zero["cell_value"]["original"] == "0"
-    assert zero["row_identity"]["original"] == "A"
+    assert zero["row_label"]["original"] == "A"
     assert zero["header_path"]["original"] == "Pressure"
     assert blank["cell_value"]["state"] == "unstated"
     assert blank["note"]["state"] == "unresolved"

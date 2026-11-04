@@ -127,7 +127,7 @@ def specifications(family):
             (
                 native("table", "#/tables/0"),
                 native("cell", "#/tables/0/cells/3"),
-                literal("row_identity", "Group A"),
+                literal("row_label", "Group A"),
                 literal("header_path", ("Population", "mean")),
                 literal("cell_value", "12", decimal=True),
                 literal("unit", "cm"),

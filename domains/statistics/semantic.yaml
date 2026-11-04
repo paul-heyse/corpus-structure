@@ -90,7 +90,7 @@ classes:
       occurrence_recipe: {equals_string: source-anchor-membership-1}
       table: {range: RequiredNativeRecordField, required: true, inlined: true}
       cell: {range: RequiredNativeRecordField, required: true, inlined: true}
-      row_identity: {range: RequiredLiteralRecordField, required: true, inlined: true}
+      row_label: {range: LiteralRecordField, required: true, inlined: true}
       header_path: {range: RequiredLiteralRecordField, required: true, inlined: true}
       cell_value: {range: RequiredLiteralRecordField, required: true, inlined: true}
       unit: {range: LiteralRecordField, required: true, inlined: true}

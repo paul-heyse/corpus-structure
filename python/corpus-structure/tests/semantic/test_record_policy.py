@@ -16,6 +16,7 @@ from corpus_structure.evaluate.record_fitting import (
     fit_final_event_calibration,
     fit_whole_reading_features,
 )
+from corpus_structure.semantic.record_contracts import evidence_set_identity
 from corpus_structure.semantic.record_policy import (
     FEATURES,
     FeatureInstance,
@@ -30,7 +31,7 @@ from corpus_structure.semantic.record_policy import (
     score_record,
 )
 
-from .test_record_contracts import bind, release_inputs, table_record
+from .test_record_contracts import bind, finish, release_inputs, table_record
 
 
 def algorithm(**changes):
@@ -324,6 +325,49 @@ def test_whole_record_requires_calibration_and_native_authority_and_refuses_unre
     assert not refusal.eligible_for_native_validation
 
 
+@pytest.mark.parametrize("state", ["unresolved", "unstated"])
+def test_row_label_remains_meaning_changing_without_a_required_present_gate(state):
+    raw, contexts = table_record()
+    prepared = release_inputs()[2]
+    feature_data = fitted().model_dump(mode="python")
+    feature_data["applicability"]["release_id"] = prepared.release_id
+    feature = FeatureInstance.model_validate(feature_data)
+    raw["policy_version"] = feature.algorithm.version
+    raw["standing"] = "candidate"
+    label = next(field for field in raw["fields"] if field["role"] == "row_label")
+    old_set = label["evidence_sets"][0]
+    inspection = dict(
+        role="row_label", ordering="ordered", usage="context",
+        anchors=(raw["anchors"][0]["anchor_id"],),
+    )
+    inspection["set_id"] = evidence_set_identity(inspection)
+    raw["evidence_sets"] = tuple(
+        inspection if row["set_id"] == old_set else row for row in raw["evidence_sets"]
+    )
+    label.clear()
+    label.update(
+        role="row_label", kind="literal", state=state, meaning_changing=True,
+        evidence_status="available", evidence_sets=(inspection["set_id"],),
+        reason="controlled independently located row-label inspection",
+    )
+    finish(raw)
+    candidate = bind(raw, contexts)
+    instance = RecordAcceptanceInstance(
+        feature=feature, calibration=calibrated(feature), threshold=0.6,
+        threshold_procedure="fixed threshold before final assessment",
+        conditioning_assumptions="native source custody required",
+    )
+    proposal = assess_record_admission(
+        prepared, candidate, instance, subset="native-tables", final_event_score=100.0,
+        event_procedure="uncoupled-whole-reading-1",
+    )
+    assert "required_role_not_present:row_label" not in proposal.blockers
+    assert "missing_located_evidence:row_label" not in proposal.blockers
+    assert ("unresolved_meaning:row_label" in proposal.blockers) is (state == "unresolved")
+    if state == "unresolved":
+        assert not proposal.eligible_for_native_validation
+
+
 def test_calibration_without_binary_support_cannot_export_a_map():
     feature = fitted()
     rows = tuple(
@@ -391,7 +435,7 @@ def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowerin
                 "value": {"kind": "text", "text": text},
             }
             for role, text in (
-                ("row_identity", "Group A"),
+                ("row_label", "Group A"),
                 ("header_path", "Count"),
                 ("cell_value", "12"),
             )
