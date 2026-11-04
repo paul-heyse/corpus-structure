@@ -159,7 +159,10 @@ def run(
         str, typer.Option(help="Explicit source policy: phase0 or m1-candidate.")
     ] = "phase0",
     m1_configuration: Annotated[
-        str, typer.Option(help="M1 named policy: default or described (experimental, unqualified).")
+        str,
+        typer.Option(
+            help="M1 named policy: default, described or readings (experimental, unqualified)."
+        ),
     ] = "default",
     integrated_product_task: Annotated[
         int | None, typer.Option(help="Exact retained integrated producing task.")
@@ -190,8 +193,8 @@ def run(
         )
     if extraction_policy not in {"phase0", "m1-candidate"}:
         raise typer.BadParameter("unknown extraction policy")
-    if m1_configuration not in {"default", "described"}:
-        raise typer.BadParameter("M1 configuration must be default or described")
+    if m1_configuration not in {"default", "described", "readings"}:
+        raise typer.BadParameter("M1 configuration must be default, described or readings")
     if extraction_policy == "phase0" and m1_configuration != "default":
         raise typer.BadParameter("nondefault M1 configuration requires the m1-candidate policy")
     if extraction_policy == "m1-candidate" and integrated_product_task is None:

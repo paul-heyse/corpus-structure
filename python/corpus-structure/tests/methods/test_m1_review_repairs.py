@@ -278,7 +278,7 @@ def test_command_preflight_precedes_run_creation_and_narrows_corpus(
         assert commands.start_bound_run(engine, **kwargs) == "candidate-source-result"
         result = started.call_args.kwargs
         assert result["corpus_record"]["documents"] == ["other-book"]
-        assert result["graph"].stages[1][1][0].config == f"extract.m1_candidates/{configuration}"
+        assert result["graph"].stages[1][1][1].config == f"extract.m1_candidates/{configuration}"
         assert result["configurations"] == (
             {"extract.m1_candidates": "described"} if configuration == "described" else None
         )
@@ -326,7 +326,7 @@ def test_default_policy_is_baseline_and_described_is_explicit_experimental_selec
         != methods.resolve("extract.m1_candidates", "described").config_hash
     )
     assert source_graph() is M1
-    assert source_graph("described").stages[1][1][0].config == "extract.m1_candidates/described"
+    assert source_graph("described").stages[1][1][1].config == "extract.m1_candidates/described"
     # Preserve the invalid runtime engine: parameter preflight must never touch it.
     with pytest.raises(CommandError, match="nondefault M1 configuration"):
         start_bound_run(

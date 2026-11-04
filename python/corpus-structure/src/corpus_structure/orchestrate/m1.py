@@ -12,6 +12,7 @@ from corpus_structure.ingest.pdf_recognition_methods import (
     PdfIntegratedIngestConfig,
 )
 from corpus_structure.methods.m1_annotations import M1Annotations
+from corpus_structure.methods.m1_readings import M1Readings
 from corpus_structure.methods.m1_source import M1Candidates
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, Step
@@ -35,26 +36,31 @@ M1 = Graph(
 
 def source_graph(configuration: str = "default") -> Graph:
     """Select an existing named policy; described is experimental and unqualified."""
-    if configuration not in {"default", "described"}:
-        raise ValueError("M1 configuration must be default or described (experimental)")
+    if configuration not in {"default", "described", "readings"}:
+        raise ValueError("M1 configuration must be default, described or readings (experimental)")
     if configuration == "default":
         return M1
-    return replace(
-        M1,
-        stages=(
-            M1.stages[0],
+    stages = (
+        M1.stages[0],
+        (
+            Stage.EXTRACT,
             (
-                Stage.EXTRACT,
-                (
-                    M1.stages[1][1][0],
-                    Step(
-                        f"extract.m1_candidates/{configuration}",
-                        upstream=("extract.m1_annotations",),
-                    ),
+                M1.stages[1][1][0],
+                Step(
+                    f"extract.m1_candidates/{configuration}",
+                    upstream=("extract.m1_annotations",),
                 ),
             ),
         ),
     )
+    if configuration == "readings":
+        stages += (
+            (
+                Stage.ASSEMBLE,
+                (Step("resolve.m1_readings/default", upstream=("extract.m1_candidates",)),),
+            ),
+        )
+    return replace(M1, stages=stages)
 
 
 @dataclass(frozen=True)
@@ -217,5 +223,5 @@ def registry(pack: Path) -> MethodRegistry:
     if not path.is_file():
         raise ValueError("M1 requires an explicitly authored m1-methods.yaml")
     return MethodRegistry(
-        (RetainedIntegratedPdf(), M1Annotations(), M1Candidates()), load_methods(path)
+        (RetainedIntegratedPdf(), M1Annotations(), M1Candidates(), M1Readings()), load_methods(path)
     )

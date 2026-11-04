@@ -7,6 +7,7 @@ pairwise matching, inference, publication or acceptance. Grouping is a producer 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
@@ -33,7 +34,13 @@ from corpus_structure.semantic.types import PreparedRelease
 
 from .gliner import GlinerPack, GlinerRefused, GlinerReport, map_literal, map_record_field
 from .math.pdf import FormulaOccurrence
-from .record_packs import classification, family_roles, field_kind
+from .record_packs import (
+    INSPECTION_POLICY,
+    classification,
+    family_roles,
+    field_kind,
+    inspection_fields,
+)
 
 
 @dataclass(frozen=True)
@@ -63,6 +70,7 @@ class RoleInput:
     state: str = "present"
     reason: str = ""
     inspected_pointer: str | None = None
+    inspected_spans: tuple[LiteralSpan, ...] = ()
     decimal: bool = False
     dependencies: tuple[str, ...] = ()
 
@@ -92,8 +100,120 @@ class AssemblyResult:
     native_groups: tuple[NativeRecordGroup, ...] = ()
 
 
+OCCURRENCE_POLICY = "statistics-reading-occurrence-2"
+FORMULA_BINDING_POLICY = "formula-symbol-first-use-1"
+READING_ROLES = {
+    "definition": ("term", "defining_text"),
+    "assertion": ("subject", "predicate", "object"),
+    "measurement": ("referent", "property", "original_value"),
+    "table": ("table", "cell"),
+    "formula_context": ("formula",),
+}
+
+
+def inspected_groups(prepared, context, *, contract, groups, supplements):
+    """Translate independently emitted state/cue proposals, never decoder omissions.
+
+    The located inspection scope is exactly the real pieces sent to the model, including
+    related declarations. It does not claim that an enclosing, unconsumed section was read.
+    """
+    _, roles = family_roles(prepared, contract)
+    inspected = tuple(
+        LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
+        for row in context.intervals
+        if isinstance(row, SourceInterval)
+    )
+    output = {}
+    for index, raw in enumerate(groups):
+        supplied = supplements.get(index, NativeRecordGroup((), "native decoder proposal"))
+        fields = {field.role: field for field in supplied.fields}
+        for role in roles:
+            kind = field_kind(prepared, role)
+            if role.name in fields:
+                continue
+            state = raw.get(role.name + "__state")
+            state = state.get("text", state.get("label")) if isinstance(state, dict) else state
+            dependency = (_digest("source-inspection", [INSPECTION_POLICY, role.name, raw]),)
+            if kind == "normalized":
+                fields[role.name] = RoleInput(
+                    role.name,
+                    state="inapplicable",
+                    inspected_spans=inspected,
+                    reason="statistics M1 source-reading subset performs no numeric normalization",
+                    dependencies=("inspection-policy:" + INSPECTION_POLICY,),
+                )
+            elif state in {"unstated", "unresolved", "inapplicable"}:
+                # A contradictory value/cue cannot be erased by a state proposal.
+                conflicting = (
+                    raw.get(role.name) is not None or raw.get(role.name + "__cue") is not None
+                )
+                resolved_state = "unresolved" if conflicting or state == "inapplicable" else state
+                fields[role.name] = RoleInput(
+                    role.name,
+                    state=resolved_state,
+                    inspected_spans=inspected,
+                    reason=(
+                        "native state proposal conflicts with retained value/cue output"
+                        if conflicting
+                        else "native inapplicability proposal lacks a family-specific justification"
+                        if state == "inapplicable"
+                        else f"{INSPECTION_POLICY}: native model explicitly proposed {state} "
+                        f"for {contract}.{role.name} after the supplied context inspection"
+                    ),
+                    dependencies=dependency,
+                )
+            elif kind == "classified" and raw.get(role.name) is not None:
+                value = raw[role.name]
+                label = value.get("text", value.get("label")) if isinstance(value, dict) else value
+                cue = raw.get(role.name + "__cue")
+                if isinstance(cue, dict) and (
+                    type(cue.get("start")) is int
+                    and type(cue.get("end")) is int
+                    and isinstance(cue.get("text"), str)
+                ):
+                    fields[role.name] = RoleInput(
+                        role.name,
+                        label=label,
+                        cues=(LiteralSpan(cue["start"], cue["end"], cue["text"]),),
+                        reason=(
+                            f"{INSPECTION_POLICY}: separately decoded source cue "
+                            "attached to this group"
+                        ),
+                        dependencies=dependency,
+                    )
+                else:
+                    fields[role.name] = RoleInput(
+                        role.name,
+                        state="unresolved",
+                        inspected_spans=inspected,
+                        reason="native classification lacks an independently located source cue; "
+                        "the raw label remains a retained proposal only",
+                        dependencies=dependency,
+                    )
+            elif raw.get(role.name) is None:
+                fields[role.name] = RoleInput(
+                    role.name,
+                    state="unresolved",
+                    inspected_spans=inspected,
+                    reason="decoder omitted the field; supplied context is retained for inspection "
+                    "and no source absence/inapplicability is established",
+                    dependencies=dependency,
+                )
+        output[index] = NativeRecordGroup(
+            tuple(fields.values()),
+            supplied.reason,
+            (*supplied.dependencies, "inspection-policy:" + INSPECTION_POLICY),
+        )
+    return output
+
+
 def _digest(kind: str, value: Any) -> str:
     return kind + ":" + sha256(canonical_bytes(value)).hexdigest()
+
+
+def native_group_identity(report: GlinerReport, index: int, group: Mapping[str, Any]) -> str:
+    # Decoder repetition is not another observation or an independent vote.
+    return _digest("native-group", [report.computation, report.pack, group])
 
 
 def _pin(context: NativeSourceContext) -> dict[str, Any]:
@@ -145,6 +265,7 @@ def _assemble(
     supplements: Mapping[int, NativeRecordGroup],
     pack: GlinerPack | None,
     report: GlinerReport | None,
+    occurrence_policy: str | None = None,
 ) -> AssemblyResult:
     _require_canonical_context(context)
     definition, roles = family_roles(prepared, contract)
@@ -159,6 +280,10 @@ def _assemble(
     family = properties["family"].equals_string
     if not family:
         raise GlinerRefused("released family identifier is missing")
+    if occurrence_policy is not None:
+        if occurrence_policy != OCCURRENCE_POLICY or family not in READING_ROLES:
+            raise GlinerRefused("unsupported producer occurrence policy")
+        occurrence_roles = READING_ROLES[family]
     pin = _pin(context)
     primary_pin = NativeSourcePin.from_source(context.primary)
     pointers = _native_pointers(context)
@@ -177,6 +302,10 @@ def _assemble(
         dependencies.update(
             ("computation:" + report.computation, _digest("raw-report", asdict(report)))
         )
+    if occurrence_policy:
+        dependencies.add("occurrence-policy:" + occurrence_policy)
+        if family == "formula_context":
+            dependencies.add("occurrence-policy:" + FORMULA_BINDING_POLICY)
     # Per-group explicit inputs remain in computation dependencies, including rejected choices.
     dependencies.update(
         _digest("structural-input", [index, asdict(group)]) for index, group in supplements.items()
@@ -191,6 +320,8 @@ def _assemble(
         if len(explicit) != len(supplement.fields) or set(explicit) - role_names:
             raise GlinerRefused("duplicate or unreleased structural role")
         group_dependencies = set(dependencies) | set(supplement.dependencies)
+        if report is not None:
+            group_dependencies.add(native_group_identity(report, index, group))
         anchors: dict[str, dict[str, Any]] = {}
         evidence_sets: dict[str, dict[str, Any]] = {}
         fields = []
@@ -306,11 +437,17 @@ def _assemble(
                             or supplied.cues
                         ):
                             raise GlinerRefused("nonpresent reading cannot carry an actual value")
-                        if not supplied.reason.strip() or not supplied.inspected_pointer:
+                        if not supplied.reason.strip() or not (
+                            supplied.inspected_pointer or supplied.inspected_spans
+                        ):
                             raise GlinerRefused(
                                 "nonpresent reading requires an inspected scope and reason"
                             )
-                        pieces = [native_anchor(supplied.inspected_pointer)]
+                        pieces = (
+                            [native_anchor(supplied.inspected_pointer)]
+                            if supplied.inspected_pointer
+                            else literal_anchors(supplied.inspected_spans, role.name, cue=True)
+                        )
                         field.update(state=supplied.state, reason=supplied.reason)
                         usage = "context"
                     elif kind == "native":
@@ -434,8 +571,70 @@ def _assemble(
                 )
             )
             continue
+        extra_occurrence = []
+        if occurrence_policy and family == "formula_context":
+            by_role = {field["role"]: field for field in fields}
+            symbol, meaning = by_role["symbol"], by_role["meaning"]
+            if symbol["state"] == meaning["state"] == "unstated":
+                pass
+            elif symbol["state"] == meaning["state"] == "present":
+                spelling = symbol.get("original", "")
+                formula_pieces = [anchors[key] for key in role_anchors["formula"]]
+                expression = "".join(piece["source_piece"] for piece in formula_pieces)
+                # Restrict this lexical adapter to exact source identifiers. Macros,
+                # transformed glyphs and split tokens need their actual address owner.
+                match = (
+                    re.search(r"(?<![\w\\])" + re.escape(spelling) + r"(?!\w)", expression)
+                    if spelling.isidentifier()
+                    else None
+                )
+                offset = 0
+                first_use = None
+                for piece in formula_pieces:
+                    stop = offset + len(piece["source_piece"])
+                    if match and offset <= match.start() < match.end() <= stop:
+                        first_use = dict(piece)
+                        first_use.update(
+                            start=piece["start"] + match.start() - offset,
+                            end=piece["start"] + match.end() - offset,
+                            source_piece=spelling,
+                        )
+                        first_use["anchor_id"] = anchor_identity(first_use)
+                        break
+                    offset = stop
+                if first_use is not None:
+                    anchors[first_use["anchor_id"]] = first_use
+                    extra_occurrence.append(first_use)
+                else:
+                    diagnostics.append(
+                        AssemblyDiagnostic(
+                            index,
+                            "symbol",
+                            "unlocated_occurrence",
+                            "declared symbol has no unambiguous exact primary in-formula use",
+                        )
+                    )
+                    continue
+            else:
+                diagnostics.append(
+                    AssemblyDiagnostic(
+                        index,
+                        "symbol",
+                        "unlocated_occurrence",
+                        "formula-only reading requires inspected unstated symbol/meaning; "
+                        "binding reading requires both independently located symbol and meaning",
+                    )
+                )
+                continue
+        if any(piece["pin"] != pin for piece in extra_occurrence):
+            raise GlinerRefused("occurrence-only evidence must belong to the primary source")
         occurrence = tuple(
-            dict.fromkeys(anchor for role in occurrence_roles for anchor in role_anchors[role])
+            dict.fromkeys(
+                (
+                    *(anchor for role in occurrence_roles for anchor in role_anchors[role]),
+                    *(piece["anchor_id"] for piece in extra_occurrence),
+                )
+            )
         )
         row = dict(
             contract=contract,
@@ -482,6 +681,7 @@ def assemble_records(
     policy_version: str,
     occurrence_roles: tuple[str, ...] | None = None,
     supplements: Mapping[int, NativeRecordGroup] | None = None,
+    occurrence_policy: str | None = None,
 ) -> AssemblyResult:
     """Bind an actual native combined report; never reinterpret a foreign pack or context."""
     if pack.release != prepared.release_id or report.pack != pack.fingerprint:
@@ -510,7 +710,13 @@ def assemble_records(
     expected = {
         role.name for role in roles if field_kind(prepared, role) in {"literal", "classified"}
     }
-    if set(declared) != expected or len(declared) != len(structure["fields"]):
+    auxiliary = {field["name"]: field for field in inspection_fields(prepared, roles)}
+    inspection = bool(set(declared) & set(auxiliary))
+    if inspection and any(declared.get(name) != field for name, field in auxiliary.items()):
+        raise GlinerRefused("pack inspection fields differ from the versioned proposal profile")
+    if set(declared) != expected | (set(auxiliary) if inspection else set()) or len(
+        declared
+    ) != len(structure["fields"]):
         raise GlinerRefused("pack fields differ from released literal/classified roles")
     for role in roles:
         if role.name in declared:
@@ -533,8 +739,12 @@ def assemble_records(
     groups = raw.get(family, [])
     if not isinstance(groups, list) or any(not isinstance(group, dict) for group in groups):
         raise GlinerRefused("native report family output is not grouped records")
-    if any(set(group) - expected - {"confidence"} for group in groups):
+    if any(set(group) - set(declared) - {"confidence"} for group in groups):
         raise GlinerRefused("native report group names fields outside its released family pack")
+    if inspection:
+        supplements = inspected_groups(
+            prepared, context, contract=contract, groups=groups, supplements=supplements or {}
+        )
     return _assemble(
         prepared,
         context,
@@ -545,6 +755,7 @@ def assemble_records(
         supplements=supplements or {},
         pack=pack,
         report=report,
+        occurrence_policy=occurrence_policy,
     )
 
 
@@ -556,6 +767,7 @@ def assemble_native_records(
     occurrence_roles: tuple[str, ...],
     policy_version: str,
     groups: tuple[NativeRecordGroup, ...],
+    occurrence_policy: str | None = None,
 ) -> AssemblyResult:
     """Compose actual native table/formula/inspection groups without inventing inference."""
     return _assemble(
@@ -568,6 +780,7 @@ def assemble_native_records(
         supplements=dict(enumerate(groups)),
         pack=None,
         report=None,
+        occurrence_policy=occurrence_policy,
     )
 
 

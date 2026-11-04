@@ -31,6 +31,7 @@ FAMILIES = {
     "table": ("TableRecordFields", "cell_value"),
     "formula_context": ("FormulaRecordFields", "formula"),
 }
+RECORD_POLICY = "m1-grouped-reading-logistic-1"
 
 
 def _retained_report(report, profiles):
@@ -144,6 +145,11 @@ class M1Config(BaseModel):
     threshold: float = Field(default=0.5, ge=0, le=1)
     timeout_seconds: float = Field(default=120, gt=0, allow_inf_nan=False)
     pack_descriptions: dict[str, dict[str, str]] = Field(default_factory=dict)
+    source_inspection: bool = False
+    occurrence_policy: Literal["statistics-reading-occurrence-2"] = (
+        "statistics-reading-occurrence-2"
+    )
+    record_policy_version: Literal["m1-grouped-reading-logistic-1"] = RECORD_POLICY
 
     @field_validator("pack_descriptions")
     @classmethod
@@ -177,6 +183,7 @@ def configured_packs(prepared, cfg):
             contract=contract,
             anchor_role=anchor,
             descriptions=cfg.pack_descriptions.get(family),
+            source_inspection=cfg.source_inspection,
         )
         for family, (contract, anchor) in FAMILIES.items()
     }
@@ -184,7 +191,7 @@ def configured_packs(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "2"
+    version = "3"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -239,14 +246,20 @@ class M1Candidates:
     def run(self, units, cfg, ctx):
         return tuple(self._source(unit, cfg, ctx) for unit in units)
 
+    def interpretation_request(self, group):
+        """Actual retained groups reach the interpreter only with an applicable factor policy."""
+        return None
+
     def _source(self, unit, cfg, ctx):
         from threadpoolctl import ThreadpoolController
 
         from corpus_structure.methods.record_assembly import (
+            AssemblyDiagnostic,
             NativeRecordGroup,
             RoleInput,
             assemble_native_records,
             assemble_records,
+            native_group_identity,
             reconcile_record_candidates,
         )
 
@@ -292,6 +305,11 @@ class M1Candidates:
             annotation_errors=list(prepared_source.annotation_errors),
             exclusions=list(prepared_source.exclusions),
             effective_profiles={},
+            occurrence_policy=cfg.occurrence_policy,
+            record_policy_version=cfg.record_policy_version,
+            source_inspection=cfg.source_inspection,
+            model_observations=[],
+            record_policy_events=[],
             reports=[],
             runtime=dict(
                 parent_threads=cfg.parent_threads,
@@ -351,16 +369,17 @@ class M1Candidates:
                         if family in {"table", "formula_context"}
                         else ()
                     )
-                    occurrence_roles = ("cell",) if family == "table" else (anchor,)
+                    occurrence_roles = (anchor,)
                     native_diagnostics = ()
                     native_records = ()
-                    if native_groups:
+                    if native_groups and family == "table":
                         native = assemble_native_records(
                             ctx.reader.prepared,
                             context,
                             contract=contract,
                             occurrence_roles=occurrence_roles,
-                            policy_version=cfg.policy,
+                            policy_version=cfg.record_policy_version,
+                            occurrence_policy=cfg.occurrence_policy,
                             groups=native_groups,
                         )
                         assemblies.append(native)
@@ -390,6 +409,39 @@ class M1Candidates:
                         association_diagnostics=[],
                     )
                     details["reports"].append(report_entry)
+                    if family == "formula_context" and native_groups:
+                        details["reports"].append(
+                            dict(
+                                context=index,
+                                family=family,
+                                operation="native_structure",
+                                groups=[asdict(group) for group in native_groups],
+                            )
+                        )
+                        if not report.raw.get(family):
+                            native_diagnostics = (
+                                AssemblyDiagnostic(
+                                    -1,
+                                    "symbol",
+                                    "unresolved_formula_binding",
+                                    "native formula retained, but no independent symbol/meaning "
+                                    "inspection proposal establishes a binding "
+                                    "or formula-only reading",
+                                ),
+                            )
+                            report_entry["association_diagnostics"].extend(
+                                asdict(d) for d in native_diagnostics
+                            )
+                    from corpus_structure.methods.record_readings import native_model_observations
+
+                    details["model_observations"].extend(
+                        native_model_observations(
+                            report,
+                            context=context,
+                            family=family,
+                            context_index=index,
+                        )
+                    )
                     supplements = {}
                     for group_index, group in enumerate(report.raw.get(family, ())):
                         if family == "definition":
@@ -441,12 +493,23 @@ class M1Candidates:
                         report,
                         contract=contract,
                         anchor_role=anchor,
-                        policy_version=cfg.policy,
+                        policy_version=cfg.record_policy_version,
+                        occurrence_policy=cfg.occurrence_policy,
                         occurrence_roles=occurrence_roles,
                         supplements=supplements,
                     )
                     assemblies.append(assembled)
-                    report_entry["diagnostics"] = [asdict(d) for d in assembled.diagnostics]
+                    report_entry["diagnostics"] = [
+                        dict(
+                            asdict(d),
+                            group_dependency=native_group_identity(
+                                report,
+                                d.group,
+                                report.raw[family][d.group],
+                            ),
+                        )
+                        for d in assembled.diagnostics
+                    ]
                     incomplete = bool(assembled.diagnostics or native_diagnostics)
                     coverage.append(
                         CoverageDraft(
@@ -510,6 +573,25 @@ class M1Candidates:
             record.model_dump(mode="python")
             for record in reconcile_record_candidates(ctx.reader.prepared, assemblies)
         )
+        from corpus_structure.methods.record_readings import interpret_candidate_readings
+
+        details["record_interpretation"] = interpret_candidate_readings(
+            records,
+            request_factory=self.interpretation_request,
+        )
+        details["record_policy_events"] = [
+            dict(
+                record_id=record["record_id"],
+                interpretation_id=record["interpretation_id"],
+                feature_instance_digest=None,
+                feature_input_digest=None,
+                event_procedure="independent_complete_reading",
+                final_event_score=None,
+                outcome="not_run",
+                diagnostics=["fitted record policy instance unavailable"],
+            )
+            for record in records
+        ]
         return UnitResult(
             ref=unit.ref,
             outcome=ObservationOutcome.PRODUCED if records else ObservationOutcome.EMPTY,
