@@ -11,6 +11,7 @@ from bisect import bisect_left, bisect_right
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
+from itertools import pairwise
 from typing import Any
 
 from corpus_structure.core.method import SourcePreparationReader
@@ -21,7 +22,11 @@ from corpus_structure.ingest.annotations import (
     AnnotationUnavailable,
     annotate,
 )
-from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
+from corpus_structure.ingest.pdf_hierarchy import (
+    ProjectedPiece,
+    TextProjection,
+    project_section_nodes,
+)
 from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.proposals import NativeFrameSource, native_source_frame
@@ -39,7 +44,140 @@ from corpus_structure.semantic.source_contexts import (
 )
 
 PROSE_FAMILIES = ("definition", "assertion", "measurement")
-POLICY = "m1-canonical-related-context-candidates-2"
+POLICY = "m1-canonical-related-context-candidates-3"
+
+
+@dataclass(frozen=True, slots=True)
+class NativeTableTarget:
+    cell_index: int
+    row_extent: tuple[int, int] | None
+    row_path: tuple[int, ...]
+    header_path: tuple[int, ...]
+
+
+def native_table_cell_projection(node, index, nodes) -> TextProjection:
+    """Use the canonical projector for rich-cell text and its exact child addresses.
+
+    The cell's summary ``text`` is not its rich subtree projection. Child literals
+    retain their own item locators; table/cell identities remain the parent's native
+    cell address. Nested tabular/chart projections need a separate structural owner.
+    """
+    cell = node["data"]["table_cells"][index]
+    reference = cell.get("ref")
+    if reference is not None:
+        pointer = reference.get("$ref")
+        if not isinstance(pointer, str) or pointer not in nodes:
+            raise ValueError("rich cell native subtree is unavailable")
+        projection = project_section_nodes(
+            nodes, "", pointer, "descendant", section_refs=frozenset((pointer,))
+        )
+        if any(p.cell_index is not None for p in projection.pieces):
+            raise ValueError("nested tabular rich cell requires its own structural scope")
+        return replace(projection, pieces=tuple(
+            replace(p, cell_index=index) if p.kind == "native_text" else p
+            for p in projection.pieces
+        ))
+    text = cell.get("text")
+    if not isinstance(text, str):
+        raise ValueError("native cell text is unavailable")
+    return TextProjection(
+        "", node["self_ref"], "descendant", text,
+        (ProjectedPiece(node["self_ref"], 0, len(text), "native_text", index, "cell_text"),)
+        if text else (),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedTableCells:
+    projections: tuple[TextProjection | None, ...]
+    ranges: tuple[tuple[int, int] | None, ...]
+    piece_indices: tuple[int, ...]
+
+
+def _prepare_table_cells(view, node, nodes, piece_lookup):
+    projections, ranges, members = [], [], set()
+    for index in range(len(node["data"]["table_cells"])):
+        try:
+            projection = native_table_cell_projection(node, index, nodes)
+        except ValueError:
+            projections.append(None)
+            ranges.append(None)
+            continue
+        native = tuple(p for p in projection.pieces if p.kind == "native_text")
+        keys = {(p.item_ref, index, p.source_field) for p in native}
+        indices = sorted({i for key in keys for i in piece_lookup.get(key, ())})
+        members.update(indices)
+        span = (
+            (view.pieces[indices[0]]["start"], view.pieces[indices[-1]]["end"])
+            if indices else None
+        )
+        valid = len(indices) == len(native) and all(
+            view.pieces[i]["item_ref"] == expected.item_ref
+            and view.pieces[i].get("source_field") == expected.source_field
+            and view.text[view.pieces[i]["start"]:view.pieces[i]["end"]]
+                == projection.text[expected.start:expected.end]
+            for i, expected in zip(indices, native, strict=False)
+        )
+        valid = valid and (
+            view.text[span[0]:span[1]] == projection.text if span is not None
+            else projection.text == ""
+        )
+        projections.append(projection if valid else None)
+        ranges.append(span if valid else None)
+    return _PreparedTableCells(tuple(projections), tuple(ranges), tuple(sorted(members)))
+
+
+def native_table_geometry(node) -> tuple[NativeTableTarget, ...]:
+    """Resolve native containment paths once, preserving ambiguous paths as unresolved.
+
+    Only declared header cells are considered for paths. Equal/crossing sibling
+    bands do not choose an arbitrary header, and data-cell text never supplies one.
+    """
+    cells = node.get("data", {}).get("table_cells", ())
+
+    def extent(cell, axis):
+        a, b = cell.get(f"start_{axis}_offset_idx"), cell.get(f"end_{axis}_offset_idx")
+        return (a, b) if type(a) is int and type(b) is int and 0 <= a < b else None
+
+    headers = tuple(
+        (index, cell, extent(cell, "row"), extent(cell, "col"))
+        for index, cell in enumerate(cells)
+        if cell.get("column_header") or cell.get("row_header")
+    )
+
+    def nested_path(candidates):
+        ordered = sorted(candidates)
+        if any(
+            parent[1] > child[0] or parent[2] > child[2] or parent[3] < child[3]
+            for parent, child in pairwise(ordered)
+        ):
+            return ()
+        return tuple(candidate[4] for candidate in ordered)
+
+    targets = []
+    for index, cell in enumerate(cells):
+        if cell.get("column_header") or cell.get("row_header"):
+            continue
+        target_row, target_col = extent(cell, "row"), extent(cell, "col")
+        rows, columns = [], []
+        if target_row is not None and target_col is not None:
+            for other, header, row, col in headers:
+                if row is None or col is None:
+                    continue
+                if (
+                    header.get("row_header") and row[0] <= target_row[0]
+                    and row[1] >= target_row[1] and col[1] <= target_col[0]
+                ):
+                    rows.append((*col, *row, other))
+                if (
+                    header.get("column_header") and col[0] <= target_col[0]
+                    and col[1] >= target_col[1] and row[1] <= target_row[0]
+                ):
+                    columns.append((*row, *col, other))
+        targets.append(
+            NativeTableTarget(index, target_row, nested_path(rows), nested_path(columns))
+        )
+    return tuple(targets)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +192,7 @@ class ContextSelection:
     retrievals: tuple[ContextRetrieval, ...] = ()
     relationships: tuple[tuple[int, ContextRelationship, str], ...] = ()
     local_dispositions: tuple[tuple[str, str, str], ...] = ()
+    table_targets: tuple[NativeTableTarget, ...] | None = None
 
     def context(
         self,
@@ -108,6 +247,86 @@ class PreparedCandidateSource:
         "recognition alternative anchors unsupported; canonical native projection only",
         "candidate-only; no acceptance, calibration or production selection",
     )
+
+
+def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pieces):
+    """Keep small tables whole; dense tables use complete native rows or cells.
+
+    A target retains every located cell fragment and its complete declared paths.
+    A row that cannot fit separates independent cell targets, never cell contents or
+    header paths. An indivisible over-limit cell remains an explicit region limit.
+    """
+    pointer = node["self_ref"]
+    targets = native_table_geometry(node)
+    a, b = view.pieces[indices[0]]["start"], view.pieces[indices[-1]]["end"]
+    if b - a <= max_chars and sum(
+        piece["start"] < b and piece["end"] > a for piece in view.pieces
+    ) <= max_pieces and all(p is not None for p in prepared_cells.projections):
+        return [ContextSelection(
+            pointer, a, b, ("table",), "native structural trigger", table_targets=targets
+        )], []
+    piece_starts = tuple(p["start"] for p in view.pieces)
+    piece_ends = tuple(p["end"] for p in view.pieces)
+
+    def pieces_for(group):
+        required = {
+            index for target in group
+            for index in (*target.header_path, *target.row_path, target.cell_index)
+        }
+        selected = []
+        for index in required:
+            if prepared_cells.projections[index] is None:
+                return None, "complete target/path cell projection unavailable"
+            span = prepared_cells.ranges[index]
+            if span is not None:
+                selected.append((*span, index))
+        pieces: list[SourceSlice | SyntheticText] = []
+        previous = None
+        for start, end, index in sorted(selected):
+            if previous is not None and index != previous:
+                pieces.append(SyntheticText("\n", "native table context cell separator"))
+            pieces.append(SourceSlice(view.ref.id, start, end))
+            previous = index
+        if not pieces:
+            return None, "no nonempty target/path cell projection"
+        chars = sum(
+            len(p.text) if isinstance(p, SyntheticText) else p.end - p.start for p in pieces
+        )
+        count = sum(
+            1 if isinstance(p, SyntheticText)
+            else bisect_left(piece_starts, p.end) - bisect_right(piece_ends, p.start)
+            for p in pieces
+        )
+        if chars > max_chars or count > max_pieces:
+            return None, "complete target/path context bound exceeded"
+        return tuple(pieces), None
+
+    rows = {}
+    for target in targets:
+        # Invalid geometry never coalesces unrelated cells into an inferred row.
+        key = target.row_extent if target.row_extent is not None else ("cell", target.cell_index)
+        rows.setdefault(key, []).append(target)
+    selections, limits = [], []
+    for row in rows.values():
+        groups = [tuple(row)]
+        pieces, _ = pieces_for(groups[0])
+        if pieces is None:
+            groups = [(target,) for target in row]
+        for group in groups:
+            pieces, reason = pieces_for(group)
+            if pieces is None:
+                limits.extend(f"{pointer}/data/table_cells/{t.cell_index}: {reason}" for t in group)
+                continue
+            native = [p for p in pieces if isinstance(p, SourceSlice)]
+            selections.append(ContextSelection(
+                pointer, min(p.start for p in native), max(p.end for p in native), ("table",),
+                "bounded complete native table row"
+                if len(group) > 1 else "bounded native table cell",
+                pieces=pieces, table_targets=group,
+            ))
+    if not targets:
+        limits.append(f"{pointer}: over-limit table has no independently located data-cell targets")
+    return selections, limits
 
 
 def prepare_source(
@@ -224,6 +443,15 @@ def prepare_source(
     if annotations_only:
         return PreparedCandidateSource(frame, tuple(products), (), (), tuple(errors))
     annotated = {product.block_id: product for product in products}
+    piece_lookup = {}
+    for index, piece in enumerate(view.pieces):
+        if piece["kind"] == "native_text":
+            key = (piece["item_ref"], piece.get("cell_index"), piece.get("source_field"))
+            piece_lookup.setdefault(key, []).append(index)
+    prepared_tables = {
+        node["self_ref"]: _prepare_table_cells(view, node, by_pointer, piece_lookup)
+        for node in view.items if "table_cells" in node.get("data", {})
+    }
     selections = []
     selected_ranges = {}
     regions = []
@@ -239,6 +467,9 @@ def prepare_source(
             if label == "formula"
             else None
         )
+        prepared_cells = prepared_tables.get(pointer)
+        if prepared_cells is not None:
+            indices = tuple(sorted(set(indices) | set(prepared_cells.piece_indices)))
         families = (
             (("formula_context" if structural == "formula" else structural),)
             if structural
@@ -257,7 +488,15 @@ def prepare_source(
             outcome, reason = "empty", "inspected canonical projection is empty"
         else:
             ranges = []
-            if structural:
+            if structural == "table" and "table_cells" in node.get("data", {}):
+                table_selections, table_limits = _table_selections(
+                    view, node, indices, prepared_cells, max_chars=max_chars, max_pieces=max_pieces
+                )
+                for selection in table_selections:
+                    chosen.append(len(selections))
+                    selections.append(selection)
+                limits.extend(table_limits)
+            elif structural:
                 direct = tuple(projected.get(pointer, ())) if structural == "formula" else indices
                 ranges = (
                     [(view.pieces[direct[0]]["start"], view.pieces[direct[-1]]["end"])]
@@ -430,16 +669,30 @@ def _widen_contexts(
                     "formula declaration/scope unresolved; direct enclosing context only",
                 )
             )
-        pieces: list[SourceSlice | SyntheticText] = [
-            SourceSlice(frame.source_view_id, selection.start, selection.end)
-        ]
-        chars, count = (
-            selection.end - selection.start,
-            sum(
-                piece["start"] < selection.end and piece["end"] > selection.start
-                for piece in view.pieces
-            ),
+        pieces: list[SourceSlice | SyntheticText] = list(selection.pieces or (
+            SourceSlice(frame.source_view_id, selection.start, selection.end),
+        ))
+        chars = sum(
+            len(p.text) if isinstance(p, SyntheticText) else p.end - p.start for p in pieces
         )
+        count = sum(
+            1 if isinstance(p, SyntheticText)
+            else bisect_left(piece_starts, p.end) - bisect_right(piece_ends, p.start)
+            for p in pieces
+        )
+
+        def already_consumed(a, b, selected_pieces=pieces):
+            position = a
+            for piece in sorted(
+                (p for p in selected_pieces if isinstance(p, SourceSlice)
+                 and p.source_view_id == frame.source_view_id), key=lambda p: p.start,
+            ):
+                if piece.start > position:
+                    break
+                position = max(position, piece.end)
+                if position >= b:
+                    return True
+            return False
         retrievals = []
         selected_relations = {}
         local_dispositions = []
@@ -464,7 +717,7 @@ def _widen_contexts(
                 # A native item may contain several runs separated by synthetic
                 # projection intervals. Context serialization consumes those too.
                 target_count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
-                if selection.start <= a and b <= selection.end:
+                if already_consumed(a, b):
                     local_dispositions.append((target, "selected", "already in primary context"))
                     continue
                 if chars + 1 + b - a <= max_chars and count + 1 + target_count <= max_pieces:

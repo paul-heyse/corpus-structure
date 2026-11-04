@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from hashlib import sha256
-from itertools import pairwise
 from pathlib import Path
 from typing import Any, Literal
 
@@ -17,7 +16,11 @@ from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig, pipeline
 from corpus_structure.methods.gliner import GlinerInput, GlinerProfile, GlinerRefused
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
-from corpus_structure.methods.source_preparation import POLICY, prepare_source
+from corpus_structure.methods.source_preparation import (
+    POLICY,
+    native_table_geometry,
+    prepare_source,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
@@ -70,67 +73,21 @@ def _structural_groups(view, selection, context):
         return (native_formula_group(context, occurrence, scope_pointer=view.ref.section_pointer),)
     if selection.families != ("table",):
         return ()
-    cells = node.get("data", {}).get("table_cells", ())
-    row_paths, header_paths = {}, {}
-    selected = tuple(
-        index
-        for index, cell in enumerate(cells)
-        if not cell.get("column_header") and not cell.get("row_header")
-    )
-
-    def extent(cell, axis):
-        a, b = cell.get(f"start_{axis}_offset_idx"), cell.get(f"end_{axis}_offset_idx")
-        return (a, b) if type(a) is int and type(b) is int and 0 <= a < b else None
-
-    for index in selected:
-        target_row, target_col = extent(cells[index], "row"), extent(cells[index], "col")
-        if target_row is None or target_col is None:
-            continue
-        rows, headers = [], []
-        for other, cell in enumerate(cells):
-            row, col = extent(cell, "row"), extent(cell, "col")
-            if row is None or col is None:
-                continue
-            if (
-                cell.get("row_header")
-                and row[0] <= target_row[0]
-                and row[1] >= target_row[1]
-                and col[1] <= target_col[0]
-            ):
-                rows.append((*col, *row, other))
-            if (
-                cell.get("column_header")
-                and col[0] <= target_col[0]
-                and col[1] >= target_col[1]
-                and row[1] <= target_row[0]
-            ):
-                headers.append((*row, *col, other))
-
-        def nested_path(candidates):
-            ordered = sorted(candidates)
-            # Each level occupies a distinct band. Coverage can stay equal or narrow
-            # toward the target; crossing sibling extents cannot form one native path.
-            if any(
-                parent[1] > child[0] or parent[2] > child[2] or parent[3] < child[3]
-                for parent, child in pairwise(ordered)
-            ):
-                return ()
-            return tuple(candidate[4] for candidate in ordered)
-
-        row_paths[index] = nested_path(rows)
-        header_paths[index] = nested_path(headers)
+    targets = getattr(selection, "table_targets", None)
+    if targets is None:
+        targets = native_table_geometry(node)
     return native_table_groups(
         context,
         table_pointer=selection.region,
-        cells=selected,
-        row_paths=row_paths,
-        header_paths=header_paths,
+        cells=tuple(target.cell_index for target in targets),
+        row_paths={target.cell_index: target.row_path for target in targets},
+        header_paths={target.cell_index: target.header_path for target in targets},
     )
 
 
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    policy: Literal["m1-canonical-related-context-candidates-2"] = POLICY
+    policy: Literal["m1-canonical-related-context-candidates-3"] = POLICY
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: Literal["extract.m1_annotations"] = "extract.m1_annotations"
     snapshot: Path
@@ -192,7 +149,7 @@ def configured_packs(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "3"
+    version = "4"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER

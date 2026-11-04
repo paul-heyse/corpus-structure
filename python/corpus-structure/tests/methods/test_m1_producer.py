@@ -352,3 +352,45 @@ def test_native_table_geometry_produces_zero_and_inspected_blank_without_decoder
     execution = detail_objects(details["execution"])
     assert execution[0]["outcome"] == "partial"
     assert execution[0]["reason"] == "candidate output"
+
+
+def test_dense_native_structure_emits_only_the_explicit_context_target_cells(monkeypatch):
+    from corpus_structure.methods import source_preparation
+
+    from .test_m1_source_preparation import dense_table_source
+
+    source = dense_table_source()
+    prepared = source_preparation.prepare_source(
+        source, persisted_annotations=(), max_chars=256, max_pieces=64
+    )
+    selections = [s for s in prepared.selections if s.families == ("table",)]
+    assert len(selections) == 30
+    captured = []
+
+    def native_groups(context, **kwargs):
+        captured.append(kwargs)
+        return ()
+
+    monkeypatch.setattr(
+        "corpus_structure.methods.record_assembly.native_table_groups", native_groups
+    )
+    # Preparation owns geometry; structural consumption must not rescan/infer all
+    # cell paths for every row context or manufacture candidates from other rows.
+    monkeypatch.setattr(
+        m1_source, "native_table_geometry", lambda *_: pytest.fail("geometry repeated")
+    )
+    for selection in selections:
+        assert selection.table_targets is not None
+        context = selection.context(
+            prepared.source, preparation=prepared.preparation, max_chars=256, max_pieces=64
+        )
+        m1_source._structural_groups(source, selection, context)
+        assert captured[-1]["cells"] == tuple(t.cell_index for t in selection.table_targets)
+        assert captured[-1]["row_paths"] == {
+            t.cell_index: t.row_path for t in selection.table_targets
+        }
+        assert captured[-1]["header_paths"] == {
+            t.cell_index: t.header_path for t in selection.table_targets
+        }
+        assert len(captured[-1]["cells"]) == 9
+    assert len({index for group in captured for index in group["cells"]}) == 270

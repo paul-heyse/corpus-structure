@@ -3,7 +3,7 @@
 from dataclasses import replace
 from hashlib import sha256
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import spacy
@@ -46,6 +46,63 @@ def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "t
         "c" * 64,
     )
     return PreparedSourceView(ref, text, tuple(pieces), tuple(nodes), (), {})
+
+
+def native_table_source(cells, *, caption=None, note=None):
+    """Explicit native geometry and repeated lexical text with independent cell addresses."""
+    table: dict[str, Any] = dict(
+        self_ref="#/tables/0", label="table", parent={"$ref": "#/groups/1"},
+        data=dict(table_cells=cells),
+    )
+    nodes = [dict(self_ref="#/groups/1", label="section"), table]
+    chunks: list[tuple[str, int | None, str]] = []
+    for index, cell in enumerate(cells):
+        if cell.get("text"):
+            chunks.append(("#/tables/0", index, cell["text"]))
+    for role, text in (("captions", caption), ("footnotes", note)):
+        if text:
+            pointer = f"#/texts/{role}"
+            table[role] = [{"$ref": pointer}]
+            nodes.append(dict(self_ref=pointer, label="caption" if role == "captions" else "text"))
+            chunks.append((pointer, None, text))
+    pieces, texts, offset = [], [], 0
+    for pointer, index, text in chunks:
+        if texts:
+            texts.append("\n")
+            pieces.append(dict(kind="synthetic_separator", start=offset, end=offset + 1))
+            offset += 1
+        pieces.append(dict(
+            kind="native_text", item_ref=pointer, start=offset, end=offset + len(text),
+            **(dict(cell_index=index, source_field="cell_text") if index is not None else {}),
+        ))
+        texts.append(text)
+        offset += len(text)
+    text = "".join(texts)
+    projection = dict(
+        text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
+    )
+    original = source("fixture", labels=("text",))
+    return replace(
+        original, text=text, pieces=tuple(pieces), items=tuple(nodes),
+        ref=replace(
+            original.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
+        ),
+    )
+
+
+def table_cell(text, row, col, **flags):
+    return dict(
+        text=text, start_row_offset_idx=row, end_row_offset_idx=row + 1,
+        start_col_offset_idx=col, end_col_offset_idx=col + 1, **flags,
+    )
+
+
+def dense_table_source():
+    cells = [table_cell("value", 0, col, column_header=True) for col in range(1, 10)]
+    for row in range(1, 31):
+        cells.append(table_cell(f"row{row}", row, 0, row_header=True))
+        cells.extend(table_cell("0", row, col) for col in range(1, 10))
+    return native_table_source(tuple(cells), caption="Caption", note="Note")
 
 
 @pytest.fixture
@@ -358,3 +415,168 @@ def test_local_related_budget_counts_projection_separators(controlled):
         max_pieces=4,
     )
     assert context.text == "a" and len(context.intervals) == 1
+
+
+def test_dense_native_table_targets_every_data_cell_once_with_complete_bounded_paths():
+    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+
+    view = dense_table_source()
+    reader = SimpleNamespace(context_sources=lambda *_args, **_kwargs: SourceContextRead(
+        (), (), "e" * 64, RetrievalOutcome.NO_MATCH, "no other source"
+    ))
+    prepared = prep.prepare_source(
+        view, persisted_annotations=(), max_chars=256, max_pieces=64, reader=reader
+    )
+    selected = [s for s in prepared.selections if s.families == ("table",)]
+    assert len(selected) == 30
+    expected = {
+        index for index, cell in enumerate(view.items[1]["data"]["table_cells"])
+        if not cell.get("column_header") and not cell.get("row_header")
+    }
+    targets = []
+    for selection in selected:
+        assert selection.table_targets is not None
+        targets.extend(target.cell_index for target in selection.table_targets)
+    assert len(expected) == len(targets) == 270 and set(targets) == expected
+    assert len(set(targets)) == len(targets)
+    for selection in selected:
+        assert selection.table_targets is not None
+        context = selection.context(
+            prepared.source, preparation=prepared.preparation, related=prepared.related,
+            max_chars=256, max_pieces=64,
+        )
+        assert len(context.text) <= 256 and len(context.intervals) <= 64
+        assert "Caption" in context.text and "Note" in context.text
+        consumed = {getattr(interval, "cell_index", None) for interval in context.intervals}
+        for target in selection.table_targets:
+            assert len(target.row_path) == len(target.header_path) == 1
+            assert {target.cell_index, *target.row_path, *target.header_path} <= consumed
+        assert len(selection.table_targets) == 9
+    table = next(region for region in prepared.regions if region.pointer == "#/tables/0")
+    assert table.outcome == "selected" and len(table.selections) == 30
+
+
+def test_indivisible_over_limit_cell_remains_visible_while_other_cells_are_selected():
+    view = native_table_source((
+        table_cell("value", 0, 1, column_header=True),
+        table_cell("A", 1, 0, row_header=True), table_cell("x" * 100, 1, 1),
+        table_cell("B", 2, 0, row_header=True), table_cell("0", 2, 1),
+    ))
+    prepared = prep.prepare_source(view, persisted_annotations=(), max_chars=32, max_pieces=8)
+    selected = [s for s in prepared.selections if s.families == ("table",)]
+    assert len(selected) == 1 and selected[0].table_targets is not None
+    assert [target.cell_index for target in selected[0].table_targets] == [4]
+    region = next(r for r in prepared.regions if r.pointer == "#/tables/0")
+    assert region.outcome == "partial"
+    limited_cell = "#/tables/0/data/table_cells/2: complete target/path context bound exceeded"
+    assert limited_cell in region.reason
+    context = selected[0].context(
+        prepared.source, preparation=prepared.preparation, max_chars=32, max_pieces=8
+    )
+    assert context.text == "value\nB\n0"
+
+
+def test_discontinuous_primary_does_not_authorize_unconsumed_middle_context():
+    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+
+    view = native_table_source((
+        table_cell("H", 0, 0, column_header=True), table_cell("V", 1, 0),
+    ), caption="caption")
+    pieces = (
+        dict(view.pieces[0], start=0, end=1),
+        dict(kind="synthetic_separator", start=1, end=2),
+        dict(view.pieces[-1], start=2, end=9),
+        dict(kind="synthetic_separator", start=9, end=10),
+        dict(view.pieces[2], start=10, end=11),
+    )
+    projection = dict(
+        text="H\ncaption\nV", pieces=pieces, items=[n["self_ref"] for n in view.items],
+        ancestors=[], health={},
+    )
+    view = replace(view, text=projection["text"], pieces=pieces, ref=replace(
+        view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
+    ))
+    reader = SimpleNamespace(context_sources=lambda *_args, **_kwargs: SourceContextRead(
+        (), (), "e" * 64, RetrievalOutcome.NO_MATCH, "no other source"
+    ))
+    prepared = prep.prepare_source(
+        view, persisted_annotations=(), max_chars=32, max_pieces=3, reader=reader
+    )
+    selection = next(s for s in prepared.selections if s.families == ("table",))
+    assert (selection.start, selection.end) == (0, 11)
+    assert selection.local_dispositions == ((
+        "#/texts/captions", "resource_limit", "local context character/piece bound exceeded"
+    ),)
+    context = selection.context(
+        prepared.source, preparation=prepared.preparation, max_chars=32, max_pieces=3
+    )
+    assert context.text == "H\nV" and len(context.intervals) == 3
+
+
+def test_native_geometry_retains_nested_paths_and_refuses_crossing_header_bands():
+    cells = (
+        dict(table_cell("all", 0, 0, column_header=True), end_col_offset_idx=3),
+        table_cell("value", 1, 1, column_header=True),
+        table_cell("A", 2, 0, row_header=True), table_cell("0", 2, 1),
+    )
+    (target,) = prep.native_table_geometry(dict(data=dict(table_cells=cells)))
+    assert target.header_path == (0, 1) and target.row_path == (2,)
+    ambiguous = (*cells, table_cell("competing", 1, 1, column_header=True))
+    (target,) = prep.native_table_geometry(dict(data=dict(table_cells=ambiguous)))
+    assert target.header_path == () and target.row_path == (2,)
+
+
+def test_rich_header_projection_keeps_child_fields_and_counts_internal_separators():
+    cells = (
+        dict(table_cell("summary differs", 0, 1, column_header=True),
+             ref={"$ref": "#/groups/header"}),
+        table_cell("A", 1, 0, row_header=True), table_cell("0", 1, 1),
+        table_cell("B", 2, 0, row_header=True), table_cell("0", 2, 1),
+    )
+    view = native_table_source(cells)
+    header = (
+        ("#/texts/header0", "Binomial"), ("#/texts/header1", "n = 100"),
+        ("#/texts/header2", "p = .001"),
+    )
+    nodes = (*view.items, dict(
+        self_ref="#/groups/header", label="unspecified",
+        children=[{"$ref": pointer} for pointer, _ in header],
+    ), *(dict(self_ref=pointer, label="text", text=text) for pointer, text in header))
+    chunks = [*( (pointer, 0, "text", text) for pointer, text in header ),
+              *(("#/tables/0", i, "cell_text", cells[i]["text"]) for i in range(1, 5))]
+    pieces, texts, offset = [], [], 0
+    for pointer, index, field, text in chunks:
+        if texts:
+            texts.append("\n")
+            pieces.append(dict(kind="synthetic_separator", start=offset, end=offset + 1))
+            offset += 1
+        texts.append(text)
+        pieces.append(dict(kind="native_text", item_ref=pointer, cell_index=index,
+                           source_field=field, start=offset, end=offset + len(text)))
+        offset += len(text)
+    text = "".join(texts)
+    projection = dict(text=text, pieces=pieces, items=[n["self_ref"] for n in nodes],
+                      ancestors=[], health={})
+    view = replace(view, text=text, pieces=tuple(pieces), items=nodes, ref=replace(
+        view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
+    ))
+    expected_header = "Binomial\nn = 100\np = .001"
+    projected = prep.native_table_cell_projection(
+        nodes[1], 0, {node["self_ref"]: node for node in nodes}
+    )
+    assert projected.text == expected_header
+    assert [(p.item_ref, p.cell_index, p.source_field) for p in projected.pieces
+            if p.kind == "native_text"] == [(pointer, 0, "text") for pointer, _ in header]
+    prepared = prep.prepare_source(view, persisted_annotations=(), max_chars=128, max_pieces=9)
+    selections = [s for s in prepared.selections if s.families == ("table",)]
+    assert len(selections) == 2
+    for selection, suffix in zip(selections, ("A\n0", "B\n0"), strict=True):
+        context = selection.context(
+            prepared.source, preparation=prepared.preparation, max_chars=128, max_pieces=9
+        )
+        assert context.text == expected_header + "\n" + suffix
+        assert len(context.intervals) == 9
+    limited = prep.prepare_source(view, persisted_annotations=(), max_chars=128, max_pieces=8)
+    assert not any(s.families == ("table",) for s in limited.selections)
+    region = next(r for r in limited.regions if r.pointer == "#/tables/0")
+    assert region.outcome == "partial" and "bound exceeded" in region.reason
