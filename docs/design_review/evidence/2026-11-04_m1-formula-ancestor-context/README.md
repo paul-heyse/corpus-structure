@@ -1,0 +1,36 @@
+# Retained same-primary formula ancestor context
+
+`probe.py` reads run10/task27's exact stored context selections, native source hierarchy
+and retained annotations, then compares source-only preparation at 64 and 128 intervals
+with a fixed 2048-character cap. It performs no model, PDF, OCR or database writes.
+Results use unused output paths and are retained without replacement.
+
+On 2026-11-04, the readonly commands were **passed**:
+
+- `uv run python docs/design_review/evidence/2026-11-04_m1-formula-ancestor-context/probe.py docs/design_review/evidence/2026-11-04_m1-formula-ancestor-context/before-001.json`
+- `uv run python docs/design_review/evidence/2026-11-04_m1-formula-ancestor-context/probe.py docs/design_review/evidence/2026-11-04_m1-formula-ancestor-context/after-001.json`
+
+The old policy2 stored selections contain 49 literal-only formula contexts. For 21 of
+these formulas, coherent containing text paragraphs and retained annotation blocks
+already exist in the primary source. The ancestor request searched only other selected
+source views and returned `no_match`; it never selected those local paragraphs.
+
+POLICY4 selects the complete nearest native paragraph/group through the existing
+canonical projector and exact primary piece membership. It replaces the literal-only
+serialization rather than duplicating the formula. Primary formula pointer and source
+offsets remain unchanged. Typed local ancestor relationships and consumption/limit
+dispositions are retained; an ancestor relation does not establish a symbol binding.
+
+After repair, 23 formula contexts consume complete genuine enclosures: 21 paragraphs
+and two small complete native section groups. The other 26 retain explicit partial
+scope because their containing native closure is unavailable in the primary source.
+No coherent block is truncated or replaced by unrelated nearby text.
+
+At the unchanged 2048-character/64-interval limits, formula contexts use at most
+1269 characters and 45 intervals; all source contexts use at most 1944 characters
+and 49 intervals, with no serialization refusals. At 128 intervals, the same 23
+formula contexts widen, while two additional prose windows fit and the overall
+maximum is 127 intervals. The operator retained 64 intervals. These are source-only
+preparation counts, not model-token admission, inference, performance, binding fidelity
+or knowledge-capture results. M1-05/M1-07 and the first-production-milestone coordinator
+consume this bounded evidence; whole-plan qualification and scientific gates remain open.

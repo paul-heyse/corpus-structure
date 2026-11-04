@@ -44,7 +44,7 @@ from corpus_structure.semantic.source_contexts import (
 )
 
 PROSE_FAMILIES = ("definition", "assertion", "measurement")
-POLICY = "m1-canonical-related-context-candidates-3"
+POLICY = "m1-canonical-related-context-candidates-4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,17 +73,24 @@ def native_table_cell_projection(node, index, nodes) -> TextProjection:
         )
         if any(p.cell_index is not None for p in projection.pieces):
             raise ValueError("nested tabular rich cell requires its own structural scope")
-        return replace(projection, pieces=tuple(
-            replace(p, cell_index=index) if p.kind == "native_text" else p
-            for p in projection.pieces
-        ))
+        return replace(
+            projection,
+            pieces=tuple(
+                replace(p, cell_index=index) if p.kind == "native_text" else p
+                for p in projection.pieces
+            ),
+        )
     text = cell.get("text")
     if not isinstance(text, str):
         raise ValueError("native cell text is unavailable")
     return TextProjection(
-        "", node["self_ref"], "descendant", text,
+        "",
+        node["self_ref"],
+        "descendant",
+        text,
         (ProjectedPiece(node["self_ref"], 0, len(text), "native_text", index, "cell_text"),)
-        if text else (),
+        if text
+        else (),
     )
 
 
@@ -108,18 +115,18 @@ def _prepare_table_cells(view, node, nodes, piece_lookup):
         indices = sorted({i for key in keys for i in piece_lookup.get(key, ())})
         members.update(indices)
         span = (
-            (view.pieces[indices[0]]["start"], view.pieces[indices[-1]]["end"])
-            if indices else None
+            (view.pieces[indices[0]]["start"], view.pieces[indices[-1]]["end"]) if indices else None
         )
         valid = len(indices) == len(native) and all(
             view.pieces[i]["item_ref"] == expected.item_ref
             and view.pieces[i].get("source_field") == expected.source_field
-            and view.text[view.pieces[i]["start"]:view.pieces[i]["end"]]
-                == projection.text[expected.start:expected.end]
+            and view.text[view.pieces[i]["start"] : view.pieces[i]["end"]]
+            == projection.text[expected.start : expected.end]
             for i, expected in zip(indices, native, strict=False)
         )
         valid = valid and (
-            view.text[span[0]:span[1]] == projection.text if span is not None
+            view.text[span[0] : span[1]] == projection.text
+            if span is not None
             else projection.text == ""
         )
         projections.append(projection if valid else None)
@@ -165,13 +172,17 @@ def native_table_geometry(node) -> tuple[NativeTableTarget, ...]:
                 if row is None or col is None:
                     continue
                 if (
-                    header.get("row_header") and row[0] <= target_row[0]
-                    and row[1] >= target_row[1] and col[1] <= target_col[0]
+                    header.get("row_header")
+                    and row[0] <= target_row[0]
+                    and row[1] >= target_row[1]
+                    and col[1] <= target_col[0]
                 ):
                     rows.append((*col, *row, other))
                 if (
-                    header.get("column_header") and col[0] <= target_col[0]
-                    and col[1] >= target_col[1] and row[1] <= target_row[0]
+                    header.get("column_header")
+                    and col[0] <= target_col[0]
+                    and col[1] >= target_col[1]
+                    and row[1] <= target_row[0]
                 ):
                     columns.append((*row, *col, other))
         targets.append(
@@ -192,6 +203,8 @@ class ContextSelection:
     retrievals: tuple[ContextRetrieval, ...] = ()
     relationships: tuple[tuple[int, ContextRelationship, str], ...] = ()
     local_dispositions: tuple[tuple[str, str, str], ...] = ()
+    # Actual native links; consumption/limits remain explicit in local_dispositions.
+    local_relationships: tuple[tuple[str, ContextRelationship, str], ...] = ()
     table_targets: tuple[NativeTableTarget, ...] | None = None
 
     def context(
@@ -259,18 +272,23 @@ def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pie
     pointer = node["self_ref"]
     targets = native_table_geometry(node)
     a, b = view.pieces[indices[0]]["start"], view.pieces[indices[-1]]["end"]
-    if b - a <= max_chars and sum(
-        piece["start"] < b and piece["end"] > a for piece in view.pieces
-    ) <= max_pieces and all(p is not None for p in prepared_cells.projections):
-        return [ContextSelection(
-            pointer, a, b, ("table",), "native structural trigger", table_targets=targets
-        )], []
+    if (
+        b - a <= max_chars
+        and sum(piece["start"] < b and piece["end"] > a for piece in view.pieces) <= max_pieces
+        and all(p is not None for p in prepared_cells.projections)
+    ):
+        return [
+            ContextSelection(
+                pointer, a, b, ("table",), "native structural trigger", table_targets=targets
+            )
+        ], []
     piece_starts = tuple(p["start"] for p in view.pieces)
     piece_ends = tuple(p["end"] for p in view.pieces)
 
     def pieces_for(group):
         required = {
-            index for target in group
+            index
+            for target in group
             for index in (*target.header_path, *target.row_path, target.cell_index)
         }
         selected = []
@@ -293,7 +311,8 @@ def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pie
             len(p.text) if isinstance(p, SyntheticText) else p.end - p.start for p in pieces
         )
         count = sum(
-            1 if isinstance(p, SyntheticText)
+            1
+            if isinstance(p, SyntheticText)
             else bisect_left(piece_starts, p.end) - bisect_right(piece_ends, p.start)
             for p in pieces
         )
@@ -318,12 +337,19 @@ def _table_selections(view, node, indices, prepared_cells, *, max_chars, max_pie
                 limits.extend(f"{pointer}/data/table_cells/{t.cell_index}: {reason}" for t in group)
                 continue
             native = [p for p in pieces if isinstance(p, SourceSlice)]
-            selections.append(ContextSelection(
-                pointer, min(p.start for p in native), max(p.end for p in native), ("table",),
-                "bounded complete native table row"
-                if len(group) > 1 else "bounded native table cell",
-                pieces=pieces, table_targets=group,
-            ))
+            selections.append(
+                ContextSelection(
+                    pointer,
+                    min(p.start for p in native),
+                    max(p.end for p in native),
+                    ("table",),
+                    "bounded complete native table row"
+                    if len(group) > 1
+                    else "bounded native table cell",
+                    pieces=pieces,
+                    table_targets=group,
+                )
+            )
     if not targets:
         limits.append(f"{pointer}: over-limit table has no independently located data-cell targets")
     return selections, limits
@@ -450,7 +476,8 @@ def prepare_source(
             piece_lookup.setdefault(key, []).append(index)
     prepared_tables = {
         node["self_ref"]: _prepare_table_cells(view, node, by_pointer, piece_lookup)
-        for node in view.items if "table_cells" in node.get("data", {})
+        for node in view.items
+        if "table_cells" in node.get("data", {})
     }
     selections = []
     selected_ranges = {}
@@ -577,6 +604,27 @@ def prepare_source(
             max_pieces=max_pieces,
             check_active=check_active,
         )
+        for index, region in enumerate(regions):
+            if region.families != ("formula_context",):
+                continue
+            incomplete = [
+                (pointer, reason)
+                for selected in region.selections
+                for pointer, outcome, reason in selections[selected].local_dispositions
+                if outcome != RetrievalOutcome.SELECTED.value
+                and pointer
+                in {
+                    p
+                    for p, relation, _ in selections[selected].local_relationships
+                    if relation == ContextRelationship.ANCESTOR
+                }
+            ]
+            if incomplete:
+                regions[index] = replace(
+                    region,
+                    outcome="partial",
+                    reason="; ".join(f"{pointer}: {reason}" for pointer, reason in incomplete),
+                )
     preparation = PreparedNativeSources(
         (frame, *(entry.source for entry in related)), max_sources=9
     )
@@ -661,22 +709,24 @@ def _widen_contexts(
                 ),
             )
         if selection.families == ("formula_context",):
-            requests.append(
+            requests.insert(
+                0,
                 SourceContextRequest(
                     selection.region,
                     ContextRelationship.ANCESTOR,
                     roles,
                     "formula declaration/scope unresolved; direct enclosing context only",
-                )
+                ),
             )
-        pieces: list[SourceSlice | SyntheticText] = list(selection.pieces or (
-            SourceSlice(frame.source_view_id, selection.start, selection.end),
-        ))
+        pieces: list[SourceSlice | SyntheticText] = list(
+            selection.pieces or (SourceSlice(frame.source_view_id, selection.start, selection.end),)
+        )
         chars = sum(
             len(p.text) if isinstance(p, SyntheticText) else p.end - p.start for p in pieces
         )
         count = sum(
-            1 if isinstance(p, SyntheticText)
+            1
+            if isinstance(p, SyntheticText)
             else bisect_left(piece_starts, p.end) - bisect_right(piece_ends, p.start)
             for p in pieces
         )
@@ -684,8 +734,12 @@ def _widen_contexts(
         def already_consumed(a, b, selected_pieces=pieces):
             position = a
             for piece in sorted(
-                (p for p in selected_pieces if isinstance(p, SourceSlice)
-                 and p.source_view_id == frame.source_view_id), key=lambda p: p.start,
+                (
+                    p
+                    for p in selected_pieces
+                    if isinstance(p, SourceSlice) and p.source_view_id == frame.source_view_id
+                ),
+                key=lambda p: p.start,
             ):
                 if piece.start > position:
                     break
@@ -693,11 +747,54 @@ def _widen_contexts(
                 if position >= b:
                     return True
             return False
+
         retrievals = []
         selected_relations = {}
         local_dispositions = []
+        local_relationships = []
         for request in requests:
             check_active()
+            if request.relationship == ContextRelationship.ANCESTOR:
+                enclosure = _primary_formula_enclosure(view, nodes, selection, local)
+                if enclosure is not None:
+                    pointer, span, outcome, reason = enclosure
+                    if span is not None:
+                        a, b = span
+                        # Replace the consumed formula with its complete enclosure;
+                        # appending it would duplicate the formula and its anchors.
+                        extra = [
+                            p
+                            for p in pieces
+                            if not (
+                                isinstance(p, SourceSlice)
+                                and p.source_view_id == frame.source_view_id
+                                and a <= p.start
+                                and p.end <= b
+                            )
+                        ]
+                        proposed = [SourceSlice(frame.source_view_id, a, b), *extra]
+                        proposed_chars = sum(
+                            len(p.text) if isinstance(p, SyntheticText) else p.end - p.start
+                            for p in proposed
+                        )
+                        proposed_count = sum(
+                            1
+                            if isinstance(p, SyntheticText)
+                            else (
+                                bisect_left(piece_starts, p.end) - bisect_right(piece_ends, p.start)
+                            )
+                            for p in proposed
+                        )
+                        if proposed_chars <= max_chars and proposed_count <= max_pieces:
+                            pieces, chars, count = proposed, proposed_chars, proposed_count
+                        else:
+                            outcome = RetrievalOutcome.RESOURCE_LIMIT
+                            reason = (
+                                "whole nearest native enclosure exceeds context "
+                                "character/piece bound"
+                            )
+                    local_relationships.append((pointer, ContextRelationship.ANCESTOR, reason))
+                    local_dispositions.append((pointer, outcome.value, reason))
             # Explicit links already available in the primary view retain primary
             # coordinates and are never relabelled as another selected source.
             local_targets = tuple(target for target in request.targets if target in local)
@@ -854,6 +951,7 @@ def _widen_contexts(
                 pieces=tuple(pieces),
                 retrievals=tuple(retrievals),
                 local_dispositions=tuple(local_dispositions),
+                local_relationships=tuple(local_relationships),
                 relationships=tuple(
                     (identity, relation, reason)
                     for identity, (relation, reason) in selected_relations.items()
@@ -861,3 +959,85 @@ def _widen_contexts(
             )
         )
     return widened, tuple(related.values())
+
+
+def _primary_formula_enclosure(view, nodes, selection, local):
+    """Find one complete actual enclosure, never nearby prose or a cropped ancestor.
+
+    Inline wrappers belong to the enclosing paragraph. Stop at its first genuine
+    non-inline parent; a missing closure does not license a farther, broader scope.
+    """
+    pointer = selection.region
+    seen = {pointer}
+    while (parent := nodes[pointer].get("parent", {}).get("$ref")) is not None:
+        if parent not in nodes:
+            return (
+                parent,
+                None,
+                RetrievalOutcome.MISSING_SCOPE,
+                "native enclosing block is outside primary source",
+            )
+        if parent in seen or not any(
+            child.get("$ref") == pointer for child in nodes[parent].get("children", ())
+        ):
+            return (
+                parent,
+                None,
+                RetrievalOutcome.UNSUPPORTED,
+                "native parent/child closure is unavailable",
+            )
+        seen.add(parent)
+        pointer = parent
+        if nodes[parent].get("label") != "inline":
+            break
+    else:
+        return None
+    if not pointer.startswith(("#/texts/", "#/groups/")):
+        return (
+            pointer,
+            None,
+            RetrievalOutcome.UNSUPPORTED,
+            "enclosing native structure is not a paragraph/group scope",
+        )
+    span = None
+    try:
+        projection = project_section_nodes(
+            nodes, "", pointer, "descendant", section_refs=frozenset((pointer,))
+        )
+        native = tuple(p for p in projection.pieces if p.kind == "native_text")
+        required = {(p.item_ref, p.source_field) for p in native}
+        actual = sorted(
+            (
+                p
+                for ref, field in required
+                for p in local.get(ref, ())
+                if p.get("source_field") == field
+            ),
+            key=lambda p: p["start"],
+        )
+        valid = len(actual) == len(native) and any(p.item_ref == selection.region for p in native)
+        valid = valid and all(
+            item["item_ref"] == expected.item_ref
+            and item.get("source_field") == expected.source_field
+            and (expected.cell_index is None or item.get("cell_index") == expected.cell_index)
+            and view.text[item["start"] : item["end"]]
+            == projection.text[expected.start : expected.end]
+            for item, expected in zip(actual, native, strict=False)
+        )
+        if valid:
+            a, b = actual[0]["start"], actual[-1]["end"]
+            valid = a <= selection.start < selection.end <= b and view.text[a:b] == projection.text
+            span = (a, b)
+        if not valid or span is None:
+            raise ValueError("complete native enclosing projection is absent from primary source")
+    except (ValueError, KeyError, TypeError) as error:
+        return pointer, None, RetrievalOutcome.UNSUPPORTED, str(error)
+    return (
+        pointer,
+        span,
+        RetrievalOutcome.SELECTED,
+        (
+            "complete nearest native ancestor consumed in primary source; "
+            "declaration/scope unresolved"
+        ),
+    )
