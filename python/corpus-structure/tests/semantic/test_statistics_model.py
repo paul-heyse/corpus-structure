@@ -6,23 +6,27 @@ import pytest
 from pydantic import ValidationError
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.observations import observation_inputs
 
 
 def statistics_inputs():
     root = Path(__file__).resolve().parents[4]
-    return SourceBundle(
-        "statistics_semantic",
-        (
-            SourceArtifact(
-                "statistics_semantic", (root / "domains/statistics/semantic.yaml").read_bytes()
+    return observation_inputs(
+        SourceBundle(
+            "statistics_semantic",
+            (
+                SourceArtifact(
+                    "statistics_semantic", (root / "domains/statistics/semantic.yaml").read_bytes()
+                ),
+                SourceArtifact(
+                    "semantic_core",
+                    (
+                        root
+                        / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
+                    ).read_bytes(),
+                ),
             ),
-            SourceArtifact(
-                "semantic_core",
-                (
-                    root / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                ).read_bytes(),
-            ),
-        ),
+        )
     )
 
 

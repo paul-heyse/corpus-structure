@@ -123,6 +123,27 @@ def test_all_data_children_are_pinned_to_the_realization_release() -> None:
                     ),
                 ) in _foreign_keys(name)
                 name = "data.entity"
+            if item.name == "entity_resolution":
+                assert (
+                    ("realization_id", "release_id", "entity_id"),
+                    (
+                        "data.entity.realization_id",
+                        "data.entity.release_id",
+                        "data.entity.entity_id",
+                    ),
+                ) in _foreign_keys(name)
+                name = "data.entity"
+            if item.name == "scientific_representative":
+                for reference in ("fact_id", "representative_fact_id"):
+                    assert (
+                        ("realization_id", "release_id", reference),
+                        (
+                            "data.fact.realization_id",
+                            "data.fact.release_id",
+                            "data.fact.fact_id",
+                        ),
+                    ) in _foreign_keys(name)
+                name = "data.fact"
             assert (
                 ("realization_id", "release_id"),
                 ("data.realization.realization_id", "data.realization.release_id"),

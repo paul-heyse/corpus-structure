@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "id": "ac13.forward105",
+  "title": "Exact attribute selectors and semantic refusals forward105",
+  "group": "audit-closure",
+  "package": "AC13",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does immutable104 advance to105 with exact literal attribute source binding, typed selector refusals and preserved scientific trace queries?",
+  "answers": [
+    "AC04",
+    "AC05",
+    "AC13",
+    "AC14",
+    "AC-CA09"
+  ],
+  "method": "Catalog-derived native-only successor, exact104→105/current-head comparison, independent malformed selector/legitimate literal-ID controls and scientific source-scope query counterparts.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native105/author-candidate.py",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native105/prepare-forward.py",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native105/verify-forward.py",
+    "uv run pytest 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_source]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_wrong_owner]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_index_text]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_index_negative]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_index_huge]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_index_padding]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_index_missing]' 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_index_suffix]' python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_literal_attribute_source_ids_remain_valid python/corpus-structure/tests/semantic/test_trace_counterparts.py",
+    "uv run pytest 'python/corpus-structure/tests/semantic/test_identity_exclusions_native.py::test_native_exclusion_publication_refuses_tampering[attribute_wrong_owner]'"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native105/source-inputs.json",
+      "role": "tested source and immutable105 artifact hashes",
+      "sha256": "8b04ffe1f301938404a0fb671b21f953a2b8b847ffeb25fcb6b169e486fd2c9d"
+    },
+    {
+      "path": "native105/candidate-105-001",
+      "role": "catalog-derived successor",
+      "sha256": "fb05cddbe55e25fa33db6994178833f9e0b051466478324a8cb113c2ce7799e8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native105/attempt-105-controls",
+      "role": "forward/current-head and native controls including collision setup failure",
+      "sha256": "a8aa75f4dd104eb5c41f7ac67c4604b613d30c2e6c7a548fc3f8aa5a9f34689b"
+    },
+    {
+      "path": "native105/attempt-materialize-001",
+      "role": "caught prospective syntax failure before migration write and premature forward check",
+      "sha256": "ad0ecf8e51d93588ad159cde3d249b7bdd4759e60ccbdb27f5eecc6a9befa835"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "selector_native_cases",
+      "value": 10,
+      "of": null,
+      "unit": "cases",
+      "note": "Eight explicit23514 refusals and two literal-ID positives; wrong-owner fixture corrected by permutation to avoid duplicate-key masking."
+    },
+    {
+      "name": "scientific_trace_native_cases",
+      "value": 4,
+      "of": null,
+      "unit": "cases",
+      "note": "Controlled source meaning, not M1 extraction accuracy."
+    },
+    {
+      "name": "forward_native_objects",
+      "value": 132,
+      "of": null,
+      "unit": "objects",
+      "note": "104→105; no physical changes; current-head reauthoring empty."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed at bounded AC13 scope. Exact source owner/subject/property and actual JSON ordinal replace caller index parsing and STRICT source lookup. Unknown/noncanonical selectors refuse with23514; legitimate underscore, percent and embedded slash addresses succeed. Four trace scenarios preserve their scientific expectations with explicit attributed source scope. Unique14 controls across13 passes in001 plus corrected owner case in002; failed duplicate-key fixture and prospective-driver syntax attempts retained. Frozen104 and earlier revisions unchanged. Complete AC14 required union remains open.",
+  "consumed_by": [
+    "AC04",
+    "AC05",
+    "AC13",
+    "AC14"
+  ]
+}

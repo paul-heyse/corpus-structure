@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "ac14.actual-provider-refresh",
+  "title": "Actual managed recognition and automated source refresh",
+  "group": "audit-closure",
+  "package": "AC14",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the actual managed service/application and authenticated source/MCP/native journeys preserve generation and producer custody after the queue repair?",
+  "answers": [
+    "AC08",
+    "AC14",
+    "AC-CA01"
+  ],
+  "method": "Fresh owned managed service generations with actual HTTP/application controls and separate authenticated Claude CLI/MCP/protected-native source journey. Runtime hashes and exact executed harness bytes retained.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/managed-recognition/refresh.py --output docs/design_review/evidence/2026-11-03_ac14-acceptance/managed-recognition/attempt-001",
+    "uv run python docs/design_review/evidence/2026-11-03_automated-source/automation_journey.py --checkout /home/paul/corpus-structure --receipts docs/design_review/evidence/2026-11-03_ac14-acceptance/automated-source"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "managed-recognition/refresh.py",
+      "role": "executed provider harness",
+      "sha256": "31e069ad3bfd0f5e9b25beef00bc70812b84c75c696993d2d60b9993ba3d0003"
+    },
+    {
+      "path": "automated-source/command.json",
+      "role": "automation command and watched source inputs",
+      "sha256": "e96f5b53fac56ccf0e045e67bb47b93cd667eb6d0b07f7bce3d2dfd432589017"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "managed-recognition/attempt-001",
+      "role": "actual generation/application/cleanup controls",
+      "sha256": "531a6be812e6ca35056bc42627bf7e5da6d8365bfc2f759d246274acecd4a0f0"
+    },
+    {
+      "path": "automated-source/attempt-20261104T013903Z-9a1b069a",
+      "role": "actual authenticated producer native receipt",
+      "sha256": "dd294c74a5f687d91585ba6eb668134f35f1f13112fdfcda20049b3989385e24"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "managed_startups",
+      "value": 2,
+      "of": null,
+      "unit": "generations",
+      "note": null
+    },
+    {
+      "name": "application_parser_requests",
+      "value": 2,
+      "of": null,
+      "unit": "successful requests",
+      "note": null
+    },
+    {
+      "name": "authenticated_source_reports",
+      "value": 1,
+      "of": null,
+      "unit": "native reports",
+      "note": "Exact nonempty lease/completion binding and task/attempt verified."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed at bounded watched-source scope after AC-CA01 repair. Actual managed generation/replacement/restart/in-flight/application controls and authenticated automation/native completion passed, with owned service/database disposal. These receipts predate the subsequent Unicode admission correction; applicability must be reconciled by consumed inputs. They do not establish full AC14 or any M1 quality/resource/release claim.",
+  "consumed_by": [
+    "AC08",
+    "AC14"
+  ]
+}

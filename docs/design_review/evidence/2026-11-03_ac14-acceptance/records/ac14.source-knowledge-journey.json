@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "ac14.source-knowledge-journey",
+  "title": "Actual provider through protected knowledge and consumer egress",
+  "group": "audit-closure",
+  "package": "AC14",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does an actual authenticated producer report reach admitted knowledge and same-pin query/evidence/MCP/export?",
+  "answers": [
+    "AC08",
+    "AC10",
+    "AC11",
+    "AC13",
+    "AC14"
+  ],
+  "method": "Controlled PDF/schema with real authenticated extraction, protected finalization, actual Typer query/evidence/export adapters, registered MCP source inspection and ADBC-backed JSONL export; compare immutable semantic pins and actual fact/observation/product identities.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/source-knowledge-journey/journey.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-knowledge-journey/journey.py",
+      "role": "current provider-to-egress harness",
+      "sha256": "6f8ea6c478176b248809ceb9f78120724af54eb33b3ecf285adf251fc3422e7d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "source-knowledge-journey/runtime",
+      "role": "success and retained failed/cancelled attempts with exact executed harness",
+      "sha256": "3abb75fc0a52788d1ccce43dcaf3e055c72d681ce10c1120c90ab5bfd7dce7cb"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "accepted_provider_facts",
+      "value": 1,
+      "of": null,
+      "unit": "facts",
+      "note": null
+    },
+    {
+      "name": "evidence_entries",
+      "value": 2,
+      "of": null,
+      "unit": "entries",
+      "note": null
+    },
+    {
+      "name": "native_items",
+      "value": 2,
+      "of": null,
+      "unit": "items",
+      "note": null
+    },
+    {
+      "name": "matching_exported_facts",
+      "value": 1,
+      "of": null,
+      "unit": "facts",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed at bounded actual provider/native/consumer scope on103. Authenticated extraction reaches consolidation, accepted and occurrence queries, source evidence, registered source inspection and real export on one result. Immutable pins agree while independent capture IDs remain distinct. Controlled Person/name source and generic queries do not establish statistics accuracy, full-book recognition, M1 CPU quality/resources or complete AC14. Prior failed capture assertion and cancelled setup are retained.",
+  "consumed_by": [
+    "AC08",
+    "AC10",
+    "AC11",
+    "AC13",
+    "AC14"
+  ]
+}

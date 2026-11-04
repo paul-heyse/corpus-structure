@@ -9,9 +9,12 @@ from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
 from fastmcp import Context, FastMCP
+from fastmcp import __version__ as FASTMCP_VERSION
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
+from fastmcp.utilities.json_schema import compress_schema
+from mcp.types import CallToolResult, Implementation
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Engine, func, select
 
@@ -40,6 +43,50 @@ class SemanticUnitPart(BaseModel):
 
 class ProposalTaskNotOpen(ProposalRefused):
     """The submitted attempt cannot append source results."""
+
+
+def _require_queue_mode(mode: str) -> None:
+    """The current proposal queue executes extraction, not reference adjudication."""
+    if mode != "extract":
+        raise ProposalRefused(f"unsupported proposal queue mode: {mode!r}; expected 'extract'")
+
+
+MCP_SERVER_NAME = "corpus-structure"
+QUEUE_ACK_MAX_BYTES = 8 * 1024 * 1024
+READ_UNIT_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _stamp_mcp_result(wire: CallToolResult) -> CallToolResult:
+    """Include SDK delivery metadata before admitting any bounded tool result."""
+    meta = dict(wire.meta or {})
+    key = "io.modelcontextprotocol/serverInfo"
+    if meta.get(key) is None:
+        meta[key] = Implementation(name=MCP_SERVER_NAME, version=FASTMCP_VERSION).model_dump(
+            mode="json", by_alias=True, exclude_none=True
+        )
+    return wire.model_copy(update={"meta": meta})
+
+
+def _bounded_mcp_result(
+    value: NativeSourceResponse | SourceSearchResponse | service.QueueNext, max_bytes: int
+) -> ToolResult:
+    """Admit the actual full text-plus-structured result, retaining its exact wire form."""
+    from corpus_structure.semantic.query import ReadLimit
+
+    encoded = ToolResult(content=value, structured_content=value.model_dump(mode="json"))
+    # The pinned SDK stamps this identity after dispatch on modern protocols. Author
+    # that same SDK-shaped metadata here so admission includes the final stamp, and
+    # the runner preserves it. Legacy protocols can carry this optional metadata;
+    # their serializer may omit resultType, so this complete-result bound remains safe.
+    wire = _stamp_mcp_result(
+        CallToolResult(
+            content=encoded.content,
+            structured_content=encoded.structured_content,
+        )
+    )
+    if len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8")) > max_bytes:
+        raise ReadLimit("complete MCP response exceeds byte budget", reason="oversized_item")
+    return ToolResult.from_mcp_result(wire)
 
 
 def _invocation_event(task_id, attempt, holder, binding, event, **details):
@@ -79,7 +126,7 @@ def _rendered_artifact_result(engine, result, max_bytes):
     from dataclasses import asdict
 
     from fastmcp.utilities.types import Image
-    from mcp.types import CallToolResult, ImageContent, TextContent
+    from mcp.types import ImageContent, TextContent
 
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.query import read_snapshot
@@ -92,7 +139,9 @@ def _rendered_artifact_result(engine, result, max_bytes):
     artifact = table("kb.source_artifact")
 
     def wire(content, body, *, refused=False):
-        return CallToolResult(content=content, structured_content=body, is_error=refused)
+        return _stamp_mcp_result(
+            CallToolResult(content=content, structured_content=body, is_error=refused)
+        )
 
     def size(response):
         return len(response.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
@@ -259,6 +308,7 @@ class SemanticAgentSession:
             )
 
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
+        _require_queue_mode(mode)
         from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
         from corpus_structure.orchestrate.semantic import agent_packet
         from corpus_structure.semantic.metadata import table
@@ -346,6 +396,10 @@ class SemanticAgentSession:
                     )
                 if out:
                     break
+            response = service.QueueNext(tasks=out)
+            # A refused ACK must roll back the claim, not strand a committed lease
+            # that the client never received. Packet work has its separate budget.
+            _bounded_mcp_result(response, QUEUE_ACK_MAX_BYTES)
         self.sessions.update(pending_sessions)
         for task, binding, packet_hash in admitted_events:
             _invocation_event(
@@ -356,7 +410,7 @@ class SemanticAgentSession:
                 "leased",
                 packet_hash=packet_hash,
             )
-        return service.QueueNext(tasks=out)
+        return response
 
 
 @dataclass
@@ -416,6 +470,7 @@ class SemanticProjectSession:
         )
 
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
+        _require_queue_mode(mode)
         if max_units is not None and max_units < 1:
             raise ProposalRefused("max_units must be positive")
         for run in self.pending_runs():
@@ -466,7 +521,8 @@ def build_semantic_server(
             yield {"session": active}
 
     server = FastMCP(
-        "corpus-structure",
+        MCP_SERVER_NAME,
+        version=FASTMCP_VERSION,
         instructions=(
             "Automated extraction for a release-bound run. Lease a unit using queue_next, "
             "read every "
@@ -586,20 +642,31 @@ def build_semantic_server(
             with located_failure_context(new, "compare_semantic_releases"):
                 return compare(old, new).model_dump(mode="json")
 
-    @server.tool(annotations={"readOnlyHint": True})
+    @server.tool(
+        annotations={"readOnlyHint": True},
+        output_schema=compress_schema(
+            SourceSearchResponse.model_json_schema(mode="serialization"), prune_titles=True
+        ),
+    )
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def find(ctx: Context, request: SourceSearchRequest) -> SourceSearchResponse:
+    def find(ctx: Context, request: SourceSearchRequest) -> ToolResult:
         """Find selected PDF source sections, with exact retrievable source handles."""
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.serve.source_search import search_source
 
         active = bound_run(ctx, request.run_id)
         with read_snapshot(active.engine) as conn:
-            return search_source(conn, request)
+            response = search_source(conn, request)
+        return _bounded_mcp_result(response, request.max_bytes)
 
-    @server.tool(annotations={"readOnlyHint": True})
+    @server.tool(
+        annotations={"readOnlyHint": True},
+        output_schema=compress_schema(
+            NativeSourceResponse.model_json_schema(mode="serialization"), prune_titles=True
+        ),
+    )
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def inspect_source(ctx: Context, request: NativeSourceRequest) -> NativeSourceResponse:
+    def inspect_source(ctx: Context, request: NativeSourceRequest) -> ToolResult:
         """Inspect pinned source products and qualified origins without interpretation."""
         from corpus_structure.semantic.query import read_snapshot
 
@@ -607,7 +674,8 @@ def build_semantic_server(
         with read_snapshot(active.engine) as conn:
             from corpus_structure.serve.native_source import inspect_native_source
 
-            return inspect_native_source(conn, request)
+            response = inspect_native_source(conn, request)
+        return _bounded_mcp_result(response, request.max_bytes)
 
     @server.tool(annotations={"readOnlyHint": False})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
@@ -643,19 +711,25 @@ def build_semantic_server(
     def queue_status(ctx: Context, run: int | None = None) -> service.QueueStatus:
         return bound_run(ctx, run).status()
 
-    @server.tool
+    @server.tool(
+        output_schema=compress_schema(
+            service.QueueNext.model_json_schema(mode="serialization"), prune_titles=True
+        )
+    )
     @tool_refusals(ProposalRefused, OperationConflict)
     def queue_next(
         ctx: Context,
-        mode: Literal["extract", "adjudicate"] = "extract",
+        mode: Literal["extract"] = "extract",
         run: int | None = None,
         max_units: int | None = None,
-    ) -> service.QueueNext:
+    ) -> ToolResult:
         active = bound_run(ctx, run)
         if isinstance(active, SemanticAgentSession):
             with located_failure_context(active.interpretation(), "claim"):
-                return active.next(mode, max_units)
-        return active.next(mode, max_units)
+                response = active.next(mode, max_units)
+        else:
+            response = active.next(mode, max_units)
+        return _bounded_mcp_result(response, QUEUE_ACK_MAX_BYTES)
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)
@@ -673,22 +747,24 @@ def build_semantic_server(
                 hash=active.packet.hash,
                 text=body,
             )
-            from mcp.types import CallToolResult, TextContent
+            from mcp.types import TextContent
 
             from corpus_structure.semantic.query import ReadLimit
 
-            wire = CallToolResult(
-                content=[TextContent(type="text", text=body)],
-                structured_content=structured.model_dump(mode="json"),
+            wire = _stamp_mcp_result(
+                CallToolResult(
+                    content=[TextContent(type="text", text=body)],
+                    structured_content=structured.model_dump(mode="json"),
+                )
             )
             if (
                 len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
-                > 8 * 1024 * 1024
+                > READ_UNIT_MAX_BYTES
             ):
                 raise ReadLimit(
                     "complete read_unit envelope exceeds byte budget", reason="oversized_item"
                 )
-            return ToolResult(content=body, structured_content=structured.model_dump(mode="json"))
+            return ToolResult.from_mcp_result(wire)
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)

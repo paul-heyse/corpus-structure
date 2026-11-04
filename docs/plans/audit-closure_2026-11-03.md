@@ -302,17 +302,25 @@ accepts the corrected producer/coverage boundary at source level. Other review l
 
 | New review finding | Current disposition / responsible component | Closure evidence and remaining limit |
 |---|---|---|
-| AC-CA01 — unsupported public queue mode | Open; AC06/AC08/AC13, intervention boundary | `semantic_server.py` advertises adjudicate although only extract is executable; empty/populated direct/project/tool paths must refuse unsupported mode before work and preserve supported empty success. See §12. |
+| AC-CA01 — unsupported public queue mode | Corrected and tested at bounded scope; AC06/AC08/AC13 | Extraction-only tool schema and early direct session/project refusal;11 focused cases passed including both native producer identities. Independent implementation review found no material issue. Full AC14 union remains open. |
+| AC-CA02 — Unicode release determinant admission | Source correction integrated; AC03/AC13/AC14 | Full campaign exposed nonexistent `PreparedRelease.library_versions`; admission now reads the actual manifest libraries and retains database-pair qualification. Eight identity controls and seven native regeneration cases passed; broader qualification is in progress. |
+| AC-CA03 — endpoint/isolate class membership | Corrected at bounded source/native scope; AC04/AC09/AC13 | Actual representable declarations supply exact class membership through observation/local-ID/resolution lineage, without invented property facts or borrowed evidence. Native103 selected controls and full source-to-egress journey pass; full union remains open. |
+| AC-CA04 — attribute citation SQL alias | Corrected at bounded native scope; AC04/AC13 | Renamed the attribute-source alias that collided with the PL/pgSQL record. Native known-input/declared-key positive passes under103 without weakening citation checks. |
+| AC-CA05 — registered MCP delivery bounds | Source correction,16 detached controls and native rollback passed; AC08/AC10/AC11/AC14 | Canonical source/search JSON fits its cap before FastMCP duplicates text/structured content and stamps protocol metadata. The shared stamp owner now bounds complete successful source/search/read-unit/render results; exact registered schemas and exact-size/one-byte-smaller delivery controls pass. Native ACK rollback now passes: task state is unchanged, no session/events escape, and the following adequately budgeted lease succeeds. Full union remains open. |
+| AC-CA06 — inherited declaration-only membership | Reproduced through native103; forward repair in progress; AC04/AC09/AC13 | An eligible prior relation object can have an accepted declaration-only class with no physical membership support. A subsequent known-object import has EntityInput lineage, not a current source declaration. Admit only the exact prior class/establishment under the bound run, input realization/revision and identity-preserving input entity. Never copy old EntitySource or invent attributes/support. Preserve frozen103 and use a successor if native meaning changes. |
+| AC-CA07 — ordinary Alembic collation reflection | Corrected and selected native controls passed; AC13 | The native candidate route installs the actual-catalog index reflection plugin, but the ordinary Alembic environment does not. Register that same plugin there; retain genuine collation/order drift detection and immutable migration artifacts. |
+| AC-CA08 — typed relational surface fingerprint | Regenerated and current-surface control passed; AC13 | Checked-in typed columns carry an older physical model fingerprint. Regenerate with the existing metadata generator; retain independently tested table/field/type agreement and include changed source determinants in prospective native authoring. |
+| AC-CA09 — attribute selector semantic refusal | Corrected and reviewed; ten selector/literal-ID native controls passed; AC04/AC05/AC13 | Malformed attribute owners reached a STRICT lookup and leaked NoDataFound instead of an owned semantic refusal. Match the exact literal local-ID/actual-ordinal address under its observation, entity and property; reject absent/noncanonical selectors with23514. No caller index cast, wildcard matching or broad exception conversion. Preserve legitimate underscore/percent/slash IDs, citation checks and atomic rollback. |
 | Assembled F01 — producer-bound required coverage | Source correction integrated (`f6d43b9d`); coverage recipe4 consumes the existing compatible producer binding and exact immutable task/configuration identity | Independent general-only/mixed missing/partial/drift/historical cases and independent delta assessment; complete AC14 native/transport applicability remains open |
 
-This table owns only the new review finding. Existing DA identities retain their prior single
+This table owns the new review/execution findings. Existing DA identities retain their prior single
 scheduled-disposition owners; neither package integration nor this checkpoint closes those plans.
 
 ### Retirement and verification boundary
 
 Retired source paths include the raw public reader connection, displaced accumulated inference rescan, eager explanation
 payload form, old current-native split writer and its live caller, unsupported live adjudicate
-configuration (public mode advertising remains incomplete under AC-CA01), obsolete by-unit advertising, unused producer identity type and competing producer
+configuration (current public mode advertising is corrected under AC-CA01), obsolete by-unit advertising, unused producer identity type and competing producer
 version constant. Kept the registered `complete_unit_result` operation, supported historical readers,
 current `core`/`schema` consumers, authored historical forms, frozen migrations, plans and evidence.
 The failed experimental removal of that registered operation is retained and the removal reverted.
@@ -413,3 +421,123 @@ obligations against final source/context. Use existing receipts where premises r
 retaining every failure/interruption. Full acceptance remains the existing required union.
 M1 coordinator and all six companions are reconciled from these foundations and targets now;
 resumed M1 execution retains AC prerequisites and its independent family/reference/resource gates.
+
+## 14. Current acceptance execution — 2026-11-03 local
+
+Execution resumes from `3fb48945`. AC-CA01 has a source/service/tool correction and scoped
+native evidence; AC-CA02 was revealed by the broader campaign, rather than the earlier selected
+suite. Its correction uses the recorded manifest recipe, with explicit PreparedRelease typing,
+current/missing/incompatible recipe controls and actual retained-input regeneration.
+Reader/source4 and PDF owned-read fixtures were migrated without restoring removed production
+APIs or weakening outside-run, archived-version, mapping or forbidden-inference expectations.
+
+The [acceptance evidence](../design_review/evidence/2026-11-03_ac14-acceptance/README.md)
+retains actual managed service/application and authenticated automated-source journeys. Their
+bounded recorded inputs remain distinct from later changes and final union applicability.
+Owned services/processes and the automation database were disposed. Live native99/defaults and
+frozen native102 remain unchanged. No M1 product execution has started.
+
+**Passed, 2026-11-03 local:** queue boundary/native selection11; retained/source API controls6;
+PDF reuse/runtime controls28; identity controls8; native retained regeneration7. Full `just hygiene`
+passed, including typing, lint, dependencies, Rust clippy and documentation publication. Publication
+links now name moved library documents and current/historical source owners; existing plan/evidence
+content was retained. This maintenance is not domain/provider qualification.
+
+**Failed/interrupted and retained:** first full `just test-all` campaign at
+`build/test-receipts/qualification/20261104T014051Z-1465974`, stopped after concrete fixture and
+Unicode failures; premature restart `20261104T014405Z-1480600`, stopped after the new focused
+Unicode controls exposed a missing import in the repair. Corrected focused controls pass.
+The subsequent full campaign `20261104T014636Z-1496041` was interrupted after AC-CA03/04
+and additional stale-fixture failures. All three attempts are archived in the acceptance folder;
+no interrupted campaign is a full pass.
+Opt-in shared-host authentication failure-injection skips remain explicitly distinct from the
+selected AC native/provider obligations; no host authentication settings were changed.
+
+Remaining: finish and repair full functional qualification, reconcile selected actual native/
+CLI/MCP/export/provider union and final-source applicability, then close AC and start M1's revised
+queue. Existing package rows remain In progress pending their complete acceptance boundaries.
+
+### Native103 correction and current final campaign
+
+Explicit source declarations now preserve representable endpoint/isolate classes through exact
+observation/local-ID/class/resolution lineage. They create no source property assertions or
+borrowed citations. Native validation retains source-cut and resolution custody; incomplete
+required identities stay unrepresentable. The attribute citation alias collision is corrected.
+The two negative-test boundaries now reach their intended missing-evidence/ownership checks.
+Independent review found no material production defect; concrete-subtype and actual unselected
+observation controls strengthen the declaration-basis discrimination.
+
+[Forward103 evidence](../design_review/evidence/2026-11-03_ac14-acceptance/records/ac13.forward103.json)
+records three native changes, no physical schema changes,35 selected native cases and32 pure
+cases (the initial66-case selection is mixed). Intermediate repetitions are not added. Explicit
+102→103 transition preserves132 native identities and current-head reauthoring is empty. The
+contract witness matches current source. Frozen102 remains unchanged;103 uses hash-bound native
+state/admission sidecars and its own forward wrapper.
+
+The [combined actual journey](../design_review/evidence/2026-11-03_ac14-acceptance/records/ac14.source-knowledge-journey.json)
+now carries an authenticated provider report through protected consolidation, occurrence/accepted
+CLI queries, source evidence, registered MCP source inspection and actual ADBC/JSONL export.
+Immutable release/realization/revision/run/cut/fact/observation/product pins agree; independent
+capture IDs remain distinct. Controlled PDF/Person schema and generic query custody are explicit;
+this is not statistics reading accuracy or M1 CPU qualification. Failed/cancelled harness attempts
+are preserved. Thirty-two retained-original/capture-export fixture controls also pass with current
+owned reads and export4/standing contracts, without weakening their negatives.
+
+Full `just hygiene` passed on the native103 source before these later repairs. The complete
+functional campaign `build/test-receipts/qualification/20261104T023811Z-1696667` failed:
+Python3952 passed/32 failed/eight opt-in skipped. Rust nextest exited0 with an empty selection,
+so its functional coverage is not_run, not a passing Rust test claim. Its complete receipt directory
+is retained under acceptance `qualification/attempt-004/receipts.tar.gz`. Source stayed stable
+through the campaign. Failure families include current source-assertion/method-dimension fixtures,
+bound negative publication, qualified transitive metadata pinning, compiler/import expectations,
+ordinary Alembic reflection and typed generation. Repairs preserve independent invalid inputs,
+source wording, historical bytes, exact native refusal and atomic rollback; they do not restore
+retired APIs or fabricate evidence from display metadata. New source gaps AC-CA05–08 are integrated
+in the owning findings table above. Applicable repair controls and final qualification remain open.
+M1 product execution and reference authoring remain queued behind full AC acceptance.
+
+
+### Current repair verification
+
+**Passed, 2026-11-03 local:** sixteen detached registered queue/transport cases after the shared
+SDK stamp correction, including exact-byte and one-byte-smaller source/search/read-unit/render
+results, committed render-reference refusal and schemas. Scoped Ruff/Pyrefly pass. The fresh
+12-case PostgreSQL selection passes all evaluation boundary negatives/rollback, known-reference
+MCP, actual role preflight, current ancestor reads, distinct-release reuse refusal, statistics cut,
+ordinary physical comparison and actual collation/order drift. An earlier12-case attempt detected
+an overlapping final import-format write; its seven implementation-drift refusals and five passes
+are retained, not merged into the fresh result. The implementation guard was not relaxed.
+
+AC-CA06 reproduction002 confirms that actual packet eligibility offers both prior endpoints and
+protected known-only report admission succeeds, before native103 refuses inherited class-only
+membership. Reproduction001's separate producer-contract conflict is retained. The correction
+will use an immutable103 successor with exact EntityInput custody. New source/reference/trace
+fixtures explicitly author their own per-attribute evidence; historical JSON/archives stay intact.
+All5 managed-recognition receipt input hashes still match current source, preserving that narrow
+provider applicability. The changed MCP path still needs a fresh complete provider-to-egress journey.
+
+
+### Native105 and final selected qualification
+
+Native104's seven-case import/lineage/replay union and explicit103→104/current-head transition are
+retained in `ac13.forward104`. A subsequent44-case current native/consumer selection had39 passes
+and five failures: an invalid attribute selector leaked NoDataFound, and four trace fixtures
+omitted the required attributed scope_locator for local random variables. The latter also
+suppressed dependent scientific facts. Their explicit source-scope assertions now retain actual
+located variable evidence and agent_asserted establishment, with all scientific expectations intact.
+
+Native105 uses exact literal owner/actual-ordinal matching, with no caller index cast or broad
+exception conversion. Independent review found no material issue. Explicit104→105 and empty
+current-head reauthoring pass, preserving132 identities and all frozen predecessors. Fourteen
+unique native controls pass: eight malformed-owner/index refusals with23514, two legitimate
+underscore/percent/slash ID cases, and all four trace scientific query scenarios. A wrong-owner
+fixture initially collided with an existing occurrence key; the retained failure was repaired by
+a collision-free address permutation, preserving the intended invalid source binding and rollback.
+The first prospective driver syntax failure was caught before writing any migration and is retained.
+
+The final required selection includes the ordinary full functional suite with only eight exact
+opt-in host-authentication failure controls excluded for the applicability reason in the acceptance
+companion. They remain not_run; other auth/application/native lifecycle controls stay required.
+No test marker, harness, guard or accepted functional target was weakened. Next: fresh actual
+provider-to-egress journey and final selected functional/nonfunctional union on maintained source.
+M1 remains queued until that acceptance closes.

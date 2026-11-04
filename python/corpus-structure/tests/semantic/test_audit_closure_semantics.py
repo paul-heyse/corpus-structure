@@ -604,3 +604,81 @@ def test_new_expression_form_spelling_uses_released_symbol_behavior():
     assert projected.expression_form == "assignment" and projected.defined_symbol == "x"
     symbol = {**definition, "expression": "x"}
     assert binding_symbols(release, "Value", (symbol,)) == {"x"}
+
+
+@pytest.mark.parametrize("endpoint", [False, True])
+def test_declared_endpoint_and_isolate_keep_membership_without_attribute_facts(endpoint):
+    release = prepared()
+    raw = batch()
+    raw["statements"] = []
+    raw["claims"][0].pop("statement")
+    raw["claims"][0].pop("statement_role")
+    raw["entities"].append({"id": "q", "class_iri": "https://example.org/Person", "label": "Bob"})
+    if endpoint:
+        raw["claims"][0]["predicate"] = "https://example.org/friend"
+        raw["claims"][0]["object"] = {"kind": "entity", "target": "q"}
+    projected = _declaration_projection(release, raw)
+    declarations = {row.local_id: row.entity_id for row in projected.batch.entity_source}
+    assert set(declarations) == {"p", "q"}
+    assert len(projected.batch.membership) == 2
+    member = next(row for row in projected.batch.membership if row.entity_id == declarations["q"])
+    assert member.class_id == "https://example.org/Person"
+    assert member.establishment == "agent_asserted"
+    assert not [
+        row for row in projected.batch.membership_support if row.entity_id == member.entity_id
+    ]
+    assert not [row for row in projected.batch.fact if row.subject_id == member.entity_id]
+    assert {row.item for row in projected.batch.occurrence} == {"claims/0"}
+    assert {row.property_id for row in projected.batch.fact} == {
+        "https://example.org/friend" if endpoint else "https://example.org/name"
+    }
+
+
+def test_incomplete_declared_identity_does_not_gain_membership():
+    release = identity_release(keyed=True)
+    raw = batch()
+    raw["statements"] = []
+    raw["claims"] = []
+    projected = _declaration_projection(release, raw)
+    assert projected.batch.entity_source
+    assert not projected.batch.membership
+    assert not projected.batch.fact
+    assert any(
+        "required identifying fields" in (row.reason or "") for row in projected.batch.coverage
+    )
+
+
+def _declaration_projection(release, raw):
+    from corpus_structure.semantic.proposals import locate_proposal
+
+    payload = locate_proposal(release, raw, frame()).stored.model_dump(
+        mode="python", exclude_unset=True
+    )
+    observation = {
+        "id": 9,
+        "observation_key": "observation:declarations",
+        "payload_definition": "AgentStoredBatch",
+        "payload": payload,
+    }
+    descriptor = {
+        "math": {},
+        "content": {"macros": {}},
+        "text": frame().text,
+        "source_uri": "doc:test",
+        "provider": "agent.test",
+        "version": "7",
+        "frame": frame(),
+        "rendition_id": 1,
+        "rendition_key": "rendition:test",
+        "page": None,
+    }
+    job = {
+        "id": 1,
+        "project_id": "project:test",
+        "release_id": release.release_id,
+        "input_realization_id": "in",
+        "input_revision": 0,
+    }
+    return _project_cut(
+        release, job, {"id": 1}, [observation], {9: descriptor}, [], [], "out", {}, {}
+    )

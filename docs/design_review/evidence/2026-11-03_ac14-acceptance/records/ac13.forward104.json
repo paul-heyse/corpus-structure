@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "ac13.forward104",
+  "title": "Imported declaration-only membership forward104",
+  "group": "audit-closure",
+  "package": "AC13",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does immutable103 advance to104 with exact inherited class/establishment custody, protected known-object import and replay?",
+  "answers": [
+    "AC04",
+    "AC09",
+    "AC13",
+    "AC14",
+    "AC-CA06"
+  ],
+  "method": "Actual native103 supported queue/report reproduction, catalog-derived native-only successor, explicit103→104/current-head reauthoring, independent native import and forged-lineage controls.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native104/author-candidate.py",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native104/prepare-forward.py",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native104/verify-forward.py",
+    "uv run pytest python/corpus-structure/tests/semantic/test_imported_declaration_membership.py",
+    "uv run pytest 'python/corpus-structure/tests/semantic/test_imported_declaration_membership.py::test_native_imported_membership_requires_exact_bound_lineage[revision]' 'python/corpus-structure/tests/semantic/test_imported_declaration_membership.py::test_native_imported_membership_requires_exact_bound_lineage[run]'"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native104/source-inputs.json",
+      "role": "tested native104 source and artifact hashes",
+      "sha256": "a2cf4781757b9d18b5dedd6ed2b47d10e6e696ee7a9a754fb8e8f5073a9ce370"
+    },
+    {
+      "path": "native104/candidate-104-001",
+      "role": "catalog-derived successor",
+      "sha256": "e94e36917c58b00aa2fbd5b257555bbca507eb763d916dddb9d1d85b2c8a1a94"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native104/attempt-104-controls",
+      "role": "forward/current-head and native controls including failed diagnostic assertions",
+      "sha256": "591d8b41914737ba5d930f9de1b2bdacf80e86ffed946561a818c9a98ec8d312"
+    },
+    {
+      "path": "native104/attempt-repro-001",
+      "role": "retained producer-contract fixture conflict",
+      "sha256": "6538fb2ae899ca46adbc223ca9da388dba831d27af262fc062d8382bd31a9731"
+    },
+    {
+      "path": "native104/attempt-repro-002",
+      "role": "actual native103 supported import refusal",
+      "sha256": "e693fd818d3a264ec231153bc74207a7c29a526efce94dc745cd3e804f95fbf5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "selected_native_cases",
+      "value": 7,
+      "of": null,
+      "unit": "cases",
+      "note": "Five passed in001; revision/run expectations corrected to existing check_entity_input diagnostic and passed in002. No repeated counts added."
+    },
+    {
+      "name": "forward_native_objects",
+      "value": 132,
+      "of": null,
+      "unit": "objects",
+      "note": "103→104; no physical changes; current-head reauthoring empty."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed at bounded AC13 scope. Actual known-object packet eligibility and protected report survive inherited class-only import with exact prior entity/class/establishment/run/revision custody. Same-class identity borrowing, concrete class substitution and establishment promotion refuse; existing input trigger refuses changed run/revision. Finished replay retained. Native103 bytes preserved. Complete AC14 remains open, including later selector/trace failures in the broader targeted suite.",
+  "consumed_by": [
+    "AC04",
+    "AC09",
+    "AC13",
+    "AC14"
+  ]
+}

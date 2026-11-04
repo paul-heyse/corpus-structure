@@ -21,6 +21,7 @@ def exclusion_result(
     finalize=True,
     citations=1,
     keyed=False,
+    attribute_assertions=False,
     global_names=False,
     local_ids=("p", "q"),
 ):
@@ -52,9 +53,18 @@ def exclusion_result(
                                     {
                                         "predicate": "https://example.org/name",
                                         "value": {"kind": "text", "text": "Alice"},
+                                        "qualification": {"modality": "asserted", "polarity": True},
+                                        "establishment": "stated",
+                                        "evidence": [
+                                            {
+                                                "sentence": unit["sentences"][0]["id"],
+                                                "quote": "Alice is here.",
+                                                "role": "primary",
+                                            }
+                                        ],
                                     }
                                 ]
-                                if keyed
+                                if keyed or attribute_assertions
                                 else [],
                             }
                             for ref in local_ids
@@ -123,7 +133,12 @@ def test_exclusion_only_entities_publish_grounded_memberships(
         assert exclusions[0]["left_entity_id"] != exclusions[0]["right_entity_id"]
         assert exclusions[0]["reason"] == "separate source identities"
         assert len(conn.execute(select(table("data.entity_source"))).all()) == 2
-        assert len(conn.execute(select(table("data.membership_support"))).all()) == 2
+        memberships = conn.execute(select(table("data.membership"))).mappings().all()
+        assert len(memberships) == 2
+        assert {membership["establishment"] for membership in memberships} == {"agent_asserted"}
+        assert not conn.execute(select(table("data.fact"))).all()
+        assert not conn.execute(select(table("data.occurrence"))).all()
+        assert not conn.execute(select(table("data.membership_support"))).all()
         assert len(conn.execute(select(table("data.identity_exclusion_evidence"))).all()) == 1
 
 
@@ -170,7 +185,11 @@ def test_known_input_exclusions_follow_participating_endpoints(
     from corpus_structure.semantic.operations import OperationBinding, create_run
 
     prepared, old_run, _, first = exclusion_result(
-        semantic_db_engine, semantic_writer_engine, tmp_path, global_names=True
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path,
+        global_names=True,
+        attribute_assertions=True,
     )
     assert first is not None
     with semantic_writer_engine.begin() as conn:

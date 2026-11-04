@@ -16,13 +16,21 @@ from corpus_structure.semantic.query import read_session
 from .inventory_reading import inventory_items
 
 
+@pytest.mark.parametrize("attribute_assertions", [False, True])
 def test_identity_exclusion_snapshot_reader_and_columnar_closure(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_reader_engine,
+    tmp_path,
+    attribute_assertions,
 ):
     from .test_identity_exclusions import exclusion_result
 
     _prepared, _run, _cut, result = exclusion_result(
-        semantic_db_engine, semantic_writer_engine, tmp_path
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path,
+        attribute_assertions=attribute_assertions,
     )
     assert result is not None
     with read_session(semantic_reader_engine, result.realization_id) as session:
@@ -64,32 +72,39 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
             )
             .limit(1)
         )
-        assert fact_id is not None
-        explanation = session.explain(fact_id)
-        assert explanation.binding == session.binding
-        actual = inventory_items(session, fact_id, "identity_exclusions")
-        expected = tuple(
-            dict(
-                exclusion_id=row.exclusion_id,
-                observation_id=row.observation_id,
-                local_id=row.local_id,
-                left_kind=row.left.kind,
-                left_ref=row.left.target,
-                left_entity_id=row.left.entity.entity_id,
-                right_kind=row.right.kind,
-                right_ref=row.right.target,
-                right_entity_id=row.right.entity.entity_id,
-                reason=row.reason,
-                operation_id=row.operation_id,
-                operation_version=row.operation_version,
+        if attribute_assertions:
+            assert fact_id is not None
+            explanation = session.explain(fact_id)
+            assert explanation.binding == session.binding
+            actual = inventory_items(session, fact_id, "identity_exclusions")
+            expected = tuple(
+                dict(
+                    exclusion_id=row.exclusion_id,
+                    observation_id=row.observation_id,
+                    local_id=row.local_id,
+                    left_kind=row.left.kind,
+                    left_ref=row.left.target,
+                    left_entity_id=row.left.entity.entity_id,
+                    right_kind=row.right.kind,
+                    right_ref=row.right.target,
+                    right_entity_id=row.right.entity.entity_id,
+                    reason=row.reason,
+                    operation_id=row.operation_id,
+                    operation_version=row.operation_version,
+                )
+                for row in rows
             )
-            for row in rows
-        )
-        assert tuple({key: row[key] for key in expected[0]} for row in actual) == expected
-        assert {
-            (row["exclusion_id"], row["evidence_id"])
-            for row in inventory_items(session, fact_id, "identity_exclusion_evidence")
-        } == {(row.exclusion_id, evidence.evidence_id) for row in rows for evidence in row.evidence}
+            assert tuple({key: row[key] for key in expected[0]} for row in actual) == expected
+            assert {
+                (row["exclusion_id"], row["evidence_id"])
+                for row in inventory_items(session, fact_id, "identity_exclusion_evidence")
+            } == {
+                (row.exclusion_id, evidence.evidence_id)
+                for row in rows
+                for evidence in row.evidence
+            }
+        else:
+            assert fact_id is None
 
         uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
             hide_password=False

@@ -194,14 +194,28 @@ def test_native_candidate_publication_binds_operation_profile_cut_and_target(
 def test_native_finish_refuses_source_occurrence_without_cut_evidence(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
+    from corpus_structure.semantic.analytics import compile_projection
+    from corpus_structure.semantic.arrow_publication import (
+        SnapshotDerivedPublication,
+        publish_arrow_on_connection,
+    )
     from corpus_structure.semantic.domain_operations import _cut_input
-    from corpus_structure.semantic.publication import publish_on_connection
 
     _prepared, run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
     )
     inputs = _cut_input(semantic_writer_engine, cut, "hostile")
-    batch = replace(inputs.batch, evidence_source=())
+    batch = replace(inputs.batch, evidence_source=()).bind_preparation(inputs.prepared)
+    compiled = compile_projection(inputs.prepared, inputs.source_binding, kind="candidate")
+    publication = SnapshotDerivedPublication.from_rows(
+        batch,
+        source=inputs.source_binding,
+        operation_id="evaluate",
+        projection_id=compiled.projection_id,
+        contract_id="candidate",
+        cut_id=cut,
+        profile_digest=compiled.profile.digest,
+    )
     with (
         pytest.raises(DBAPIError, match="source occurrence has no located evidence"),
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
@@ -210,7 +224,7 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
         )
-        publish_on_connection(conn, batch)
+        publish_arrow_on_connection(conn, publication)
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
             {"cut": cut, "out": "hostile", "batch": batch.batch_id},
@@ -245,10 +259,10 @@ def test_stage_disposal_refuses_writer_owned_imitation(semantic_db_engine, seman
         quoted = conn.dialect.identifier_preparer.quote(database)
         conn.exec_driver_sql(f"GRANT TEMP ON DATABASE {quoted} TO corpus_sem_writer")
     with (
-        pytest.raises(DBAPIError, match="untrusted staging relation sp_entity"),
+        pytest.raises(DBAPIError, match="untrusted staging relation sp_record_report"),
         semantic_writer_engine.begin() as conn,
     ):
-        conn.exec_driver_sql("CREATE TEMP TABLE sp_entity(entity_id text)")
+        conn.exec_driver_sql("CREATE TEMP TABLE sp_record_report(task_id bigint)")
         conn.exec_driver_sql("SELECT data.end_stage()")
 
 
@@ -794,3 +808,185 @@ def test_known_input_roles_filter_before_value_hydration(
             )
             is None
         )
+
+
+def test_declared_endpoint_and_isolate_publish_without_invented_properties(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    _prepared, _run, cut = build_domain_case(
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path / "source.html",
+        graph=True,
+        isolated_entity=True,
+    )
+    consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    with semantic_writer_engine.connect() as conn:
+        sources = conn.execute(select(table("data.entity_source"))).mappings().all()
+        declared = {row["local_id"]: row["entity_id"] for row in sources}
+        assert {"other", "isolated"} <= declared.keys()
+        for local in ("other", "isolated"):
+            memberships = (
+                conn.execute(
+                    select(table("data.membership")).where(
+                        table("data.membership").c.entity_id == declared[local]
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            assert [(m["class_id"], m["establishment"]) for m in memberships] == [
+                ("https://example.org/Person", "agent_asserted")
+            ]
+            assert not conn.execute(
+                select(table("data.membership_support")).where(
+                    table("data.membership_support").c.entity_id == declared[local]
+                )
+            ).first()
+            assert not conn.execute(
+                select(table("data.fact")).where(
+                    table("data.fact").c.subject_id == declared[local],
+                    table("data.fact").c.property_id == "https://example.org/name",
+                )
+            ).first()
+        assert not conn.execute(
+            select(table("data.fact")).where(
+                table("data.fact").c.subject_id == declared["isolated"]
+            )
+        ).first()
+        assert not conn.execute(
+            select(table("data.occurrence")).where(
+                table("data.occurrence").c.item.like("entities/%")
+            )
+        ).first()
+
+
+@pytest.mark.parametrize(
+    "forgery", ["valid", "class", "declaration", "resolution", "cut", "source_cut"]
+)
+def test_native_declared_membership_refuses_forged_lineage(
+    semantic_db_engine, semantic_writer_engine, tmp_path, forgery
+):
+    from contextlib import nullcontext
+
+    from corpus_structure.semantic.analytics import compile_projection
+    from corpus_structure.semantic.arrow_publication import (
+        SnapshotDerivedPublication,
+        publish_arrow_on_connection,
+    )
+    from corpus_structure.semantic.domain_operations import NativeEvidenceLink, _cut_input
+    from corpus_structure.semantic.publication import EvidenceSourceRow
+
+    prepared, _run, cut = build_domain_case(
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path / "source.html",
+        graph=True,
+        membership_subtype=True,
+        unselected_report=forgery == "source_cut",
+    )
+    inputs = _cut_input(semantic_writer_engine, cut, "hostile")
+    batch = inputs.batch
+    endpoint = next(row for row in batch.entity_source if row.local_id == "other")
+    if forgery == "class":
+        other_class = next(d.iri for d in prepared.definitions if d.name == "PersonSubtype")
+        batch = replace(
+            batch,
+            membership=tuple(
+                replace(row, class_id=other_class) if row.entity_id == endpoint.entity_id else row
+                for row in batch.membership
+            ),
+        )
+    elif forgery == "declaration":
+        batch = replace(
+            batch,
+            entity_source=tuple(
+                replace(row, local_id="not-declared") if row == endpoint else row
+                for row in batch.entity_source
+            ),
+        )
+    elif forgery == "source_cut":
+        with semantic_writer_engine.connect() as conn:
+            observation = table("kb.observation")
+            task = table("ops.task")
+            foreign_observation = conn.execute(
+                select(observation.c.id)
+                .join(task, task.c.id == observation.c.task_id)
+                .where(
+                    task.c.run_id != inputs.run_id,
+                    observation.c.payload_definition == "AgentStoredBatch",
+                )
+            ).scalar_one()
+        assert foreign_observation not in {report["id"] for report in inputs.reports}
+        batch = replace(
+            batch,
+            entity_source=tuple(
+                replace(row, observation_id=foreign_observation) if row == endpoint else row
+                for row in batch.entity_source
+            ),
+        )
+    elif forgery == "resolution":
+        batch = replace(
+            batch,
+            entity_resolution=tuple(
+                replace(row, operation_id="not-resolve-identity")
+                if row.local_id == "other"
+                else row
+                for row in batch.entity_resolution
+            ),
+        )
+    evidence_sources = []
+    for eid, link in sorted(inputs.source_links.items()):
+        assert isinstance(link, NativeEvidenceLink)
+        evidence_sources.append(
+            EvidenceSourceRow(
+                eid,
+                link.observation_id,
+                None,
+                None,
+                source_view_id=link.source_view_id,
+                native_address=link.native_address,
+            )
+        )
+    batch = replace(batch, evidence_source=tuple(evidence_sources)).bind_preparation(prepared)
+    compiled = compile_projection(prepared, inputs.source_binding, kind="candidate")
+    publication = SnapshotDerivedPublication.from_rows(
+        batch,
+        source=inputs.source_binding,
+        operation_id="evaluate",
+        projection_id=compiled.projection_id,
+        contract_id="candidate",
+        cut_id=int(cut) + 1000 if forgery == "cut" else cut,
+        profile_digest=compiled.profile.digest,
+    )
+    with (
+        pytest.raises(
+            DBAPIError,
+            match=(
+                "membership requires establishment and support"
+                if forgery == "class"
+                else "entity source is outside the bound final observation cut"
+                if forgery == "source_cut"
+                else None
+            ),
+        )
+        if forgery != "valid"
+        else nullcontext(),
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin(),
+    ):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
+        )
+        publish_arrow_on_connection(conn, publication)
+        conn.execute(
+            text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
+            {"cut": cut, "out": "hostile", "batch": batch.batch_id},
+        )
+    with semantic_writer_engine.connect() as conn:
+        persisted = conn.execute(
+            select(table("data.realization")).where(
+                table("data.realization").c.realization_id == "hostile"
+            )
+        ).first()
+        assert (persisted is not None) == (forgery == "valid")

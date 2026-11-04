@@ -65,7 +65,11 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         proposal_inputs(bundle, dependencies, qualification_class="StatisticsQualification")
     )
     bundle, dependencies = analytical_inputs(bundle, dependencies)
-    dependencies = composed_dependencies(dependencies)
+    from .method_dimensions_support import fixture_execution_inputs
+
+    dependencies = composed_dependencies(
+        dependencies, fixture_execution_inputs("pdf.controlled-source")
+    )
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:

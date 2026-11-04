@@ -27,9 +27,49 @@ def trace_source():
 
 
 def test_trace_reference_is_well_typed_and_independently_source_located(trace_source):
+    from copy import deepcopy
+
     batches, contents = trace_source
     _, _, _, prepared = prepare_pack(ROOT / "domains/statistics")
-    for batch in batches:
+    # These current counterparts explicitly assert source symbols and their actual
+    # source scope. Scope assignment is agent_asserted, not a literal source quotation.
+    # The historical JSON stays intact.
+    symbol_citations = {
+        "special/LocationScale.html@p:As usual,": (
+            "expected-real-valued-sentence",
+            {"expected-Z": "Z"},
+        ),
+        "special/LocationScale.html#dfn1": (
+            "expected-affine-definition-sentence",
+            {"expected-X": "X", "expected-base-Z": "Z"},
+        ),
+        "special/Normal.html@p:Suppose again": (
+            "expected-normal-setup-sentence",
+            {"expected-X": "X"},
+        ),
+        "special/Normal.html#rel1": ("expected-normal-premise-sentence", {"expected-X": "X"}),
+        "special/LogNormal.html#dfn": ("expected-normal-base-sentence", {"expected-Y": "Y"}),
+    }
+    for original in batches:
+        batch = deepcopy(original)
+        sentence, symbols = symbol_citations[batch["unit_ref"]]
+        for entity in batch["entities"]:
+            entity["attributes"] = [
+                {
+                    **attribute,
+                    "establishment": (
+                        "agent_asserted"
+                        if attribute["predicate"].endswith("/scope_locator")
+                        else "stated"
+                    ),
+                    "qualification": {"modality": "asserted", "polarity": True},
+                    "evidence": [
+                        {"sentence": sentence, "quote": symbols[entity["id"]], "role": "primary"}
+                    ],
+                }
+                for attribute in entity.get("attributes", ())
+                if attribute["predicate"].endswith(("/symbol", "/scope_locator"))
+            ]
         page = parse_locator(batch["unit_ref"]).page
         content = contents[page]
         index = LocatorIndex(content, page)

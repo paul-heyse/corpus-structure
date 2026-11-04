@@ -33,8 +33,10 @@ installs run serially on the dedicated cluster; unrelated detached checks can re
 Retain the actual-catalog collation reflection adaptation while pinned SQLAlchemy/Alembic need it;
 on a version change, compare actual collation/order/covering reflection and remove only when the
 replacement preserves drift detection. Retirement examines released registrations and generated
-bindings; registered `complete_unit_result` remains live. AC-CA01 is still an open public-choice
-retirement. See [review I03](../../plan_improvement_reviews/audit-closure_2026-11-03.md#I03).
+bindings; registered `complete_unit_result` remains live. AC-CA01's public-choice retirement is
+corrected at source and selected boundary scope; AC14 owns its final acceptance. Execution now
+adds immutable103/104 successors and prospective105 through the same native-only forward route;
+never rewrite102/103/104. See [review I03](../../plan_improvement_reviews/audit-closure_2026-11-03.md#I03).
 
 
 AC13 is the continuing owner of cross-cutting release compatibility, forward-native coordination
@@ -143,6 +145,18 @@ route. Run `just ready` only when its environment/dependency/process-change trig
 The required union is the following behavior, not a sum of overlapping test counts. The integrator
 maps it to exact selected native/provider/consumer nodes and actual journey commands before the
 campaign, using the existing receipt/applicability machinery rather than a new acceptance registry.
+
+**Final AC selection, 2026-11-03 local:** run the ordinary complete suite with only the eight
+explicitly opt-in shared-host authentication crash/recovery cases in `tests/scripts/test_native_auth.py`
+deselected by exact node ID. They exercise the host authentication adapter's ownership journal,
+partial auth-file/role effects, delayed backends, privileged helpers and guardian generations.
+That adapter, helper, support code, host policy and these tests are unchanged by AC. Independent
+applicability review found no accepted AC requirement for this host failure-injection campaign.
+Their outcome remains not_run outside selected AC scope; retain campaign004's eight skip records.
+All other authentication tests and required native wrong-principal/drift, application ClaimOwner,
+cancellation, cleanup and receipt-replay controls remain included. Reopen these opt-in controls if
+their implementation/policy or dependent failure exposure changes. This is selected-scope
+qualification, not a claim that the unrestricted default whole-repository command passed.
 
 | Required scope | Discriminating evidence and actual path |
 |---|---|

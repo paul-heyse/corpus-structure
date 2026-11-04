@@ -74,11 +74,11 @@ def test_new_record_projection_gets_a_new_compiler_identity_for_identical_source
     _, same_sources, _ = archive()
     old = opened_archive()
     new = prepare_release(same_sources)
-    assert json.loads(new.manifest)["profile"]["compiler_version"] == "15"
+    assert json.loads(new.manifest)["profile"]["compiler_version"] == "16"
     assert new.release_id != old.release_id
     assert not any(artifact.kind == ARTIFACT for artifact in old.artifacts)
     assert len([artifact for artifact in new.artifacts if artifact.kind == ARTIFACT]) == 1
-    assert comparison_projection(new).compiler_version == "15"
+    assert comparison_projection(new).compiler_version == "16"
     assert read_record_projection(new)["abi"] == "source-record-projection-1"
 
 

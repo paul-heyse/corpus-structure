@@ -83,6 +83,21 @@ folding is justified solely by DA-009; reopen on demonstrated mismatch or change
 
 ## AC04 — Attribute-specific support and three representative policies
 
+**Execution findings AC-CA03/06, 2026-11-03 local:** an explicit representable source entity
+declaration supplies class membership independently of property assertions. Retain exact
+observation/local-ID/class/resolution and selected-cut custody; no name/identifier fact or borrowed
+citation is manufactured. Incomplete required identity remains unrepresentable.
+
+A subsequent known-object import can legitimately retain such a prior membership without a
+physical property-based support or a new declaration. Its admissible basis is the existing
+EntityInput lineage to the exact accepted prior class and establishment. Native enforcement must
+bind the output/run, run's actual input realization/revision, current input revision and the
+identity-preserving input entity under the same release. Existence FKs alone are insufficient.
+Do not copy predecessor EntitySource into the new cut, upgrade establishment, borrow another
+entity's same-class membership or recursively re-prove an already admitted prior graph. Preserve
+the existing immutable finished-result replay behavior. The coordinator owns reproduction,
+forward successor and positive/forged-lineage qualification state.
+
 **Adopted refinement I01:** carry actual attributed supports, independent representative policies
 and stored inability reasons through remaining native/publication/consumer cases. A constructor
 or shared-validator round trip cannot independently establish correct source meaning. Existing

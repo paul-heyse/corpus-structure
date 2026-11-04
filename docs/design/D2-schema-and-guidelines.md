@@ -684,7 +684,7 @@ Compiled from phase 1, when M05–M07 run; phase 0 compiles nothing for GLiNER2,
 environment carries no gliner2 or torch until then.
 
 Two artifacts, because GLiNER2's ordinary and joint decoders have different semantics
-([library overview](../libraries/gliner2.md) §4.3):
+([library overview](../libraries/parsing/gliner2.md) §4.3):
 
 **(a) The extraction schema**, built with `Schema.from_dict`. gliner2 2.1.0 accepts, for v0, the
 keys `entities` (label → description), `entity_attributes` (`labels`, `applies_to`,

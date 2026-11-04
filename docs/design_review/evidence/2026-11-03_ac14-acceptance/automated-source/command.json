@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "python",
+    "docs/design_review/evidence/2026-11-03_automated-source/automation_journey.py",
+    "--checkout",
+    "/home/paul/corpus-structure",
+    "--receipts",
+    "docs/design_review/evidence/2026-11-03_ac14-acceptance/automated-source"
+  ],
+  "head": "3fb489450ff45c95154d19ac6ac2ec386130b264",
+  "source_hashes": {
+    "python/corpus-structure/src/corpus_structure/intervene/semantic_server.py": "03fbb6d170c7d013d91e0f98c6e0dd5c5e2bd544c40388a68880f17cf0b992f8",
+    "python/corpus-structure/src/corpus_structure/methods/llm/producer.py": "26aebb1f6e2a2fd83053e8aaaa2290160c4ee7a7d2124d07f2986575d1d2f47f",
+    "docs/design_review/evidence/2026-11-03_automated-source/automation_journey.py": "7853f1aef2cfd263223c383412be85de1b5297996ba728ed571b69a612dfaf6b"
+  }
+}

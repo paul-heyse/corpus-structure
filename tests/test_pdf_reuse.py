@@ -149,12 +149,6 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
 
     monkeypatch.setattr(method.producer, "_runtime", forbid)
     monkeypatch.setattr(method.producer, "_worker", forbid)
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_methods._consumer_release", lambda ctx: "current"
-    )
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_methods._require_enrichment_operation", lambda *args: None
-    )
 
     def no_publication(*args, **kwargs):
         raise AssertionError("reuse cannot fabricate a new native producer")
@@ -178,6 +172,7 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
         return InMemoryCandidatePageSource(())
 
     reader = SimpleNamespace(
+        prepared=SimpleNamespace(release_id="current"),
         source_views=lambda: (view,),
         native_document=native_document,
         capture_pdf_candidates=capture_candidates,

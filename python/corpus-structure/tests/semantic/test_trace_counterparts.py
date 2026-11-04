@@ -12,14 +12,34 @@ from .reference_scenarios import publish_reference_case
 STAT = "https://corpus-structure.dev/domains/statistics/"
 
 
-def entity(identity, class_name, label, *, local=False, attributes=()):
-    supplied_attributes = list(attributes)
+def attribute(predicate, value, quote):
+    return {
+        "predicate": predicate,
+        "value": value,
+        "establishment": "agent_asserted",
+        "qualification": {"modality": "asserted", "polarity": True},
+        "evidence": [{"quote": quote, "role": "primary"}],
+    }
+
+
+def entity(identity, class_name, label, *, local=False, attributes=(), quote=None):
+    quote = label if quote is None else quote
+    supplied_attributes = [
+        *attributes,
+        attribute(
+            "https://corpus-structure.dev/semantic/label", {"kind": "text", "text": label}, quote
+        ),
+    ]
     if local and class_name == "RandomVariable":
         supplied_attributes.append(
-            {
-                "predicate": STAT + "symbol",
-                "value": {"kind": "text", "text": label},
-            }
+            attribute(STAT + "symbol", {"kind": "text", "text": label}, quote)
+        )
+        supplied_attributes.append(
+            attribute(
+                STAT + "scope_locator",
+                {"kind": "text", "text": "reference.pdf#case-0"},
+                quote,
+            )
         )
     item = {
         "id": identity,
@@ -70,20 +90,15 @@ def param_values(**values):
     return {key: {"key": key, "value": value} for key, value in values.items()}
 
 
-def family_parameter(identity, label, family, canonical_name):
+def family_parameter(identity, label, family, canonical_name, *, quote):
     return entity(
         identity,
         "FamilyParameter",
         label,
+        quote=quote,
         attributes=(
-            {
-                "predicate": STAT + "family",
-                "value": {"kind": "entity", "target": family},
-            },
-            {
-                "predicate": STAT + "canonical_name",
-                "value": {"kind": "text", "text": canonical_name},
-            },
+            attribute(STAT + "family", {"kind": "entity", "target": family}, quote),
+            attribute(STAT + "canonical_name", {"kind": "text", "text": canonical_name}, quote),
         ),
     )
 
@@ -143,8 +158,23 @@ def test_trace_t1_current_construction_is_not_a_distribution_family(
         entity("z", "RandomVariable", "Z", local=True),
         entity("x", "RandomVariable", "X", local=True),
         entity("location-scale", "FamilyConstruction", "location-scale family"),
-        family_parameter("location", "location parameter", "location-scale", "location"),
-        family_parameter("scale", "scale parameter", "location-scale", "scale"),
+        family_parameter(
+            "location",
+            "location parameter",
+            "location-scale",
+            "location",
+            quote="location-scale family where a is the location parameter",
+        ),
+        family_parameter(
+            "scale",
+            "scale parameter",
+            "location-scale",
+            "scale",
+            quote=(
+                "location-scale family where a is the location parameter "
+                "and b is the scale parameter"
+            ),
+        ),
     ]
     claims = [
         claim(
@@ -313,10 +343,24 @@ def test_trace_t2_respectively_pairing_and_parameters_belong_to_family(
     entities = [
         entity("x", "RandomVariable", "X", local=True),
         entity("normal", "DistributionFamily", "normal distribution"),
-        family_parameter("loc", "location parameter", "normal", "location"),
-        family_parameter("scale", "scale parameter", "normal", "scale"),
-        family_parameter("mean", "mean", "normal", "mean"),
-        family_parameter("sd", "standard deviation", "normal", "standard_deviation"),
+        family_parameter(
+            "loc",
+            "location parameter",
+            "normal",
+            "location",
+            quote="normal distribution with location parameter mu and scale parameter sigma",
+        ),
+        family_parameter(
+            "scale",
+            "scale parameter",
+            "normal",
+            "scale",
+            quote="normal distribution with location parameter mu and scale parameter sigma",
+        ),
+        family_parameter("mean", "mean", "normal", "mean", quote=paragraph),
+        family_parameter(
+            "sd", "standard deviation", "normal", "standard_deviation", quote=paragraph
+        ),
     ]
     claims = [
         claim(
@@ -401,7 +445,7 @@ def test_trace_t3_serves_supposed_premise_and_defers_derived_standard_deviation(
     entities = [
         entity("x", "RandomVariable", "X", local=True),
         entity("y", "RandomVariable", "Y", local=True),
-        entity("normal", "DistributionFamily", "normal distribution"),
+        entity("normal", "DistributionFamily", "normal distribution", quote="normal"),
     ]
     claims = [
         claim(
@@ -539,9 +583,21 @@ def test_trace_t4_keeps_log_normal_parameters_distinct_from_normal_mean(
         entity("x", "RandomVariable", "X", local=True),
         entity("normal", "DistributionFamily", "normal distribution"),
         entity("lognormal", "DistributionFamily", "lognormal distribution"),
-        family_parameter("ln-mu", "mu parameter", "lognormal", "mu"),
-        family_parameter("ln-sigma", "sigma parameter", "lognormal", "sigma"),
-        family_parameter("ln-scale", "scale parameter", "lognormal", "scale"),
+        family_parameter(
+            "ln-mu",
+            "mu parameter",
+            "lognormal",
+            "mu",
+            quote="lognormal distribution with parameters mu and sigma",
+        ),
+        family_parameter(
+            "ln-sigma",
+            "sigma parameter",
+            "lognormal",
+            "sigma",
+            quote="lognormal distribution with parameters mu and sigma",
+        ),
+        family_parameter("ln-scale", "scale parameter", "lognormal", "scale", quote=paragraph),
     ]
     claims = [
         claim(

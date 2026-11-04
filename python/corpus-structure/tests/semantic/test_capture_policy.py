@@ -94,7 +94,13 @@ def test_current_capture_exports_from_regenerated_inputs(
         assert packet.manifest["format"] == "semantic-capture-1"
         assert set(packet.manifest["relations"]) == set(SPINE)
         manifest = export_packet(packet, tmp_path / "current-export")
-        assert manifest["format"] == "semantic-export-2"
+        assert manifest["format"] == "semantic-export-4"
+        assert manifest["logical_digest_scope"] == "captured_semantic_spine"
+        assert manifest["ordinary_answer_contract"] == "ordinary-answer-coverage-2"
+        assert manifest["source_payloads"] == "excluded; explicit immutable report reads required"
+        standing = manifest["relations"]["fact_standing_v2"]
+        assert standing["derived_contract"] == "ordinary-answer-coverage-2"
+        assert standing["rows"] == 0
         assert manifest["logical_digest"] == packet.logical_digest
         assert manifest["binding"]["release_id"] == prepared.release_id
         assert manifest["binding"]["capture_id"] == session.binding.capture_id

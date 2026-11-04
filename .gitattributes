@@ -66,3 +66,6 @@ docs/design_review/evidence/2026-11-03_m1-qualification/native-author-*/** filte
 # Audit-closure raw diagnostic receipts retain original bytes through LFS.
 docs/design_review/evidence/2026-11-03_audit-closure/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_audit-closure/candidate-*/* filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_ac14-acceptance/**/*.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_ac14-acceptance/**/attempt-*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_ac14-acceptance/native*/candidate-*/* filter=lfs diff=lfs merge=lfs -text

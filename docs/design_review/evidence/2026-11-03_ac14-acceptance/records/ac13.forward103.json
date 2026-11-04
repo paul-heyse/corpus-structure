@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "id": "ac13.forward103",
+  "title": "Declared entity lineage and attribute validation forward103",
+  "group": "audit-closure",
+  "package": "AC13",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does immutable102 advance to current103 with exact declared-class support and preserved attribute citation validation?",
+  "answers": [
+    "AC03",
+    "AC04",
+    "AC09",
+    "AC13",
+    "AC14",
+    "AC-CA03",
+    "AC-CA04"
+  ],
+  "method": "Owned predecessor102 authoring, hash-bound native-only migration, fresh native cases, explicit102 to103 upgrade and current-head empty reauthoring; independent class/declaration/resolution/outside-cut adversaries.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native103/author-candidate.py candidate-103-001",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native103/prepare-forward.py",
+    "uv run python docs/design_review/evidence/2026-11-03_ac14-acceptance/native103/verify-forward.py",
+    "uv run pytest python/corpus-structure/tests/semantic/test_domain_operations.py python/corpus-structure/tests/semantic/test_audit_closure_semantics.py",
+    "uv run pytest 'python/corpus-structure/tests/semantic/test_domain_operations.py::test_native_declared_membership_refuses_forged_lineage[source_cut]'"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native103/source-inputs.json",
+      "role": "production and immutable103 input hashes",
+      "sha256": "23f4ebc181de0379bacf50498c48008ae69c71719da9c72ea800be5b5be15aaa"
+    },
+    {
+      "path": "native103/candidate-103-001",
+      "role": "prospective catalog-derived native objects",
+      "sha256": "5de5a6277ff05add52c4ecbc2a5c5fdc4cd6420c8ab4768f2d5157bc155bfc15"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native103/attempt-103-controls",
+      "role": "native/pure controls, failures and current-head results",
+      "sha256": "0bd26a25b4378a4622702c86f2968a2e47c4c275ba305ac17f21b840957c6d87"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "selected_native_cases",
+      "value": 35,
+      "of": null,
+      "unit": "cases",
+      "note": "34 native in initial mixed run plus one additional actual outside-cut control. Intermediate repeats not added."
+    },
+    {
+      "name": "selected_pure_cases",
+      "value": 32,
+      "of": null,
+      "unit": "cases",
+      "note": "Initial66 selection is mixed, not66 native."
+    },
+    {
+      "name": "forward_native_objects",
+      "value": 132,
+      "of": null,
+      "unit": "objects",
+      "note": "102→103 followed by empty current-head reauthoring."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed at bounded AC13 scope. Explicit representable declarations preserve endpoint/isolate memberships with exact class/cut/resolution lineage and no fabricated attributes; SQL alias collision corrected. Fresh native controls and actual102→103 transition/current-head agreement pass. Physical schema unchanged and frozen102 bytes retained. Failed fixture setup attempts are retained. Complete AC14 qualification remains outstanding.",
+  "consumed_by": [
+    "AC04",
+    "AC09",
+    "AC13",
+    "AC14"
+  ]
+}

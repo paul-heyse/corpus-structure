@@ -116,22 +116,22 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 |---|---|---|
 | pydantic, pydantic-settings | 2.14.1, 2.16.1 | core types, method configs, settings |
 | sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db (generated `MetaData`, overlay), migrations, bulk COPY; one psycopg-pool `ConnectionPool` per process (D3 §1) |
-| pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/pgvector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
-| pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |
+| pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/postgresql/pgvector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
+| pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |
 | linkml-runtime; linkml (dev) | 1.12.1, 1.12.1 (as probed, schema-rules note) | `schema` loads the model and packs with `linkml-runtime`'s `SchemaView` and generates every projection from it (ADR-0020; added by P0-M-1); `linkml` (the linter, the `PydanticGenerator` Stage B may subclass) is a dev dependency, used in generation, tests and pack checks only |
-| pglast (dev) | 8.7 ([overview](../libraries/pglast.md)) | the port check of the generated DDL against S6's and the query check of D3 §9 (P0-M-2) |
-| pyarrow | 26.0.0 ([overview](../libraries/pyarrow.md)) | Arrow schemas generated from the model; the pool relations; exports (P0-M-3, pool and interchange) |
-| adbc-driver-postgresql | 1.13.0 ([overview](../libraries/adbc-driver-postgresql.md)) | the pool loader, if probe Q-5 chooses it over psycopg |
-| pgpq | 0.12.0 ([overview](../libraries/pgpq.md)) | only if probe Q-5 shows absent versus null, JSONB, numeric and `timestamptz` survive: Arrow-native bulk writes |
+| pglast (dev) | 8.7 ([overview](../libraries/postgresql/pglast.md)) | the port check of the generated DDL against S6's and the query check of D3 §9 (P0-M-2) |
+| pyarrow | 26.0.0 ([overview](../libraries/analytical_infrastructure/pyarrow.md)) | Arrow schemas generated from the model; the pool relations; exports (P0-M-3, pool and interchange) |
+| adbc-driver-postgresql | 1.13.0 ([overview](../libraries/postgresql/adbc-driver-postgresql.md)) | the pool loader, if probe Q-5 chooses it over psycopg |
+| pgpq | 0.12.0 ([overview](../libraries/postgresql/pgpq.md)) | only if probe Q-5 shows absent versus null, JSONB, numeric and `timestamptz` survive: Arrow-native bulk writes |
 | rule-engine | 5.1.0 | M19, policies |
 | gliner2 | 2.1.0 | M05–M07 (phase 1; the product environment carries no gliner2 or torch in phase 0) |
 | spacy, en_core_web_sm | 3.8.18, 3.8.0 | M03, M08, M13, M22 |
-| lxml, html5lib | 6.1.3, 1.1 ([overview](../libraries/html5lib.md)) | M01 (html5lib parser through `lxml.html.html5parser`; D4 M01) |
+| lxml, html5lib | 6.1.3, 1.1 ([overview](../libraries/primary_intake/html5lib.md)) | M01 (html5lib parser through `lxml.html.html5parser`; D4 M01) |
 | cssselect2 | 0.10.1 | M01's role engine (`Matcher`; D4 M01) |
 | regex | 2026.9.29 | M01 delimiter pattern, the quote cascade (D4 §4.3), M22 lexicons |
 | tokenizers | 0.23.3, phase 1 | M02 token counts and LLM-tier packet caps (D4 §4.1); phase 0's M02 writes character and math features only, and agent-tier caps are characters |
 | PyYAML | 6.0.3 | pack files |
-| jsonschema (dev) | 4.26.0 ([overview](../libraries/jsonschema.md)) | **derivation conformance** in tests: the JSON Schemas are generated from the same model as the Pydantic models, so their agreement checks the generators, not the contract; and `check_schema` on generated artifacts. Production validates with Pydantic (D2 §7.3, D3 §6). The independent semantic controls are named per contract: hand-authored known-answer vectors (the key-scheme conformance vectors, D1 §10.1), negative store tests per invariant written from D1 §11, the external S0 and S0-R2 batches, relational key oracles and tex parity (RC16; operator, 2026-10-28) |
+| jsonschema (dev) | 4.26.0 ([overview](../libraries/data_model/jsonschema.md)) | **derivation conformance** in tests: the JSON Schemas are generated from the same model as the Pydantic models, so their agreement checks the generators, not the contract; and `check_schema` on generated artifacts. Production validates with Pydantic (D2 §7.3, D3 §6). The independent semantic controls are named per contract: hand-authored known-answer vectors (the key-scheme conformance vectors, D1 §10.1), negative store tests per invariant written from D1 §11, the external S0 and S0-R2 batches, relational key oracles and tex parity (RC16; operator, 2026-10-28) |
 | sympy, lark | 1.14.0 (hold, `docs/pins.md`), 1.3.1 | M11 (grammar from phase 0, SymPy conversion from phase 1), M21, alignment |
 | pint | latest | M12 |
 | z3-solver | 5.3.2.0 | M20 |
@@ -142,12 +142,12 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | networkx | 3.7 | statement and claim graph utilities |
 | fastmcp | 4.1.3 | intervene |
 | typer, rich | 0.27.3, 15.0.0 | CLI |
-| vLLM | as in `services/vllm-native` ([overview](../libraries/vllm.md)) | M10, M16, M04 pooling if S7 chooses it (phase 1) |
+| vLLM | as in `services/vllm-native` ([overview](../libraries/analytical_infrastructure/vllm.md)) | M10, M16, M04 pooling if S7 chooses it (phase 1) |
 | httpx (or openai) | latest | M10, M16 client to vLLM |
 | sentence-transformers | latest, only if S7 chooses in-process embeddings | M04 |
 | torch | 2.13.0 (as in the vLLM environment) | GLiNER2, embeddings (phase 1) |
-| ppi_python (`ppi_py`) | 0.2.3 ([overview](../libraries/ppi_py.md)), phase 2 | the random audit's corpus-level precision (D7 §6, OPEN-D7-4) |
-| Hypothesis, hypothesis-jsonschema (dev) | 6.170.12, latest at P0.1 ([overview](../libraries/hypothesis.md)) | property, stateful and grammar-generated tests (§4) |
+| ppi_python (`ppi_py`) | 0.2.3 ([overview](../libraries/scientific_compute/ppi_py.md)), phase 2 | the random audit's corpus-level precision (D7 §6, OPEN-D7-4) |
+| Hypothesis, hypothesis-jsonschema (dev) | 6.170.12, latest at P0.1 ([overview](../libraries/analytical_infrastructure/hypothesis.md)) | property, stateful and grammar-generated tests (§4) |
 
 **Python 3.14.** The root requires ≥ 3.14, and the vLLM environment already runs torch 2.13 on
 3.14. Whether gliner2, spaCy, z3 and pgmpy ship 3.14 wheels is checked by the spikes' environment
@@ -184,9 +184,9 @@ in a side environment like vLLM), never by lowering the product's Python version
 | Layer | What | How |
 |---|---|---|
 | Types and keys | Canonical JSON, keys, condition canonicalization, value canonical forms | Unit and Hypothesis property tests (permuted keys, reordered `and` arguments give equal keys); D1 models drawn by `st.builds`/`st.from_type` with strategies registered for constrained fields (`st.from_regex` where a model uses `Field(pattern=…)`, which `from_type` ignores) |
-| Math | The token form against the tree printer wherever the grammar reads a span (KEYS-01) | A corpus layer over every first-pass span, and generated layers: strings from the grammar itself (`hypothesis.extra.lark.from_lark`, with explicit strategies for the macro terminals) and metamorphic rewrites of the token form (sizing commands, spacing, brace-equivalent forms); failures shrink to a minimal formula ([Hypothesis overview](../libraries/hypothesis.md) §6.5) |
-| Batches | The compiled batch models and the exported JSON Schema agree | `hypothesis-jsonschema.from_schema` draws batches from the exported schema, where its draft support covers it, and Pydantic and jsonschema must both accept them; jsonschema errors are compared sorted by `absolute_path`, since `iter_errors` order is not guaranteed ([jsonschema overview](../libraries/jsonschema.md) §2.1, §9.2) |
-| Task lifecycle | Claiming, lease renewal and expiry, fencing, terminal writes and reuse keep the D6 §3 invariants (no task held twice, a lost lease commits nothing, reuse only of `done`/`empty` results) | A `RuleBasedStateMachine` whose bundles hold tasks and workers, `consumes` for terminal writes, invariants after every step against a small reference model, each example in its own rolled-back transaction ([Hypothesis overview](../libraries/hypothesis.md) §4, §10.1); real interleavings are S6's concurrency test, since state machines do not explore scheduling |
+| Math | The token form against the tree printer wherever the grammar reads a span (KEYS-01) | A corpus layer over every first-pass span, and generated layers: strings from the grammar itself (`hypothesis.extra.lark.from_lark`, with explicit strategies for the macro terminals) and metamorphic rewrites of the token form (sizing commands, spacing, brace-equivalent forms); failures shrink to a minimal formula ([Hypothesis overview](../libraries/analytical_infrastructure/hypothesis.md) §6.5) |
+| Batches | The compiled batch models and the exported JSON Schema agree | `hypothesis-jsonschema.from_schema` draws batches from the exported schema, where its draft support covers it, and Pydantic and jsonschema must both accept them; jsonschema errors are compared sorted by `absolute_path`, since `iter_errors` order is not guaranteed ([jsonschema overview](../libraries/data_model/jsonschema.md) §2.1, §9.2) |
+| Task lifecycle | Claiming, lease renewal and expiry, fencing, terminal writes and reuse keep the D6 §3 invariants (no task held twice, a lost lease commits nothing, reuse only of `done`/`empty` results) | A `RuleBasedStateMachine` whose bundles hold tasks and workers, `consumes` for terminal writes, invariants after every step against a small reference model, each example in its own rolled-back transaction ([Hypothesis overview](../libraries/analytical_infrastructure/hypothesis.md) §4, §10.1); real interleavings are S6's concurrency test, since state machines do not explore scheduling |
 | Database | Legacy migration 0001 retains its upgrade/downgrade controls; semantic cold bootstrap and era-shaped forward upgrades execute their own frozen history. Catalog comparison supplements bounded Alembic checks; invariants remain independently exercised. | The legacy migration/extension-keyed cache and rollback fixtures remain. Semantic consumers clone one package-wide migrated session template with explicit ACL/default replay and real commits. The shared leased owner closes resources and waits boundedly for normal backend exit, without FORCE; [D3](D3-database.md#native-test-deployment-equivalence) and ADR-0032 own the contract. CA-21 owns the acknowledged nonce/OID/owner correction and its verification. |
 | Ingest | Trace segments and offsets; S1 counts | `fixtures/trace/*.segments.json`, over the trace and spike pages vendored under `fixtures/trace/corpus/`, so those tests always run; the whole-corpus tests (S1 counts) are skipped when `docs/statistics_corpus` is absent |
 | Methods | Each method on trace units | Fixtures; GPU tests marked `gpu`; LLM tests replay recorded responses (stored under `fixtures/llm/`) so they are deterministic and offline |

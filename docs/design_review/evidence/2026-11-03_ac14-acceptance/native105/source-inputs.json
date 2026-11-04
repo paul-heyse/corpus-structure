@@ -1,0 +1,10 @@
+{
+  "python/corpus-structure/src/corpus_structure/semantic/sql/closure.sql": "05d13abcb3382c0f94616d0b8e97e52836015bf9359da7ac1c934d0f8c22bfe2",
+  "python/corpus-structure/src/corpus_structure/semantic/execution_admission.py": "2fe54ffe301a1a36c9f7816a9f646b62410847b597e1087c8367e61232537d73",
+  "python/corpus-structure/src/corpus_structure/intervene/semantic_server.py": "a7e893a34e58832df8519104b73db4b23f2ab66a0e8f27c71ad6fc0a979cd5bb",
+  "python/corpus-structure/semantic_alembic/versions/0105_attribute_selector_refusals.py": "b1f650009889a9e3ed76fbdda0c0e372aca1665c480a7b36f7a8547216f32353",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ac_attribute_20261103_native.json": "60a62e68ab41ae62d9655832059c5115c236f6a30f9f27eb62bf5675a65d6215",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ac_attribute_20261103_admission.sql": "8882a585c5cbd15102fec87dca66d5e132921c19e259a4b1f7f31dd9cba6758d",
+  "python/corpus-structure/tests/semantic/test_identity_exclusions_native.py": "c7e3b35ff0bc43d70225fbbf91ae0dedf9f18355670d5eea9494f30685a349a7",
+  "python/corpus-structure/tests/semantic/test_trace_counterparts.py": "d207470faa2016f771b4e66be7dcc02f0b36ebc3f0fa653714cde4b9176844fa"
+}

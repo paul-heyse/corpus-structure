@@ -66,7 +66,9 @@ def test_native_known_reference_packet_mcp_and_finalizer(
     )
     bundle = observation_inputs(proposal_inputs(bundle, deps))
     bundle, deps = analytical_inputs(bundle, deps)
-    deps = composed_dependencies(deps)
+    from .method_dimensions_support import fixture_execution_inputs
+
+    deps = composed_dependencies(deps, fixture_execution_inputs("pdf.controlled-source"))
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, deps, profile)
     with semantic_db_engine.begin() as conn:

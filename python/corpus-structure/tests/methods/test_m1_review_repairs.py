@@ -1,7 +1,6 @@
 """Independent review regressions: native hierarchy and exact retained document selection."""
 
 import json
-from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -77,14 +76,13 @@ def test_retained_nondefault_original_cannot_silently_select_nothing(monkeypatch
     cfg = PdfIntegratedIngestConfig(integrated_product=ProductReference(23, "integrated", "a" * 64))
 
     # Review repro: the inherited selector would filter against its Siegrist default.
-    @contextmanager
-    def connection():
-        yield SimpleNamespace(execute=lambda *args, **kwargs: ())
+    def documents(originals):
+        raise AssertionError("unbound retained input reached document selection")
 
     run = SimpleNamespace(
         run_id=17,
         options={"corpus": {"documents": ["other-book"]}},
-        reader=SimpleNamespace(connection=connection),
+        reader=SimpleNamespace(documents=documents),
     )
     with pytest.raises(ValueError, match="document binding"):
         method.select(run, cfg)
@@ -198,21 +196,21 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
     assert cfg.originals == ("other_book/Full.pdf",)
     assert cfg.retained_document_id == 2 and cfg.retained_document_key == "other-book"
     assert cfg.retained_original_digest == "b" * 64
-    params = []
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+
+    requests = []
     rows = [SimpleNamespace(id=2, key="other-book")]
 
-    @contextmanager
-    def connection():
-        def execute(statement, values):
-            params.append(values)
-            return rows
-
-        yield SimpleNamespace(execute=execute)
+    def documents(originals):
+        assert originals == ("other_book/Full.pdf",)
+        requests.append(originals)
+        return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
 
     run = SimpleNamespace(
         run_id=17,
         options={"corpus": {"documents": ["other-book"]}},
-        reader=SimpleNamespace(connection=connection),
+        reader=SimpleNamespace(documents=documents),
     )
     method = bound.method("ingest.pdf_integrated")
     assert isinstance(method, RetainedIntegratedPdf)
@@ -220,7 +218,7 @@ def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
         id=2, key="other-book", original_digest="b" * 64, source_uri="other_book/Full.pdf"
     )
     assert [ref.unit_id for ref in method.select(run, cfg)] == [2]
-    assert params == [dict(run=17, keys=["other-book"], sources=["other_book/Full.pdf"])]
+    assert requests == [("other_book/Full.pdf",)]
     rows.clear()
     with pytest.raises(ValueError, match="exact corpus member"):
         method.select(run, cfg)

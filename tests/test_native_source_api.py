@@ -26,12 +26,13 @@ def test_native_request_pin_and_continuation_identity():
 
 def test_current_request_refuses_archived_coordinates_and_old_contract_versions():
     current = dict(
-        version=3, run_id=1, task_id=2, product_key="integrated", content_digest="a" * 64
+        version=4, run_id=1, task_id=2, product_key="integrated", content_digest="a" * 64
     )
-    assert NativeSourceRequest.model_validate(current).version == 3
+    assert NativeSourceRequest.model_validate(current).version == 4
     for invalid in (
         dict(run_id=1, rendition_id=2),
         dict(current, version=2),
+        dict(current, version=3),
         dict(current, rendition_id=2),
     ):
         with pytest.raises(ValidationError):

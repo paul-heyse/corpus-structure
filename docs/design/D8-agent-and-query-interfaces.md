@@ -4,6 +4,14 @@
 
 **Implemented source; assembled qualification remains open (2026-11-03).** Answers distinguish selection, assessment and establishment. Coverage selects before hydration. Evidence references page separately from explicit immutable payload reads. Versioned bounded walks retain cycles and parallel edges, with exact-or-refuse deterministic replay. Producer and recognition generation bindings retain truthful configured/reported/manual/verified meanings.
 
+Bounded MCP source/search, read-unit and rendered-image delivery measure the complete successful
+CallToolResult, including text/structured duplication, protocol result type and SDK server metadata.
+Rendering retains its committed artifact reference on inline refusal. Queue acknowledgement has a
+separate8MiB cap, admitted inside the claim transaction before commit, cached sessions and lease
+events. Exact-size and one-byte-smaller registered transport controls passed2026-11-03 local;
+native rollback and complete assembled acceptance remain owned by AC14. Canonical source work
+admission and streamed export retain their separate contracts.
+
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 
 

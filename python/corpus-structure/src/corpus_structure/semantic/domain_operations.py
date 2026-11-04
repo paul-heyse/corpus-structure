@@ -38,6 +38,7 @@ from .publication import (
     EntityResolutionRow,
     EvidenceRow,
     EvidenceSourceRow,
+    MembershipRow,
     PublicationBatch,
     PublicationReceipt,
     ScientificRepresentativeRow,
@@ -2137,6 +2138,7 @@ def _project_cut(
     from .publication import EntitySourceRow
 
     decided = {(row.observation_id, row.local_id) for row in resolution_decisions}
+    existing_memberships = {(row.entity_id, row.class_id) for row in batch.membership}
     batch = replace(
         batch,
         entity=rows_union(
@@ -2145,6 +2147,22 @@ def _project_cut(
                 EntityRow(identity)
                 for mapping in entity_mappings.values()
                 for identity in mapping.values()
+            },
+        ),
+        # A released entity declaration supplies class membership even when the node
+        # is only an endpoint or isolate. It does not invent a source property assertion:
+        # exact declaration/resolution lineage below is its separate native support basis.
+        membership=rows_union(
+            batch.membership,
+            {
+                MembershipRow(mapping[e["id"]], e["class_iri"], "agent_asserted")
+                for observation in observations
+                if observation["payload_definition"] == "AgentStoredBatch"
+                for mapping in (entity_mappings[observation["id"]],)
+                for e in parsed[observation["id"]].get("entities", ())
+                if (observation["id"], e["id"]) in decided
+                and metadata[mapping[e["id"]]].get("representable") is not False
+                and (mapping[e["id"]], e["class_iri"]) not in existing_memberships
             },
         ),
         entity_resolution=resolution_decisions,

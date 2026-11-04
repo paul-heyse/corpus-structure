@@ -9,6 +9,7 @@ from alembic import context
 
 from corpus_structure.semantic.alembic_defaults import compare_default
 from corpus_structure.semantic.alembic_defaults import plugin as defaults_plugin
+from corpus_structure.semantic.alembic_indexes import plugin as indexes_plugin
 from corpus_structure.semantic.alembic_native import plugin as native_plugin
 from corpus_structure.semantic.metadata import SCHEMAS, metadata
 from corpus_structure.semantic.migrations import VERSION_TABLE
@@ -43,6 +44,7 @@ context.configure(
         "alembic.autogenerate.*",
         "alembic.ext.checkconstraint_byname",
         defaults_plugin.name,
+        indexes_plugin.name,
         native_plugin.name,
     ],
     native_authoring=context.config.attributes.get("native_authoring"),

@@ -141,7 +141,7 @@ def test_acl_replay_refuses_nonowner_grant_graph(native_server):
 
 def test_missing_roles_are_one_typed_preflight(native_server, db_support):
     principals = db_support.semantic_principals()
-    assert set(principals) == {"publisher", "write", "read", "evaluate", "admit"}
+    assert set(principals) == {"publisher", "write", "read", "evaluate", "fit", "admit"}
     missing = {purpose: f"missing_semantic_{purpose}" for purpose in principals}
     with pytest.raises(PrerequisiteUnavailable) as failure:
         native_server.check_roles(missing)

@@ -156,7 +156,14 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
     with pytest.raises(ValueError, match="cannot prepare analytical layout"):
         _ = retained.layout
 
-    monkeypatch.setattr(source_views, "selected_source_views", lambda *args: (retained.ref,))
+    def selected_views(selected_conn, run_id, *, read_budget=None, source_view_id=None):
+        assert selected_conn is conn and run_id == 17
+        assert read_budget is None
+        return tuple(
+            ref for ref in (retained.ref,) if source_view_id is None or ref.id == source_view_id
+        )
+
+    monkeypatch.setattr(source_views, "selected_source_views", selected_views)
     reader = BoundReader(conn, 17, retained_release, analysis=False)
     assert reader.source_view(31).items == (item,)
     with pytest.raises(OperationConflict, match="outside bound run"):

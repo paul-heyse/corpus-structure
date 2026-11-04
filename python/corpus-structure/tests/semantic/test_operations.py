@@ -633,7 +633,11 @@ def test_native_role_cannot_forge_reuse_binding(
                 from .test_releases import source_bundle
 
                 bundle = source_bundle(b"# independent other release\n")
-                dependencies = composed_dependencies(ResolvedDependencies())
+                from .method_dimensions_support import fixture_execution_inputs
+
+                dependencies = composed_dependencies(
+                    ResolvedDependencies(), fixture_execution_inputs("read")
+                )
                 profile = PreparationProfile(version="semantic-2")
                 other = prepare_release(bundle, dependencies, profile)
                 persist_release(c, bundle, dependencies, profile, other)

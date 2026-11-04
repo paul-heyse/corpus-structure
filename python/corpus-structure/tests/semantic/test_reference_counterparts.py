@@ -28,8 +28,14 @@ def entity(id, cls, label=None, *, attributes=(), local=False):
     return item
 
 
-def attribute(predicate, value):
-    return {"predicate": predicate, "value": value}
+def attribute(predicate, value, *, quote):
+    return {
+        "predicate": predicate,
+        "value": value,
+        "establishment": "stated",
+        "qualification": {"modality": "asserted", "polarity": True},
+        "evidence": [{"quote": quote, "role": "primary"}],
+    }
 
 
 def text(value):
@@ -87,7 +93,19 @@ def test_statistics_aliases_consolidate_current_source_and_serve_one_family(
         ("standard", "standard normal distribution"),
     )
     entities = [
-        entity(identity, STAT + "DistributionFamily", label) for identity, label in spellings
+        entity(
+            identity,
+            STAT + "DistributionFamily",
+            label,
+            attributes=[
+                attribute(
+                    "https://corpus-structure.dev/semantic/label",
+                    text(label),
+                    quote=label if identity != "n1" else "The normal distribution",
+                )
+            ],
+        )
+        for identity, label in spellings
     ]
     claims = [claim(f"mean-{i}", f"n{i}", STAT + "mean_value", formula("\\mu")) for i in (1, 2, 3)]
     claims += [claim(f"gamma-{i}", f"g{i}", STAT + "mean_value", formula("k")) for i in (1, 2, 3)]
@@ -195,24 +213,31 @@ def test_toy_current_attribution_provenance_ambiguity_and_temporal_answers(
         "for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta."
     )
     entities = [
-        entity("asset", TOY + "Asset", "P-17"),
+        entity(
+            "asset",
+            TOY + "Asset",
+            "P-17",
+            attributes=[
+                attribute("https://corpus-structure.dev/semantic/label", text("P-17"), quote="P-17")
+            ],
+        ),
         entity(
             "org",
             TOY + "Organization",
             "Acme",
-            attributes=[attribute(TOY + "registry_id", text("ORG-101"))],
+            attributes=[attribute(TOY + "registry_id", text("ORG-101"), quote="ORG-101")],
         ),
         entity(
             "other",
             TOY + "Organization",
             "Acme",
-            attributes=[attribute(TOY + "registry_id", text("ORG-202"))],
+            attributes=[attribute(TOY + "registry_id", text("ORG-202"), quote="ORG-202")],
         ),
         entity(
             "lower",
             TOY + "Organization",
             "Acme",
-            attributes=[attribute(TOY + "registry_id", text("org-101"))],
+            attributes=[attribute(TOY + "registry_id", text("org-101"), quote="org-101")],
         ),
         entity("alpha", TOY + "Source", "Alpha"),
         entity("beta", TOY + "Source", "Beta"),
@@ -312,6 +337,11 @@ def test_toy_original_inspection_quotes_preserve_nested_roles_and_source_decimal
         "12.3400 kg, on a dry-mass basis."
     )
     authored = deepcopy(reference)
+    for declared in authored["entities"]:
+        declared["attributes"] = [
+            attribute(item["predicate"], item["value"], quote=item["value"]["text"])
+            for item in declared.get("attributes", ())
+        ]
     positive = authored["claims"][0]
     # Deliberately wrong reports test representation and exact object filtering. Their
     # distinctness is not a claim that source-truth adjudication accepts the changes.

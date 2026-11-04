@@ -74,6 +74,9 @@ def build_domain_case(
     statement_packets: str | None = None,
     attribute_assertions: bool = False,
     incomplete_key: bool = False,
+    isolated_entity: bool = False,
+    membership_subtype: bool = False,
+    unselected_report: bool = False,
 ) -> tuple[PreparedRelease, RunId, CutId]:
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
@@ -108,6 +111,8 @@ def build_domain_case(
                 "child": {"range": "Person", "multivalued": True},
             }
         )
+    if membership_subtype:
+        schema["classes"]["PersonSubtype"] = {"is_a": "Person"}
     if formulas:
         schema["classes"]["Formula"] = {
             "is_a": "ExpressionValue",
@@ -337,6 +342,10 @@ def build_domain_case(
                 "object": {"kind": "entity", "target": "other"},
             }
         )
+    if isolated_entity:
+        raw["entities"].append(
+            {"id": "isolated", "class_iri": "https://example.org/Person", "label": "Isolate"}
+        )
     if duplicate:
         raw["statements"].append({"id": "s2", "kind": "theorem", "anchor": "s2"})
         raw["claims"].append({**raw["claims"][0], "id": "duplicate", "statement": "s2"})
@@ -539,4 +548,87 @@ def build_domain_case(
                 ],
             )
         cut = seal_cut(conn, run, "final", final=True)
+    if unselected_report:
+        # A real protected report in another run is deliberately outside this cut.
+        # Reuse the admitted model/configuration, not forged observation storage.
+        foreign_original = write_controlled_pdf(
+            path.with_name("outside-cut.pdf"), ("Alice is here.", "Outside cut report.")
+        )
+        with writer.begin() as conn:
+            foreign_document = register_document(
+                conn,
+                project_id="p",
+                source_uri="outside-cut.pdf",
+                original_path=str(path.with_name("outside-cut.pdf")),
+                original=foreign_original,
+                metadata={"page": "outside"},
+                mime="application/pdf",
+            )
+            foreign_document_key = conn.execute(
+                select(table("kb.document").c.key).where(
+                    table("kb.document").c.id == foreign_document
+                )
+            ).scalar_one()
+            foreign_run = create_run(
+                conn,
+                project_id="p",
+                binding=OperationBinding(prepared.release_id, "source", 1 if known else 0, b"{}"),
+                kind="full",
+                options={"corpus": {"documents": [foreign_document_key]}},
+                code_commit="test",
+            )
+        (foreign_view,) = publish_controlled_pdf_views(
+            writer,
+            prepared=prepared,
+            run_id=foreign_run,
+            document_id=foreign_document,
+            original=foreign_original,
+            paragraphs=("Alice is here.",),
+            keys=("outside#one",),
+        )
+        foreign_frame = native_source_frame(foreign_view, (("s1", 0, 14),))
+        foreign_packet = proposal_packet(prepared, foreign_frame, guideline="", configuration={})
+        foreign_raw = {
+            **raw,
+            "unit_ref": foreign_view.ref.key,
+            "statements": [
+                {**statement, "anchor": foreign_view.ref.key} for statement in raw["statements"]
+            ],
+        }
+        foreign_stored = locate_proposal(prepared, foreign_raw, foreign_frame).stored.model_dump(
+            mode="python"
+        )
+        with writer.begin() as conn:
+            foreign_task = create_task(
+                conn,
+                run_id=foreign_run,
+                config_id=cid,
+                stage="propose",
+                unit_type="source_view",
+                unit_id=foreign_view.ref.id,
+                unit_key=foreign_view.ref.key,
+                input_hash="outside-cut",
+                packet_hash=foreign_packet.hash,
+                agent=True,
+            )
+            capture_source_frame(conn, foreign_task, foreign_packet)
+            foreign_lease = claim_tasks(
+                conn, run_id=foreign_run, config_id=cid, holder="worker", agent=True
+            )[0]
+            complete_task(
+                conn,
+                task_id=foreign_task,
+                attempt=foreign_lease.attempt,
+                holder="worker",
+                prepared=prepared,
+                observations=[
+                    {
+                        "payload_definition": "AgentStoredBatch",
+                        "item_key": "proposal",
+                        "kind": "claim_proposal",
+                        "payload": foreign_stored,
+                        "source_view_id": foreign_view.ref.id,
+                    }
+                ],
+            )
     return prepared, run, cut

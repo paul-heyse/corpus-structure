@@ -337,13 +337,15 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     from corpus_structure.semantic import _operation_calls
 
     ancestor_reads = []
-    read_ancestors = _operation_calls.read_published_item_ancestors
+    prepare_ancestors = _operation_calls.prepare_read_published_item_ancestors
 
-    def capture_ancestor_read(conn, **parameters):
+    def capture_ancestor_read(**parameters):
         ancestor_reads.append(parameters)
-        return read_ancestors(conn, **parameters)
+        return prepare_ancestors(**parameters)
 
-    monkeypatch.setattr(_operation_calls, "read_published_item_ancestors", capture_ancestor_read)
+    monkeypatch.setattr(
+        _operation_calls, "prepare_read_published_item_ancestors", capture_ancestor_read
+    )
 
     def capture(conn, cursor, statement, parameters, context, executemany):
         statements.append(statement)

@@ -117,6 +117,16 @@ def publish_reference_case(
                 batch["unit_ref"] = view.ref.key
                 for statement in batch.get("statements", ()):
                     statement["anchor"] = sentence
+                for entity in batch.get("entities", ()):
+                    for attribute in entity.get("attributes", ()):
+                        # Expected attribute meaning and its own quote are authored by the
+                        # caller. Only the acquired sentence identifier is supplied here.
+                        for citation in attribute["evidence"]:
+                            matches = [
+                                s for s in unit["sentences"] if citation["quote"] in s["text"]
+                            ]
+                            assert len(matches) == 1, (citation["quote"], unit["sentences"])
+                            citation["sentence"] = matches[0]["id"]
                 for claim in batch.get("claims", ()):
                     evidence = claim.get("evidence", [{"quote": paragraph, "role": "primary"}])
                     for citation in evidence:

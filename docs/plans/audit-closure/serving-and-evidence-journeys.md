@@ -17,6 +17,22 @@ the amended target. Existing bounded receipts and remaining qualification are ow
 
 ## Purpose and existing foundations
 
+**Execution finding AC-CA05, 2026-11-03 local:** source/search work admission and canonical
+model JSON bounds do not bound registered MCP delivery. The current adapter must admit the
+complete successful `CallToolResult`, including both text and structured payloads, protocol
+result type and SDK server metadata. Preserve the advertised response schemas using the pinned
+SDK's schema compression and explicit ToolResult passthrough. A tiny caller budget can receive
+a bounded control error larger than that budget; it cannot receive a successful oversized payload.
+The coordinator owns repair and qualification state.
+
+Queue acknowledgements have a separate8MiB successful-result cap. Preflight their identical
+complete encoding inside the existing claim transaction, before commit, publishing cached
+sessions or emitting leased events. Adapter-only refusal after commit is insufficient. Direct
+and registered refusal must preserve task status/attempt/holder, leave no cache/event and permit
+a subsequent adequately budgeted lease. Existing packet/source hydration limits remain distinct.
+Use actual registered-tool tests at the exact encoded size and one byte below, including Unicode,
+escaping and SDK metadata; do not infer wire correctness from a direct helper result alone.
+
 **Implemented source, inspected 2026-11-03 at `75db93e1`; assembled qualification open.**
 D8 and ADR-0054 own independent standing, coverage and explicit evidence access. Ordinary-answer2,
 continuation2 and native source/search4 bind their own compatibility meanings; coverage4 uses the

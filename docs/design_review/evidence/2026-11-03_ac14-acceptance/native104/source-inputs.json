@@ -1,0 +1,9 @@
+{
+  "python/corpus-structure/src/corpus_structure/semantic/execution_admission.py": "4c51a2c0bb1476fd502278e953125b53f481d1a82672412dbb898063c8dc89ea",
+  "python/corpus-structure/src/corpus_structure/intervene/semantic_server.py": "a7e893a34e58832df8519104b73db4b23f2ab66a0e8f27c71ad6fc0a979cd5bb",
+  "python/corpus-structure/semantic_alembic/versions/0104_imported_declaration_membership.py": "f8dec675deac6d4ce8884a0703e6ed5022261d3d8d80d171032997d5bf51f252",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ac_import_20261103_native.json": "a42da9c7b85f74d347d0b971eaf861e338d8e7bf436ae5fc2ae89174230ecc3d",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ac_import_20261103_admission.sql": "c6fa445285606b3a1a0e0ad678287f4b26d2a992d60dd2f6dc9916cea6445c2b",
+  "python/corpus-structure/tests/semantic/test_imported_declaration_membership.py": "b8fb481dc30e87d675d9216ddbd4a56a64534368fc898dc3117f8b211ed3ad65",
+  "python/corpus-structure/src/corpus_structure/semantic/sql/closure.sql": "697d1ced4874892b681e895b542885619256e1340a2100f9477f8eb60281224a"
+}

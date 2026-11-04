@@ -160,6 +160,14 @@ classes:
     async def journey():
         nonlocal agent_task
         async with Client(server) as client:
+            from corpus_structure.semantic.proposals import ProposalRefused
+
+            with pytest.raises(ProposalRefused, match="unsupported proposal queue mode"):
+                session.next("adjudicate", 1)
+            unsupported = await client.call_tool(
+                "queue_next", {"run": run, "mode": "adjudicate"}, raise_on_error=False
+            )
+            assert unsupported.is_error
             queued = (await client.call_tool("queue_next", {"run": run})).structured_content
             assert queued is not None
             leased = queued["tasks"]

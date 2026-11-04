@@ -524,14 +524,6 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     )
     producer._workers[recipe.digest] = worker
     monkeypatch.setattr(producer, "_runtime", lambda cfg: (recipe, None))
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_methods._consumer_release", lambda ctx: "release1"
-    )
-    guarded = []
-    monkeypatch.setattr(
-        "corpus_structure.ingest.pdf_methods._require_enrichment_operation",
-        lambda ctx, release: guarded.append(release),
-    )
 
     class Renderer:
         def __init__(self, *args, **kwargs):
@@ -554,6 +546,7 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     from corpus_structure.core.method import MethodContext, MethodSettings
 
     reader_port = SimpleNamespace(
+        prepared=SimpleNamespace(release_id="release1"),
         source_views=reader.source_views,
         native_document=reader.native_document,
         capture_pdf_candidates=reader.capture_pdf_candidates,
@@ -583,7 +576,6 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 1, "actual-original-key"), run)
     (result,) = EnrichPdfMath(producer).run((unit,), cfg, ctx)
     assert result.outcome is ObservationOutcome.EMPTY
-    assert guarded == ["release1"]
     assert reads == [pin]
     assert len(prepared) == 1
     assert captured_directories and all(not path.exists() for path in captured_directories)

@@ -242,7 +242,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
 DECLARE o data.occurrence; context data.occurrence_context; observation kb.observation;
  edge data.occurrence_evidence; citation_role data.occurrence_evidence_role;
  source data.evidence_source; claim jsonb; statement jsonb; expected_statement text;
- expected_role text; source_rendition_key text; synthesis jsonb; attribute jsonb; declaration jsonb; attribute_index integer; src data.entity_source; establishment text;
+ expected_role text; source_rendition_key text; synthesis jsonb; attribute jsonb; attribute_index bigint; attribute_local_id text; establishment text;
 BEGIN
  IF EXISTS(SELECT FROM data.occurrence_establishment e
   WHERE e.release_id=r AND e.realization_id=z
@@ -304,27 +304,31 @@ BEGIN
         AND role.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
           o.source,'claims',split_part(o.item,'/',2)::bigint,citation.position-1,citation.value)),'UTF8')),'hex'))) THEN
     RAISE EXCEPTION 'occurrence citation role differs from bound source citation' USING ERRCODE='23514'; END IF;
-  ELSIF observation.payload_definition='AgentStoredBatch' AND o.item LIKE 'entities/%/attributes/%' THEN
-   SELECT entity_source_row.* INTO STRICT src FROM data.entity_source entity_source_row
+  ELSIF observation.payload_definition='AgentStoredBatch' AND starts_with(o.item,'entities/') THEN
+   -- Match the complete declared address rather than parsing caller-supplied owner or
+   -- index text. Local ids are literal, and only an actual attribute ordinal can match.
+   SELECT entity_source_row.local_id,attr.value,attr.position-1
+    INTO attribute_local_id,attribute,attribute_index FROM data.entity_source entity_source_row
     JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=entity_source_row.entity_id
+    CROSS JOIN LATERAL jsonb_array_elements(observation.payload->'entities') entity
+    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(entity->'attributes','[]')) WITH ORDINALITY attr(value,position)
     WHERE entity_source_row.release_id=r AND entity_source_row.realization_id=z AND entity_source_row.observation_id=observation.id
-     AND starts_with(o.item,'entities/'||entity_source_row.local_id||'/attributes/');
-   SELECT value INTO STRICT declaration FROM jsonb_array_elements(observation.payload->'entities') WHERE value->>'id'=src.local_id;
-   attribute_index:=substring(o.item FROM length('entities/'||src.local_id||'/attributes/')+1)::integer;
-   attribute:=declaration->'attributes'->attribute_index;
+     AND entity->>'id'=entity_source_row.local_id
+     AND o.item='entities/'||entity_source_row.local_id||'/attributes/'||(attr.position-1)::text
+     AND f.property_id=attr.value->>'predicate';
+   IF NOT FOUND THEN
+    RAISE EXCEPTION 'attribute occurrence differs from its own source assertion' USING ERRCODE='23514'; END IF;
    SELECT e.establishment INTO establishment FROM data.occurrence_establishment e
     WHERE e.release_id=r AND e.realization_id=z AND e.occurrence_id=o.occurrence_id;
-   IF attribute IS NULL OR attribute_index<0 OR context.occurrence_id IS NOT NULL OR
-    attribute->>'establishment' IS DISTINCT FROM establishment OR
-    NOT EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id
-      AND f.subject_id=src.entity_id AND f.property_id=attribute->>'predicate') THEN
+   IF context.occurrence_id IS NOT NULL OR
+    attribute->>'establishment' IS DISTINCT FROM establishment THEN
     RAISE EXCEPTION 'attribute occurrence differs from its own source assertion' USING ERRCODE='23514'; END IF;
    IF EXISTS(SELECT FROM jsonb_array_elements(attribute->'evidence') WITH ORDINALITY citation(value,position)
      WHERE citation.value->>'outcome'='located' AND NOT EXISTS(
       SELECT FROM data.occurrence_evidence support
       WHERE support.release_id=r AND support.realization_id=z AND support.occurrence_id=o.occurrence_id
        AND support.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-         o.source,'entities',src.local_id,'attributes',attribute_index,citation.position-1,citation.value)),'UTF8')),'hex'))) THEN
+         o.source,'entities',attribute_local_id,'attributes',attribute_index,citation.position-1,citation.value)),'UTF8')),'hex'))) THEN
     RAISE EXCEPTION 'attribute support differs from its own source evidence' USING ERRCODE='23514'; END IF;
   ELSIF context.occurrence_id IS NOT NULL THEN
    RAISE EXCEPTION 'occurrence context has no declared source claim' USING ERRCODE='23514';
@@ -346,17 +350,17 @@ BEGIN
   IF observation.payload_definition='AgentStoredBatch' THEN
    IF o.item LIKE 'entities/%/attributes/%' THEN
     SELECT citation.value->>'role' INTO expected_role
-    FROM data.entity_source src
-    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=src.entity_id
+    FROM data.entity_source attribute_source
+    JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id AND f.subject_id=attribute_source.entity_id
     CROSS JOIN LATERAL jsonb_array_elements(observation.payload->'entities') entity
     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(entity->'attributes','[]')) WITH ORDINALITY attr(value,position)
     CROSS JOIN LATERAL jsonb_array_elements(attr.value->'evidence') WITH ORDINALITY citation(value,position)
-    WHERE src.release_id=r AND src.realization_id=z AND src.observation_id=observation.id
-     AND entity->>'id'=src.local_id
-     AND o.item='entities/'||src.local_id||'/attributes/'||(attr.position-1)::text
+    WHERE attribute_source.release_id=r AND attribute_source.realization_id=z AND attribute_source.observation_id=observation.id
+     AND entity->>'id'=attribute_source.local_id
+     AND o.item='entities/'||attribute_source.local_id||'/attributes/'||(attr.position-1)::text
      AND f.property_id=attr.value->>'predicate' AND citation.value->>'outcome'='located'
      AND edge.evidence_id='evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-       o.source,'entities',src.local_id,'attributes',attr.position-1,citation.position-1,citation.value)),'UTF8')),'hex');
+       o.source,'entities',attribute_source.local_id,'attributes',attr.position-1,citation.position-1,citation.value)),'UTF8')),'hex');
    ELSE
     SELECT citation.value->>'role' INTO expected_role
     FROM jsonb_array_elements(observation.payload->'claims') WITH ORDINALITY candidate(value,position)
@@ -509,7 +513,40 @@ BEGIN
    PERFORM data.value_meaning(r,z,primitive);
   END LOOP;
  END IF;
- IF EXISTS(SELECT FROM data.membership m WHERE m.release_id=r AND m.realization_id=z AND (m.establishment='' OR NOT EXISTS(SELECT FROM data.membership_support ms WHERE (ms.release_id,ms.realization_id,ms.entity_id,ms.class_id)=(m.release_id,m.realization_id,m.entity_id,m.class_id)))) THEN RAISE EXCEPTION 'membership requires establishment and support' USING ERRCODE='23514'; END IF;
+ -- Explicit entity declarations are a separate attributed class basis, not borrowed
+ -- property evidence. validate_entity_source additionally validates the exact resolution,
+ -- producing observation and final-cut custody before an evaluated result can commit.
+ -- A known entity can instead retain its exact admitted input membership through the
+ -- importing run's bound snapshot; this neither creates attributes nor copies declarations.
+ IF EXISTS(SELECT FROM data.membership m WHERE m.release_id=r AND m.realization_id=z AND
+  (m.establishment='' OR (NOT EXISTS(SELECT FROM data.membership_support ms WHERE
+   (ms.release_id,ms.realization_id,ms.entity_id,ms.class_id)=
+   (m.release_id,m.realization_id,m.entity_id,m.class_id)) AND NOT EXISTS(
+    SELECT FROM data.entity_source declaration_source
+    JOIN kb.observation declaration_observation ON declaration_observation.id=declaration_source.observation_id
+     AND declaration_observation.release_id=r AND declaration_observation.payload_definition='AgentStoredBatch'
+    CROSS JOIN LATERAL jsonb_array_elements(declaration_observation.payload->'entities') declaration(value)
+    WHERE declaration_source.release_id=r AND declaration_source.realization_id=z
+     AND declaration_source.entity_id=m.entity_id AND m.establishment='agent_asserted'
+     AND declaration.value->>'id'=declaration_source.local_id
+     AND declaration.value->>'class_iri'=m.class_id
+  ) AND NOT EXISTS(
+    SELECT FROM data.entity_input input_lineage
+    JOIN ops.run importing_run ON importing_run.id=input_lineage.run_id
+     AND importing_run.release_id=r AND importing_run.result_realization_id=z
+     AND importing_run.input_realization_id=input_lineage.input_realization_id
+     AND importing_run.input_revision=input_lineage.input_data_revision
+    JOIN data.realization prior_realization ON prior_realization.release_id=r
+     AND prior_realization.realization_id=input_lineage.input_realization_id
+     AND prior_realization.data_revision=input_lineage.input_data_revision
+    JOIN data.membership prior_membership ON prior_membership.release_id=r
+     AND prior_membership.realization_id=prior_realization.realization_id
+     AND prior_membership.entity_id=input_lineage.input_entity_id
+     AND prior_membership.class_id=m.class_id
+     AND prior_membership.establishment=m.establishment
+    WHERE input_lineage.release_id=r AND input_lineage.realization_id=z
+     AND input_lineage.entity_id=m.entity_id AND input_lineage.input_entity_id=m.entity_id
+  )))) THEN RAISE EXCEPTION 'membership requires establishment and support' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.derivation d LEFT JOIN data.derivation_premise dp ON (dp.release_id,dp.realization_id,dp.derivation_id)=(d.release_id,d.realization_id,d.derivation_id) WHERE d.release_id=r AND d.realization_id=z GROUP BY d.derivation_id HAVING count(dp.position)=0 OR min(dp.position)<>0 OR max(dp.position)<>count(dp.position)-1) THEN RAISE EXCEPTION 'derivation requires ordered premises' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name='Qualification') AND NOT EXISTS(SELECT FROM data.typed_value v JOIN sem.class_definition c ON c.release_id=r AND c.class_id=v.datatype AND (c.name='Qualification' OR EXISTS(SELECT FROM sem.class_hierarchy h JOIN sem.class_definition root ON root.release_id=h.release_id AND root.class_id=h.ancestor_id AND root.name='Qualification' WHERE h.release_id=r AND h.class_id=c.class_id)) WHERE v.release_id=r AND v.realization_id=z AND v.value_id=f.qualification_value_id)) THEN RAISE EXCEPTION 'fact requires typed qualification' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.membership m JOIN sem.class_definition c ON c.release_id=m.release_id AND c.class_id=m.class_id WHERE m.release_id=r AND m.realization_id=z AND c.abstract) THEN RAISE EXCEPTION 'direct membership of abstract class' USING ERRCODE='23514'; END IF;

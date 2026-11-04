@@ -1,0 +1,8 @@
+{
+  "python/corpus-structure/src/corpus_structure/semantic/domain_operations.py": "4096828bb62e9371812b1db68169c9d0e6bfcbf10bd3bbfc126bfda66dad94ad",
+  "python/corpus-structure/src/corpus_structure/semantic/sql/closure.sql": "0b8948e30e4bbda6cb7073b4f225358f2d6621c013ac0d48ef04eb72bd711f15",
+  "python/corpus-structure/src/corpus_structure/semantic/execution_admission.py": "fa30a0a4dd6a14b8a0b17cd44e48805019c30e638596b60abd7738bee7fff490",
+  "python/corpus-structure/semantic_alembic/versions/0103_entity_declaration_lineage.py": "a22960ac5815cba3457884624925a5130f42b5cb14ce80d549d4cafaa10881c4",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ac_lineage_20261103_native.json": "6fc99060f6a946985f16c0fa035ecd9dc2533c94f6b5ac33eeb9a8154200c8c3",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ac_lineage_20261103_admission.sql": "f44d5b62e9817a51531b67043a7ff69cee3b41cebbfc376f894c57978b2fb219"
+}

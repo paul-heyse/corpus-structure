@@ -6,6 +6,7 @@ qualification covers every remaining Unicode scalar mapping and exact sequence c
 
 from __future__ import annotations
 
+import json
 import platform
 import sys
 import unicodedata
@@ -19,6 +20,8 @@ from .refusals import SemanticOperationRefusal, SemanticReason
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
+
+    from .types import PreparedRelease
 
 PROFILE = "unicode-default-casefold-1"
 DOMAIN = "unicode-scalars-except-nul-no-normalization"
@@ -227,10 +230,10 @@ def requires_unicode_identity(prepared) -> bool:
     )
 
 
-def require_unicode_identity_release(connection: Connection, prepared) -> None:
+def require_unicode_identity_release(connection: Connection, prepared: PreparedRelease) -> None:
     """Bind producing recipe and actual database before any current folding operation."""
     expected = qualified_python_identity_recipe().decode("utf-8")
-    if dict(prepared.library_versions).get("unicode-identity") != expected:
+    if json.loads(prepared.manifest)["libraries"].get("unicode-identity") != expected:
         raise SemanticOperationRefusal(
             SemanticReason(
                 "incompatible_bindings",

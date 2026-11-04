@@ -13,6 +13,22 @@ from corpus_structure.semantic.metadata import table
 from .domain_scenarios import build_domain_case
 
 
+def _candidate_publication(inputs, batch, cut):
+    from corpus_structure.semantic.analytics import compile_projection
+    from corpus_structure.semantic.arrow_publication import SnapshotDerivedPublication
+
+    compiled = compile_projection(inputs.prepared, inputs.source_binding, kind="candidate")
+    return SnapshotDerivedPublication.from_rows(
+        batch.bind_preparation(inputs.prepared),
+        source=inputs.source_binding,
+        operation_id="evaluate",
+        projection_id=compiled.projection_id,
+        contract_id="candidate",
+        cut_id=cut,
+        profile_digest=compiled.profile.digest,
+    )
+
+
 def test_finished_result_refuses_new_protected_publication(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
@@ -35,8 +51,8 @@ def test_native_source_locator_is_checked_against_stored_citation(
 ):
     import json
 
+    from corpus_structure.semantic.arrow_publication import publish_arrow_on_connection
     from corpus_structure.semantic.domain_operations import _cut_input
-    from corpus_structure.semantic.publication import publish_on_connection
 
     _prepared, _run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
@@ -56,7 +72,7 @@ def test_native_source_locator_is_checked_against_stored_citation(
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
         )
-        publish_on_connection(conn, batch)
+        publish_arrow_on_connection(conn, _candidate_publication(inputs, batch, cut))
 
 
 def test_unknown_occurrence_source_cannot_bypass_normalized_context(
@@ -64,9 +80,9 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
 ):
     from sqlalchemy import select
 
+    from corpus_structure.semantic.arrow_publication import publish_arrow_on_connection
     from corpus_structure.semantic.domain_operations import _cut_input
     from corpus_structure.semantic.identity import occurrence_key
-    from corpus_structure.semantic.publication import publish_on_connection
 
     prepared, run, cut = build_domain_case(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
@@ -116,7 +132,7 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
         )
-        publish_on_connection(conn, batch)
+        publish_arrow_on_connection(conn, _candidate_publication(inputs, batch, cut))
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
             {"cut": cut, "out": "hostile", "batch": batch.batch_id},
@@ -139,12 +155,12 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
 
+    from corpus_structure.semantic.arrow_publication import publish_arrow_on_connection
     from corpus_structure.semantic.consolidation import SourceItem, assemble
     from corpus_structure.semantic.domain_operations import _cut_input
     from corpus_structure.semantic.publication import (
         EvidenceRow,
         SelectionRow,
-        publish_on_connection,
     )
 
     prepared, _run, cut = build_domain_case(
@@ -191,7 +207,7 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
         )
-        publish_on_connection(conn, batch)
+        publish_arrow_on_connection(conn, _candidate_publication(inputs, batch, cut))
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
             {"cut": cut, "out": "hostile", "batch": batch.batch_id},

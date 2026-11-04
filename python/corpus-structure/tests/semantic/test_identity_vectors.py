@@ -218,6 +218,12 @@ default_prefix: ex
 types:
   string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
   boolean: {base: bool, uri: 'http://www.w3.org/2001/XMLSchema#boolean'}
+enums:
+  Establishment:
+    permissible_values:
+      stated: {in_subset: [source_admissible]}
+      agent_asserted: {in_subset: [source_admissible]}
+      derived: {}
 classes:
   Thing:
     attributes:
