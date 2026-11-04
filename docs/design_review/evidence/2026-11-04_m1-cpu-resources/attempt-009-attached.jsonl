@@ -1,2 +1,3 @@
-{"kind": "metadata", "root_pid": 2910313, "capture_kind": "attached_partial", "interval_seconds": 0.5, "command": null, "utc": "2026-11-04T09:23:11Z", "clock_ticks_per_second": 100, "memory_unit": "KiB", "cpu_delta_scope": "consecutive observed process identities", "limits": "sampled /proc tree; short-lived or reparented children may be missed; PSS is proportional resident share; RSS sum double-counts shared pages"}
-{"kind": "summary", "reason": "root_exited", "capture_kind": "attached_partial", "samples": 0, "elapsed_seconds": 0.01823770500050159, "peak_complete_pss_kib": null, "peak_rss_sum_kib": 0, "peak_threads": 0, "pss_incomplete_samples": 0, "observed_cpu_delta_seconds": 0.0, "observed_process_identities": [], "final_errors": [], "resource_qualification": "not_established"}
+version https://git-lfs.github.com/spec/v1
+oid sha256:03a0bfae140f384578d7e3725576014da7e41366b38e30324b08c682fb4ad191
+size 792

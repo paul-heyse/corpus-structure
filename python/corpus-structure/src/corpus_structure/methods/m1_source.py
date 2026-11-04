@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from hashlib import sha256
 from itertools import pairwise
@@ -294,7 +295,10 @@ class M1Candidates:
             standing="private_uncalibrated_candidates",
             source_pin=asdict(NativeSourcePin.from_source(prepared_source.source)),
             regions=[asdict(region) for region in prepared_source.regions],
-            contexts=[asdict(selection) for selection in prepared_source.selections],
+            contexts=[
+                json.loads(canonical_bytes(asdict(selection)))
+                for selection in prepared_source.selections
+            ],
             annotation_product=dict(
                 method=annotation_result["method"],
                 input_hash=annotation_result["input_hash"],
@@ -354,13 +358,29 @@ class M1Candidates:
             )
         for index, selection in enumerate(prepared_source.selections):
             ctx.check_active()
-            context = selection.context(
-                prepared_source.source,
-                max_chars=cfg.max_context_chars,
-                max_pieces=cfg.max_context_pieces,
-                related=prepared_source.related,
-                preparation=prepared_source.preparation,
-            )
+            try:
+                context = selection.context(
+                    prepared_source.source,
+                    max_chars=cfg.max_context_chars,
+                    max_pieces=cfg.max_context_pieces,
+                    related=prepared_source.related,
+                    preparation=prepared_source.preparation,
+                )
+            except ContextRefused as error:
+                for family in selection.families:
+                    execution[index, family].update(outcome="limited", reason=str(error))
+                    details["reports"].append(
+                        dict(context=index, family=family, outcome="limited", reason=str(error))
+                    )
+                    coverage.append(
+                        CoverageDraft(
+                            family=family,
+                            scope=f"{selection.region}:{selection.start}:{selection.end}",
+                            outcome="partial",
+                            reason=str(error),
+                        )
+                    )
+                continue
             for family in selection.families:
                 contract, anchor = FAMILIES[family]
                 try:

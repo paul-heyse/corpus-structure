@@ -180,6 +180,41 @@ def test_missing_annotation_operation_does_not_fall_back_to_inference():
         )
 
 
+def test_context_relationship_diagnostics_cross_the_source_report_boundary(monkeypatch):
+    from dataclasses import replace
+
+    from corpus_structure.orchestrate.m1 import registry
+    from corpus_structure.semantic.observations import source_python, source_value
+    from corpus_structure.semantic.source_contexts import ContextRelationship
+
+    source = view()
+    method = m1_source.M1Candidates()
+    reader = owned_reader(source)
+    prepare = m1_source.prepare_source
+
+    def with_related_diagnostic(*args, **kwargs):
+        prepared = prepare(*args, **kwargs)
+        return replace(
+            prepared,
+            selections=tuple(
+                replace(row, relationships=((8, ContextRelationship.NEIGHBOR, "nearby unit"),))
+                for row in prepared.selections
+            ),
+            annotation_errors=("controlled unavailable annotation",),
+        )
+
+    monkeypatch.setattr(m1_source, "prepare_source", with_related_diagnostic)
+    cfg = registry(ROOT / "domains/statistics").overlay(method.name, "default")
+    (result,) = method.run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
+        cfg,
+        SimpleNamespace(reader=reader, check_active=lambda: None),
+    )
+    decoded = source_python(source_value(result.parse_detail))
+    assert decoded["contexts"][0]["relationships"] == [[8, "neighbor", "nearby unit"]]
+    assert result.outcome == ObservationOutcome.FAILED
+
+
 @pytest.mark.parametrize("mode", ["definition", "empty", "failed"])
 def test_producer_keeps_candidates_empty_denominator_and_failure_dispositions(monkeypatch, mode):
     source = view()

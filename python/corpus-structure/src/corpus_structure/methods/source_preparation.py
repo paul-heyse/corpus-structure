@@ -373,6 +373,8 @@ def _widen_contexts(
     related = {}
     reads = {}
     widened = []
+    piece_starts = tuple(piece["start"] for piece in view.pieces)
+    piece_ends = tuple(piece["end"] for piece in view.pieces)
     for selection in selections:
         check_active()
         node = nodes[selection.region]
@@ -459,10 +461,13 @@ def _widen_contexts(
             for target in local_targets:
                 native = local[target]
                 a, b = native[0]["start"], native[-1]["end"]
+                # A native item may contain several runs separated by synthetic
+                # projection intervals. Context serialization consumes those too.
+                target_count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
                 if selection.start <= a and b <= selection.end:
                     local_dispositions.append((target, "selected", "already in primary context"))
                     continue
-                if chars + 1 + b - a <= max_chars and count + 1 + len(native) <= max_pieces:
+                if chars + 1 + b - a <= max_chars and count + 1 + target_count <= max_pieces:
                     pieces.extend(
                         (
                             SyntheticText("\n", "context piece separator"),
@@ -470,7 +475,7 @@ def _widen_contexts(
                         )
                     )
                     chars += 1 + b - a
-                    count += 1 + len(native)
+                    count += 1 + target_count
                     local_dispositions.append(
                         (target, "selected", "explicit primary native context")
                     )

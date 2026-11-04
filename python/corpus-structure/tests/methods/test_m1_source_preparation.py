@@ -312,3 +312,49 @@ def test_native_table_links_have_missing_scope_and_no_automatic_note_attachment(
     ] * 2
     assert result.regions[0].families == ("table",)
     assert result.selections[0].missing_roles == ("header_path", "unit", "caption", "note")
+
+
+def test_local_related_budget_counts_projection_separators(controlled):
+    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+
+    original = source("a\nB C", labels=("formula", "text"))
+    nodes = (dict(original.items[0], captions=[{"$ref": "#/texts/1"}]), original.items[1])
+    pieces = (
+        *original.pieces[:2],
+        dict(kind="native_text", item_ref="#/texts/1", start=2, end=3),
+        dict(kind="synthetic_separator", start=3, end=4),
+        dict(kind="native_text", item_ref="#/texts/1", start=4, end=5),
+    )
+    projection = dict(
+        text=original.text,
+        pieces=pieces,
+        items=[n["self_ref"] for n in nodes],
+        ancestors=[],
+        health={},
+    )
+    original = replace(
+        original,
+        items=nodes,
+        pieces=pieces,
+        ref=replace(
+            original.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
+        ),
+    )
+    reader = SimpleNamespace(
+        context_sources=lambda *_args, **_kwargs: SourceContextRead(
+            (), (), "e" * 64, RetrievalOutcome.NO_MATCH, "no other source"
+        )
+    )
+    result = prep.prepare_source(original, reader=reader, max_pieces=4)
+    selection = result.selections[0]
+    assert selection.local_dispositions == (
+        ("#/texts/1", "resource_limit", "local context character/piece bound exceeded"),
+    )
+    context = selection.context(
+        result.source,
+        related=result.related,
+        preparation=result.preparation,
+        max_chars=4096,
+        max_pieces=4,
+    )
+    assert context.text == "a" and len(context.intervals) == 1

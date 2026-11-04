@@ -59,10 +59,10 @@ refining implementation requirements; do not introduce new approval steps for th
 ## Current M1 execution checkpoint — 2026-11-04
 
 **Implemented with bounded Tested results; no whole M1 package complete.** Native106 source
-preparation remains frozen. Forward107–120 add whole-reading overlays, direct sealed field/set/
-anchor custody, protected finite policy products and operation-scoped reuse.150 native objects
-are managed. Persistent corpus_structure_dev is at120 with its retained source population.
-Rollback-only authoring at109 reports zero native and zero ordinary changes. Native functional
+preparation remains frozen. Forward107–122 add whole-reading overlays, direct sealed field/set/
+anchor custody, protected finite policy products and operation-scoped reuse.151 native objects
+are managed. Persistent corpus_structure_dev is at122 with its retained source population.
+Rollback-only current-head authoring at122 reports zero native and zero ordinary changes. Native functional
 qualification remains in progress; failed attempts are retained in the
 [policy/admission evidence](../design_review/evidence/2026-11-04_m1-policy-admission/README.md).
 
@@ -96,7 +96,7 @@ owns their exact pins and restore receipt. New retained-source CPU readings run 
 database through ordinary release admission and owned project initialization. First attempts
 exposed script-level missing initialization/admission steps; they are retained in the
 [CPU reading evidence](../design_review/evidence/2026-11-04_m1-cpu-readings/README.md).
-No source-only A/B/C references, final fitted instances or five-family quality claims exist yet.
+Actual CPU model execution has now occurred on retained Grinstead–Snell contexts; attempt009 stopped at a later context bound. No whole-source CPU success, source-only A/B/C references, final fitted instances or five-family quality claims exist yet.
 
 Implementation review and native findings stay in this owning plan:
 
@@ -104,17 +104,30 @@ Implementation review and native findings stay in this owning plan:
 |---|---|
 | Pure F01–F04 | Present literal precision, truthful stated attribution, explicit finite-cut origin minimum and every role's own support were corrected and pure-tested. Native admission/consumer qualification remains required. |
 | M1-INT-F01 | Grading now applies native admission standing to detached records and selects resolver authority even for empty/failed output; private IDs/standing remain unchanged. Focused adapter tests passed. |
-| M1-INT-F02 | Python and native admission/calibration replay the frozen independent compatibility score. A forged high event score cannot inherit authority from a valid input digest. Pure tamper controls passed; native controls pending. |
+| M1-INT-F02 | Python and native admission/calibration replay the frozen independent compatibility score. A forged high event score cannot inherit authority from a valid input digest. Pure tamper controls and controlled native fit/calibration/binding/score refusals passed; actual-source calibration remains open. |
 | M1-INT-F03 | Runtime parameter binding selects one coherent subset and refuses mixed subsets, avoiding silent `not_run` scoring. Integrated runtime journey pending. |
-| M1-INT-F04 | Plain graph append cannot bypass reading admission by omitting record rows; exact direct record occurrence/evidence support is required without fabricated Agent observations. Native controls pending. |
-| M1-INT-F05 | Native publication used a nonexistent selection boolean and ambiguous JSON subtraction. Forward108/109 correct the set-valued selection and JSON operators. Rerun targeted native publication before closure. |
+| M1-INT-F04 | Plain graph append cannot bypass reading admission by omitting record rows; exact direct record occurrence/evidence support is required without fabricated Agent observations. Controlled native direct-support controls passed; actual-source journeys remain open. |
+| M1-INT-F05 | Native publication used a nonexistent selection boolean and ambiguous JSON subtraction. Forward108/109 correct the set-valued selection and JSON operators. Targeted native reader/coverage/continuation checks passed8 cases on the integrated consumer contribution; final-source full publication rerun remains open. |
 | M1-INT-F08 | Protected fitting now normalizes JSON candidate/reference arrays through their released boundary before strict coordinate/meaning checks; raw frame bytes remain bound. Controlled native fit/calibration passed at117. |
 | M1-INT-F07 | Records-only Python/native completion now accounts for authenticated records; actual controlled fitting/calibration/accepted publication passed at117. |
 | M1-INT-F06 | Actual archived JSON arrays were rejected by strict Python tuple validation, silently suppressing reading assertions. The owned JSON boundary now normalizes wire values before family validation.15 lowerer cases and actual direct-support native publication passed (113); final all-family runtime remains open. |
+| M1-INT-F09 | Actual CPU execution exposed local related-context piece counting that omitted synthetic separator intervals. Preparation now counts all consumed intervals; per-context refusal retains other results and explicit partial coverage.19 focused preparation/producer cases passed; actual retained-source retry underway. |
+| M1-INT-F10 | Bounded consumer/gap review identified lost task errors when a failed producer has no report. Native gap evidence now retains the actual error as JSON text compatible with the released error field. Native failed-without-report control failed because final-cut membership excludes failed tasks. Diagnostic-inclusive final-run population is being implemented; stage remains unknown unless independently supported. |
+| M1-INT-F11 | Record journeys previously omitted producer coverage and budgeted only the page. Completed-cut set-oriented coverage now retains no-output diagnostics under shared bounds; MCP budgets the complete stamped result.29 adapter/source-egress and8 native reader/continuation controls passed on the contribution; actual public journeys remain open. |
+
 
 Actual retained-source runs also corrected: distinct version2 for retained PDF configuration; no inherited phase0 filter for explicit M1 products; omitted synthetic-separator references decode as None (11 preparation tests passed). Archive24 decoding retains actual native106 PDF reads while current analysis/source execution remain refused. Publication binds canonical JSON text so numeric spelling survives frozen transport; native validation still enforces the typed policy object.
 
-Next complete actual CPU extraction and operation reuse plus the remaining consumer/gap seams, then freeze
+Protected M1-15 unit gap evidence is derived natively from independent C and completed-cut records,
+not free-form author labels. It retains zero-reference/no-output units, source/reference/task/config
+links and actual coverage/parse diagnostics. `ci eval gaps` and immutable paired-cohort comparisons
+reuse existing protected evaluation rows.64 focused reference/gap/CLI checks and10 native
+reference/policy controls passed at121. Failed-task diagnostic follow-up found missing terminal task membership and remains open.
+Consumer/gap contributions are merged; their two worktrees are removed. Actual resource capture
+uses a stdlib process-tree sampler, separately labelling proportional memory and summed RSS; its
+mechanical sanity passed, while actual ordinary/dense/cancellation resource qualification remains open.
+
+Next complete actual CPU extraction and operation reuse, then freeze
 the executable release/reference inputs before fresh Sol6.1 high A/B/C. Actual source-only references,
 protected fit/calibration, coupled-template benefit disposition, five-family gates, CPU/RSS envelope,
 consumer/recovery journeys and NONDEFAULT release acceptance remain open. Prior UM standing and

@@ -354,7 +354,8 @@ BEGIN
   'selected_task_id',selected.id,'origin_task_id',origin.id,'method',method.name,'operation_version',method.version,
   'configuration_hash',config.config_hash,'input_hash',selected.input_hash,'outcome',selected.status,
   'result_present',result.task_id IS NOT NULL,'coverage_present',COALESCE(result.body ? 'coverage',false),
-  'coverage',COALESCE(result.body->'coverage','[]'::jsonb),'parse_detail',result.body->'parse_detail','error',result.body->'error',
+  'coverage',COALESCE(result.body->'coverage','[]'::jsonb),'parse_detail',result.body->'parse_detail',
+  'error',COALESCE(result.body->>'error',origin.error::text,selected.error::text),
   'dependency_task_ids',COALESCE((SELECT jsonb_agg(dependency_task_id ORDER BY dependency_task_id)
     FROM ops.task_dependency WHERE task_id=selected.id),'[]'::jsonb),
   'dependent_task_ids',COALESCE((SELECT jsonb_agg(task_id ORDER BY task_id)

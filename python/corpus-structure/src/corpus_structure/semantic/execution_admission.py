@@ -203,7 +203,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Frozen from reviewed audit-closure forward artifacts; historical wrappers stay immutable.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "311634115d42c63f31594851677529ef099c31b1c835f1d451fa4a23fe76d5e1"
+_DESCRIPTOR_SHA256 = "9c3865ad22be9aef9708591803c50b3ad548eb8d68670d09dcba650e624ccae1"
 _REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

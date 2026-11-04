@@ -611,6 +611,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "create_source_record_reference_set": ("corpus_sem_evaluator",),
         "validate_source_record_reference_frame": (),
         "record_source_record_reference_pass": ("corpus_sem_evaluator",),
+        "source_record_gap_evidence": ("corpus_sem_evaluator",),
         "validate_source_record_reference_evaluation": (),
         "record_source_record_reference_evaluation": ("corpus_sem_evaluator",),
         "require_record_fitting_principal": ("corpus_sem_fitter",),
