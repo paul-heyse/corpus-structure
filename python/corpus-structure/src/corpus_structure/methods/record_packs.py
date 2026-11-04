@@ -127,3 +127,19 @@ def family_pack(
         prepared.release_id,
         {"structures": {family: dict(mode="natural", anchor=anchor_role, fields=fields)}},
     )
+
+
+def formula_pack_variants(prepared, *, descriptions=None, source_inspection=False):
+    """Explicit natural instance seeds; neither variant manufactures source states.
+
+    Symbol anchors can represent several bindings sharing one formula. Formula
+    anchors retain readings without symbols and may also propose a binding. The
+    released roles, choices and occurrence/first-use policy remain unchanged.
+    """
+    return tuple(
+        (variant, anchor, family_pack(
+            prepared, contract="FormulaRecordFields", anchor_role=anchor,
+            descriptions=descriptions, source_inspection=source_inspection,
+        ))
+        for variant, anchor in (("symbol_binding", "symbol"), ("formula_reading", "formula"))
+    )

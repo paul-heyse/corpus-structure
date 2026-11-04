@@ -15,6 +15,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from corpus_structure.core.tex import tokens as tex_tokens
+
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
@@ -110,6 +112,52 @@ READING_ROLES = {
     "table": ("table", "cell"),
     "formula_context": ("formula",),
 }
+
+
+def _first_exact_formula_use(source_text, formula_pieces, spelling):
+    """Locate an exact owned source use, without joining pieces or interpreting TeX."""
+    if not spelling or not formula_pieces:
+        return None
+    identifier = spelling.isidentifier()
+    if not identifier and not any(t.kind in {"word", "symbol"} for t in tex_tokens(spelling)):
+        # Keep arbitrary arithmetic compounds outside this lexical adapter;
+        # accepting a sum as a declared symbol would need semantic authority.
+        return None
+    expression = re.compile(
+        r"(?<![\w\\])" + re.escape(spelling) + r"(?!\w)"
+        if identifier else re.escape(spelling)
+    )
+    runs = []
+    for piece in formula_pieces:
+        if runs and runs[-1][-1]["end"] == piece["start"]:
+            runs[-1].append(piece)
+        else:
+            runs.append([piece])
+    for run in runs:
+        origin = run[0]["start"]
+        quoted = source_text[origin:run[-1]["end"]]
+        starts = ends = set()
+        if not identifier:
+            # The shared positioned lexer is the sole TeX lexical authority.
+            # Adjacent genuine pieces share source text; disjoint quotes never
+            # acquire an invented join, boundary, macro or normalized spelling.
+            positioned = tex_tokens(quoted)
+            starts = {token.start for token in positioned}
+            ends = {token.end for token in positioned}
+        for match in expression.finditer(quoted):
+            if not identifier and (match.start() not in starts or match.end() not in ends):
+                continue
+            start, end = origin + match.start(), origin + match.end()
+            for piece in run:
+                if piece["start"] <= start < end <= piece["end"]:
+                    first_use = dict(piece)
+                    first_use.update(start=start, end=end, source_piece=spelling)
+                    first_use["anchor_id"] = anchor_identity(first_use)
+                    return first_use
+            # The first genuine lexical use must not be replaced by a later,
+            # easier occurrence when its address crosses native item owners.
+            return None
+    return None
 
 
 def inspected_groups(prepared, context, *, contract, groups, supplements):
@@ -701,28 +749,9 @@ def _assemble(
             elif symbol["state"] == meaning["state"] == "present":
                 spelling = symbol.get("original", "")
                 formula_pieces = [anchors[key] for key in role_anchors["formula"]]
-                expression = "".join(piece["source_piece"] for piece in formula_pieces)
-                # Restrict this lexical adapter to exact source identifiers. Macros,
-                # transformed glyphs and split tokens need their actual address owner.
-                match = (
-                    re.search(r"(?<![\w\\])" + re.escape(spelling) + r"(?!\w)", expression)
-                    if spelling.isidentifier()
-                    else None
+                first_use = _first_exact_formula_use(
+                    context.primary.text, formula_pieces, spelling
                 )
-                offset = 0
-                first_use = None
-                for piece in formula_pieces:
-                    stop = offset + len(piece["source_piece"])
-                    if match and offset <= match.start() < match.end() <= stop:
-                        first_use = dict(piece)
-                        first_use.update(
-                            start=piece["start"] + match.start() - offset,
-                            end=piece["start"] + match.end() - offset,
-                            source_piece=spelling,
-                        )
-                        first_use["anchor_id"] = anchor_identity(first_use)
-                        break
-                    offset = stop
                 if first_use is not None:
                     anchors[first_use["anchor_id"]] = first_use
                     extra_occurrence.append(first_use)
@@ -732,7 +761,8 @@ def _assemble(
                             index,
                             "symbol",
                             "unlocated_occurrence",
-                            "declared symbol has no unambiguous exact primary in-formula use",
+                            "declared symbol has no unambiguous exact primary in-formula use "
+                            "within the identifier/TeX-control-token lexical adapter",
                         )
                     )
                     continue

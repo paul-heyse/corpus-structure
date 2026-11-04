@@ -32,6 +32,19 @@ class GlinerRefused(ValueError):
     """A request cannot preserve the selected profile/input contract."""
 
 
+WHITESPACE_PROFILE = "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1"
+CODEPOINT_PROFILE = "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1"
+
+
+class UnicodeCodepointSplitter:
+    """One non-whitespace source codepoint per token; source offsets never change."""
+
+    def __call__(self, text: str, lower: bool = True):
+        for index, character in enumerate(text):
+            if not character.isspace():
+                yield character.lower() if lower else character, index, index + 1
+
+
 @dataclass(frozen=True)
 class GlinerProfile:
     snapshot: Path
@@ -49,14 +62,14 @@ class GlinerProfile:
     max_request_frame_bytes: int = 131072
     max_reply_frame_bytes: int = 1048576
     timeout_seconds: float = 120
-    version: str = "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1"
+    version: str = WHITESPACE_PROFILE
 
     def __post_init__(self) -> None:
         if not self.snapshot.is_absolute() or not self.checkpoint or not self.revision:
             raise GlinerRefused(
                 "profile requires an absolute local snapshot and immutable identity"
             )
-        if self.version != "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1":
+        if self.version not in {WHITESPACE_PROFILE, CODEPOINT_PROFILE}:
             raise GlinerRefused("unsupported execution profile")
         for bound in (
             self.threads,
@@ -330,13 +343,18 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
     model = AutoExtractor.from_pretrained(
         str(profile.snapshot),
         map_location="cpu",
-        word_splitter="whitespace",
+        word_splitter=(
+            UnicodeCodepointSplitter() if profile.version == CODEPOINT_PROFILE else "whitespace"
+        ),
         attention_backend="standard",
     )
     model.eval()
     if any(p.device.type != "cpu" or p.dtype != torch.float32 for p in model.parameters()):
         raise GlinerRefused("resident weights are not FP32 CPU")
-    if not isinstance(model.processor.word_splitter, WhitespaceTokenSplitter):
+    expected_splitter = (
+        UnicodeCodepointSplitter if profile.version == CODEPOINT_PROFILE else WhitespaceTokenSplitter
+    )
+    if type(model.processor.word_splitter) is not expected_splitter:
         raise GlinerRefused("resident splitter differs from the selected recipe")
     if getattr(model, "architecture", None) != "boundary":
         raise GlinerRefused("resident checkpoint lacks the selected boundary architecture")
@@ -350,7 +368,7 @@ def load_model(profile: GlinerProfile) -> tuple[Any, str]:
             "python": platform.python_version(),
             "config": model.config.to_dict(),
             "boundary_settings": settings,
-            "splitter": "WhitespaceTokenSplitter",
+            "splitter": expected_splitter.__name__,
             "dtype": "float32",
             "device": "cpu",
             "attention_backend": "standard",

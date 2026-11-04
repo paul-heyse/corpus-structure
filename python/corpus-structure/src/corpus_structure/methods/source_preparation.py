@@ -31,6 +31,7 @@ from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.proposals import NativeFrameSource, native_source_frame
 from corpus_structure.semantic.source_contexts import (
+    ContextRefused,
     ContextRelationship,
     ContextRetrieval,
     NativeSourceContext,
@@ -45,6 +46,7 @@ from corpus_structure.semantic.source_contexts import (
 
 PROSE_FAMILIES = ("definition", "assertion", "measurement")
 POLICY = "m1-canonical-related-context-candidates-4"
+POLICY_V5 = "m1-canonical-related-context-candidates-5"
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +208,7 @@ class ContextSelection:
     # Actual native links; consumption/limits remain explicit in local_dispositions.
     local_relationships: tuple[tuple[str, ContextRelationship, str], ...] = ()
     table_targets: tuple[NativeTableTarget, ...] | None = None
+    policy: str = POLICY
 
     def context(
         self,
@@ -215,6 +218,7 @@ class ContextSelection:
         max_pieces: int,
         related: tuple[RelatedNativeSource, ...] = (),
         preparation: PreparedNativeSources | None = None,
+        policy: str | None = None,
     ) -> NativeSourceContext:
         sources = {entry.source.source_view_id: entry.source for entry in related}
         return NativeSourceContext(
@@ -225,7 +229,7 @@ class ContextSelection:
             ),
             self.pieces or (SourceSlice(source.source_view_id, self.start, self.end),),
             ",".join(self.families),
-            POLICY,
+            self.policy if policy is None else policy,
             self.reason,
             retrievals=self.retrievals,
             max_chars=max_chars,
@@ -368,6 +372,8 @@ def prepare_source(
     persisted_annotations: tuple[AnnotationProduct, ...] | None = None,
     annotation_errors: tuple[str, ...] = (),
     annotations_only: bool = False,
+    policy: str = POLICY,
+    formula_prose: bool = False,
 ) -> PreparedCandidateSource:
     """Prepare annotations once per projected native piece, then coherent windows.
 
@@ -377,6 +383,8 @@ def prepare_source(
     """
     if min(max_chars, max_pieces, max_annotation_chars) < 1:
         raise ValueError("source preparation bounds must be positive")
+    if policy not in {POLICY, POLICY_V5} or (formula_prose and policy != POLICY_V5):
+        raise ValueError("unsupported source preparation/routing policy")
     profile = profile or AnnotationProfile()
     frame = native_source_frame(view, ())
     pin = NativeSourcePin.from_source(frame)
@@ -500,7 +508,7 @@ def prepare_source(
         families = (
             (("formula_context" if structural == "formula" else structural),)
             if structural
-            else PROSE_FAMILIES
+            else (*PROSE_FAMILIES, "formula_context") if formula_prose else PROSE_FAMILIES
         )
         chosen = []
         limits = []
@@ -628,6 +636,12 @@ def prepare_source(
     preparation = PreparedNativeSources(
         (frame, *(entry.source for entry in related)), max_sources=9
     )
+    if policy == POLICY_V5:
+        selections = [replace(selection, policy=policy) for selection in selections]
+        selections, regions = _formula_windows(
+            view, frame, selections, regions, tuple(products), related, preparation,
+            max_chars=max_chars, max_pieces=max_pieces, check_active=check_active,
+        )
     return PreparedCandidateSource(
         frame,
         tuple(products),
@@ -637,6 +651,148 @@ def prepare_source(
         related,
         preparation,
     )
+
+
+def _formula_windows(
+    view, frame, selections, regions, annotations, related, preparation,
+    *, max_chars, max_pieces, check_active,
+):
+    """Three source-only whole-block alternatives per native primary formula.
+
+    Keep the original selection, selected source custody and every failed lookup.
+    An oversized nearest block stops that direction; it never licenses cropping
+    or skipping to a more convenient passage. No role is inferred from proximity.
+    """
+    blocks = sorted(
+        (a for a in annotations if a.kind in {"paragraph", "list_item", "caption"}
+         and view.text[a.block_start:a.block_end].strip()),
+        key=lambda a: (a.block_start, a.block_end, a.block_id),
+    )
+    output = list(selections)
+    variants = {}
+    for original_index, selection in enumerate(selections):
+        check_active()
+        if selection.families != ("formula_context",):
+            continue
+        centers = [
+            (index, block) for index, block in enumerate(blocks)
+            if block.block_start <= selection.start < selection.end <= block.block_end
+        ]
+        if not centers:
+            output[original_index] = replace(
+                selection, local_dispositions=(*selection.local_dispositions,
+                    (selection.region, "unsupported", "no complete owned formula block")),
+            )
+            continue
+        center, central = min(
+            centers, key=lambda pair: (pair[1].block_end-pair[1].block_start, pair[1].block_id)
+        )
+        required = {(central.block_start, central.block_end): central}
+        external = []
+        unclosed = False
+        for piece in selection.pieces:
+            if not isinstance(piece, SourceSlice):
+                continue
+            if piece.source_view_id != frame.source_view_id:
+                external.append(piece)
+                continue
+            owners = [b for b in blocks if b.block_start <= piece.start < piece.end <= b.block_end]
+            if not owners:
+                unclosed = True
+                break
+            owner = min(owners, key=lambda b: (b.block_end-b.block_start, b.block_id))
+            required[owner.block_start, owner.block_end] = owner
+        if unclosed:
+            output[original_index] = replace(
+                selection, local_dispositions=(*selection.local_dispositions,
+                    (selection.region, "unsupported", "selected local context has no whole-block closure")),
+            )
+            continue
+
+        def render(chosen):
+            pieces = []
+            for block in sorted(chosen.values(), key=lambda b: (b.block_start, b.block_end)):
+                if pieces:
+                    pieces.append(SyntheticText("\n", "whole native block separator"))
+                pieces.append(SourceSlice(frame.source_view_id, block.block_start, block.block_end))
+            for piece in external:
+                pieces.extend((SyntheticText("\n", "selected related source separator"), piece))
+            candidate = replace(selection, pieces=tuple(pieces))
+            candidate.context(
+                frame, max_chars=max_chars, max_pieces=max_pieces, related=related,
+                preparation=preparation, policy=POLICY_V5,
+            )
+            return candidate
+
+        original_pieces = selection.pieces or (
+            SourceSlice(frame.source_view_id, selection.start, selection.end),
+        )
+        seen = {canonical_bytes([asdict(p) for p in original_pieces])}
+        retained = []
+        original_dispositions = list(output[original_index].local_dispositions)
+        for mode, directions in (
+            ("balanced", ("preceding", "following")),
+            ("preceding", ("preceding",)),
+            ("following", ("following",)),
+        ):
+            chosen = dict(required)
+            try:
+                candidate = render(chosen)
+            except ContextRefused as error:
+                original_dispositions.append((selection.region, "resource_limit", f"{mode}: {error}"))
+                continue
+            cursors = {"preceding": center-1, "following": center+1}
+            stopped = set()
+            dispositions = []
+            relationships = []
+            while len(stopped) < len(directions):
+                for direction in directions:
+                    check_active()
+                    if direction in stopped:
+                        continue
+                    index = cursors[direction]
+                    if not 0 <= index < len(blocks):
+                        stopped.add(direction)
+                        continue
+                    cursors[direction] += -1 if direction == "preceding" else 1
+                    block = blocks[index]
+                    key = block.block_start, block.block_end
+                    if key in chosen:
+                        continue
+                    if any(block.block_start < b.block_end and block.block_end > b.block_start
+                           for b in chosen.values()):
+                        stopped.add(direction)
+                        dispositions.append((block.block_id, "unsupported", f"{mode}: overlapping whole block"))
+                        continue
+                    try:
+                        proposal = render({**chosen, key: block})
+                    except ContextRefused as error:
+                        stopped.add(direction)
+                        dispositions.append((block.block_id, "resource_limit", f"{mode}: {error}"))
+                        continue
+                    chosen[key] = block
+                    candidate = proposal
+                    dispositions.append((block.block_id, "selected", f"{mode}: source-only whole block; role unresolved"))
+                    relationships.append((block.block_id, ContextRelationship.NEIGHBOR,
+                                          "whole block candidate; no semantic attachment"))
+            identity = canonical_bytes([asdict(p) for p in candidate.pieces])
+            # Keep failures of duplicate or refused variants on the original too.
+            original_dispositions.extend(dispositions)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            retained.append(len(output))
+            output.append(replace(
+                candidate, reason=f"{selection.reason}; whole-native-block {mode} window",
+                local_dispositions=(*selection.local_dispositions, *dispositions),
+                local_relationships=(*selection.local_relationships, *relationships),
+            ))
+        output[original_index] = replace(output[original_index], local_dispositions=tuple(original_dispositions))
+        variants[original_index] = tuple(retained)
+    regions = [replace(r, selections=tuple(
+        index for original in r.selections for index in (original, *variants.get(original, ()))
+    )) for r in regions]
+    return output, regions
 
 
 def _widen_contexts(

@@ -8,16 +8,22 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig, pipeline
-from corpus_structure.methods.gliner import GlinerInput, GlinerProfile, GlinerRefused
+from corpus_structure.methods.gliner import (
+    WHITESPACE_PROFILE,
+    GlinerInput,
+    GlinerProfile,
+    GlinerRefused,
+)
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
 from corpus_structure.methods.source_preparation import (
     POLICY,
+    POLICY_V5,
     native_table_geometry,
     prepare_source,
 )
@@ -57,6 +63,27 @@ def _formula_matches_primary(context, group, pointer):
     )
 
 
+def _prose_formula_scope(view, context, group):
+    """Only a decoder-located primary-source formula may receive owned scope."""
+    from corpus_structure.methods.record_assembly import NativeRecordGroup, RoleInput
+
+    value = group.get("formula")
+    if not isinstance(value, dict):
+        return None
+    try:
+        evidence = context.map_span(value["start"], value["end"], literal=value["text"],
+                                    allow_multiple=True)
+    except (KeyError, TypeError, ContextRefused):
+        return None
+    if not evidence or not all(isinstance(p, NativeSpanEvidence)
+                               and p.source.source_view_id == view.ref.id for p in evidence):
+        return None
+    return NativeRecordGroup(
+        (RoleInput("scope", native_pointer=view.ref.section_pointer),),
+        "owned native section scope only for a decoded prose formula",
+    )
+
+
 def _retained_report(report, profiles):
     """Retain raw decoder output and reconstructible preparation without passage copies."""
     row = asdict(report)
@@ -78,6 +105,8 @@ def _structural_groups(view, selection, context):
 
     node = next(item for item in view.items if item["self_ref"] == selection.region)
     if selection.families == ("formula_context",):
+        if node.get("label") != "formula":
+            return ()
         health = {row["pointer"]: row["outcome"] for row in view.health.get("formula_outcomes", ())}
         status = health.get(selection.region, "unknown")
         if status not in {"succeeded", "failed", "unknown", "not_requested"}:
@@ -106,7 +135,9 @@ def _structural_groups(view, selection, context):
 
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    policy: Literal["m1-canonical-related-context-candidates-4"] = POLICY
+    policy: Literal[
+        "m1-canonical-related-context-candidates-4", "m1-canonical-related-context-candidates-5"
+    ] = POLICY
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: Literal["extract.m1_annotations"] = "extract.m1_annotations"
     snapshot: Path
@@ -115,6 +146,13 @@ class M1Config(BaseModel):
     artifact_hashes: tuple[tuple[str, str], ...]
     threads: int = Field(default=4, ge=1, le=16)
     parent_threads: int = Field(default=1, ge=1, le=16)
+    execution_profile: Literal[
+        "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1",
+        "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1",
+    ] = WHITESPACE_PROFILE
+    max_words: int = Field(default=512, gt=0)
+    max_subwords: int = Field(default=2048, gt=0)
+    formula_prose: bool = False
     max_context_chars: int = Field(default=2048, ge=1, le=8192)
     max_context_pieces: int = Field(default=64, ge=1, le=256)
     max_annotation_chars: int = Field(default=32768, ge=1)
@@ -127,6 +165,12 @@ class M1Config(BaseModel):
         "statistics-reading-occurrence-2"
     )
     record_policy_version: Literal["m1-grouped-reading-logistic-1"] = RECORD_POLICY
+
+    @model_validator(mode="after")
+    def prose_formula_policy(self):
+        if self.formula_prose and self.policy != POLICY_V5:
+            raise ValueError("ordinary prose formula routing requires source policy5")
+        return self
 
     @field_validator("pack_descriptions")
     @classmethod
@@ -146,7 +190,10 @@ class M1Config(BaseModel):
             self.revision,
             self.artifact_hashes,
             threads=self.threads,
+            max_words=self.max_words,
+            max_subwords=self.max_subwords,
             timeout_seconds=self.timeout_seconds,
+            version=self.execution_profile,
         )
 
 
@@ -166,9 +213,24 @@ def configured_packs(prepared, cfg):
     }
 
 
+def configured_pack_variants(prepared, cfg):
+    """Version5 adds one explicit natural binding request, sharing the resident model."""
+    from corpus_structure.methods.record_packs import formula_pack_variants
+
+    packs = configured_packs(prepared, cfg)
+    variants = {family: (("default", FAMILIES[family][1], pack),)
+                for family, pack in packs.items()}
+    if cfg.policy == POLICY_V5:
+        variants["formula_context"] = formula_pack_variants(
+            prepared, descriptions=cfg.pack_descriptions.get("formula_context"),
+            source_inspection=cfg.source_inspection,
+        )
+    return variants
+
+
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "4"
+    version = "5"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -243,7 +305,7 @@ class M1Candidates:
         if unit.ref.unit_id is None:
             raise ValueError("M1 requires a selected source view")
         ctx.check_active()
-        packs = configured_packs(ctx.reader.prepared, cfg)
+        packs = configured_pack_variants(ctx.reader.prepared, cfg)
         view = ctx.reader.source_view(unit.ref.unit_id)
         profile = AnnotationProfile(cfg.sentences)
         from corpus_structure.methods.m1_annotations import consume_annotations
@@ -265,6 +327,8 @@ class M1Candidates:
                 reader=ctx.reader,
                 persisted_annotations=annotations,
                 annotation_errors=annotation_errors,
+                policy=cfg.policy,
+                formula_prose=cfg.formula_prose,
             )
         details: dict[str, Any] = dict(
             policy=cfg.policy,
@@ -302,11 +366,14 @@ class M1Candidates:
         assemblies = []
         coverage = []
         details["execution"] = [
-            dict(context=index, family=family, outcome="pending", reason="not yet executed")
+            dict(context=index, family=family, outcome="pending", reason="not yet executed",
+                 **(dict(variant=variant, anchor_role=anchor) if cfg.policy == POLICY_V5 else {}))
             for index, selection in enumerate(prepared_source.selections)
             for family in selection.families
+            for variant, anchor, _ in packs[family]
         ]
-        execution = {(row["context"], row["family"]): row for row in details["execution"]}
+        execution = {(row["context"], row["family"], row.get("variant", "default")): row
+                     for row in details["execution"]}
         for region in prepared_source.regions:
             for family in region.families:
                 coverage.append(
@@ -341,24 +408,35 @@ class M1Candidates:
                     max_pieces=cfg.max_context_pieces,
                     related=prepared_source.related,
                     preparation=prepared_source.preparation,
+                    policy=cfg.policy,
                 )
             except ContextRefused as error:
                 for family in selection.families:
-                    execution[index, family].update(outcome="limited", reason=str(error))
-                    details["reports"].append(
-                        dict(context=index, family=family, outcome="limited", reason=str(error))
-                    )
-                    coverage.append(
-                        CoverageDraft(
-                            family=family,
-                            scope=f"{selection.region}:{selection.start}:{selection.end}",
-                            outcome="partial",
-                            reason=str(error),
-                        )
-                    )
+                    for variant, anchor, _ in packs[family]:
+                        execution[index, family, variant].update(outcome="limited", reason=str(error))
+                        metadata = (dict(variant=variant, anchor_role=anchor)
+                                    if cfg.policy == POLICY_V5 else {})
+                        details["reports"].append(dict(
+                            context=index, family=family, outcome="limited", reason=str(error),
+                            **metadata,
+                        ))
+                        scope = f"{selection.region}:{selection.start}:{selection.end}"
+                        if metadata:
+                            scope += f":{variant}"
+                        coverage.append(CoverageDraft(
+                            family=family, scope=scope, outcome="partial", reason=str(error),
+                        ))
                 continue
-            for family in selection.families:
-                contract, anchor = FAMILIES[family]
+            for family, variant, anchor, pack in (
+                (family, variant, anchor, pack) for family in selection.families
+                for variant, anchor, pack in packs[family]
+            ):
+                contract = FAMILIES[family][0]
+                metadata = (dict(variant=variant, anchor_role=anchor)
+                            if cfg.policy == POLICY_V5 else {})
+                scope = f"{selection.region}:{selection.start}:{selection.end}"
+                if metadata:
+                    scope += f":{variant}"
                 try:
                     native_groups = (
                         _structural_groups(view, selection, context)
@@ -388,9 +466,9 @@ class M1Candidates:
                                 operation="native_structure",
                                 groups=[asdict(group) for group in native_groups],
                                 diagnostics=[asdict(d) for d in native.diagnostics],
+                                **metadata,
                             )
                         )
-                    pack = packs[family]
                     (report,) = self._resident(cfg.profile()).extract(
                         pack,
                         (GlinerInput.from_context(context),),
@@ -403,6 +481,7 @@ class M1Candidates:
                         report=_retained_report(report, details["effective_profiles"]),
                         diagnostics=[],
                         association_diagnostics=[],
+                        **metadata,
                     )
                     details["reports"].append(report_entry)
                     if family == "formula_context" and native_groups:
@@ -412,6 +491,7 @@ class M1Candidates:
                                 family=family,
                                 operation="native_structure",
                                 groups=[asdict(group) for group in native_groups],
+                                **metadata,
                             )
                         )
                         if not report.raw.get(family):
@@ -455,6 +535,18 @@ class M1Candidates:
                                         reason="formula span does not identify the selected native "
                                         "formula; no structural supplement attached",
                                     )
+                                )
+                        elif family == "formula_context" and cfg.formula_prose:
+                            # The decoder supplies the formula span. Native source
+                            # custody supplies scope only, without a fabricated
+                            # FormulaOccurrence or recognition/representation status.
+                            supplement = _prose_formula_scope(view, context, group)
+                            if supplement is not None:
+                                supplements[group_index] = supplement
+                            else:
+                                report_entry["association_diagnostics"].append(
+                                    dict(group=group_index, reason="decoded prose formula has no "
+                                         "exact primary-source span; no native scope attached")
                                 )
                         elif family == "table":
                             raw_value = group.get("cell_value")
@@ -519,7 +611,7 @@ class M1Candidates:
                     coverage.append(
                         CoverageDraft(
                             family=family,
-                            scope=f"{selection.region}:{selection.start}:{selection.end}",
+                            scope=scope,
                             outcome="partial" if incomplete else "complete",
                             reason="assembly diagnostics retained"
                             if incomplete
@@ -528,27 +620,28 @@ class M1Candidates:
                             ),
                         )
                     )
-                    execution[index, family].update(
+                    execution[index, family, variant].update(
                         outcome="partial" if incomplete else "complete",
                         reason="candidate output"
                         if assembled.records or native_records
                         else "no located candidate output",
                     )
                 except GlinerRefused as error:
-                    execution[index, family].update(outcome="limited", reason=str(error))
+                    execution[index, family, variant].update(outcome="limited", reason=str(error))
                     details["reports"].append(
-                        dict(context=index, family=family, outcome="limited", reason=str(error))
+                        dict(context=index, family=family, outcome="limited", reason=str(error),
+                             **metadata)
                     )
                     coverage.append(
                         CoverageDraft(
                             family=family,
-                            scope=f"{selection.region}:{selection.start}:{selection.end}",
+                            scope=scope,
                             outcome="partial",
                             reason=str(error),
                         )
                     )
                 except GlinerWorkerError as error:
-                    execution[index, family].update(outcome="failed", reason=str(error))
+                    execution[index, family, variant].update(outcome="failed", reason=str(error))
                     for row in details["execution"]:
                         if row["outcome"] == "pending":
                             row.update(
@@ -556,7 +649,8 @@ class M1Candidates:
                                 reason="resident worker failed; no automatic restart/fallback",
                             )
                     details["reports"].append(
-                        dict(context=index, family=family, outcome="failed", reason=str(error))
+                        dict(context=index, family=family, outcome="failed", reason=str(error),
+                             **metadata)
                     )
                     return UnitResult(
                         ref=unit.ref,
