@@ -1,2 +1,3 @@
-ALTER TABLE ops.task_dependency DROP CONSTRAINT ck_task_dependency_physical_6fe2d0b78b;
-ALTER TABLE ops.task_dependency ADD CONSTRAINT ck_task_dependency_physical_c683b2f601 CHECK (kind IN ('ancestor_source_view','source_view_interpretation','source_view_product'));
+version https://git-lfs.github.com/spec/v1
+oid sha256:55abfa4ac92c15d604fc1ef46bafb5a02e0961e399385013e72d96a364182e53
+size 267

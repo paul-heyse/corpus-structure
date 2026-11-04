@@ -1,26 +1,3 @@
-........................................................................ [ 33%]
-........................................................................ [ 66%]
-........................................................................ [ 99%]
-.                                                                        [100%]
-=============================== warnings summary ===============================
-python/corpus-structure/tests/semantic/test_record_policy.py::test_actual_record_features_preserve_missing_raw_inputs_and_role_universe
-  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sssom/util.py:111: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
-    pd.options.mode.copy_on_write = True
-
-python/corpus-structure/tests/semantic/test_record_policy.py::test_actual_record_features_preserve_missing_raw_inputs_and_role_universe
-  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/oaklib/datamodels/ontology_metadata.py:20: DeprecationWarning: The LinkML dataclass extension patch is deprecated and will be removed in a future release.
-  If you're currently using Python < 3.13, where this patch still applies, you should:
-    • Upgrade your LinkML tooling to version >= 1.9.0 (which no longer needs this patch), OR
-    • Migrate to Pydantic models if you're using LinkML's generated classes at runtime.
-  
-    from linkml_runtime.utils.dataclass_extensions_376 import dataclasses_init_fn_with_kwargs
-
-python/corpus-structure/tests/semantic/test_source_views.py::test_native_source_view_is_real_unit_with_exact_context
-  /home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py:714: DeprecationWarning: deprecated
-    result[alias] = supplied_state(getattr(value, name))
-
-python/corpus-structure/tests/semantic/test_source_views.py::test_native_source_view_is_real_unit_with_exact_context
-  /home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py:714: DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
-    result[alias] = supplied_state(getattr(value, name))
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+version https://git-lfs.github.com/spec/v1
+oid sha256:e0f35ee725680c215e289409e02fe7ff260fb6ec26dd6242205043e7d258c157
+size 2352

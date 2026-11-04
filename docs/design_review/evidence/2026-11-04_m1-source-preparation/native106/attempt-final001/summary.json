@@ -1,17 +1,3 @@
-{
-  "outcome": "passed",
-  "targeted_selected": 217,
-  "native_pytest_nodes": 1,
-  "other_pytest_nodes": 216,
-  "native_node_note": "One real source-view fixture exercises source custody, related ancestor read, wrong target refusal, actual annotation product read and parent edge controls; the six remaining source_views cases are pure budget/health controls.",
-  "native_objects": 133,
-  "predecessor_objects_preserved": 132,
-  "forward_current_head": "passed; exact105\u2192106, current-head empty",
-  "physical_change": "task dependency kind check only; four read functions update derived projection identity after physical-model digest changes",
-  "pure_review": "Four initial pure-engine findings corrected and independent static rereview passed at bounded pure scope",
-  "limits": [
-    "Annotation cross-configuration reuse remains open (DA-054).",
-    "M1 accepted lowering, native evaluator/instance admission, actual CPU quality/resources and family gates remain open.",
-    "No whole-M1 package closure or default adoption."
-  ]
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:aa49ae70e4135b885d5ab0c2305f6aa39754affe964b090d1bcdab885e6da9d1
+size 1042

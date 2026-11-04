@@ -1,3 +1,3 @@
-uv run pyrefly check --min-severity warn --summary=none
-[mdirenv: loading ~/corpus-structure/.envrc
- INFO Checking project configured at `/home/paul/corpus-structure/pyproject.toml`
+version https://git-lfs.github.com/spec/v1
+oid sha256:f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726
+size 183

@@ -1,0 +1,4 @@
+**/*.log filter=lfs diff=lfs merge=lfs -text
+native106/attempt-*/** filter=lfs diff=lfs merge=lfs -text
+native106/candidate-*/** filter=lfs diff=lfs merge=lfs -text
+development-authoring/attempt-*/** filter=lfs diff=lfs merge=lfs -text
