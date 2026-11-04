@@ -18,7 +18,7 @@ from .identity import canonical_bytes
 from .types import ClassDefinition, PreparedArtifact, PreparedRelease
 
 ARTIFACT = "record_projection.json"
-ABI = "source-record-projection-1"
+ABI = "source-record-projection-2"
 CANDIDATE_POLICY = "m1-candidate-only"
 CANDIDATE_POLICY_VERSION = "1"
 CALIBRATION = "not_calibrated"
@@ -240,13 +240,33 @@ class RecordAdmissionRow:
     policy_version: str
     calibration: str
     reason: str
+    instance_digest: str | None = None
+    evaluation_id: int | None = None
+    evaluation_digest: str | None = None
+    probability_lexical: str | None = None
+    binding_json: str | None = None
 
 
 @dataclass(frozen=True)
 class RecordAssertionRow:
     record_id: str
     interpretation_id: str
+    role: str
+    reading_id: str
     fact_id: str
+    occurrence_id: str
+
+
+@dataclass(frozen=True)
+class RecordAssertionSupportRow:
+    origin_task_id: int
+    record_id: str
+    interpretation_id: str
+    role: str
+    set_id: str
+    anchor_id: str
+    evidence_id: str
+    occurrence_id: str
 
 
 RECORD_ROW_TYPES = {
@@ -268,6 +288,7 @@ RECORD_ROW_TYPES = {
     "record_private_assertion": RecordPrivateAssertionRow,
     "record_admission": RecordAdmissionRow,
     "record_assertion": RecordAssertionRow,
+    "record_assertion_support": RecordAssertionSupportRow,
 }
 
 
@@ -290,6 +311,7 @@ class RecordProjectionRows(TypedDict):
     record_private_assertion: tuple[RecordPrivateAssertionRow, ...]
     record_admission: tuple[RecordAdmissionRow, ...]
     record_assertion: tuple[RecordAssertionRow, ...]
+    record_assertion_support: tuple[RecordAssertionSupportRow, ...]
 
 
 @dataclass
@@ -320,6 +342,9 @@ class _RecordRows:
     )
     record_admission: list[RecordAdmissionRow] = dataclass_field(default_factory=list)
     record_assertion: list[RecordAssertionRow] = dataclass_field(default_factory=list)
+    record_assertion_support: list[RecordAssertionSupportRow] = dataclass_field(
+        default_factory=list
+    )
 
 
 _BINDING_FIELDS = ("version", "relationship", "policy")
@@ -400,6 +425,7 @@ def prepare_record_projection(definitions: Sequence[ClassDefinition]) -> Prepare
                     version=CANDIDATE_POLICY_VERSION,
                     calibration=CALIBRATION,
                     accepted=False,
+                    admission_overlay="evaluated-source-reading-1",
                 ),
             )
         ),
@@ -412,7 +438,7 @@ def read_record_projection(prepared: PreparedRelease) -> dict[str, Any]:
     if len(artifacts) != 1:
         raise ValueError("release has no unique public record projection")
     projection = json.loads(artifacts[0].content)
-    if projection.get("abi") != ABI:
+    if projection.get("abi") not in {"source-record-projection-1", ABI}:
         raise ValueError("unsupported public record projection")
     return projection
 
@@ -637,6 +663,7 @@ def project_record_reports(
         record_private_assertion=tuple(rows.record_private_assertion),
         record_admission=tuple(rows.record_admission),
         record_assertion=tuple(rows.record_assertion),
+        record_assertion_support=tuple(rows.record_assertion_support),
     )
 
 

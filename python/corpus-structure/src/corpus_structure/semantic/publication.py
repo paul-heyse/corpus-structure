@@ -42,6 +42,7 @@ from .record_projection import (
     RecordAlternativeRow,
     RecordAnchorRow,
     RecordAssertionRow,
+    RecordAssertionSupportRow,
     RecordDependencyRow,
     RecordEvidenceMemberRow,
     RecordEvidenceSetRow,
@@ -413,6 +414,7 @@ class PublicationBatch:
     record_private_assertion: tuple[RecordPrivateAssertionRow, ...] = ()
     record_admission: tuple[RecordAdmissionRow, ...] = ()
     record_assertion: tuple[RecordAssertionRow, ...] = ()
+    record_assertion_support: tuple[RecordAssertionSupportRow, ...] = ()
 
     _analysis_input: Any = field(default=None, repr=False, compare=False)
 

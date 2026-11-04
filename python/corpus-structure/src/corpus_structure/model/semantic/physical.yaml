@@ -3819,6 +3819,11 @@ classes:
       policy_version: {range: string, required: true}
       calibration: {range: string, required: true}
       reason: {range: string, required: true}
+      instance_digest: {range: string, required: false}
+      evaluation_id: {range: integer, required: false}
+      evaluation_digest: {range: string, required: false}
+      probability_lexical: {range: string, required: false}
+      binding_json: {range: json_payload, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id]}
     annotations:
@@ -3831,12 +3836,34 @@ classes:
       release_id: {range: string, required: true}
       record_id: {range: string, required: true}
       interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      reading_id: {range: string, required: true}
       fact_id: {range: string, required: true}
+      occurrence_id: {range: string, required: true}
     unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, fact_id]}
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role]}
     annotations:
       ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "reading_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
+
+  record_assertion_support:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      origin_task_id: {range: integer, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      set_id: {range: string, required: true}
+      anchor_id: {range: string, required: true}
+      evidence_id: {range: string, required: true}
+      occurrence_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, set_id, anchor_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns":["origin_task_id"],"target":"ops.task.id"},{"columns":["realization_id","release_id","record_id","interpretation_id","role"],"target":"data.record_assertion.realization_id,release_id,record_id,interpretation_id,role"},{"columns":["realization_id","release_id","evidence_id"],"target":"data.evidence.realization_id,release_id,evidence_id"},{"columns":["realization_id","release_id","occurrence_id"],"target":"data.occurrence.realization_id,release_id,occurrence_id"}]'
 
   reference_origin_group:
     in_subset:

@@ -1,3 +1,285 @@
+CREATE OR REPLACE FUNCTION data.record_source_float(p jsonb) RETURNS double precision
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE lexical text; digits text; exponent integer; result double precision;
+BEGIN
+ IF p->>'kind'='integer' THEN RETURN (p->>'integer')::double precision; END IF;
+ IF p->>'kind'<>'float' THEN RAISE EXCEPTION 'record event score is not numeric' USING ERRCODE='23514'; END IF;
+ lexical:=data.require_float_lexical(p->>'hexadecimal');
+ digits:=replace(split_part(split_part(ltrim(lexical,'-'),'p',1),'x',2),'.','');
+ exponent:=split_part(lexical,'p',2)::integer-52;
+ -- Compute exact significand before the final finite float operation. Multiplying
+ -- the integer first as numeric also preserves subnormal lexical inputs.
+ result:=((('x'||lpad(digits,16,'0'))::bit(64)::bigint)::numeric * power(2::numeric,exponent))::double precision;
+ IF left(lexical,1)='-' THEN result:=-result; END IF;
+ RETURN result;
+END $fn$;
+REVOKE ALL ON FUNCTION data.record_source_float(jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION data.record_source_json(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE result jsonb;
+BEGIN
+ IF p IS NULL THEN RETURN 'null'::jsonb; END IF;
+ CASE p->>'kind'
+ WHEN 'null' THEN RETURN 'null'::jsonb;
+ WHEN 'text' THEN RETURN p->'text';
+ WHEN 'boolean' THEN RETURN p->'boolean';
+ WHEN 'integer' THEN RETURN p->'integer';
+ WHEN 'float' THEN RETURN to_jsonb(data.record_source_float(p));
+ WHEN 'array' THEN
+  SELECT COALESCE(jsonb_agg(data.record_source_json(value) ORDER BY position),'[]') INTO result
+   FROM jsonb_array_elements(COALESCE(p->'items','[]')) WITH ORDINALITY x(value,position);
+  RETURN result;
+ WHEN 'object' THEN
+  SELECT COALESCE(jsonb_object_agg(value->>'name',data.record_source_json(value->'value')),'{}') INTO result
+   FROM jsonb_array_elements(COALESCE(p->'fields','[]')) x(value);
+  RETURN result;
+ ELSE RAISE EXCEPTION 'unsupported sealed record event JSON' USING ERRCODE='23514';
+ END CASE;
+END $fn$;
+REVOKE ALL ON FUNCTION data.record_source_json(jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION data.validate_record_admission_overlay(r text,z text) RETURNS void
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
+#variable_conflict use_column
+DECLARE entry record; a data.record_admission; rec jsonb; binding jsonb; event jsonb;
+ feature jsonb; calibration jsonb; score double precision; predictor double precision;
+ probability double precision; threshold double precision; event_count bigint;
+BEGIN
+ IF EXISTS(SELECT FROM data.source_record s LEFT JOIN data.record_admission a ON
+   (a.release_id,a.realization_id,a.record_id,a.interpretation_id)=(s.release_id,s.realization_id,s.record_id,s.interpretation_id)
+   WHERE s.release_id=r AND s.realization_id=z AND (s.standing='accepted' OR a.record_id IS NULL OR a.decision NOT IN ('candidate','accepted','rejected','unresolved'))) OR
+  EXISTS(SELECT FROM data.record_admission a WHERE a.release_id=r AND a.realization_id=z AND a.decision='accepted'
+   GROUP BY a.record_id HAVING count(*)<>1) THEN
+  RAISE EXCEPTION 'record admission requires immutable candidates and one complete decision per occurrence' USING ERRCODE='23514'; END IF;
+ FOR entry IN SELECT s.record_id,s.interpretation_id,report.cut_id,result.body,run.dependencies
+  FROM data.source_record s JOIN data.record_report_member member ON
+   (member.release_id,member.realization_id,member.record_id,member.interpretation_id)=(s.release_id,s.realization_id,s.record_id,s.interpretation_id)
+  JOIN data.record_report report ON (report.release_id,report.realization_id,report.selected_task_id)=
+   (member.release_id,member.realization_id,member.selected_task_id)
+  JOIN ops.task_result result ON result.task_id=report.origin_task_id
+  JOIN ops.input_cut cut ON cut.id=report.cut_id JOIN ops.run run ON run.id=cut.run_id
+  WHERE s.release_id=r AND s.realization_id=z
+ LOOP
+  SELECT * INTO STRICT a FROM data.record_admission a WHERE a.release_id=r AND a.realization_id=z
+   AND (a.record_id,a.interpretation_id)=(entry.record_id,entry.interpretation_id);
+  SELECT value INTO STRICT rec FROM jsonb_array_elements(entry.body->'records') x
+   WHERE (value->>'record_id',value->>'interpretation_id')=(entry.record_id,entry.interpretation_id);
+  IF a.binding_json IS NULL THEN
+   IF (a.decision,a.policy_id,a.policy_version,a.calibration) IS DISTINCT FROM
+    (rec->>'standing','m1-candidate-only','1','not_calibrated') OR
+    a.instance_digest IS NOT NULL OR a.evaluation_id IS NOT NULL OR a.evaluation_digest IS NOT NULL OR a.probability_lexical IS NOT NULL THEN
+    RAISE EXCEPTION 'unfitted source record cannot obtain evaluated admission' USING ERRCODE='23514'; END IF;
+   CONTINUE;
+  END IF;
+  binding:=a.binding_json;
+  IF NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(convert_from(entry.dependencies,'UTF8')::jsonb->'record_acceptance','[]')) b
+    WHERE b=binding) THEN
+   RAISE EXCEPTION 'record admission instance is outside frozen run dependencies' USING ERRCODE='23514'; END IF;
+  PERFORM sem.require_record_policy_binding(r,binding,a.decision='accepted');
+  feature:=binding->'instance'->'feature'; calibration:=binding->'instance'->'calibration';
+  IF (a.instance_digest,a.evaluation_id,a.evaluation_digest,a.policy_id,a.policy_version) IS DISTINCT FROM
+    (binding->>'instance_digest',(binding->>'evaluation_id')::bigint,binding->>'evaluation_digest',
+     'm1-grouped-reading-logistic',feature->'algorithm'->>'version') OR
+   (feature->'applicability'->>'release_id',feature->'applicability'->>'family') IS DISTINCT FROM(r,rec->>'family') THEN
+   RAISE EXCEPTION 'record admission differs from evaluated applicable instance' USING ERRCODE='23514'; END IF;
+  IF a.decision<>'accepted' THEN CONTINUE; END IF;
+  PERFORM data.validate_source_record_structure(r,rec||'{"standing":"accepted"}'::jsonb);
+  SELECT count(*),min(value::text)::jsonb INTO event_count,event FROM jsonb_array_elements(COALESCE(
+    data.report_field(entry.body->'parse_detail','record_policy_events')->'items','[]')) x
+   WHERE (data.report_field(value,'record_id')->>'text',data.report_field(value,'interpretation_id')->>'text')=
+    (a.record_id,a.interpretation_id);
+  IF event_count<>1 OR data.report_field(event,'outcome')->>'text' IS DISTINCT FROM 'completed' OR
+   data.report_field(event,'feature_instance_digest')->>'text' IS DISTINCT FROM calibration->>'feature_instance_digest' OR
+   data.report_field(event,'event_procedure')->>'text' IS DISTINCT FROM calibration->>'event_procedure' OR
+   COALESCE(data.report_field(event,'feature_input_digest')->>'text','') !~ '^[0-9a-f]{64}$' OR
+   rec->>'policy_version' IS DISTINCT FROM feature->'algorithm'->>'version' OR
+   data.report_field(event,'feature_input_canonical_json')->>'text' IS NULL OR
+   encode(sha256(convert_to(data.report_field(event,'feature_input_canonical_json')->>'text','UTF8')),'hex')
+    IS DISTINCT FROM data.report_field(event,'feature_input_digest')->>'text' OR
+   (data.report_field(event,'feature_input_canonical_json')->>'text')::jsonb IS DISTINCT FROM
+    jsonb_build_array(rec,data.record_source_json(data.report_field(event,'diagnostics'))) THEN
+   RAISE EXCEPTION 'accepted record lacks its complete sealed calibrated event' USING ERRCODE='23514'; END IF;
+  score:=data.record_source_float(data.report_field(event,'final_event_score'));
+  predictor:=(calibration->>'slope')::double precision*score+(calibration->>'intercept')::double precision;
+  IF predictor>=700 THEN probability:=1;
+  ELSIF predictor<=-700 THEN probability:=0;
+  ELSIF predictor>=0 THEN probability:=1/(1+exp(-predictor));
+  ELSE probability:=exp(predictor)/(1+exp(predictor)); END IF;
+  threshold:=(binding->'instance'->>'threshold')::double precision;
+  IF probability<threshold OR a.probability_lexical IS NULL OR
+   abs(a.probability_lexical::double precision-probability)>1e-14 OR
+   a.calibration<>'calibrated_whole_record_event' OR a.reason<>'Evaluated whole-record policy admits complete source reading' THEN
+   RAISE EXCEPTION 'accepted record does not meet its evaluated event probability and threshold' USING ERRCODE='23514'; END IF;
+  IF EXISTS(SELECT FROM data.record_field field WHERE field.release_id=r AND field.realization_id=z
+    AND (field.record_id,field.interpretation_id)=(a.record_id,a.interpretation_id)
+    AND (field.evidence_status<>'available' OR NOT EXISTS(SELECT FROM data.record_assertion assertion
+     WHERE assertion.release_id=r AND assertion.realization_id=z AND
+      (assertion.record_id,assertion.interpretation_id,assertion.role)=(field.record_id,field.interpretation_id,field.role)))) THEN
+   RAISE EXCEPTION 'accepted record lacks complete role assertion membership' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT FROM data.record_assertion a LEFT JOIN data.record_admission admission ON
+    (admission.release_id,admission.realization_id,admission.record_id,admission.interpretation_id)=
+    (a.release_id,a.realization_id,a.record_id,a.interpretation_id)
+   WHERE a.release_id=r AND a.realization_id=z AND
+    EXISTS(SELECT FROM data.selection s WHERE s.release_id=r AND s.realization_id=z AND s.fact_id=a.fact_id AND s.selected)
+     IS DISTINCT FROM (admission.decision='accepted')) THEN
+  RAISE EXCEPTION 'whole-record admission caps every field fact selection' USING ERRCODE='23514'; END IF;
+END $fn$;
+REVOKE ALL ON FUNCTION data.validate_record_admission_overlay(text,text) FROM PUBLIC;
+
+-- Pure JSON meaning agrees with the fixed graph scalar/container ABI. No datatype
+-- labels or source-product classes are introduced into graph values.
+CREATE OR REPLACE FUNCTION data.record_json_meaning(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE result jsonb;
+BEGIN
+ CASE jsonb_typeof(p)
+ WHEN 'null' THEN RETURN '["null"]'::jsonb;
+ WHEN 'string' THEN RETURN jsonb_build_array('string',p);
+ WHEN 'boolean' THEN RETURN jsonb_build_array('boolean',p);
+ WHEN 'number' THEN RETURN jsonb_build_array('integer',p#>>'{}');
+ WHEN 'array' THEN
+  SELECT COALESCE(jsonb_agg(data.record_json_meaning(value) ORDER BY ord),'[]') INTO result
+   FROM jsonb_array_elements(p) WITH ORDINALITY x(value,ord);
+  RETURN jsonb_build_array('sequence',result);
+ WHEN 'object' THEN
+  SELECT COALESCE(jsonb_agg(jsonb_build_array(key,data.record_json_meaning(value)) ORDER BY key COLLATE "C"),'[]')
+   INTO result FROM jsonb_each(p);
+  RETURN jsonb_build_array('mapping',result);
+ ELSE RAISE EXCEPTION 'unsupported record graph value' USING ERRCODE='23514';
+ END CASE;
+END $fn$;
+REVOKE ALL ON FUNCTION data.record_json_meaning(jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION data.validate_record_reading_cut(r text,z text,p_cut bigint) RETURNS void
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
+#variable_conflict use_column
+DECLARE item record; rec jsonb; field jsonb; a data.record_assertion; f data.fact;
+ o data.occurrence; e data.evidence; support data.record_assertion_support;
+ expected_reading text; expected_occurrence text; expected_evidence text; expected_locator jsonb;
+ expected_class text; value_json jsonb; complete boolean; ownset jsonb; anchor jsonb;
+ expected_count bigint; actual_count bigint;
+BEGIN
+ FOR item IN
+  SELECT DISTINCT ON (rec->>'record_id',rec->>'interpretation_id') rec,t.id AS origin_task_id,
+   doc.source_uri,m.name AS provider,m.version AS operation_version
+  FROM ops.cut_task ct JOIN ops.task selected ON selected.id=ct.task_id
+  JOIN ops.task t ON t.id=ct.origin_task_id JOIN ops.task_result result ON result.task_id=t.id
+  JOIN ops.method_config mc ON mc.id=t.method_config_id JOIN ops.method m ON m.id=mc.method_id
+  LEFT JOIN kb.source_view view ON t.unit_type='source_view' AND view.id=t.unit_id
+  LEFT JOIN kb.document doc ON doc.id=view.document_id
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(result.body->'records','[]')) rec
+  WHERE ct.cut_id=p_cut AND selected.status IN ('done','empty','reused')
+  ORDER BY rec->>'record_id',rec->>'interpretation_id',selected.id
+ LOOP
+  rec:=item.rec;
+  expected_class:=CASE rec->>'family' WHEN 'definition' THEN 'DefinitionReading'
+   WHEN 'assertion' THEN 'QualifiedAssertionReading' WHEN 'measurement' THEN 'MeasurementReading'
+   WHEN 'table' THEN 'TableAssertionReading' WHEN 'formula_context' THEN 'FormulaContextReading' END;
+  complete:=EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name=expected_class)
+   AND NOT EXISTS(SELECT FROM jsonb_array_elements(rec->'fields') rf(value) WHERE
+    rf.value->>'evidence_status'<>'available' OR jsonb_array_length(COALESCE(rf.value->'evidence_sets','[]'))=0);
+  SELECT count(*) INTO actual_count FROM data.record_assertion a WHERE a.release_id=r AND a.realization_id=z
+   AND (a.record_id,a.interpretation_id)=(rec->>'record_id',rec->>'interpretation_id');
+  IF actual_count<>(CASE WHEN complete THEN jsonb_array_length(rec->'fields') ELSE 0 END) THEN
+   RAISE EXCEPTION 'record assertion membership is not the complete released reading' USING ERRCODE='23514'; END IF;
+  IF NOT complete THEN CONTINUE; END IF;
+  expected_reading:='source-reading:'||encode(sha256(convert_to(data.canonical_json(
+   jsonb_build_array(r,rec->'record_id',rec->'interpretation_id')),'UTF8')),'hex');
+  IF NOT EXISTS(SELECT FROM data.membership mem JOIN sem.class_definition cls
+   ON cls.release_id=mem.release_id AND cls.class_id=mem.class_id
+   WHERE mem.release_id=r AND mem.realization_id=z AND mem.entity_id=expected_reading AND cls.name=expected_class
+    AND mem.establishment='stated') THEN
+   RAISE EXCEPTION 'reading lacks its released source-reading membership' USING ERRCODE='23514'; END IF;
+  FOR field IN SELECT value FROM jsonb_array_elements(rec->'fields') LOOP
+   SELECT * INTO STRICT a FROM data.record_assertion a WHERE a.release_id=r AND a.realization_id=z
+    AND (a.record_id,a.interpretation_id,a.role)=(rec->>'record_id',rec->>'interpretation_id',field->>'role');
+   SELECT * INTO STRICT f FROM data.fact WHERE release_id=r AND realization_id=z AND fact_id=a.fact_id;
+   SELECT * INTO STRICT o FROM data.occurrence WHERE release_id=r AND realization_id=z AND occurrence_id=a.occurrence_id;
+   expected_occurrence:='occ:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+    r,z,rec->'pin'->'source',expected_reading||'/'||(field->>'role'))),'UTF8')),'hex');
+   value_json:=field-'role'-'evidence_sets'-'alternatives';
+   IF (a.reading_id,f.subject_id,f.property_id,o.occurrence_id,o.fact_id,o.source,o.item)
+    IS DISTINCT FROM(expected_reading,expected_reading,
+     'https://corpus-structure.dev/semantic/source-reading/'||expected_class||'/'||(field->>'role'),
+     expected_occurrence,a.fact_id,rec->'pin'->>'source',expected_reading||'/'||(field->>'role')) OR
+    data.value_meaning(r,z,f.object_value_id) IS DISTINCT FROM data.record_json_meaning(value_json) OR
+    data.value_meaning(r,z,f.qualification_value_id) IS DISTINCT FROM
+     data.record_json_meaning('{"modality":"asserted","polarity":true}'::jsonb) OR
+    (o.report_object_value_id,o.report_qualification_value_id) IS DISTINCT FROM(f.object_value_id,f.qualification_value_id) OR
+    NOT EXISTS(SELECT FROM data.support s WHERE s.release_id=r AND s.realization_id=z
+     AND s.fact_id=a.fact_id AND s.occurrence_id=a.occurrence_id) OR
+    NOT EXISTS(SELECT FROM data.occurrence_establishment x WHERE x.release_id=r AND x.realization_id=z
+     AND x.occurrence_id=a.occurrence_id AND x.establishment='stated') THEN
+    RAISE EXCEPTION 'record assertion differs from sealed role state and explicit reading qualification' USING ERRCODE='23514'; END IF;
+   IF EXISTS(SELECT FROM data.occurrence_context c WHERE c.release_id=r AND c.realization_id=z AND c.occurrence_id=a.occurrence_id) OR
+    EXISTS(SELECT FROM data.occurrence_evidence_role c WHERE c.release_id=r AND c.realization_id=z AND c.occurrence_id=a.occurrence_id) THEN
+    RAISE EXCEPTION 'source reading invents Agent statement or citation-role context' USING ERRCODE='23514'; END IF;
+   expected_count:=0;
+   FOR ownset IN SELECT value FROM jsonb_array_elements(rec->'evidence_sets') s
+    WHERE field->'evidence_sets' ? (s.value->>'set_id') LOOP
+    IF ownset->>'role' IS DISTINCT FROM field->>'role' THEN
+     RAISE EXCEPTION 'reading borrows another role evidence' USING ERRCODE='23514'; END IF;
+    FOR anchor IN SELECT value FROM jsonb_array_elements(rec->'anchors') an
+     WHERE ownset->'anchors' ? (an.value->>'anchor_id') LOOP
+     expected_count:=expected_count+1;
+     expected_evidence:='reading-evidence:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+      r,item.origin_task_id,rec->'record_id',rec->'interpretation_id',field->'role',ownset->'set_id',anchor->'anchor_id')),'UTF8')),'hex');
+     SELECT * INTO STRICT support FROM data.record_assertion_support s WHERE s.release_id=r AND s.realization_id=z
+      AND (s.record_id,s.interpretation_id,s.role,s.set_id,s.anchor_id)=
+       (a.record_id,a.interpretation_id,a.role,ownset->>'set_id',anchor->>'anchor_id');
+     expected_locator:=jsonb_build_object('space',anchor->'space','pointer',anchor->'pointer','precision',anchor->'precision',
+      'record_id',rec->'record_id','interpretation_id',rec->'interpretation_id','role',field->'role',
+      'set_id',ownset->'set_id','anchor_id',anchor->'anchor_id');
+     IF anchor ? 'start' THEN expected_locator:=expected_locator||jsonb_build_object('start',anchor->'start','end',anchor->'end'); END IF;
+     SELECT * INTO STRICT e FROM data.evidence WHERE release_id=r AND realization_id=z AND evidence_id=expected_evidence;
+     IF (support.origin_task_id,support.evidence_id,support.occurrence_id) IS DISTINCT FROM
+       (item.origin_task_id,expected_evidence,a.occurrence_id) OR
+      (e.source_uri,e.locator,e.provider,e.operation_version) IS DISTINCT FROM
+       (item.source_uri,data.canonical_json(expected_locator),item.provider,item.operation_version) OR
+      NOT EXISTS(SELECT FROM data.membership_support ms JOIN sem.class_definition cls
+       ON cls.release_id=ms.release_id AND cls.class_id=ms.class_id WHERE ms.release_id=r AND ms.realization_id=z
+        AND ms.entity_id=a.reading_id AND cls.name=expected_class AND ms.evidence_id=expected_evidence) OR
+      NOT EXISTS(SELECT FROM data.occurrence_evidence oe WHERE oe.release_id=r AND oe.realization_id=z
+       AND oe.occurrence_id=a.occurrence_id AND oe.evidence_id=expected_evidence) OR
+      EXISTS(SELECT FROM data.evidence_source es WHERE es.release_id=r AND es.realization_id=z AND es.evidence_id=e.evidence_id) THEN
+      RAISE EXCEPTION 'reading support differs from actual sealed origin field set anchor' USING ERRCODE='23514'; END IF;
+    END LOOP;
+   END LOOP;
+   SELECT count(*) INTO actual_count FROM data.record_assertion_support s WHERE s.release_id=r AND s.realization_id=z
+    AND (s.record_id,s.interpretation_id,s.role)=(a.record_id,a.interpretation_id,a.role);
+   IF actual_count<>expected_count OR expected_count=0 OR (SELECT count(*) FROM data.occurrence_evidence oe
+     WHERE oe.release_id=r AND oe.realization_id=z AND oe.occurrence_id=a.occurrence_id)<>expected_count THEN
+    RAISE EXCEPTION 'reading support has missing or extra evidence membership' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END LOOP;
+ IF EXISTS(SELECT FROM data.record_assertion a JOIN data.occurrence extra ON
+    extra.release_id=a.release_id AND extra.realization_id=a.realization_id AND extra.fact_id=a.fact_id
+   WHERE a.release_id=r AND a.realization_id=z AND extra.occurrence_id<>a.occurrence_id) OR
+  EXISTS(SELECT FROM data.record_assertion a JOIN data.membership_support ms ON
+    ms.release_id=a.release_id AND ms.realization_id=a.realization_id AND ms.entity_id=a.reading_id
+   WHERE a.release_id=r AND a.realization_id=z AND NOT EXISTS(SELECT FROM data.record_assertion_support support
+    WHERE support.release_id=r AND support.realization_id=z AND support.record_id=a.record_id
+     AND support.interpretation_id=a.interpretation_id AND support.evidence_id=ms.evidence_id)) OR
+  EXISTS(SELECT FROM data.membership mem JOIN sem.class_definition cls ON
+    cls.release_id=mem.release_id AND cls.class_id=mem.class_id
+   WHERE mem.release_id=r AND mem.realization_id=z AND cls.name IN
+    ('DefinitionReading','QualifiedAssertionReading','MeasurementReading','TableAssertionReading','FormulaContextReading')
+    AND NOT EXISTS(SELECT FROM data.record_assertion a WHERE a.release_id=r AND a.realization_id=z AND a.reading_id=mem.entity_id)) THEN
+  RAISE EXCEPTION 'reading has extra source occurrence or membership evidence' USING ERRCODE='23514'; END IF;
+ -- Every reading-class fact must be a complete authenticated member. This also
+ -- prevents ordinary domain rule success from laundering an unbound field.
+ IF EXISTS(SELECT FROM data.fact f JOIN data.membership m ON
+   (m.release_id,m.realization_id,m.entity_id)=(f.release_id,f.realization_id,f.subject_id)
+   JOIN sem.class_definition cls ON cls.release_id=m.release_id AND cls.class_id=m.class_id
+   WHERE f.release_id=r AND f.realization_id=z AND cls.name IN
+    ('DefinitionReading','QualifiedAssertionReading','MeasurementReading','TableAssertionReading','FormulaContextReading')
+   AND NOT EXISTS(SELECT FROM data.record_assertion a WHERE a.release_id=r AND a.realization_id=z AND a.fact_id=f.fact_id)) THEN
+  RAISE EXCEPTION 'source-reading fact has no complete sealed record membership' USING ERRCODE='23514'; END IF;
+END $fn$;
+REVOKE ALL ON FUNCTION data.validate_record_reading_cut(text,text,bigint) FROM PUBLIC;
+
 -- Candidate-only records remain released source products, separate from graph values.
 -- Invoked by protected publication in the same receipt transaction.
 CREATE OR REPLACE FUNCTION data.validate_source_record_structure(r text, source_record jsonb)
@@ -9,7 +291,7 @@ DECLARE projection jsonb; family jsonb; field jsonb; alternative jsonb; anchor j
 BEGIN
  SELECT convert_from(content,'UTF8')::jsonb INTO projection FROM sem.artifact
   WHERE release_id=r AND artifact_name='record_projection.json';
- IF projection->>'abi' IS DISTINCT FROM 'source-record-projection-1' THEN
+ IF projection->>'abi' NOT IN ('source-record-projection-1','source-record-projection-2') THEN
   RAISE EXCEPTION 'unsupported released source record structure' USING ERRCODE='23514'; END IF;
  SELECT value INTO family FROM jsonb_array_elements(projection->'families')
   WHERE value->>'contract'=source_record->>'contract';
@@ -226,8 +508,8 @@ DECLARE projection jsonb;
 BEGIN
  SELECT convert_from(content,'UTF8')::jsonb INTO projection FROM sem.artifact
   WHERE release_id=r AND artifact_name='record_projection.json';
- IF projection->>'abi' IS DISTINCT FROM 'source-record-projection-1' OR
-  projection->'policy' IS DISTINCT FROM '{"id":"m1-candidate-only","version":"1","calibration":"not_calibrated","accepted":false}'::jsonb THEN
+ IF projection->>'abi' NOT IN ('source-record-projection-1','source-record-projection-2') OR
+  (projection->'policy'-'admission_overlay') IS DISTINCT FROM '{"id":"m1-candidate-only","version":"1","calibration":"not_calibrated","accepted":false}'::jsonb THEN
   RAISE EXCEPTION 'unsupported public record projection policy' USING ERRCODE='23514'; END IF;
  IF source_record->>'standing'='accepted' THEN
   RAISE EXCEPTION 'record is outside released candidate-only family' USING ERRCODE='23514'; END IF;
@@ -239,14 +521,7 @@ CREATE OR REPLACE FUNCTION data.validate_record_projection(r text,z text) RETURN
 LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE selected_cut bigint;
 BEGIN
- IF EXISTS(SELECT FROM data.source_record s LEFT JOIN data.record_admission a
-  ON (a.release_id,a.realization_id,a.record_id,a.interpretation_id)=(s.release_id,s.realization_id,s.record_id,s.interpretation_id)
-  WHERE s.release_id=r AND s.realization_id=z AND
-   (a.record_id IS NULL OR s.standing='accepted' OR a.decision IS DISTINCT FROM s.standing OR
-    (a.policy_id,a.policy_version,a.calibration,a.reason) IS DISTINCT FROM
-    ('m1-candidate-only','1','not_calibrated','Retained source interpretation; accepted record admission is unavailable'))) OR
-  EXISTS(SELECT FROM data.record_assertion WHERE release_id=r AND realization_id=z) THEN
-  RAISE EXCEPTION 'candidate record admission refuses accepted decisions or public assertion bindings' USING ERRCODE='23514'; END IF;
+ PERFORM data.validate_record_admission_overlay(r,z);
  IF EXISTS(SELECT FROM data.source_record s WHERE s.release_id=r AND s.realization_id=z AND NOT EXISTS(
   SELECT FROM data.record_report_member m WHERE (m.release_id,m.realization_id,m.record_id,m.interpretation_id)=
    (s.release_id,s.realization_id,s.record_id,s.interpretation_id))) THEN
@@ -255,7 +530,7 @@ BEGIN
  -- Every write of record rows rechecks the complete cut, including ordinary append
  -- callers; the public append wrapper additionally refuses record transport entirely.
  IF to_regclass('pg_temp.sp_record_report') IS NOT NULL AND
-  (EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion)) THEN
+  (EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion_support)) THEN
   IF NOT EXISTS(SELECT FROM pg_temp.sp_record_report) THEN
    RAISE EXCEPTION 'record publication lacks staged sealed-cut report provenance' USING ERRCODE='23514'; END IF;
   FOR selected_cut IN SELECT DISTINCT cut_id FROM pg_temp.sp_record_report LOOP
@@ -275,7 +550,7 @@ BEGIN
   IS DISTINCT FROM(r,r,z) OR job.status NOT IN ('consolidating','finished') THEN
   RAISE EXCEPTION 'record publication differs from sealed cut result binding' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='record_projection.json') THEN
-  IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) THEN RAISE EXCEPTION 'release has no public record projection' USING ERRCODE='23514'; END IF;
+  IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion_support) THEN RAISE EXCEPTION 'release has no public record projection' USING ERRCODE='23514'; END IF;
   RETURN;
  END IF;
  PERFORM sem.require_execution_operation(r,'evaluate');
@@ -285,8 +560,7 @@ BEGIN
  SELECT value INTO contract FROM jsonb_array_elements(model->'projections') WHERE value->>'id'='source_record_candidate';
  IF contract IS NULL OR NOT (operation->'projections' ? 'source_record_candidate') OR
   contract->'sources' IS DISTINCT FROM '["SourceRecordInterpretation","SourceRecordAdmission","InputCut"]'::jsonb OR
-  contract->'relationships' IS DISTINCT FROM '["record_source_membership","record_candidate_admission"]'::jsonb OR
-  contract->'omissions' IS DISTINCT FROM '["accepted_record_decisions","public_assertion_bindings"]'::jsonb OR
+  NOT (contract->'relationships' ? 'record_source_membership') OR
   (contract->>'implementation',contract->>'lifetime') IS DISTINCT FROM('evaluate','transaction') THEN
   RAISE EXCEPTION 'record publication lacks released candidate projection and decision contract' USING ERRCODE='23514'; END IF;
  FOR report IN SELECT DISTINCT t.id,res.body FROM ops.cut_task c
@@ -347,10 +621,7 @@ SELECT 'record_report' AS relation,jsonb_build_object('selected_task_id',selecte
  SELECT 'record_dependency' AS relation,jsonb_build_object('record_id',rec->'record_id','interpretation_id',rec->'interpretation_id','position',ordinality-1,'dependency',dependency) AS row_data FROM records CROSS JOIN LATERAL jsonb_array_elements(COALESCE(rec->'computation_dependencies','[]')) WITH ORDINALITY d(dependency,ordinality)
  UNION ALL
  SELECT 'record_private_assertion' AS relation,jsonb_build_object('record_id',rec->'record_id','interpretation_id',rec->'interpretation_id','position',ordinality-1,'assertion_ref',assertion) AS row_data FROM records CROSS JOIN LATERAL jsonb_array_elements(COALESCE(rec->'assertion_members','[]')) WITH ORDINALITY a(assertion,ordinality)
- UNION ALL
- SELECT 'record_admission' AS relation,jsonb_build_object('record_id',rec->'record_id','interpretation_id',rec->'interpretation_id','decision',rec->'standing','policy_id','m1-candidate-only'::text,'policy_version','1'::text,'calibration','not_calibrated'::text,'reason','Retained source interpretation; accepted record admission is unavailable'::text) AS row_data FROM records
- UNION ALL
- SELECT 'record_assertion' AS relation,jsonb_build_object('record_id',rec->'record_id','interpretation_id',rec->'interpretation_id','fact_id',NULL::text) AS row_data FROM records WHERE false),
+),
  actual AS (
 SELECT 'record_report'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp_record_report s
  UNION ALL
@@ -383,15 +654,13 @@ SELECT 'record_report'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp
  SELECT 'record_dependency'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp_record_dependency s
  UNION ALL
  SELECT 'record_private_assertion'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp_record_private_assertion s
- UNION ALL
- SELECT 'record_admission'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp_record_admission s
- UNION ALL
- SELECT 'record_assertion'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp_record_assertion s), difference AS (
+), difference AS (
  (SELECT * FROM expected EXCEPT ALL SELECT * FROM actual)
  UNION ALL (SELECT * FROM actual EXCEPT ALL SELECT * FROM expected))
  SELECT relation INTO mismatch FROM difference LIMIT 1;
  IF mismatch IS NOT NULL THEN
   RAISE EXCEPTION 'public record projection differs from immutable selected cut reports: %',mismatch USING ERRCODE='23514'; END IF;
+ PERFORM data.validate_record_reading_cut(r,z,p_cut);
 END $fn$;
 REVOKE ALL ON FUNCTION data.validate_record_projection_cut(text,text,bigint) FROM PUBLIC;
 
@@ -406,7 +675,7 @@ BEGIN
  -- Transport verifies staging table ownership/shape before any stage is read here.
  -- Any refusal rolls back the tentative receipt and rows in this same transaction.
  revision:=data.publish_contract_batch(r,z,b,p_content);
- IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) THEN
+ IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion_support) THEN
   RAISE EXCEPTION 'source records require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
  RETURN revision;
 END $fn$;

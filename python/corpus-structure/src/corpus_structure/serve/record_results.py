@@ -206,7 +206,13 @@ def present_record_projection(
         (row.record_id, row.interpretation_id)
         for row in projection.rows["source_record"]
         if (request.family is None or row.family == request.family)
-        and (request.standing is None or row.standing == request.standing)
+        and (
+            request.standing is None
+            or any(
+                a["decision"] == request.standing
+                for a in index.rows_for(row.record_id, row.interpretation_id, "record_admission")
+            )
+        )
         and (request.record_id is None or row.record_id == request.record_id)
         and (
             request.interpretation_id is None or row.interpretation_id == request.interpretation_id
