@@ -49,17 +49,12 @@ a defect in current source execution. Historical evidence remains in Git.
 
 <a id="da-016"></a>
 
-## DA-016 — Accepted policy expressions can reference unrealized context
+## DA-016 — Policy applicability now rejects unrealized context
 
-**FP-04/05, DP-03/08/15; implemented, scoped.** compile_policy accepts supplied chains
-(`orchestrate/policy.py:236–268`), while production dispatch consumes PROPOSE
-(`orchestrate/semantic.py:1022`). Its context supplies iteration=0, empty target/budget,
-judged_by=False and decision/confidence=None (`:1065–1075`). Syntactically accepted policies
-can therefore name meaningful inputs that have no producer on this path.
-Routing trigger/classification/selection and scope-limit decisions are retained (`:1090–1107`);
-unavailable classification is explicitly unknown (`:1050–1051`). D6 marks broader escalation as
-proposed/deferred. Missing later-phase implementation is not itself the defect; accepting policies
-without a declared applicability/refusal boundary is the concern.
+**Source-inspected 2026-11-04, M1-20261104-r4.** `orchestrate/policy.py` now declares executable
+applicability and refuses unsupported chain/context inputs before production dispatch. The
+previous syntactic-acceptance diagnosis is corrected at that boundary. M1 must consume the same
+applicability owner; broader escalation remains an accepted target rather than fabricated context.
 
 <a id="da-017"></a>
 
@@ -70,18 +65,14 @@ Its continued advertisement is a narrower surface issue under DA-047.
 
 <a id="da-040"></a>
 
-## DA-040 — Source establishment is admitted before an incompatible assembly boundary
+## DA-040 — Source-establishment ingress now shares the released domain
 
-**FP-05, DP-02/03/15; implemented.** AgentClaim uses global Establishment
-(model/semantic/agent.yaml:93; core.yaml:595–599). Proposal reference checks do not narrow source
-establishment (`semantic/proposals.py:573–688`); projection passes it into SourceItem
-(`domain_operations.py:1490–1506`), then assembly rejects derived for the whole assembly
-(`consolidation.py:242–246`). Upstream acceptance can thus cause late aggregate refusal.
-The duplicate accepted-set authority is DA-002; this finding owns boundary placement/consequence.
-Decimal normalization remains expansion-based (`value_codec.py:15–21`; sql/identity.sql:12–22),
-but no new exploit was run. The prior NaN observation remains historical, not refreshed.
-Effective statement relation binding now corrects the former literal-SourceStatement manifestation
-(`source_projection.py:80–90`).
+**Source-inspected 2026-11-04, M1-20261104-r4.** Proposal/source assembly consume released
+`source_establishments()` rather than accepting the full global vocabulary and failing only
+inside aggregate assembly. Attribute-specific custody in `semantic/sql/closure.sql` checks the
+actual owned source attribute and its evidence; shared display evidence cannot establish another
+attribute. The inspected late-boundary cause is corrected. New M1 record assertions need their
+own actual sealed record/field/set support; this correction does not imply that missing path exists.
 
 <a id="da-041"></a>
 

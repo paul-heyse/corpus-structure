@@ -8,7 +8,47 @@ accepted scope, certify alignment or qualify the product.
 
 <a id="baseline"></a>
 
-## Current broad baseline — 2026-11-03
+## M1 admission engagement refresh — 2026-11-04
+
+<a id="m1-admission-refresh"></a>
+
+**Source-inspected, revision M1-20261104-r4.** Source `5675ac9d9d64429a5bb03c4b2f6192d8f0259318`;
+this publication revision is distinct. Reconciles the preceding broad baseline and M1-r3 against
+intervening AC changes for the next M1 admission target review. Core3.3, heuristics1.0,
+code-intelligence1.4 and applicable test-assessment1.2 are unchanged. This is a scoped refresh of
+the existing broad account, not a fresh whole-repository census or separate test-audit refresh.
+
+An independent contributor inspected producer/assembly/interpretation, finite projection/native
+reconstruction/reference evaluation, policy consolidation/inference and adjacent reads/exports.
+Changed AC reader authority, policy applicability, establishment/attribute support and ordinary
+acceptance were re-read. The owned Reader replaces DA-045's exposed raw-connection premise;
+policy applicability now refuses unrealized context (DA-016); released source-establishment and
+attribute-specific support correct the inspected DA-040/DA-002 boundary; indexes/delta preparation
+change DA-043's repeated reconstruction premise. These source corrections do not broaden an
+old performance or whole-inference claim. The topics retain precise limits and dates.
+
+[DA-054](execution-fit.md#da-054) is a new scoped dependency-granularity diagnosis: annotation
+work remains keyed to unrelated downstream run settings at the orchestration hash, Python twin
+selection and native reuse gate. In-progress upstream annotation separation alone does not settle it.
+Remaining private-only candidates, candidate-only publication, pure interpreter, absent record cap
+and absent fitted-instance/calibration admission are unfinished M1 target, not new defects in
+closed AC behavior. No remedy or quality result follows from this diagnostic refresh.
+
+Included dirty context is the ongoing M1 annotation/context/Reader work plus proposed ADR-0055
+and source-only guideline. Inspected decisive snapshot hashes (paths relative to the Python
+package) were `orchestrate/semantic.py` 605ffde3522a9b599a4dd937402f66a96c4b397a6f9165b1d3cf3350c0b18440,
+`semantic/operations.py` 2f0ae5dc12cdbe033e6a1b71735a45c3c38cea5be60c322d0f118b3b98a92140,
+`methods/m1_source.py` 9bb203551dd3d42d087adb07c6014cf28f84c7d701ea3a9d590509f38a445714,
+`semantic/source_contexts.py` b0321599eebb17ea3a402c2f0033e891e6c612b7a3109b78be7203929f32f1f5,
+and `methods/source_preparation.py` eee68eea326d62ef657f0727ee452cf2ea5fa694b3bc14169845c910f480edb3.
+These identify inspected in-progress bytes, not a stable qualified tree; later changes require
+review reconciliation. Unexamined broad diagnoses retain their original dates and limits.
+
+**Checks: not_run** by the diagnostic contributor: product tests, provider/database execution,
+benchmarks and integrated qualification. The separately owned AC acceptance receipts retain their
+actual source/scope. This refresh establishes neither M1 calibration nor CPU/resource/release fit.
+
+## Preceding broad baseline — 2026-11-03
 
 **Source-inspected.** Source commit `fe67cc8c5b67de5f99b8fd2c148a13c6febb2ac8` plus the identified
 uncommitted M1 work below. The commit publishing this refresh is distinct from the inspected

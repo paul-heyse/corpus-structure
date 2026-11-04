@@ -28,18 +28,14 @@ consolidate_cut receives actual AnalyticsSettings and forwards thread/memory/scr
 
 <a id="da-045"></a>
 
-## DA-045 — Method reader's read-only promise is not enforced by its connection capability
+## DA-045 — Exposed method-reader connection premise corrected
 
-**FP-02/03/05, DP-08/17/18; implemented, narrowed.** Reader.connection promises read-only
-(`core/method.py:358–359`), but BoundReader returns its existing connection
-(`semantic/operations.py:1272–1275`), and ScopedSourceReader uses an ordinary engine checkout
-(`orchestrate/source_reader.py:45–46`). Method selection happens inside a write-capable
-registration transaction (`orchestrate/semantic.py:365–375`). A method obeying the interface shape
-therefore receives more effect authority than the contract describes.
-Scoped read rollback protects against ordinary accidental persistence, but does not enforce
-read-only behavior. Shared core.method/vocabulary/pure algorithms are legitimate live dependencies;
-their older legacy label does not establish a violation. The semantic/contracts.py import of
-orchestration is a dependency-direction question, not independently demonstrated semantic damage.
+**Source-inspected 2026-11-04, M1-20261104-r4.** The method-facing `Reader` now exposes owned
+operations rather than a raw connection (`core/method.py`). `ScopedSourceReader` borrows a read
+snapshot for each operation; `BoundReader` supplies the database adapter. Registration retains
+its transaction ownership without handing that capability through the method protocol. The
+previous exposed-connection diagnosis no longer describes this supported interface. This is
+an ownership correction, not Python sandboxing or a claim about arbitrary reflective code.
 
 <a id="da-047"></a>
 

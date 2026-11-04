@@ -53,19 +53,34 @@ packets. No equivalent current redundant-work manifestation was established.
 
 <a id="da-043"></a>
 
-## DA-043 — Consolidation repeatedly scans candidates inside its publication scope
+## DA-043 — Repeated candidate reconstruction premise corrected at AC scope
 
-**FP-07/A4, DP-10/12/19/20; implemented.** Every candidate rebuilds premise and given-by-others
-collections through candidate-wide scans (`semantic/domain_operations.py:3253–3273`). Functional
-slots consider fact pairs and may perform mathematical comparison (`:2755–2822`). Inference
-uses whole-work-table rule fixpoints (`semantic/inference.py:209–230`), then emits proof rows for
-qualifying witness pairs (`:260–294`), inside consolidation's publication transaction
-(`domain_operations.py:2104–2143`). Candidate scans repeat work as the cut grows; inference expansion
-also depends on the actual selected rules and witness multiplicity. Necessary pair comparison is
-not automatically removable merely because it is pairwise.
+**Source-inspected 2026-11-04, M1-20261104-r4.** Consolidation now prepares indexed candidate
+premise/attribution collections rather than rebuilding the candidate-wide collections per fact;
+inference uses the admitted delta route. Scientific comparison and source receipt → inference →
+terminal-result atomicity remain explicit. Necessary functional-slot comparisons and actual witness
+expansion still depend on the released rules and input. This removes the prior repeated-scan
+manifestation; it establishes no numerical speed/capacity claim or absence of all cumulative work.
+DA-033 retains its separate trust/assurance-scope question. New record lowering must compose with
+these owners rather than restoring whole-candidate rescans.
 
-The former per-ID SQL bind-limit and repeated per-fact decoding allegations are removed:
-_known_input uses subqueries and indexed definition/property lookups (`:474–625`). Shared scientific
-comparison preparation and explicit relational engines are strengths. The retained diagnosis is
-candidate-wide repeated reconstruction and its transaction placement, not a claim that every
-consolidation step is quadratic or a measured production bottleneck.
+
+<a id="da-054"></a>
+
+## DA-054 — Annotation identity includes unrelated downstream run settings
+
+**FP-07/A4, DP-09/10, H12/13; source-inspected 2026-11-04, M1-20261104-r4.**
+`orchestrate/semantic.py:335–355` hashes the complete run dependency digest for every task;
+its manifest includes all operation configurations, GLiNER libraries, extraction policy and
+guideline. `semantic/operations.py:create_task` independently requires origin/current run
+dependency-digest equality. Native `ops.valid_reuse` in frozen
+`semantic_alembic/versions/semantic_0012_observation_inputs.sql:62–78` requires complete
+recorded dependencies; `semantic/sql/execution_guards.sql` applies that gate.
+
+Consequently a downstream GLiNER schema/configuration change repeats unchanged source/profile
+annotation work, even after introducing a separate upstream annotation method. This is a concrete
+dependency-granularity/amplification cause, not a speed measurement or allegation of unsound reuse.
+Necessary source, profile, release, configuration and relevant library changes must still invalidate.
+A different source or release is not reusable merely because its words look equal. This differs
+from retired DA-025's rendition issue and DA-042's corrected packet preparation. The scheduled
+M1 preparation owner retains disposition; this account supplies diagnosis only.
