@@ -103,9 +103,11 @@ def start_bound_run(
     from corpus_structure.semantic.releases import load_release
 
     if record_policy is not None and (
-        extraction_policy != "m1-candidate" or m1_configuration != "readings"
+        extraction_policy != "m1-candidate" or m1_configuration not in {"readings", "contextual"}
     ):
-        raise CommandError("record policy parameters require the M1 readings configuration")
+        raise CommandError(
+            "record policy parameters require an M1 reading-resolution configuration"
+        )
     if extraction_policy not in {"phase0", "m1-candidate"}:
         raise CommandError("unknown extraction policy")
     if extraction_policy == "phase0" and m1_configuration != "default":

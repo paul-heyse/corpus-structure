@@ -36,8 +36,10 @@ M1 = Graph(
 
 def source_graph(configuration: str = "default") -> Graph:
     """Select retained source freezing or a named, unqualified CPU policy."""
-    if configuration not in {"default", "described", "readings", "source-only"}:
-        raise ValueError("M1 configuration must be default, described, readings or source-only")
+    if configuration not in {"default", "described", "readings", "contextual", "source-only"}:
+        raise ValueError(
+            "M1 configuration must be default, described, readings, contextual or source-only"
+        )
     if configuration == "source-only":
         return replace(M1, stages=(M1.stages[0],))
     if configuration == "default":
@@ -55,7 +57,7 @@ def source_graph(configuration: str = "default") -> Graph:
             ),
         ),
     )
-    if configuration == "readings":
+    if configuration in {"readings", "contextual"}:
         stages += (
             (
                 Stage.ASSEMBLE,

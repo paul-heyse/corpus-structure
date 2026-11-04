@@ -41,7 +41,14 @@ def test_refused_pin_never_opens_database(cli, monkeypatch, arguments):
 
 @pytest.mark.parametrize(
     ("m1", "configuration"),
-    [(False, "default"), (True, "default"), (True, "described"), (True, "source-only")],
+    [
+        (False, "default"),
+        (True, "default"),
+        (True, "described"),
+        (True, "readings"),
+        (True, "contextual"),
+        (True, "source-only"),
+    ],
 )
 def test_cli_dispatch_records_explicit_policy_and_leaves_phase0_graph(
     cli, monkeypatch, m1, configuration
@@ -98,3 +105,25 @@ def test_cli_dispatch_records_explicit_policy_and_leaves_phase0_graph(
         assert kwargs["m1_configuration"] == "default"
         assert kwargs["graph"] is graph and kwargs["registry_for"] is registry
         assert kwargs["integrated_product"] is None
+
+
+def test_contextual_policy_resolves_real_registry_and_keeps_reading_resolution():
+    from corpus_structure.methods.m1_source import M1Config
+    from corpus_structure.orchestrate.m1 import registry, source_graph
+
+    root = Path(__file__).resolve().parents[4]
+    selected = registry(root / "domains/statistics")
+    cfg = selected.config("extract.m1_candidates", "contextual").config
+    assert isinstance(cfg, M1Config)
+    assert cfg.source_inspection and cfg.formula_prose
+    assert cfg.profile().version == "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1"
+    assert (cfg.max_words, cfg.max_subwords) == (4096, 4096)
+    assert (cfg.max_context_chars, cfg.max_context_pieces) == (4096, 128)
+    steps = [step.config for _, stage in source_graph("contextual").stages for step in stage]
+    assert steps == [
+        "ingest.pdf_integrated/default",
+        "extract.m1_annotations/default",
+        "extract.m1_candidates/contextual",
+        "resolve.m1_readings/default",
+    ]
+    assert not source_graph("contextual").policy_propose

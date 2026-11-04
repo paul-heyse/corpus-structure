@@ -1,6 +1,6 @@
 # Explicit candidate-only CPU policy. Default uses baseline packs.
 # described is an experimental, unqualified role-description policy; default adoption is deferred.
-version: m1-candidate-2
+version: m1-candidate-3
 configs:
   ingest.pdf_integrated:
     default:
@@ -134,9 +134,18 @@ configs:
             the restricted object and do not assume real, positive or finite values.
           assumption: Exact stated premise or assumption governing this formula and local declaration.
             Do not invent an assumption from mathematical convention or omit its condition.
-    readings:
+    readings: &readings
       <<: *described
       source_inspection: true
+    contextual:
+      <<: *readings
+      policy: m1-canonical-related-context-candidates-5
+      execution_profile: gliner2-2.1.0-cpu-fp32-standard-codepoints-v1
+      max_words: 4096
+      max_subwords: 4096
+      max_context_chars: 4096
+      max_context_pieces: 128
+      formula_prose: true
   resolve.m1_readings:
     default:
       feature_instances: []

@@ -161,13 +161,14 @@ def run(
     m1_configuration: Annotated[
         str,
         typer.Option(
-            help="M1 policy: source-only freezing, or default/described/readings CPU extraction."
+            help="M1 policy: source-only freezing or "
+            "default/described/readings/contextual CPU extraction."
         ),
     ] = "default",
     record_policy: Annotated[
         Path | None,
         typer.Option(
-            help="Finite fitted policy JSON for the M1 readings configuration.",
+            help="Finite fitted policy JSON for an M1 reading-resolution configuration.",
             exists=True,
             dir_okay=False,
         ),
@@ -201,9 +202,9 @@ def run(
         )
     if extraction_policy not in {"phase0", "m1-candidate"}:
         raise typer.BadParameter("unknown extraction policy")
-    if m1_configuration not in {"default", "described", "readings", "source-only"}:
+    if m1_configuration not in {"default", "described", "readings", "contextual", "source-only"}:
         raise typer.BadParameter(
-            "M1 configuration must be default, described, readings or source-only"
+            "M1 configuration must be default, described, readings, contextual or source-only"
         )
     if extraction_policy == "phase0" and m1_configuration != "default":
         raise typer.BadParameter("nondefault M1 configuration requires the m1-candidate policy")
