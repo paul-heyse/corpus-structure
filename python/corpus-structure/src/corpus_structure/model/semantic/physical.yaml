@@ -35,6 +35,19 @@ types:
     annotations:
       ph:sql_type: numeric
 classes:
+  runtime_binding:
+    description: Immutable implementation provenance bound to one semantic release; implementation changes do not mint a semantic release.
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      manifest_bytes: {range: bytes, required: true}
+      archive_bytes: {range: bytes, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, runtime_id]}
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+      ph:immutability: intrinsic
   physical_contract:
     in_subset: [sem]
     attributes:
@@ -1165,6 +1178,9 @@ classes:
       release_id:
         range: string
         required: true
+      runtime_id:
+        range: string
+        required: false
       input_realization_id:
         range: string
         required: true
@@ -1211,6 +1227,7 @@ classes:
         - release_id
     annotations:
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
+        {"columns": ["release_id", "runtime_id"], "target": "sem.runtime_binding.release_id,runtime_id"},
         {"columns": ["release_id", "input_realization_id"], "target": "data.realization.release_id,realization_id"}]'
       ph:checks: '["input_revision >= 0", "status IN (''created'',''running'',''consolidating'',''finished'',''failed'',''cancelled'')"]'
   task:

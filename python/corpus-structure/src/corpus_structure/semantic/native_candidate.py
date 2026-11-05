@@ -590,6 +590,19 @@ def series_native_definitions(connection, *, include_selected=True):
             )
         )
     split_sql = Path(__file__).with_name("sql").joinpath("split_decisions.sql").read_text()
+    runtime_sql = Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_text()
+    for schema, name, grants in (
+        ("sem", "validate_runtime_binding", ()),
+        ("sem", "register_runtime_binding", (("corpus_sem_writer", "EXECUTE", False),)),
+        ("sem", "require_runtime_binding", ()),
+        ("ops", "create_run", (("corpus_sem_writer", "EXECUTE", False),)),
+    ):
+        definitions.append(
+            _task_call_definition(
+                connection, runtime_sql, name=name, schema=schema,
+                grants=grants, source="runtime binding custody:forward",
+            )
+        )
     definitions.append(
         _task_call_definition(
             connection,
@@ -826,6 +839,7 @@ def series_native_definitions(connection, *, include_selected=True):
     # Accepted record rows and origin assignments are append-only, like existing
     # public semantic content. The guard joins the same managed native lifecycle.
     for relation in (
+        "sem.runtime_binding",
         *("data." + name for name in RECORD_ROW_TYPES),
         "kb.source_contribution_operation",
         "kb.source_contribution",
@@ -1362,6 +1376,14 @@ def prepare_series_candidate(
                     + connection.dialect.identifier_preparer.format_table(relation)
                     + " OWNER TO corpus_sem_publisher"
                 )
+        # The runtime reuse kernel binds the expanded existing run row type. Like
+        # new tables above, this prerequisite is rolled back before Alembic's diff.
+        run = target_metadata.tables.get("ops.run")
+        if run is not None and "runtime_id" in run.c and connection.scalar(
+            text("SELECT NOT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.run'::regclass "
+                 "AND attname='runtime_id' AND NOT attisdropped)")
+        ):
+            connection.exec_driver_sql("ALTER TABLE ops.run ADD COLUMN runtime_id text")
         authoring = _prepare_series_authoring(
             connection,
             predecessor=predecessor,

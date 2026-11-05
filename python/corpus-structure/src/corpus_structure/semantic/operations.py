@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, cast, func, insert, literal, select
@@ -44,6 +44,9 @@ from .operation_results import (
     HoldDecision,
 )
 from .types import PreparedRelease
+
+if TYPE_CHECKING:
+    from .runtime_bindings import RuntimeBinding
 
 
 class OperationConflict(ValueError):
@@ -80,17 +83,29 @@ def create_run(
     code_commit: str,
     guideline: str = "",
     phase: int = 0,
+    prepared: PreparedRelease | None = None,
+    runtime_binding: RuntimeBinding | None = None,
 ) -> RunId:
     from typing import cast
 
     from ._operation_calls import ProjectId, RealizationId, ReleaseId
     from ._operation_calls import create_run as invoke
+    from .releases import open_release
+    from .runtime_binding_store import persist_runtime_binding
+    from .runtime_bindings import require_installed_runtime
+
+    prepared = prepared or open_release(conn, binding.release_id)
+    if prepared.release_id != binding.release_id:
+        raise OperationConflict("run preparation belongs to another release")
+    runtime_binding = require_installed_runtime(prepared, runtime_binding)
+    runtime_id = persist_runtime_binding(conn, prepared, runtime_binding)
 
     try:
         return invoke(
             conn,
             project_id=ProjectId(project_id),
             release_id=ReleaseId(binding.release_id),
+            runtime_id=runtime_id,
             realization_id=RealizationId(binding.input_realization_id),
             revision=binding.input_revision,
             dependencies=binding.dependencies,
@@ -269,6 +284,7 @@ def create_task(
                 t.c.packet_hash.is_not_distinct_from(packet_hash),
                 old_run.c.project_id == run["project_id"],
                 old_run.c.release_id == run["release_id"],
+                old_run.c.runtime_id.is_not_distinct_from(run["runtime_id"]),
                 old_run.c.input_realization_id == run["input_realization_id"],
                 old_run.c.input_revision == run["input_revision"],
                 func.ops.task_dependency_scope(

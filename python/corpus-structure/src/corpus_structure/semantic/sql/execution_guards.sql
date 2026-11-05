@@ -72,10 +72,15 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  IF TG_OP='INSERT' THEN
   PERFORM sem.require_execution_operation(NEW.release_id,'start_run');
+  IF NEW.runtime_id IS NULL THEN
+   RAISE EXCEPTION 'new run requires an immutable runtime binding' USING ERRCODE='23514'; END IF;
+  PERFORM sem.require_runtime_binding(NEW.release_id,NEW.runtime_id);
   IF NEW.status<>'created' OR NEW.sealed OR NEW.result_realization_id IS NOT NULL THEN
    RAISE EXCEPTION 'invalid initial run combination' USING ERRCODE='23514'; END IF;
   RETURN NEW;
  END IF;
+ IF NEW.runtime_id IS DISTINCT FROM OLD.runtime_id THEN
+  RAISE EXCEPTION 'run runtime binding is immutable' USING ERRCODE='23514'; END IF;
  prior:=OLD.status || CASE WHEN OLD.status IN ('failed','cancelled') THEN CASE WHEN OLD.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  result:=NEW.status || CASE WHEN NEW.status IN ('failed','cancelled') THEN CASE WHEN NEW.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  IF prior<>result THEN

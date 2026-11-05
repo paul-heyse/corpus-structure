@@ -32,6 +32,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
       AND origin.unit_type=t.unit_type AND origin.unit_id IS NOT DISTINCT FROM t.unit_id
       AND origin.unit_key IS NOT DISTINCT FROM t.unit_key AND origin.packet_hash IS NOT DISTINCT FROM t.packet_hash
       AND previous.project_id=current_run.project_id AND previous.release_id=current_run.release_id
+      AND previous.runtime_id IS NOT DISTINCT FROM current_run.runtime_id
       AND previous.input_realization_id=current_run.input_realization_id AND previous.input_revision=current_run.input_revision
       AND ops.task_dependency_scope(convert_from(previous.dependencies,'UTF8')::jsonb,method.name)
         =ops.task_dependency_scope(convert_from(current_run.dependencies,'UTF8')::jsonb,method.name)

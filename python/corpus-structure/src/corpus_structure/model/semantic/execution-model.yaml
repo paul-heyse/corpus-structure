@@ -324,6 +324,10 @@ concepts:
     range: text
     required: true
     multivalued: false
+  - name: runtime_id
+    range: text
+    required: true
+    multivalued: false
   - name: project_id
     range: text
     required: true
@@ -356,6 +360,10 @@ concepts:
   - name: id
     range: integer
     required: true
+    multivalued: false
+  - name: runtime_id
+    range: text
+    required: false
     multivalued: false
   - name: status
     range: text
@@ -5397,6 +5405,18 @@ operations:
   transitions: []
   projections: []
   calls:
+  - id: register_runtime_binding
+    symbol: sem.register_runtime_binding
+    parameters:
+    - {name: release_id, source: 'physical:sem.runtime_binding.release_id', nullable: false, native_parameter: r, semantic_type: ReleaseId}
+    - {name: runtime_id, source: 'physical:sem.runtime_binding.runtime_id', nullable: false, native_parameter: runtime, semantic_type: RuntimeId}
+    - {name: manifest, source: 'physical:sem.runtime_binding.manifest_bytes', nullable: false, native_parameter: manifest_content}
+    - {name: archive, source: 'physical:sem.runtime_binding.archive_bytes', nullable: false, native_parameter: archive_content}
+    result_mode: scalar
+    result_fields:
+    - {name: runtime_id, source: 'physical:sem.runtime_binding.runtime_id', nullable: false, semantic_type: RuntimeId}
+    cardinality: one
+    ordered: false
   - id: create_run
     symbol: ops.create_run
     parameters:
@@ -5410,6 +5430,11 @@ operations:
       nullable: false
       native_parameter: r
       semantic_type: ReleaseId
+    - name: runtime_id
+      source: physical:ops.run.runtime_id
+      nullable: false
+      native_parameter: runtime
+      semantic_type: RuntimeId
     - name: realization_id
       source: physical:ops.run.input_realization_id
       nullable: false
@@ -13539,8 +13564,8 @@ effect_definitions:
   version: "1"
   meaning: capture final cut
 - id: construct_new_run
-  version: "1"
-  meaning: construct new run
+  version: "2"
+  meaning: Register immutable implementation provenance and construct a new run pinned to that same-release runtime binding
 - id: coordinated_run_and_task_terminalization
   version: "1"
   meaning: coordinated run and task terminalization
