@@ -149,6 +149,16 @@ class Reader(ReaderPort):
     def source_observations(self, source_view_id, method, kind):
         return self.outputs.get((source_view_id, method, kind), [])
 
+    def source_formula_metadata(self, source_view_id, pointer):
+        retained = self.views[source_view_id]
+        return retained.ref, {
+            item["pointer"]: item["outcome"] for item in retained.health.get("formula_outcomes", ())
+        }
+
+    def source_observations_for_ref(self, reference, method, kind):
+        assert reference == self.views[reference.id].ref
+        return self.source_observations(reference.id, method, kind)
+
     def source_view_coverage(self, source_view_id, method):
         return (
             SourceCoverageReading(

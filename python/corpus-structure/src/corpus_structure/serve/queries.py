@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import and_, exists, select
 
 from corpus_structure.semantic.query import Coverage, same_scope_clause
+from corpus_structure.semantic.structural_products import StructuralProductReport
 from corpus_structure.serve.protocol import Positioned, Scope
 from corpus_structure.serve.read import T
 from corpus_structure.serve.results import (
@@ -309,4 +310,85 @@ class Find(Query):
             yield Positioned(FindAnswer(entity=entity), [1, "0", entity.entity.entity_id])
 
 
-GENERIC = (Entity(), Claims(), Statement(), Evidence(), Find(), Unsupported())
+class StructuralParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    include_publication: bool = False
+    include_support: bool = False
+    page_bytes: int = Field(default=1_000_000, ge=1, le=8_000_000)
+
+
+class StructuralAnswer(BaseModel):
+    """A retained report and separately admitted witnesses; graph selection grants no standing."""
+
+    product_id: str
+    structural_product: StructuralProductReport
+    public_assertions: tuple[dict[str, JsonValue], ...] = ()
+    producer_standing: str = "private_proposal"
+    assessment_scope: str = "published_admission_witnesses_only"
+
+
+class StructuralProducts(Query):
+    version = "structural-query-1"
+    params, result = StructuralParams, StructuralAnswer
+
+    def __init__(self, name, kind):
+        self.name, self.kind = name, kind
+
+    def rows(self, ctx, p, after=None):
+        from corpus_structure.serve.structural_products import (
+            StructuralRequest,
+            serve_structural_products,
+        )
+
+        self.validate_position(after)
+        position = int(after) if after is not None else 0
+        while True:
+            page = serve_structural_products(
+                ctx.conn,
+                StructuralRequest(
+                    run_id=ctx.run_id,
+                    kind=self.kind,
+                    after_task_id=position,
+                    limit=min(ctx.row_batch, 100),
+                    max_bytes=p.page_bytes,
+                    include_publication=p.include_publication,
+                    include_support=p.include_support,
+                ),
+            )
+            for task_id, report in zip(page.task_ids, page.reports, strict=True):
+                yield Positioned(
+                    StructuralAnswer(
+                        product_id=report.product_id,
+                        structural_product=report,
+                        public_assertions=tuple(
+                            row
+                            for row in page.public_assertions
+                            if row["product_id"] == report.product_id
+                        ),
+                    ),
+                    str(task_id),
+                )
+            if page.next_after_task_id is None:
+                break
+            position = page.next_after_task_id
+
+    def validate_position(self, position):
+        if position is not None and (
+            not isinstance(position, str) or not position.isascii() or not position.isdecimal()
+        ):
+            from corpus_structure.semantic.refusals import InvalidContinuation
+
+            raise InvalidContinuation("invalid structural query position")
+
+
+GENERIC = (
+    Entity(),
+    Claims(),
+    Statement(),
+    Evidence(),
+    Find(),
+    Unsupported(),
+    StructuralProducts("structural_definitions", "definition_applicability"),
+    StructuralProducts("structural_comparisons", "qualified_comparison"),
+    StructuralProducts("structural_dossiers", "dossier"),
+)

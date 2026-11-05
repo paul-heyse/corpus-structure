@@ -97,6 +97,25 @@ def render_query(result: Any) -> Table:
         title=f"run {result.run_id}: {result.query} ({result.projection})",
     )
     for row in result.rows:
+        if "structural_product" in row:
+            product = row["structural_product"]
+            kind = product["kind"]
+            if kind == "definition_applicability":
+                summary = (
+                    ", ".join(reading["outcome"] for reading in product["definition"]["readings"])
+                    or "no applicability decision"
+                )
+            elif kind == "dossier":
+                summary = f"{len(product['dossier']['members'])} declared members"
+            else:
+                summary = "qualified dimensions; equivalence not asserted"
+            table.add_row(
+                row["product_id"],
+                kind,
+                summary,
+                f"{row['producer_standing']} / {len(row['public_assertions'])} public witnesses",
+            )
+            continue
         fact = (
             row.get("fact")
             or row.get("claim", {}).get("fact")

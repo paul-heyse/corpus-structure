@@ -17,13 +17,17 @@ def export_evaluated_review(
     selection: Path,
     destination: Path,
     project: Annotated[str, typer.Option()],
-    assessment_set: Annotated[list[int], typer.Option("--assessment-set")],
+    assessment_set: Annotated[list[int] | None, typer.Option("--assessment-set")] = None,
+    group_set: Annotated[list[int] | None, typer.Option("--group-assessment-set")] = None,
+    group_project: Annotated[str | None, typer.Option()] = None,
+    authorization_basis: Annotated[str | None, typer.Option()] = None,
     json: JsonOpt = False,
 ):
     """Use evaluator authority for selected development history; record exposure first."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.evaluate.review_assessments import (
-        iter_assessment_review_rows,
+        AssessmentReviewSelection,
+        assessment_review_capture,
         record_review_exposure,
     )
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -32,37 +36,38 @@ def export_evaluated_review(
     with failure_boundary(json, expected=(OSError, ValueError)):
         request = ReviewSelection.model_validate_json(selection.read_bytes())
         settings = state(ctx).settings()
-        if not assessment_set or len(set(assessment_set)) != len(assessment_set):
+        cohorts = tuple((False, project, value) for value in assessment_set or ()) + tuple(
+            (True, group_project or project, value) for value in group_set or ()
+        )
+        if not cohorts or len(set(cohorts)) != len(cohorts):
             raise ValueError("assessment sets must be nonempty and distinct")
         with (
             open_runtime_engine(settings, "ci-review-exposure", purpose="evaluate") as engine,
             engine.begin() as conn,
         ):
             receipts = {
-                set_id: record_review_exposure(
+                (group, owner, set_id): record_review_exposure(
                     conn,
-                    project_id=project,
+                    project_id=owner,
                     set_id=set_id,
                     purpose="portable_review",
                     recipient_class="external_reviewer",
+                    group=group,
+                    authorization_basis=None if group else authorization_basis,
                 )
-                for set_id in assessment_set
+                for group, owner, set_id in cohorts
             }
-
-        def capture(conn):
-            return {
-                "assessment_history": (
-                    {"project_id": project, "set_id": set_id, **row}
-                    for set_id in assessment_set
-                    for row in iter_assessment_review_rows(
-                        conn,
-                        project_id=project,
-                        set_id=set_id,
-                        exposure_receipt_id=receipts[set_id],
-                    )
+        capture = assessment_review_capture(
+            tuple(
+                AssessmentReviewSelection(
+                    project_id=owner,
+                    set_id=set_id,
+                    exposure_receipt_id=receipts[group, owner, set_id],
+                    group=group,
                 )
-            }
-
+                for group, owner, set_id in cohorts
+            )
+        )
         result = export_review_bundle(request, destination, settings, evaluator_capture=capture)
     emit(RootModel[dict[str, JsonValue]].model_validate(result), json=json)
 

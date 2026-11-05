@@ -761,13 +761,16 @@ def test_external_supervisor_signal_drains_group_finalizes_and_stops_rust(
         pytest.skip("owned process-group signal control requires POSIX")
     descendant = tmp_path / "descendant.pid"
     source = tmp_path / "test_supervised.py"
+    child_source = (
+        "import os,signal,time; from pathlib import Path; "
+        "signal.signal(signal.SIGTERM,signal.SIG_IGN); "
+        f"Path({str(descendant)!r}).write_text(str(os.getpid())); time.sleep(60)"
+    )
     source.write_text(
         "import subprocess,sys,time\nfrom pathlib import Path\n"
         "def test_a_completed():\n    assert 17 + 25 == 42\n"
         "def test_b_active():\n"
-        "    child=subprocess.Popen([sys.executable,'-c',"
-        "'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'])\n"
-        f"    Path({str(descendant)!r}).write_text(str(child.pid))\n"
+        f"    subprocess.Popen([sys.executable,'-c',{child_source!r}])\n"
         "    time.sleep(60)\n"
     )
     out = tmp_path / "receipts"

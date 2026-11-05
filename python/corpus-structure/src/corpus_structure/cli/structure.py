@@ -18,6 +18,8 @@ def structures(
     after_task: int = 0,
     limit: int = 20,
     max_bytes: int = 1_000_000,
+    include_publication: bool = False,
+    include_support: bool = False,
     json: JsonOpt = False,
 ):
     from corpus_structure.cli.failures import failure_boundary
@@ -37,6 +39,8 @@ def structures(
                 after_task_id=after_task,
                 limit=limit,
                 max_bytes=max_bytes,
+                include_publication=include_publication,
+                include_support=include_support,
             )
         )
         with (

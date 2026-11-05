@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from sqlalchemy import Connection, Text, func, select
 
 from corpus_structure.semantic.identity import canonical_bytes
@@ -19,6 +19,14 @@ class StructuralRequest(BaseModel):
     after_task_id: int = Field(default=0, strict=True, ge=0)
     limit: int = Field(default=20, strict=True, ge=1, le=100)
     max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
+    include_publication: bool = False
+    include_support: bool = False
+
+    @model_validator(mode="after")
+    def support_requires_publication(self):
+        if self.include_support and not self.include_publication:
+            raise ValueError("structural support requires the publication facet")
+        return self
 
 
 class StructuralPage(BaseModel):
@@ -31,6 +39,11 @@ class StructuralPage(BaseModel):
     next_after_task_id: int | None
     standing: Literal["private_proposals"] = "private_proposals"
     source_coverage: Literal["declared_report_inputs_only"] = "declared_report_inputs_only"
+    public_assertions: tuple[dict[str, JsonValue], ...] = ()
+    publication: Literal["not_requested", "included"] = "not_requested"
+    assessment_scope: Literal["published_admission_witnesses_only"] = (
+        "published_admission_witnesses_only"
+    )
 
 
 def serve_structural_products(conn: Connection, request: StructuralRequest) -> StructuralPage:
@@ -77,6 +90,20 @@ def serve_structural_products(conn: Connection, request: StructuralRequest) -> S
         )
         for row in chosen
     )
+    public_assertions = ()
+    if request.include_publication:
+        from corpus_structure.semantic.structural_admission import read_structural_assertions
+
+        if "StructuralPublicationPolicy" not in session.prepared.index.definitions:
+            raise SemanticRefusal("selected release does not support structural publication")
+        public_assertions = read_structural_assertions(
+            conn,
+            release_id=session.prepared.release_id,
+            realization_id=session.binding.realization_id,
+            product_ids=tuple(report.product_id for report in reports),
+            support=request.include_support,
+            max_bytes=request.max_bytes,
+        )
     page = StructuralPage(
         run_id=request.run_id,
         cut_id=cut,
@@ -84,6 +111,8 @@ def serve_structural_products(conn: Connection, request: StructuralRequest) -> S
         reports=reports,
         task_ids=tuple(row["id"] for row in chosen),
         next_after_task_id=chosen[-1]["id"] if len(metadata) > request.limit else None,
+        public_assertions=public_assertions,
+        publication="included" if request.include_publication else "not_requested",
     )
     if len(canonical_bytes(page.model_dump(mode="json"))) > request.max_bytes:
         raise SemanticRefusal("structural response exceeds byte budget; narrow the page")

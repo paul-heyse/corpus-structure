@@ -23,53 +23,92 @@ def compose_review_views(
             if name == "inventory":
                 row = payload["row"]
                 population = payload["population"]
-                base = {"selection_index": payload["selection_index"],
-                        "selected_task_id": row.get("selected_task_id"),
-                        "origin_task_id": row.get("origin_task_id"),
-                        "source_view_id": row.get("source_view_id")}
+                base = {
+                    "selection_index": payload["selection_index"],
+                    "selected_task_id": row.get("selected_task_id"),
+                    "origin_task_id": row.get("origin_task_id"),
+                    "source_view_id": row.get("source_view_id"),
+                }
                 if population == "operation":
-                    yield "capabilities", {**base, "operation_key": row["operation_key"],
-                        "operation_version": row.get("operation_version"),
-                        "question": row.get("question"), "outcome": row.get("outcome"),
-                        "inspected_count": row.get("inspected_count"),
-                        "emitted_count": row.get("emitted_count"),
-                        "semantic_quality": "not_established_by_execution",
-                        "assessment": "see_explicit_selected_assessment_matrix",
-                        "complete_record_standing": "separate_contract"}
-                    if row.get("emitted_count") == 0 or row.get("outcome") not in {
-                            "succeeded", "success", "produced"}:
-                        yield "gaps", {**base, "operation_key": row["operation_key"],
-                            "basis": "observed_operation_outcome",
+                    yield (
+                        "capabilities",
+                        {
+                            **base,
+                            "operation_key": row["operation_key"],
+                            "operation_version": row.get("operation_version"),
+                            "question": row.get("question"),
                             "outcome": row.get("outcome"),
+                            "inspected_count": row.get("inspected_count"),
                             "emitted_count": row.get("emitted_count"),
-                            "semantic_miss": "not_established",
-                            "cause": "not_inferred_from_stage_status"}
+                            "semantic_quality": "not_established_by_execution",
+                            "assessment": "see_explicit_selected_assessment_matrix",
+                            "complete_record_standing": "separate_contract",
+                        },
+                    )
+                    if row.get("emitted_count") == 0 or row.get("outcome") not in {
+                        "succeeded",
+                        "success",
+                        "produced",
+                    }:
+                        yield (
+                            "gaps",
+                            {
+                                **base,
+                                "operation_key": row["operation_key"],
+                                "basis": "observed_operation_outcome",
+                                "outcome": row.get("outcome"),
+                                "emitted_count": row.get("emitted_count"),
+                                "semantic_miss": "not_established",
+                                "cause": "not_inferred_from_stage_status",
+                            },
+                        )
                 elif population == "contribution":
-                    yield "assessment_matrix", {**base,
-                        "contribution_id": row["contribution_id"],
-                        "facet": "independent_assessment_availability",
-                        "assessment_state": "see_selected_evaluations_and_public_witnesses",
-                        "private_assessment_state": "unknown_on_ordinary_reader"}
+                    yield (
+                        "assessment_matrix",
+                        {
+                            **base,
+                            "contribution_id": row["contribution_id"],
+                            "facet": "independent_assessment_availability",
+                            "assessment_state": "see_selected_evaluations_and_public_witnesses",
+                            "private_assessment_state": "unknown_on_ordinary_reader",
+                        },
+                    )
                 elif population == "assessment":
-                    yield "assessment_matrix", {**base,
-                        "contribution_id": row["contribution_id"],
-                        "facet": "published_admission_witness",
-                        "assessment_state": row["outcome"],
-                        "assessment_scope": row.get("scope"),
-                        "witnesses": row.get("witnesses", []),
-                        "private_assessment_state": "unknown_on_ordinary_reader"}
+                    yield (
+                        "assessment_matrix",
+                        {
+                            **base,
+                            "contribution_id": row["contribution_id"],
+                            "facet": "published_admission_witness",
+                            "assessment_state": row["outcome"],
+                            "assessment_scope": row.get("scope"),
+                            "witnesses": row.get("witnesses", []),
+                            "private_assessment_state": "unknown_on_ordinary_reader",
+                        },
+                    )
             elif name == "structural_products":
                 report = payload["report"]
-                yield "capabilities", {"product_id": payload["product_id"],
-                    "operation": report["kind"], "standing": report["standing"],
-                    "scope": report["inputs"]["scope"],
-                    "coverage_limits": report["inputs"]["coverage_limits"],
-                    "semantic_quality": "requires_independent_group_assessment",
-                    "source_population": "declared_original_source_refs_only"}
-                yield "assessment_matrix", {"product_id": payload["product_id"],
-                    "facet": "group_assessment_availability",
-                    "assessment_state": "see_explicit_selected_group_assessment",
-                    "public_eligibility": "not_established_by_retention"}
+                yield (
+                    "capabilities",
+                    {
+                        "product_id": payload["product_id"],
+                        "operation": report["kind"],
+                        "standing": report["standing"],
+                        "scope": report["inputs"]["scope"],
+                        "coverage_limits": report["inputs"]["coverage_limits"],
+                        "semantic_quality": "requires_independent_group_assessment",
+                        "source_population": "declared_original_source_refs_only",
+                    },
+                )
+                yield (
+                    "assessment_matrix",
+                    {
+                        "product_id": payload["product_id"],
+                        "facet": "group_assessment_availability",
+                        "assessment_state": "see_explicit_selected_group_assessment",
+                        "public_eligibility": "not_established_by_retention",
+                    },
+                )
             elif name == "assessment_history" and payload.get("kind") == "evaluation":
                 value = payload["value"]
                 evaluation_id = value["id"]
@@ -77,19 +116,31 @@ def compose_review_views(
                 result = value["result"]
                 for unit in result.get("units", []):
                     for case in unit.get("cases", []):
-                        row = {"evaluation_id": evaluation_id,
+                        row = {
+                            "evaluation_id": evaluation_id,
                             "selected_for_current_assessment": (
                                 evaluation_id in selection.selected_evaluation_ids
                             ),
-                            "project_id": payload["project_id"], "set_id": payload["set_id"],
-                            "run_id": value["run_id"], "unit_id": unit["unit_id"],
+                            "project_id": payload["project_id"],
+                            "set_id": payload["set_id"],
+                            "run_id": value["run_id"],
+                            "unit_id": unit["unit_id"],
                             "source_view_id": unit.get("source_view_id"),
-                            "direction": unit["direction"], "frame_digest": result["frame_digest"],
-                            "reference_snapshot": value["reference_snapshot"], **case}
+                            "direction": unit["direction"],
+                            "frame_digest": result["frame_digest"],
+                            "reference_snapshot": value["reference_snapshot"],
+                            **case,
+                        }
                         yield "assessment_matrix", row
                         if case["judgment"] != "supported":
-                            yield "gaps", {**row, "basis": "independent_case_evaluation",
-                                "cause": "not_inferred_from_error_category"}
+                            yield (
+                                "gaps",
+                                {
+                                    **row,
+                                    "basis": "independent_case_evaluation",
+                                    "cause": "not_inferred_from_error_category",
+                                },
+                            )
         required = set(selection.selected_evaluation_ids)
         for comparison in selection.comparisons:
             required.update((comparison.baseline_evaluation_id, comparison.revised_evaluation_id))
@@ -103,8 +154,10 @@ def compose_review_views(
 
             baseline = evaluations[comparison.baseline_evaluation_id]
             revised = evaluations[comparison.revised_evaluation_id]
-            identity = {"baseline_evaluation_id": baseline["id"],
-                        "revised_evaluation_id": revised["id"]}
+            identity = {
+                "baseline_evaluation_id": baseline["id"],
+                "revised_evaluation_id": revised["id"],
+            }
             try:
                 if baseline["project_id"] != revised["project_id"]:
                     raise ReferenceError("comparison requires one original project")

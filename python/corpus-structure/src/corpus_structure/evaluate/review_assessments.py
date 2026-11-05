@@ -40,7 +40,8 @@ def iter_assessment_review_rows(
     function = "structural_review_history_bounded" if group else "operation_review_history_bounded"
     with conn.execute(
         text(
-            f"SELECT row FROM eval.{function}(:project,:set_id,:receipt,:max_rows,:max_bytes) AS row"
+            f"SELECT row FROM eval.{function}"
+            "(:project,:set_id,:receipt,:max_rows,:max_bytes) AS row"
         ),
         {
             "project": project_id,
@@ -130,6 +131,19 @@ def assessment_review_capture(selections: tuple[AssessmentReviewSelection, ...])
                     group=selection.group,
                 )
 
-        return {"assessment_history": rows()}
+        return {
+            "assessment_authority": (
+                {
+                    "project_id": selection.project_id,
+                    "set_id": selection.set_id,
+                    "group": selection.group,
+                    "exposure_receipt_id": selection.exposure_receipt_id,
+                    "reader_capability": "native_checked_evaluator",
+                    "scope": "selected_cohort_history_or_sealed_inventory",
+                }
+                for selection in selections
+            ),
+            "assessment_history": rows(),
+        }
 
     return capture

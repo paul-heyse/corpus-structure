@@ -15,7 +15,8 @@ from tempfile import TemporaryDirectory
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
-from sqlalchemy import Connection, Text, func, select, tuple_
+from sqlalchemy import Connection, Text, and_, column, func, select
+from sqlalchemy import values as sql_values
 
 from corpus_structure.semantic.continuations import decode_continuation, validate_continuation
 from corpus_structure.semantic.contribution_queries import read_source_contributions
@@ -49,7 +50,7 @@ class ContributionRequest(BaseModel):
     include_support: bool = False
     cursor: str | None = None
     limit: int = Field(default=100, strict=True, ge=1, le=1000)
-    max_bytes: int = Field(default=8_000_000, strict=True, ge=1, le=32_000_000)
+    max_bytes: int = Field(default=8_000_000, strict=True, ge=1, le=134_217_728)
     page_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=32_000_000)
 
     def selection(self):
@@ -173,12 +174,31 @@ def _contributions(
         ):
             if name == "local_assertion" and not request.include_publication:
                 continue
+            if not inventory.contributions:
+                continue
             if (
                 name == "local_semantic_assertion"
                 and "LocalSemanticPublicationPolicy" not in session.prepared.index.definitions
             ):
                 continue
             relation = table("data." + name)
+            selected_ids = (
+                sql_values(
+                    *(
+                        column(key, relation.c[key].type)
+                        for key in ("selected_task_id", "origin_task_id", "contribution_id")
+                    )
+                )
+                .data(
+                    list(
+                        dict.fromkeys(
+                            (row["selected_task_id"], row["origin_task_id"], row["contribution_id"])
+                            for row in inventory.contributions
+                        )
+                    )
+                )
+                .cte("selected_contributions")
+            )
             columns = tuple(
                 column
                 for column in relation.c
@@ -186,20 +206,21 @@ def _contributions(
             )
             query = (
                 select(*columns)
+                .select_from(
+                    relation.join(
+                        selected_ids,
+                        and_(
+                            *(
+                                relation.c[key] == selected_ids.c[key]
+                                for key in ("selected_task_id", "origin_task_id", "contribution_id")
+                            )
+                        ),
+                    )
+                )
                 .where(
                     relation.c.release_id == binding.release_id,
                     relation.c.realization_id == binding.realization_id,
                     relation.c.cut_id == cut_id,
-                    tuple_(
-                        relation.c.selected_task_id,
-                        relation.c.origin_task_id,
-                        relation.c.contribution_id,
-                    ).in_(
-                        [
-                            (row["selected_task_id"], row["origin_task_id"], row["contribution_id"])
-                            for row in inventory.contributions
-                        ]
-                    ),
                 )
                 .order_by(relation.c.assertion_id)
                 .limit(10_001)

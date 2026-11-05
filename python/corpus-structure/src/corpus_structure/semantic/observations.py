@@ -305,9 +305,9 @@ def bind_result(
             raise ValueError("structural products require a produced RUN result")
         from .structural_products import StructuralProductReport
 
-        structural = StructuralProductReport.model_validate(
-            result.structural_product
-        ).model_dump(mode="python", exclude_none=True)
+        structural = StructuralProductReport.model_validate(result.structural_product).model_dump(
+            mode="python", exclude_none=True
+        )
         if "retrieval_report" in structural:
             structural["retrieval_report"] = prepared.validate_json(
                 "ContextualEnrichmentReport", canonical_bytes(structural["retrieval_report"])

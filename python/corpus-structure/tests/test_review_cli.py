@@ -57,16 +57,28 @@ def test_mixed_cohort_export_keeps_project_and_authorization_boundaries(cli, tmp
     monkeypatch.setattr(review_assessments, "record_review_exposure", record_exposure)
     monkeypatch.setattr(review_bundle, "export_review_bundle", lambda *args, **kwargs: {"ok": True})
     result = cli(
-        "review", "export-evaluated", str(selected), str(tmp_path / "bundle"),
-        "--project", "m1-source-grinstead-snell", "--assessment-set", "18",
-        "--group-project", "pce-statistics-structural", "--group-assessment-set", "7",
-        "--authorization-basis", "selected already-exposed development cohort", "--json",
+        "review",
+        "export-evaluated",
+        str(selected),
+        str(tmp_path / "bundle"),
+        "--project",
+        "m1-source-grinstead-snell",
+        "--assessment-set",
+        "18",
+        "--group-project",
+        "pce-statistics-structural",
+        "--group-assessment-set",
+        "7",
+        "--authorization-basis",
+        "selected already-exposed development cohort",
+        "--json",
         settings=lambda: Settings(),
     )
     assert result.exit_code == 0, result.output
     assert purposes == ["evaluate"]
-    assert [(value["project_id"], value["group"], value["authorization_basis"])
-            for value in exposures] == [
+    assert [
+        (value["project_id"], value["group"], value["authorization_basis"]) for value in exposures
+    ] == [
         ("m1-source-grinstead-snell", False, "selected already-exposed development cohort"),
         ("pce-statistics-structural", True, None),
     ]

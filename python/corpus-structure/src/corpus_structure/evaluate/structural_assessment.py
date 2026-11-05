@@ -143,7 +143,7 @@ def score_structural_reference(
         found = True
         for step in case.path:
             if isinstance(actual, dict) and isinstance(step, str) and step in actual:
-                actual = actual[step]
+                actual = actual.get(step)
             elif isinstance(actual, list) and isinstance(step, int) and 0 <= step < len(actual):
                 actual = actual[step]
             else:

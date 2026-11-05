@@ -210,7 +210,9 @@ def test_selected_export_is_atomic_bounded_and_not_a_review_bundle(inventory, tm
     assert not refused.exists()
 
 
-def test_selected_export_preserves_destination_created_during_capture(inventory, tmp_path, monkeypatch):
+def test_selected_export_preserves_destination_created_during_capture(
+    inventory, tmp_path, monkeypatch
+):
     destination = tmp_path / "raced"
     original = journey._contributions
 
