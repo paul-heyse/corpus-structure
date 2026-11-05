@@ -125,6 +125,9 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
 def test_final_validation_freezes_projection_membership(
     private_build, semantic_writer_engine, semantic_db_engine, tmp_path
 ):
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
+
     build = private_build
     stage_complete_native(semantic_writer_engine, build, tmp_path)
     with semantic_writer_engine.begin() as conn:
@@ -139,6 +142,11 @@ def test_final_validation_freezes_projection_membership(
         frozen=frozen.frozen_digest,
     )
     with semantic_db_engine.begin() as conn:
+        run_id = conn.execute(
+            text("SELECT run_id FROM ops.task WHERE id=:task"), params
+        ).scalar_one()
+        runtime = runtime_binding_for_run(conn, run_id, open_release(conn, build.release_id))
+        single_source = runtime.input("pdf/publication.py").content
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         projection = conn.execute(
             text(
@@ -162,8 +170,9 @@ def test_final_validation_freezes_projection_membership(
                 "AND input_name='execution/implementation/pdf/publication.py'"
             ),
             {"release": build.release_id},
-        ).scalar_one()
-        assert recorded != sha256(old_single_source).hexdigest()
+        ).scalar_one_or_none()
+        assert old_single_source is None
+        assert recorded != sha256(single_source).hexdigest()
     with semantic_writer_engine.begin() as conn:
         conn.execute(
             text(

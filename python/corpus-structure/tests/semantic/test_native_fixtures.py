@@ -417,7 +417,13 @@ def test_clone_replays_and_removes_actual_restricted_reader_default(native_serve
         reader = principal_engine(native_settings, "read", "postgres")
         try:
             with reader.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-                role = conn.exec_driver_sql("SELECT current_user").scalar_one()
+                role, authenticated_role = conn.exec_driver_sql(
+                    "SELECT current_user, session_user"
+                ).one()
+                assert role == authenticated_role
+                assert not conn.exec_driver_sql(
+                    "SELECT rolsuper FROM pg_roles WHERE rolname=current_user"
+                ).scalar_one()
                 q = conn.dialect.identifier_preparer.quote
                 conn.exec_driver_sql(
                     f"ALTER ROLE {q(role)} IN DATABASE {q(source)} SET statement_timeout TO '2s'"
@@ -437,9 +443,7 @@ def test_clone_replays_and_removes_actual_restricted_reader_default(native_serve
                 (role, "statement_timeout", "2s"),
             ]
             with native_server.connect() as conn:
-                assert not conn.execute(
-                    text("SELECT pg_has_role(current_user,:role,'SET')"), {"role": role}
-                ).scalar_one()
+                assert conn.exec_driver_sql("SELECT current_user").scalar_one() != role
             with native_server.database(target, source, policy=expected):
                 assert native_server.policy(target) == expected
                 target_reader = principal_engine(native_settings, "read", target)

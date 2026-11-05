@@ -276,6 +276,9 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         or session.completed_cut_id != ref.cut_id
                     ):
                         raise SemanticRefusal("structural original run/cut/revision differs")
+                    if ref.release_id not in seen_releases:
+                        seen_releases.add(ref.release_id)
+                        yield "contracts", _contract_row(session.prepared)
                     run = table("ops.run")
                     if (
                         conn.scalar(select(run.c.project_id).where(run.c.id == ref.run_id))
@@ -843,6 +846,9 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                             )
                             structural_refs.update(
                                 (ref.identity, ref) for ref in report.inputs.sources
+                            )
+                            required_contracts.update(
+                                ref.release_id for ref in report.inputs.sources
                             )
                             needed_reports.add(payload["origin_task_id"])
                             structural_reports.extend(

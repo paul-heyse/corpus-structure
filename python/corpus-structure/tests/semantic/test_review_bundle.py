@@ -377,6 +377,7 @@ def structural_rows():
         ),
         ("sources", source),
         ("contracts", {"release_id": "release:structural", "definitions": [], "registry_rows": []}),
+        ("contracts", {"release_id": "release:old", "definitions": [], "registry_rows": []}),
     ]
 
 
@@ -396,6 +397,20 @@ def test_full_structural_bundle_requires_its_release_contracts(tmp_path):
     with pytest.raises(ValueError, match="structural release contracts are missing"):
         write_review_bundle(request, tmp_path / "missing-contracts", iter(rows))
     assert not (tmp_path / "missing-contracts").exists()
+
+
+def test_full_structural_bundle_requires_original_source_release_contracts(tmp_path):
+    from corpus_structure.serve.structural_products import StructuralRequest
+
+    request = ReviewSelection(structural_selections=(StructuralRequest(run_id=2),))
+    rows = [
+        row
+        for row in structural_rows()
+        if not (row[0] == "contracts" and row[1]["release_id"] == "release:old")
+    ]
+    with pytest.raises(ValueError, match="structural release contracts are missing"):
+        write_review_bundle(request, tmp_path / "missing-source-contracts", iter(rows))
+    assert not (tmp_path / "missing-source-contracts").exists()
 
 
 def test_full_dossier_bundle_refuses_missing_selected_predecessor(tmp_path):
