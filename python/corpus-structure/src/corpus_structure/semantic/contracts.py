@@ -65,8 +65,11 @@ def semantic_implementation_inputs(
         and not source.name.endswith((".py", ".sql"))
     }
     if unknown:
-        raise ValueError("implementation assets lack a declared role: " + ", ".join(sorted(unknown)))
+        raise ValueError(
+            "implementation assets lack a declared role: " + ", ".join(sorted(unknown))
+        )
     return tuple(source for source in inputs if source.name in SEMANTIC_IMPLEMENTATION_NAMES)
+
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -1006,7 +1009,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
     shipped = files("sympy").joinpath("parsing", "latex", "lark", "grammar", "latex.lark")
     from corpus_structure.ingest.pdf import pdf_package_versions
 
-    return (
+    captured = (
         *(
             SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
             for name, path in (
@@ -1181,6 +1184,18 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 }
                 | dict(pdf_package_versions())
             ),
+        ),
+    )
+
+    # Include the complete owned executable package as runtime custody. Named aliases above
+    # remain for existing consumers; adding a helper must not escape the runtime fingerprint.
+    package = Path(str(root))
+    return (
+        *captured,
+        *(
+            SourceArtifact("package/" + str(path.relative_to(package)), path.read_bytes())
+            for path in sorted(package.rglob("*"))
+            if path.is_file() and path.suffix in {".py", ".sql"}
         ),
     )
 

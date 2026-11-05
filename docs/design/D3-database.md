@@ -12,6 +12,22 @@ they do not impose a universal completeness gate on independently typed products
 
 > Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
+## Semantic releases and runtime custody
+
+**Accepted target; implementation/native qualification in progress,2026-11-05.** A semantic
+release is a closed immutable interpretation archive. Exact executable provenance is stored once
+in `sem.runtime_binding`, with a same-release immutable `ops.run.runtime_id` pin. New run creation
+authenticates the runtime archive and supported contract; execution compares the installed runtime
+and task reuse preserves its compatibility. Start/claim read compact pins rather than repeatedly
+hydrating the source archive. Existing native deployment/body/owner/ACL/effect guards remain.
+
+Historical runs retain their exact embedded source provenance. A reader does not substitute the
+current executable package or alter the old release to populate a missing runtime pin. This
+transition changes the forward model/ABI once; incidental later operational repairs do not change
+the meaning or identity of data. Actual acceptance is owned by the PCE coordinator.
+
+> Decision: [ADR-0063](../adr/0063-semantic-runtime-identity.md)
+
 ## M1 protected reference storage
 
 **Accepted target, Proposed until native qualification (2026-11-03).** Existing reference

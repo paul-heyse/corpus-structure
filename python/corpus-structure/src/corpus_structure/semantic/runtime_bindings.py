@@ -47,9 +47,14 @@ def runtime_fingerprint(
     if inputs is not None and digests is not None:
         raise ValueError("supply runtime inputs or their digests, not both")
     captured = runtime_implementation_digests(inputs) if digests is None else tuple(sorted(digests))
-    return "runtime-code:" + sha256(
-        canonical_bytes({"version": "runtime-code-1", "python": sys.version, "inputs": captured})
-    ).hexdigest()
+    return (
+        "runtime-code:"
+        + sha256(
+            canonical_bytes(
+                {"version": "runtime-code-1", "python": sys.version, "inputs": captured}
+            )
+        ).hexdigest()
+    )
 
 
 def _document(content: bytes, keys: set[str]) -> dict[str, Any]:
@@ -92,15 +97,15 @@ def _execution(prepared: PreparedRelease):
     return bound_execution_model(prepared), json.loads(payload)["inputs"]["compiler_version"]
 
 
-def _binding(
+def _manifest(
     prepared: PreparedRelease,
     inputs: tuple[SourceArtifact, ...],
     *,
     python_version: str,
-) -> RuntimeBinding:
+) -> bytes:
     model, compiler = _execution(prepared)
     sources = _inputs(inputs)
-    manifest = canonical_bytes(
+    return canonical_bytes(
         {
             "version": "runtime-binding-1",
             "release_id": prepared.release_id,
@@ -116,6 +121,16 @@ def _binding(
             ],
         }
     )
+
+
+def _binding(
+    prepared: PreparedRelease,
+    inputs: tuple[SourceArtifact, ...],
+    *,
+    python_version: str,
+) -> RuntimeBinding:
+    sources = _inputs(inputs)
+    manifest = _manifest(prepared, sources, python_version=python_version)
     archive = canonical_bytes(
         {
             "version": "runtime-source-archive-1",
@@ -137,8 +152,15 @@ def validate_runtime_binding(binding: RuntimeBinding, prepared: PreparedRelease)
     model, compiler = _execution(prepared)
     manifest = _document(
         binding.manifest,
-        {"version", "release_id", "execution_model_id", "execution_compiler_version",
-         "python_version", "semantic_inputs", "implementation_inputs"},
+        {
+            "version",
+            "release_id",
+            "execution_model_id",
+            "execution_compiler_version",
+            "python_version",
+            "semantic_inputs",
+            "implementation_inputs",
+        },
     )
     archive = _document(binding.archive, {"version", "inputs"})
     if (
@@ -180,16 +202,17 @@ def validate_runtime_binding(binding: RuntimeBinding, prepared: PreparedRelease)
             sources != list(ordered)
             or manifest["implementation_inputs"] != expected
             or manifest["semantic_inputs"] != semantic
-            or not set(model.implementation_digests) <= {(item.name, item.digest) for item in ordered}
+            or not set(model.implementation_digests)
+            <= {(item.name, item.digest) for item in ordered}
         ):
             raise ValueError("runtime source set or semantic determinants differ")
     except (KeyError, TypeError, ValueError) as error:
         raise RuntimeBindingError(str(error)) from error
 
 
-def prepare_runtime_binding(
+def _qualified_inputs(
     prepared: PreparedRelease, inputs: tuple[SourceArtifact, ...] | None = None
-) -> RuntimeBinding:
+) -> tuple[SourceArtifact, ...]:
     from .contracts import EXECUTION_COMPILER_VERSION, semantic_implementation_inputs
 
     model, compiler = _execution(prepared)
@@ -204,7 +227,19 @@ def prepare_runtime_binding(
     for operation in model.operations:
         if operation.implementation is not None:
             model.require_operation(operation.id)
-    return _binding(prepared, sources, python_version=sys.version)
+    return sources
+
+
+def installed_runtime_id(prepared: PreparedRelease) -> str:
+    """Check execution compatibility without rendering or hydrating its source archive again."""
+    manifest = _manifest(prepared, _qualified_inputs(prepared), python_version=sys.version)
+    return "runtime:" + sha256(manifest).hexdigest()
+
+
+def prepare_runtime_binding(
+    prepared: PreparedRelease, inputs: tuple[SourceArtifact, ...] | None = None
+) -> RuntimeBinding:
+    return _binding(prepared, _qualified_inputs(prepared, inputs), python_version=sys.version)
 
 
 def require_installed_runtime(

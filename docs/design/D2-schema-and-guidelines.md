@@ -14,6 +14,15 @@ they do not impose a universal completeness gate on independently typed products
 
 ## Current compiler and compatibility owner
 
+**Accepted target; identity controls Tested, native integration in progress,2026-11-05.** Semantic
+compiler17/execution compiler27 separate positively declared semantic assets from exact executable
+runtime provenance. `contracts.SEMANTIC_IMPLEMENTATION_NAMES` owns the mixed-input classification;
+the schema/catalog and grammar/model/output contracts stay release-bound. `runtime_bindings` owns
+the separate source archive and execution fingerprint. Budget-only source repairs preserve the
+semantic release; declared interpretation/contract changes retain their explicit versioning.
+
+> Decision: [ADR-0063](../adr/0063-semantic-runtime-identity.md)
+
 **Implemented; selected AC scope Tested2026-11-04.**
 `semantic.types.SEMANTIC_COMPILER_VERSION` declares the sole current producing compiler;
 `READABLE_COMPILER_VERSIONS` declares supported immutable product reading. Native execution
@@ -24,8 +33,8 @@ a compiler number alone does not establish their compatibility. AC13 owns the co
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
-The current producing semantic compiler is16; immutable product readers cover14/15/16. Execution
-compiler24, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
+The current producing semantic compiler is17; immutable product readers cover14/15/16/17. Execution
+compiler27, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
 coverage recipe3 retains its historical producer universe. Native source inspection/search use
 request/cursor version4; incompatible old requests and query bindings refuse. These version
 declarations do not establish final native, provider or assembled consumer qualification.

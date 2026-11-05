@@ -10,7 +10,17 @@ are owned by the [PCE series](../plans/progressive-corpus-enrichment_2026-11-04.
 contribution/assessment companions. Existing record-specific rules below retain their scope;
 they do not impose a universal completeness gate on independently typed products.
 
-> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+**Execution amendment, 2026-11-05:** fresh operation-specific reference authoring is the
+qualification basis. Do not adapt inadequate historical references. Historical grades and passes
+remain at their original grain; the new operation protocol has no historical-field projection or
+derived adjudication bypass. Raw source/producer inputs must be suitable for the declared question.
+
+**Accepted target,2026-11-05:** a runtime-only repair does not create new source/reference meaning.
+Semantic release, source frame, question/rubric and producing runtime remain separate bindings.
+Fresh authoring is required when the question or available source evidence is inadequate; code
+fingerprint churn alone is not a reason to re-author compatible references.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md), [ADR-0063](../adr/0063-semantic-runtime-identity.md)
 
 ## M1 fitted instances and final-event calibration
 
