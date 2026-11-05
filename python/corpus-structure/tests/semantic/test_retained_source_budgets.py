@@ -13,6 +13,7 @@ from corpus_structure.semantic.operations import BoundReader
 from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import NativeSourcePin
+from corpus_structure.semantic.types import PreparedRelease
 
 
 @pytest.mark.parametrize("explicit_budget", [False, True])
@@ -89,7 +90,7 @@ def test_retained_report_and_native_source_keep_their_budget_scope(monkeypatch, 
     monkeypatch.setattr(BoundReader, "source_view", source_view)
     monkeypatch.setattr(source_views, "selected_source_views", selected)
     monkeypatch.setattr(
-        releases, "open_release", lambda *_: SimpleNamespace(release_id="old-release")
+        releases, "open_release", lambda *_: Mock(spec=PreparedRelease, release_id="old-release")
     )
     observed_report_limits = []
     preflight = PublishedReadBudget.preflight
@@ -100,7 +101,7 @@ def test_retained_report_and_native_source_keep_their_budget_scope(monkeypatch, 
 
     monkeypatch.setattr(PublishedReadBudget, "preflight", admit)
     reader = BoundReader(
-        conn, 99, SimpleNamespace(release_id="current-release"), read_budget=caller_budget
+        conn, 99, Mock(spec=PreparedRelease, release_id="current-release"), read_budget=caller_budget
     )
     result = reader.retained_source_result(current_view.ref.id, 37, "extract.m1_candidates")
     assert result.result["input_hash"] == "retained-input"
