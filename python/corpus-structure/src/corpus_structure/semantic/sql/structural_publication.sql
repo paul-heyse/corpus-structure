@@ -118,12 +118,22 @@ BEGIN
      RAISE EXCEPTION 'member independent support needs a separate authenticated member policy' USING ERRCODE='23514'; END IF;
     IF NOT(report->'inputs'->'dependencies' ? (member->>'relation_product_id')) THEN
      RAISE EXCEPTION 'dossier predecessor is not a frozen dependency' USING ERRCODE='23514'; END IF;
-    SELECT t.id,result.body->'structural_product' product INTO STRICT upstream FROM ops.task t
-     JOIN ops.run r ON r.id=t.run_id JOIN ops.completed_result completed ON completed.run_id=r.id
-     JOIN ops.cut_task cut_member ON cut_member.cut_id=completed.cut_id AND cut_member.origin_task_id=t.id AND cut_member.task_id=t.id
-     JOIN ops.task_result result ON result.task_id=t.id
-     WHERE r.project_id=p_project AND t.release_id=p_release AND r.sealed AND r.status='finished'
-     AND t.id<selected.origin_task_id AND 'structural:'||encode(sha256(convert_to(data.canonical_json((result.body->'structural_product')-'retrieval_report'),'UTF8')),'hex')=member->>'relation_product_id';
+    -- Resolve only the predecessor selected by THIS immutable final cut. Several
+    -- completed historical origins can legitimately carry the same envelope ID.
+    -- Initial assembly policies consume definition/comparison products, not nested
+    -- dossiers: this finite layering supplies acyclicity without task-ID heuristics.
+    SELECT origin.id,result.body->'structural_product' product INTO STRICT upstream
+     FROM ops.cut_task dependency
+     JOIN ops.task task ON task.id=dependency.task_id
+     JOIN ops.task origin ON origin.id=dependency.origin_task_id
+     JOIN ops.run origin_run ON origin_run.id=origin.run_id
+     JOIN ops.task_result result ON result.task_id=origin.id
+     WHERE dependency.cut_id=p_cut AND task.run_id=p_run AND task.release_id=p_release
+      AND task.status IN ('done','reused') AND task.unit_type='run'
+      AND COALESCE(task.reused_task_id,task.id)=origin.id
+      AND origin.release_id=p_release AND origin_run.project_id=p_project
+      AND result.body->'structural_product'->>'kind' IN ('definition_applicability','qualified_comparison')
+      AND 'structural:'||encode(sha256(convert_to(data.canonical_json((result.body->'structural_product')-'retrieval_report'),'UTF8')),'hex')=member->>'relation_product_id';
     IF upstream.product->'inputs'->>'scope' IS DISTINCT FROM report->'inputs'->>'scope'
      OR EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'inputs'->'sources') source_
       WHERE NOT(report->'inputs'->'sources' @> jsonb_build_array(source_))) THEN
