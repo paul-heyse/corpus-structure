@@ -131,7 +131,7 @@ BEGIN
   RAISE EXCEPTION 'operation cases must be an array' USING ERRCODE='23514'; END IF;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
-    'assessor_provenance','contribution_kind','contribution_id','error_category','reference_projection','candidate_selector','permissible_anchor_sets']<>'{}'
+    'assessor_provenance','contribution_kind','contribution_id','error_category','reference_projection','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role']<>'{}'
    OR NOT(source_record ?& ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation','assessor_provenance'])
    OR EXISTS(SELECT FROM unnest(ARRAY['case_id','facet','inspected_scope','explanation']) k WHERE btrim(COALESCE(source_record->>k,''))='')
    OR source_record->>'judgment' NOT IN ('supported','unsupported','ambiguous','unassessed')
@@ -140,10 +140,18 @@ BEGIN
    OR jsonb_typeof(source_record->'alternatives') IS DISTINCT FROM 'array'
    OR jsonb_typeof(source_record->'assessor_provenance') IS DISTINCT FROM 'object' OR source_record->'assessor_provenance'='{}'
    OR (source_record ? 'candidate_selector' AND jsonb_typeof(source_record->'candidate_selector') IS DISTINCT FROM 'object')
+   OR COALESCE(source_record->>'expectation_mode','structure') NOT IN ('structure','absence_detection')
+   OR (source_record->>'anchor_endpoint_role' IS NOT NULL AND source_record->>'contribution_kind'<>'relation')
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') a WHERE jsonb_typeof(a)<>'object' OR a='{}')
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
    OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')
    OR NOT(bound->'anchor_ids' @> source_record->'anchor_ids')
+   OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') expected
+    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(expected->'endpoint_semantics','[]')) endpoint
+    WHERE endpoint-ARRAY['role','anchor_ids','fields']<>'{}' OR btrim(COALESCE(endpoint->>'role',''))=''
+     OR jsonb_typeof(endpoint->'anchor_ids') IS DISTINCT FROM 'array'
+     OR jsonb_typeof(endpoint->'fields') IS DISTINCT FROM 'object'
+     OR NOT(bound->'anchor_ids' @> endpoint->'anchor_ids'))
    OR (source_record ? 'permissible_anchor_sets' AND (jsonb_typeof(source_record->'permissible_anchor_sets') IS DISTINCT FROM 'array'
      OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'permissible_anchor_sets') permitted
       WHERE jsonb_typeof(permitted)<>'array' OR NOT(bound->'anchor_ids' @> permitted))))
