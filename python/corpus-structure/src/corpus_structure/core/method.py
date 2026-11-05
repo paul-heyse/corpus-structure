@@ -573,9 +573,17 @@ class UnitResult:
     def __post_init__(self) -> None:
         match self.outcome:
             case ObservationOutcome.PRODUCED:
-                ok = bool(self.observations or self.records or self.contributions) and self.error is None
+                ok = (
+                    bool(self.observations or self.records or self.contributions)
+                    and self.error is None
+                )
             case ObservationOutcome.EMPTY:
-                ok = not self.observations and not self.records and not self.contributions and self.error is None
+                ok = (
+                    not self.observations
+                    and not self.records
+                    and not self.contributions
+                    and self.error is None
+                )
             case ObservationOutcome.FAILED:
                 ok = (
                     not self.observations

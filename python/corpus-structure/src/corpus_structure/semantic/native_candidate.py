@@ -670,7 +670,9 @@ def series_native_definitions(connection, *, include_selected=True):
                 schema="eval",
             )
         )
-    operation_assessment_sql = Path(__file__).with_name("sql").joinpath("operation_assessment.sql").read_text()
+    operation_assessment_sql = (
+        Path(__file__).with_name("sql").joinpath("operation_assessment.sql").read_text()
+    )
     for name, roles in {
         "create_operation_reference_set": ("corpus_sem_evaluator",),
         "validate_operation_reference_frame": (),
@@ -679,13 +681,31 @@ def series_native_definitions(connection, *, include_selected=True):
         "record_operation_reference_evaluation": ("corpus_sem_evaluator",),
         "operation_review_export": ("corpus_sem_evaluator",),
     }.items():
-        definitions.extend(_task_call_definitions(connection, operation_assessment_sql,
-            name=name, source="operation assessment:forward", schema="eval",
-            grants=tuple((role, "EXECUTE", False) for role in roles)))
-    for name in ("source_contribution_occurrence", "validate_source_anchor_coordinates",
-                 "validate_source_contribution_report", "project_source_contributions"):
-        definitions.extend(_task_call_definitions(connection, native_task_completion_sql(),
-            name=name, source="independent contributions:forward", grants=()))
+        definitions.extend(
+            _task_call_definitions(
+                connection,
+                operation_assessment_sql,
+                name=name,
+                source="operation assessment:forward",
+                schema="eval",
+                grants=tuple((role, "EXECUTE", False) for role in roles),
+            )
+        )
+    for name in (
+        "source_contribution_occurrence",
+        "validate_source_anchor_coordinates",
+        "validate_source_contribution_report",
+        "project_source_contributions",
+    ):
+        definitions.extend(
+            _task_call_definitions(
+                connection,
+                native_task_completion_sql(),
+                name=name,
+                source="independent contributions:forward",
+                grants=(),
+            )
+        )
     for name in (
         "record_feature_score",
         "record_source_float",

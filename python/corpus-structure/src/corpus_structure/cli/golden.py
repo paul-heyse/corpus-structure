@@ -77,7 +77,9 @@ def reference_protocol(conn, set_id, project_id):
         raise semantic.ReferenceError(f"unknown reference set {set_id}")
     if definition["project_id"] != project_id:
         raise semantic.ReferenceError("reference set belongs to another project")
-    protocol = definition["sampling"].get("operation_protocol") or definition["sampling"].get("record_protocol")
+    protocol = definition["sampling"].get("operation_protocol") or definition["sampling"].get(
+        "record_protocol"
+    )
     if protocol not in (None, record_references.PROTOCOL, operation_assessment.PROTOCOL):
         raise semantic.ReferenceError("unsupported stored reference protocol")
     return protocol
@@ -289,14 +291,24 @@ def operation_create_command(
         if set(payload) != {"sampling", "frames"}:
             raise references.ReferenceError("operation sample requires exactly sampling and frames")
         try:
-            frames = {key: references.decode_frame(value) for key, value in payload["frames"].items()}
+            frames = {
+                key: references.decode_frame(value) for key, value in payload["frames"].items()
+            }
             text = guideline_text.read_text(encoding="utf-8")
         except (ValueError, OSError, TypeError, AttributeError) as error:
             raise references.ReferenceError("invalid operation sample or guideline") from error
         result = references.create_reference_set(
-            conn, project_id=pid, source_run_id=from_run, source_cut_id=source_cut,
-            label=label, legacy_split=split, guideline=guideline, guideline_text=text,
-            partition=partition, sampling=payload["sampling"], frames=frames,
+            conn,
+            project_id=pid,
+            source_run_id=from_run,
+            source_cut_id=source_cut,
+            label=label,
+            legacy_split=split,
+            guideline=guideline,
+            guideline_text=text,
+            partition=partition,
+            sampling=payload["sampling"],
+            frames=frames,
         )
     output(result, json)
 
@@ -314,7 +326,10 @@ def operation_packet_command(
 
     with reference_session(ctx, project, json=json) as (conn, pid):
         bound = references._unit(conn, unit)
-        if bound["project_id"] != pid or reference_protocol(conn, bound["set_id"], pid) != references.PROTOCOL:
+        if (
+            bound["project_id"] != pid
+            or reference_protocol(conn, bound["set_id"], pid) != references.PROTOCOL
+        ):
             raise references.ReferenceError("unit is outside selected operation reference project")
         if pass_kind in {"A", "B"}:
             result = references.author_packet(conn, unit)
@@ -424,8 +439,12 @@ def submit_command(
         if protocol == operation_assessment.PROTOCOL:
             operation_frame = operation_assessment.decode_frame(read_object(frame))
             identity = operation_assessment.record_pass(
-                conn, unit_id=unit, pass_kind=pass_kind, actor=actor,
-                authored=authored.read_bytes(), frame=operation_frame,
+                conn,
+                unit_id=unit,
+                pass_kind=pass_kind,
+                actor=actor,
+                authored=authored.read_bytes(),
+                frame=operation_frame,
             )
         elif protocol == record_references.PROTOCOL:
             record_frame = decode_record_frame(read_object(frame))

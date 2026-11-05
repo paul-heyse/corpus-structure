@@ -7,9 +7,11 @@ They are compatibility requirements, never evidence that hashing code proves its
 
 SUPPORTED_EFFECTS = {
     "read_source_contributions": {
-        "effects": (), "implementation": "read_source_contributions", "transitions": {}, "version": "1",
+        "effects": (),
+        "implementation": "read_source_contributions",
+        "transitions": {},
+        "version": "1",
     },
-
     "read_source_records": {
         "effects": (),
         "implementation": "read_source_records",

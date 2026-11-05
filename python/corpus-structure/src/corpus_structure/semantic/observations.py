@@ -288,10 +288,16 @@ def bind_result(
         from .contributions import bind_contributions
 
         if result.contribution_operations is None or result.contributions is None:
-            raise ValueError("contribution population and product presence must be explicit together")
-        operations, contributions = bind_contributions(prepared, source=source,
-            operations=result.contribution_operations, contributions=result.contributions,
-            coordinate_texts=contribution_coordinate_texts or result.contribution_coordinate_texts)
+            raise ValueError(
+                "contribution population and product presence must be explicit together"
+            )
+        operations, contributions = bind_contributions(
+            prepared,
+            source=source,
+            operations=result.contribution_operations,
+            contributions=result.contributions,
+            coordinate_texts=contribution_coordinate_texts or result.contribution_coordinate_texts,
+        )
         payload["contribution_operations"] = operations
         payload["contributions"] = contributions
     for measurement in result.measurements:

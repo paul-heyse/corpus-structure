@@ -406,7 +406,11 @@ def complete_task(
     require_bound_operation(prepared, "complete")
     if outcome not in {"done", "empty", "failed"}:
         raise ValueError("invalid terminal outcome")
-    has_output = bool(observations) or bool((envelope or {}).get("records")) or bool((envelope or {}).get("contributions"))
+    has_output = (
+        bool(observations)
+        or bool((envelope or {}).get("records"))
+        or bool((envelope or {}).get("contributions"))
+    )
     if (outcome == "done") != has_output:
         raise ValueError("terminal outcome contradicts source outputs")
     if (outcome == "failed") != bool(error):
@@ -751,10 +755,12 @@ def prepare_unit_completion(
     contribution_coordinates = ()
     if result.contributions is not None:
         from .records import authenticated_contribution_coordinate_texts
+
         if (result.ref.unit_key, result.ref.unit_id) != (task["unit_key"], task["unit_id"]):
             raise OperationConflict("contribution result differs from its exact task unit")
         contribution_coordinates = authenticated_contribution_coordinate_texts(
-            conn, prepared, dict(task), source, result.contributions)
+            conn, prepared, dict(task), source, result.contributions
+        )
     bound = bind_result(
         prepared,
         source=source,
