@@ -1,5 +1,17 @@
 # D4 · Method catalog
 
+## Progressive enrichment target
+
+**Accepted target; implementation/qualification pending PCE-00–03, 2026-11-05.** Independent
+source contributions and operation-specific assessment extend the existing release, observation,
+source custody and protected reference/read owners. Complete records remain stronger products;
+local correctness is not inferred from their grades. Exact shared contracts and remaining work
+are owned by the [PCE series](../plans/progressive-corpus-enrichment_2026-11-04.md) and its
+contribution/assessment companions. Existing record-specific rules below retain their scope;
+they do not impose a universal completeness gate on independently typed products.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
 ## M1 retained-source extraction profiles
 
 **Implemented; bounded Tested, 2026-11-04.** The explicit `contextual` profile extends

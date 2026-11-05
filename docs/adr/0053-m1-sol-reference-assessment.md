@@ -1,10 +1,10 @@
 ---
 id: ADR-0053
 title: Use GPT-6.1 Sol for M1 reference authoring and adjudication
-status: accepted
+status: superseded
 date: 2026-11-03
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0062
 design: [§B5]
 evidence: Proposed
 revisit: The selected Sol model is unavailable or cannot produce the released five-family reference contract.

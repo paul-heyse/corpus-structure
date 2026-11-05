@@ -8,6 +8,38 @@ accepted scope, certify alignment or qualify the product.
 
 <a id="baseline"></a>
 
+## Progressive contribution boundary refresh — 2026-11-05
+
+**Source-inspected; scoped refresh for the PCE-00 target review.** Baseline cd9bd586;
+preparation inputs include operator-accepted RC01–08 and pending ADR-0062/architectural-owner
+edits. Existing broad and M1 baselines below retain their dates and coverage limits. This refresh
+covers the changed contribution/reference boundary, not a new whole-repository census. Standards
+remain core3.3, heuristics1.0, code-intelligence1.4 and relevant test-assessment1.2.
+
+Inspection followed core.method UnitResult, observations.yaml, observation binding and preparation,
+record projection/query roots, native task completion, source-coordinate ownership, m1_source,
+record_readings, record_assembly, record_references, record_alignment and record_gaps. The current
+baseline retains raw native outputs but typed projected structure requires an assembled record;
+score diagnostics intentionally skip unsupported confidence shapes. `_assemble` discards an
+unlocated record group although some field spans can be valid. Record-aligned grading and
+WholeReadingLabel do not establish independent local correctness or source-first denominators.
+These are the inspected gaps relative to the newly accepted target, already scheduled as review
+O01/O02/O08/O09/O10 in the PCE coordinator; this account does not create duplicate dispositions.
+
+Existing source-product exclusion, authenticated native coordinates, immutable passes, actual
+principal separation and owned selected readers are preservation strengths. An ordinary-reader
+attempt to access eval tables refused during this execution; evaluator source-only packet capture
+succeeded with explicit project selection. New local products must retain those boundaries.
+One operation-owned selected source closure can serve several facets; per-field full reconstruction
+would repeat source validation/hydration without establishing another independent semantic claim.
+No performance benefit is measured. Former DA dispositions and other subsystem baselines are not
+closed or refreshed by these observations.
+
+The initial implementation proposal is isolated contribution commit19ed7989 in its worktree,
+with adapter and operation-assessment drafts still under integration. The forthcoming review
+must inspect that proposal independently; this refresh certifies neither its correctness nor
+native deployment. No new provider/PDF/OCR run or product qualification follows from the audit.
+
 ## M1 admission engagement refresh — 2026-11-04
 
 <a id="m1-admission-refresh"></a>

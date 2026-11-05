@@ -36,13 +36,13 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0050](0050-source-product-placement.md) | Separate private source-product constraints from knowledge graph realization | 2026-11-03 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0051](0051-m1-attributed-source-evidence.md) | Preserve attributed source bindings and captured recognition coordinates | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0052](0052-m1-independent-record-references.md) | Freeze source-only record references before extraction and isolate fitting access | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
-| [ADR-0053](0053-m1-sol-reference-assessment.md) | Use GPT-6.1 Sol for M1 reference authoring and adjudication | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0054](0054-audit-closure-contracts.md) | Bind audit closure to released semantics, owned effects and bounded readers | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B3](../design/DESIGN.md#section-b3), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 | [ADR-0056](0056-persistent-development-database.md) | Use persistent development storage with operator administration | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4) | Implemented |  |
 | [ADR-0058](0058-native-row-location.md) | Separate native row location from quoted row labels | 2026-11-04 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0059](0059-source-reading-support.md) | Scope M1 support reports to attributed source-reading facts | 2026-11-04 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0060](0060-m1-reference-applicability.md) | Preserve source-reference provenance across compatible execution successors | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0057](0057-m1-retained-reading-execution.md) |
 | [ADR-0061](0061-m1-native-record-frontends.md) | Qualify native fragment and latent record frontends for M1 | 2026-11-04 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0062](0062-progressive-contributions.md) | Retain and assess independent structural contributions through existing operations | 2026-11-05 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0053](0053-m1-sol-reference-assessment.md) |
 
 ## Superseded, still in the tree
 
@@ -68,6 +68,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0042](0042-relational-pdf-document-records.md) | Realize PDF documents as lossless records with versioned streaming identity | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0041](0041-json-text-pdf-publication.md) |
 | [ADR-0044](0044-native-pdf-metadata-jsonschema.md) | Validate lossless PDF metadata with native model-derived JSON Schema | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0046](0046-unified-operation-realization.md) | Generate domain operations and relational native products from unified contracts | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0053](0053-m1-sol-reference-assessment.md) | Use GPT-6.1 Sol for M1 reference authoring and adjudication | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0055](0055-m1-record-admission.md) | Admit evaluated source readings through immutable run policies and common publication | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0057](0057-m1-retained-reading-execution.md) | Separate retained CPU extraction from evaluated reading policies | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0055](0055-m1-record-admission.md) |
 

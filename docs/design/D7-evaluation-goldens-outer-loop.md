@@ -1,5 +1,17 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## Progressive enrichment target
+
+**Accepted target; implementation/qualification pending PCE-00–03, 2026-11-05.** Independent
+source contributions and operation-specific assessment extend the existing release, observation,
+source custody and protected reference/read owners. Complete records remain stronger products;
+local correctness is not inferred from their grades. Exact shared contracts and remaining work
+are owned by the [PCE series](../plans/progressive-corpus-enrichment_2026-11-04.md) and its
+contribution/assessment companions. Existing record-specific rules below retain their scope;
+they do not impose a universal completeness gate on independently typed products.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
 ## M1 fitted instances and final-event calibration
 
 **Implemented; bounded native controls Tested (2026-11-04).** The authoring release and exact source-ready frames
@@ -84,7 +96,7 @@ is descriptive, and no unseen-origin accuracy claim follows. Targets and isolate
 partitions remain under the M1 coordinator and ADR-0053. **Proposed:** actual final-cut evidence
 has not yet been acquired.
 
-> Decision: [ADR-0053](../adr/0053-m1-sol-reference-assessment.md)
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
 ## Current automated reference boundary
 

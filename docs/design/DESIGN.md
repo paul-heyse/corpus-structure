@@ -188,6 +188,12 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted target; implementation Proposed, 2026-11-05.** Independently addressable structural
+contributions preserve source occurrence separately from type/role/link/attachment proposals.
+A complete-record parent is not required. PCE-01/02 own compiled/native/read adoption.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
 
 **Implemented; selected native124 controls Tested2026-11-04.** Source-reading field support
 is reported through existing D5/D8 custody. Positive metadata facts and author polarity are not
@@ -228,6 +234,12 @@ uses its frozen claim form until scheduled consumer migration.
 <a id="section-b2"></a>
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Accepted target; implementation Proposed, 2026-11-05.** Typed local products remain private
+until their declared publication policy admits them. Failed later assembly preserves earlier
+sealed contributions without granting knowledge authority or weakening whole-record admission.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 adds an explicit CPU extraction route producing private source observations and record
 candidates. Existing policy/consolidation remains the sole knowledge publication owner; uncertain
@@ -463,6 +475,15 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Accepted target; implementation Proposed, 2026-11-05.** The progressive milestone uses
+operation/population capability claims and independent source-first/output-first judgments.
+Whole-record grades remain stronger scoped claims. The Sol authoring profile, frozen source
+frames, origin partitions and protected evaluator survive; whole-reading labels cannot become
+local correctness. PCE-03 owns new protocol integration and its actual evidence.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
+
 **Accepted target, Implemented with native qualification open (2026-11-04).** The statistics
 release separates native table/cell row location from the meaning-changing quoted `row_label`.
 Its source-reading support ledger reports the existing selected field facts and their custody;
@@ -653,7 +674,7 @@ infrastructure is required. Legacy grades and non-M1 profiles retain their meani
 qualification concerns a frozen held-out source cut, using exhaustive source references and
 census or exact finite-population sampling bounds; unseen-origin performance is unestablished.
 
-> Decision: [ADR-0053](../adr/0053-m1-sol-reference-assessment.md)
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
 ### §B6 Escalation is routed by versioned policies over measurements
 

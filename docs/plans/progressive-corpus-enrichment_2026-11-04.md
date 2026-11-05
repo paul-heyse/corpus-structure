@@ -97,8 +97,7 @@ they do not establish integration readiness.
 
 ## Execution queue
 
-All packages are **Planned**. PCE-00 is the next execution work; writing this series completes no
-implementation package. The root integrator owns shared model declarations, generated surfaces,
+**Execution checkpoint, 2026-11-05:** PCE-00 decision/initial-cohort scope is implemented under ADR-0062 and the scoped combined target review; PCE-01–03 are In progress in isolated worktrees. Other packages remain Planned. Native deployment and operation-quality evidence are not yet established. The root integrator owns shared model declarations, generated surfaces,
 native migration ordering and final qualification. Package IDs are not mandatory agent assignments.
 
 | Package | Required input | Delivered behavior and completion boundary |
@@ -123,6 +122,16 @@ PCE-10 consumes whichever parsing/math slices its declared questions actually re
 follows complete required functional scope, not each package. Design/target review follows the
 binding at substantial ownership/stage boundaries and the assembled boundary; bounded slice
 review does not certify the whole system.
+
+## Current execution findings
+
+The [combined target review](../design_review/reviews/design_review_pce-foundations_2026-11-05.md)
+accepts the scoped target, but first proposal19ed7989 requires correction before native acceptance.
+
+| Item | Component | Disposition and closure |
+|---|---|---|
+| PCE target review F01 | Contribution reader | Open; size selected detail before hydration, exercise oversized single-item and aggregate controls |
+| PCE target review F02 | Python/native contribution custody | Open; anchorless products cannot supply arbitrary occurrence IDs; independent forged-association rejection required |
 
 ## Review coverage and scheduled disposition
 
