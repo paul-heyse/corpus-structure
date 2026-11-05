@@ -793,8 +793,20 @@ def test_runtime_comparison_refuses_unauthenticated_archive():
 def test_semantic_release_change_does_not_imply_executable_runtime_change():
     from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
 
-    before = alias_release()
-    after = alias_release([{"match": "a", "replace": "b"}])
+    bundle, dependencies, profile = report_inputs()
+    before = prepare_release(bundle, dependencies, profile)
+    changed_bundle = replace(
+        bundle,
+        sources=tuple(
+            replace(
+                source,
+                content=source.content + b"\ndescription: distinct report semantic release\n",
+            )
+            for source in bundle.sources
+        ),
+    )
+    after = prepare_release(changed_bundle, dependencies, profile)
+    assert before.release_id != after.release_id
     before_runtime = prepare_runtime_binding(before)
     after_runtime = prepare_runtime_binding(after)
     assert before_runtime.runtime_id != after_runtime.runtime_id
