@@ -224,6 +224,7 @@ class FinalizationResult:
             17,
             "control",
             "release-control",
+            None,  # Historical run without a producing runtime pin.
             "source-control",
             0,
             "fixture-digest",

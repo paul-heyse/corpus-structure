@@ -28,16 +28,16 @@ def test_restricted_defaults_and_purpose_credentials(monkeypatch):
     monkeypatch.delenv("CORPUS_RUNTIME__DEFAULT_PROJECT", raising=False)
     settings = Settings()
     assert settings.runtime.default_project == "siegrist-pdf"
-    assert "corpus_sem_writer@/corpus_pdf_20261102" in settings.database.url
+    assert "corpus_sem_writer@/corpus_structure_dev" in settings.database.url
     assert (
-        "corpus_sem_reader@/corpus_pdf_20261102"
+        "corpus_sem_reader@/corpus_structure_dev"
         in connection_settings(settings, "read").database.url
     )
     assert connection_settings(settings).database.url == settings.database.url
     explicit = Settings(database={"evaluator_url": "postgresql://evaluator:password@"})
     evaluator = make_url(connection_settings(explicit, "evaluate").database.url)
     assert evaluator.username == "evaluator" and evaluator.password == "password"
-    assert evaluator.database == "corpus_pdf_20261102" and evaluator.host is None
+    assert evaluator.database == "corpus_structure_dev" and evaluator.host is None
     assert evaluator.query == {"host": "/var/run/postgresql", "port": "5434"}
     report = settings_report(explicit, {})
     assert "password" not in report.model_dump_json()

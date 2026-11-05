@@ -133,6 +133,6 @@ def test_current_execution_product_requires_current_abi_and_split_field(prepared
     diagnostic = failure.value.diagnostics[0]
     if mutation == "older_compiler":
         assert diagnostic.code == "unsupported_execution_abi"
-        assert "current compiler 24" in diagnostic.message
+        assert "current compiler 27" in diagnostic.message
     else:
         assert diagnostic.code == "contract_product"
