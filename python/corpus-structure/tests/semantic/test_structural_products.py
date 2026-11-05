@@ -187,6 +187,8 @@ def test_run_method_and_released_report_roundtrip():
     value = inputs()
     report = assemble_dossier(value, root_id="sense", members=())
     cfg = StructuralProductsConfig(report=report, structural_input_digest=value.identity)
+    (selected,) = StructuralProductsMethod().select(None, cfg)
+    assert selected.unit_key == report.product_id
     method = StructuralProductsMethod()
     ref = UnitRef(TaskUnitType.RUN, unit_key="run")
     result = method.run((SimpleNamespace(ref=ref),), cfg, None)[0]

@@ -66,6 +66,7 @@ if typing.TYPE_CHECKING:
     from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.source_contexts import SourceContextRead, SourceContextRequest
     from corpus_structure.semantic.source_views import PreparedSourceView
+    from corpus_structure.semantic.structural_products import StructuralInput
     from corpus_structure.semantic.types import PreparedRelease
 
 
@@ -392,6 +393,10 @@ class SourcePreparationReader(Protocol):
     retrieve related contexts or consume persisted preparation require this capability.
     """
 
+    def validate_structural_inputs(self, inputs: StructuralInput) -> None:
+        """Authenticate complete original foreign-source inputs in a settled short read."""
+        ...
+
     def context_sources(
         self,
         source_view_id: int,
@@ -625,7 +630,12 @@ class UnitResult:
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = (
-                    bool(self.observations or self.records or self.contributions or self.structural_product)
+                    bool(
+                        self.observations
+                        or self.records
+                        or self.contributions
+                        or self.structural_product
+                    )
                     and self.error is None
                 )
             case ObservationOutcome.EMPTY:

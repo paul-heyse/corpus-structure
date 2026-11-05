@@ -37,6 +37,27 @@ class BoundRunReport(BaseModel):
     cut_id: CutId | None = None
 
 
+def _source_configurations(registry, graph, overrides):
+    """Resolve the one effective configuration owned by each method in a run."""
+    configs = {}
+    for _, steps in graph.stages:
+        for step in steps:
+            method, _, default = step.config.partition("/")
+            name = overrides.get(method, default or "default")
+            resolved = registry.resolve(method, name)
+            previous = configs.get(method)
+            if previous is not None and (
+                previous.config_hash != resolved.config_hash
+                or canonical_bytes(previous.params) != canonical_bytes(resolved.params)
+            ):
+                raise OperationConflict(
+                    f"source execution requires one effective configuration for {method}; "
+                    f"{previous.name} and {name} resolve differently"
+                )
+            configs.setdefault(method, resolved)
+    return configs
+
+
 def run_source_methods(
     engine: Any,
     *,
@@ -119,17 +140,12 @@ def run_source_methods(
         if invocation_input.release_id != prepared.release_id:
             raise OperationConflict("invocation preparation belongs to another release")
     registry = registry.bind_release(prepared)
+    configurations = dict(configurations or {})
+    configs = _source_configurations(registry, graph, configurations)
     if graph.policy_propose and policy_source is not None:
         from .policy import admit_source_policy
 
         admit_source_policy(policy_source, registry, prepared)
-    configurations = dict(configurations or {})
-    configs = {}
-    for _, steps in graph.stages:
-        for step in steps:
-            method, _, default = step.config.partition("/")
-            name = configurations.get(method, default or "default")
-            configs[method] = registry.resolve(method, name)
     from corpus_structure.semantic.operation_results import validate_method_dimension
 
     for method_name in configs:
@@ -223,12 +239,26 @@ def run_source_methods(
         if corpus_record is not None:
             keys = set(corpus_record["documents"])
             docs = [d for d in docs if d["key"] in keys]
-        if not docs:
+        if not docs and any(
+            registry.method(name).unit_type != TaskUnitType.RUN for name in configs
+        ):
             raise OperationConflict("bound project has no registered source documents")
         import json
         from importlib.metadata import version
 
         library_names = set()
+        if "structure.definitions" in configs:
+            library_names.update(
+                (
+                    "gliner2",
+                    "torch",
+                    "transformers",
+                    "tokenizers",
+                    "safetensors",
+                    "threadpoolctl",
+                    "sentence-transformers",
+                )
+            )
         native_libraries = {}
         if set(configs) & {"ingest.pdf", "ingest.pdf_integrated", "enrich.pdf_math"}:
             from corpus_structure.ingest.pdf import pdf_package_versions

@@ -74,10 +74,11 @@ BEGIN
  END LOOP;
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_structural_input(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.validate_structural_input(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[];
+DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -97,6 +98,51 @@ BEGIN
    AND m.name=p_envelope->>'method' AND m.version=p_envelope->>'operation_version'
    AND cfg.params->>'structural_input_digest'=encode(sha256(convert_to(data.canonical_json(inputs),'UTF8')),'hex')) THEN
   RAISE EXCEPTION 'structural report differs from exact producing RUN/input binding' USING ERRCODE='23514'; END IF;
+ SELECT cfg.params,m.name INTO STRICT config_,method_ FROM ops.method_config cfg
+ JOIN ops.method m ON m.id=cfg.method_id WHERE cfg.id=t.method_config_id;
+ IF method_='structure.products' THEN
+  -- Registry configuration numbers use canonical decimal strings. Preserve exact
+  -- semantic fields and all raw derivation values while accounting for that
+  -- representation at numeric derivation leaves only.
+  IF jsonb_strip_nulls(config_->'report')-'retrieval_report' IS DISTINCT FROM jsonb_strip_nulls(product)-'retrieval_report'
+   OR EXISTS(WITH RECURSIVE nodes(expected,actual,path) AS (
+    SELECT jsonb_strip_nulls(config_->'report')->'retrieval_report',jsonb_strip_nulls(product)->'retrieval_report',''::text
+    UNION ALL
+    SELECT child.expected,child.actual,n.path||child.suffix FROM nodes n CROSS JOIN LATERAL (
+     SELECT n.expected->key expected,value actual,'.'||key suffix FROM jsonb_each(CASE WHEN jsonb_typeof(n.actual)='object' THEN n.actual ELSE '{}'::jsonb END)
+     UNION ALL
+     SELECT n.expected->(ord-1)::integer,value,'.*' FROM jsonb_array_elements(CASE WHEN jsonb_typeof(n.actual)='array' THEN n.actual ELSE '[]'::jsonb END) WITH ORDINALITY a(value,ord)
+    ) child
+   ) SELECT FROM nodes n WHERE CASE jsonb_typeof(n.actual)
+    WHEN 'object' THEN jsonb_typeof(n.expected) IS DISTINCT FROM 'object'
+      OR (SELECT array_agg(key ORDER BY key) FROM jsonb_object_keys(n.actual) key)
+        IS DISTINCT FROM (SELECT array_agg(key ORDER BY key) FROM jsonb_object_keys(CASE WHEN jsonb_typeof(n.expected)='object' THEN n.expected ELSE '{}'::jsonb END) key)
+    WHEN 'array' THEN jsonb_typeof(n.expected) IS DISTINCT FROM 'array'
+      OR jsonb_array_length(n.actual)<>jsonb_array_length(CASE WHEN jsonb_typeof(n.expected)='array' THEN n.expected ELSE '[]'::jsonb END)
+    WHEN 'number' THEN n.expected IS DISTINCT FROM n.actual AND (
+      jsonb_typeof(n.expected) IS DISTINCT FROM 'string'
+      OR n.path NOT IN ('.vectors.*.values.*','.profiles.*.timeout_seconds',
+        '.candidate_lists.*.candidates.*.fusion_score',
+        '.candidate_lists.*.candidates.*.channels.*.raw_score',
+        '.candidate_lists.*.channel_results.*.hits.*.score')
+      OR n.expected#>>'{}' IS DISTINCT FROM data.decimal_canonical(n.actual#>>'{}'))
+    ELSE n.expected IS DISTINCT FROM n.actual END) THEN
+   RAISE EXCEPTION 'supplied structural report differs from its frozen configuration' USING ERRCODE='23514'; END IF;
+ ELSIF method_='structure.definitions' THEN
+  SELECT array_agg(value ORDER BY value) INTO actual FROM jsonb_array_elements_text(product->'definition'->'eligible_targets');
+  SELECT array_agg(value ORDER BY value) INTO expected FROM jsonb_array_elements_text(config_->'target_ids');
+  IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
+    OR product->>'kind' IS DISTINCT FROM 'definition_applicability'
+    OR config_->>'usage_id' IS DISTINCT FROM product->'definition'->>'usage_id'
+    OR actual IS DISTINCT FROM expected
+    OR jsonb_array_length(product->'definition'->'candidate_targets')>(config_->>'unique_target_budget')::integer
+    OR p_envelope->'parse_detail'->>'kind' IS DISTINCT FROM 'object'
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'parse_detail'->'fields') f
+      WHERE f->>'name'='version' AND f->'value'=jsonb_build_object('kind','text','text','automatic-definition-applicability-1')) THEN
+   RAISE EXCEPTION 'automatic definition report differs from its frozen source/question/inventory' USING ERRCODE='23514'; END IF;
+ ELSE
+  RAISE EXCEPTION 'method does not declare a structural report producer' USING ERRCODE='23514';
+ END IF;
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'structural report differs from immutable completed origin' USING ERRCODE='23514'; END IF;
  PERFORM ops.validate_structural_input(inputs);

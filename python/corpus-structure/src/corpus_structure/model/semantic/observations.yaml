@@ -1222,12 +1222,18 @@ enums:
       known_gap: {}
   StructuralDefinitionReadingOutcomeValue:
     permissible_values:
-      applicable_definition: {}
-      applicable_explanation: {}
-      mention: {}
-      example: {}
-      ambiguous: {}
-      insufficient_support: {}
+      applicable_definition:
+        description: The target defines the meaning invoked in the source usage, under compatible scope and conditions.
+      applicable_explanation:
+        description: The target explains the concept invoked in the usage without supplying a complete definition; preserve its limits.
+      mention:
+        description: The target mentions relevant terminology but does not define or explain the meaning invoked in the usage.
+      example:
+        description: The target illustrates a relevant concept through an example rather than defining or explaining the source usage.
+      ambiguous:
+        description: The supplied usage and target allow competing applicability readings that the source context cannot resolve.
+      insufficient_support:
+        description: The target supplies no source-grounded definition or explanation applicable to the supplied usage; topical similarity is insufficient.
   StructuralDimensionComparisonDimensionValue:
     permissible_values:
       actor: {}

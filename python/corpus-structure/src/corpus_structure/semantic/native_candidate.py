@@ -711,6 +711,9 @@ def series_native_definitions(connection, *, include_selected=True):
         )
     review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
     for name in (
+        "review_history_preflight",
+        "operation_review_history_bounded",
+        "structural_review_history_bounded",
         "operation_review_history",
         "record_review_exposure",
         "create_structural_reference_set",
@@ -726,7 +729,9 @@ def series_native_definitions(connection, *, include_selected=True):
                 name=name,
                 source="operation review history:forward",
                 schema="eval",
-                grants=(("corpus_sem_evaluator", "EXECUTE", False),),
+                grants=()
+                if name == "review_history_preflight"
+                else (("corpus_sem_evaluator", "EXECUTE", False),),
             )
         )
     structural_sql = Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
@@ -742,7 +747,11 @@ def series_native_definitions(connection, *, include_selected=True):
                 name=name,
                 source="structural products:forward",
                 schema="ops",
-                grants=(),
+                grants=tuple(
+                    (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
+                )
+                if name == "validate_structural_input"
+                else (),
             )
         )
     for name in (

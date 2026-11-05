@@ -91,6 +91,9 @@ class ScopedSourceReader:
     def contextual_candidates(self, **request):
         return self._read(lambda reader: reader.contextual_candidates(**request))
 
+    def validate_structural_inputs(self, inputs):
+        return self._read(lambda reader: reader.validate_structural_inputs(inputs))
+
     def source_context_membership(self, source_view_id):
         return self._read(lambda reader: reader.source_context_membership(source_view_id))
 

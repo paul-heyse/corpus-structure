@@ -1112,6 +1112,17 @@ class BoundReader:
             channel_budget=channel_budget,
         )
 
+    def validate_structural_inputs(self, inputs):
+        from sqlalchemy import text
+
+        from .identity import canonical_bytes
+
+        raw = canonical_bytes(inputs.model_dump(mode="json", exclude_none=True)).decode()
+        self.prepared.validate_json("StructuralInput", raw)
+        self.conn.execute(
+            text("SELECT ops.validate_structural_input(CAST(:inputs AS jsonb))"), {"inputs": raw}
+        )
+
     def source_context_membership(self, source_view_id):
         from .source_views import context_membership_digest
 
