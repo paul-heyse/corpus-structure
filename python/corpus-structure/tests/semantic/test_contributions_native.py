@@ -227,3 +227,74 @@ def test_detail_byte_budget_preflights_before_hydration(private_source):
     assert not any(
         statement.lstrip().startswith("SELECT r.task_id,jsonb_agg") for statement in statements
     )
+
+
+def test_scope_and_endpoint_indexes_select_before_detail(private_source):
+    from dataclasses import replace
+
+    case = private_source
+    result = drafts(case)
+    assert result.contributions is not None
+    assert result.contribution_operations is not None
+    occurrence, proposal = result.contributions
+    relation = dict(
+        proposal,
+        kind="relation",
+        semantic_type="table.unit_attachment",
+        item_key="attachment",
+        anchors=(),
+        endpoints=(
+            {"role": "cell_value", "contribution_id": occurrence["contribution_id"]},
+            {"role": "unit", "contribution_id": proposal["contribution_id"]},
+        ),
+    )
+    relation.pop("occurrence_id")
+    relation["contribution_id"] = contribution_identity(relation)
+    operation = dict(result.contribution_operations[0], emitted_count=3)
+    result = replace(
+        result,
+        contributions=(*result.contributions, relation),
+        contribution_operations=(operation, result.contribution_operations[1]),
+    )
+    with case.writer.begin() as conn:
+        complete(case, conn, result)
+    scope = {
+        key: value
+        for key, value in occurrence["anchors"][0].items()
+        if key in {"pin", "space", "pointer", "precision", "start", "end"}
+    }
+    with case.writer.connect() as conn:
+        selected = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            kind="relation",
+            anchor_scopes=(scope,),
+            anchor_endpoint_roles=("cell_value",),
+            include_details=True,
+        )
+        assert [row["contribution_id"] for row in selected.contributions] == [
+            relation["contribution_id"]
+        ]
+        unselected = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            kind="relation",
+            anchor_scopes=(scope,),
+            include_details=True,
+        )
+        assert unselected.contributions == ()
+        endpoint = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            contribution_ids=(proposal["contribution_id"],),
+            include_details=True,
+        )
+        assert [row["contribution_id"] for row in endpoint.contributions] == [
+            proposal["contribution_id"]
+        ]

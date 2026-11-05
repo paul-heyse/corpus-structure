@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import and_, exists, false, func, literal, or_, select, text
+from sqlalchemy.sql.elements import ColumnElement
 
 from .metadata import table
 
@@ -126,9 +127,9 @@ def read_source_contributions(
         query = query.where(contributions.c.operation_key == operation_key)
     if operation_keys is not None:
         query = query.where(contributions.c.operation_key.in_(operation_keys))
-    selectors = []
+    selectors: list[ColumnElement[bool]] = []
     anchors = table("kb.source_contribution_anchor")
-    anchor_filters = []
+    anchor_filters: list[ColumnElement[bool]] = []
     if anchor_ids is not None:
         anchor_filters.append(anchors.c.anchor_id.in_(anchor_ids))
     if anchor_scopes is not None:
