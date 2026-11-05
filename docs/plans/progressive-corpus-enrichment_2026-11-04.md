@@ -1,10 +1,11 @@
 # Progressive corpus enrichment
 
-**Status:** In progress. PCE-00–PCE-03 are Complete within the bounded private-foundation
-scope accepted below; PCE-04–PCE-11 remain Planned. **Created:** 2026-11-04; **updated:** 2026-11-05.
-**Claims:** private contracts, retained derivation and protected operation assessment are Implemented
-and bounded Tested. Remaining public, parser, embedding and assembled targets retain their planned
-standing. This coordinator alone owns package state, disposition and completion.
+**Status:** In progress. PCE-00–PCE-08 are Complete within their explicitly bounded
+foundation/local-capability scope below; PCE-09–PCE-11 remain Planned. **Created:** 2026-11-04; **updated:** 2026-11-05.
+**Claims:** private contracts, retained derivation, protected assessment, selected local publication,
+contextual retrieval and parser mechanisms are Implemented and bounded Tested. Selected
+consumer/paired acceptance is complete; assembled targets remain Planned. This coordinator
+alone owns package state, disposition and completion.
 
 ## Outcome and authority
 
@@ -73,6 +74,84 @@ Project/filter before hydration; capture validated source closure once at its ow
 of reconstructing it per field or metric. Avoid holding database transactions across encoder work.
 These remove identifiable repeated work; latency/capacity improvements remain unmeasured.
 
+## PCE-04–08 bounded acceptance — 2026-11-05
+
+**Complete for the selected functional scope; Implemented and bounded Tested.**
+[Local capability evidence](../design_review/evidence/2026-11-05_pce-local-capabilities/README.md)
+owns exact commands, failed/superseded attempts and source/runtime/reference custody.
+The [independent integrated combined design/target review](../design_review/reviews/design_review_pce-local-capabilities_2026-11-05.md)
+accepts the corrected assembled increment within its stated limits. Neither conclusion qualifies
+PCE-09–11, full-corpus accuracy, scientific truth or default adoption.
+
+| Package | Delivered acceptance and explicit limit |
+|---|---|
+| PCE-04 — Complete | Deterministic source events and independently judged exact denotations use common atomic publication. Common v3 independently selects interpretation, public assessment, publication and support; named version/contribution/own-occurrence selectors and atomic selected JSONL export work through actual CLI/fresh external MCP. Full private grades remain evaluator-only; full detached review remains PCE-09. |
+| PCE-05 — Complete | Registered actual E5/Qwen CPU corpus execution, frozen descriptors/representations, equal-budget lexical/dense/hybrid comparison, selected E5 route and actual20-target reuse after20→21 inventory expansion. Exact eligible scanning is qualified for the declared small inventory, not corpus-scale ANN/performance. |
+| PCE-06 — Complete | Actual fixed-list denotations, source/exclusion/known-type/parent/version guards and protected grade-backed ordinary publication. Unknown constraints stay unknown; other relationships/catalog completeness/canonical identity are not established. |
+| PCE-07 — Complete | Retained spaCy consumers, GLiNER spans/attributes/directed proposals, declared Lark syntax, truthful refusal/partial scopes and complete typed replay. Actual source-first92 and capability-selected output24 assessments expose gains and errors. Unselected mechanisms/training remain conditional; no universal parser-accuracy claim. |
+| PCE-08 — Complete | Shared local marginal/composite executor, numerical/dependency/refusal controls and actual retained/no-factor downstream/read/export journey. The corpus solve is explicitly not_run without a real factor policy; no probability, calibration or sparse-backend efficacy is claimed. |
+
+Actual contextual runs35/36 use17 independently supplied mentions in eight passages and20 curated
+descriptors. Protected evaluations15/14 find16 supported denotations and one selector abstention
+for each; dense/hybrid includes17 correct targets, alias-first lexical16. E5 is selected with
+smaller representation and equal observed coverage; speed/population benefits are unmeasured.
+Run37 reuses exactly20 original target vectors on21-target membership while query/list/decision
+work rebuilds. Run38 establishes initial public consumers; final run45/cut57 under native144 and
+runtime009 reuses exact origin130/evaluation20 and admits16 denotations plus33 source events over17
+physical occurrences, with zero complete-record assertions. Defaults remain null/null/generation0.
+
+The bounded parser experiment selects15 primary regions plus related/window contexts. Whitespace
+producer40/task122 retains7530 products,107 distribution spans,107 roles and43 relation proposals;
+79 partial stage rows remain, but no planned model request failed or was skipped. Read-only
+recovery and retained replay43 do not rerun extraction. Replay43 preserves all7530 products and
+adds338 private geometry/unique-role attachments,7868 total. It retains one no-policy local solve.
+
+The same92 independent body facets compare retained baseline31 with replay43:30 supported,
+58 unsupported/not captured and four unassessed. Fourteen facets are newly captured (13 positive
+header attachments and one literal), without observed correction/regression/newly-spurious change.
+Three missing header facets concern explicit inspection of an unstated header, not wrong positive
+links. Row labels, unit/note absence/attachment, remaining symbols and definition-state gaps stay
+visible; four contextual-role questions remain unavailable under that older operation grain.
+This is a combined recipe/consumer comparison, not isolated model efficacy or source completeness.
+
+Fresh output-first A/B/C use a separately frozen24-product capability cohort. Corrected protected
+evaluations26–30 find nine supported, two wrong contextual-role labels, two ambiguous and11
+unassessed facets. Both role errors predict defined_term where source supports mentioned_term;
+they remain private. Directed association grades predicate/ordered endpoints under the inspected
+context, not captured qualifiers or a complete scientific statement. Original selection001's
+coverage defect and grade001's literal/metadata mapping defect remain superseded evidence; neither
+is reused as an accuracy result. Raw source answers and format-only revisions retain their hashes.
+
+Frozen additive revisions134–144 preserve predecessor bytes and existing archive/data/run/reference
+rows; final144 migration verifies28 table digests. Source-result64MiB fallback, completion120s
+versus renewal10s/lock5s, and grouped native assurance retain semantic release `1bf171f3…` while
+exact executable custody changes. Final runtime009 is
+`runtime:4044d3bed00caa1ccf38d11f2f1568733f6893cf307186b7ce8d3953b3d19cb1`.
+Parser/replay receipts retain their own exact earlier runtimes; unchanged parser/numerical code
+remains applicable after publication-only144 changes, exercised by the final native reader union.
+
+### Selected qualification and remaining work
+
+- `uv run pytest` selected functional owners: passed418 (`root-final-functional-001.log`).
+- Final144 assessment/contribution/contextual/record/publication/support/array union: passed158
+  (`root-final-native-144-001.log`); complete semantic-admission144 file: passed21
+  (`f27-batch-validation/pytest-native144-003.log`). Scopes are not summed with overlapping receipts.
+- Evidence-wrapper21 controls pass (`parser-output-serialization-007.log`), including independent
+  label expectations, literal versus metadata/no-value, item-only applicability, exact source
+  pieces and no concatenation across gaps. Actual source/output protected grades and final
+  public CLI/fresh MCP/atomic export pass. Source-only selection001 and invalid grade001 remain.
+- Typing, Ruff, readiness and the applicable final documentation/process/evidence checks are
+  recorded at the evidence owner. Rust source is unchanged; no new Rust qualification is claimed.
+- Whole `just test-all`/PCE-11 qualification and adoption remain not_run because PCE-09–11 functional
+  scope is not implemented. This bounded acceptance does not restart stopped M1 adaptation.
+
+PCE-09 next assembles portable review/lifecycle products from these exact granular results.
+Its review should carry the two role errors, source58 uncaptured facets, ambiguous/unassessed
+output questions, one contextual selector abstention and14 separately authored non-denotation
+relationships into the capability manifest and refinement decisions. They are observed limits,
+not completed knowledge or grounds to fabricate probabilities. Genuine sparse coupled requests,
+new target types or training needs reopen their conditional investigations only when demonstrated.
+
 ## Rule changes and decision routes
 
 The operator explicitly accepted every item below on 2026-11-04 during plan preparation. No further
@@ -125,11 +204,11 @@ new producer quality, population estimate or enclosing PCE completion is establi
 | PCE-01 Contribution contracts — Complete | PCE-00 semantic decisions | Released typed occurrence/type/role/relation/qualifier/composite and operation contracts, compiler/storage/read shapes; no record-parent prerequisite |
 | PCE-02 Retained adapters — Complete | PCE-01, retained reports/context | Versioned derivation of actual returned contributions, independent source recovery and zero-output routing account; no fabricated hidden candidates |
 | PCE-03 Assessment — Complete | Early PCE-01 contracts; source-only frames | Protected operation references/judgments, both assessment directions, independent scorer and comparable structural diffs; develops alongside PCE-02 |
-| PCE-04 Local publication | PCE-01/02, PCE-03 policy evidence | Operation-specific eligibility/witnesses through common publication and actual query/CLI/MCP consumers; whole-record path preserved |
-| PCE-05 Embeddings/retrieval | PCE-01/02 located inputs, PCE-03 cases | Owned encoder, versioned vectors/inventory, exact lexical/dense/hybrid candidates and equal-budget assessment |
-| PCE-06 Link selection | PCE-05 candidates, PCE-03 judgments | Scoped explicit relationships/alternatives/local senses, then exclusion-safe identity; candidate generation and selection independently assessed |
-| PCE-07 Parsing composition | PCE-02/03 observed structural errors | Qualified native GLiNER, retained spaCy and declared Lark operations; selected refinements with local/downstream comparison |
-| PCE-08 Interpretation | PCE-01/03; actual finite coupled question | Local queries and selected composites retaining exactness/limits; triggered native successor and learned-model decisions remain distinct |
+| PCE-04 Local publication — Complete | PCE-01/02, PCE-03 policy evidence | Operation-specific eligibility/witnesses through common publication and actual query/CLI/MCP consumers; whole-record path preserved |
+| PCE-05 Embeddings/retrieval — Complete | PCE-01/02 located inputs, PCE-03 cases | Owned encoder, versioned vectors/inventory, exact lexical/dense/hybrid candidates and equal-budget assessment |
+| PCE-06 Link selection — Complete | PCE-05 candidates, PCE-03 judgments | Scoped explicit relationships/alternatives/local senses, then exclusion-safe identity; candidate generation and selection independently assessed |
+| PCE-07 Parsing composition — Complete | PCE-02/03 observed structural errors | Qualified native GLiNER, retained spaCy and declared Lark operations; selected refinements with local/downstream comparison |
+| PCE-08 Interpretation — Complete | PCE-01/03; actual finite coupled question | Local queries and selected composites retaining exactness/limits; triggered native successor and learned-model decisions remain distinct |
 | PCE-09 Review/export/lifecycle | Early PCE-01/02/03, then PCE-04–08 | Self-contained declared-scope evidence bundle, consistent selectors, reuse/invalidation/cancellation and migrated consumers; early bundle before new extraction |
 | PCE-10 Cross-document products | PCE-04/05/06 and needed PCE-07/08 slices | Source-backed definition retrieval, qualified comparisons and dossiers with same assessment/export contracts |
 | PCE-11 Assembled qualification | Required functional scope, independent references and final source | Actual native/public/provider/resource union, capability manifests, remaining limits and deliberate adoption result |
@@ -158,10 +237,32 @@ source-review opportunity closure remains separately bounded by its required pac
 | PCE execution F06 | Product/producer-observation grain | Resolved: immutable semantic product and (origin task, contribution ID) observation are separate. Cache aliases add no independent observation; physical occurrence remains distinct. |
 | PCE execution F07 | Semantic/data identity | Closed under ADR-0063: positive semantic assets and runtime custody/pins are separate. The actual two-line budget variant preserves release/model/products; grammar/model changes still version semantics. Native132, preserved old rows/provenance, runtime mismatch/reuse/cache controls pass. |
 | PCE execution F08 | Shared evaluation guard | Closed at native133: immutable set protocol selects the existing operation validator; record/scientific validation and forged-protocol refusal pass. Actual grades7–12 persist. Release19379a…, model, manifest and all artifacts stayed byte-identical; no source/reference regeneration occurred. |
+| PCE execution F09 | Archived read ownership | Closed: snapshot reads retain supported archived read ownership after unrelated semantic assets change; computation/publication still enforce current determinants. Final v3 run28 CLI/fresh external MCP read preserves2 reports/432 operations/5099 products and continuation/changed-selection refusal, with no producer execution. |
+| PCE execution F10 | Contextual query-vector attribution | Closed: actual occurrence/input/profile binding is authenticated, including wrong-occurrence forgery refusal. Native contextual23 controls pass at141; actual runs35/36 retain exact producer provenance. |
+| PCE execution F11 | Candidate/decision identity and exclusions | Closed: native recomputation binds channel scores/ranks, RRF, inventory, list/decision IDs and exact scoped exclusions; registry bypass and incompatible known type/parent refuse. Unknown constraints remain unknown. Native contextual23 controls pass; no canonical identity authority is added. |
+| PCE execution F12 | Target representation/vector invalidation | Closed: immutable descriptor identity is independent of inventory membership; profile/rendered input/original runtime/body/vector custody governs reuse. Actual run37 changes membership20→21, reuses exactly20 original target vectors and recomputes lists; this is not another independent observation or a new quality cohort. |
+| PCE execution F13 | Relationship evidence standing | Closed for the selected denotation policy: located producer cues remain private proposals; protected current C, exact full statement/frame/question/rubric and same immutable graded origin qualify publication. Native local union41 controls and actual run38 admit16 semantic claims from grade15 without complete records. Other relation events need their own applicable policy. |
+| PCE execution F14 | Local-query dependency closure | Closed: shared Python/native checks require every selected product's actual computation dependencies. The native regression union65 includes omission counterexamples; retained run31 records a genuine no-policy `not_run` solve while preserving5099 useful products. |
+| PCE execution F15 | Physical arrays and vector types | Closed: official pgvector SQLAlchemy types replace duplicate types; scalar/array comparison detects `text[]`; preserving forward139 conversion retains aliases and archived rows. Native cast/reader controls pass in union65; no frozen revision is rewritten. |
+| PCE execution F16 | Protected local-publication reader | Closed: independent review found a deferred artifact lookup defect and raw-C writer exposure. The raw helper is publisher-only; the writer receives only exact selected eligible rows, with atomic revalidation. Native41 and actual CLI/external MCP run38 support/continuation/refusal journey pass; protected labels remain protected. |
+| PCE execution F17 | Registered method configuration ABI | Closed: retrieval uses the owned source-view binding rather than requesting a nonexistent upstream producer. Changed configuration schemas use retrievalv2 and annotationv2; existing v1 rows remain immutable. Actual registered workflow, native old/new ABI controls and actual runs35/36 pass. |
+| PCE execution F18 | Completion versus renewal budget | Closed: finite completion120s is separate from renewal10s and lock5s. Native lifecycle8 and settings38 controls pass; identical retained data completes in run31 after the earlier10s refusal. Runtime004 preserves semantic release1bf; no source/model regeneration follows a budget repair. |
+| PCE execution F19 | Development-use reference partition | Closed: existing feature-fit source origins are preserved. Development and feature-fit witnesses can qualify exact local statements; both held-out partitions refuse, and raw C remains inaccessible to writers. Native142 semantic14 controls and actual feature-fit publication run38 pass. |
+| PCE execution F20 | Owned source-result capacity and selection | Closed for both ports: shared64MiB fallback supports actual28MB producer110; explicit bounds remain strict, project/method/physical checks precede body hydration. Twelve selected controls plus actual normal/retained reads and semantic identity neutrality pass. Downstream typed replay has its own F25 obligation. |
+| PCE execution F21 | Parser tokenization recipe | Selected whitespace policy6 after matched-input/checkpoint/schema probes isolate codepoint degradation. Actual whitespace40 retains107 distribution spans/roles and43 model relation proposals; typed replay43 preserves them. Independent source-first comparison captures14 new facets with no observed regression on92 facets. This combined recipe/consumer comparison is not an isolated causal model-quality or population claim; fresh output-first judgment remains required. Original codepoint34/raw evidence remain intact. |
+| PCE execution F22 | Request refusal and truthful parser gaps | Closed for the selected lifecycle/summary mechanism: request refusal preserves healthy residency; real worker faults fence it. Actual same-PID refusal→valid request and focused controls pass. Ordinary-permission summaries preflight/decode SourceValue once/origin. Read-only34 correction retains89 actual gap rows; sealed40 recovery has79 partial rows and zero failed/not_run. Original failed/false-summary receipts remain, never complete-execution evidence. |
+| PCE execution F23 | Conditional proposal assessment | Closed at143: a proposal with a declared mention endpoint is assessed through actual endpoint closure without relabeling its kind or weakening exact value/anchor matching. Forty-one focused assessor controls and the82-control protected union pass. Repeated producer/score/context observations do not create additional physical facet votes. |
+| PCE execution F24 | Attribute semantic value | Closed: local adapterv2 stores independent source role labels separately from raw model confidence; version1 stays unchanged. Focused75 controls and actual native attribute completion pass. Fresh independent output assessment remains PCE-07 acceptance rather than representation evidence. |
+| PCE execution F25 | Forward typed contribution loss and group attachments | Closed for representation/custody: shared released JSON decoding restores Python shapes with identical canonical bytes. Exact pack fingerprints authenticate grouping declarations; mismatch retains original products with explicit unsupported attachment outcome. Forty-nine controls and actual run43 preserve all7530 whitespace122 products and add338 private geometry/unique-role attachments (7868 total). Existing source-first92 comparison establishes13 positive header attachments and one extra literal; separate output-first semantic assessment remains required. |
+| PCE execution F26 | Common local facets/selectors/export | Closed for the selected consumer: v3 exposes independent interpretation/assessment/publication and exact operation-version/contribution/own-physical-occurrence selectors. Public assessment is explicitly published_admission_witnesses_only, with no_public_assessment elsewhere. Protected full grades stay evaluator-only. Fourteen pure/transport plus selected native selector/budget controls and actual run38 CLI/fresh MCP/atomic40-item JSONL export pass; full detached review remains PCE-09. |
+| PCE execution F27 / local review F01 | Grouped native semantic assurance | Closed: native144 prepares full-key grades/origins/cases once/invocation while preserving exact per-row authorization and unique match refusal. Independent source review, rollback16/10 controls, complete21 semantic native controls, final158 union and actual ordinary cached-origin publication45 pass. No persistent cache, authority weakening or performance claim. |
+| PCE execution F28 | Output sample capability coverage | Closed: protocol2 freezes explicit new-capability priorities and deterministic fill before judgments. Independent A/B/C use selection002; initial001 stays insufficient-coverage evidence. Permutation/value/score independence controls and actual24-root registration/grades26–30 pass; no label-driven reselection. |
 
-### Initial measured scope and open refinement questions
+| PCE execution F29 / local review F02 | Literal-facet assessment mapping | Closed: literal-only mapping validates independent ordered exact pieces; semantic values in other facets stay unchanged. Item-only blank inspection retains its source fact and explicit exact-literal unassessed applicability. Twenty-one wrapper controls and independent reinspection of wrappers005/new registration/evaluations26–30 pass. Grade001 remains invalid for accuracy claims; final9 supported/2 role errors/2 ambiguous/11 unassessed replace its diagnoses. |
 
-Fresh source-first C supplies93 facets from five text items and sixteen table cells; these are
+### Foundation reference baseline and retained obligations
+
+**PCE-00–03 baseline, retained for its exact frame.** Fresh source-first C supplies93 facets from five text items and sixteen table cells; these are
 bounded exposed feature-fit/development material, not a population sample. Evaluations7/10 use
 source-only run27;9/12 use retained-derived run28 over the same source cases. C references and
 source-origin assignments are unchanged. Source operations preserve empty/not-run outcomes.
@@ -186,9 +287,9 @@ location can fail an exact-literal event even when the producer/product exists. 
 simulation prose cannot acquire a defining-text role merely through grouping. Unassessed
 nonsemantic diagnostics/composites need their own meaningful operation rubric, not invented labels.
 
-PCE-07 should trace returned-field versus structural-context paths for table relations, scientific
-symbol coverage and cue-state capture before choosing refinements. PCE-04 must keep supported
-literal/state eligibility separate from unsupported attachments. PCE-09 retains portable-bundle,
+The PCE-07 refinement and paired92-body-facet account above supersede this baseline for that
+selected comparison; the original93-facet frame remains intact. Source-field state and positive
+attachment capture remain separate from unsupported/uninspected absence. PCE-09 retains portable-bundle,
 consumer and lifecycle obligations. Original-page completeness, numerical scientific correctness,
 new-model efficacy, fitted reliability and population accuracy remain unassessed. The failed attempt
 to find a real positive table-relation case is retained as a coverage finding; independent constructed

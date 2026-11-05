@@ -1,56 +1,58 @@
 # Status
-_Updated2026-11-05; PCE-00–03 Complete within the selected private-foundation scope._
+_Updated2026-11-05; PCE-00–08 bounded scope Complete; PCE-09–11 Planned._
 
 ## Current scope and authority
 
-- The [PCE coordinator](docs/plans/progressive-corpus-enrichment_2026-11-04.md) owns package
-  state, findings and acceptance. PCE-04–11 remain Planned; stopped M1 obligations remain
-  transferred rather than silently completed. No new public/default adoption occurred.
-- ADR-0062 establishes independent private contributions and operation-grain assessment.
-  [ADR-0063](docs/adr/0063-semantic-runtime-identity.md) separates semantic/data identity
-  from exact executable custody. Semantic17/execution27 and native131–133 are deployed.
-- Budget-only source changes preserve semantic model/release/products. Native133's actual
-  validator repair likewise preserved release19379a91…, model, manifest and all artifacts;
-  runtime fingerprint changed without source/reference regeneration.
+- The [PCE coordinator](docs/plans/progressive-corpus-enrichment_2026-11-04.md) owns package state,
+  findings F01–F29, acceptance and remaining work. PCE-04–08 are complete for the explicitly
+  selected local capability scope. Stopped M1 obligations remain transferred; no default adopted.
+- ADR-0062/0063 retain progressive contributions and semantic/runtime separation;
+  [ADR-0064](docs/adr/0064-local-semantic-admission.md) adds exact local semantic admission through
+  common consolidation. Semantic release1bf171f3… and exact runtime0094044d3be… remain distinct.
+- [Independent integrated review](docs/design_review/reviews/design_review_pce-local-capabilities_2026-11-05.md)
+  accepts the scoped corrected architecture. F27 grouped native assurance and F29 literal-facet
+  evidence mapping are closed; enclosing PCE architecture/qualification is not accepted by it.
 
 ## Last verified — 2026-11-05
 
-- [Foundation evidence](docs/design_review/evidence/2026-11-05_pce-foundations/README.md)
-  records the exact selected pytest command:421 passed at132. Affected133 operation/scientific/
-  source-record grading branches passed12 native controls; counts are not summed.
-- `just types`, `just ruff`, `just docs-check`, `just adr-lint`, `just lint-agents`,
-  `just rules-scan`, `just rules-test`, `just ready` and root `just turn-end`: passed.
-  `just evidence`: passed,205 records/0errors;40 retained historical/citation warnings remain.
-- Native132/133 migrations preserved hashes over21/22 critical archive/data/run/reference
-  tables. Ordinary read reopened5099 legacy private products and432 operations with exact
-  original runtime provenance. No current-code backfill or historical-data deletion was needed.
-- [Independent combined review](docs/design_review/reviews/design_review_pce-foundations_2026-11-05.md)
-  accepts the scoped private architecture and semantic/runtime separation; full-series and
-  new producer-quality claims remain outside that judgment. F01–F08 dispositions are in the plan.
+- [Local evidence](docs/design_review/evidence/2026-11-05_pce-local-capabilities/README.md) owns the
+  exact selected `uv run pytest` commands:418 functional,158 final144 native,21 semantic native
+  and21 evidence-wrapper controls passed. Their scopes are not summed with overlapping receipts.
+- `just types`, `just ruff`, `just ready`, `just docs-check`, `just adr-lint`, `just deps`,
+  `just lint-agents`, `just rules-scan`, `just rules-test`: passed. `just evidence` passed206
+  records/0errors, with40 retained historical warnings. Root `just turn-end` passed.
+- Frozen native134–144 are deployed additively; final144 preserves28 archive/data/run/reference
+  table digests. Source-result64MiB defaults and separate completion120s/renewal10s/lock5s preserve
+  semantic identity. Dedicated PostgreSQL18/corpus5434 has max_locks_per_transaction256.
+- Actual v3 CLI/fresh external MCP/atomic selected JSONL export pass on public45; archived28
+  reopens2 reports/432 operations/5099 products. Private grade access remains evaluator-only;
+  public assessment scope is published_admission_witnesses_only, not complete grade coverage.
 
-## Actual fresh assessment
+## Actual assessment and published standing
 
-- Source-only run27/cut31 and retained-derived28/cut33 are sealed under semantic19379a91…
-  with exact producing runtime pins. Fresh source sets6/7 and output sets8/9 retain passes43–57;
-  six stored grades7–12 and final frame/pass/report/export custody checks passed.
-- Source93 facets:16 supported (nine literals,seven explicit blank inspections),73 unsupported,
-  four unassessed. Paired source-only→retained derivation:16 newly captured,73 unchanged,
-  four unresolved. All64 table attachment facets remain missing; no silent-zero credit.
-- Frozen output24 facets:three supported,five unsupported,two ambiguous,fourteen unassessed.
-  Exact recursive/source correspondence preserved all questions without reselection.
-  Source/output denominators remain separate; no population estimate or calibration follows.
-- Project defaults remain null/null/generation0. No PDF conversion, OCR, GLiNER extraction,
-  recognition, encoder or training reran. Fresh A/B/C are explicitly model-assisted assessors.
-  Failed native/setup/query/serializer attempts and old whole-record grades remain preserved.
+- E5/Qwen runs35/36 use17 supplied mentions/eight passages/20 curated targets. Both retrieve17
+  permissible targets with dense/hybrid,16 with alias-first lexical; selectors emit16 supported
+  denotations and one abstention. E5 is selected; no discovery/population/calibration/speed claim.
+- Actual20→21 inventory expansion reuses20 original target vectors. Public45/cut57 reuses exact
+  origin130/evaluation20 under runtime009, admits16 semantic claims/33 source events over17 physical
+  occurrences and zero complete records. Defaults remain null/null/generation0.
+- Whitespace40 retains7530 products,107 distribution spans/roles and43 model relation proposals;
+  79 partial stages remain, with no failed/not_run planned calls. Replay43 preserves all7530 and
+  adds338 private attachments (7868 total), without rerunning extraction. Local solve is not_run
+  without a genuine factor policy; no probabilities or sparse-backend efficacy are invented.
+- Same92 source facets:30 supported,58 unsupported/not captured,4 unassessed;14 newly captured
+  (13 positive headers/one literal), no observed regression. New output24:9 supported,2 wrong role
+  labels,2 ambiguous,11 unassessed,0 observed mislinked. Exact frames/A/B/C/grades remain retained.
+- Selection001 and invalid literal grade001 stay superseded evidence. Corrected evaluations26–30
+  retain the same output population and independent source answers. Directed endpoint support
+  does not establish captured qualifiers, full scientific statements or original PDF fidelity.
 
 ## Preserved baseline and next
 
-- [AC §15](docs/plans/audit-closure_2026-11-03.md#15-approved-final-acceptance-and-m1-handoff--2026-11-04)
-  retains its selected acceptance at71a78774/native105; eight opt-in host-auth crash controls
-  remain outside that selection. This increment does not reopen AC or qualify whole M1/PCE.
-- All integration worktrees are merged and removed. `just test-all` and whole `just hygiene`
-  are not_run for enclosing PCE-11: PCE-04–11 functional scope is not implemented.
-- Next: PCE-04 local publication with literal/state eligibility separate from attachment truth.
-  PCE-07 traces observed table-relation, symbol and cue-state gaps before selecting refinements;
-  PCE-09 owns complete portable review/consumer/lifecycle work. Concrete library mechanisms and
-  investigation triggers remain in the coordinator's companions. No later scope starts here.
+- AC selected acceptance and PCE-00–03 foundation receipts retain their original scope/dates.
+  No PDF/OCR conversion or training restarted; actual bounded encoders/GLiNER are separately pinned.
+- Work is on main; no auxiliary worktrees remain. `just test-all`/whole PCE-11 qualification and
+  default adoption are not_run because PCE-09–11 functional scope remains planned.
+- Next: PCE-09 portable review/export/lifecycle, carrying the exact granular gaps and two private
+  role errors into refinement decisions, then PCE-10/11. Pyro/pgmpy/training stay conditional on
+  a demonstrated useful question/data need. Full-corpus completeness and scientific truth remain open.

@@ -3,8 +3,36 @@
 **PCE-03 implemented with bounded native assessment Tested, 2026-11-05; PCE-11 Planned.** Owns PCE-03 and PCE-11 design/completion criteria. The
 [coordinator](../progressive-corpus-enrichment_2026-11-04.md) owns live package state and disposition.
 Consumes progressive-review O02/O08/O09/O10 and accepted RC01/03/04/08. The coordinator and linked
-evidence own actual local findings and bounded qualification; PCE-11 remains Planned. No embedding
-quality or population accuracy is established by this document.
+evidence own actual local findings and bounded qualification; PCE-11 remains Planned. No
+population accuracy is established by this document. Actual bounded contextual quality and parser
+comparisons are recorded at the coordinator's evidence owner, separately from PCE-11.
+
+## Selected assessment extensions — 2026-11-05
+
+**Implemented and bounded Tested.** Conditional proposals can name a real `mention` endpoint
+for assessment without becoming relations. Exact endpoint closure supplies the selected source
+subject; label-only semantic values remain separate from native confidence. Repeated observations,
+scores and context windows do not create extra physical votes for one facet. Source-first and
+output-first frames retain different denominators, exact question/version/rubric and immutable
+pass/source/runtime attribution. A runtime change does not establish semantic correspondence or
+authorize an old grade for a different producer origin.
+
+Fresh source-only contextual A/B/C use17 supplied mentions and20 frozen curated descriptors;
+candidate inclusion and fixed-list selection are graded separately. The parser comparison uses
+the same independently authored92 body facets on retained baseline31 and new typed replay43.
+It finds14 newly captured facets without an observed regression; unmodeled questions and missing
+explicit absence captures remain visible. The new output sample freezes operation capabilities
+before independent judgments. Its corrected protocol2 includes conditional attributes, entity
+classes, cue/syntax operations and directed/native attachments; selection001's coverage defect is
+retained as superseded evidence, never silently replaced after seeing labels. Raw A/B/C and
+deterministic wrappers remain separately inspectable.
+
+Ordinary contribution readers expose only published admission-witness assessment metadata.
+`no_public_assessment` makes no claim about protected grade availability or correctness. Full
+operation grades remain evaluator-authorized; PCE-09 owns their portable review matrix. The
+[local capability evidence](../../design_review/evidence/2026-11-05_pce-local-capabilities/README.md)
+retains exact cases, commands and limits; these are exposed feature-fit cases, not population
+accuracy, calibrated reliability or independent human assessment.
 
 ## Baseline and intended change
 
@@ -256,5 +284,6 @@ without silently changing prior standing. Perform the binding's assembled design
 resolve material integration findings and update enduring architecture with implemented contracts.
 Do not promote package-local checks to full qualification.
 
-**Current execution evidence:** not_run for this new protocol and qualification. Plan publication
-checks validate documentation only; the coordinator owns the next executable work.
+**PCE-11 assembled qualification:** not_run. The implemented PCE-03 protocol and selected
+PCE-04–08 evidence above do not establish this enclosing boundary. The coordinator owns remaining
+functional work and qualification; documentation checks validate publication only.

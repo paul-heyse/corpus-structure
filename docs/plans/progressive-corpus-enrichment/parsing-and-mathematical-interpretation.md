@@ -1,14 +1,56 @@
 # Parsing and mathematical interpretation
 
-**Proposed implementation plan, 2026-11-04.** This companion develops PCE-07 and PCE-08
+**Implementation target and bounded execution evidence, updated 2026-11-05.** This companion develops PCE-07 and PCE-08
 from [review O04](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O04)
 and [O03](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O03).
 The [coordinator](../progressive-corpus-enrichment_2026-11-04.md) owns package state,
 execution order, rule-change disposition and combined completion. This document owns the
 parsing and interpretation target and its acceptance obligations, without a second progress
 ledger. Baseline examined: `a3b0f21d`; documentation inspection: 2026-11-04 local date.
-All new capability and feasibility claims remain **Proposed**; runtime feasibility, native
-inference comparison, model execution and benefit measurement are **not_run**.
+The selected execution boundary below supersedes blanket `not_run` statements for its route.
+Native sparse inference, learned-model alternatives and unselected parser mechanisms remain
+Proposed, with their original applicability triggers.
+
+## Selected implementation and evidence — 2026-11-05
+
+**Implemented and bounded Tested; selected paired source/output assessment completed2026-11-05.**
+Annotationv2 reconstructs retained spaCy columns in a consumer-local native view, preserving
+token/whitespace coordinates, heads and explicit sentence ownership. Rules share the resident
+vocabulary and prepared matchers. The selected primary-region filter applies before context
+widening/model calls; unrequested regions retain unknown coverage. No PDF/OCR reread is needed.
+
+GLiNER2.5-base-v1 at revision `54785d51df8d86a0d8f2eb212fec15871aad2c4d` uses the existing
+`gliner2[local]==2.1.0` worker and native entity/AttributeGroup/directed-relation interfaces.
+Returned extents, repeated endpoints, common computation dependencies and raw reports survive.
+Local adapterv2 makes attribute meaning the returned label; native confidence is retained
+separately as a raw score. Oldv1 report bytes and comparisons keep their original semantics.
+Request-specific schema refusal yields a limited operation and leaves the healthy resident
+worker available; actual model/IPC faults remain terminal. Actual same-PID refusal→valid-request
+execution qualifies that distinction, alongside controlled fault cases.
+
+Matched exact-input/checkpoint/schema probes show that the previous codepoint recipe returns
+zero distribution spans/roles/relations on two named passages, while explicit whitespace returns
+eight distribution spans/roles and six relations. These are returned proposals, not correctness
+labels. The go-forward contextual source recipe therefore selects existing whitespace policy6.
+The original codepoint corpus run34, its raw data and the corrected89-gap diagnosis remain;
+the sealed whitespace corpus run40 is recovered without rerunning extraction. Fifteen selected
+primary regions plus bounded related/window contexts define this experiment, not full-book coverage.
+
+Lark exposes captured-native-text syntax with exact grammar/hash/prefix/tail/tree coordinates,
+explicit source-health unknown and separate failure diagnostics. This mode claims no recognized
+LaTeX, original glyph fidelity, numerical correctness or interpreted scientific truth. The
+recognized-only mode retains its stricter source prerequisites. Conditional JointIE/lattice/SPPF
+and training branches below remain untriggered.
+
+The shared bounded log-space executor now accepts local marginal/composite questions alongside
+the strict record adapter, preserving full-normalizer/event-union/coherent-alternative and
+invalid/infeasible/numerical/limit/cancellation behavior. Actual retained run31 seals the local
+question as `not_run`: no genuine domain factor policy applies. Its5099 useful contributions
+remain inspectable. No extraction score is converted into a probability. There is no actual
+useful sparse request beyond the full-joint guard, so Pyro/pgmpy activation is untriggered and
+not passed. The concrete mechanisms and acceptance obligations below remain the selected route
+if that trigger occurs. [Local evidence](../../design_review/evidence/2026-11-05_pce-local-capabilities/README.md)
+owns commands, native/provider results and the final paired assessment boundary.
 
 RC01–RC08 were accepted for planning on 2026-11-04. RC02 supplies the contribution model;
 RC07 permits local mathematical questions with optional selected composite events. Their
@@ -160,7 +202,7 @@ Sources: [GLiNER overview §§3–6](../../libraries/parsing/gliner2.md), and re
 [joint extraction](https://github.com/fastino-ai/gliner2/blob/v2.1.0/tutorial/15-joint_ie.md).
 Context7 resolved `/fastino-ai/gliner2`; its main-branch examples were reconciled with the
 versioned attributes and joint-extraction tutorials. API fit does not establish checkpoint
-compatibility or extraction benefit; actual selected-operation execution remains not_run.
+compatibility or extraction benefit. Actual selected-operation evidence is bounded above; JointIE remains untriggered.
 
 Training, LoRA/DoRA, candidate-count guidance changes, numerical precision changes and specialist
 checkpoints each require an observed operation-specific failure and a credible mechanism that
@@ -217,7 +259,7 @@ Sources: [spaCy overview §§2–5](../../libraries/parsing/spacy.md),
 [native matchers](https://spacy.io/usage/rule-based-matching),
 [dependency matcher](https://spacy.io/api/dependencymatcher).
 The overview targets 3.8.16; the manifest pin and inspected constructor are 3.8.18.
-Context7 `/explosion/spacy` supplies API orientation; checked reconstruction remains not_run.
+Context7 `/explosion/spacy` supplies API orientation; selected reconstruction is now exercised by the retained-column controls and actual source consumer above.
 
 ### Lark: retain syntax separately from interpretation
 
@@ -529,7 +571,7 @@ an operation that promised it cannot discard it after choosing a backend.
 
 ## Verification and execution handoff
 
-All implementation commands below are **planned, not_run**. During PCE-07/08 run focused
+The following is the verification route; actual commands/outcomes live in the linked evidence. During PCE-07/08 run focused
 `uv run pytest` selections for the changed parser/annotation/interpretation owners and relevant
 consumer integration; preserve strict markers/configuration. Use actual selected native model
 calls only where necessary to establish the new provider path and retain exact source/profile

@@ -1,12 +1,45 @@
 # Progressive corpus enrichment: publication, review export and lifecycle
 
-**Proposed implementation plan, 2026-11-04.** This companion develops PCE-04 and PCE-09 of the
+**Implementation target and bounded execution evidence, updated 2026-11-05.** This companion develops PCE-04 and PCE-09 of the
 [coordinator](../progressive-corpus-enrichment_2026-11-04.md), the sole owner of package state,
 scheduled disposition, rule-change decisions and overall completion. It consumes the shared
 [contribution contracts](contributions-and-semantic-contracts.md#shared-contracts), and does not
 redefine their identities or maintain another progress register. Source baseline: `a3b0f21d`,
-inspected 2026-11-04. All new behavior below is **Proposed**. Product/provider/native qualification
-is **not_run** for this documentation engagement.
+inspected 2026-11-04. The selected execution boundary below supersedes blanket `not_run`
+statements for its implemented route. PCE-09 and unselected policies remain Proposed.
+
+## Selected implementation and evidence — 2026-11-05
+
+**Implemented and bounded Tested.** ADR-0064 and D5/D8 own operation-specific local publication
+through the existing `PublicationBatch`, COPY staging, SERIALIZABLE retry/fencing and receipt
+owner. Deterministic policies admit authenticated source-occurrence/literal claims independently
+of complete records. A separate protected independent-contextual-denotation policy requires the
+exact supported/stated full C statement, current captured grade, rubric/context/question/version,
+source frame and same immutable producer contribution in the graded and selected cuts. Producer
+confidence and vector similarity supply neither witness. Raw C remains inaccessible to writers;
+only narrowly selected eligible evidence crosses the owned publication boundary and native
+publication revalidates it atomically. Development and feature-fit references are eligible;
+both held-out partitions refuse.
+
+Actual run38 admits16 denotation claims and33 local source events over17 distinct physical
+occurrences, with zero complete-record assertions. Claims and producer/cut witnesses retain
+different identities. The common contribution service, CLI and external stdio MCP agree on
+private/public standing, selected lineage/support, continuation and changed-selection/byte
+refusals. Scientific support is explicitly `unmodeled`; inventory paging establishes no original
+source completeness. The selected implementation captures at most10000 selected rows on each
+page and refuses larger inventories rather than claiming corpus-scale pagination.
+
+[Local capability evidence](../../design_review/evidence/2026-11-05_pce-local-capabilities/README.md)
+retains actual publication/transport receipts and failed attempts. The v3 service separately selects typed interpretation and public assessment witnesses, operation
+version, contribution and own physical occurrence. Its occurrence selector excludes anchorless
+endpoint-associated products unless selected separately; it makes no association-closure claim.
+Public assessment scope is `published_admission_witnesses_only`; missing public witnesses mean
+`no_public_assessment`, not unassessed or unsupported. Full protected grades stay evaluator-only.
+`ci contributions export` atomically detaches a bounded selection as JSONL plus a pinned manifest
+and file hash through the same service. Actual run38 CLI/fresh MCP/export passes. Full detached
+review bundles, capability manifests and broader consumer/export/lifecycle adoption remain PCE-09.
+Existing complete-record admission and protected whole-reading assessments retain their stronger
+meaning; the local path does not remove their cap.
 
 The source [functional review](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md)
 supplies [O08](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O08),

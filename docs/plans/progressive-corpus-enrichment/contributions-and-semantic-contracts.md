@@ -18,6 +18,18 @@ decisions and architectural-owner edits before dependent production changes.
 
 ## Resulting behavior and responsibility
 
+**Forward-consumer extension, Implemented and bounded Tested2026-11-05.** A sealed typed batch
+owns all of its products, operation outcomes/versions and coordinate declarations. Retained
+consumers prefer that complete batch over reconstruction through older raw record channels.
+The released JSON decoder restores Python shapes while requiring identical canonical JSON;
+this is not a semantic upcast. Authenticated source correspondence then produces a separately
+attributed derivation. The old raw-only reader remains because original tasks36/37 still consume
+it; unused compatibility bridges and generic embedding scaffolding have no such retained consumer.
+Private attachment derivation authenticates exact pack fingerprints, unique qualified primary
+roles and native geometry. Missing or substituted declarations cannot authorize an association;
+an explicit unsupported operation preserves the original batch. Mode, evidence and computation
+dependencies remain inspectable, without an independent relation score or truth claim.
+
 An operator can retrieve the exact occurrence of `qs` even if its proposed alias is unsupported,
 and retrieve a table value even if its unit or header attachment is unresolved. A failed
 definition assembly leaves the located term and defining-text proposals independently inspectable.

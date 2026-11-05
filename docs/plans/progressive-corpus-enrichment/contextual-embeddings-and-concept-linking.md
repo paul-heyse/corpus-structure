@@ -1,13 +1,53 @@
 # Contextual embeddings and concept linking
 
-**Proposed implementation target · 2026-11-04 · baseline `a3b0f21d`.** This companion
+**Implementation target and bounded execution evidence · updated 2026-11-05.** This companion
 develops PCE-05 and PCE-06 from the functional review's
 [O05](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O05) and
 [O06](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O06).
 The [coordinator](../progressive-corpus-enrichment_2026-11-04.md) is the sole owner of
 package state, opportunity disposition, accepted RC01–08 planning decisions dated 2026-11-04,
-execution queue and assembled completion. This document specifies work; it reports no executed
-model, database, retrieval or qualification result.
+execution queue and assembled completion. The original planning baseline is `a3b0f21d`.
+The execution boundary below supersedes blanket `not_run` statements for the selected route;
+unselected alternatives remain Proposed.
+
+## Selected implementation and evidence — 2026-11-05
+
+**Implemented and bounded Tested.** `retrieve.contextual`v2 owns source-bound occurrence inputs,
+curated target descriptors, the CPU encoder child, exact eligible candidate retrieval and scoped
+denotation selection. Sentence Transformers6.2.0 runs pinned E5-small-v2 (384 dimensions, mean
+pooling, query/passage prefixes) or Qwen3-Embedding-0.6B (1024 dimensions, last-token pooling,
+explicit query instruction). Both run FP32 and L2 normalization with a512-token cap. The full
+checkpoint revisions, effective package/tokenizer/profile identities and actual truncation/input
+witnesses are in [local capability evidence](../../design_review/evidence/2026-11-05_pce-local-capabilities/README.md).
+The vLLM/Sentence Transformers service alternatives below are not additional deployed routes.
+
+The selected candidate channels are exact label/alias, PostgreSQL English full-text `ts_rank_cd`
+and exact pgvector cosine over the same eligible inventory. RRF uses constant60 and equal channel
+weights, K10 with30 candidates per channel and stable identity tie breaking. Known type/parent,
+version and source exclusions apply before ranking; unknown constraints remain unknown. No ANN
+index or generic embedding cache is needed for this bounded inventory. Official pgvector
+SQLAlchemy types and preserving `text[]` migration replace the unconsumed generic vector scaffold.
+
+Actual runs35/36 use17 independently supplied mentions in eight passages and20 curated targets.
+Fresh source-only A/B/C retain their raw answers and exact source/target descriptors. Both models
+include the independently correct target for all17 hybrid/dense cases; exact-alias and alias-first
+lexical include16. Both selectors emit16 correct denotations and abstain on one retrieved density
+function mention. These are exposed feature-fit cases, not discovery recall, population accuracy,
+learned calibration or measured speed. C also identifies14 other passage relationships; those
+are separate uncaptured questions, not denotation failures or generic comparison edges.
+
+E5 is the initial route: the selected sample gives equal observed coverage with smaller vectors
+and checkpoint. Qwen remains an attributable alternative; no throughput advantage is claimed.
+Actual inventory expansion20→21 reuses exactly20 original target vectors, computes the new target
+and all query vectors freshly, and rebuilds candidate lists/decisions. Original runtime/body/vector,
+descriptor and rendered-tokenizer-input custody govern reuse; it adds no independent evidence vote.
+
+Actual run38 freezes protected grade15 in its immutable publication dependencies and admits16
+five-field denotation statements through common consolidation. The statement includes target,
+target descriptor binding, relation, scope and effective version; generated list/decision IDs
+remain provenance. Curated targets are described inputs, not canonical identities. Source-backed
+definition targets await PCE-10's authenticated binding; unsupported target kinds refuse explicitly.
+Full portable review, cross-document products and assembled adoption remain PCE-09–11.
 
 ## Purpose and responsibility
 
