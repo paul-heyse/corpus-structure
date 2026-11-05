@@ -131,7 +131,7 @@ BEGIN
   RAISE EXCEPTION 'operation cases must be an array' USING ERRCODE='23514'; END IF;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
-    'assessor_provenance','contribution_kind','contribution_id','error_category','reference_projection','candidate_selector']<>'{}'
+    'assessor_provenance','contribution_kind','contribution_id','error_category','reference_projection','candidate_selector','permissible_anchor_sets']<>'{}'
    OR NOT(source_record ?& ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation','assessor_provenance'])
    OR EXISTS(SELECT FROM unnest(ARRAY['case_id','facet','inspected_scope','explanation']) k WHERE btrim(COALESCE(source_record->>k,''))='')
    OR source_record->>'judgment' NOT IN ('supported','unsupported','ambiguous','unassessed')
@@ -144,6 +144,9 @@ BEGIN
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
    OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')
    OR NOT(bound->'anchor_ids' @> source_record->'anchor_ids')
+   OR (source_record ? 'permissible_anchor_sets' AND (jsonb_typeof(source_record->'permissible_anchor_sets') IS DISTINCT FROM 'array'
+     OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'permissible_anchor_sets') permitted
+      WHERE jsonb_typeof(permitted)<>'array' OR NOT(bound->'anchor_ids' @> permitted))))
    OR (bound->>'direction'='source_first' AND source_record->>'contribution_id' IS NOT NULL)
    OR (bound->>'direction'='output_first' AND (source_record->>'contribution_id' IS NULL OR NOT(bound->'contribution_ids' ? (source_record->>'contribution_id')))) THEN
    RAISE EXCEPTION 'operation case differs from independent source/facet authority' USING ERRCODE='23514'; END IF;

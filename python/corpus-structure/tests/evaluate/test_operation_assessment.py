@@ -98,12 +98,26 @@ def test_one_output_cannot_satisfy_two_reference_occurrences_per_facet(frame):
 
 
 def test_assignment_does_not_greedily_consume_the_only_permissible_match(frame):
-    flexible = replace(case("a"), alternatives=({"value": "12"}, {"value": "13"}))
+    flexible = replace(case("a"), alternatives=({"value": "12"}, {"value": "13"}),
+                       permissible_anchor_sets=(("cell-2",),))
     exact = case("b")
-    thirteen = dict(prediction("p2"), value="13")
-    result = score_cases(frame, (flexible, exact), (prediction(), thirteen))
+    twelve = prediction()
+    thirteen = dict(prediction("p2", anchors=("cell-2",)), value="13")
+    result = score_cases(frame, (flexible, exact), (twelve, thirteen))
     assert [item["contribution_id"] for item in result["cases"]] == ["p2", "p1"]
-    assert result == score_cases(frame, (exact, flexible), (thirteen, prediction()))
+    assert result == score_cases(frame, (exact, flexible), (thirteen, twelve))
+
+
+def test_repeated_windows_do_not_multiply_one_physical_occurrence(frame):
+    result = score_cases(frame, (case("a"), case("b")), (prediction("window-1"), prediction("window-2")))
+    assert result["facets"]["value"]["supported"] == 1
+    assert result["facets"]["value"]["unsupported"] == 1
+
+
+def test_reused_task_sidecars_do_not_change_contribution_identity(frame):
+    result = score_cases(frame, (case(),), (prediction(selected_task_id=1), prediction(selected_task_id=2)))
+    assert result["prediction_count"] == 1
+    assert result["facets"]["value"]["supported"] == 1
 
 
 def test_permissible_alternatives_stay_ambiguous(frame):

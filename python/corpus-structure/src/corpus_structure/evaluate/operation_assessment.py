@@ -107,6 +107,7 @@ class OperationCase:
     error_category: str | None = None
     reference_projection: Mapping[str, Any] | None = None
     candidate_selector: Mapping[str, Any] = field(default_factory=dict)
+    permissible_anchor_sets: tuple[tuple[str, ...], ...] = ()
 
     def __post_init__(self):
         if self.judgment not in JUDGMENTS or self.source_state not in {
@@ -150,12 +151,13 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
             raw = dict(item)
             raw["anchor_ids"] = tuple(raw["anchor_ids"])
             raw["alternatives"] = tuple(raw["alternatives"])
+            raw["permissible_anchor_sets"] = tuple(tuple(values) for values in raw.get("permissible_anchor_sets", ()))
             case = OperationCase(**raw)
             if frame.direction == "source_first" and case.contribution_id is not None:
                 raise ReferenceError("source-first missing occurrence cannot acquire an output ID")
             if frame.direction == "output_first" and case.contribution_id not in frame.contribution_ids:
                 raise ReferenceError("output case is outside frozen contribution population")
-            if set(case.anchor_ids) - set(frame.anchor_ids):
+            if (set(case.anchor_ids) | {identity for values in case.permissible_anchor_sets for identity in values}) - set(frame.anchor_ids):
                 raise ReferenceError("case anchors are outside independently frozen source scope")
             cases.append(case)
         if len({case.case_id for case in cases}) != len(cases):
@@ -179,7 +181,8 @@ def score_cases(frame: OperationEvaluationFrame, cases: Sequence[OperationCase],
     unique: dict[str, Mapping[str, Any]] = {}
     for contribution in contributions:
         identity = contribution["contribution_id"]
-        if identity in unique and canonical_bytes(unique[identity]) != canonical_bytes(contribution):
+        sidecars = {"selected_task_id", "origin_task_id", "source", "method", "cut_member"}
+        if identity in unique and canonical_bytes({key: value for key, value in unique[identity].items() if key not in sidecars}) != canonical_bytes({key: value for key, value in contribution.items() if key not in sidecars}):
             raise ReferenceError("one contribution identity has conflicting retained payloads")
         unique[identity] = contribution
     selected = [unique[identity] for identity in sorted(unique)]
@@ -194,10 +197,21 @@ def score_cases(frame: OperationEvaluationFrame, cases: Sequence[OperationCase],
                       if value.get("kind") == case.contribution_kind
                       and _matches(value, case.candidate_selector)
                       and (case.contribution_id is None or value["contribution_id"] == case.contribution_id)
-                      and {anchor["anchor_id"] for anchor in value.get("anchors", ())} == set(case.anchor_ids)]
+                      and any({anchor["anchor_id"] for anchor in value.get("anchors", ())} == set(anchors)
+                              for anchors in (case.anchor_ids, *case.permissible_anchor_sets))]
         for case in cases
     }
     assignments = {}
+    # Repeated producer observations retain their IDs, but one physical occurrence
+    # supplies at most one answer to one facet. Competing readings share that slot.
+    occurrence_groups: dict[bytes, list[Mapping[str, Any]]] = {}
+    for value in selected:
+        anchors = value.get("anchors", ())
+        occurrence = value.get("occurrence_id") or (
+            sorted(anchor["anchor_id"] for anchor in anchors) if anchors else value["contribution_id"])
+        key = canonical_bytes([value.get("kind"), occurrence])
+        occurrence_groups.setdefault(key, []).append(value)
+    groups = [occurrence_groups[key] for key in sorted(occurrence_groups)]
     for facet in sorted({case.facet for case in cases}):
         eligible = sorted((case for case in cases if case.facet == facet and
                            case.judgment in {"supported", "ambiguous"} and
@@ -210,13 +224,16 @@ def score_cases(frame: OperationEvaluationFrame, cases: Sequence[OperationCase],
         for case in eligible:
             ids = {value["contribution_id"] for value in candidates_by_case[case.case_id]}
             matrix.append([
-                0 if value["contribution_id"] in ids and any(_matches(value, option) for option in case.alternatives)
-                else len(eligible) + 2 for value in selected
+                0 if any(value["contribution_id"] in ids and any(_matches(value, option) for option in case.alternatives)
+                         for value in group) else len(eligible) + 2 for group in groups
             ] + [1] * len(eligible))
         rows, columns = linear_sum_assignment(matrix)
         for row, column in zip(rows, columns, strict=True):
-            if column < len(selected) and matrix[row][column] == 0:
-                assignments[eligible[row].case_id] = selected[column]
+            if column < len(groups) and matrix[row][column] == 0:
+                case = eligible[row]
+                ids = {value["contribution_id"] for value in candidates_by_case[case.case_id]}
+                assignments[case.case_id] = next(value for value in groups[column]
+                    if value["contribution_id"] in ids and any(_matches(value, option) for option in case.alternatives))
     results = []
     for case in sorted(cases, key=lambda value: value.case_id):
         candidates = candidates_by_case[case.case_id]
