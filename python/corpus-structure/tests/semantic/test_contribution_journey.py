@@ -208,3 +208,21 @@ def test_selected_export_is_atomic_bounded_and_not_a_review_bundle(inventory, tm
             MagicMock(spec=Connection), journey.ContributionRequest(run_id=7, max_bytes=1), refused
         )
     assert not refused.exists()
+
+
+def test_selected_export_preserves_destination_created_during_capture(inventory, tmp_path, monkeypatch):
+    destination = tmp_path / "raced"
+    original = journey._contributions
+
+    def capture(*args, **kwargs):
+        result = original(*args, **kwargs)
+        destination.mkdir()
+        return result
+
+    monkeypatch.setattr(journey, "_contributions", capture)
+    with pytest.raises(FileExistsError):
+        journey.export_contribution_selection(
+            MagicMock(spec=Connection), journey.ContributionRequest(run_id=7), destination
+        )
+    assert list(destination.iterdir()) == []
+    assert not list(tmp_path.glob(".contribution-export-*"))

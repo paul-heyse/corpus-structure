@@ -427,5 +427,7 @@ def export_contribution_selection(
             )
         (root / "items.jsonl").write_bytes(content)
         (root / "manifest.json").write_bytes(encoded_manifest)
-        root.rename(destination)
+        from corpus_structure.serve.companion_export import _publish_directory
+
+        _publish_directory(root, destination)
     return manifest
