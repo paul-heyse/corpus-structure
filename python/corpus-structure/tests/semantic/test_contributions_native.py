@@ -326,3 +326,102 @@ def test_native_score_state_missing_is_not_zero(private_source):
             "kind": "integer",
             "integer": 0,
         }
+
+
+@pytest.mark.parametrize("private_source", [{"include_blank_cell": True}], indirect=True)
+def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessment(private_source):
+    from dataclasses import replace
+
+    from corpus_structure.evaluate.operation_assessment import (
+        OperationCase,
+        OperationEvaluationFrame,
+        score_cases,
+    )
+    from corpus_structure.methods.contribution_adapter import adapt_native_groups
+    from corpus_structure.methods.record_assembly import native_table_groups
+    from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+
+    case = private_source
+    with case.writer.connect() as conn:
+        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
+        source = replace(native_source_frame(view, ()), unit_ref="private-unit")
+        context = NativeSourceContext(
+            source,
+            (),
+            (SourceSlice(case.view, 0, len(source.text)),),
+            "independently selected blank cell",
+            "native-test",
+            "exact native table subject",
+        )
+        groups = native_table_groups(
+            context, table_pointer=case.table, cells=(2,), row_paths={}, header_paths={}
+        )
+        batch = adapt_native_groups(
+            context, family="table", groups=groups, item_key="actual-blank-cell"
+        )
+    result = UnitResult(
+        ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+        outcome=ObservationOutcome.PRODUCED,
+        contribution_operations=batch.operations,
+        contributions=batch.contributions,
+        contribution_coordinate_texts=batch.coordinate_texts,
+    )
+    with case.writer.begin() as conn:
+        complete(case, conn, result)
+    specified = drafts(case).contributions
+    assert specified is not None
+    pin = specified[0]["pin"]
+    anchor = dict(
+        pin=pin, space="native", pointer=case.table + "/data/table_cells/2", precision="item"
+    )
+    anchor["anchor_id"] = anchor_identity(anchor)
+    scope = {key: value for key, value in anchor.items() if key != "anchor_id"}
+    with case.writer.connect() as conn:
+        inventory = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            anchor_scopes=(scope,),
+            include_details=True,
+        )
+    assert len(inventory.contributions) == 1
+    proposal = inventory.contributions[0]
+    assert (
+        proposal["source_field_state"] == "unstated"
+        and proposal["anchor_role"] == "inspection_subject"
+    )
+    assert not any(name in proposal["anchors"][0] for name in ("source_piece", "start", "end"))
+    frame = OperationEvaluationFrame(
+        unit="blank-cell",
+        release_id=case.prepared.release_id,
+        guideline_version="blank-1",
+        rubric_version="blank-1",
+        context_policy="native-only",
+        operation_question="native-cell",
+        operation_version="1",
+        domain="controlled-table",
+        direction="source_first",
+        pin=pin,
+        anchor_ids=(anchor["anchor_id"],),
+        anchor_scopes=(scope,),
+    )
+    expected = OperationCase(
+        case_id="blank-value",
+        facet="source_field_state",
+        anchor_ids=frame.anchor_ids,
+        inspected_scope="table/cell/2",
+        source_state="unstated",
+        judgment="supported",
+        alternatives=({"source_field_state": "unstated", "anchor_role": "inspection_subject"},),
+        explanation=(
+            "The independently specified native cell text is blank; "
+            "its inspection subject remains attributable."
+        ),
+        assessor_provenance={"source": "authored fixture"},
+    )
+    scored = score_cases(frame, (expected,), inventory.contributions)
+    assert scored["cases"][0]["capture_outcome"] == "captured_structure"
+    assert score_cases(frame, (expected,), ())["cases"][0]["error_category"] == "missing_output"

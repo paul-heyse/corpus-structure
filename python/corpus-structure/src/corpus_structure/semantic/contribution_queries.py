@@ -257,7 +257,9 @@ def read_source_contributions(
         }
         if include_details:
             raw = details[row["task_id"], row["contribution_id"]]
-            row = prepared.validate_python("SourceContribution", raw).model_dump(mode="python")
+            row = prepared.validate_json("SourceContribution", json.dumps(raw)).model_dump(
+                mode="python"
+            )
         output.append({**row, **meta})
     operation_output = tuple(
         {
