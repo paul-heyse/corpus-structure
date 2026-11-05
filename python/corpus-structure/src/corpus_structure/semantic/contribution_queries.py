@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import and_, func, literal, select, text
+from sqlalchemy import and_, exists, false, func, literal, or_, select, text
 
 from .metadata import table
 
@@ -32,6 +32,11 @@ def read_source_contributions(
     include_details: bool = False,
     cut_id: int | None = None,
     max_bytes: int = 8_000_000,
+    operation_keys: tuple[str, ...] | None = None,
+    anchor_ids: tuple[str, ...] | None = None,
+    anchor_scopes: tuple[Mapping[str, Any], ...] | None = None,
+    anchor_endpoint_roles: tuple[str, ...] | None = None,
+    contribution_ids: tuple[str, ...] | None = None,
 ) -> ContributionInventory:
     """Read private products only under an exact selected run/cut, never graph membership.
 
@@ -105,6 +110,8 @@ def read_source_contributions(
     op_query = select(operations).where(operations.c.task_id.in_(origins))
     if operation_key is not None:
         op_query = op_query.where(operations.c.operation_key == operation_key)
+    if operation_keys is not None:
+        op_query = op_query.where(operations.c.operation_key.in_(operation_keys))
     op_rows = tuple(
         dict(row)
         for row in conn.execute(
@@ -117,6 +124,66 @@ def read_source_contributions(
     query = select(contributions).where(contributions.c.task_id.in_(origins))
     if operation_key is not None:
         query = query.where(contributions.c.operation_key == operation_key)
+    if operation_keys is not None:
+        query = query.where(contributions.c.operation_key.in_(operation_keys))
+    selectors = []
+    anchors = table("kb.source_contribution_anchor")
+    anchor_filters = []
+    if anchor_ids is not None:
+        anchor_filters.append(anchors.c.anchor_id.in_(anchor_ids))
+    if anchor_scopes is not None:
+        for scope in anchor_scopes:
+            if scope["space"] == "selected_projection":
+                raise ValueError("contribution scope requires canonical native coordinates")
+            terms = [anchors.c.pointer == scope["pointer"], anchors.c.space == scope["space"]]
+            if scope.get("pin", {}).get("source_view_id") is not None:
+                terms.append(anchors.c.source_view_id == scope["pin"]["source_view_id"])
+            if scope.get("start") is not None:
+                terms.append(
+                    or_(
+                        anchors.c.start.is_(None),
+                        and_(anchors.c.start < scope["end"], anchors.c.end > scope["start"]),
+                    )
+                )
+            anchor_filters.append(and_(*terms))
+    if anchor_ids is not None or anchor_scopes is not None:
+        source_match = or_(*anchor_filters) if anchor_filters else false()
+        selectors.append(
+            exists(
+                select(1)
+                .select_from(anchors)
+                .where(
+                    anchors.c.task_id == contributions.c.task_id,
+                    anchors.c.contribution_id == contributions.c.contribution_id,
+                    source_match,
+                )
+            )
+        )
+        if anchor_endpoint_roles:
+            endpoints = table("kb.source_contribution_endpoint")
+            selectors.append(
+                exists(
+                    select(1)
+                    .select_from(endpoints)
+                    .join(
+                        anchors,
+                        and_(
+                            anchors.c.task_id == endpoints.c.task_id,
+                            anchors.c.contribution_id == endpoints.c.endpoint_id,
+                        ),
+                    )
+                    .where(
+                        endpoints.c.task_id == contributions.c.task_id,
+                        endpoints.c.contribution_id == contributions.c.contribution_id,
+                        endpoints.c.role.in_(anchor_endpoint_roles),
+                        source_match,
+                    )
+                )
+            )
+    if contribution_ids is not None:
+        selectors.append(contributions.c.contribution_id.in_(contribution_ids))
+    if selectors:
+        query = query.where(or_(*selectors))
     if kind is not None:
         query = query.where(contributions.c.kind == kind)
     if cut_id is not None:
