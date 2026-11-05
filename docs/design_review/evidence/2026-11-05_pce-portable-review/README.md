@@ -95,5 +95,67 @@ These describe that selected export only; no capacity threshold or whole-corpus 
 claim follows. `combined_detached_walkthrough.py` forbids runtime-engine opening and checks the
 portable source/raw producer/interpretation/local-grade/public-witness/abstention chain, including
 original parser task122 and retained replay task128. It does not infer failed assembly from zero
-records. Each attempt uses fresh names and preserves failed commands. Actual combined results
-remain pending the final native structural/public result and selected group-reference sets.
+records. Each attempt uses fresh names and preserves failed commands. Actual combined results are recorded below; final-source assembled qualification remains
+owned by the coordinator.
+
+### Preserved combined-capture failures
+
+`combined_001` and `combined_002` **failed** before the intended missing43 control: the
+ordinary local-witness reader refused its32MB per-request budget. Attempt002 selected the exact
+graded source unit46 rather than whole runs; it retained the same failure. No bundle destination
+was published, and the explicit exposure receipts precede the failed exports as required.
+`combined_budget_diagnosis_003.json` shows the actual populations: run31/unit46 has5099
+contributions,5099 interpretations and430 operations; run43/unit46 has7868 contributions and
+also triggered PostgreSQL's stack-depth limit in the old literal tuple-IN witness query. Run45's
+33-contribution unit passes those facets. The read-only diagnostic's first import/transaction
+setup failures also remain in its001/002 outputs; they establish no product result.
+
+The corrected reader uses a flat VALUES relation for selected witness identities and accepts a
+declared larger transfer bound. Attempt003 explicitly declares134217728 bytes per ordinary
+unit and536870912 bytes for the packet, with source unit46 unfiltered by method/operation/item.
+This preserves full producer closure for the selected graded units. These are declared request
+bounds, not performance or corpus-completeness claims.
+
+### Actual combined003 result
+
+**Tested and Measured, 2026-11-05; declared selected development scope.** The following command
+**passed** the missing43 refusal, real evaluator CLI export, offline verification and detached
+source/producer/grade walkthrough:
+
+```sh
+uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_review_journey.py --attempt 003 --paired --structural-run 51 --structural-run 52 --structural-run 77 --group-set 4 --group-set 5 --group-set 6 --group-set 7 --max-bytes 536870912
+```
+
+`raw/combined_003_receipt.json` retains exact subprocess commands/outcomes. The packet has8
+source projections,3 documents,12 raw reports (including original parser122, replay128,
+automatic143/144 and final public producer180–183),6 structural products and4 public structural
+witnesses. Its239 history rows preserve30 original A/B/C authored passes and10 explicit cohort
+authorities. There are80 selected local assessment cases, with the original `feature_fit`
+partition intact. The public supplied005 products and actual automatic002 model outputs have
+separate attribution and limits.
+
+The13000 contribution rows across the three selected historical runs have13000 distinct
+contribution identities but667 distinct own physical occurrence identities. These are different
+inventories, not counts of established semantic facts or original-source completeness. The
+packet retains1023 capability rows and483 gaps:445 observed zero-emission rows do not establish
+semantic misses;38 rows have independent case-evaluation bases. Raw reports retain414 private
+record candidates; candidate retention does not imply admission or failed assembly.
+
+The fixed-source18→19 comparison identifies exact literal `Y` at source46 `#/texts/341` [5:6]
+as newly captured in run43, absent from run31's typed occurrence inventory. The detached helper
+also checks those actual inventories and native text independently of the change classifier.
+Four contextual-role cases remain unresolved. This establishes that selected literal change,
+not broad accuracy or a causal comparison between automatic002 and supplied005.
+`combined_003_distinct_populations.json` and `combined_003_paired_literal.json` preserve the
+additional files-only population and exact-literal inspections.
+
+The selected export produced273248927 bytes. `/usr/bin/time -v` measured42.73 seconds wall,
+39.58 seconds user CPU,2.08 seconds system CPU and3064752 KiB peak RSS for the capture command.
+The process measurement excludes PostgreSQL/server and total host memory. Broad qualification
+was running concurrently; this is one selected operation, not a throughput, capacity or latency
+guarantee. No model or PDF/OCR operation was invoked by this export. Actual provider replies
+already retained by runs51/52 are exported as data.
+
+The packet remains an attributed completed effect even if a subsequent producer/runtime is
+qualified separately. Final-source full-union qualification, source/runtime applicability,
+scientific truth and persistent default adoption remain the coordinator's responsibilities.

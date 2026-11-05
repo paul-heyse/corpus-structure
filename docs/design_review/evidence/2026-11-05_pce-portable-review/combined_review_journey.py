@@ -23,8 +23,8 @@ BASIS = (
 
 def request(run_id):
     return dict(
-        run_id=run_id, include_interpretation=True, include_assessment=True,
-        include_publication=True, include_support=True, max_bytes=32_000_000,
+        run_id=run_id, source_view_id=46, include_interpretation=True, include_assessment=True,
+        include_publication=True, include_support=True, max_bytes=134_217_728,
     )
 
 
@@ -60,7 +60,7 @@ def main():
     parser.add_argument("--structural-run", type=int, action="append", required=True)
     parser.add_argument("--group-set", type=int, action="append", required=True)
     parser.add_argument("--paired", action="store_true")
-    parser.add_argument("--max-bytes", type=int, default=268_435_456)
+    parser.add_argument("--max-bytes", type=int, default=536_870_912)
     args = parser.parse_args()
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", args.attempt):
         raise ValueError("attempt must be a simple fresh filename component")

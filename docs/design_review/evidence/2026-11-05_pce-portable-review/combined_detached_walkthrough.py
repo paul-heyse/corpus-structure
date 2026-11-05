@@ -32,6 +32,8 @@ def main(root):
     sources = {value["source_view_id"]: value for value in relation(root, "sources")}
     inventory = list(relation(root, "inventory"))
     populations = Counter(value["population"] for value in inventory)
+    contribution_rows = [value["row"] for value in inventory
+                         if value["population"] == "contribution"]
     witnesses = [value["row"] for value in inventory
                  if value["population"] == "local_semantic_assertion"]
     assert witnesses, "selected public denotation witness absent"
@@ -113,7 +115,28 @@ def main(root):
                       if row.get("selected_for_current_assessment")]
     assert selected_cases
     changes = list(relation(root, "changes"))
+    paired_literal = None
     if manifest["selection"]["comparisons"]:
+        # The frozen source-first reference identifies literal Y at this native piece.
+        # Check actual producer inventories independently of the change classifier.
+        selection_runs = [row["run_id"] for row in manifest["selection"]["selections"]]
+        captured_runs = set()
+        for row in inventory:
+            if row["population"] != "contribution" or row["row"]["kind"] != "occurrence":
+                continue
+            for anchor_value in row["row"].get("anchors") or ():
+                if (anchor_value["pin"]["source_view_id"], anchor_value["pointer"],
+                    anchor_value.get("start"), anchor_value.get("end"),
+                    anchor_value.get("source_piece")) == (46, "#/texts/341", 5, 6, "Y"):
+                    captured_runs.add(selection_runs[row["selection_index"]])
+        assert 31 not in captured_runs and 43 in captured_runs
+        source_item = next(row for row in sources[46]["context"]["items"]
+                           if row["self_ref"] == "#/texts/341")
+        assert source_item["text"][5:6] == "Y"
+        paired_literal = dict(case_id="unit2:#/texts/341:literal_occurrence:0",
+                              exact_source_piece="Y", baseline31="not_captured",
+                              revised43="captured_typed_occurrence",
+                              quality_scope="this literal only; contextual roles separate")
         assert len(changes) == len(manifest["selection"]["comparisons"])
         assert all(item["outcome"] == "comparable" for item in changes)
     result = dict(
@@ -122,6 +145,11 @@ def main(root):
         original_partitions=sorted(partitions), selected_assessment_cases=len(selected_cases),
         structural_products=len(structural), public_structural_witnesses=len(public),
         inventory_rows_by_population=dict(sorted(populations.items())),
+        distinct_contribution_ids=len({row["contribution_id"] for row in contribution_rows}),
+        distinct_own_physical_occurrence_ids=len({row["occurrence_id"]
+                                                 for row in contribution_rows
+                                                 if row.get("occurrence_id")}),
+        population_scope="historical selected run rows; semantic fact completeness not established",
         capability_rows=sum(1 for _ in relation(root, "capabilities")),
         gap_rows=len(gaps),
         zero_emission_gap_rows=sum(row["emitted_count"] == 0 for row in observed_gaps),
@@ -133,6 +161,7 @@ def main(root):
         contextual_abstention_reasons=sorted({item["reason"] for item in abstentions}),
         private_record_candidates=private_records,
         automatic_provider_artifacts=automatic,
+        independently_checked_paired_literal=paired_literal,
         paired_case_changes=[dict(baseline_evaluation_id=row["baseline_evaluation_id"],
                                   revised_evaluation_id=row["revised_evaluation_id"],
                                   case_ids_by_change={key: [item["case_id"] for item in values]
