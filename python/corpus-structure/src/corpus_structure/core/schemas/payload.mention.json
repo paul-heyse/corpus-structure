@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/68de8f9a1d3d/payload.mention.json",
+  "$id": "https://corpus-structure.dev/schemas/89b083ed4152/payload.mention.json",
   "$defs": {
     "JsonValue": {},
     "LabelScore": {

@@ -730,3 +730,81 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.5
+  content_hash: 89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '4'
+    linkml-runtime: 1.12.1
+  parent: 68de8f9a1d3dbccdf4c9417bbc37123f557f1efa5ba09519f71e4709b98c53b8
+  change_record:
+    from_revision: 68de8f9a1d3dbccdf4c9417bbc37123f557f1efa5ba09519f71e4709b98c53b8
+    to_revision: 89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1
+    changes:
+    - element: sys:Embedding
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Complete the already implemented PCE-05 removal of unused legacy embedding table/specification
+        and vocabulary; contextual profiles/vectors use their released semantic model. Historical releases
+        and migrations remain intact.
+      authorized_by: Operator-approved PCE-09 preservation-aware cutover, 2026-11-05
+      decision: ADR-0062; accepted PCE-05/PCE-09 plan
+      upcaster: null
+    - element: sys:EmbeddingSpec
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Complete the already implemented PCE-05 removal of unused legacy embedding table/specification
+        and vocabulary; contextual profiles/vectors use their released semantic model. Historical releases
+        and migrations remain intact.
+      authorized_by: Operator-approved PCE-09 preservation-aware cutover, 2026-11-05
+      decision: ADR-0062; accepted PCE-05/PCE-09 plan
+      upcaster: null
+    - element: sys:HalfVec
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Complete the already implemented PCE-05 removal of unused legacy embedding table/specification
+        and vocabulary; contextual profiles/vectors use their released semantic model. Historical releases
+        and migrations remain intact.
+      authorized_by: Operator-approved PCE-09 preservation-aware cutover, 2026-11-05
+      decision: ADR-0062; accepted PCE-05/PCE-09 plan
+      upcaster: null
+    - element: sys:EmbeddingTarget
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Complete the already implemented PCE-05 removal of unused legacy embedding table/specification
+        and vocabulary; contextual profiles/vectors use their released semantic model. Historical releases
+        and migrations remain intact.
+      authorized_by: Operator-approved PCE-09 preservation-aware cutover, 2026-11-05
+      decision: ADR-0062; accepted PCE-05/PCE-09 plan
+      upcaster: null
+    - element: sys:EmbeddingMetric
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Complete the already implemented PCE-05 removal of unused legacy embedding table/specification
+        and vocabulary; contextual profiles/vectors use their released semantic model. Historical releases
+        and migrations remain intact.
+      authorized_by: Operator-approved PCE-09 preservation-aware cutover, 2026-11-05
+      decision: ADR-0062; accepted PCE-05/PCE-09 plan
+      upcaster: null
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Record the completed legacy model retirement in Stage A projections.
+      authorized_by: Operator-approved PCE-09 execution, 2026-11-05
+      decision: null
+      upcaster: null
+    name_map: {}
+    alembic_revision: null
+    key_consequences: No active contextual occurrence/vector identity changes; obsolete unused Stage A
+      embedding shapes retire.
+    judgment_carry_over: Historical source and operation judgments retain original protocols.
+    compiled_artifacts: []
+    source_profiles: []

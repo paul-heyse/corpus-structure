@@ -386,14 +386,6 @@ class RunStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class EmbeddingTarget(StrEnum):
-    """`kb.embedding.target_type`. Lifecycle: static."""
-
-    SEGMENT = "segment"
-    ENTITY = "entity"
-    ALIAS = "alias"
-
-
 class TaskUnitType(StrEnum):
     """Current method and native task unit kinds. Lifecycle: static."""
 
@@ -853,14 +845,6 @@ class UnitFeatureKind(StrEnum):
     CLAIM_BEARING = "claim_bearing"
 
 
-class EmbeddingMetric(StrEnum):
-    """An embedding's distance metric. Lifecycle: static."""
-
-    COSINE = "cosine"
-    L2 = "l2"
-    INNER_PRODUCT = "inner_product"
-
-
 # --- Member properties (D2 §3.4) ---
 
 CLAIM_BEARING: Final[frozenset[StatementKind]] = frozenset(
@@ -1133,7 +1117,6 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     PolicyChain: Lifecycle.STATIC,
     RunKind: Lifecycle.STATIC,
     RunStatus: Lifecycle.STATIC,
-    EmbeddingTarget: Lifecycle.STATIC,
     TaskUnitType: Lifecycle.STATIC,
     TaskStatus: Lifecycle.STATIC,
     ObservationKind: Lifecycle.STATIC,
@@ -1174,5 +1157,4 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     AgentReuse: Lifecycle.STATIC,
     PolicyThen: Lifecycle.STATIC,
     UnitFeatureKind: Lifecycle.STATIC,
-    EmbeddingMetric: Lifecycle.STATIC,
 }

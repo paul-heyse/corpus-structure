@@ -297,7 +297,7 @@ def test_the_revision_hashes_the_parsed_files_and_is_logged(
     loaded: model.Model, tmp_path: Path
 ) -> None:
     current = model.revision(loaded)
-    assert (current.label, current.key_scheme) == ("0.6.4", 1)
+    assert (current.label, current.key_scheme) == ("0.6.5", 1)
     assert model.check_log(current, model.read_log()) == []
     reordered = seeded(tmp_path, edit_core=lambda d: d.update(dict(reversed(list(d.items())))))
     assert model.content_hash(*reordered.paths) == current.content_hash  # parsed, not bytes
@@ -359,7 +359,7 @@ def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_p
 _TM_11 = (
     # the vocab.py sets of F2b, as they were
     "VersionState SchemaClassKind EntityScope SlotRole RuleGroup RuleSeverity MethodFamily "
-    "MethodTier PolicyChain RunKind RunStatus EmbeddingTarget TaskUnitType TaskStatus "
+    "MethodTier PolicyChain RunKind RunStatus TaskUnitType TaskStatus "
     "ObservationKind ObservationOutcome AliasKind StatementRole ClaimStatus Establishment "
     "EvidenceRole LinkType MeasurementScope InterventionKind ExperimentDecision DocumentSplit "
     "GoldenSplit GoldenUnitStatus GoldenPass GoldenItemType AlignmentTarget AlignmentTier "
@@ -377,6 +377,8 @@ def test_every_modelled_closed_set_is_generated() -> None:
     missing = [name for name in TM_11 if not isinstance(getattr(vocab, name, None), type)]
     assert missing == []
     assert not hasattr(vocab, "SegmentParseStatus")  # merged into DelimitingStatus
+    assert not hasattr(vocab, "EmbeddingTarget")  # retired legacy embedding storage
+    assert not hasattr(vocab, "EmbeddingMetric")
     assert "gaps" in vocab.PolicyChain and "span" in vocab.TaskUnitType
     assert [m.value for m in vocab.SkipReason] == [
         "scope", "limit", "budget", "prerequisite_failed", "run_cancelled"
