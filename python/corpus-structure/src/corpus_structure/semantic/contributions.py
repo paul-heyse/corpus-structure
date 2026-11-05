@@ -169,7 +169,10 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
             raise ValueError("relation contribution requires explicit endpoint roles")
         if row["kind"] == "composite" and not members:
             raise ValueError("composite contribution requires explicit members")
+    from .local_interpretation_reports import validate_local_interpretation_report
+
     for op in ops:
+        validate_local_interpretation_report(op, output)
         retained = {"retained_task_id", "retained_result_digest", "retained_source_bindings"}
         if retained.intersection(op) and (
             not retained <= op.keys() or not op["retained_source_bindings"]

@@ -1,5 +1,7 @@
 """Protected recordless completion, custody and bounded reader controls."""
 
+from typing import Any
+
 import pytest
 from sqlalchemy import event, select
 from sqlalchemy.exc import DBAPIError
@@ -431,3 +433,134 @@ def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessm
     scored = score_cases(frame, (expected,), inventory.contributions)
     assert scored["cases"][0]["capture_outcome"] == "captured_structure"
     assert score_cases(frame, (expected,), ())["cases"][0]["error_category"] == "missing_output"
+
+
+def local_draft(case):
+    from dataclasses import replace
+
+    from corpus_structure.methods.local_interpretation import local_question_operation
+
+    result = drafts(case)
+    assert result.contributions is not None and result.contribution_operations is not None
+    local = local_question_operation(
+        question="which unit attaches to this retained cell value?",
+        contributions=result.contributions,
+        dependency_ids=("retained-cell-source",),
+    )
+    return replace(result, contribution_operations=(*result.contribution_operations, local))
+
+
+def test_native_local_question_retains_not_run_beside_useful_cell(private_source):
+    case = private_source
+    with case.writer.begin() as conn:
+        complete(case, conn, local_draft(case))
+        inventory = read_source_contributions(
+            conn, prepared=case.prepared, run_id=case.run, include_details=True
+        )
+        questions = [op for op in inventory.operations if "local_interpretation" in op]
+        assert len(questions) == 1
+        report = questions[0]["local_interpretation"]
+        assert report["outcome"] == "not_run" and report["probability_standing"] == "not_computed"
+        assert len(report["contribution_ids"]) == len(inventory.contributions) == 2
+        assert "result" not in report and "request" not in report
+        assert conn.scalar(select(table("data.source_record").c.record_id).limit(1)) is None
+
+
+@pytest.mark.parametrize("change", ["foreign_input", "forged_digest", "computed_not_run"])
+def test_native_local_question_refuses_forged_input_or_probability(private_source, change):
+    import json
+
+    from corpus_structure.methods.record_readings import _digest
+    from corpus_structure.semantic.observations import source_value
+
+    case = private_source
+    raw = envelope(case, local_draft(case))
+    report = raw["contribution_operations"][-1]["local_interpretation"]
+    if change == "foreign_input":
+        report["contribution_ids"] = ["foreign"]
+    elif change == "forged_digest":
+        report["retained_input_digest"] = "f" * 64
+    else:
+        report["result"] = json.loads(json.dumps(source_value({"probability": 1})))
+    report["seal"] = _digest({k: v for k, v in report.items() if k != "seal"})
+    with case.writer.begin() as conn:
+        with pytest.raises(DBAPIError, match="local interpretation"), conn.begin_nested():
+            bypass(case, conn, raw)
+        assert (
+            conn.scalar(
+                select(table("ops.task").c.status).where(table("ops.task").c.id == case.task)
+            )
+            == "running"
+        )
+
+
+def test_native_local_question_seals_supplied_model_result_without_admission(private_source):
+    from dataclasses import replace
+
+    from corpus_structure.methods.local_interpretation import local_question_operation
+    from corpus_structure.semantic.record_interpretation import CandidateSelection
+    from semantic.test_local_interpretation import local_request
+
+    case = private_source
+    result = drafts(case)
+    assert result.contributions is not None and result.contribution_operations is not None
+    arguments = dict(
+        question="actor versus object under explicit fixture model",
+        contributions=result.contributions,
+        dependency_ids=("source",),
+    )
+    scope = local_question_operation(**arguments)["operation_key"]
+    request = replace(local_request(), selection=CandidateSelection(scope, ("source",)))
+    operation = local_question_operation(**arguments, request=request)
+    result = replace(result, contribution_operations=(*result.contribution_operations, operation))
+    with case.writer.begin() as conn:
+        complete(case, conn, result)
+        inventory = read_source_contributions(
+            conn, prepared=case.prepared, run_id=case.run, include_details=True
+        )
+        local = [
+            op["local_interpretation"]
+            for op in inventory.operations
+            if "local_interpretation" in op
+        ]
+        assert len(local) == 1 and local[0]["outcome"] == "completed"
+        assert local[0]["probability_standing"] == "provisional_candidate_relative"
+        assert local[0]["request_digest"] and local[0]["result_digest"]
+        assert conn.scalar(select(table("data.source_record").c.record_id).limit(1)) is None
+
+
+def test_native_local_question_refuses_omitted_consumed_dependencies(private_source):
+    from dataclasses import replace
+
+    from corpus_structure.methods.local_interpretation import local_question_operation
+    from corpus_structure.methods.record_readings import _digest
+
+    case = private_source
+    result = drafts(case)
+    assert result.contributions is not None and result.contribution_operations is not None
+    products = []
+    for original in result.contributions:
+        row: dict[str, Any] = dict(original, computation_dependencies=("source-profile",))
+        row["contribution_id"] = contribution_identity(row)
+        products.append(row)
+    local = local_question_operation(
+        question="which unit?", contributions=products, dependency_ids=("source-profile", "source")
+    )
+    result = replace(
+        result,
+        contributions=tuple(products),
+        contribution_operations=(*result.contribution_operations, local),
+    )
+    raw = envelope(case, result)
+    report = raw["contribution_operations"][-1]["local_interpretation"]
+    report["dependencies"] = ["source"]
+    report["seal"] = _digest({k: v for k, v in report.items() if k != "seal"})
+    with case.writer.begin() as conn:
+        with pytest.raises(DBAPIError, match="local interpretation"), conn.begin_nested():
+            bypass(case, conn, raw)
+        assert (
+            conn.scalar(
+                select(table("ops.task").c.status).where(table("ops.task").c.id == case.task)
+            )
+            == "running"
+        )

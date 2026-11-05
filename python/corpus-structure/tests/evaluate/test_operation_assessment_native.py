@@ -3,6 +3,7 @@
 import json
 from copy import deepcopy
 from dataclasses import asdict
+from typing import Any
 
 import pytest
 from evaluate.test_record_references_native import expected_reading
@@ -10,6 +11,7 @@ from evaluate.test_record_references_native import reference_source as reference
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
 from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from semantic.test_method_dimensions_native import current_guarded_database
 from semantic.test_private_records import private_source as private_source
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
@@ -289,3 +291,76 @@ def test_heldout_review_export_retains_sealed_inventory_only(
         exported = review_export(conn, project_id="private-records", set_id=created["set_id"])
         assert exported["inventory"][0]["adjudicated"]
         assert exported["judgments"] == [] and not exported["judgments_exposed"]
+
+
+def test_native_conditional_proposal_endpoint_cases_preserve_kind_and_source_scope(
+    reference_source, semantic_db_engine, semantic_evaluator_engine
+):
+    current_guarded_database(semantic_db_engine)
+    source = reference_source
+    with semantic_evaluator_engine.begin() as conn:
+        _, unit, frame, payload = freeze(conn, source)
+        expected: dict[str, Any] = payload["cases"][0]
+        expected.update(
+            facet="conditional_role",
+            contribution_kind="proposal",
+            anchor_endpoint_role="mention",
+            candidate_selector={"semantic_type": "attribute.role"},
+            alternatives=[
+                {
+                    "semantic_type": "attribute.role",
+                    "value": {"kind": "text", "text": "defined_term"},
+                    "endpoint_semantics": [
+                        {
+                            "role": "mention",
+                            "anchor_ids": [frame.anchor_ids[0]],
+                            "fields": {"source_pieces": ["12"]},
+                        }
+                    ],
+                }
+            ],
+        )
+        identity = record_pass(
+            conn,
+            unit_id=unit,
+            pass_kind="A",
+            actor="independent-conditional-A",
+            authored=canonical_bytes(payload),
+            frame=frame,
+        )
+        units = table("eval.reference_unit")
+        frozen = conn.scalar(select(units.c.context).where(units.c.id == unit))[0]
+        statement = text(
+            "SELECT eval.record_operation_reference_pass("
+            ":u,'B',:actor,:authored,CAST(:frame AS jsonb))"
+        )
+        # Bypass Python construction: the actual native boundary must reject
+        # unsupported kinds and source anchors outside the independent frame.
+        invalid_values: list[dict[str, Any]] = [
+            dict(contribution_kind=kind) for kind in ("occurrence", "composite", "diagnostic")
+        ]
+        invalid_values.extend((dict(anchor_endpoint_role=""), dict(anchor_endpoint_role=True)))
+        invalid_values.append(dict(anchor_ids=["not-in-frozen-source"]))
+        for index, changed in enumerate(invalid_values):
+            invalid = deepcopy(payload)
+            invalid["cases"][0].update(changed)
+            with (
+                pytest.raises(DBAPIError, match="independent source/facet authority"),
+                conn.begin_nested(),
+            ):
+                conn.scalar(
+                    statement,
+                    dict(
+                        u=unit,
+                        actor=f"invalid-conditional-{index}",
+                        authored=canonical_bytes(invalid),
+                        frame=canonical_bytes(frozen).decode(),
+                    ),
+                )
+        items = table("eval.reference_item")
+        stored = conn.scalar(select(items.c.payload).where(items.c.pass_id == identity))
+        assert stored["contribution_kind"] == "proposal"
+        assert stored["anchor_endpoint_role"] == "mention"
+        assert stored["alternatives"][0]["endpoint_semantics"][0]["anchor_ids"] == [
+            frame.anchor_ids[0]
+        ]

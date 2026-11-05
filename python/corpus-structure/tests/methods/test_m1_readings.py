@@ -55,6 +55,7 @@ def test_resolver_reuses_retained_candidates_and_seals_explicit_not_run_scores(m
     before = len(worker.calls)
     (result,) = method.run((unit,), cfg, ctx)
     assert len(worker.calls) == before
+
     assert result.outcome is ObservationOutcome.PRODUCED
     assert result.records is not None and upstream["records"] is not None
     assert result.records[0]["record_id"] == upstream["records"][0]["record_id"]
@@ -74,6 +75,77 @@ def test_resolver_reuses_retained_candidates_and_seals_explicit_not_run_scores(m
     upstream["configuration_hash"] = "changed-upstream-config"
     assert method.input_digest(unit, cfg) != original_digest
     assert len(worker.calls) == before
+
+
+def test_forward_resolver_keeps_full_typed_population_and_avoids_raw_re_adaptation(monkeypatch):
+    from corpus_structure.methods import contribution_adapter
+    from corpus_structure.semantic.contributions import contribution_identity
+    from corpus_structure.semantic.observations import bind_result, source_value
+
+    unit, ctx, upstream, worker = retained_fixture(monkeypatch)
+    source = ctx.reader.source_view(unit.ref.unit_id)
+    batch = contribution_adapter.replay_retained_contributions(ctx.reader, source, upstream)
+    base = next(row for row in batch.contributions if row["kind"] == "proposal")
+    extra = []
+    for name in ("entity.fixture", "source_rule.fixture", "math.syntax"):
+        row = dict(
+            base,
+            semantic_type=name,
+            item_key=name,
+            value=source_value(
+                {"category": name, "nested": [{"tokens": ["Mean"], "coordinates": [0, 4]}]}
+            ),
+        )
+        row["contribution_id"] = contribution_identity(row)
+        extra.append(row)
+    operations = tuple(
+        dict(op, emitted_count=op["emitted_count"] + len(extra))
+        if op["operation_key"] == base["operation_key"]
+        else op
+        for op in batch.operations
+    )
+    typed = (*batch.contributions, *extra)
+    upstream.update(
+        contributions=typed,
+        contribution_operations=operations,
+        contribution_coordinate_texts=batch.coordinate_texts,
+    )
+    for field in ("contributions", "contribution_operations", "contribution_coordinate_texts"):
+        upstream[field] = json.loads(canonical_bytes(upstream[field]))
+    monkeypatch.setattr(
+        contribution_adapter,
+        "restore_report",
+        lambda *_: pytest.fail("sealed typed products must not be re-adapted"),
+    )
+    before = len(worker.calls)
+    method = M1Readings()
+    (result,) = method.run((unit,), M1ReadingConfig(), ctx)
+    assert len(worker.calls) == before
+    actual = {row["contribution_id"]: row for row in result.contributions or ()}
+    assert all(
+        canonical_bytes(actual[row["contribution_id"]]) == canonical_bytes(row) for row in typed
+    )
+    assert result.contribution_operations is not None
+    assert all(
+        any(
+            canonical_bytes(op) == canonical_bytes(restored)
+            for restored in result.contribution_operations
+        )
+        for op in operations
+    )
+    local = next(op for op in result.contribution_operations if "local_interpretation" in op)
+    assert local["local_interpretation"]["outcome"] == "not_run"
+    terminal = bind_result(
+        ctx.reader.prepared,
+        source=unit.ref.unit_key,
+        method=method.name,
+        operation_version=method.version,
+        configuration_hash="fixture",
+        input_hash="fixture",
+        invocation_key="fixture",
+        result=result,
+    )
+    assert len(terminal.model_dump()["contributions"]) >= len(typed)
 
 
 @pytest.mark.parametrize(
@@ -198,7 +270,12 @@ def test_historical_replay_consumes_exact_external_schema_without_reextracting(m
     (result,) = M1Readings().run((unit,), M1ReadingConfig(retained_schema_packs=packs), ctx)
     assert len(worker.calls) == calls and result.contributions
     assert result.contribution_operations is not None
-    assert all(row["outcome"] in {"succeeded", "empty"} for row in result.contribution_operations)
+    recovery = [row for row in result.contribution_operations if "local_interpretation" not in row]
+    assert all(row["outcome"] in {"succeeded", "empty"} for row in recovery)
+    local = [row for row in result.contribution_operations if "local_interpretation" in row]
+    assert len(local) == 1 and local[0]["outcome"] == "not_run"
+    assert local[0]["local_interpretation"]["probability_standing"] == "not_computed"
+    assert result.coverage[0].outcome == "complete"
 
 
 def test_explicit_historical_port_rebinds_new_alias_and_keeps_original_result(monkeypatch):

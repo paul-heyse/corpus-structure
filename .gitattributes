@@ -8,6 +8,9 @@ docs/design_review/evidence/**/*.arrow filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/**/*.parquet filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/**/*.whl filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/**/raw/** filter=lfs diff=lfs merge=lfs -text
+# Generated PCE native candidates and rollback output retain their exact raw bytes.
+docs/design_review/evidence/2026-11-05_pce-local-capabilities/native*-candidate*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-05_pce-local-capabilities/f27-batch-validation/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/pages/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/toy-pages/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/*.log filter=lfs diff=lfs merge=lfs -text

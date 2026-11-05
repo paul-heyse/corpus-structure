@@ -140,7 +140,7 @@ configs:
     contextual:
       <<: *readings
       policy: m1-canonical-related-context-candidates-6
-      execution_profile: gliner2-2.1.0-cpu-fp32-standard-codepoints-v1
+      execution_profile: gliner2-2.1.0-cpu-fp32-standard-whitespace-v1
       max_words: 4096
       max_subwords: 4096
       max_context_chars: 4096
@@ -149,3 +149,5 @@ configs:
   resolve.m1_readings:
     default:
       feature_instances: []
+
+  retrieve.contextual: {}

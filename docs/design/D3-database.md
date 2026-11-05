@@ -12,6 +12,26 @@ they do not impose a universal completeness gate on independently typed products
 
 > Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
+### Contextual vector storage
+
+**Implemented; bounded native controls Tested, 2026-11-05.** The generated
+`kb.contextual_profile`, `kb.contextual_vector`, `kb.contextual_inventory` and
+`kb.contextual_target_vector` projections retain typed sealed operation reports. Vectors bind
+actual input, target descriptor, profile, model/tokenizer revisions, storage precision and
+producing runtime. Target descriptor identity stays independent of inventory membership;
+reusing a vector preserves its original immutable task provenance and adds no evidence vote.
+Curated descriptors are input catalog entries, not source quotations or canonical entities.
+
+The current bounded route stores FP32 vectors and uses exact pgvector cosine over a
+materialized eligible inventory, with PostgreSQL full-text ranking as a distinct lexical
+channel. Alias forms are genuine `text[]` columns; forward migration139 preserves the earlier
+textual array contents using an explicit cast. The official pgvector SQLAlchemy types govern
+binding/reflection. The unused generic Embedding/EmbeddingSpec scaffold has been removed from
+the active model. ANN/halfvec adoption requires its separate scale/quality trigger; existing
+historical spike measurements do not qualify this corpus route.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
 ## Semantic releases and runtime custody
 
 **Implemented; bounded native and preservation controls Tested,2026-11-05.** A semantic
@@ -521,7 +541,7 @@ owns native/consumer receipts and support limits; SP-08–SP-10 retain later ado
 | Authority for structure and meaning | The model (`model/core.yaml`, `model/system.yaml` and the packs; ADR-0020); the database enforces what the generated projection declares | D3's DDL text as the authority keeps two writable sources (the hand-ported `core/db` and this document) joined only by review |
 | Relationships and decision-relevant scalars | Relational: FK columns, edge tables (`kb.claim_ref`, `kb.claim_entity_ref`), identity rows (`kb.entity_identity`), `ExternalReference` rows; modality, polarity and attribution as `kb.claim` columns (§5) | References inside JSONB leave integrity to repository assertions and joins to JSON paths |
 | Values: conditions, values with bindings, schema qualifier maps, observation payloads, configs | typed `jsonb`, each class governed by the model and, where the row outlives a model revision, by the payload-schema registry (`payload_schema_id`, §3); GIN indexes only where queried | Variation lives in data, not in per-type tables (the old repository's 277 contract classes); recursive and tagged values have no lossless relational form |
-| Similarity search | pgvector 0.8.7 (installed), `halfvec`, HNSW | Joins and filters in one query. HNSW on `halfvec` supports up to 4,000 dimensions; the embedding dimension is fixed by spike S7 (`OPEN-D3-2`) |
+| Similarity search | pgvector 0.8.7 (installed), FP32 exact eligible cosine | E5 at384 dimensions is the bounded initial route; Qwen at1024 is retained. ANN/halfvec needs its separate scale and quality trigger. |
 | Lexical search | BM25 through pg_textsearch 1.5.1 (installed: Debian `postgresql-18-pg-textsearch`): a `bm25` partial index over one block level, ranked top-k queries (§5) | Replaces the old Tantivy crate inside the one authority, with no second index to synchronize. Built-in full-text search (`tsvector`, `ts_rank_cd`) has no corpus-level term weighting. Needs preloading and a superuser once (§3; `OPEN-D3-1`) |
 | Graph traversal | Recursive CTEs; NetworkX and pgmpy projections in memory | The knowledge graph is small per project; path-heavy workloads would revisit this |
 | Set-based consolidation steps, analytics and evaluation reports | DuckDB 2.0 in process, with no persistent state, over model-typed Arrow relations of the pool loaded as of the run's cut; beside a Python reference implementation that must be set-equal (ADR-0021). Analytics and run diffs read Parquet exports | Never a second authority. Identity and canonical forms stay in Python. The `postgres` extension maps unconstrained NUMERIC to DOUBLE, so pool loads go through ADBC or psycopg |
@@ -573,8 +593,8 @@ the rest.
 ## 3. `meta`: schema, guidelines and domain declarations
 
 **Extensions.** Phase 0 needs `pg_textsearch` (1.5.1, installed from the Debian package
-`postgresql-18-pg-textsearch`) for BM25 lexical search (§5); `vector` arrives with `kb.embedding`
-in phase 1. pg_textsearch loads only through `shared_preload_libraries`, and neither extension is
+`postgresql-18-pg-textsearch`) for BM25 lexical search (§5); `vector` supports generated contextual vectors.
+pg_textsearch loads only through `shared_preload_libraries`, and neither extension is
 trusted, so the project's roles cannot create them. `just db-provision` (§13) therefore preloads
 pg_textsearch in the cluster's configuration and creates both extensions as `postgres` in the
 template database `cs_template`, which `ci db init` and the test databases clone. Migration 0001
@@ -1004,18 +1024,8 @@ CREATE TABLE kb.span (
   CHECK (start_offset < end_offset)
 );
 
-CREATE TABLE kb.embedding (
-  id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  target_type     text NOT NULL CHECK (target_type IN ('segment','entity','alias')),
-  target_id       bigint NOT NULL,
-  model_config_id bigint NOT NULL REFERENCES ops.method_config,
-  vec             halfvec(1024) NOT NULL,        -- dimension fixed by S7 (OPEN-D3-2): 1024 or 2048
-  UNIQUE (target_type, target_id, model_config_id)
-);
--- one partial HNSW index per target_type, queried with SET LOCAL hnsw.iterative_scan = relaxed_order (below)
-CREATE INDEX embedding_hnsw_segment ON kb.embedding USING hnsw (vec halfvec_cosine_ops) WHERE target_type = 'segment';
-CREATE INDEX embedding_hnsw_entity  ON kb.embedding USING hnsw (vec halfvec_cosine_ops) WHERE target_type = 'entity';
-CREATE INDEX embedding_hnsw_alias   ON kb.embedding USING hnsw (vec halfvec_cosine_ops) WHERE target_type = 'alias';
+-- Contextual embedding relations are compiled from the current semantic model;
+-- see Contextual vector storage above. No generic kb.embedding table is authored here.
 ```
 
 **Renditions are content-addressed** (D1 §3.1, §3.2). A rendition row is one content of a
@@ -1106,13 +1116,8 @@ Each configuration has its own partial BM25 index, whose `text_config` and `ts_c
 another value, never a rewrite of the table or of the first index; a query chooses the index by the configuration it searches.
 > Status: **Proposed** (2026-10-28)
 
-For phase 1 (store note L-S6): `halfvec` HNSW indexes up to 4,000 dimensions (1024 and 2048 fit;
-the 8B model's native 4096 does not); pgvector filters after the index scan, so `kb.embedding`
-gets one partial HNSW index per `target_type`, and filtered queries set
-`hnsw.iterative_scan = relaxed_order` (`SET LOCAL`), re-sorting the few rows returned when exact
-order matters. Rows reference their target's row: renditions are content-addressed, so a
-content-preserving re-ingest keeps every segment row and no embedding is orphaned, while a
-content change makes new segments, which need new embeddings anyway.
+Historical store note L-S6 investigated `halfvec` HNSW up to 4,000 dimensions. Its approximate
+filtered-scan realization is deferred; current contextual retrieval uses exact eligible scans.
 > Status: **Measured** (S6, 2026-10-28, pgvector 0.8.7 on the interim project-local cluster, 10,000
 > random unit vectors per dimension, a filtered top-10 join with the HNSW scan forced): `halfvec`
 > at 1024 and 2048 dimensions loads by binary COPY and indexes (builds of 3.7 s and 7.2 s, indexes
@@ -1123,9 +1128,9 @@ content change makes new segments, which need new embeddings anyway.
 > vectors are a worst case for recall; the dimension, `ef_search` and recall with real embeddings
 > wait on S7 (OPEN-D3-2), and the design is **Proposed**
 
-`kb.embedding` is created by the phase 1 migration that adds M04, not by 0001: nothing reads it in
-phase 0, and its dimension waits on S7 (P11 in the design rationale). The rest of this section is
-migration 0001.
+The active contextual model replaces the unconsumed generic embedding scaffold. The remaining
+SQL in this section describes the earlier phase0 layout; current generated declarations and
+forward migrations own actual deployment.
 
 `ops.task` sits here in creation order because observations reference it:
 
@@ -2023,7 +2028,7 @@ partitioning is needed until a project holds many corpora.
 | ID | Question | Resolved by |
 |---|---|---|
 | OPEN-D3-1 | Lexical search: index and query form | **Answered** (2026-10-28, S6): BM25 through pg_textsearch 1.5.1 (§5): one partial `bm25` index per text-search configuration over the block level `('paragraph','heading','list_item','caption')`, with `ts_config = '<config>'::regconfig` in the index predicate and repeated in every query, queried by schema-qualified index name; on the four spike pages the planner uses the index (also under a generic plan), the kind list neither overlaps nor leaves text out, and an omitted predicate falls back silently to standalone scoring ([s6.bm25](../design_review/evidence/2026-10-28_design-spikes/records/s6.bm25.json), [s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json)). Open follow-up: the kind list's coverage on the 78-page corpus |
-| OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
+| OPEN-D3-2 | Bounded route answered2026-11-05: E5-small-v2 at384, with Qwen3-Embedding-0.6B at1024 retained as an alternative. Larger/approximate representations remain conditional. | PCE-05 owns selected-frame qualification and future triggers |
 | OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | **Answered by mechanism** (2026-10-28): the BM25 index reads same-row text, and neither an index nor a generated column can read `kb.rendition`; the column stays. The sizes support it (**Measured**, S6, 2026-10-28, interim cluster): about 2.6 kB of segment text per author unit against about 11.6 kB of observation payload per unit at run scale ([s6.sizes](../design_review/evidence/2026-10-28_design-spikes/records/s6.sizes.json)) |
 | OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | **Migration 0001 has no meaning-key column; phase 1 goldens decide** (operator, 2026-10-28, on S6). S6 evidence (**Tested**, 2026-10-28): on the 70 aligned S0 claim pairs, the revised statement key (ADR-0019) raises claim-key agreement from 21 to 38, and with the label rule to 51 against 54 for meaning keys; the 3 remaining pairs differ by one statement-segmentation disagreement in U6, the other 16 differing pairs disagree about the fact itself; no fact is restated across the twelve units (0 of 71), so nothing calls for a stored meaning key yet ([s6.keys](../design_review/evidence/2026-10-28_design-spikes/records/s6.keys.json), [s6.restated](../design_review/evidence/2026-10-28_design-spikes/records/s6.restated.json)). Rerun on phase 1 goldens drawn across pages |
 
@@ -2047,6 +2052,8 @@ and the workload of §11 (bulk COPY, short indexed queries, a queue):
 - preload `pg_textsearch`, `pg_stat_statements`, `auto_explain`;
 - `shared_buffers = 8GB`, `effective_cache_size = 64GB`, `work_mem = 64MB`,
   `maintenance_work_mem = 8GB` (index builds);
+- `max_locks_per_transaction = 256`, allowing the actual full forward-migration bootstrap's
+  temporary validation relations; the dedicated cluster's previous64 allocation was exhausted;
 - `io_method = io_uring`, `effective_io_concurrency = 256`, `random_page_cost = 1.1`,
   `wal_compression = zstd`, `max_wal_size = 8GB`;
 - `jit = off` (short queries and bulk writes, where compiling costs more than it saves);

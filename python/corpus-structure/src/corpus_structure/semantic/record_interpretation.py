@@ -1,6 +1,7 @@
 """Private, pure M1 candidate interpretation; no admission or publication authority.
 
-Only the three selected record templates are supported. Callers supply already computed
+Three strict record templates and explicitly declared local questions share this executor.
+Callers supply already computed
 log potentials and assignment-relative hard masks, including their evidence dependencies.
 Enumeration is exact over the declared retained joint, subject to floating-point arithmetic.
 The total-joint guard is deliberately conservative: component discovery is diagnostic and
@@ -178,6 +179,37 @@ class InterpretationRequest:
     limits: SearchLimits = SearchLimits()
 
 
+@dataclass(frozen=True)
+class CompositeEvent:
+    """A declared local question, expressed as a Boolean union of partial assignments."""
+
+    key: str
+    question: str
+    derivations: tuple[tuple[Choice, ...], ...]
+
+
+@dataclass(frozen=True)
+class LocalInterpretationRequest:
+    """Finite local decisions; no complete-record or identity-specific prerequisite.
+
+    None selects all decision marginals; an empty tuple selects none. Output selection
+    never narrows the factor-connected universe used for normalization.
+    """
+
+    decisions: tuple[Decision, ...]
+    potentials: tuple[LogPotential, ...]
+    constraints: tuple[HardConstraint, ...]
+    dependencies: tuple[Dependency, ...]
+    selection: CandidateSelection
+    model_dependency_id: str
+    ontology_dependency_id: str
+    policy_dependency_id: str
+    events: tuple[CompositeEvent, ...] = ()
+    marginal_decisions: tuple[str, ...] | None = None
+    dependence_scopes: tuple[DependenceScope, ...] = ()
+    limits: SearchLimits = SearchLimits()
+
+
 class Outcome(StrEnum):
     COMPLETED = "completed"
     INVALID_INPUT = "invalid_input"
@@ -265,6 +297,26 @@ def _roles(template: RecordTemplate) -> tuple[tuple[Decision, ...], Decision]:
 def interpret_records(
     request: InterpretationRequest, *, cancellation: Event | None = None
 ) -> InterpretationResult:
+    """Evaluate a strict whole-record request under its original completeness contract."""
+    if not isinstance(request, InterpretationRequest):
+        raise TypeError("record interpretation requires InterpretationRequest")
+    return _interpret(request, cancellation=cancellation)
+
+
+def interpret_local(
+    request: LocalInterpretationRequest, *, cancellation: Event | None = None
+) -> InterpretationResult:
+    """Evaluate an explicit local question without fabricating a whole-record event."""
+    if not isinstance(request, LocalInterpretationRequest):
+        raise TypeError("local interpretation requires LocalInterpretationRequest")
+    return _interpret(request, cancellation=cancellation)
+
+
+def _interpret(
+    request: InterpretationRequest | LocalInterpretationRequest,
+    *,
+    cancellation: Event | None = None,
+) -> InterpretationResult:
     """Evaluate a private retained model, without accepting records or changing any store.
 
     Limits cover this operation's numerical workspace (including converted factor tables),
@@ -321,9 +373,17 @@ def interpret_records(
         if not math.isfinite(duration) or duration < 0:
             raise _Stop(Outcome.INVALID_INPUT, "elapsed limit must be finite and nonnegative")
         poll()
-        roles, identity = _roles(request.template)
-        required = (*roles, *request.template.qualifiers)
-        decisions = (*required, *request.template.auxiliary)
+        is_record = isinstance(request, InterpretationRequest)
+        identity = None
+        if isinstance(request, InterpretationRequest):
+            roles, identity = _roles(request.template)
+            required = (*roles, *request.template.qualifiers)
+            decisions = (*required, *request.template.auxiliary)
+        else:
+            required = ()
+            decisions = request.decisions
+        if not decisions:
+            raise _Stop(Outcome.INVALID_INPUT, "at least one decision is required")
         by_key = {decision.key: decision for decision in decisions}
         if len(by_key) != len(decisions) or not all(by_key):
             raise _Stop(Outcome.INVALID_INPUT, "decision keys must be nonempty and unique")
@@ -337,7 +397,9 @@ def interpret_records(
             positions = {candidate.key: i for i, candidate in enumerate(decision.candidates)}
             if not positions or len(positions) != len(decision.candidates) or not all(positions):
                 raise _Stop(Outcome.INVALID_INPUT, "candidate keys must be nonempty and unique")
-            if not any(c.kind is CandidateKind.UNRESOLVED for c in decision.candidates):
+            if is_record and not any(
+                c.kind is CandidateKind.UNRESOLVED for c in decision.candidates
+            ):
                 raise _Stop(Outcome.INVALID_INPUT, "each decision needs an unresolved candidate")
             for candidate in decision.candidates:
                 if not isinstance(candidate.kind, CandidateKind) or (
@@ -345,7 +407,9 @@ def interpret_records(
                 ):
                     raise _Stop(Outcome.INVALID_INPUT, "unresolved needs a reason; invalid kind")
             indices[decision.key] = positions
-        if not any(c.kind is CandidateKind.LOCAL_NEW for c in identity.candidates):
+        if identity is not None and not any(
+            c.kind is CandidateKind.LOCAL_NEW for c in identity.candidates
+        ):
             raise _Stop(Outcome.INVALID_INPUT, "identity needs a genuine local/new candidate")
         dependencies = {d.key: d for d in request.dependencies}
         if len(dependencies) != len(request.dependencies) or any(
@@ -421,13 +485,31 @@ def interpret_records(
         if workspace > limits.max_workspace_bytes:
             raise _Stop(Outcome.RESOURCE_LIMIT, "numerical workspace memory limit")
 
+        selected_marginals = set(by_key)
+        if isinstance(request, LocalInterpretationRequest):
+            if request.marginal_decisions is not None:
+                selected_marginals = set(request.marginal_decisions)
+                if len(selected_marginals) != len(request.marginal_decisions) or not (
+                    selected_marginals <= by_key.keys()
+                ):
+                    raise _Stop(Outcome.INVALID_INPUT, "invalid marginal decision selection")
+            if not selected_marginals and not request.events:
+                raise _Stop(Outcome.INVALID_INPUT, "local request selects no output question")
         positions = {d.key: i for i, d in enumerate(decisions)}
         required_keys = {d.key for d in required}
         event_keys: set[str] = set()
-        if not request.events:
+        if is_record and not request.events:
             raise _Stop(Outcome.INVALID_INPUT, "at least one qualified record event is required")
         for event in request.events:
             poll()
+            if is_record and not isinstance(event, RecordEvent):
+                raise _Stop(Outcome.INVALID_INPUT, "record request requires strict RecordEvent")
+            if not is_record and (
+                not isinstance(event, CompositeEvent)
+                or not isinstance(event.question, str)
+                or not event.question.strip()
+            ):
+                raise _Stop(Outcome.INVALID_INPUT, "local event requires a declared question")
             if not event.key or event.key in event_keys or not event.derivations:
                 raise _Stop(
                     Outcome.INVALID_INPUT, "event keys/derivations must be nonempty and unique"
@@ -437,12 +519,16 @@ def interpret_records(
             for derivation in event.derivations:
                 poll()
                 bindings = {choice.decision: choice.candidate for choice in derivation}
-                if len(bindings) != len(derivation) or not required_keys <= bindings.keys():
+                if (
+                    not derivation
+                    or len(bindings) != len(derivation)
+                    or not required_keys <= bindings.keys()
+                ):
                     raise _Stop(Outcome.INVALID_INPUT, "event omits a record role or qualifier")
                 if any(k not in indices or v not in indices[k] for k, v in bindings.items()):
                     raise _Stop(Outcome.INVALID_INPUT, "event refers to an unknown candidate")
                 current = frozenset(c for c in derivation if c.decision in required_keys)
-                if reading is not None and reading != current:
+                if is_record and reading is not None and reading != current:
                     raise _Stop(
                         Outcome.INVALID_INPUT, "derivations mix distinct qualified readings"
                     )
@@ -548,6 +634,8 @@ def interpret_records(
                     event_logs[event_index], logsumexp(block[mask])
                 )
             for axis, size in enumerate(shape):
+                if decisions[axis].key not in selected_marginals:
+                    continue
                 poll()
                 for candidate in range(size):
                     poll()
@@ -583,6 +671,7 @@ def interpret_records(
             marginals=tuple(
                 Marginal(d.key, c.key, math.exp(float(p) - log_z))
                 for d, logs in zip(decisions, marginal_logs, strict=True)
+                if d.key in selected_marginals
                 for c, p in zip(d.candidates, logs, strict=True)
             ),
             alternatives=tuple(alternatives),

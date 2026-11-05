@@ -631,6 +631,9 @@ def test_record_cell_handle_drives_actual_native_inspection_adapter(projection, 
     monkeypatch.setattr(pdf_contracts, "trusted_pdf_context", lambda: context)
 
     class RetainedTable:
+        def product_kind(self):
+            return "native"
+
         def selected_native_items(self, pointers):
             assert pointers == ("#/tables/0",)
             return {

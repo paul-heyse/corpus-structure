@@ -7,7 +7,7 @@ from typing import Any
 
 from alembic import context
 
-from corpus_structure.semantic.alembic_defaults import compare_default
+from corpus_structure.semantic.alembic_defaults import compare_default, compare_type
 from corpus_structure.semantic.alembic_defaults import plugin as defaults_plugin
 from corpus_structure.semantic.alembic_indexes import plugin as indexes_plugin
 from corpus_structure.semantic.alembic_native import plugin as native_plugin
@@ -40,6 +40,7 @@ context.configure(
     include_schemas=True,
     include_name=include_name,
     compare_server_default=compare_default,
+    compare_type=compare_type,
     autogenerate_plugins=[
         "alembic.autogenerate.*",
         "alembic.ext.checkconstraint_byname",

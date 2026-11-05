@@ -9,6 +9,7 @@ import psycopg
 import pytest
 from pydantic import BaseModel
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import claim_lifetime
 from corpus_structure.semantic.operation_results import CompletionResult
@@ -74,6 +75,53 @@ def completion(prepared, claim):
         observations=(),
         outcome="empty",
     )
+
+
+@pytest.mark.parametrize("completion_seconds", [1.0, 0.05])
+def test_completion_owns_its_finite_deadline_instead_of_renewal_budget(
+    semantic_db_engine, semantic_writer_engine, completion_seconds
+):
+    prepared, (claim,) = claims(semantic_db_engine, semantic_writer_engine)
+    database = claim_lifetime.DatabaseSettings(
+        renewal_statement_timeout_seconds=0.03,
+        renewal_lock_timeout_seconds=0.01,
+        completion_statement_timeout_seconds=completion_seconds,
+    )
+    owner = claim_lifetime.ClaimOwner(
+        semantic_writer_engine, (claim,), "owner", database, lambda: None
+    )
+    seen = []
+
+    def delayed_completion(conn):
+        seen.append(
+            conn.execute(
+                text(
+                    "SELECT current_setting('statement_timeout')::interval, "
+                    "current_setting('lock_timeout')::interval"
+                )
+            ).one()
+        )
+        conn.execute(text("SELECT pg_sleep(0.15)"))
+        return completion(prepared, claim)(conn)
+
+    if completion_seconds > 0.15:
+        result = owner.settle(claim, delayed_completion)
+        assert isinstance(result, CompletionResult)
+        assert not owner.active
+    else:
+        with pytest.raises(DBAPIError) as caught:
+            owner.settle(claim, delayed_completion)
+        assert getattr(caught.value.orig, "sqlstate", None) == "57014"
+        assert (claim.task_id, claim.attempt, "owner") in owner.active
+        with semantic_writer_engine.connect() as conn:
+            assert (
+                conn.scalar(
+                    text("SELECT status FROM ops.task WHERE id=:id"), dict(id=claim.task_id)
+                )
+                == "running"
+            )
+    assert seen[0][0].total_seconds() == completion_seconds
+    assert seen[0][1].total_seconds() == 0.01
 
 
 def test_renewal_is_serialized_through_terminal_commit_and_retirement(

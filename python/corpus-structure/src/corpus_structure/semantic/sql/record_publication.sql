@@ -746,7 +746,423 @@ BEGIN
  revision:=data.publish_contract_batch(r,z,b,p_content);
  IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion_support) THEN
   RAISE EXCEPTION 'source records require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM pg_temp.sp_local_assertion) OR EXISTS(SELECT FROM pg_temp.sp_local_semantic_assertion) THEN
+  RAISE EXCEPTION 'local source assertions require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
  RETURN revision;
 END $fn$;
 REVOKE ALL ON FUNCTION data.publish_batch(text,text,text,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION data.publish_batch(text,text,text,bytea) TO corpus_sem_writer;
+
+-- Local source facts share the ordinary transport/receipt transaction. They never
+-- grant private contributions domain membership or whole-record standing.
+CREATE OR REPLACE FUNCTION data.validate_local_assertions(r text,z text) RETURNS void
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $local$
+DECLARE a record; contribution jsonb; operation_version text; source_name text;
+ expected_event text; expected_pieces jsonb; expected jsonb; policy_schema json;
+BEGIN
+ IF to_regclass('pg_temp.sp_local_assertion') IS NULL THEN RETURN; END IF;
+ IF NOT EXISTS(SELECT FROM pg_temp.sp_local_assertion) THEN RETURN; END IF;
+ SELECT convert_from(content,'UTF8')::json INTO policy_schema FROM sem.artifact
+  WHERE release_id=r AND artifact_name='json_schema/LocalContributionPublicationPolicy';
+ IF policy_schema IS NULL THEN
+  RAISE EXCEPTION 'local source publication policy is not released' USING ERRCODE='23514'; END IF;
+ -- Decode each immutable origin report once, including reused selected tasks.
+ -- Cut membership remains selected-task grain; physical report hydration does not.
+ FOR a IN
+  WITH bindings AS MATERIALIZED (
+   SELECT DISTINCT stage.cut_id,stage.selected_task_id,stage.origin_task_id
+   FROM pg_temp.sp_local_assertion stage
+   JOIN ops.input_cut cut ON cut.id=stage.cut_id
+   JOIN ops.run job ON job.id=cut.run_id
+   JOIN ops.cut_task member ON member.cut_id=cut.id AND member.task_id=stage.selected_task_id
+    AND member.origin_task_id=stage.origin_task_id
+   JOIN ops.task selected ON selected.id=member.task_id
+   JOIN ops.task origin ON origin.id=member.origin_task_id
+   WHERE selected.run_id=job.id AND selected.release_id=r AND origin.release_id=r
+    AND cut.release_id=r AND job.release_id=r AND cut.final AND job.sealed
+    AND job.status IN ('consolidating','finished') AND job.result_realization_id=z
+    AND selected.status IN ('done','empty','reused')
+    AND member.origin_task_id=COALESCE(selected.reused_task_id,selected.id)
+  ), reports AS MATERIALIZED (
+   SELECT DISTINCT binding.origin_task_id,result.body
+   FROM bindings binding JOIN ops.task_result result ON result.task_id=binding.origin_task_id
+  ), products AS MATERIALIZED (
+   SELECT report.origin_task_id,entry.contribution,op.operation_version,report.body->>'source' AS source_name
+   FROM reports report
+   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(NULLIF(report.body->'contributions','null'),'[]'))
+    WITH ORDINALITY entry(contribution,ordinal)
+   JOIN kb.source_contribution product ON product.task_id=report.origin_task_id
+    AND product.contribution_id=entry.contribution->>'contribution_id' AND product.position=entry.ordinal-1
+   JOIN kb.source_contribution_operation op ON op.task_id=product.task_id AND op.operation_key=product.operation_key
+   WHERE product.release_id=r AND op.release_id=r
+  )
+  SELECT stage.*,product.contribution AS sealed_contribution,
+   product.operation_version AS sealed_operation_version,product.source_name AS sealed_source
+  FROM pg_temp.sp_local_assertion stage
+  LEFT JOIN bindings binding ON (binding.cut_id,binding.selected_task_id,binding.origin_task_id)=
+   (stage.cut_id,stage.selected_task_id,stage.origin_task_id)
+  LEFT JOIN products product ON product.origin_task_id=binding.origin_task_id
+   AND product.contribution->>'contribution_id'=stage.contribution_id
+ LOOP
+  contribution:=a.sealed_contribution;
+  operation_version:=a.sealed_operation_version;
+  source_name:=a.sealed_source;
+  IF NOT public.json_matches_schema(policy_schema,jsonb_build_object(
+   'policy_id',a.policy_id,'policy_version',a.policy_version,'event',a.event,'basis',a.basis)::json) THEN
+   RAISE EXCEPTION 'local assertion policy or event is inapplicable' USING ERRCODE='23514'; END IF;
+  IF contribution IS NULL OR contribution->>'contribution_id' IS DISTINCT FROM a.contribution_id
+   OR contribution->>'standing'<>'retained_private'
+   OR contribution->>'operation_key' IS DISTINCT FROM a.operation_key
+   OR operation_version IS DISTINCT FROM a.operation_version
+   OR contribution->>'occurrence_id' IS DISTINCT FROM a.occurrence_id
+   OR source_name IS DISTINCT FROM a.source
+   OR contribution->>'kind' NOT IN ('occurrence','proposal')
+   OR contribution->>'anchor_role' IS NOT DISTINCT FROM 'inspection_subject'
+   OR jsonb_array_length(COALESCE(contribution->'anchors','[]'))=0
+   OR EXISTS(SELECT FROM jsonb_array_elements(contribution->'anchors') anchor
+     WHERE anchor->>'space' IS DISTINCT FROM 'native' OR anchor->>'precision' IS DISTINCT FROM 'exact'
+      OR NOT (anchor ? 'start' AND anchor ? 'end' AND anchor ? 'source_piece')
+      OR jsonb_typeof(anchor->'source_piece') IS DISTINCT FROM 'string'
+      OR (anchor->>'start')::bigint<0 OR (anchor->>'end')::bigint<=(anchor->>'start')::bigint
+      OR length(anchor->>'source_piece')<>(anchor->>'end')::bigint-(anchor->>'start')::bigint) THEN
+   RAISE EXCEPTION 'local assertion lacks exact sealed-cut source witness closure' USING ERRCODE='23514'; END IF;
+  expected_event:=CASE contribution->>'kind' WHEN 'occurrence' THEN 'source_occurrence' ELSE 'source_literal_quote' END;
+  IF a.event IS DISTINCT FROM expected_event THEN
+   RAISE EXCEPTION 'source witness does not authorize this local event' USING ERRCODE='23514'; END IF;
+  SELECT jsonb_agg(anchor->'source_piece' ORDER BY ordinal) INTO expected_pieces
+   FROM jsonb_array_elements(contribution->'anchors') WITH ORDINALITY rows(anchor,ordinal);
+  expected:=jsonb_build_object(
+   'claim_id','local-source-claim:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+    expected_event,contribution->>'occurrence_id',expected_pieces)),'UTF8')),'hex'),
+   'selected_task_id',a.selected_task_id,'origin_task_id',a.origin_task_id,'cut_id',a.cut_id,
+   'contribution_id',a.contribution_id,'operation_key',a.operation_key,'operation_version',operation_version,
+   'event',expected_event,'policy_id','exact-source-local-1','policy_version','1',
+   'basis','deterministic_native_source_coordinates','source',source_name,'occurrence_id',contribution->>'occurrence_id',
+   'anchors_json',data.canonical_json(contribution->'anchors'),'literal_pieces_json',data.canonical_json(expected_pieces));
+  IF to_jsonb(a)-'assertion_id'-'sealed_contribution'-'sealed_operation_version'-'sealed_source' IS DISTINCT FROM expected OR a.assertion_id IS DISTINCT FROM
+   'local-assertion:'||encode(sha256(convert_to(data.canonical_json(expected),'UTF8')),'hex') THEN
+   RAISE EXCEPTION 'local assertion content or intrinsic identity differs from its exact witness' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $local$;
+REVOKE ALL ON FUNCTION data.validate_local_assertions(text,text) FROM PUBLIC;
+
+-- One owned read of the existing protected operation evaluation and adjudication.
+-- This supplies applicability evidence, never universal confidence or calibration.
+CREATE OR REPLACE FUNCTION data.local_semantic_grade_evidence(p_project text,p_release text,p_evaluation bigint,p_digest text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $semantic$
+DECLARE grade eval.reference_evaluation; completed ops.completed_result; units jsonb; origins jsonb;
+BEGIN
+ SELECT * INTO STRICT grade FROM eval.reference_evaluation WHERE id=p_evaluation
+  AND project_id=p_project AND content_digest=p_digest;
+ IF NOT EXISTS(SELECT FROM eval.reference_set WHERE id=grade.set_id
+  AND sampling->>'partition' IN ('development','feature_fit')) THEN
+  RAISE EXCEPTION 'local semantic publication permits only development-use references' USING ERRCODE='23514'; END IF;
+ SELECT c.* INTO STRICT completed FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id
+  WHERE c.run_id=grade.run_id AND r.project_id=p_project AND r.status='finished' AND r.sealed
+   AND c.release_id=p_release;
+ IF grade.content_digest IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(
+  jsonb_build_object('snapshot',grade.reference_snapshot,'result',grade.result)),'UTF8')),'hex')
+  OR grade.reference_snapshot IS DISTINCT FROM eval.native_reference_snapshot(grade.set_id)
+  OR grade.result->>'protocol' IS DISTINCT FROM 'source-operation-evaluation-1'
+  OR grade.result->>'release_id' IS DISTINCT FROM p_release
+  OR (grade.result->>'run_id')::bigint IS DISTINCT FROM grade.run_id
+  OR (grade.result->>'set_id')::bigint IS DISTINCT FROM grade.set_id THEN
+  RAISE EXCEPTION 'local semantic grade is stale or differs from its protected identity' USING ERRCODE='23514'; END IF;
+ SELECT jsonb_agg(jsonb_build_object('unit_id',u.id,'source_view_id',u.source_view_id,
+  'pass_id',p.id,'frame_id',f.id,'source_frame',f.source_frame,
+  'authored',convert_from(p.authored,'UTF8')::jsonb,'assessed',assessed.value) ORDER BY u.id)
+ INTO units FROM jsonb_array_elements(grade.reference_snapshot) snap
+ JOIN eval.reference_unit u ON u.id=(snap->>'unit_id')::bigint AND u.set_id=grade.set_id
+ JOIN eval.reference_pass p ON p.id=(snap->>'pass_id')::bigint AND p.unit_id=u.id
+  AND p.pass_kind='C' AND p.content_digest=snap->>'content_digest'
+ JOIN eval.reference_frame f ON f.id=(snap->>'frame_id')::bigint AND f.pass_id=p.id
+ JOIN LATERAL jsonb_array_elements(grade.result->'units') assessed(value)
+  ON (assessed.value->>'unit_id')::bigint=u.id AND (assessed.value->>'source_view_id')::bigint=u.source_view_id;
+ IF units IS NULL OR jsonb_array_length(units)<>jsonb_array_length(grade.reference_snapshot) THEN
+  RAISE EXCEPTION 'local semantic grade omits immutable adjudicated frame closure' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(DISTINCT origin_task_id),'[]') INTO origins
+  FROM ops.cut_task WHERE cut_id=completed.cut_id;
+ RETURN jsonb_build_object('evaluation_id',grade.id,'evaluation_digest',grade.content_digest,
+  'graded_cut_id',completed.cut_id,'units',units,'origin_task_ids',origins);
+END $semantic$;
+REVOKE ALL ON FUNCTION data.local_semantic_grade_evidence(text,text,bigint,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION data.local_semantic_grade_evidence(text,text,bigint,text) FROM corpus_sem_writer;
+
+CREATE OR REPLACE FUNCTION data.local_semantic_case_matches(contribution jsonb,operation jsonb,bound jsonb,authored_case jsonb,assessed_case jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $semantic$
+DECLARE statement jsonb:=data.record_source_json(contribution->'value'); anchor_ids jsonb;
+BEGIN
+ SELECT jsonb_agg(anchor->'anchor_id' ORDER BY anchor->>'anchor_id') INTO anchor_ids
+  FROM jsonb_array_elements(contribution->'anchors') anchor;
+ RETURN NOT (contribution->>'kind' IS DISTINCT FROM 'proposal'
+   OR contribution->>'semantic_type' IS DISTINCT FROM 'contextual.denotation'
+   OR contribution->>'standing' IS DISTINCT FROM 'retained_private'
+   OR contribution->>'anchor_role' IS NOT DISTINCT FROM 'inspection_subject'
+   OR contribution->>'occurrence_id' IS NULL
+   OR jsonb_array_length(contribution->'anchors')=0
+   OR EXISTS(SELECT FROM jsonb_array_elements(contribution->'anchors') anchor
+    WHERE anchor->>'space' IS DISTINCT FROM 'native' OR anchor->>'precision' IS DISTINCT FROM 'exact'
+     OR NOT(anchor ?& ARRAY['start','end','source_piece']) OR (anchor->>'start')::bigint<0
+     OR (anchor->>'end')::bigint<=(anchor->>'start')::bigint
+     OR length(anchor->>'source_piece')<>(anchor->>'end')::bigint-(anchor->>'start')::bigint)
+   OR statement-ARRAY['target_id','target_source_binding','relation','scope','effective_version']<>'{}'
+   OR NOT(statement ?& ARRAY['target_id','target_source_binding','relation','scope','effective_version'])
+   OR statement->>'relation' IS DISTINCT FROM 'denotes'
+   OR operation->>'outcome' IS DISTINCT FROM 'succeeded'
+   OR operation->>'question' IS DISTINCT FROM 'contextual denotation selection for supplied occurrence'
+   OR operation->>'operation_version' IS DISTINCT FROM '1'
+   OR bound->>'direction' IS DISTINCT FROM 'source_first'
+   OR bound->>'operation_question' IS DISTINCT FROM (operation->>'question')
+   OR bound->>'operation_version' IS DISTINCT FROM (operation->>'operation_version')
+   OR bound->>'rubric_version' IS DISTINCT FROM 'contextual-denotation-1'
+   OR bound->>'context_policy' IS DISTINCT FROM 'declared-native-source-and-curated-targets-1'
+   OR bound->'pin' IS DISTINCT FROM contribution->'pin'
+   OR authored_case->>'facet' IS DISTINCT FROM 'denotation'
+   OR authored_case->>'judgment' IS DISTINCT FROM 'supported'
+   OR authored_case->>'source_state' IS DISTINCT FROM 'stated'
+   OR COALESCE(authored_case->>'expectation_mode','structure')<>'structure'
+   OR COALESCE(authored_case->>'contribution_kind','proposal')<>'proposal'
+   OR authored_case->>'contribution_id' IS NOT NULL OR authored_case->>'anchor_endpoint_role' IS NOT NULL
+   OR COALESCE(authored_case->'candidate_selector','{}') NOT IN ('{}'::jsonb,'{"semantic_type":"contextual.denotation"}'::jsonb)
+   OR jsonb_array_length(authored_case->'alternatives')<>1
+   OR (SELECT jsonb_agg(x ORDER BY x) FROM jsonb_array_elements(authored_case->'anchor_ids') x) IS DISTINCT FROM anchor_ids
+   OR NOT((bound->'anchor_ids') @> anchor_ids)
+   OR assessed_case->>'facet' IS DISTINCT FROM 'denotation'
+   OR assessed_case->>'judgment' IS DISTINCT FROM 'supported'
+   OR assessed_case->>'source_state' IS DISTINCT FROM 'stated'
+   OR assessed_case->>'expectation_mode' IS DISTINCT FROM 'structure'
+   OR assessed_case->>'capture_outcome' IS DISTINCT FROM 'captured_structure'
+   OR assessed_case->>'error_category' IS NOT NULL
+   OR assessed_case->>'contribution_id' IS DISTINCT FROM contribution->>'contribution_id'
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(authored_case->'alternatives') option
+    WHERE option-ARRAY['semantic_type','value']='{}' AND option ?& ARRAY['semantic_type','value']
+     AND option->>'semantic_type'='contextual.denotation' AND option->'value'=contribution->'value'));
+END $semantic$;
+REVOKE ALL ON FUNCTION data.local_semantic_case_matches(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION data.local_semantic_assertion_value(a jsonb,contribution jsonb,operation jsonb,source_name text,grade jsonb,authored_case jsonb)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $semantic$
+DECLARE statement jsonb:=data.record_source_json(contribution->'value');
+BEGIN
+ RETURN jsonb_build_object(
+   'claim_id','local-semantic-claim:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
+    'contextual.denotation',contribution->>'occurrence_id',statement)),'UTF8')),'hex'),
+   'selected_task_id',(a->>'selected_task_id')::bigint,'origin_task_id',(a->>'origin_task_id')::bigint,'cut_id',(a->>'cut_id')::bigint,
+   'contribution_id',contribution->>'contribution_id','operation_key',operation->>'operation_key',
+   'operation_version',operation->>'operation_version','operation_question',operation->>'question',
+   'policy_id','independent-contextual-denotation-1','policy_version','1',
+   'source',source_name,
+   'occurrence_id',contribution->>'occurrence_id','evaluation_id',(a->>'evaluation_id')::bigint,
+   'evaluation_digest',grade->>'evaluation_digest','unit_id',(a->>'unit_id')::bigint,'pass_id',(a->>'pass_id')::bigint,'frame_id',(a->>'frame_id')::bigint,
+   'case_id',authored_case->>'case_id','facet','denotation','rubric_version','contextual-denotation-1',
+   'context_policy','declared-native-source-and-curated-targets-1',
+   'statement_json',data.canonical_json(statement),'anchors_json',data.canonical_json(contribution->'anchors'));
+END $semantic$;
+REVOKE ALL ON FUNCTION data.local_semantic_assertion_value(jsonb,jsonb,jsonb,text,jsonb,jsonb) FROM PUBLIC;
+
+-- Ordinary writers receive only exact selected public candidates, never C payloads,
+-- other unit labels or held-out evaluation contents. All authority stays native.
+CREATE OR REPLACE FUNCTION data.local_semantic_publication_candidates(p_project text,p_release text,p_run bigint,p_cut bigint)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $semantic$
+DECLARE job ops.run; binding jsonb; output jsonb;
+BEGIN
+ SELECT run.* INTO STRICT job FROM ops.run run JOIN ops.input_cut cut ON cut.run_id=run.id
+  WHERE run.id=p_run AND run.project_id=p_project AND run.release_id=p_release
+   AND cut.id=p_cut AND cut.final AND cut.release_id=p_release AND run.sealed
+   AND run.status IN ('created','running','consolidating','finished');
+ FOR binding IN SELECT value FROM jsonb_array_elements(COALESCE(
+  convert_from(job.dependencies,'UTF8')::jsonb->'local_semantic_admission','[]')) LOOP
+  IF binding-ARRAY['evaluation_id','evaluation_digest']<>'{}'
+   OR NOT(binding ?& ARRAY['evaluation_id','evaluation_digest']) THEN
+   RAISE EXCEPTION 'semantic publication binding requires exact protected evaluation identity' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ -- Preparation belongs to this invocation: protected grades once per exact binding,
+ -- source arrays once per origin, and assessed case identity before product matching.
+ WITH bindings AS MATERIALIZED (
+  SELECT DISTINCT (value->>'evaluation_id')::bigint evaluation_id,value->>'evaluation_digest' evaluation_digest
+  FROM jsonb_array_elements(COALESCE(convert_from(job.dependencies,'UTF8')::jsonb->'local_semantic_admission','[]'))
+ ), grades AS MATERIALIZED (
+  SELECT b.*,data.local_semantic_grade_evidence(p_project,p_release,b.evaluation_id,b.evaluation_digest) evidence
+  FROM bindings b
+ ), grade_origins AS MATERIALIZED (
+  SELECT g.evaluation_id,g.evaluation_digest,(origin.value)::bigint origin_task_id
+  FROM grades g CROSS JOIN LATERAL jsonb_array_elements_text(g.evidence->'origin_task_ids') origin(value)
+ ), selected AS MATERIALIZED (
+  SELECT member.task_id,member.origin_task_id FROM ops.cut_task member
+  JOIN ops.task task ON task.id=member.task_id
+  WHERE member.cut_id=p_cut AND task.run_id=p_run AND task.status IN ('done','empty','reused')
+   AND COALESCE(task.reused_task_id,task.id)=member.origin_task_id
+ ), origins AS MATERIALIZED (
+  SELECT result.task_id,result.body->>'source' source_name,result.body->'contributions' contributions FROM (SELECT DISTINCT origin_task_id FROM selected) origin
+  JOIN ops.task_result result ON result.task_id=origin.origin_task_id
+ ), entries AS MATERIALIZED (
+  SELECT origin.task_id,origin.source_name,contribution.value contribution
+  FROM origins origin CROSS JOIN LATERAL jsonb_array_elements(origin.contributions) contribution(value)
+  JOIN kb.source_contribution product ON product.task_id=origin.task_id
+   AND product.contribution_id=contribution.value->>'contribution_id'
+   AND product.release_id=p_release AND product.semantic_type='contextual.denotation'
+ ), units AS MATERIALIZED (
+  SELECT g.evaluation_id,g.evaluation_digest,u.value unit FROM grades g
+  CROSS JOIN LATERAL jsonb_array_elements(g.evidence->'units') u(value)
+ ), authored_cases AS MATERIALIZED (
+  SELECT u.evaluation_id,u.evaluation_digest,(u.unit->>'unit_id')::bigint unit_id,
+   (u.unit->>'pass_id')::bigint pass_id,(u.unit->>'frame_id')::bigint frame_id,
+   entry.value authored_case FROM units u
+  CROSS JOIN LATERAL jsonb_array_elements(u.unit->'authored'->'cases') entry(value)
+ ), assessed_cases AS MATERIALIZED (
+  SELECT u.evaluation_id,u.evaluation_digest,(u.unit->>'unit_id')::bigint unit_id,
+   (u.unit->>'pass_id')::bigint pass_id,(u.unit->>'frame_id')::bigint frame_id,
+   (u.unit->>'source_view_id')::bigint source_view_id,u.unit->'source_frame'->'evaluation_frame' bound,
+   entry.value assessed_case,entry.value->>'contribution_id' contribution_id FROM units u
+  CROSS JOIN LATERAL jsonb_array_elements(u.unit->'assessed'->'cases') entry(value)
+ ), cases AS MATERIALIZED (
+  SELECT assessed.*,authored.authored_case FROM assessed_cases assessed JOIN authored_cases authored
+   ON authored.evaluation_id=assessed.evaluation_id AND authored.evaluation_digest=assessed.evaluation_digest
+    AND authored.unit_id=assessed.unit_id AND authored.pass_id=assessed.pass_id AND authored.frame_id=assessed.frame_id
+    AND authored.authored_case->>'case_id'=assessed.assessed_case->>'case_id'
+ ), candidates AS (
+  SELECT data.local_semantic_assertion_value(jsonb_build_object(
+   'selected_task_id',s.task_id,'origin_task_id',s.origin_task_id,'cut_id',p_cut,
+   'evaluation_id',c.evaluation_id,'unit_id',c.unit_id,'pass_id',c.pass_id,
+   'frame_id',c.frame_id),e.contribution,to_jsonb(operation),e.source_name,
+   jsonb_build_object('evaluation_digest',c.evaluation_digest),c.authored_case) row_value
+  FROM cases c JOIN entries e ON e.contribution->>'contribution_id'=c.contribution_id
+   AND (e.contribution->'pin'->>'source_view_id')::bigint=c.source_view_id
+  JOIN selected s ON s.origin_task_id=e.task_id
+  JOIN grade_origins old ON old.evaluation_id=c.evaluation_id AND old.evaluation_digest=c.evaluation_digest
+   AND old.origin_task_id=e.task_id
+  JOIN kb.source_contribution_operation operation ON operation.task_id=e.task_id
+   AND operation.release_id=p_release AND operation.operation_key=e.contribution->>'operation_key'
+  WHERE data.local_semantic_case_matches(e.contribution,to_jsonb(operation),
+   c.bound,c.authored_case,c.assessed_case) IS TRUE
+ ), assertions AS (
+  SELECT DISTINCT row_value||jsonb_build_object('assertion_id','local-semantic-assertion:'||
+   encode(sha256(convert_to(data.canonical_json(row_value),'UTF8')),'hex')) value FROM candidates
+ ) SELECT COALESCE(jsonb_agg(value ORDER BY value->>'assertion_id'),'[]') INTO output FROM assertions;
+ RETURN output;
+END $semantic$;
+REVOKE ALL ON FUNCTION data.local_semantic_publication_candidates(text,text,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION data.local_semantic_publication_candidates(text,text,bigint,bigint) TO corpus_sem_writer;
+
+CREATE OR REPLACE FUNCTION data.validate_local_semantic_assertions(r text,z text)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $semantic$
+#variable_conflict use_column
+DECLARE a record; prepared record; job ops.run; contribution jsonb;
+ grade jsonb; bound jsonb; authored_case jsonb; assessed_case jsonb;
+ expected jsonb; policy_schema json;
+BEGIN
+ IF to_regclass('pg_temp.sp_local_semantic_assertion') IS NULL THEN RETURN; END IF;
+ IF NOT EXISTS(SELECT FROM pg_temp.sp_local_semantic_assertion) THEN RETURN; END IF;
+ SELECT convert_from(content,'UTF8')::json INTO STRICT policy_schema FROM sem.artifact
+  WHERE release_id=r AND artifact_name='json_schema/LocalSemanticPublicationPolicy';
+ FOR a IN SELECT * FROM pg_temp.sp_local_semantic_assertion LOOP
+  SELECT run.* INTO STRICT job FROM ops.run run JOIN ops.input_cut cut ON cut.run_id=run.id
+   JOIN ops.cut_task member ON member.cut_id=cut.id
+   JOIN ops.task selected ON selected.id=member.task_id
+   WHERE cut.id=a.cut_id AND cut.final AND run.sealed AND run.status IN ('consolidating','finished')
+    AND cut.release_id=r AND run.release_id=r AND run.result_realization_id=z
+    AND member.task_id=a.selected_task_id AND member.origin_task_id=a.origin_task_id
+    AND selected.run_id=run.id AND selected.status IN ('done','empty','reused')
+    AND COALESCE(selected.reused_task_id,selected.id)=member.origin_task_id;
+  IF NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(convert_from(job.dependencies,'UTF8')::jsonb
+   ->'local_semantic_admission','[]')) binding WHERE binding=jsonb_build_object(
+    'evaluation_id',a.evaluation_id,'evaluation_digest',a.evaluation_digest)) THEN
+   RAISE EXCEPTION 'semantic grade is outside immutable publication dependencies' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ -- All staged rows have passed their exact current-cut/run/dependency checks above.
+ -- Keep every row on the left below: absent/duplicate matches must refuse, never vanish.
+ FOR prepared IN
+ WITH staged AS MATERIALIZED (SELECT s FROM pg_temp.sp_local_semantic_assertion s),
+ grade_keys AS MATERIALIZED (
+  SELECT DISTINCT job.project_id,r release_id,(s).evaluation_id,(s).evaluation_digest
+  FROM staged JOIN ops.input_cut cut ON cut.id=(s).cut_id JOIN ops.run job ON job.id=cut.run_id
+ ), grades AS MATERIALIZED (
+  SELECT k.*,data.local_semantic_grade_evidence(k.project_id,k.release_id,k.evaluation_id,k.evaluation_digest) evidence
+  FROM grade_keys k
+ ), grade_units AS MATERIALIZED (
+  SELECT g.project_id,g.evaluation_id,g.evaluation_digest,u.value unit FROM grades g
+  CROSS JOIN LATERAL jsonb_array_elements(g.evidence->'units') u(value)
+ ), grade_views AS MATERIALIZED (
+  SELECT DISTINCT project_id,evaluation_id,evaluation_digest,(unit->>'source_view_id')::bigint source_view_id
+  FROM grade_units
+ ), grade_origins AS MATERIALIZED (
+  SELECT g.project_id,g.evaluation_id,g.evaluation_digest,(o.value)::bigint origin_task_id FROM grades g
+  CROSS JOIN LATERAL jsonb_array_elements_text(g.evidence->'origin_task_ids') o(value)
+ ), selected_ids AS MATERIALIZED (
+  SELECT DISTINCT (s).origin_task_id,(s).contribution_id FROM staged
+ ), origins AS MATERIALIZED (
+  SELECT result.task_id,result.body->>'source' source_name,result.body->'contributions' contributions FROM (SELECT DISTINCT origin_task_id FROM selected_ids) ids
+  JOIN ops.task_result result ON result.task_id=ids.origin_task_id
+ ), entries AS MATERIALIZED (
+  SELECT origin.task_id,entry.value->>'contribution_id' contribution_id,
+   jsonb_agg(entry.value) contributions
+  FROM origins origin CROSS JOIN LATERAL jsonb_array_elements(origin.contributions) entry(value)
+  JOIN selected_ids ids ON ids.origin_task_id=origin.task_id AND ids.contribution_id=entry.value->>'contribution_id'
+  GROUP BY origin.task_id,entry.value->>'contribution_id'
+ ), products AS MATERIALIZED (
+  SELECT v.project_id,v.evaluation_id,v.evaluation_digest,p.task_id,p.contribution_id,count(*) matches
+  FROM grade_views v JOIN kb.source_contribution p ON p.source_view_id=v.source_view_id AND p.release_id=r
+  JOIN selected_ids ids ON ids.origin_task_id=p.task_id AND ids.contribution_id=p.contribution_id
+  JOIN grade_origins old ON old.project_id=v.project_id AND old.evaluation_id=v.evaluation_id
+   AND old.evaluation_digest=v.evaluation_digest AND old.origin_task_id=p.task_id
+  GROUP BY v.project_id,v.evaluation_id,v.evaluation_digest,p.task_id,p.contribution_id
+ ), units AS MATERIALIZED (
+  SELECT project_id,evaluation_id,evaluation_digest,(unit->>'unit_id')::bigint unit_id,
+   (unit->>'pass_id')::bigint pass_id,(unit->>'frame_id')::bigint frame_id,jsonb_agg(unit->'source_frame'->'evaluation_frame') matches
+  FROM grade_units GROUP BY project_id,evaluation_id,evaluation_digest,
+   (unit->>'unit_id')::bigint,(unit->>'pass_id')::bigint,(unit->>'frame_id')::bigint
+ ), cases AS MATERIALIZED (
+  SELECT u.project_id,u.evaluation_id,u.evaluation_digest,(u.unit->>'unit_id')::bigint unit_id,
+   (u.unit->>'pass_id')::bigint pass_id,(u.unit->>'frame_id')::bigint frame_id,
+   kind.name,entry.value->>'case_id' case_id,jsonb_agg(entry.value) matches
+  FROM grade_units u CROSS JOIN (VALUES ('authored'),('assessed')) kind(name)
+  CROSS JOIN LATERAL jsonb_array_elements(u.unit->kind.name->'cases') entry(value)
+  GROUP BY u.project_id,u.evaluation_id,u.evaluation_digest,(u.unit->>'unit_id')::bigint,
+   (u.unit->>'pass_id')::bigint,(u.unit->>'frame_id')::bigint,kind.name,entry.value->>'case_id'
+ ), operations AS MATERIALIZED (
+  SELECT op.task_id,op.operation_key,jsonb_agg(to_jsonb(op)) matches
+  FROM kb.source_contribution_operation op JOIN (SELECT DISTINCT origin_task_id FROM selected_ids) ids
+   ON ids.origin_task_id=op.task_id WHERE op.release_id=r GROUP BY op.task_id,op.operation_key
+ )
+ SELECT s assertion,origin.source_name,e.contributions,p.matches product_matches,
+  u.matches units,authored.matches authored_cases,assessed.matches assessed_cases,op.matches operations
+ FROM staged JOIN ops.input_cut cut ON cut.id=(s).cut_id JOIN ops.run job ON job.id=cut.run_id
+ LEFT JOIN origins origin ON origin.task_id=(s).origin_task_id
+ LEFT JOIN entries e ON e.task_id=(s).origin_task_id AND e.contribution_id=(s).contribution_id
+ LEFT JOIN products p ON p.project_id=job.project_id AND p.evaluation_id=(s).evaluation_id
+  AND p.evaluation_digest=(s).evaluation_digest AND p.task_id=(s).origin_task_id AND p.contribution_id=(s).contribution_id
+ LEFT JOIN units u ON u.project_id=job.project_id AND u.evaluation_id=(s).evaluation_id
+  AND u.evaluation_digest=(s).evaluation_digest AND u.unit_id=(s).unit_id AND u.pass_id=(s).pass_id AND u.frame_id=(s).frame_id
+ LEFT JOIN cases authored ON authored.project_id=job.project_id AND authored.evaluation_id=(s).evaluation_id
+  AND authored.evaluation_digest=(s).evaluation_digest AND authored.unit_id=(s).unit_id AND authored.pass_id=(s).pass_id
+  AND authored.frame_id=(s).frame_id AND authored.case_id=(s).case_id AND authored.name='authored'
+ LEFT JOIN cases assessed ON assessed.project_id=job.project_id AND assessed.evaluation_id=(s).evaluation_id
+  AND assessed.evaluation_digest=(s).evaluation_digest AND assessed.unit_id=(s).unit_id AND assessed.pass_id=(s).pass_id
+  AND assessed.frame_id=(s).frame_id AND assessed.case_id=(s).case_id AND assessed.name='assessed'
+ LEFT JOIN operations op ON op.task_id=(s).origin_task_id
+  AND op.operation_key=e.contributions->0->>'operation_key'
+ LOOP
+  a:=prepared.assertion;
+  IF COALESCE(jsonb_array_length(prepared.contributions),0)<>1 OR prepared.product_matches IS DISTINCT FROM 1::bigint
+   OR COALESCE(jsonb_array_length(prepared.units),0)<>1 OR COALESCE(jsonb_array_length(prepared.authored_cases),0)<>1
+   OR COALESCE(jsonb_array_length(prepared.assessed_cases),0)<>1 OR COALESCE(jsonb_array_length(prepared.operations),0)<>1 THEN
+   RAISE EXCEPTION 'semantic publication requires unique exact source, grade unit, case and operation witnesses' USING ERRCODE='23514'; END IF;
+  contribution:=prepared.contributions->0;
+  bound:=prepared.units->0;
+  authored_case:=prepared.authored_cases->0;
+  assessed_case:=prepared.assessed_cases->0;
+  grade:=jsonb_build_object('evaluation_digest',a.evaluation_digest);
+  IF NOT public.json_matches_schema(policy_schema,jsonb_build_object('policy_id',a.policy_id,
+   'policy_version',a.policy_version,'facet',a.facet,'rubric_version',a.rubric_version,
+   'context_policy',a.context_policy)::json)
+
+   OR data.local_semantic_case_matches(contribution,prepared.operations->0,bound,authored_case,assessed_case) IS DISTINCT FROM true THEN
+   RAISE EXCEPTION 'semantic publication lacks exact independently judged statement/source/operation applicability' USING ERRCODE='23514'; END IF;
+  expected:=data.local_semantic_assertion_value(to_jsonb(a),contribution,prepared.operations->0,
+   prepared.source_name,grade,authored_case);
+  IF to_jsonb(a)-'assertion_id' IS DISTINCT FROM expected OR a.assertion_id IS DISTINCT FROM
+   'local-semantic-assertion:'||encode(sha256(convert_to(data.canonical_json(expected),'UTF8')),'hex') THEN
+   RAISE EXCEPTION 'semantic assertion differs from protected grade and exact source witness' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $semantic$;
+REVOKE ALL ON FUNCTION data.validate_local_semantic_assertions(text,text) FROM PUBLIC;

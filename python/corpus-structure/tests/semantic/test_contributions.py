@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -238,3 +239,43 @@ def test_two_operations_keep_distinct_observations_of_one_physical_occurrence(pr
     )
     assert rows[0]["contribution_id"] != rows[1]["contribution_id"]
     assert rows[0]["occurrence_id"] == rows[1]["occurrence_id"]
+
+
+def test_local_question_report_binds_actual_contributions_without_record(prepared):
+    from corpus_structure.methods.local_interpretation import local_question_operation
+
+    row, coordinate = contribution()
+    local = local_question_operation(
+        question="which role?", contributions=(row,), dependency_ids=("source",)
+    )
+    operations, output = bind_contributions(
+        prepared,
+        source="source",
+        operations=(operation(1), local),
+        contributions=(row,),
+        coordinate_texts=(coordinate,),
+    )
+    assert operations[1]["outcome"] == "not_run"
+    assert operations[1]["local_interpretation"]["contribution_ids"] == (row["contribution_id"],)
+    assert len(output) == 1
+
+
+def test_local_question_forged_input_closure_refuses(prepared):
+    from corpus_structure.methods.local_interpretation import local_question_operation
+    from corpus_structure.methods.record_readings import _digest
+
+    row, coordinate = contribution()
+    local = local_question_operation(
+        question="which role?", contributions=(row,), dependency_ids=("source",)
+    )
+    report: dict[str, Any] = dict(local["local_interpretation"], contribution_ids=("foreign",))
+    report["seal"] = _digest({k: v for k, v in report.items() if k != "seal"})
+    local["local_interpretation"] = report
+    with pytest.raises(ValueError, match="unavailable"):
+        bind_contributions(
+            prepared,
+            source="source",
+            operations=(operation(1), local),
+            contributions=(row,),
+            coordinate_texts=(coordinate,),
+        )

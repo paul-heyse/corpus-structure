@@ -30,6 +30,7 @@ class M1AnnotationConfig(BaseModel):
     recipe: Literal["m1-owned-linguistic-product-1"] = RECIPE
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     max_annotation_chars: int = Field(default=32768, ge=1)
+    source_projection_digest: str | None = Field(default=None, pattern="^[0-9a-f]{64}$")
 
 
 class LinguisticAnnotationSummary(BaseModel):
@@ -61,7 +62,7 @@ def consume_annotations(reader: SourcePreparationReader, view, profile):
 
 class M1Annotations:
     name = METHOD
-    version = "1"
+    version = "2"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
@@ -70,11 +71,17 @@ class M1Annotations:
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
     def select(self, run, cfg):
-        return tuple(
-            UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key)
-            for ref in run.reader.source_views()
-            if ref.analysis_eligible
-        )
+        views = tuple(view for view in run.reader.source_views() if view.analysis_eligible)
+        if cfg.source_projection_digest is not None:
+            views = tuple(
+                view for view in views if view.projection_digest == cfg.source_projection_digest
+            )
+            if len(views) != 1:
+                raise ValueError(
+                    "annotation source projection selection must match "
+                    "exactly one eligible source view"
+                )
+        return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key) for ref in views)
 
     def input_digest(self, unit, cfg):
         view = unit.run.reader.source_view(unit.ref.unit_id)

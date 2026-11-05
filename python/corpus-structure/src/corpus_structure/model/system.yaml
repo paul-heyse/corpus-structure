@@ -4,7 +4,7 @@ title: System schema
 description: >-
   The system module of the corpus-structure model (ADR-0020): the classes of D3's meta, ops, kb and
   eval schemas with their closed sets, invariants and relationships; the payload classes of their
-  JSONB columns; the source-profile class; the EmbeddingSpec; and the unit-feature vocabulary of
+  JSONB columns; the source-profile class; and the unit-feature vocabulary of
   agent_reuse by_unit. System classes are tables unless ci:store says otherwise; their table is the
   snake case of the class name (or the native local_names sql entry) in the schema their subset
   names; a single-valued class-ranged attribute is a foreign key column named <attribute>_id.
@@ -55,11 +55,6 @@ types:
     typeof: string
     description: A text-search configuration name (regconfig).
     annotations: {ci:sql_type: regconfig}
-  HalfVec:
-    typeof: string
-    description: A half-precision vector (pgvector halfvec), of the EmbeddingSpec's dimension.
-    annotations: {ci:sql_type: halfvec}
-
 subsets:
   meta: {description: Tables in the meta schema (D3 §3).}
   ops: {description: Tables in the ops schema (D3 §4).}
@@ -417,15 +412,7 @@ classes:
       detail: {range: Json, description: The detail., annotations: {ci:null: json, ci:py_type: "VerificationDetail | dict[str, JsonValue]"}}
       counterexample: {range: Json, description: A counterexample., annotations: {ci:null: json}}
 
-  # ---- embeddings and the unit-feature vocabulary ----
-  EmbeddingSpec:
-    description: An embedding model's specification (D3 §5, kb.embedding; OPEN-D3-2).
-    annotations: {ci:store: nested}
-    attributes:
-      model: {required: true, description: The model id and revision.}
-      dimension: {range: integer, required: true, description: "The dimension: 1024 or 2048."}
-      metric: {range: EmbeddingMetric, required: true, description: The distance metric.}
-      family_id: {required: true, description: The family whose embeddings are comparable.}
+  # ---- the unit-feature vocabulary ----
   UnitFeature:
     description: >-
       One feature a guideline section declares it applies to (agent_reuse by_unit; D2 §10, D6 §4):
@@ -1448,38 +1435,6 @@ classes:
       text:
         required: true
         description: The text.
-  Embedding:
-    in_subset:
-    - kb
-    description: The kb.embedding table.
-    unique_keys:
-      embedding_target_type_target_id_model_config:
-        unique_key_slots:
-        - target_type
-        - target_id
-        - model_config
-        description: Unique.
-    attributes:
-      id:
-        identifier: true
-        range: Id
-        description: The id.
-      target_type:
-        range: EmbeddingTarget
-        required: true
-        description: The target type.
-      target_id:
-        range: Id
-        required: true
-        description: The target id.
-      model_config:
-        range: MethodConfig
-        required: true
-        description: The model config id.
-      vec:
-        range: HalfVec
-        required: true
-        description: 'dimension fixed by S7 (OPEN-D3-2): 1024 or 2048'
   Task:
     in_subset:
     - ops
@@ -2779,13 +2734,6 @@ enums:
       finished: {}
       failed: {}
       cancelled: {}
-  EmbeddingTarget:
-    description: "`kb.embedding.target_type`."
-    annotations: {ci:lifecycle: static}
-    permissible_values:
-      segment: {}
-      entity: {}
-      alias: {}
   TaskUnitType:
     description: "Current method and native task unit kinds."
     annotations: {ci:lifecycle: static}
@@ -3189,10 +3137,3 @@ enums:
       segment_kind: {description: The unit's segment kind.}
       statement_kind: {description: The unit's statement-kind hint.}
       claim_bearing: {description: The unit's claim-bearing hint.}
-  EmbeddingMetric:
-    description: An embedding's distance metric.
-    annotations: {ci:lifecycle: static}
-    permissible_values:
-      cosine: {description: Cosine distance (halfvec_cosine_ops).}
-      l2: {description: Euclidean distance.}
-      inner_product: {description: Negative inner product.}

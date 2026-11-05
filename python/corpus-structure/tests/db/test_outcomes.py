@@ -90,12 +90,22 @@ def test_context_keeps_native_exception_and_safe_fields():
         {"pool_max_waiting": 0},
         {"checkout_timeout_seconds": 0},
         {"cancel_request_timeout_seconds": 0},
+        {"completion_statement_timeout_seconds": 0},
+        {"completion_statement_timeout_seconds": float("inf")},
+        {"completion_statement_timeout_seconds": float("nan")},
         {"renewal_statement_timeout_seconds": 1, "renewal_lock_timeout_seconds": 2},
     ],
 )
 def test_invalid_pool_and_renewal_limits_refuse(settings):
     with pytest.raises(ValidationError):
         DatabaseSettings(**settings)
+
+
+def test_completion_and_renewal_budgets_have_separate_defaults():
+    settings = DatabaseSettings()
+    assert settings.completion_statement_timeout_seconds == 120
+    assert settings.renewal_statement_timeout_seconds == 10
+    assert settings.renewal_lock_timeout_seconds == 5
 
 
 def test_precheckout_failure_never_looks_up_a_receipt(monkeypatch):

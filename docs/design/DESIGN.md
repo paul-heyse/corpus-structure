@@ -188,6 +188,13 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Implemented; bounded native and actual publication Tested,2026-11-05.** Local public claim
+identity binds its event, physical occurrence and complete scoped semantic statement. Its
+admission-witness identity separately binds exact producer/cut, policy and applicable assessment.
+A curated-target denotation establishes neither a canonical entity nor scientific truth.
+
+> Decision: [ADR-0064](../adr/0064-local-semantic-admission.md)
+
 **Accepted target; implementation Proposed, 2026-11-05.** Independently addressable structural
 contributions preserve source occurrence separately from type/role/link/attachment proposals.
 A complete-record parent is not required. PCE-01/02 own compiled/native/read adoption.
@@ -234,6 +241,14 @@ uses its frozen claim form until scheduled consumer migration.
 <a id="section-b2"></a>
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Accepted target; implementation in qualification, 2026-11-05.** Local captured-source
+assertions and independently assessed semantic assertions use common consolidation. A later
+ordinary run can freeze protected grade dependencies and reuse the exact immutable assessed
+producer origin. Completed results remain immutable. Deterministic extent checks, semantic
+judgments, canonical identity and scientific truth retain distinct authority.
+
+> Decision: [ADR-0064](../adr/0064-local-semantic-admission.md)
 
 **Accepted target; implementation Proposed, 2026-11-05.** Typed local products remain private
 until their declared publication policy admits them. Failed later assembly preserves earlier
@@ -481,6 +496,14 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Implemented; bounded native and actual publication Tested,2026-11-05.** Released local
+eligibility policies, typed assertion rows and native guards extend the same generated model
+and PublicationBatch. Protected assessment preparation returns selected admissible statements,
+without exporting raw reference labels to producers. Publication-only grade bindings remain
+immutable run provenance while compatible source-producer reuse excludes that setting.
+
+> Decision: [ADR-0064](../adr/0064-local-semantic-admission.md)
 
 **Implemented; scoped native and identity controls Tested,2026-11-05.** Semantic identity
 includes data/model/output contracts, declared behavior versions and parsing grammar/model assets.

@@ -12,6 +12,29 @@ they do not impose a universal completeness gate on independently typed products
 
 > Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
+### Independent contribution inspection
+
+**Implemented; bounded transport controls Tested, 2026-11-05.** `ci contributions list` and
+registered MCP `contributions` share the completed-run contribution service. The selection and
+continuation bind run/cut/release/revision and normalized operation/kind/source filters. Reports,
+zero-output operations and contributions remain distinct populations. The bounded detached
+inventory remains private unless an explicit publication facet identifies an admitted local
+assertion. `include_publication` selects compact public event/policy/assessment standing;
+`include_support` additionally hydrates its exact statement, source anchors and witness closure.
+`include_interpretation` independently selects typed producer meanings, alternatives and derivation;
+it does not confer truth. `include_assessment` independently selects only published admission
+witnesses, with explicit scope `published_admission_witnesses_only`. Other products report
+`no_public_assessment`; this implies neither unassessed nor unsupported. Full protected grades
+remain evaluator-only. Version3 continuation binds operation version, contribution and own physical
+occurrence selectors as well as every facet. The occurrence selector excludes anchorless products
+associated through endpoints rather than claiming their closure. `ci contributions export` uses
+the same bounded selection to atomically write JSONL plus a pinned hash/manifest. It is not the
+full detached review bundle. Scientific support is unmodeled. Actual public run38 and archived run28
+CLI/fresh external MCP journeys passed2026-11-05; the selected local export passed on run38.
+Every presentation page currently reads the bounded selected inventory; no scaling benefit is
+claimed. Local quotation and independently assessed denotation policies use common atomic
+publication under ADR-0064; their actual acceptance is recorded in the PCE coordinator.
+
 ## Audit-closure target
 
 **Implemented; selected AC scope Tested2026-11-04.** Answers distinguish selection, assessment and establishment. Coverage selects before hydration. Evidence references page separately from explicit immutable payload reads. Versioned bounded walks retain cycles and parallel edges, with exact-or-refuse deterministic replay. Producer and recognition generation bindings retain truthful configured/reported/manual/verified meanings.

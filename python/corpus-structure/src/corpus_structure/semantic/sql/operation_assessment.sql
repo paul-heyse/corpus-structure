@@ -141,7 +141,10 @@ BEGIN
    OR jsonb_typeof(source_record->'assessor_provenance') IS DISTINCT FROM 'object' OR source_record->'assessor_provenance'='{}'
    OR (source_record ? 'candidate_selector' AND jsonb_typeof(source_record->'candidate_selector') IS DISTINCT FROM 'object')
    OR COALESCE(source_record->>'expectation_mode','structure') NOT IN ('structure','absence_detection')
-   OR (source_record->>'anchor_endpoint_role' IS NOT NULL AND source_record->>'contribution_kind'<>'relation')
+   OR (source_record->>'anchor_endpoint_role' IS NOT NULL AND (
+    COALESCE(source_record->>'contribution_kind','proposal') NOT IN ('proposal','relation')
+    OR jsonb_typeof(source_record->'anchor_endpoint_role')<>'string'
+    OR btrim(source_record->>'anchor_endpoint_role')=''))
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') a WHERE jsonb_typeof(a)<>'object' OR a='{}')
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
    OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')

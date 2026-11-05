@@ -11,6 +11,7 @@ from collections.abc import Callable
 import typer
 
 from corpus_structure.cli import (
+    contributions,
     db,
     explain,
     export,
@@ -40,6 +41,7 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     source.register,
     query.register,
     records.register,
+    contributions.register,
     explain.register,
     export.register,
     golden.register,

@@ -50,6 +50,13 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
+    from corpus_structure.methods.contextual_embeddings import EncodedVector
+    from corpus_structure.semantic.contextual_retrieval import (
+        CandidateList,
+        FrozenInventory,
+        TargetRepresentation,
+    )
+    from corpus_structure.semantic.contextual_storage import CachedTargetVector
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
         PreparedIntegratedPdfProduct,
@@ -404,6 +411,27 @@ class SourcePreparationReader(Protocol):
         self, source_view_id: int, task_id: int, method: str
     ) -> RetainedSourceResult:
         """Explicit historical input; authenticate archived task and exact source closure."""
+        ...
+
+    def cached_contextual_vectors(
+        self, *, profile_id: str, targets: Sequence[TargetRepresentation]
+    ) -> tuple[CachedTargetVector, ...]:
+        """Original sealed target vectors with same-runtime producing attribution."""
+        ...
+
+    def contextual_candidates(
+        self,
+        *,
+        occurrence_id: str,
+        query: EncodedVector,
+        inventory: FrozenInventory,
+        target_vectors: Sequence[EncodedVector],
+        lexical_query: str,
+        dimension: int,
+        budget: int,
+        channel_budget: int,
+    ) -> CandidateList:
+        """Owned PostgreSQL retrieval over detached bounded inputs; no model or writer."""
         ...
 
     def source_context_membership(self, source_view_id: int) -> str:

@@ -124,7 +124,7 @@ def reading_diagnostics(row, details):
 
 class M1Readings:
     name = METHOD
-    version = "2"
+    version = "3"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
@@ -205,6 +205,41 @@ class M1Readings:
                     context_bounds=cfg.retained_context_bounds,
                 )
             )
+            # Local attachment questions are inventoried independently of record assembly.
+            # No real factor policy currently applies: record the exact unavailable solve,
+            # retaining all useful returned products rather than manufacturing probabilities.
+            from .local_interpretation import local_question_operation
+
+            local_dependencies = tuple(
+                sorted(
+                    {
+                        dependency
+                        for contribution in contribution_batch.contributions
+                        for dependency in contribution.get("computation_dependencies", ())
+                    }
+                    | {"retained-result:" + digest}
+                )
+            )
+            if contribution_batch.contributions:
+                local_operation = local_question_operation(
+                    question=(
+                        "which contextual role or attachment is supported "
+                        "for these retained source contributions?"
+                    ),
+                    contributions=contribution_batch.contributions,
+                    dependency_ids=local_dependencies,
+                )
+                if retained:
+                    local_operation.update(
+                        retained_task_id=retained.task_id,
+                        retained_result_digest=retained.body_digest,
+                        retained_source_bindings=retained.source_bindings,
+                    )
+                contribution_batch = type(contribution_batch)(
+                    (*contribution_batch.operations, local_operation),
+                    contribution_batch.contributions,
+                    contribution_batch.coordinate_texts,
+                )
             details: dict[str, Any] = dict(
                 recipe=cfg.recipe,
                 source_pin=asdict(NativeSourcePin.from_source(native_source_frame(view, ()))),
@@ -351,6 +386,7 @@ class M1Readings:
                                 operation["outcome"]
                                 in {"unsupported", "limited", "failed", "not_run"}
                                 for operation in contribution_batch.operations
+                                if "local_interpretation" not in operation
                             )
                             else "complete",
                             reason="retained report recovery; unavailable inputs are explicit",

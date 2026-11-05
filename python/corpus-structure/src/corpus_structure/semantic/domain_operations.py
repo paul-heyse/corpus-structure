@@ -926,7 +926,10 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
         record_reports = ()
         from .record_projection import ARTIFACT as RECORD_PROJECTION
 
-        if any(artifact.kind == RECORD_PROJECTION for artifact in prepared.artifacts):
+        if (
+            any(artifact.kind == RECORD_PROJECTION for artifact in prepared.artifacts)
+            or "LocalContributionPublicationPolicy" in prepared.index.definitions
+        ):
             from .operations import BoundReader
             from .records import read_private_record_reports
 
@@ -978,6 +981,12 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                     source_uri=selected["source_uri"],
                     provider=selected["provider"],
                     operation_version=selected["operation_version"],
+                    contributions=report_bodies.get(report.origin_task_id, {}).get("contributions")
+                    or (),
+                    contribution_operations=report_bodies.get(report.origin_task_id, {}).get(
+                        "contribution_operations"
+                    )
+                    or (),
                     record_policy_events=source_python(
                         report_bodies[report.origin_task_id]["parse_detail"]
                     ).get("record_policy_events", ())
@@ -986,6 +995,9 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                 )
                 for selected, report in zip(selected_tasks, private, strict=True)
             )
+        from .local_semantic_admission import load_semantic_grade_evidence
+
+        job = dict(job, local_semantic_grades=load_semantic_grade_evidence(conn, dict(job), cut_id))
         known, copied = _known_input(conn, prepared, job, observations)
     return _project_cut(
         prepared,
@@ -2219,7 +2231,9 @@ def _project_cut(
     }
     # Assembly was extended with cut-specific selections, provenance and coverage.
     # Bind once to those final rows before exposing the input to transport consumers.
-    if record_reports:
+    if record_reports and any(
+        artifact.kind == "record_projection.json" for artifact in prepared.artifacts
+    ):
         from .record_assertions import lower_record_assertions
         from .record_projection import (
             RecordAssertionRow,
@@ -2242,6 +2256,16 @@ def _project_cut(
             RecordAssertionSupportRow(**asdict(row)) for row in lowered.support
         )
         batch = replace(batch, **projection)
+    from .local_admission import project_local_assertions
+    from .local_semantic_admission import project_semantic_assertions
+
+    batch = replace(
+        batch,
+        local_assertion=project_local_assertions(prepared, record_reports),
+        local_semantic_assertion=project_semantic_assertions(
+            prepared, job.get("local_semantic_grades", ())
+        ),
+    )
     batch = batch.bind_preparation(prepared)
     return CutInput(
         CutId(cut["id"]),

@@ -11,6 +11,7 @@ from corpus_structure.ingest.pdf_recognition_methods import (
     IngestPdfIntegrated,
     PdfIntegratedIngestConfig,
 )
+from corpus_structure.methods.contextual_candidates import ContextualCandidates
 from corpus_structure.methods.m1_annotations import M1Annotations
 from corpus_structure.methods.m1_readings import M1Readings
 from corpus_structure.methods.m1_source import M1Candidates
@@ -228,7 +229,14 @@ def registry(pack: Path) -> MethodRegistry:
     if not path.is_file():
         raise ValueError("M1 requires an explicitly authored m1-methods.yaml")
     return MethodRegistry(
-        (RetainedIntegratedPdf(), M1Annotations(), M1Candidates(), M1Readings()), load_methods(path)
+        (
+            RetainedIntegratedPdf(),
+            M1Annotations(),
+            M1Candidates(),
+            M1Readings(),
+            ContextualCandidates(),
+        ),
+        load_methods(path),
     )
 
 

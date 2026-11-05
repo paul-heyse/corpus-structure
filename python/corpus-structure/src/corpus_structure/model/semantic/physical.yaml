@@ -1,6 +1,7 @@
 # Trusted physical projection. Edit with its consumers and an explicit Alembic revision.
 id: https://corpus-structure.org/model/semantic/physical
 name: semantic_physical
+version: 2026-11-05-multivalued-arrays-1
 description: Trusted fixed PostgreSQL realization; candidate semantic releases never supply physical annotations.
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -34,6 +35,10 @@ types:
     typeof: decimal
     annotations:
       ph:sql_type: numeric
+  contextual_vector_value:
+    typeof: string
+    annotations:
+      ph:sql_type: vector
 classes:
   runtime_binding:
     description: Immutable implementation provenance bound to one semantic release; implementation changes do not mint a semantic release.
@@ -4106,3 +4111,121 @@ classes:
       ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"},
         {"columns": ["source_view_id"], "target": "kb.source_view.id"}]'
       ph:indexes: '[["source_view_id", "pointer", "space", "start", "end"], ["anchor_id"]]'
+
+  local_assertion:
+    in_subset: [data]
+    description: Independently admitted local source claim; no domain membership or scientific truth.
+    attributes:
+      realization_id: {required: true}
+      release_id: {required: true}
+      assertion_id: {required: true}
+      claim_id: {required: true}
+      selected_task_id: {range: integer, required: true}
+      origin_task_id: {range: integer, required: true}
+      cut_id: {range: integer, required: true}
+      contribution_id: {required: true}
+      operation_key: {required: true}
+      operation_version: {required: true}
+      event: {required: true}
+      policy_id: {required: true}
+      policy_version: {required: true}
+      basis: {required: true}
+      source: {required: true}
+      occurrence_id: {required: true}
+      anchors_json: {required: true}
+      literal_pieces_json: {required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, assertion_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id","contribution_id"],"target":"kb.source_contribution.task_id,contribution_id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"}]'
+  local_semantic_assertion:
+    in_subset: [data]
+    description: Independently adjudicated exact local denotation; no canonical identity or scientific truth.
+    attributes:
+      realization_id: {required: true}
+      release_id: {required: true}
+      assertion_id: {required: true}
+      claim_id: {required: true}
+      selected_task_id: {range: integer, required: true}
+      origin_task_id: {range: integer, required: true}
+      cut_id: {range: integer, required: true}
+      contribution_id: {required: true}
+      operation_key: {required: true}
+      operation_version: {required: true}
+      operation_question: {required: true}
+      policy_id: {required: true}
+      policy_version: {required: true}
+      source: {required: true}
+      occurrence_id: {required: true}
+      evaluation_id: {range: integer, required: true}
+      evaluation_digest: {required: true}
+      unit_id: {range: integer, required: true}
+      pass_id: {range: integer, required: true}
+      frame_id: {range: integer, required: true}
+      case_id: {required: true}
+      facet: {required: true}
+      rubric_version: {required: true}
+      context_policy: {required: true}
+      statement_json: {required: true}
+      anchors_json: {required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, assertion_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id","contribution_id"],"target":"kb.source_contribution.task_id,contribution_id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["evaluation_id"],"target":"eval.reference_evaluation.id"}]'
+  contextual_profile:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      profile_id: {required: true}
+      dimension: {range: integer, required: true}
+      detail: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, profile_id]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}]'
+      ph:checks: '["dimension > 0 AND dimension <= 16000"]'
+  contextual_vector:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      vector_id: {required: true}
+      object_id: {required: true}
+      source_binding: {required: true}
+      profile_id: {required: true}
+      input_digest: {required: true}
+      vector: {range: contextual_vector_value, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, vector_id]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "profile_id"], "target": "kb.contextual_profile.task_id,profile_id"}]'
+  contextual_inventory:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      inventory_id: {required: true}
+      detail: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, inventory_id]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}]'
+  contextual_target_vector:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      inventory_id: {required: true}
+      profile_id: {required: true}
+      target_id: {required: true}
+      vector_id: {required: true}
+      search_text: {required: true}
+      exact_forms: {multivalued: true, required: true}
+      vector: {range: contextual_vector_value, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, inventory_id, profile_id, target_id]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "inventory_id"], "target": "kb.contextual_inventory.task_id,inventory_id"}, {"columns": ["task_id", "vector_id"], "target": "kb.contextual_vector.task_id,vector_id"}]'

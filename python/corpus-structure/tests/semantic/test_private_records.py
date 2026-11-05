@@ -127,7 +127,12 @@ def private_source(semantic_db_engine, semantic_writer_engine, tmp_path, request
     from .method_dimensions_support import fixture_execution_inputs
 
     dependencies = composed_dependencies(
-        dependencies, fixture_execution_inputs("private.source", "private.records")
+        dependencies,
+        fixture_execution_inputs(
+            "private.source",
+            "private.records",
+            *getattr(request, "param", {}).get("additional_methods", ()),
+        ),
     )
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)

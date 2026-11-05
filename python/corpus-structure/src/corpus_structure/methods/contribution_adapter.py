@@ -26,6 +26,7 @@ from corpus_structure.semantic.source_contexts import (
 from .gliner import GlinerPack, GlinerPreparation, GlinerRefused, GlinerReport
 
 ADAPTER_VERSION = "retained-native-contributions-1"
+LOCAL_ADAPTER_VERSION = "native-local-contributions-2"
 
 
 def _digest(value: Any) -> str:
@@ -261,6 +262,10 @@ def adapt_report(
         raise GlinerRefused("report belongs to another source context")
     if report.preparation.consumed_text != context.text + report.preparation.synthetic_suffix:
         raise GlinerRefused("provider preprocessing changed the source prefix")
+    if pack.version == "native-local-v1":
+        return _adapt_local_report(
+            report, context, pack=pack, item_key=item_key, dependencies=dependencies
+        )
     builder = _Builder(
         context,
         report_digest=sha256(report.raw_json.encode()).hexdigest(),
@@ -356,85 +361,559 @@ def adapt_report(
     return _with_returned_attachments(builder.finish(), context, pack=pack, item_key=item_key)
 
 
-def _with_returned_attachments(batch, context, *, pack, item_key):
-    """Explicit derived questions supported by the released natural-group roles.
+def _adapt_local_report(report, context, *, pack, item_key, dependencies):
+    """Retain entity-conditioned attributes and independently located relation ends.
 
-    The decoder did not return a relation head or an independent attachment score.
-    These private candidates retain that distinction and refer to the actual field
-    proposals. Missing/ambiguous primaries retain only the original group membership.
+    This is a new operation version. Historical grouped-record adapters retain
+    their original identity and meaning. Missing attributes are not negative labels.
     """
-    declarations = json.loads(pack.declaration_json).get("structures", {})
+    declaration = pack.compile().to_dict()
+    builder = _Builder(
+        context,
+        report_digest=sha256(report.raw_json.encode()).hexdigest(),
+        computation=report.computation,
+        producer="gliner_local_returned",
+        item_key=item_key,
+        dependencies=(
+            "pack:" + report.pack,
+            "profile:" + report.profile,
+            "effective-profile:" + sha256(report.effective_profile_json.encode()).hexdigest(),
+            *dependencies,
+        ),
+        question="retain_native_spans_attributes_relations",
+        operation_version=LOCAL_ADAPTER_VERSION,
+    )
+    raw = report.raw
+    if not isinstance(raw, dict):
+        builder.diagnostic("$", raw, "returned local report is not an object")
+        return builder.finish()
+    for key in raw.keys() - {"entities", "relation_extraction"}:
+        builder.diagnostic(key, raw[key], "undeclared local output channel")
+    entities = raw.get("entities", {})
+    if not isinstance(entities, dict):
+        builder.diagnostic("entities", entities, "entity channel is not an object")
+        entities = {}
+    attributes = declaration.get("entity_attributes", {})
+    located = {}
+    for entity_type, values in entities.items():
+        if entity_type not in declaration.get("entities", ()) or not isinstance(values, list):
+            builder.diagnostic(entity_type, values, "undeclared entity type or invalid population")
+            continue
+        for ordinal, value in enumerate(values):
+            path = f"entities/{entity_type}/{ordinal}"
+            identity = builder.field(
+                semantic_type="entity." + entity_type,
+                item_key=path,
+                raw=value,
+                locate=lambda value=value: _map_returned_span(context, value),
+            )
+            proposal = next(
+                row for row in reversed(builder.rows) if row["contribution_id"] == identity
+            )
+            if proposal["anchors"]:
+                key = (value["start"], value["end"], value["text"])
+                located.setdefault(key, []).append(identity)
+            if not isinstance(value, Mapping):
+                continue
+            for name, attribute in value.items():
+                if name in {"text", "start", "end", "confidence"}:
+                    continue
+                config = attributes.get(name)
+                if config is None or entity_type not in config.get(
+                    "applies_to", declaration.get("entities", ())
+                ):
+                    builder.diagnostic(
+                        path + "/" + name, attribute, "undeclared or inapplicable span attribute"
+                    )
+                    continue
+                if isinstance(attribute, list) and not config.get("multi_label", False):
+                    builder.diagnostic(
+                        path + "/" + name,
+                        attribute,
+                        "single-label attribute returned several labels",
+                    )
+                    continue
+                returned = attribute if isinstance(attribute, list) else [attribute]
+                for index, label in enumerate(returned):
+                    content = label.get("label") if isinstance(label, Mapping) else label
+                    if content not in config["labels"]:
+                        builder.diagnostic(
+                            path + f"/{name}/{index}", label, "undeclared attribute label"
+                        )
+                        continue
+                    builder.add(
+                        kind="proposal",
+                        semantic_type="attribute." + name,
+                        item_key=path + f"/{name}/{index}",
+                        value=source_value(content),
+                        endpoints=(dict(role="mention", contribution_id=identity),),
+                        reason=(
+                            "attribute conditional on this decoded mention; "
+                            "no independent cue is asserted"
+                        ),
+                        **_score(label),
+                    )
+    relations = raw.get("relation_extraction", {})
+    if not isinstance(relations, dict):
+        builder.diagnostic("relation_extraction", relations, "relation channel is not an object")
+        relations = {}
+    for predicate, values in relations.items():
+        if predicate not in declaration.get("relations", ()) or not isinstance(values, list):
+            builder.diagnostic(predicate, values, "undeclared relation or invalid population")
+            continue
+        for ordinal, value in enumerate(values):
+            path = f"relations/{predicate}/{ordinal}"
+            if not isinstance(value, Mapping):
+                builder.diagnostic(path, value, "relation is not an object")
+                continue
+            endpoints = []
+            unresolved = False
+            for role in ("head", "tail"):
+                endpoint = value.get(role)
+                try:
+                    if not isinstance(endpoint, Mapping):
+                        raise GlinerRefused("relation endpoint has no source coordinates")
+                    _map_returned_span(context, endpoint)
+                    key = (endpoint["start"], endpoint["end"], endpoint["text"])
+                    matches = located.get(key, ())
+                except ContextRefused, GlinerRefused, KeyError, TypeError, ValueError:
+                    matches = ()
+                    unresolved = True
+                if len(matches) == 1:
+                    identity = matches[0]
+                else:
+                    identity = builder.field(
+                        semantic_type="relation_endpoint",
+                        item_key=path + "/" + role,
+                        raw=endpoint,
+                        locate=lambda endpoint=endpoint: _map_returned_span(context, endpoint),
+                    )
+                    unresolved |= len(matches) > 1
+                endpoints.append(dict(role=role, contribution_id=identity))
+            builder.add(
+                kind="relation",
+                semantic_type="relation." + predicate,
+                item_key=path,
+                endpoints=tuple(endpoints),
+                value=source_value(value),
+                disposition="unresolved" if unresolved else "candidate",
+                reason=(
+                    "native directed relation; endpoint reconciliation uses exact "
+                    "coordinates, never equal-string order"
+                ),
+                **_score(value),
+            )
+    return builder.finish()
+
+
+def adapt_annotation_matches(source, product, matches, *, rules):
+    """Lower retained-column rule matches to ordinary source contribution custody."""
+    from corpus_structure.semantic.source_contexts import (
+        NativeSourceContext,
+        NativeSourcePin,
+        SourceSlice,
+    )
+
+    if product.source != NativeSourcePin.from_source(source):
+        raise ValueError("retained annotation belongs to another source")
+
+    context = NativeSourceContext(
+        source,
+        (),
+        (SourceSlice(source.source_view_id, product.block_start, product.block_end),),
+        "retained annotation rule proposals",
+        "retained-annotation-rules-1",
+        "whole retained block",
+        max_chars=product.block_end - product.block_start,
+    )
+    builder = _Builder(
+        context,
+        report_digest=_digest([asdict(match) for match in matches]),
+        computation=product.dependency_digest,
+        producer="retained_annotation_rules",
+        item_key=product.block_id,
+        dependencies=("annotation:" + product.dependency_digest, "rules:" + _digest(rules)),
+        question="propose_source_cues_from_retained_annotations",
+        operation_version="retained-annotation-rules-1",
+    )
+    for index, match in enumerate(matches):
+        builder.operation["inspected_count"] += 1
+        anchors = []
+        extents = match.extents
+        if match.mechanism != "dependency" and extents:
+            extents = ((extents[0][0], extents[-1][1]),)
+        for start, end in extents:
+            for piece in context.map_span(
+                start - product.block_start,
+                end - product.block_start,
+                literal=source.text[start:end],
+                allow_multiple=True,
+            ):
+                anchor, coordinate = evidence_anchor(context, piece, native=True)
+                anchors.append(anchor)
+                builder.coordinates[
+                    canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})
+                ] = coordinate
+        builder.add(
+            kind="proposal",
+            semantic_type="source_rule." + match.rule,
+            item_key=product.block_id + f"/match/{index}",
+            anchors=anchors,
+            value=source_value(asdict(match)),
+            reason=(
+                "source-located linguistic pattern proposal; "
+                "no semantic admission or attachment proof"
+            ),
+        )
+    return builder.finish()
+
+
+def adapt_formula_syntax(context, occurrence, *, seconds=1.0, input_policy="recognized_only"):
+    """Expose bounded native Lark syntax without interpretation or glyph inference.
+
+    The item anchor locates the formula. Tree/token offsets explicitly index the
+    selected input string; they are never promoted to original PDF coordinates.
+    Captured text can be syntactically useful while recognition remains unknown.
+    """
+    from importlib.metadata import version
+
+    from lark import Token, Tree
+
+    from corpus_structure.methods.math import grammar
+
+    if input_policy not in {"recognized_only", "captured_native_text"}:
+        raise GlinerRefused("unsupported formula syntax input policy")
+    captured = input_policy == "captured_native_text"
+    grammar_profile = dict(
+        algorithm="native-earley-explicit-1",
+        parser="earley",
+        lexer="dynamic",
+        ambiguity="explicit",
+        propagate_positions=True,
+        grammar_digest=sha256(grammar.grammar_text(grammar.MacroClass()).encode()).hexdigest(),
+        lark_version=version("lark"),
+        sympy_version=version("sympy"),
+        macro_environment="none",
+    )
+
+    if occurrence.conversion_digest != context.primary.native_product.content_digest:
+        raise GlinerRefused("syntax occurrence belongs to another native product")
+    anchor = native_item_anchor(context, occurrence.item_pointer)
+    native = json.loads(context.primary.native_context)
+    item = next(
+        (row for row in native["items"] if row.get("self_ref") == occurrence.item_pointer), None
+    )
+    if (
+        item is None
+        or item.get("text") != occurrence.recognized_latex
+        or item.get("orig", "") != occurrence.original_text
+    ):
+        raise GlinerRefused("syntax occurrence differs from retained native formula text")
+    builder = _Builder(
+        context,
+        report_digest=_digest(asdict(occurrence)),
+        computation=_digest((asdict(occurrence), seconds, input_policy, grammar_profile)),
+        producer="native_lark_syntax",
+        item_key=occurrence.item_pointer,
+        dependencies=(
+            "grammar-profile:" + _digest(grammar_profile),
+            "input-policy:" + input_policy,
+            "recognition-health:" + occurrence.recognition_health,
+        ),
+        question="recognize_formula_syntax",
+        operation_version="native-lark-syntax-2" if captured else "native-lark-syntax-1",
+    )
+    builder.operation["inspected_count"] = 1
+    if not captured and occurrence.recognition_health != "succeeded":
+        builder.operation.update(
+            outcome="not_run",
+            reason="successful formula recognition unavailable; actual health="
+            + occurrence.recognition_health,
+        )
+        return ContributionBatch((builder.operation,), (), ())
+    if not occurrence.recognized_latex.strip():
+        builder.operation.update(outcome="not_run", reason="captured native formula text is empty")
+        return ContributionBatch((builder.operation,), (), ())
+
+    def tree_value(node):
+        if isinstance(node, Token):
+            return dict(token=node.type, text=str(node), start=node.start_pos, end=node.end_pos)
+        if isinstance(node, Tree):
+            # Lark may retain a Token (str subclass) for rule names. SourceValue
+            # deliberately admits plain JSON scalars, so normalize at this boundary.
+            return dict(
+                rule=f"{node.data}", children=[tree_value(child) for child in node.children]
+            )
+        raise TypeError("unsupported native syntax node")
+
+    result = grammar.syntax(occurrence.recognized_latex, occurrence.kind, seconds=seconds)
+    failed_attempt: dict[str, Any] | None = None
+    if result.tree is None:
+        failed_attempt = dict(
+            builder.operation,
+            outcome="failed",
+            emitted_count=0,
+            reason="native syntax failed: "
+            + (
+                result.failure.category + ":" + result.failure.error
+                if result.failure is not None
+                else "no syntax tree"
+            ),
+        )
+        builder = _Builder(
+            context,
+            report_digest=_digest(
+                dict(
+                    occurrence=asdict(occurrence),
+                    failure=asdict(result.failure) if result.failure is not None else None,
+                )
+            ),
+            computation=_digest((asdict(occurrence), seconds, input_policy, grammar_profile)),
+            producer="native_lark_syntax_diagnostic",
+            item_key=occurrence.item_pointer + "/failure",
+            dependencies=(
+                *failed_attempt["computation_dependencies"],
+                "failed-operation:" + failed_attempt["operation_key"],
+            ),
+            question="retain_formula_syntax_failure",
+            operation_version="native-lark-syntax-diagnostic-1",
+        )
+        builder.operation["inspected_count"] = 1
+    builder.add(
+        kind="proposal" if result.tree is not None else "diagnostic",
+        semantic_type="math.syntax" if failed_attempt is None else "math.syntax_failure",
+        item_key=occurrence.item_pointer + "/syntax",
+        anchors=(anchor,),
+        value=source_value(
+            dict(
+                status=result.status.value,
+                tree=tree_value(result.tree) if result.tree is not None else None,
+                coordinate_space="captured_native_text" if captured else "recognized_latex",
+                input_policy=input_policy,
+                recognition_health=occurrence.recognition_health,
+                grammar_profile=grammar_profile,
+                recognized_latex=None if captured else occurrence.recognized_latex,
+                captured_native_text=occurrence.recognized_latex if captured else None,
+                original_text=occurrence.original_text,
+                tail=result.tail,
+                failure=asdict(result.failure) if result.failure is not None else None,
+                interpretation="not_requested",
+                native_glyph_mapping="unestablished",
+                coordinate_basis="raw_input_prefix",
+                input_text_digest=sha256(occurrence.recognized_latex.encode()).hexdigest(),
+                parsed_input_length=len(occurrence.recognized_latex) - len(result.tail),
+                failed_operation_key=failed_attempt["operation_key"]
+                if failed_attempt is not None
+                else None,
+            )
+        ),
+        reason=(
+            "syntactic alternatives only; no symbol role, mathematical truth "
+            "or exact PDF glyph location"
+        ),
+    )
+    batch = builder.finish()
+    if failed_attempt is not None:
+        return ContributionBatch(
+            (failed_attempt, *batch.operations),
+            batch.contributions,
+            batch.coordinate_texts,
+        )
+    return batch
+
+
+def _with_group_attachments(batch, *, schema_packs=None):
+    """Private role associations from declared producer groups or captured geometry.
+
+    Group membership supplies a proposal, never an independently observed relation
+    or score. Missing or ambiguous primaries retain only their original composite.
+    """
+    from corpus_structure.semantic.contributions import contribution_identity, operation_identity
+
     supported = {
         "table": ("cell_value", {"row_label", "header_path", "unit", "note", "caption"}),
         "definition": ("term", {"alias", "defining_text"}),
     }
+    packs, mismatched_packs = {}, {}
+    for identity, declaration in (schema_packs or {}).items():
+        pack = declaration if isinstance(declaration, GlinerPack) else GlinerPack(**declaration)
+        if identity != pack.fingerprint:
+            mismatched_packs[identity] = pack.fingerprint
+            continue
+        packs[identity] = json.loads(pack.declaration_json)
     by_id = {row["contribution_id"]: row for row in batch.contributions}
-    derived = _Builder(
-        context,
-        report_digest=batch.operations[0]["report_digest"],
-        computation=batch.operations[0]["operation_key"],
-        producer="derived_from_returned_group",
-        item_key=item_key + "/attachments",
-        dependencies=("derived-from-returned-group:" + batch.operations[0]["operation_key"],),
-        question="propose_returned_role_attachments",
-        operation_version="retained-group-attachments-1",
-    )
-    has_supported_group = False
+    by_operation = {row["operation_key"]: row for row in batch.operations}
+    existing = {
+        canonical_bytes([row["semantic_type"], row["endpoints"]])
+        for row in batch.contributions
+        if row["kind"] == "relation"
+    }
+    rows, operations = [], []
+    for identity, actual in mismatched_packs.items():
+        affected = [
+            group["contribution_id"]
+            for group in batch.contributions
+            if group["kind"] == "composite"
+            and group["semantic_type"].endswith(".returned_group")
+            and "pack:" + identity
+            in by_operation[group["operation_key"]]["computation_dependencies"]
+        ]
+        if not affected:
+            continue
+        refusal = dict(
+            question="propose_returned_role_attachments",
+            operation_version="retained-group-attachments-1",
+            outcome="unsupported",
+            inspected_count=0,
+            emitted_count=0,
+            inputs=(),
+            reason=(
+                "retained schema pack key differs from its exact declaration fingerprint; "
+                "associations withheld"
+            ),
+            computation_dependencies=(
+                "pack:" + identity,
+                "actual-pack:" + actual,
+                *("returned-group:" + group for group in affected),
+            ),
+        )
+        refusal["operation_key"] = operation_identity(refusal)
+        operations.append(refusal)
     for group in batch.contributions:
         if group["kind"] != "composite":
             continue
-        family = group["semantic_type"].removesuffix(".returned_group")
-        if family not in supported or family not in declarations:
+        native = group["semantic_type"].endswith(".native_group")
+        suffix = ".native_group" if native else ".returned_group"
+        if not group["semantic_type"].endswith(suffix):
             continue
+        family = group["semantic_type"].removesuffix(suffix)
+        if family not in supported:
+            continue
+        source_operation = by_operation[group["operation_key"]]
         primary_role, attachment_roles = supported[family]
-        declaration = declarations[family]
-        if declaration.get("mode") != "natural" or declaration.get("anchor") != primary_role:
-            continue
-        has_supported_group = True
+        mode = "native_geometry" if native else None
+        if native:
+            if "producer:native_structure" not in source_operation["computation_dependencies"]:
+                continue
+        else:
+            declarations = [
+                packs[dependency.removeprefix("pack:")].get("structures", {}).get(family)
+                for dependency in source_operation["computation_dependencies"]
+                if dependency.startswith("pack:") and dependency.removeprefix("pack:") in packs
+            ]
+            declarations = [value for value in declarations if value is not None]
+            if len(declarations) != 1:
+                continue
+            declaration = declarations[0]
+            mode = declaration.get("mode")
+            if mode not in {"natural", "latent"} or (
+                mode == "natural" and declaration.get("anchor") != primary_role
+            ):
+                continue
         members = [by_id[identity] for identity in group["members"]]
-        primaries = [row for row in members if row["semantic_type"] == family + "." + primary_role]
+        primaries = [
+            row
+            for row in members
+            if row["kind"] == "proposal" and row["semantic_type"] == family + "." + primary_role
+        ]
         if len(primaries) != 1 or not primaries[0]["anchors"]:
             continue
         primary = primaries[0]
+        inspection = native and primary.get("anchor_role") == "inspection_subject"
         if not all(
             anchor["space"] == "native"
-            and anchor["precision"] == "exact"
-            and anchor["pin"] == record_source_pin(context.primary)
+            and anchor["pin"] == group["pin"]
+            and (anchor["precision"] == "exact" or (inspection and anchor["precision"] == "item"))
             for anchor in primary["anchors"]
         ):
+            continue
+        if not inspection and primary.get("anchor_role") == "inspection_subject":
             continue
         if family == "table" and (
             len({anchor["pointer"] for anchor in primary["anchors"]}) != 1
             or "/data/table_cells/" not in primary["anchors"][0]["pointer"]
         ):
             continue
+        targets = []
         for target in members:
             role = target["semantic_type"].removeprefix(family + ".")
             if (
                 role not in attachment_roles
                 or target["kind"] != "proposal"
                 or not target["anchors"]
+                or target.get("anchor_role") == "inspection_subject"
+                or target.get("source_field_state", "present") != "present"
+                or not all(
+                    anchor["space"] == "native"
+                    and anchor["pin"] == group["pin"]
+                    and (
+                        anchor["precision"] == "exact" or (native and anchor["precision"] == "item")
+                    )
+                    for anchor in target["anchors"]
+                )
             ):
                 continue
-            derived.operation["inspected_count"] += 1
-            derived.add(
+            endpoints = (
+                dict(role=primary_role, contribution_id=primary["contribution_id"]),
+                dict(role=role, contribution_id=target["contribution_id"]),
+            )
+            key = canonical_bytes([family + "." + role + "_attachment", endpoints])
+            if key not in existing:
+                targets.append((target, role, endpoints))
+                existing.add(key)
+        if not targets:
+            continue
+        dependencies = tuple(
+            sorted(
+                {
+                    *source_operation["computation_dependencies"],
+                    "derived-from-returned-group:" + source_operation["operation_key"],
+                    "returned-group:" + group["contribution_id"],
+                    "grouping-mode:" + str(mode),
+                    "producer:derived_from_native_group"
+                    if native
+                    else "producer:derived_from_returned_group",
+                }
+            )
+        )
+        operation = dict(
+            question="propose_returned_role_attachments",
+            operation_version="retained-group-attachments-1",
+            outcome="succeeded",
+            inspected_count=len(targets),
+            emitted_count=len(targets),
+            inputs=(),
+            computation_dependencies=dependencies,
+        )
+        if source_operation.get("report_digest") is not None:
+            operation["report_digest"] = source_operation["report_digest"]
+        operation["operation_key"] = operation_identity(operation)
+        operations.append(operation)
+        for target, role, endpoints in targets:
+            row = dict(
+                contract="RetainedContributionSemantics",
                 kind="relation",
                 semantic_type=family + "." + role + "_attachment",
+                operation_key=operation["operation_key"],
                 item_key=target["item_key"] + "/attachment",
-                endpoints=(
-                    dict(role=primary_role, contribution_id=primary["contribution_id"]),
-                    dict(role=role, contribution_id=target["contribution_id"]),
-                ),
-                reason="derived candidate from released natural-group role semantics; "
-                "no independent relation-head output or attachment score",
-                computation_dependencies=(
-                    *derived.operation["computation_dependencies"],
-                    "returned-group:" + group["contribution_id"],
-                ),
+                pin=group["pin"],
+                anchors=(),
+                endpoints=endpoints,
+                members=(),
+                disposition="candidate",
+                standing="retained_private",
+                score_state="missing",
+                reason="derived private association from declared " + str(mode) + " group roles; "
+                "no independent relation evidence, truth or score",
+                computation_dependencies=dependencies,
             )
-    if not has_supported_group:
-        return batch
-    return ContributionBatch.combine((batch, derived.finish()))
+            row["contribution_id"] = contribution_identity(row)
+            rows.append(row)
+    return ContributionBatch.combine((batch, ContributionBatch(tuple(operations), tuple(rows))))
+
+
+def _with_returned_attachments(batch, context, *, pack, item_key):
+    return _with_group_attachments(batch, schema_packs={pack.fingerprint: pack})
 
 
 def adapt_native_groups(context, *, family, groups, item_key, dependencies=()):
@@ -534,7 +1013,7 @@ def adapt_native_groups(context, *, family, groups, item_key, dependencies=()):
             members=tuple(members),
             reason=group.reason,
         )
-    return builder.finish()
+    return _with_group_attachments(builder.finish())
 
 
 def _restore_pin(row):
@@ -643,6 +1122,34 @@ def replay_retained_contributions(
     details = upstream["parse_detail"]
     packs = dict(schema_packs or {})
     packs.update(details.get("schema_packs", {}))
+    if (
+        upstream.get("contributions") is not None
+        and upstream.get("contribution_operations") is not None
+    ):
+        # These sealed typed products own their meaning and outcome/version. Do not
+        # reconstruct a narrower population by visiting only old record reports.
+        def restore(class_name, raw):
+            restored = reader.prepared.validate_json(class_name, canonical_bytes(raw)).model_dump(
+                mode="python"
+            )
+            if canonical_bytes(restored) != canonical_bytes(raw):
+                raise GlinerRefused(
+                    "sealed typed product changes canonical bytes under its released decoder"
+                )
+            return restored
+
+        original = ContributionBatch(
+            tuple(
+                restore("SourceContributionOperation", row)
+                for row in upstream["contribution_operations"]
+            ),
+            tuple(restore("SourceContribution", row) for row in upstream["contributions"]),
+            tuple(
+                restore("RecordCoordinateText", row)
+                for row in upstream.get("contribution_coordinate_texts") or ()
+            ),
+        )
+        return _with_group_attachments(original, schema_packs=packs)
     batches, contexts = [], {}
     dependencies = ("retained-result:" + _digest(upstream),)
     for index, entry in enumerate(details.get("reports", ())):

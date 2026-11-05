@@ -138,8 +138,14 @@ class OperationCase:
             raise ReferenceError(
                 "operation expectation must declare structure or absence_detection"
             )
-        if self.anchor_endpoint_role is not None and self.contribution_kind != "relation":
-            raise ReferenceError("endpoint anchored assessment requires a relation contribution")
+        if self.anchor_endpoint_role is not None and (
+            self.contribution_kind not in {"proposal", "relation"}
+            or not isinstance(self.anchor_endpoint_role, str)
+            or not self.anchor_endpoint_role.strip()
+        ):
+            raise ReferenceError(
+                "endpoint anchored assessment requires a proposal or relation and a declared role"
+            )
         if not all(
             (
                 self.case_id,
@@ -256,15 +262,15 @@ def _comparison_product(
     value: Mapping[str, Any], closure: Mapping[str, Mapping[str, Any]]
 ) -> Mapping[str, Any]:
     value = _literal_product(value)
-    if value.get("kind") != "relation":
+    if value.get("kind") not in {"proposal", "relation"} or (
+        value.get("kind") == "proposal" and not value.get("endpoints")
+    ):
         return value
     endpoints = []
     for endpoint in value.get("endpoints", ()):
         target = closure.get(endpoint["contribution_id"])
         if target is None:
-            raise ReferenceError(
-                "attachment assessment requires complete selected endpoint closure"
-            )
+            raise ReferenceError("endpoint assessment requires complete selected endpoint closure")
         endpoints.append(
             dict(
                 role=endpoint["role"],
@@ -361,7 +367,9 @@ def score_cases(
             if anchors
             else value["contribution_id"]
         )
-        if value.get("kind") == "relation":
+        if value.get("kind") == "relation" or (
+            value.get("kind") == "proposal" and not anchors and value.get("endpoints")
+        ):
             occurrence = [
                 [endpoint["role"], endpoint["anchor_ids"]]
                 for endpoint in value.get("endpoint_semantics", ())

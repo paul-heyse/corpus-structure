@@ -9,11 +9,30 @@ from fastmcp import Context, FastMCP
 from fastmcp.tools import ToolResult
 
 from corpus_structure.semantic.refusals import tool_refusals
+from corpus_structure.serve.contributions import ContributionPage, ContributionRequest
 from corpus_structure.serve.record_results import RecordPage, RecordRequest
 from corpus_structure.serve.record_support import RecordSupportPage
 
 
 def register_record_tools(server: FastMCP, bound_run: Callable[[Context, int], Any]) -> None:
+    @server.tool(
+        annotations={"readOnlyHint": True}, output_schema=ContributionPage.model_json_schema()
+    )
+    @tool_refusals(ValueError)
+    def contributions(ctx: Context, request: ContributionRequest) -> ToolResult:
+        """Inspect pinned private contributions and zero-output operations without a record.
+
+        Inventory paging establishes neither source completeness nor public eligibility.
+        """
+        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.serve.contributions import serve_contributions
+
+        active = bound_run(ctx, request.run_id)
+        with read_snapshot(active.engine) as conn:
+            page = serve_contributions(conn, request)
+        return _bounded_mcp_result(page, request.page_bytes)
+
     @server.tool(annotations={"readOnlyHint": True}, output_schema=RecordPage.model_json_schema())
     @tool_refusals(ValueError)
     def records(ctx: Context, request: RecordRequest) -> ToolResult:

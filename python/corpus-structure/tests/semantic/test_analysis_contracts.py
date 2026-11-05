@@ -483,3 +483,22 @@ def test_analysis_support_checks_current_semantic_determinants(monkeypatch):
     monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
     with pytest.raises(PreparationError, match="semantic determinant bytes"):
         context()
+
+
+def test_archived_snapshot_read_uses_unchanged_owned_contract(monkeypatch):
+    from corpus_structure.semantic import analysis_contracts
+
+    model = compile_execution_model(trusted_execution_inputs())
+    base = prepare_release(trusted_execution_inputs().schema)
+    prepared = replace(
+        base,
+        execution_model_id=model.model_id,
+        registry_rows=(
+            *base.registry_rows,
+            RegistryRow("execution_model", model.model_id, model.content),
+        ),
+    )
+    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
+    assert bind_analysis_family(prepared, "read").contract.id == "read"
+    with pytest.raises(PreparationError, match="semantic determinant bytes"):
+        bind_analysis_family(prepared, "publication")

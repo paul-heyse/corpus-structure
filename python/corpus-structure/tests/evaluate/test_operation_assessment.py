@@ -410,3 +410,123 @@ def test_attachment_requires_right_cell_and_right_header_source_semantics(frame)
     )
     with pytest.raises(ReferenceError, match="endpoint closure"):
         score_cases(frame, (expected,), (relation,))
+
+
+def conditional_role_case(identity="role", anchor="term-1"):
+    return replace(
+        case(identity, facet="conditional_role", anchors=(anchor,)),
+        contribution_kind="proposal",
+        anchor_endpoint_role="mention",
+        candidate_selector={"semantic_type": "attribute.role"},
+        alternatives=(
+            {
+                "kind": "proposal",
+                "semantic_type": "attribute.role",
+                "value": {"kind": "text", "text": "defined_term"},
+                "endpoint_semantics": [
+                    {
+                        "role": "mention",
+                        "anchor_ids": [anchor],
+                        "fields": {
+                            "semantic_type": "entity.distribution",
+                            "source_pieces": ["normal distribution"],
+                        },
+                    }
+                ],
+            },
+        ),
+    )
+
+
+def conditional_products(identity="attribute", mention="mention", anchor="term-1", **kwargs):
+    subject = dict(
+        contribution_id=mention,
+        kind="occurrence",
+        semantic_type="entity.distribution",
+        anchors=[dict(anchor_id=anchor, precision="exact", source_piece="normal distribution")],
+    )
+    attribute = dict(
+        contribution_id=identity,
+        kind="proposal",
+        semantic_type="attribute.role",
+        anchors=[],
+        endpoints=[dict(role="mention", contribution_id=mention)],
+        value={"kind": "text", "text": "defined_term"},
+        **kwargs,
+    )
+    return subject, attribute
+
+
+def test_conditional_proposal_preserves_kind_and_exact_mention_semantics(frame):
+    expected = conditional_role_case()
+    mention, attribute = conditional_products()
+    decoded = decode_authored(json.dumps(payload(frame, (expected,))).encode(), frame)
+    assert decoded["cases"] == [expected]
+    result = score_cases(frame, (expected,), (attribute,), endpoint_closure=(mention,))
+    assert result["cases"][0]["judgment"] == "supported"
+    assert result["cases"][0]["contribution_id"] == "attribute"
+    assert attribute["kind"] == "proposal" and not attribute["anchors"]
+
+
+@pytest.mark.parametrize("error", ("mention", "label", "class"))
+def test_conditional_role_requires_correct_label_location_and_entity_class(frame, error):
+    mention, attribute = conditional_products(anchor="cell-2" if error == "mention" else "term-1")
+    if error == "label":
+        attribute["value"] = {"kind": "text", "text": "mentioned_term"}
+    if error == "class":
+        mention["semantic_type"] = "entity.quantity"
+    result = score_cases(
+        frame, (conditional_role_case(),), (attribute,), endpoint_closure=(mention,)
+    )
+    assert result["cases"][0]["judgment"] == "unsupported"
+    assert result["cases"][0]["error_category"] == (
+        "missing_output" if error == "mention" else "wrong_structure"
+    )
+
+
+def test_conditional_proposal_requires_complete_endpoint_closure(frame):
+    _, attribute = conditional_products()
+    with pytest.raises(ReferenceError, match="endpoint closure"):
+        score_cases(frame, (conditional_role_case(),), (attribute,))
+
+
+def test_repeated_conditional_contexts_share_one_physical_facet_vote(frame):
+    first, first_attribute = conditional_products(
+        "attribute-a", "mention-a", score=0.9, origin_task_id=1
+    )
+    second, second_attribute = conditional_products(
+        "attribute-b", "mention-b", score=0.3, origin_task_id=2
+    )
+    result = score_cases(
+        frame,
+        (conditional_role_case("a"), conditional_role_case("b")),
+        (first_attribute, second_attribute),
+        endpoint_closure=(first, second),
+    )
+    assert result["facets"]["conditional_role"]["supported"] == 1
+    assert result["cases"][1]["error_category"] == "duplicate_occurrence"
+    assert result["prediction_count"] == 2 and result["producer_observation_count"] == 2
+
+
+def test_equal_conditional_literals_at_distinct_mentions_remain_distinct(frame):
+    first, first_attribute = conditional_products("attribute-a", "mention-a")
+    second, second_attribute = conditional_products("attribute-b", "mention-b", anchor="cell-2")
+    result = score_cases(
+        frame,
+        (conditional_role_case("a"), conditional_role_case("b", anchor="cell-2")),
+        (first_attribute, second_attribute),
+        endpoint_closure=(first, second),
+    )
+    assert result["facets"]["conditional_role"]["supported"] == 2
+
+
+@pytest.mark.parametrize("kind", ("occurrence", "composite", "diagnostic"))
+def test_endpoint_anchored_case_refuses_other_contribution_kinds(kind):
+    with pytest.raises(ReferenceError, match="proposal or relation"):
+        replace(conditional_role_case(), contribution_kind=kind)
+
+
+@pytest.mark.parametrize("role", ("", " ", True))
+def test_endpoint_anchored_case_requires_declared_role(role):
+    with pytest.raises(ReferenceError, match="declared role"):
+        replace(conditional_role_case(), anchor_endpoint_role=role)

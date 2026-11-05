@@ -5680,6 +5680,15 @@ operations:
   - id: extract.m1_annotations/observation.outcome
     field: observations.outcome
     outcome_domain: observation_outcome
+  - id: retrieve.contextual/family
+    field: family
+    outcome_domain: method_family_resolve
+  - id: retrieve.contextual/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: retrieve.contextual/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: resolve.m1_readings/family
     field: family
     outcome_domain: method_family_resolve

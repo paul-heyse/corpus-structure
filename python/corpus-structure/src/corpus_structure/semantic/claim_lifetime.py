@@ -64,7 +64,11 @@ class ClaimOwner:
                 try:
                     with self.engine.connect() as conn, conn.begin():
                         phase = DatabasePhase.EXECUTING
-                        _deadlines(conn, self.database)
+                        _deadlines(
+                            conn,
+                            self.database,
+                            statement_timeout_seconds=self.database.completion_statement_timeout_seconds,
+                        )
                         result = completion(conn)
                         phase = DatabasePhase.COMMITTING
                     # Never retire until commit succeeds or an exact replay commits.
@@ -103,9 +107,9 @@ class ClaimOwner:
             raise AssertionError("unreachable settlement state")
 
 
-def _deadlines(conn, database):
+def _deadlines(conn, database, *, statement_timeout_seconds: float):
     for setting, seconds in (
-        ("statement_timeout", database.renewal_statement_timeout_seconds),
+        ("statement_timeout", statement_timeout_seconds),
         ("lock_timeout", database.renewal_lock_timeout_seconds),
     ):
         conn.execute(
@@ -155,7 +159,11 @@ def maintained_claims(
                         with conn.begin():
                             phase = DatabasePhase.EXECUTING
                             effects = EffectKnowledge.UNCERTAIN
-                            _deadlines(conn, database)
+                            _deadlines(
+                                conn,
+                                database,
+                                statement_timeout_seconds=database.renewal_statement_timeout_seconds,
+                            )
                             for claim in tuple(owner.active.values()):
                                 cancellation.check_active()
                                 renew_claim(

@@ -195,7 +195,9 @@ def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
     source = (
         "from alembic import op\nimport sqlalchemy as sa\n"
         "from sqlalchemy import Text\nfrom sqlalchemy.dialects import postgresql\n"
+        "import pgvector.sqlalchemy\n"
         "from corpus_structure.semantic import alembic_native\n\n"
+        "from corpus_structure.schema.relational import Vector\n\n"
         "def upgrade():\n" + render_python_code(upgrade_ops) + "\n"
     )
     module = ast.parse(source)

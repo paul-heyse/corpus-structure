@@ -1,0 +1,332 @@
+"""Independent controls for context, candidate ranking and source-supported relationships."""
+
+from dataclasses import replace
+from math import sqrt
+from threading import Event
+
+import pytest
+from sqlalchemy.dialects import postgresql
+
+from corpus_structure.methods.contextual_embeddings import (
+    E5,
+    ContextInput,
+    EncodedVector,
+    EncoderCancelled,
+    encode_contexts,
+    identity,
+    render_context,
+    validate_vector,
+)
+from corpus_structure.semantic.contextual_links import (
+    ProposalWitness,
+    RelationKind,
+    RelationshipWitness,
+    select_relationships,
+)
+from corpus_structure.semantic.contextual_retrieval import (
+    ChannelHit,
+    freeze_inventory,
+    fuse_candidates,
+    target_representation,
+)
+from corpus_structure.semantic.contextual_storage import eligible_vector_relation, enrichment_report
+
+
+def target(id_, **kw):
+    return target_representation(id_, "source", "normal", "a distribution", **kw)
+
+
+def query():
+    return EncodedVector("v", "occ", "source", "p", "d", (1.0, 0.0))
+
+
+def inventory(*targets):
+    return freeze_inventory(
+        targets or (target("a"), target("b")), source_selection="selected-source", scope="chapter5"
+    )
+
+
+def candidates(inv=None, channels=None):
+    return fuse_candidates(
+        occurrence_id="occ",
+        query=query(),
+        inventory=inv or inventory(),
+        channels=channels or {"dense": (ChannelHit("a", 0.9), ChannelHit("b", 0.8))},
+    )
+
+
+def witness(id_="w", target_="a", relation: RelationKind = "defined-by", **kw):
+    return RelationshipWitness(
+        id_,
+        "occ",
+        target_,
+        relation,
+        "source",
+        "chapter5",
+        None,
+        ("evidence",),
+        "explicit_source_cue",
+        **kw,
+    )
+
+
+def selection(c=None, inv=None, **kw):
+    return select_relationships(
+        candidates=c or candidates(),
+        inventory=inv or inventory(),
+        source_binding="source",
+        scope="chapter5",
+        effective_version=None,
+        **kw,
+    )
+
+
+def test_occurrence_preserved_at_end_and_prompts_counted():
+    source = "x " * 100 + "\u03c3"
+    item = ContextInput(
+        "occ",
+        "source",
+        "query",
+        "\u03c3",
+        source,
+        len(source) - 1,
+        len(source),
+        heading="normal",
+        parent="distribution",
+    )
+    rendered = render_context(item, replace(E5, max_tokens=110), len)
+    assert rendered.truncated
+    assert "Mention: \u03c3" in rendered.text
+    assert "Parent: distribution" in rendered.text
+    assert "Heading: normal" in rendered.text
+    assert len(E5.query_prompt + rendered.text) <= 110
+    assert rendered.source_binding == "source"
+    assert not rendered.text.startswith("query: ")
+
+
+def test_mandatory_context_cannot_silently_truncate():
+    item = ContextInput("occ", "source", "query", "normal", "normal", 0, 6, heading="long" * 100)
+    with pytest.raises(ValueError, match="discriminating"):
+        render_context(item, replace(E5, max_tokens=50), len)
+
+
+def test_exact_source_correspondence_and_repeated_occurrence_identity():
+    with pytest.raises(ValueError, match="exact source"):
+        ContextInput("occ", "source", "query", "qs", "qs qs", 1, 3)
+    first = ContextInput("occ1", "source", "query", "qs", "qs qs", 0, 2)
+    second = replace(first, object_id="occ2", start=3, end=5)
+    assert render_context(first, E5, len).object_id != render_context(second, E5, len).object_id
+
+
+def test_operational_bound_repair_preserves_profile_identity():
+    assert replace(E5, timeout_seconds=400, max_input_bytes=2000000).profile_id == E5.profile_id
+    assert replace(E5, query_prompt="different: ").profile_id != E5.profile_id
+
+
+@pytest.mark.parametrize(
+    "values,dim", [((0, 0), 2), ((float("nan"), 1), 2), ((1, 0), 3), ((2, 0), 2)]
+)
+def test_invalid_vectors_refused(values, dim):
+    with pytest.raises(ValueError):
+        validate_vector(values, dim)
+
+
+def test_normalized_float_vector_accepted():
+    assert validate_vector((1 / sqrt(2), 1 / sqrt(2)), 2) == (1 / sqrt(2), 1 / sqrt(2))
+
+
+def test_cancellation_prevents_model_allocation():
+    event = Event()
+    event.set()
+    with pytest.raises(EncoderCancelled):
+        encode_contexts((ContextInput("o", "s", "query", "x", "x", 0, 1),), cancel=event)
+
+
+def test_inventory_unknown_type_preserves_plausible_targets_and_versions():
+    inv = freeze_inventory(
+        (
+            target("a", type_name="distribution"),
+            target("b"),
+            target("c", type_name="procedure"),
+            target("d", effective_version="v2"),
+            target("e", scope="other"),
+        ),
+        source_selection="s",
+        scope="chapter5",
+        reliable_type="distribution",
+    )
+    assert inv.target_ids == ("a", "b", "d")
+    assert inventory(target("a"), target("b")).target_ids == ("a", "b")
+    assert inventory(target("a"), target("b")).inventory_id != inventory(target("a")).inventory_id
+
+
+def test_same_label_never_merges_ids_and_duplicate_ids_refuse():
+    assert inventory(target("a"), target("b")).target_ids == ("a", "b")
+    with pytest.raises(ValueError, match="duplicate target"):
+        inventory(target("a"), target("a"))
+
+
+def test_rrf_deduplicates_by_target_and_keeps_raw_channel_evidence():
+    result = candidates(
+        channels={
+            "alias": (ChannelHit("b", 1),),
+            "lexical": (ChannelHit("a", 100), ChannelHit("b", 0.2)),
+            "dense": (ChannelHit("b", 0.9), ChannelHit("a", 0.8)),
+        }
+    )
+    assert [c.target_id for c in result.candidates] == ["b", "a"]
+    assert result.candidates[0].fusion_score == pytest.approx(2 / 61 + 1 / 62)
+    assert len(result.candidates[0].channels) == 3
+    assert {e.channel: e.raw_score for e in result.candidates[1].channels}["lexical"] == 100
+
+
+def test_equal_rank_ties_use_target_identity_and_unique_budget():
+    result = fuse_candidates(
+        occurrence_id="occ",
+        query=query(),
+        inventory=inventory(),
+        budget=1,
+        channels={
+            "lexical": (ChannelHit("a", 1), ChannelHit("b", 0.5)),
+            "dense": (ChannelHit("b", 1), ChannelHit("a", 0.5)),
+        },
+    )
+    assert len(result.candidates) == 1
+    assert result.candidates[0].target_id == "a"
+
+
+@pytest.mark.parametrize(
+    "hits",
+    [
+        (ChannelHit("a", 1), ChannelHit("a", 0.5)),
+        (ChannelHit("foreign", 1),),
+        (ChannelHit("a", float("inf")),),
+    ],
+)
+def test_foreign_duplicate_or_nonfinite_channel_refused(hits):
+    with pytest.raises(ValueError):
+        candidates(channels={"dense": hits})
+
+
+def test_similarity_only_produces_insufficient_evidence():
+    decision = selection()
+    assert decision.outcome == "insufficient_evidence"
+    assert decision.alternatives == ()
+
+
+def test_distinct_relationships_and_ambiguity_survive():
+    first = selection(witnesses=(witness(),))
+    assert first.outcome == "selected"
+    second = selection(witnesses=(witness(), witness("w2", "b", "compared-with")))
+    assert second.outcome == "ambiguous"
+    assert {w.relation for w in second.alternatives} == {"defined-by", "compared-with"}
+
+
+def test_cannot_link_blocks_alias_without_erasing_comparison():
+    decision = selection(
+        witnesses=(witness(relation="alias-of"), witness("w2", relation="compared-with")),
+        exclusions=frozenset({("occ", "a")}),
+    )
+    assert [w.relation for w in decision.alternatives] == ["compared-with"]
+
+
+def test_foreign_version_and_source_witness_refuse():
+    for value in (
+        replace(witness(), effective_version="v2"),
+        replace(witness(), source_binding="foreign"),
+    ):
+        with pytest.raises(ValueError, match="differs"):
+            selection(witnesses=(value,))
+
+
+def test_novelty_requires_explicit_source_proposal_and_examined_inventory():
+    inv, c = inventory(), candidates()
+    proposal = ProposalWitness(
+        "p",
+        "occ",
+        inv.inventory_id,
+        "source",
+        "chapter5",
+        None,
+        "local:1",
+        "local_sense",
+        ("a", "b"),
+        ("evidence",),
+        "source explicitly introduces a scoped sense",
+    )
+    assert selection(c, inv, proposal=proposal).outcome == "local_sense"
+    with pytest.raises(ValueError, match="examined"):
+        selection(c, inv, proposal=replace(proposal, examined_targets=("a",)))
+
+
+def test_report_profiles_and_list_closure():
+    vector = replace(query(), profile_id=E5.profile_id, values=(1.0,) + (0.0,) * 383)
+    vector = replace(
+        vector,
+        vector_id=identity(
+            "context-vector",
+            [
+                vector.object_id,
+                vector.source_binding,
+                vector.profile_id,
+                vector.input_digest,
+                vector.representation_digest,
+            ],
+        ),
+    )
+    report = enrichment_report(profiles=(E5,), vectors=(vector,))
+    assert report["version"] == "contextual-enrichment-1"
+    with pytest.raises(ValueError, match="unavailable"):
+        enrichment_report(profiles=(E5,), vectors=(vector,), candidate_lists=(candidates(),))
+
+
+def test_read_projection_is_task_bound_and_uses_native_vector_type():
+    relation = eligible_vector_relation(7)
+    sql = str(relation.select().compile(dialect=postgresql.dialect()))
+    assert "task_id" in sql and "contextual_target_vector" in sql
+
+
+def test_profile_versions_and_curated_descriptor_reuse_boundaries():
+    from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
+
+    for changed in (
+        replace(E5, sentence_transformers_version="changed-implementation"),
+        replace(E5, transformers_version="changed-implementation"),
+        replace(E5, torch_version="changed-implementation"),
+        replace(E5, tokenizers_version="changed-implementation"),
+    ):
+        assert changed.profile_id != E5.profile_id
+    first = RegistryTarget(target_id="a", label="normal", description="Gaussian distribution")
+    second = RegistryTarget(target_id="b", label="Poisson", description="A count distribution")
+    original_id, original = registry_input((first,))
+    extended_id, extended = registry_input((first, second))
+    assert original_id != extended_id
+    assert original[0] == extended[0]
+    changed_id, changed = registry_input(
+        (replace_registry(first, description="changed description"),)
+    )
+    assert changed_id != original_id
+    assert changed[0].representation_digest != original[0].representation_digest
+
+
+def replace_registry(target, **changes):
+    return type(target).model_validate(target.model_dump(mode="python") | changes)
+
+
+def test_unknown_source_version_keeps_versions_but_refuses_unjustified_selection():
+    targets = (
+        target("a", effective_version="v1"),
+        target("b", effective_version="v2"),
+        target("generic"),
+    )
+    unknown = inventory(*targets)
+    assert unknown.target_ids == ("a", "b", "generic")
+    question = candidates(unknown, {"dense": (ChannelHit("a", 1.0), ChannelHit("b", 0.5))})
+    result = selection(question, unknown, witnesses=(witness(target_="a"),))
+    assert result.outcome == "insufficient_evidence"
+    assert result.reason is not None
+    assert "version is unestablished" in result.reason
+    known = freeze_inventory(
+        targets, source_selection="selected-source", scope="chapter5", effective_version="v1"
+    )
+    assert known.target_ids == ("a", "generic")

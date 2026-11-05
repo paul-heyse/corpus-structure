@@ -49,6 +49,7 @@ class _Reply:
     serial: int
     reports: tuple[GlinerReport, ...] | None = None
     error: str | None = None
+    error_kind: str | None = None
 
 
 def _send_reply(connection: Connection, reply: _Reply, profile: GlinerProfile) -> None:
@@ -93,11 +94,14 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                 return
             if not isinstance(request, _Request):
                 raise GlinerWorkerError("unsupported detached native request")
+            loading = False
             try:
                 schema = request.pack.compile()
                 reused = model is not None
                 if model is None:
+                    loading = True
                     model, effective = load_model(profile)
+                    loading = False
                 preparations = tuple(
                     prepare_input(model, schema, item, profile) for item in request.inputs
                 )
@@ -156,11 +160,18 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
             except Exception as error:
                 _send_reply(
                     connection,
-                    _Reply(request.serial, error=f"{type(error).__name__}: {str(error)[:1800]}"),
+                    _Reply(
+                        request.serial,
+                        error=f"{type(error).__name__}: {str(error)[:1800]}",
+                        error_kind="request_refused"
+                        if isinstance(error, GlinerRefused) and not loading
+                        else "worker_error",
+                    ),
                     profile,
                 )
-                # Failure retires residency. Retry remains with the caller's task owner.
-                return
+                if not isinstance(error, GlinerRefused) or loading:
+                    # True failure retires residency; task owners control retry.
+                    return
     finally:
         connection.close()
 
@@ -170,7 +181,7 @@ class GlinerWorker:
 
     A supervised I/O thread allows cancellation while a pipe send/receive is blocked.
     Teardown kills and joins the child, then joins I/O before propagating the cause.
-    Failure permanently closes this owner; there is no stale completion or implicit retry.
+    Worker/IPC failure permanently closes this owner; request refusal preserves it.
     """
 
     _child_target = staticmethod(_native_child)
@@ -291,6 +302,8 @@ class GlinerWorker:
             if not isinstance(reply, _Reply) or reply.serial != request.serial:
                 raise GlinerWorkerError("native reply has a stale or unsupported identity")
             if reply.error is not None:
+                if reply.error_kind == "request_refused":
+                    raise GlinerRefused(reply.error)
                 raise GlinerWorkerError(reply.error)
             if reply.reports is None or len(reply.reports) != len(inputs):
                 raise GlinerWorkerError("native reply omitted context reports")
@@ -303,6 +316,10 @@ class GlinerWorker:
                 ):
                     raise GlinerWorkerError("native report premises differ from admitted request")
             return reply.reports
+        except GlinerRefused:
+            # A validated request refusal leaves the child and its immutable model
+            # healthy. True worker/IPC/cancellation faults still retire it below.
+            raise
         except BaseException as original:
             original.add_note(
                 f"GLiNER operation=batch_extract profile={self.profile.fingerprint} "

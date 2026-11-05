@@ -4,6 +4,10 @@ prefixes:
   csobs: https://corpus-structure.dev/semantic/observations/
 default_prefix: csobs
 default_range: string
+types:
+  contextual_float:
+    base: float
+    uri: http://www.w3.org/2001/XMLSchema#double
 classes:
   SourceRecordProduct:
     abstract: true
@@ -147,6 +151,24 @@ classes:
       records: {range: SourceRecord, multivalued: true, inlined: true}
       contribution_operations: {range: SourceContributionOperation, multivalued: true, inlined: true}
       contributions: {range: SourceContribution, multivalued: true, inlined: true}
+  LocalInterpretationReport:
+    is_a: SourceRecordProduct
+    description: Sealed private local question over an exact retained contribution selection; no admission authority.
+    attributes:
+      question_id: {required: true}
+      contribution_ids: {multivalued: true}
+      retained_input_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
+      independent_baseline: {required: true, equals_string: retained_independent_contributions}
+      probability_standing: {required: true}
+      coupling_enabled: {required: true, range: boolean}
+      outcome: {required: true, range: LocalInterpretationOutcome}
+      reason: {required: true}
+      request: {range: SourceObject, inlined: true}
+      request_digest: {pattern: '^[0-9a-f]{64}$'}
+      result: {range: SourceObject, inlined: true}
+      result_digest: {pattern: '^[0-9a-f]{64}$'}
+      seal: {required: true, pattern: '^[0-9a-f]{64}$'}
   RetainedContributionSourceBinding:
     is_a: SourceRecordProduct
     attributes:
@@ -161,6 +183,7 @@ classes:
     attributes:
       operation_key: {required: true}
       question: {required: true}
+      contextual_enrichment: {range: ContextualEnrichmentReport, inlined: true}
       operation_version: {required: true}
       outcome: {range: ContributionOperationOutcome, required: true}
       inspected_count: {range: integer, minimum_value: 0, required: true}
@@ -168,6 +191,7 @@ classes:
       retained_task_id: {range: integer, minimum_value: 1}
       retained_result_digest: {pattern: '^[0-9a-f]{64}$'}
       retained_source_bindings: {range: RetainedContributionSourceBinding, multivalued: true, inlined: true}
+      local_interpretation: {range: LocalInterpretationReport, inlined: true}
       report_digest: {pattern: '^[0-9a-f]{64}$'}
       inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
       computation_dependencies: {multivalued: true}
@@ -191,6 +215,23 @@ classes:
     attributes:
       effect: {equals_string: retain_private}
       assessment_event: {equals_string: local-contribution-1}
+  LocalContributionPublicationPolicy:
+    is_a: SourceRecordProduct
+    description: Exact native source location and quotation only; no semantic role, attachment or scientific truth.
+    attributes:
+      policy_id: {required: true, equals_string: exact-source-local-1}
+      policy_version: {required: true, equals_string: '1'}
+      event: {required: true, pattern: '^(source_occurrence|source_literal_quote)$'}
+      basis: {required: true, equals_string: deterministic_native_source_coordinates}
+  LocalSemanticPublicationPolicy:
+    is_a: SourceRecordProduct
+    description: Independently judged scoped denotation only; no universal confidence or canonical identity.
+    attributes:
+      policy_id: {required: true, equals_string: independent-contextual-denotation-1}
+      policy_version: {required: true, equals_string: '1'}
+      facet: {required: true, equals_string: denotation}
+      rubric_version: {required: true, equals_string: contextual-denotation-1}
+      context_policy: {required: true, equals_string: declared-native-source-and-curated-targets-1}
   SourceContribution:
     is_a: SourceRecordProduct
     description: Independent private source product. No complete-record parent or knowledge authority is implied.
@@ -417,6 +458,174 @@ classes:
       evidence_sets: {range: RecordEvidenceSet, multivalued: true, inlined: true}
       computation_dependencies: {multivalued: true}
       assertion_members: {multivalued: true}
+  ContextualProfile:
+    is_a: SourceRecordProduct
+    attributes:
+      sentence_transformers_version: {required: true}
+      transformers_version: {required: true}
+      torch_version: {required: true}
+      tokenizers_version: {required: true}
+      profile_id: {required: true}
+      model: {required: true}
+      revision: {required: true, pattern: '^[0-9a-f]{40}$'}
+      dimension: {range: integer, minimum_value: 1, maximum_value: 16000, required: true}
+      query_prompt: {required: true}
+      document_prompt: {required: true}
+      pooling: {required: true, pattern: '^(mean|lasttoken)$'}
+      max_tokens: {range: integer, minimum_value: 1, required: true}
+      batch_size: {range: integer, minimum_value: 1, required: true}
+      max_items: {range: integer, minimum_value: 1, required: true}
+      max_input_bytes: {range: integer, minimum_value: 1, required: true}
+      timeout_seconds: {range: contextual_float, required: true}
+      recipe: {required: true}
+  ContextualVector:
+    is_a: SourceRecordProduct
+    attributes:
+      vector_id: {required: true}
+      object_id: {required: true}
+      source_binding: {required: true}
+      profile_id: {required: true}
+      representation_digest: {required: true}
+      input_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      values: {range: contextual_float, multivalued: true, minimum_cardinality: 1, required: true}
+  ContextualTarget:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id: {required: true}
+      representation_digest: {required: true}
+      source_binding: {required: true}
+      label: {required: true}
+      description: {required: true}
+      aliases: {multivalued: true}
+      type_name: {}
+      parent: {}
+      scope: {required: true}
+      effective_version: {}
+  ContextualInventory:
+    is_a: SourceRecordProduct
+    attributes:
+      inventory_id: {required: true}
+      source_selection: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      targets: {range: ContextualTarget, inlined: true, multivalued: true}
+      reliable_type: {}
+      parent: {}
+  ContextualChannelEvidence:
+    is_a: SourceRecordProduct
+    attributes:
+      channel: {required: true, pattern: '^(alias|lexical|dense)$'}
+      rank: {range: integer, minimum_value: 1, required: true}
+      raw_score: {range: contextual_float, required: true}
+      evidence: {multivalued: true}
+  ContextualCandidate:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id: {required: true}
+      rank: {range: integer, minimum_value: 1, required: true}
+      fusion_score: {range: contextual_float, required: true}
+      channels: {range: ContextualChannelEvidence, inlined: true, multivalued: true, required: true}
+  ContextualChannelHit:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id: {required: true}
+      score: {range: contextual_float, required: true}
+      evidence: {multivalued: true}
+  ContextualChannelResult:
+    is_a: SourceRecordProduct
+    attributes:
+      channel: {required: true, pattern: '^(alias|lexical|dense)$'}
+      hits: {range: ContextualChannelHit, multivalued: true, inlined: true}
+  ContextualScopedExclusion:
+    is_a: SourceRecordProduct
+    attributes:
+      left: {required: true}
+      right: {required: true}
+  ContextualCandidateList:
+    is_a: SourceRecordProduct
+    attributes:
+      lexical_query: {required: true}
+      channel_results: {range: ContextualChannelResult, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
+      list_id: {required: true}
+      occurrence_id: {required: true}
+      query_vector_id: {required: true}
+      profile_id: {required: true}
+      inventory_id: {required: true}
+      policy_id: {required: true}
+      unique_target_budget: {range: integer, minimum_value: 1, required: true}
+      channel_budget: {range: integer, minimum_value: 1, required: true}
+      candidates: {range: ContextualCandidate, inlined: true, multivalued: true}
+      eligible_target_count: {range: integer, minimum_value: 0, required: true}
+      outcome: {required: true, pattern: '^(succeeded|empty)$'}
+  ContextualRelationshipWitness:
+    is_a: SourceRecordProduct
+    attributes:
+      witness_id: {required: true}
+      occurrence_id: {required: true}
+      target_id: {required: true}
+      relation: {required: true, pattern: '^(denotes|alias-of|defined-by|specializes|compared-with|participates-in)$'}
+      source_binding: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      evidence_ids: {multivalued: true, minimum_cardinality: 1, required: true}
+      basis: {required: true, equals_string: explicit_source_cue}
+  ContextualProposalWitness:
+    is_a: SourceRecordProduct
+    attributes:
+      witness_id: {required: true}
+      occurrence_id: {required: true}
+      inventory_id: {required: true}
+      source_binding: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      proposal_id: {required: true}
+      kind: {required: true, pattern: '^(local_sense|new_concept)$'}
+      examined_targets: {multivalued: true}
+      evidence_ids: {multivalued: true, minimum_cardinality: 1, required: true}
+      reason: {required: true}
+  ContextualRelationshipDecision:
+    is_a: SourceRecordProduct
+    attributes:
+      source_binding: {required: true}
+      exclusions: {range: ContextualScopedExclusion, multivalued: true, inlined: true}
+      decision_id: {required: true}
+      candidate_list_id: {required: true}
+      occurrence_id: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      policy_id: {required: true}
+      exclusion_snapshot: {required: true}
+      outcome: {required: true, pattern: '^(selected|ambiguous|local_sense|new_concept|insufficient_evidence)$'}
+      alternatives: {range: ContextualRelationshipWitness, inlined: true, multivalued: true}
+      proposal: {range: ContextualProposalWitness, inlined: true}
+      reason: {}
+  ContextualProductCounts:
+    is_a: SourceRecordProduct
+    attributes:
+      profiles: {range: integer, minimum_value: 0, required: true}
+      vectors: {range: integer, minimum_value: 0, required: true}
+      inventories: {range: integer, minimum_value: 0, required: true}
+      candidate_lists: {range: integer, minimum_value: 0, required: true}
+      relationship_decisions: {range: integer, minimum_value: 0, required: true}
+  ContextualVectorReuse:
+    is_a: SourceRecordProduct
+    attributes:
+      vector_id: {required: true}
+      origin_task_id: {range: integer, minimum_value: 1, required: true}
+      origin_runtime_id: {required: true}
+      result_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+  ContextualEnrichmentReport:
+    is_a: SourceRecordProduct
+    attributes:
+      curated_registry_id: {}
+      vector_reuse: {range: ContextualVectorReuse, multivalued: true, inlined: true}
+      product_counts: {range: ContextualProductCounts, inlined: true, required: true}
+      version: {required: true, equals_string: contextual-enrichment-1}
+      profiles: {range: ContextualProfile, inlined: true, multivalued: true}
+      vectors: {range: ContextualVector, inlined: true, multivalued: true}
+      inventories: {range: ContextualInventory, inlined: true, multivalued: true}
+      candidate_lists: {range: ContextualCandidateList, inlined: true, multivalued: true}
+      relationship_decisions: {range: ContextualRelationshipDecision, inlined: true, multivalued: true}
 enums:
   ContributionAnchorRole:
     permissible_values:
@@ -438,6 +647,15 @@ enums:
       unsupported: {}
       limited: {}
       not_run: {}
+  LocalInterpretationOutcome:
+    permissible_values:
+      not_run: {}
+      completed: {}
+      invalid_input: {}
+      infeasible: {}
+      numerical_failure: {}
+      resource_limit: {}
+      cancelled: {}
   ContributionScoreState:
     permissible_values:
       missing: {}

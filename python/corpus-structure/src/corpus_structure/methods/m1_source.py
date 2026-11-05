@@ -140,6 +140,14 @@ def _structural_groups(view, selection, context):
 
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+    local_schema: dict[str, Any] | None = None
+    annotation_token_rules: dict[str, list[list[dict[str, Any]]]] = Field(default_factory=dict)
+    formula_syntax: bool = False
+    formula_syntax_input_policy: Literal["recognized_only", "captured_native_text"] = (
+        "recognized_only"
+    )
+    region_pointers: tuple[str, ...] | None = None
+    source_projection_digest: str | None = Field(default=None, pattern="^[0-9a-f]{64}$")
     policy: Literal[
         "m1-canonical-related-context-candidates-4",
         "m1-canonical-related-context-candidates-5",
@@ -189,6 +197,17 @@ class M1Config(BaseModel):
         ):
             raise ValueError("pack role descriptions must be nonempty")
         return value
+
+    @field_validator("region_pointers")
+    @classmethod
+    def bounded_native_regions(cls, value):
+        if value is not None and (
+            not value
+            or len(set(value)) != len(value)
+            or any(not pointer.startswith("#/") for pointer in value)
+        ):
+            raise ValueError("region_pointers require a nonempty distinct native pointer selection")
+        return None if value is None else tuple(sorted(value))
 
     def profile(self) -> GlinerProfile:
         return GlinerProfile(
@@ -241,7 +260,7 @@ def configured_pack_variants(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "6"
+    version = "7"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -258,11 +277,16 @@ class M1Candidates:
         self._worker = None
 
     def select(self, run, cfg):
-        return tuple(
-            UnitRef(TaskUnitType.SOURCE_VIEW, view.id, view.key)
-            for view in run.reader.source_views()
-            if view.analysis_eligible
-        )
+        views = tuple(view for view in run.reader.source_views() if view.analysis_eligible)
+        if cfg.source_projection_digest is not None:
+            views = tuple(
+                view for view in views if view.projection_digest == cfg.source_projection_digest
+            )
+            if len(views) != 1:
+                raise GlinerRefused(
+                    "source projection selection must match exactly one eligible source view"
+                )
+        return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, view.id, view.key) for view in views)
 
     def input_digest(self, unit, cfg):
         if unit.ref.unit_id is None:
@@ -318,6 +342,18 @@ class M1Candidates:
         ctx.check_active()
         packs = configured_pack_variants(ctx.reader.prepared, cfg)
         view = ctx.reader.source_view(unit.ref.unit_id)
+        if (
+            cfg.source_projection_digest is not None
+            and view.ref.projection_digest != cfg.source_projection_digest
+        ):
+            raise GlinerRefused("source view differs from selected projection digest")
+        if cfg.region_pointers is not None:
+            missing = set(cfg.region_pointers) - {item["self_ref"] for item in view.items}
+            if missing:
+                raise GlinerRefused(
+                    "unknown native region pointer in selected source view: "
+                    + ", ".join(sorted(missing))
+                )
         profile = AnnotationProfile(cfg.sentences)
         from corpus_structure.methods.m1_annotations import consume_annotations
 
@@ -340,6 +376,7 @@ class M1Candidates:
                 annotation_errors=annotation_errors,
                 policy=cfg.policy,
                 formula_prose=cfg.formula_prose,
+                region_pointers=cfg.region_pointers,
             )
         details: dict[str, Any] = dict(
             policy=cfg.policy,
@@ -363,6 +400,13 @@ class M1Candidates:
             occurrence_policy=cfg.occurrence_policy,
             record_policy_version=cfg.record_policy_version,
             source_inspection=cfg.source_inspection,
+            source_region_selection=dict(
+                projection_digest=cfg.source_projection_digest,
+                region_pointers=cfg.region_pointers,
+                scope="explicit_native_regions"
+                if cfg.region_pointers is not None
+                else "all_prepared_regions",
+            ),
             model_observations=[],
             record_policy_events=[],
             reports=[],
@@ -375,16 +419,67 @@ class M1Candidates:
             ),
         )
         from corpus_structure.methods.contribution_adapter import (
+            ADAPTER_VERSION,
+            LOCAL_ADAPTER_VERSION,
             ContributionBatch,
             adapt_native_groups,
             adapt_report,
         )
 
         contribution_batches = []
+        local_pack = (
+            GlinerPack.from_declaration(
+                next(iter(packs.values()))[0][2].release,
+                cfg.local_schema,
+                version="native-local-v1",
+            )
+            if cfg.local_schema is not None
+            else None
+        )
         details["schema_packs"] = {
             pack.fingerprint: asdict(pack) for variants in packs.values() for _, _, pack in variants
         }
         details["context_manifests"] = {}
+        details["local_reports"] = []
+        details["local_execution"] = []
+        if local_pack is not None:
+            details["schema_packs"][local_pack.fingerprint] = asdict(local_pack)
+        if cfg.annotation_token_rules:
+            from corpus_structure.ingest.annotation_views import annotation_view
+            from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
+            from corpus_structure.methods.contribution_adapter import adapt_annotation_matches
+
+            vocabulary = pipeline(cfg.sentences).vocab
+            rules = PreparedAnnotationRules(vocabulary, token_rules=cfg.annotation_token_rules)
+            for product in prepared_source.annotations:
+                primary_ranges = tuple(
+                    (selection.start, selection.end) for selection in prepared_source.selections
+                )
+                if cfg.region_pointers is not None and not any(
+                    a < product.block_end and b > product.block_start for a, b in primary_ranges
+                ):
+                    continue
+                ctx.check_active()
+                text = prepared_source.source.text[product.block_start : product.block_end]
+                native_view = annotation_view(product, text, vocabulary)
+                matches = rules.match(native_view)
+                if cfg.region_pointers is not None:
+                    matches = tuple(
+                        match
+                        for match in matches
+                        if any(
+                            all(a <= start < end <= b for start, end in match.extents)
+                            for a, b in primary_ranges
+                        )
+                    )
+                contribution_batches.append(
+                    adapt_annotation_matches(
+                        prepared_source.source,
+                        product,
+                        matches,
+                        rules=cfg.annotation_token_rules,
+                    )
+                )
         assemblies = []
         coverage = []
         details["execution"] = [
@@ -407,6 +502,70 @@ class M1Candidates:
             (row["context"], row["family"], row.get("variant", "default")): row
             for row in details["execution"]
         }
+
+        def retain_unexecuted(index, pack, outcome, reason, *, local=False):
+            from corpus_structure.semantic.contributions import operation_identity
+
+            selected = prepared_source.selections[index]
+            operation = dict(
+                question="retain_native_spans_attributes_relations"
+                if local
+                else "recover_returned_local_contributions",
+                operation_version=LOCAL_ADAPTER_VERSION if local else ADAPTER_VERSION,
+                outcome=outcome,
+                inspected_count=0,
+                emitted_count=0,
+                reason=reason,
+                inputs=(),
+                computation_dependencies=(
+                    "pack:" + pack.fingerprint,
+                    "source-projection:" + view.ref.projection_digest,
+                    "selection:" + sha256(canonical_bytes(asdict(selected))).hexdigest(),
+                ),
+            )
+            operation["operation_key"] = operation_identity(operation, context=index)
+            contribution_batches.append(ContributionBatch(operations=(operation,)))
+
+        def stop_failed_worker(reason, family, index):
+            terminal = "resident worker failed; no automatic restart/fallback"
+            for row in details["execution"]:
+                if row["outcome"] != "pending":
+                    continue
+                row.update(outcome="not_run", reason=terminal)
+                for variant, _, pack in packs[row["family"]]:
+                    if variant == row.get("variant", "default"):
+                        retain_unexecuted(row["context"], pack, "not_run", terminal)
+            if local_pack is not None:
+                attempted = {row["context"] for row in details["local_execution"]}
+                for pending in range(len(prepared_source.selections)):
+                    if pending not in attempted:
+                        details["local_execution"].append(
+                            dict(context=pending, outcome="not_run", reason=terminal)
+                        )
+                        retain_unexecuted(pending, local_pack, "not_run", terminal, local=True)
+            details["producer_failure"] = str(reason)
+            combined = ContributionBatch.combine(contribution_batches)
+            return UnitResult(
+                ref=unit.ref,
+                outcome=ObservationOutcome.PRODUCED
+                if combined.contributions
+                else ObservationOutcome.FAILED,
+                error=None if combined.contributions else str(reason),
+                parse_detail=details,
+                contributions=combined.contributions,
+                contribution_operations=combined.operations,
+                contribution_coordinate_texts=combined.coordinate_texts,
+                coverage=(
+                    *coverage,
+                    CoverageDraft(
+                        family=family,
+                        scope=prepared_source.selections[index].region,
+                        outcome="failed",
+                        reason=str(reason),
+                    ),
+                ),
+            )
+
         for region in prepared_source.regions:
             for family in region.families:
                 coverage.append(
@@ -417,6 +576,8 @@ class M1Candidates:
                         if region.outcome in {"selected", "empty"}
                         else "unsupported"
                         if region.outcome == "unsupported"
+                        else "unknown"
+                        if region.outcome == "not_requested"
                         else "partial",
                         reason=region.reason,
                     )
@@ -444,8 +605,14 @@ class M1Candidates:
                     policy=cfg.policy,
                 )
             except ContextRefused as error:
+                if local_pack is not None:
+                    details["local_execution"].append(
+                        dict(context=index, outcome="limited", reason=str(error))
+                    )
+                    retain_unexecuted(index, local_pack, "limited", str(error), local=True)
                 for family in selection.families:
-                    for variant, anchor, _ in packs[family]:
+                    for variant, anchor, selected_pack in packs[family]:
+                        retain_unexecuted(index, selected_pack, "limited", str(error))
                         execution[index, family, variant].update(
                             outcome="limited", reason=str(error)
                         )
@@ -481,6 +648,64 @@ class M1Candidates:
                 max_pieces=context.max_pieces,
                 max_sources=context.max_sources,
             )
+            if cfg.formula_syntax and selection.families == ("formula_context",):
+                from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
+                from corpus_structure.methods.math.pdf import FormulaOccurrence
+
+                node = next(row for row in view.items if row["self_ref"] == selection.region)
+                if node.get("label") == "formula":
+                    health = {
+                        row["pointer"]: row["outcome"]
+                        for row in view.health.get("formula_outcomes", ())
+                    }
+                    status = health.get(selection.region, "unknown")
+                    if status not in {"succeeded", "failed", "unknown", "not_requested"}:
+                        status = "unknown"
+                    occurrence = FormulaOccurrence(
+                        view.ref.native_product.content_digest,
+                        selection.region,
+                        node.get("text", ""),
+                        node.get("orig", ""),
+                        status,
+                    )
+                    contribution_batches.append(
+                        adapt_formula_syntax(
+                            context, occurrence, input_policy=cfg.formula_syntax_input_policy
+                        )
+                    )
+            if local_pack is not None:
+                ctx.check_active()
+                try:
+                    (local_report,) = self._resident(cfg.profile()).extract(
+                        local_pack,
+                        (GlinerInput.from_context(context),),
+                        threshold=cfg.threshold,
+                        check_active=ctx.check_active,
+                    )
+                    contribution_batches.append(
+                        adapt_report(
+                            local_report,
+                            context,
+                            pack=local_pack,
+                            item_key=f"local/{index}",
+                        )
+                    )
+                    details["local_reports"].append(
+                        dict(
+                            context=index,
+                            pack=local_pack.fingerprint,
+                            report=_retained_report(local_report, details["effective_profiles"]),
+                        )
+                    )
+                    details["local_execution"].append(dict(context=index, outcome="succeeded"))
+                except (GlinerRefused, GlinerWorkerError) as error:
+                    outcome = "limited" if isinstance(error, GlinerRefused) else "failed"
+                    details["local_execution"].append(
+                        dict(context=index, outcome=outcome, reason=str(error))
+                    )
+                    retain_unexecuted(index, local_pack, outcome, str(error), local=True)
+                    if isinstance(error, GlinerWorkerError):
+                        return stop_failed_worker(error, "local_contributions", index)
             for family, variant, anchor, pack in (
                 (requested_family, variant, anchor, pack)
                 for requested_family in selection.families
@@ -706,6 +931,7 @@ class M1Candidates:
                         else "no located candidate output",
                     )
                 except GlinerRefused as error:
+                    retain_unexecuted(index, pack, "limited", str(error))
                     execution[index, family, variant].update(outcome="limited", reason=str(error))
                     details["reports"].append(
                         dict(
@@ -726,12 +952,7 @@ class M1Candidates:
                     )
                 except GlinerWorkerError as error:
                     execution[index, family, variant].update(outcome="failed", reason=str(error))
-                    for row in details["execution"]:
-                        if row["outcome"] == "pending":
-                            row.update(
-                                outcome="not_run",
-                                reason="resident worker failed; no automatic restart/fallback",
-                            )
+                    retain_unexecuted(index, pack, "failed", str(error))
                     details["reports"].append(
                         dict(
                             context=index,
@@ -741,33 +962,7 @@ class M1Candidates:
                             **metadata,
                         )
                     )
-                    details["producer_failure"] = str(error)
-                    return UnitResult(
-                        ref=unit.ref,
-                        outcome=ObservationOutcome.PRODUCED
-                        if any(batch.contributions for batch in contribution_batches)
-                        else ObservationOutcome.FAILED,
-                        error=None
-                        if any(batch.contributions for batch in contribution_batches)
-                        else str(error),
-                        parse_detail=details,
-                        contributions=ContributionBatch.combine(contribution_batches).contributions,
-                        contribution_operations=ContributionBatch.combine(
-                            contribution_batches
-                        ).operations,
-                        contribution_coordinate_texts=ContributionBatch.combine(
-                            contribution_batches
-                        ).coordinate_texts,
-                        coverage=(
-                            *coverage,
-                            CoverageDraft(
-                                family=family,
-                                scope=selection.region,
-                                outcome="failed",
-                                reason=str(error),
-                            ),
-                        ),
-                    )
+                    return stop_failed_worker(error, family, index)
         ctx.check_active()
         contribution_batch = ContributionBatch.combine(contribution_batches)
         records = tuple(

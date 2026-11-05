@@ -19,6 +19,7 @@ FIXTURE_METHODS = {
     "native.packet-fixture": ("agent", "agent", ()),
     "native.region-frame": ("agent", "agent", ()),
     "coverage.witness": ("extract", "deterministic", ()),
+    "private.contextual": ("record", "deterministic", ("record",)),
     "private.records": ("record", "deterministic", ("record",)),
     "private.source": ("ingest", "deterministic", ()),
     **{

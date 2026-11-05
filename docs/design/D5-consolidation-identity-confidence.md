@@ -1,5 +1,44 @@
 # D5 · Consolidation, identity and confidence
 
+## Independent local admission
+
+**Implemented; integrated qualification in progress, 2026-11-05.** The released local
+quotation policy authenticates exact captured source extents and ordered literal pieces.
+It establishes neither original PDF glyph fidelity nor the proposed semantic role. Local
+denotation admission instead consumes protected operation assessment: current C snapshot,
+supported stated case, exact complete semantic value, source frame/anchors, event/question
+version, rubric/context and actual captured contribution. Public semantic statements keep
+generated retrieval IDs in derivation provenance rather than their assessable meaning.
+
+The ordinary run freezes evaluation identity/digest as a publication-only dependency and
+reuses the same immutable assessed producer origin. Common consolidation prepares additive
+local assertion rows outside publication locks and publishes them in the existing atomic
+PublicationBatch with native recomputation. Neither path relaxes whole-record admission,
+creates canonical identities or supplies scientific support. Executable policy and row shapes
+live in `model/semantic/observations.yaml`; applicability and lowering live in
+`semantic/local_admission.py` and `semantic/local_semantic_admission.py`. The PCE coordinator
+owns verification and current gaps.
+
+> Decision: [ADR-0064](../adr/0064-local-semantic-admission.md)
+
+### Local mathematical questions
+
+**Implemented; bounded functional/native controls Tested,2026-11-05.**
+`semantic/record_interpretation.py` accepts local selected marginals and optional composite
+events without imposing a complete-record template. The existing record adapter retains its
+completeness checks. Exact log-space enumeration preserves the full normalizer, overlapping
+event unions, coupled constraints and coherent alternatives; it does not multiply independent
+marginals to approximate a coupled event.
+
+Registered retained readings seal the precise request/result and every consumed product's
+computation dependencies. Failed, unavailable or limited solves publish no probabilities.
+Without an applicable genuine factor policy the local operation is `not_run`, while useful
+retained products survive. No source or scientific probability is inferred from extraction
+confidence. A sparse Pyro/pgmpy successor requires an actual useful question exceeding the
+bounded joint guard; that trigger has not been established by the current selected corpus.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
 ## M1 evaluated record admission
 
 **Implemented; bounded native controls Tested (2026-11-04).** Bounded interpretation runs before

@@ -116,7 +116,7 @@ def test_contextual_policy_resolves_real_registry_and_keeps_reading_resolution()
     cfg = selected.config("extract.m1_candidates", "contextual").config
     assert isinstance(cfg, M1Config)
     assert cfg.source_inspection and cfg.formula_prose
-    assert cfg.profile().version == "gliner2-2.1.0-cpu-fp32-standard-codepoints-v1"
+    assert cfg.profile().version == "gliner2-2.1.0-cpu-fp32-standard-whitespace-v1"
     assert (cfg.max_words, cfg.max_subwords) == (4096, 4096)
     assert (cfg.max_context_chars, cfg.max_context_pieces) == (4096, 128)
     steps = [step.config for _, stage in source_graph("contextual").stages for step in stage]

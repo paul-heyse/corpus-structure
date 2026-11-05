@@ -140,6 +140,41 @@ def test_failure_retires_owner(profile, mode):
         worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "empty"),))
 
 
+def test_request_refusal_keeps_the_same_healthy_resident_for_independent_input(profile):
+    worker = ControlledWorker(profile)
+    try:
+        with pytest.raises(GlinerRefused, match="controlled request limit"):
+            worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "refused"),))
+        first_pid = worker.pid
+        assert first_pid is not None and not worker.closed
+        (report,) = worker.extract(
+            GlinerPack("release", "{}"), (GlinerInput("two", "b" * 64, "empty"),)
+        )
+        assert report.context_id == "two"
+        assert worker.pid == first_pid and not worker.closed
+    finally:
+        worker.close()
+
+
+def test_production_child_loop_continues_after_native_preparation_refusal(profile):
+    from methods.gliner_worker_cases import native_protocol_child
+
+    class NativeProtocolWorker(GlinerWorker):
+        _child_target = staticmethod(native_protocol_child)
+
+    worker = NativeProtocolWorker(profile)
+    pack = GlinerPack.from_declaration("release", {"entities": ["term"]}, version="native-local-v1")
+    try:
+        with pytest.raises(GlinerRefused, match="subword bound"):
+            worker.extract(pack, (GlinerInput("one", "a" * 64, "refused"),))
+        first_pid = worker.pid
+        (report,) = worker.extract(pack, (GlinerInput("two", "b" * 64, "empty"),))
+        assert worker.pid == first_pid and not worker.closed
+        assert report.resident_reused and report.raw == {"entities": {"term": []}}
+    finally:
+        worker.close()
+
+
 def test_timeout_kills_and_joins(profile):
     worker = ControlledWorker(replace(profile, timeout_seconds=0.5))
     with pytest.raises(GlinerWorkerError, match="timed out"):
@@ -465,7 +500,7 @@ def test_entire_request_frame_refused_before_child_start(profile):
     worker = ControlledWorker(replace(profile, max_request_frame_bytes=128))
     with pytest.raises(GlinerRefused, match="request frame byte bound"):
         worker.extract(GlinerPack("release", "{}"), (GlinerInput("one", "a" * 64, "x"),))
-    assert worker.pid is None and worker.closed
+    assert worker.pid is None and not worker.closed
 
 
 @pytest.mark.parametrize("oversized", ["preparation", "metadata", "effective_config"])

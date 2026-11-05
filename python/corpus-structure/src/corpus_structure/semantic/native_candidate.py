@@ -12,7 +12,7 @@ from alembic.migration import MigrationContext
 from pglast import ast
 from sqlalchemy import text
 
-from .alembic_defaults import compare_default
+from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
@@ -714,6 +714,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_source_anchor_coordinates",
         "validate_source_contribution_report",
         "project_source_contributions",
+        "contextual_identity_value",
     ):
         definitions.extend(
             _task_call_definitions(
@@ -735,6 +736,12 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_record_relationships",
         "validate_record_projection",
         "validate_record_projection_cut",
+        "validate_local_assertions",
+        "local_semantic_grade_evidence",
+        "local_semantic_case_matches",
+        "local_semantic_assertion_value",
+        "local_semantic_publication_candidates",
+        "validate_local_semantic_assertions",
     ):
         definitions.append(
             _task_call_definition(
@@ -742,7 +749,9 @@ def series_native_definitions(connection, *, include_selected=True):
                 record_publication,
                 name=name,
                 source="record publication:forward",
-                grants=(),
+                grants=(("corpus_sem_writer", "EXECUTE", False),)
+                if name == "local_semantic_publication_candidates"
+                else (),
                 schema="data",
             )
         )
@@ -845,6 +854,8 @@ def series_native_definitions(connection, *, include_selected=True):
     # public semantic content. The guard joins the same managed native lifecycle.
     for relation in (
         "sem.runtime_binding",
+        "data.local_assertion",
+        "data.local_semantic_assertion",
         *("data." + name for name in RECORD_ROW_TYPES),
         "kb.source_contribution_operation",
         "kb.source_contribution",
@@ -1416,6 +1427,7 @@ def prepare_series_candidate(
                 name in SCHEMAS if kind == "schema" else True
             ),
             "compare_server_default": compare_default,
+            "compare_type": compare_type,
             "autogenerate_plugins": [
                 "alembic.autogenerate.*",
                 "alembic.ext.checkconstraint_byname",

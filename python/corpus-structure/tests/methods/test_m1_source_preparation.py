@@ -270,6 +270,7 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
         "extract.m1_annotations",
         "extract.m1_candidates",
         "resolve.m1_readings",
+        "retrieve.contextual",
     }
     assert M1.policy_propose is False
     steps = M1.stages[1][1]

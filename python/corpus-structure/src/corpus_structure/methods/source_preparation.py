@@ -375,6 +375,7 @@ def prepare_source(
     annotations_only: bool = False,
     policy: str = POLICY,
     formula_prose: bool = False,
+    region_pointers: tuple[str, ...] | None = None,
 ) -> PreparedCandidateSource:
     """Prepare annotations once per projected native piece, then coherent windows.
 
@@ -384,6 +385,15 @@ def prepare_source(
     """
     if min(max_chars, max_pieces, max_annotation_chars) < 1:
         raise ValueError("source preparation bounds must be positive")
+    if region_pointers is not None:
+        if not region_pointers or len(set(region_pointers)) != len(region_pointers):
+            raise ValueError("native region selection must be nonempty and distinct")
+        missing = set(region_pointers) - {item["self_ref"] for item in view.items}
+        if missing:
+            raise ValueError(
+                "unknown native region pointer in selected source view: "
+                + ", ".join(sorted(missing))
+            )
     if policy not in {POLICY, POLICY_V5, POLICY_V6} or (
         formula_prose and policy not in {POLICY_V5, POLICY_V6}
     ):
@@ -414,6 +424,9 @@ def prepare_source(
     blocks: dict[str, list[int]] = {}
     for pointer, indices in projected.items():
         blocks.setdefault(block_owner(pointer), []).extend(indices)
+    requested_owners = (
+        None if region_pointers is None else {block_owner(pointer) for pointer in region_pointers}
+    )
     inputs = []
     annotation_blocks = []
     for pointer, indices in blocks.items():
@@ -427,6 +440,8 @@ def prepare_source(
     for pointer, unsorted, block_id in annotation_blocks:
         check_active()
         if persisted_annotations is not None:
+            continue
+        if requested_owners is not None and pointer not in requested_owners:
             continue
         indices = sorted(unsorted)
         start, end = view.pieces[indices[0]]["start"], view.pieces[indices[-1]]["end"]
@@ -489,6 +504,7 @@ def prepare_source(
         node["self_ref"]: _prepare_table_cells(view, node, by_pointer, piece_lookup)
         for node in view.items
         if "table_cells" in node.get("data", {})
+        and (region_pointers is None or node["self_ref"] in region_pointers)
     }
     selections = []
     selected_ranges = {}
@@ -515,6 +531,19 @@ def prepare_source(
             if formula_prose
             else PROSE_FAMILIES
         )
+        if region_pointers is not None and pointer not in region_pointers:
+            regions.append(
+                RegionDisposition(
+                    pointer,
+                    label,
+                    indices,
+                    families,
+                    "not_requested",
+                    "outside explicit native region selection",
+                    (),
+                )
+            )
+            continue
         chosen = []
         limits = []
         if not indices:

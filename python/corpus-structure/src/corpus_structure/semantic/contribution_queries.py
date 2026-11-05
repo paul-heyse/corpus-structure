@@ -18,6 +18,7 @@ class ContributionInventory:
     operations: tuple[Mapping[str, Any], ...]
     contributions: tuple[Mapping[str, Any], ...]
     more: bool
+    interpretations: tuple[Mapping[str, Any], ...] = ()
 
 
 def read_source_contributions(
@@ -28,9 +29,13 @@ def read_source_contributions(
     source_view_id: int | None = None,
     method: str | None = None,
     operation_key: str | None = None,
+    operation_version: str | None = None,
+    contribution_id: str | None = None,
+    occurrence_id: str | None = None,
     kind: str | None = None,
     limit: int = 100,
     include_details: bool = False,
+    include_interpretation: bool = False,
     cut_id: int | None = None,
     max_bytes: int = 8_000_000,
     operation_keys: tuple[str, ...] | None = None,
@@ -126,6 +131,8 @@ def read_source_contributions(
         op_query = op_query.where(operations.c.operation_key == operation_key)
     if operation_keys is not None:
         op_query = op_query.where(operations.c.operation_key.in_(operation_keys))
+    if operation_version is not None:
+        op_query = op_query.where(operations.c.operation_version == operation_version)
     op_rows = tuple(
         dict(row)
         for row in conn.execute(
@@ -134,8 +141,59 @@ def read_source_contributions(
     )
     more = more or len(op_rows) > limit
     op_rows = op_rows[:limit]
+    if op_rows:
+        # Expand each selected origin's array once, rather than detoasting its
+        # report once per operation. Only compact progress counters cross here.
+        positions = {}
+        for row in op_rows:
+            positions.setdefault(row["task_id"], []).append(row["position"])
+        count_rows = conn.execute(
+            text("""
+            SELECT r.task_id, c.value->>'operation_key' AS operation_key,
+                   c.value#>'{contextual_enrichment,product_counts}' AS product_counts,
+                   jsonb_array_length(COALESCE(
+                     c.value#>'{contextual_enrichment,vector_reuse}', '[]'::jsonb))
+                     AS reused_vector_count
+            FROM jsonb_to_recordset(CAST(:selection AS jsonb))
+              s(task_id bigint, positions bigint[])
+            JOIN ops.task_result r ON r.task_id=s.task_id
+            CROSS JOIN LATERAL jsonb_array_elements(r.body->'contribution_operations')
+              WITH ORDINALITY c(value,ordinality)
+            WHERE c.ordinality-1=ANY(s.positions) AND c.value ? 'contextual_enrichment'
+        """),
+            dict(
+                selection=json.dumps(
+                    [
+                        dict(task_id=task, positions=selected_positions)
+                        for task, selected_positions in positions.items()
+                    ]
+                )
+            ),
+        ).mappings()
+        counters = {
+            (row["task_id"], row["operation_key"]): {
+                "product_counts": row["product_counts"],
+                "reused_vector_count": row["reused_vector_count"],
+            }
+            for row in count_rows
+        }
+        op_rows = tuple(
+            {**row, **counters.get((row["task_id"], row["operation_key"]), {})} for row in op_rows
+        )
     contributions = table("kb.source_contribution")
     query = select(contributions).where(contributions.c.task_id.in_(origins))
+    if operation_version is not None:
+        query = query.join(
+            operations,
+            and_(
+                operations.c.task_id == contributions.c.task_id,
+                operations.c.operation_key == contributions.c.operation_key,
+            ),
+        ).where(operations.c.operation_version == operation_version)
+    if contribution_id is not None:
+        query = query.where(contributions.c.contribution_id == contribution_id)
+    if occurrence_id is not None:
+        query = query.where(contributions.c.occurrence_id == occurrence_id)
     if operation_key is not None:
         query = query.where(contributions.c.operation_key == operation_key)
     if operation_keys is not None:
@@ -213,7 +271,7 @@ def read_source_contributions(
     rows = rows[:limit]
     details = {}
     operation_details = {}
-    if include_details:
+    if include_details or include_interpretation:
         # One expansion per report array in each query, independent of selected
         # row count. Admit the combined operation/contribution transfer budget
         # before either payload is decoded. PostgreSQL owns report expansion.
@@ -234,7 +292,7 @@ def read_source_contributions(
         )
         for field, selected_rows, identity in (
             ("contributions", rows, "contribution_id"),
-            ("contribution_operations", op_rows, "operation_key"),
+            ("contribution_operations", op_rows if include_details else (), "operation_key"),
         ):
             if not selected_rows:
                 continue
@@ -256,7 +314,7 @@ def read_source_contributions(
             for report in conn.execute(text(grouped_sql), params).mappings():
                 for raw in report["selected_details"]:
                     target[report["task_id"], raw[identity]] = raw
-    output = []
+    output, interpretation_output = [], []
     for row in rows:
         report = origins[row["task_id"]]
         meta = {
@@ -271,11 +329,15 @@ def read_source_contributions(
                 "cut_member",
             )
         }
-        if include_details:
+        if include_details or include_interpretation:
             raw = details[row["task_id"], row["contribution_id"]]
-            row = prepared.validate_json("SourceContribution", json.dumps(raw)).model_dump(
+            decoded = prepared.validate_json("SourceContribution", json.dumps(raw)).model_dump(
                 mode="python"
             )
+            if include_interpretation:
+                interpretation_output.append({**decoded, **meta})
+            if include_details:
+                row = decoded
         output.append({**row, **meta})
     if include_details:
         op_rows = tuple(
@@ -307,4 +369,6 @@ def read_source_contributions(
         }
         for row in op_rows
     )
-    return ContributionInventory(reports, operation_output, tuple(output), more)
+    return ContributionInventory(
+        reports, operation_output, tuple(output), more, tuple(interpretation_output)
+    )

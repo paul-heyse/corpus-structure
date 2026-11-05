@@ -140,6 +140,158 @@ def owned_reader(source):
     return reader
 
 
+def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outputs(monkeypatch):
+    """Real source preparation and native annotation restoration; controlled decoder only."""
+    from corpus_structure.orchestrate.m1 import registry
+
+    class LocalDecoder(ControlledDecoder):
+        def extract(self, pack, inputs, *, threshold, check_active):
+            if pack.version != "native-local-v1":
+                return super().extract(pack, inputs, threshold=threshold, check_active=check_active)
+            (item,) = inputs
+            return (
+                GlinerReport(
+                    item.context_id,
+                    item.context_digest,
+                    "controlled-local",
+                    "fixture",
+                    pack.fingerprint,
+                    GlinerPreparation(item.text, "", 4, 4, len(item.text.encode())),
+                    json.dumps({"entities": {"term": [dict(text="Mean", start=0, end=4)]}}),
+                    "{}",
+                    0,
+                    False,
+                ),
+            )
+
+    source = view()
+    method = m1_source.M1Candidates()
+    monkeypatch.setattr(method, "_resident", lambda _: LocalDecoder("empty"))
+    cfg = (
+        registry(ROOT / "domains/statistics")
+        .overlay(method.name, "default")
+        .model_copy(
+            update={
+                "local_schema": {"entities": ["term"]},
+                "annotation_token_rules": {"copula": [[{"LOWER": "is"}]]},
+            }
+        )
+    )
+    (result,) = method.run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
+        cfg,
+        SimpleNamespace(reader=owned_reader(source), check_active=lambda: None),
+    )
+    assert result.contributions is not None
+    types = {row["semantic_type"] for row in result.contributions}
+    assert {"source_rule.copula", "entity.term"} <= types
+    assert not result.records
+    assert result.parse_detail is not None and result.parse_detail["local_reports"]
+
+
+@pytest.mark.parametrize("fatal", [False, True])
+def test_request_limit_continues_independent_context_but_worker_fault_fences_it(monkeypatch, fatal):
+    from dataclasses import replace
+
+    from corpus_structure.methods.gliner import GlinerRefused
+    from corpus_structure.orchestrate.m1 import registry
+    from corpus_structure.semantic.contributions import bind_contributions
+
+    first, second = "Mean is average.", "Other is distinct."
+    text = first + "\n" + second
+    nodes = (
+        dict(self_ref="#/groups/1", label="section"),
+        dict(self_ref="#/texts/1", label="text", text=first),
+        dict(self_ref="#/texts/2", label="text", text=second),
+    )
+    pieces = (
+        dict(kind="native_text", item_ref="#/texts/1", start=0, end=len(first)),
+        dict(kind="synthetic_separator", start=len(first), end=len(first) + 1),
+        dict(kind="native_text", item_ref="#/texts/2", start=len(first) + 1, end=len(text)),
+    )
+    projection = dict(
+        text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
+    )
+    source = PreparedSourceView(
+        replace(view().ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
+        text,
+        pieces,
+        nodes,
+        (),
+        {},
+    )
+
+    class LimitedDecoder(ControlledDecoder):
+        local_attempts = 0
+
+        def extract(self, pack, inputs, *, threshold, check_active):
+            if pack.version != "native-local-v1":
+                return super().extract(pack, inputs, threshold=threshold, check_active=check_active)
+            self.local_attempts += 1
+            if self.local_attempts == 1:
+                raise (
+                    GlinerWorkerError("controlled terminal fault")
+                    if fatal
+                    else GlinerRefused("controlled request bound")
+                )
+            (item,) = inputs
+            word = item.text.split()[0]
+            return (
+                GlinerReport(
+                    item.context_id,
+                    item.context_digest,
+                    "controlled-local",
+                    "fixture",
+                    pack.fingerprint,
+                    GlinerPreparation(item.text, "", 4, 4, len(item.text.encode())),
+                    json.dumps({"entities": {"term": [dict(text=word, start=0, end=len(word))]}}),
+                    "{}",
+                    0,
+                    True,
+                ),
+            )
+
+    decoder = LimitedDecoder("empty")
+    method = m1_source.M1Candidates()
+    monkeypatch.setattr(method, "_resident", lambda _: decoder)
+    monkeypatch.setattr(
+        method, "close", lambda: pytest.fail("input refusal must not retire resident")
+    )
+    cfg = (
+        registry(ROOT / "domains/statistics")
+        .overlay(method.name, "default")
+        .model_copy(update={"local_schema": {"entities": ["term"]}})
+    )
+    (result,) = method.run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
+        cfg,
+        SimpleNamespace(reader=owned_reader(source), check_active=lambda: None),
+    )
+    assert result.parse_detail is not None
+    local = detail_objects(result.parse_detail["local_execution"])
+    assert [row["outcome"] for row in local] == (
+        ["failed", "not_run"] if fatal else ["limited", "succeeded"]
+    )
+    assert decoder.local_attempts == (1 if fatal else 2)
+    assert result.contribution_operations is not None and result.contributions is not None
+    limited = [
+        op
+        for op in result.contribution_operations
+        if op["outcome"] in {"limited", "failed", "not_run"}
+    ]
+    assert limited and all(
+        op["emitted_count"] == 0 and op["computation_dependencies"] for op in limited
+    )
+    assert any(row["semantic_type"] == "entity.term" for row in result.contributions) is not fatal
+    bind_contributions(
+        release(),
+        source=source.ref.key,
+        contributions=result.contributions,
+        operations=result.contribution_operations,
+        coordinate_texts=result.contribution_coordinate_texts,
+    )
+
+
 def test_owned_annotation_consumer_reuses_columns_and_refuses_profile_or_source_drift(monkeypatch):
     from dataclasses import replace
 
@@ -177,6 +329,105 @@ def test_missing_annotation_operation_does_not_fall_back_to_inference():
     with pytest.raises(ValueError, match="no source result"):
         consume_annotations(
             SimpleNamespace(source_result=lambda *_: None), view(), AnnotationProfile()
+        )
+
+
+def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_inventory(
+    monkeypatch,
+):
+    from dataclasses import replace
+
+    from corpus_structure.orchestrate.m1 import registry
+
+    first, second = "Mean is average.", "Other is distinct."
+    text = first + "\n" + second
+    nodes = (
+        dict(self_ref="#/groups/1", label="section"),
+        dict(self_ref="#/texts/1", label="text", text=first),
+        dict(self_ref="#/texts/2", label="text", text=second),
+    )
+    pieces = (
+        dict(kind="native_text", item_ref="#/texts/1", start=0, end=len(first)),
+        dict(kind="synthetic_separator", start=len(first), end=len(first) + 1),
+        dict(kind="native_text", item_ref="#/texts/2", start=len(first) + 1, end=len(text)),
+    )
+    projection = dict(
+        text=text,
+        pieces=pieces,
+        items=[node["self_ref"] for node in nodes],
+        ancestors=[],
+        health={},
+    )
+    selected = PreparedSourceView(
+        replace(view().ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
+        text,
+        pieces,
+        nodes,
+        (),
+        {},
+    )
+    method = m1_source.M1Candidates()
+    worker = ControlledDecoder("empty")
+    monkeypatch.setattr(method, "_resident", lambda _: worker)
+    cfg = (
+        registry(ROOT / "domains/statistics")
+        .overlay(method.name, "default")
+        .model_copy(
+            update={
+                "region_pointers": ("#/texts/1",),
+                "source_projection_digest": selected.ref.projection_digest,
+            }
+        )
+    )
+    (result,) = method.run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
+        cfg,
+        SimpleNamespace(reader=owned_reader(selected), check_active=lambda: None),
+    )
+    assert worker.calls and all(item.text == first for _, inputs in worker.calls for item in inputs)
+    assert result.parse_detail is not None
+    regions = detail_objects(result.parse_detail["regions"])
+    unrequested = next(row for row in regions if row["pointer"] == "#/texts/2")
+    assert unrequested["outcome"] == "not_requested" and not unrequested["selections"]
+    assert all(row.outcome == "unknown" for row in result.coverage if row.scope == "#/texts/2")
+    worker.calls.clear()
+    bad = cfg.model_copy(update={"region_pointers": ("#/texts/99999",)})
+    with pytest.raises(m1_source.GlinerRefused, match="unknown native region"):
+        method.run(
+            (SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "source:7")),),
+            bad,
+            SimpleNamespace(reader=owned_reader(selected), check_active=lambda: None),
+        )
+    assert worker.calls == []
+
+
+def test_projection_selection_is_metadata_only_and_never_silently_empty():
+    from dataclasses import replace
+
+    from corpus_structure.orchestrate.m1 import registry
+
+    method = m1_source.M1Candidates()
+    body = view().ref
+    header = replace(body, id=8, key="header", projection_digest="d" * 64)
+    reader = SimpleNamespace(
+        source_views=lambda: (header, body),
+        source_view=lambda *_: pytest.fail("selector hydrated source bodies"),
+    )
+    run = SimpleNamespace(reader=reader)
+    cfg = (
+        registry(ROOT / "domains/statistics")
+        .overlay(method.name, "default")
+        .model_copy(update={"source_projection_digest": body.projection_digest})
+    )
+    assert [ref.unit_id for ref in method.select(run, cfg)] == [body.id]
+    with pytest.raises(m1_source.GlinerRefused, match="exactly one"):
+        method.select(run, cfg.model_copy(update={"source_projection_digest": "e" * 64}))
+    with pytest.raises(m1_source.GlinerRefused, match="exactly one"):
+        method.select(
+            SimpleNamespace(
+                reader=SimpleNamespace(source_views=lambda: (body, replace(body, id=9)))
+            ),
+            cfg,
         )
 
 

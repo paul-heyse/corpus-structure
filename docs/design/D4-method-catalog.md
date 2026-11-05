@@ -1,5 +1,30 @@
 # D4 · Method catalog
 
+## Progressive parser composition
+
+**Implemented; integrated corpus qualification in progress,2026-11-05.**
+`extract.m1_annotations` version2 can select one exact source projection; its original version1
+configuration contract remains immutable. `extract.m1_candidates` version7 selects primary
+native regions before context widening and model work. Unrequested regions retain unknown
+coverage, rather than becoming inspected absence. Existing resident GLiNER calls compose
+located entities, mention-conditioned attributes and directed relations; equal text at
+different coordinates never resolves endpoints by list position or first spelling.
+Local adapter version2 keeps an attribute's semantic label separate from its raw native
+confidence. A request bound is a limited operation and leaves a healthy resident available
+for independent requests; a real worker fault remains terminal and produces explicit later
+`not_run` scopes. The contextual default uses the declared whitespace recipe. Earlier
+codepoint outputs retain their original recipe and diagnostic standing.
+
+Consumer-local spaCy views reconstruct retained tokens, exact whitespace, heads and sentence
+ownership without retokenization or per-rule annotation runs. Prepared lexical/token/dependency
+matchers retain explicit annotation prerequisites. The default mathematical syntax route still
+requires recognized input. Its separately declared `captured_native_text` route uses the retained
+string, preserves actual recognition health, grammar/input identity and prefix/tail positions,
+and establishes no PDF glyph fidelity or mathematical interpretation. Parse failure retains a
+failed parse operation plus a separate successful diagnostic-retention operation.
+
+> Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent
@@ -814,16 +839,20 @@ or with a math token are diagnostics only, not quality measures.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| segment (`unit`, `paragraph`, `sentence`); entity (its aliases) | text | `kb.embedding` | encoder · 1 · base |
+| exact located occurrence; immutable curated target descriptor | source context and profile-specific rendered input | typed contextual vectors and frozen inventory | owned CPU encoder |
 
-**Behaviour.** Embeds segments for example selection (§4.2) and retrieval in agent packets, and
-entity aliases with their class description for concept linking (M14). Not an observation:
-embeddings are derived data keyed by model configuration.
+**Implemented; bounded provider/native controls Tested,2026-11-05.** Registered
+`retrieve.contextual` composes occurrence/target encoding, owned PostgreSQL retrieval and scoped
+link proposals. Vectors are independently retained derived products; they require no accepted
+record. Source-supplied mention frames are explicit inputs and do not measure discovery.
+General segment example selection remains a separate proposed consumer.
 
-**Library realization.** Qwen3-Embedding (0.6B or 8B, dimension by S7, `OPEN-D3-2`), served by
-vLLM's pooling runner or `sentence-transformers` in process (D6 §5 decides GPU placement);
-query-side instruction prefixes as the model card specifies; Matryoshka truncation to the
-stored dimension, then L2 normalization; stored as `halfvec`.
+**Library realization.** Sentence Transformers6.2.0 uses pinned E5-small-v2 (384 dimensions,
+mean pooling, query/passage prefixes) and Qwen3-Embedding-0.6B (1024 dimensions, last-token
+pooling, explicit query instruction) profiles. `methods/contextual_embeddings.py` owns exact
+revisions, actual loaded library identities, FP32/L2 normalization, rendered-input hashes and
+bounded child lifetime. Target vector reuse authenticates the original task/body/runtime and
+rechecks the actual tokenizer-rendered input. No existing vLLM generation endpoint is repurposed.
 
 ## 6. Encoder extraction
 
@@ -1151,25 +1180,26 @@ above, not those two.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| observation: a `mention` of a **global** class | mention text, alias table of entities in the reference run, embeddings | `link` (top k candidates or a new-entity proposal) | deterministic + encoder · 1 (vectors in 2) · base |
+| located supplied occurrence | bounded source context, frozen curated descriptors and vectors | fixed candidate list and scoped relationship decision | deterministic + encoder |
 
-**Behaviour.** Candidate generation in order: normalized-alias exact match; lemma match after
-removing the class's head words ("distribution", "family") and mapping adverbial forms
-("normally distributed" → "normal"); `rapidfuzz.process.extract` with `token_sort_ratio` (not `token_set_ratio`, which scores "normal distribution" and "standard normal distribution" as identical) over
-aliases of the same class; from phase 2, pgvector nearest neighbours on alias embeddings. Each
-candidate gets features (exact, lemma, fuzzy score, cosine, page co-occurrence); the score is a
-logistic model fitted on golden links once there are enough (before: a fixed rule ordering).
-Below the new-entity threshold the payload proposes `{"new": {type, label}}`.
+**Implemented; bounded controls Tested,2026-11-05.** Exact aliases, PostgreSQL full-text ranking
+and exact eligible pgvector cosine remain separate scored channels. Declared RRF combines them
+at a fixed unique-target budget with deterministic ties. Type/parent/version constraints apply
+before retrieval; unknown values retain eligible alternatives. Candidate list identity binds
+actual channel results, inventory and policy. Similarity supplies no semantic witness.
 
-**Configuration.** Head words and adverb rules per class in `methods.yaml`; k; thresholds.
+The selector retains distinct relationship kinds, alternatives, local-sense/new-concept
+proposals and insufficient-evidence reasons. Current registered denotation selection requires
+an exact full-term label/alias cue and yields a private proposal. A low score or absent target
+does not establish novelty. Public admission requires the independent policy in D5; canonical
+identity and exclusion authority remain separate. Current selected source/inventory evaluation
+and remaining relation gaps are recorded by the PCE coordinator.
 
-**Reference run.** Linking is against the entities of the run's recorded reference run
-(`ops.run.reference_run_id`, set when the run is created and immutable), never the live promoted
-pointer and never this run's own proposals, so M14's output does not depend on task order
-(P0CL-05; operator, 2026-10-28). A family introduced on its own page still links from other pages
-within one run: mentions that each propose `{"new": …}` with the same identity meet in
-consolidation, which keys them alike (D5 §3.3).
-> Status: **Proposed** (2026-10-28)
+**Configuration.** Immutable registry targets, exact source product/projection, declared supplied
+mentions, source scope/version, encoder profile and channel/unique-target budgets are task
+determinants. Inventory membership changes invalidate retrieval while unchanged descriptor
+vectors can be reused. Source-backed definition target input remains unsupported until it has
+its own authenticated source binding; it is not inferred from a catalog label.
 
 ### M15 resolve.record_link
 

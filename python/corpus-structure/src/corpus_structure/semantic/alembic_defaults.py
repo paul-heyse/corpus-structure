@@ -12,6 +12,17 @@ from typing import Any
 from alembic.autogenerate.compare.server_defaults import _compare_identity_default
 from alembic.runtime.plugins import Plugin
 from alembic.util import DispatchPriority, PriorityDispatchResult
+from sqlalchemy import ARRAY
+
+
+def compare_type(ctx, inspected_column, metadata_column, inspected_type, metadata_type):
+    """Preserve array cardinality when Alembic tokenizes TEXT[] as plain TEXT.
+
+    Delegate all remaining element and scalar comparisons to the dialect.
+    """
+    if isinstance(inspected_type, ARRAY) != isinstance(metadata_type, ARRAY):
+        return True
+    return None
 
 
 def compare_identity(

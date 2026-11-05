@@ -1,5 +1,22 @@
 # D6 · Orchestration, metrics and policies
 
+## Local publication dependencies
+
+**Implemented; integrated qualification in progress,2026-11-05.** A normal source run can
+freeze `local_semantic_admission` evaluation bindings in its immutable dependency manifest.
+The owned task-dependency projection excludes only that publication setting from producer
+reuse; source, model/configuration, release and runtime determinants remain significant.
+The later common consolidation requires the exact original assessed producer contribution
+and source closure in its final cut. Completed results are never amended by grading.
+
+Model preparation/encoding stays outside database publication transactions. The contextual
+CPU child owns bounded batches, termination and cleanup; reuse authenticates original vector
+provenance and exact rendered input. A changed registry invalidates candidate retrieval while
+unchanged target descriptors can reuse compatible vectors. This introduces no second task
+engine, vLLM endpoint or per-contribution transaction.
+
+> Decision: [ADR-0064](../adr/0064-local-semantic-admission.md)
+
 ## M1 retained reading task dependency scope
 
 **Accepted target, Implemented with cross-configuration qualification open (2026-11-04).**
@@ -9,7 +26,7 @@ operation projection. Annotation retains its source/release/profile/recipe/confi
 linguistic dependencies; raw extraction retains its own and annotation inputs, model and actual
 source context. Unknown determinants remain significant. The full run manifest stays provenance.
 Within one release, downstream reading-policy configuration changes can reuse unchanged upstream
-work; changed releases are not implicitly compatible. Other methods retain full binding.
+work; changed releases are not implicitly compatible. Other determinants retain their declared bindings.
 Actual product edges and body hashes govern consumption and invalidation. There is no independent
 annotation store, mutable Doc cache or replacement task engine.
 
@@ -20,7 +37,7 @@ protected reference population without model work. Actual resolver-only run16 re
 and raw products, and native125 recovery19 reused retained source selections. These are scoped
 reuse results; fitted-policy changes and the complete invalidation matrix remain open.
 
-`contextual` selects source policy5 and its explicit codepoint CPU profile through the same
+`contextual` selects source policy6 and its explicit whitespace CPU profile through the same
 annotation/raw/resolver graph. It preserves the source-only/default/described/readings choices.
 Changing the executable release does not authorize task reuse across releases: ADR-0060's
 compatible-reference correspondence is an evaluation rule, not a producer reuse exemption.

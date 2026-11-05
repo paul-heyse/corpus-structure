@@ -85,6 +85,12 @@ class ScopedSourceReader:
             lambda reader: reader.retained_source_result(source_view_id, task_id, method)
         )
 
+    def cached_contextual_vectors(self, **request):
+        return self._read(lambda reader: reader.cached_contextual_vectors(**request))
+
+    def contextual_candidates(self, **request):
+        return self._read(lambda reader: reader.contextual_candidates(**request))
+
     def source_context_membership(self, source_view_id):
         return self._read(lambda reader: reader.source_context_membership(source_view_id))
 

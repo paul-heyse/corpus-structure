@@ -65,6 +65,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from pgvector.sqlalchemy import HALFVEC as HalfVec
+from pgvector.sqlalchemy import VECTOR as Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -86,7 +88,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, REAL, REGCONFIG, TIMESTAMP
 from sqlalchemy.schema import DefaultClause
-from sqlalchemy.types import TypeEngine, UserDefinedType
+from sqlalchemy.types import TypeEngine
 
 from corpus_structure.schema.model import (
     Invariant,
@@ -114,15 +116,6 @@ NAMING_CONVENTION: Mapping[str, str] = {
 }
 
 
-class HalfVec(UserDefinedType):
-    """pgvector's `halfvec`, dimension unset (D3 §5: fixed by S7, OPEN-D3-2)."""
-
-    cache_ok = True
-
-    def get_col_spec(self, **kw: Any) -> str:
-        return "halfvec"
-
-
 URI_TYPES: Mapping[str, Any] = {
     "xsd:long": BigInteger,
     "xsd:short": SmallInteger,
@@ -139,6 +132,7 @@ SQL_TYPES: Mapping[str, Any] = {
     "jsonb": JSONB,
     "regconfig": REGCONFIG,
     "halfvec": HalfVec,
+    "vector": Vector,
 }
 
 
@@ -610,6 +604,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         "bytea": BYTEA,
         "jsonb": JSONB,
         "numeric": Numeric,
+        "vector": Vector,
         "timestamptz": lambda: TIMESTAMP(timezone=True),
     }
     for name, cls in view.schema.classes.items():
@@ -636,6 +631,8 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                 typ = URI_TYPES[str(declared.uri)]()
             else:
                 raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
+            if slot.multivalued:
+                typ = ARRAY(typ)
             default = ci_annotations(slot).get("ph:default")
             columns.append(
                 Column[Any](
@@ -751,6 +748,8 @@ def _type_source(typ: TypeEngine) -> str:
         return "TIMESTAMP(timezone=True)"
     if isinstance(typ, HalfVec):
         return "HalfVec()"
+    if isinstance(typ, Vector):
+        return "Vector()"
     names: dict[type[Any], str] = {
         BigInteger: "BigInteger",
         SmallInteger: "SmallInteger",
@@ -876,16 +875,8 @@ def render(metadata: MetaData, revision: str) -> str:
         "    REGCONFIG,",
         "    TIMESTAMP,",
         ")",
-        "from sqlalchemy.types import UserDefinedType",
-        "",
-        "",
-        "class HalfVec(UserDefinedType):",
-        '    """pgvector\'s `halfvec`, dimension unset (D3 §5: fixed by S7, OPEN-D3-2)."""',
-        "",
-        "    cache_ok = True",
-        "",
-        "    def get_col_spec(self, **kw: Any) -> str:",
-        '        return "halfvec"',
+        "from pgvector.sqlalchemy import HALFVEC as HalfVec",
+        "from pgvector.sqlalchemy import VECTOR as Vector",
         "",
         "",
         "def in_check(column: str, members: Iterable[str]) -> str:",

@@ -48,6 +48,8 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from .runtime_bindings import RuntimeBinding
 
+_SOURCE_RESULT_MAX_BYTES = 64 * 1024**2
+
 
 class OperationConflict(ValueError):
     """Immutable input identity changed or a task/pass fence was lost."""
@@ -1071,6 +1073,44 @@ class BoundReader:
             read_budget=self._read_budget or read_budget,
         )
 
+    def cached_contextual_vectors(self, *, profile_id, targets):
+        from .contextual_storage import cached_target_vectors
+
+        return cached_target_vectors(
+            self.conn,
+            run_id=self.run_id,
+            profile_id=profile_id,
+            targets=targets,
+            read_budget=self._read_budget,
+        )
+
+    def contextual_candidates(
+        self,
+        *,
+        occurrence_id,
+        query,
+        inventory,
+        target_vectors,
+        lexical_query,
+        dimension,
+        budget,
+        channel_budget,
+    ):
+        from .contextual_retrieval import retrieve_candidates
+        from .contextual_storage import transient_vector_relation
+
+        return retrieve_candidates(
+            self.conn,
+            occurrence_id=occurrence_id,
+            query=query,
+            inventory=inventory,
+            relation=transient_vector_relation(inventory, target_vectors),
+            lexical_query=lexical_query,
+            dimension=dimension,
+            budget=budget,
+            channel_budget=channel_budget,
+        )
+
     def source_context_membership(self, source_view_id):
         from .source_views import context_membership_digest
 
@@ -1113,7 +1153,7 @@ class BoundReader:
             query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(
                 cut.c.cut_id == self.cut_id
             )
-        budget = self._read_budget or PublishedReadBudget(16, 16_777_216)
+        budget = self._read_budget or PublishedReadBudget(16, _SOURCE_RESULT_MAX_BYTES)
         budget.preflight(self.conn, query)
         rows = tuple(self.conn.execute(query).mappings())
         if not rows:
@@ -1155,22 +1195,32 @@ class BoundReader:
 
         if method != "extract.m1_candidates" or type(task_id) is not int or task_id < 1:
             raise OperationConflict("historical source port requires an explicit M1 producer task")
-        selected = self.source_view(source_view_id)
+        selected_ref = self.source_view_ref(source_view_id)
         tasks, results, configs, methods, runs = map(
             table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method", "ops.run")
         )
         requested = (
-            self.conn.execute(select(tasks).where(tasks.c.id == task_id)).mappings().one_or_none()
+            self.conn.execute(
+                select(tasks.c.id, tasks.c.reused_task_id, tasks.c.run_id).where(
+                    tasks.c.id == task_id
+                )
+            )
+            .mappings()
+            .one_or_none()
         )
         if requested is None:
             raise OperationConflict("historical producer task is missing")
         origin_id = requested["reused_task_id"] or task_id
-        query = (
+        metadata_query = (
             select(
-                tasks,
-                results.c.body,
+                tasks.c.id,
+                tasks.c.run_id,
+                tasks.c.release_id,
+                tasks.c.unit_type,
+                tasks.c.unit_id,
+                tasks.c.unit_key,
+                tasks.c.input_hash,
                 configs.c.config_hash,
-                configs.c.params.label("producer_configuration"),
                 methods.c.name.label("method_name"),
                 runs.c.project_id.label("origin_project"),
             )
@@ -1180,9 +1230,7 @@ class BoundReader:
             .join(runs, runs.c.id == tasks.c.run_id)
             .where(tasks.c.id == origin_id)
         )
-        budget = self._read_budget or PublishedReadBudget(16, 16_777_216)
-        budget.preflight(self.conn, query)
-        row = self.conn.execute(query).mappings().one_or_none()
+        row = self.conn.execute(metadata_query).mappings().one_or_none()
         if row is None:
             raise OperationConflict("historical producer has no sealed result")
         current_project = self.conn.execute(
@@ -1197,7 +1245,35 @@ class BoundReader:
             raise OperationConflict("historical producer belongs to another project or method")
         if row["unit_type"] != "source_view" or row["unit_id"] is None:
             raise OperationConflict("historical producer does not name a source view")
-        body = row["body"]
+        original = BoundReader(
+            self.conn,
+            row["run_id"],
+            open_release(self.conn, row["release_id"]),
+            analysis=False,
+            read_budget=self._read_budget,
+        )
+        original_ref = original.source_view_ref(row["unit_id"])
+        if _retained_source_ref(original_ref) != _retained_source_ref(selected_ref):
+            raise OperationConflict(
+                "historical source has no unique current physical correspondence"
+            )
+        view = original.source_view(row["unit_id"])
+        selected = self.source_view(source_view_id)
+        if _retained_source_descriptor(view) != _retained_source_descriptor(selected):
+            raise OperationConflict("historical source projection or native placement changed")
+        query = (
+            select(results.c.body, configs.c.params.label("producer_configuration"))
+            .select_from(tasks)
+            .join(results, results.c.task_id == tasks.c.id)
+            .join(configs, configs.c.id == tasks.c.method_config_id)
+            .where(tasks.c.id == origin_id)
+        )
+        budget = self._read_budget or PublishedReadBudget(16, _SOURCE_RESULT_MAX_BYTES)
+        budget.preflight(self.conn, query)
+        payload = self.conn.execute(query).mappings().one_or_none()
+        if payload is None:
+            raise OperationConflict("historical producer has no sealed result")
+        body = payload["body"]
         budget.value(body)
         if (
             body.get("release_id") != row["release_id"]
@@ -1207,14 +1283,6 @@ class BoundReader:
             or body.get("unit_key") != row["unit_key"]
         ):
             raise OperationConflict("historical producer body differs from its sealed task binding")
-        original = BoundReader(
-            self.conn,
-            row["run_id"],
-            open_release(self.conn, row["release_id"]),
-            analysis=False,
-            read_budget=self._read_budget,
-        )
-        view = original.source_view(row["unit_id"])
         detail = source_python(body["parse_detail"])
         if body.get("source") != view.ref.key or detail.get("source_pin") != asdict(
             NativeSourcePin.from_source(native_source_frame(view, ()))
@@ -1259,7 +1327,7 @@ class BoundReader:
             release_id=row["release_id"],
             body_digest=sha256(canonical_bytes(body)).hexdigest(),
             prepared=original.prepared,
-            configuration=row["producer_configuration"],
+            configuration=payload["producer_configuration"],
             result=dict(body, parse_detail=detail),
             source_views=old_views,
             source_bindings=tuple(bindings),

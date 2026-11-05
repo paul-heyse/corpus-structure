@@ -166,11 +166,19 @@ class GlinerPack:
         if not self.release.strip() or self.version not in {
             "native-combined-v1",
             "native-combined-v2",
+            "native-local-v1",
         }:
             raise GlinerRefused("pack requires a released identity and supported operation")
         declaration = json.loads(self.declaration_json)
         if not isinstance(declaration, dict):
             raise GlinerRefused("schema declaration must be an object")
+        if self.version == "native-local-v1" and (
+            declaration.get("structures")
+            or not (declaration.get("entities") or declaration.get("relations"))
+        ):
+            raise GlinerRefused(
+                "local packs require entity or relation questions without record structures"
+            )
         for structure in declaration.get("structures", {}).values():
             names = [field["name"] for field in structure.get("fields", [])]
             if len(names) != len(set(names)):

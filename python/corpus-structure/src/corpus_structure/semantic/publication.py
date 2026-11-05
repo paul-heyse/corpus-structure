@@ -32,6 +32,8 @@ from corpus_structure.core.db.store import (
 )
 
 from .identity import canonical_bytes
+from .local_admission import LocalAssertionRow
+from .local_semantic_admission import LocalSemanticAssertionRow
 from .metadata import table
 from .outcomes import ScientificOutcome, SemanticCoverageOutcome
 from .record_projection import (
@@ -309,6 +311,8 @@ class CoverageRow:
 # The fixed transport schema is shared with the narrow native DDL companion.
 _ROW_TYPES = {
     **RECORD_ROW_TYPES,
+    "local_assertion": LocalAssertionRow,
+    "local_semantic_assertion": LocalSemanticAssertionRow,
     "entity": EntityRow,
     "entity_source": EntitySourceRow,
     "entity_resolution": EntityResolutionRow,
@@ -367,6 +371,8 @@ class PublicationBatch:
     release_id: str
     realization_id: str
     batch_id: str
+    local_assertion: tuple[LocalAssertionRow, ...] = ()
+    local_semantic_assertion: tuple[LocalSemanticAssertionRow, ...] = ()
     entity: tuple[EntityRow, ...] = ()
     entity_source: tuple[EntitySourceRow, ...] = ()
     entity_resolution: tuple[EntityResolutionRow, ...] = ()

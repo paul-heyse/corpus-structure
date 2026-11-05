@@ -12,10 +12,11 @@ from corpus_structure.methods.contribution_adapter import (
     adapt_report,
     restore_report,
 )
-from corpus_structure.methods.gliner import GlinerRefused
+from corpus_structure.methods.gliner import GlinerPack, GlinerRefused
 from corpus_structure.methods.m1_source import _retained_report
 from corpus_structure.methods.record_assembly import NativeRecordGroup, RoleInput, assemble_records
 from corpus_structure.methods.record_packs import family_pack
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
@@ -29,12 +30,548 @@ def definition_pack():
     return family_pack(release(), contract="DefinitionRecordFields", anchor_role="term")
 
 
+def test_forward_typed_population_and_limited_operations_are_preserved_without_raw_replay(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+
+    from corpus_structure.core.method import UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+    from corpus_structure.methods import contribution_adapter as adapter
+    from corpus_structure.semantic.contributions import contribution_identity, operation_identity
+    from corpus_structure.semantic.observations import bind_result, source_value
+
+    ctx = context("term")
+    pack = GlinerPack.from_declaration(
+        "release:test", {"entities": ["term"]}, version="native-local-v1"
+    )
+    native = replace(
+        report(ctx, pack, "unused", []),
+        raw_json=json.dumps({"entities": {"term": [span(0, 4, "term")]}}),
+    )
+    batch = adapt_report(native, ctx, pack=pack, item_key="local")
+    base = next(row for row in batch.contributions if row["kind"] == "proposal")
+    extra = []
+    for semantic_type in ("attribute.role", "source_rule.fixture", "math.syntax"):
+        row = dict(
+            base,
+            semantic_type=semantic_type,
+            item_key=semantic_type,
+            value=source_value(
+                {"category": semantic_type, "nested": [{"tokens": ["term"], "positions": [0, 4]}]}
+            ),
+        )
+        row["contribution_id"] = contribution_identity(row)
+        extra.append(row)
+    operation = dict(batch.operations[0], emitted_count=len(batch.contributions) + len(extra))
+    limited = dict(
+        question="unexecuted scoped question",
+        operation_version="1",
+        outcome="limited",
+        inspected_count=0,
+        emitted_count=0,
+        reason="fixture source request limit",
+        inputs=(),
+        computation_dependencies=("source:fixture",),
+    )
+    limited["operation_key"] = operation_identity(limited)
+    upstream = dict(
+        parse_detail={"reports": [{"report": "legacy path must not be visited"}]},
+        contributions=(*batch.contributions, *extra),
+        contribution_operations=(operation, limited),
+        contribution_coordinate_texts=batch.coordinate_texts,
+    )
+    monkeypatch.setattr(
+        adapter, "restore_report", lambda *_: pytest.fail("typed data must not be re-adapted")
+    )
+    upstream = json.loads(canonical_bytes(upstream))
+    copied = adapter.replay_retained_contributions(
+        SimpleNamespace(prepared=release()), None, upstream
+    )
+    assert canonical_bytes(copied.contributions) == canonical_bytes(upstream["contributions"])
+    assert canonical_bytes(copied.operations) == canonical_bytes(
+        upstream["contribution_operations"]
+    )
+    assert canonical_bytes(copied.coordinate_texts) == canonical_bytes(batch.coordinate_texts)
+    assert isinstance(copied.contributions[-1]["value"]["fields"], tuple)
+    bound = bind_result(
+        release(),
+        source=ctx.primary.unit_ref,
+        method="fixture.forward",
+        operation_version="1",
+        configuration_hash="fixture",
+        input_hash="fixture",
+        invocation_key="fixture",
+        result=UnitResult(
+            ref=UnitRef(TaskUnitType.SOURCE_VIEW, ctx.primary.source_view_id, ctx.primary.unit_ref),
+            outcome=ObservationOutcome.PRODUCED,
+            contributions=copied.contributions,
+            contribution_operations=copied.operations,
+            contribution_coordinate_texts=copied.coordinate_texts,
+        ),
+    )
+    assert len(bound.model_dump()["contributions"]) == len(upstream["contributions"])
+
+
+@pytest.mark.parametrize("primary", ["unique", "ambiguous", "unlocated"])
+def test_latent_group_associations_require_unique_located_primary_and_retain_mode(primary):
+    ctx = context("term word alias")
+    declaration = json.loads(definition_pack().declaration_json)
+    declaration["structures"]["definition"].update(mode="latent", anchor=None)
+    pack = GlinerPack.from_declaration("release:test", declaration, version="native-combined-v2")
+    term = (
+        span(0, 4, "term")
+        if primary == "unique"
+        else [span(0, 4, "term"), span(5, 9, "word")]
+        if primary == "ambiguous"
+        else span(99, 100, "x")
+    )
+    batch = adapt_report(
+        report(ctx, pack, "definition", [{"term": term, "alias": span(10, 15, "alias")}]),
+        ctx,
+        pack=pack,
+        item_key="latent",
+    )
+    relations = [row for row in batch.contributions if row["kind"] == "relation"]
+    assert len(relations) == (1 if primary == "unique" else 0)
+    assert any(row["kind"] == "composite" for row in batch.contributions)
+    if relations:
+        assert relations[0]["semantic_type"] == "definition.alias_attachment"
+        assert "grouping-mode:latent" in relations[0]["computation_dependencies"]
+        assert relations[0]["score_state"] == "missing" and "score" not in relations[0]
+
+
+def test_substituted_schema_declaration_cannot_authorize_attachments_under_original_pack_key():
+    from corpus_structure.methods.contribution_adapter import _with_group_attachments
+
+    ctx = context("term alias")
+    pack = definition_pack()
+    adapted = adapt_report(
+        report(
+            ctx, pack, "definition", [{"term": span(0, 4, "term"), "alias": span(5, 10, "alias")}]
+        ),
+        ctx,
+        pack=pack,
+        item_key="source",
+    )
+    original_ops = tuple(
+        op for op in adapted.operations if op["question"] != "propose_returned_role_attachments"
+    )
+    keys = {op["operation_key"] for op in original_ops}
+    original = ContributionBatch(
+        original_ops,
+        tuple(row for row in adapted.contributions if row["operation_key"] in keys),
+        adapted.coordinate_texts,
+    )
+    changed = json.loads(pack.declaration_json)
+    changed["structures"]["definition"].update(mode="latent", anchor=None)
+    substituted = GlinerPack.from_declaration(pack.release, changed, version="native-combined-v2")
+    assert substituted.fingerprint != pack.fingerprint
+    refused = _with_group_attachments(original, schema_packs={pack.fingerprint: substituted})
+    assert refused.contributions == original.contributions
+    assert refused.operations[: len(original_ops)] == original_ops
+    (operation,) = refused.operations[len(original_ops) :]
+    assert operation["outcome"] == "unsupported" and operation["emitted_count"] == 0
+    assert "fingerprint" in operation["reason"]
+    accepted = _with_group_attachments(original, schema_packs={pack.fingerprint: pack})
+    assert sum(row["kind"] == "relation" for row in accepted.contributions) == 1
+
+
+@pytest.mark.parametrize("blank", [False, True])
+def test_captured_native_header_association_is_independent_of_value_presence(blank):
+    from corpus_structure.methods.record_assembly import native_table_groups
+    from corpus_structure.semantic.contributions import bind_contributions
+
+    value = "" if blank else "0"
+    pieces = [
+        dict(
+            kind="native_text",
+            item_ref="#/tables/0",
+            start=len(value),
+            end=len(value) + 4,
+            source_field="cell_text",
+            cell_index=1,
+        )
+    ]
+    if value:
+        pieces.insert(
+            0,
+            dict(
+                kind="native_text",
+                item_ref="#/tables/0",
+                start=0,
+                end=1,
+                source_field="cell_text",
+                cell_index=0,
+            ),
+        )
+    ctx = context(
+        value + "mean",
+        pieces=pieces,
+        items=[
+            dict(
+                self_ref="#/tables/0", data=dict(table_cells=[dict(text=value), dict(text="mean")])
+            )
+        ],
+    )
+    groups = native_table_groups(
+        ctx, table_pointer="#/tables/0", cells=(0,), row_paths={}, header_paths={0: (1,)}
+    )
+    batch = adapt_native_groups(ctx, family="table", groups=groups, item_key="native-header")
+    (relation,) = [row for row in batch.contributions if row["kind"] == "relation"]
+    assert relation["semantic_type"] == "table.header_path_attachment"
+    assert "grouping-mode:native_geometry" in relation["computation_dependencies"]
+    assert "producer:derived_from_native_group" in relation["computation_dependencies"]
+    primary = next(
+        row
+        for row in batch.contributions
+        if row["contribution_id"] == relation["endpoints"][0]["contribution_id"]
+    )
+    assert primary["source_field_state"] == ("unstated" if blank else "present")
+    assert primary["anchors"][0]["precision"] == ("item" if blank else "exact")
+    assert not any(
+        row["semantic_type"]
+        in {"table.unit_attachment", "table.note_attachment", "table.caption_attachment"}
+        for row in batch.contributions
+    )
+    bind_contributions(
+        release(),
+        source=ctx.primary.unit_ref,
+        operations=batch.operations,
+        contributions=batch.contributions,
+        coordinate_texts=batch.coordinate_texts,
+    )
+
+
 def proposals(batch, semantic_type):
     return [
         row
         for row in batch.contributions
         if row["kind"] == "proposal" and row["semantic_type"] == semantic_type
     ]
+
+
+def test_local_mentions_attributes_and_directed_endpoints_preserve_repeated_occurrences():
+    ctx = context("X names X")
+    pack = GlinerPack.from_declaration(
+        "release:test",
+        {
+            "entities": ["term"],
+            "entity_attributes": {
+                "role": {"labels": ["alias", "definition"], "applies_to": ["term"]}
+            },
+            "relations": ["names"],
+        },
+        version="native-local-v1",
+    )
+    raw = {
+        "entities": {
+            "term": [
+                dict(span(0, 1, "X"), role={"label": "definition", "confidence": 0.7}),
+                span(8, 9, "X"),
+            ]
+        },
+        "relation_extraction": {
+            "names": [{"head": span(8, 9, "X"), "tail": span(0, 1, "X"), "confidence": 0.8}]
+        },
+    }
+    native = replace(report(ctx, pack, "unused", []), raw_json=json.dumps(raw))
+    batch = adapt_report(native, ctx, pack=pack, item_key="local")
+    terms = proposals(batch, "entity.term")
+    attrs = proposals(batch, "attribute.role")
+    assert len(terms) == 2 and terms[0]["occurrence_id"] != terms[1]["occurrence_id"]
+    assert (
+        len(attrs) == 1
+        and attrs[0]["endpoints"][0]["contribution_id"] == terms[0]["contribution_id"]
+    )
+    assert attrs[0]["value"] == {"kind": "text", "text": "definition"}
+    assert attrs[0]["score_state"] == "native"
+    assert attrs[0]["score"] == {"kind": "float", "hexadecimal": (0.7).hex()}
+    (relation,) = [r for r in batch.contributions if r["kind"] == "relation"]
+    assert [e["contribution_id"] for e in relation["endpoints"]] == [
+        terms[1]["contribution_id"],
+        terms[0]["contribution_id"],
+    ]
+    assert relation["score_state"] == "native" and relation["standing"] == "retained_private"
+    assert batch.operations[0]["operation_version"] == "native-local-contributions-2"
+    prepared = release()
+    from corpus_structure.semantic.contributions import bind_contributions
+
+    bind_contributions(
+        prepared,
+        source=batch.contributions[0]["pin"]["source"],
+        operations=batch.operations,
+        contributions=batch.contributions,
+        coordinate_texts=batch.coordinate_texts,
+    )
+
+
+@pytest.mark.parametrize(
+    "multi_label,returned,expected",
+    [
+        (False, "definition", [("definition", None)]),
+        (False, {"label": "definition"}, [("definition", None)]),
+        (False, {"label": "definition", "confidence": 0.0}, [("definition", 0.0)]),
+        (
+            True,
+            [{"label": "definition", "confidence": 0.7}, "alias"],
+            [("definition", 0.7), ("alias", None)],
+        ),
+    ],
+)
+def test_attribute_semantics_exclude_native_scores_and_accept_independent_label_expectations(
+    multi_label, returned, expected
+):
+    from corpus_structure.evaluate.operation_assessment import (
+        OperationCase,
+        OperationEvaluationFrame,
+        score_cases,
+    )
+    from corpus_structure.semantic.contributions import bind_contributions
+
+    ctx = context("X")
+    pack = GlinerPack.from_declaration(
+        "release:test",
+        dict(
+            entities=["term"],
+            entity_attributes={
+                "role": dict(
+                    labels=["definition", "alias"], applies_to=["term"], multi_label=multi_label
+                )
+            },
+        ),
+        version="native-local-v1",
+    )
+    raw = {"entities": {"term": [dict(span(0, 1, "X"), role=returned)]}}
+    native = replace(report(ctx, pack, "unused", []), raw_json=json.dumps(raw))
+    batch = adapt_report(native, ctx, pack=pack, item_key="local")
+    attrs = proposals(batch, "attribute.role")
+    assert len(attrs) == len(expected)
+    for attribute, (label, confidence) in zip(attrs, expected, strict=True):
+        assert attribute["value"] == {"kind": "text", "text": label}
+        assert attribute["score_state"] == ("missing" if confidence is None else "native")
+        if confidence is None:
+            assert "score" not in attribute
+        else:
+            assert attribute["score"] == {"kind": "float", "hexadecimal": float(confidence).hex()}
+        frame = OperationEvaluationFrame(
+            unit="source:fixture",
+            release_id="release:test",
+            guideline_version="independent-label-1",
+            rubric_version="attribute-label-1",
+            context_policy="declared-mention-1",
+            operation_question="retain_native_spans_attributes_relations",
+            operation_version="native-local-contributions-2",
+            domain="fixture",
+            direction="output_first",
+            pin=attribute["pin"],
+            contribution_ids=(attribute["contribution_id"],),
+        )
+        authored = OperationCase(
+            case_id="label",
+            facet="role",
+            anchor_ids=(),
+            inspected_scope="mention X",
+            source_state="stated",
+            judgment="supported",
+            alternatives=({"value": {"kind": "text", "text": label}},),
+            explanation="Independent fixture label expectation has no model confidence.",
+            assessor_provenance={"fixture": "independent role label"},
+            contribution_id=attribute["contribution_id"],
+        )
+        assessed = score_cases(
+            frame, (authored,), (attribute,), endpoint_closure=batch.contributions
+        )
+        assert assessed["cases"][0]["judgment"] == "supported"
+    bind_contributions(
+        release(),
+        source=batch.contributions[0]["pin"]["source"],
+        operations=batch.operations,
+        contributions=batch.contributions,
+        coordinate_texts=batch.coordinate_texts,
+    )
+    assert json.loads(native.raw_json) == raw
+
+
+def test_local_text_only_relation_endpoints_are_unresolved_not_first_equal_string():
+    ctx = context("X names X")
+    pack = GlinerPack.from_declaration(
+        "release:test", {"entities": ["term"], "relations": ["names"]}, version="native-local-v1"
+    )
+    raw = {
+        "entities": {"term": [span(0, 1, "X"), span(8, 9, "X")]},
+        "relation_extraction": {"names": [{"head": {"text": "X"}, "tail": span(8, 9, "X")}]},
+    }
+    native = replace(report(ctx, pack, "unused", []), raw_json=json.dumps(raw))
+    batch = adapt_report(native, ctx, pack=pack, item_key="local")
+    (relation,) = [r for r in batch.contributions if r["kind"] == "relation"]
+    assert relation["disposition"] == "unresolved"
+    assert relation["endpoints"][0]["contribution_id"] not in {
+        p["contribution_id"] for p in proposals(batch, "entity.term")
+    }
+
+
+@pytest.mark.parametrize("latex", ["x+1", "x+1;", "x("])
+def test_formula_syntax_retains_actual_reading_without_pdf_glyph_or_truth_claim(latex):
+    from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
+    from corpus_structure.methods.math.pdf import FormulaOccurrence
+
+    ctx = context(
+        "printed formula", items=[dict(self_ref="#/texts/1", orig="printed formula", text=latex)]
+    )
+    occurrence = FormulaOccurrence("a" * 64, "#/texts/1", latex, "printed formula", "succeeded")
+    batch = adapt_formula_syntax(ctx, occurrence)
+    (row,) = batch.contributions
+    value = source_python(row["value"])
+    assert value["coordinate_space"] == "recognized_latex"
+    assert (
+        value["native_glyph_mapping"] == "unestablished"
+        and value["interpretation"] == "not_requested"
+    )
+    assert row["anchors"][0]["precision"] == "item"
+    assert "start" not in row["anchors"][0]
+    if latex == "x(":
+        assert batch.operations[0]["outcome"] == "failed" and value["tree"] is None
+        assert batch.operations[0]["emitted_count"] == 0 and batch.operations[0]["reason"]
+        assert (
+            batch.operations[1]["outcome"] == "succeeded"
+            and batch.operations[1]["emitted_count"] == 1
+        )
+        assert row["operation_key"] == batch.operations[1]["operation_key"]
+    else:
+        assert value["tree"] is not None
+        if latex.endswith(";"):
+            assert value["tail"] == ";" and value["failure"] is not None
+
+
+def test_formula_syntax_requires_actual_recognition_and_retained_text():
+    from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
+    from corpus_structure.methods.math.pdf import FormulaOccurrence
+
+    ctx = context("printed", items=[dict(self_ref="#/texts/1", orig="printed", text="x+1")])
+    occurrence = FormulaOccurrence("a" * 64, "#/texts/1", "x+1", "printed", "unknown")
+    batch = adapt_formula_syntax(ctx, occurrence)
+    assert batch.operations[0]["outcome"] == "not_run" and not batch.contributions
+    with pytest.raises(GlinerRefused, match="differs"):
+        adapt_formula_syntax(ctx, replace(occurrence, recognized_latex="y+2"))
+
+
+@pytest.mark.parametrize("health", ["unknown", "failed", "not_requested"])
+def test_captured_formula_syntax_preserves_unknown_recognition_and_strict_frontend(health):
+    from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
+    from corpus_structure.methods.math.pdf import FormulaOccurrence, FormulaRecognitionUnavailable
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    ctx = context("printed", items=[dict(self_ref="#/texts/1", orig="printed", text="x+1")])
+    occurrence = FormulaOccurrence("a" * 64, "#/texts/1", "x+1", "printed", health)
+    strict = adapt_formula_syntax(ctx, occurrence)
+    assert strict.operations[0]["outcome"] == "not_run" and not strict.contributions
+    captured = adapt_formula_syntax(ctx, occurrence, input_policy="captured_native_text")
+    assert captured.operations[0]["outcome"] == "succeeded"
+    assert captured.operations[0]["operation_version"] == "native-lark-syntax-2"
+    assert captured.operations[0]["operation_key"] != strict.operations[0]["operation_key"]
+    deps = captured.operations[0]["computation_dependencies"]
+    assert "input-policy:captured_native_text" in deps and "recognition-health:" + health in deps
+    assert any(dep.startswith("grammar-profile:") for dep in deps)
+    (row,) = captured.contributions
+    value = source_python(row["value"])
+    assert value["recognition_health"] == health
+    assert value["input_policy"] == value["coordinate_space"] == "captured_native_text"
+    assert value["captured_native_text"] == "x+1" and value["recognized_latex"] is None
+    assert value["tree"] is not None and value["grammar_profile"]["grammar_digest"]
+    assert (
+        value["interpretation"] == "not_requested"
+        and value["native_glyph_mapping"] == "unestablished"
+    )
+    assert row["standing"] == "retained_private" and row["anchors"][0]["precision"] == "item"
+    assert "start" not in row["anchors"][0] and "source_piece" not in row["anchors"][0]
+    prepared_context = prepare_interpretation_context(macros={}, kind="formula")
+    with pytest.raises(FormulaRecognitionUnavailable):
+        occurrence.prepare(prepared_context)
+
+
+def test_failed_parse_and_diagnostic_retention_bind_beside_earlier_useful_products():
+    from corpus_structure.core.method import UnitRef, UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+    from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
+    from corpus_structure.methods.math.pdf import FormulaOccurrence
+    from corpus_structure.semantic.contributions import bind_contributions
+    from corpus_structure.semantic.observations import bind_result
+
+    ctx = context("x(", items=[dict(self_ref="#/texts/1", text="x(", orig="printed")])
+    pack = definition_pack()
+    earlier = adapt_report(
+        report(ctx, pack, "definition", [{"term": span(0, 1, "x")}]),
+        ctx,
+        pack=pack,
+        item_key="earlier",
+    )
+    failed = adapt_formula_syntax(
+        ctx,
+        FormulaOccurrence("a" * 64, "#/texts/1", "x(", "printed", "unknown"),
+        input_policy="captured_native_text",
+    )
+    batch = ContributionBatch.combine((earlier, failed))
+    prepared = release()
+    bind_contributions(
+        prepared,
+        source=ctx.primary.unit_ref,
+        operations=batch.operations,
+        contributions=batch.contributions,
+        coordinate_texts=batch.coordinate_texts,
+    )
+    terminal = bind_result(
+        prepared,
+        source=ctx.primary.unit_ref,
+        method="fixture.syntax",
+        operation_version="1",
+        configuration_hash="controlled",
+        input_hash="controlled-source",
+        invocation_key="controlled-invocation",
+        result=UnitResult(
+            ref=UnitRef(TaskUnitType.SOURCE_VIEW, ctx.primary.source_view_id, ctx.primary.unit_ref),
+            outcome=ObservationOutcome.PRODUCED,
+            contributions=batch.contributions,
+            contribution_operations=batch.operations,
+            contribution_coordinate_texts=batch.coordinate_texts,
+        ),
+    )
+    retained = terminal.model_dump(mode="python")
+    assert len(retained["contributions"]) == len(earlier.contributions) + 1
+    assert len([op for op in retained["contribution_operations"] if op["outcome"] == "failed"]) == 1
+    assert all(
+        op["emitted_count"] == 0
+        for op in retained["contribution_operations"]
+        if op["outcome"] == "failed"
+    )
+
+
+def test_captured_syntax_offsets_index_raw_input_even_for_trimmed_reading():
+    from corpus_structure.methods.contribution_adapter import adapt_formula_syntax
+    from corpus_structure.methods.math.pdf import FormulaOccurrence
+
+    text = "  x+1; "
+    ctx = context(text, items=[dict(self_ref="#/texts/1", text=text, orig="printed")])
+    batch = adapt_formula_syntax(
+        ctx,
+        FormulaOccurrence("a" * 64, "#/texts/1", text, "printed", "unknown"),
+        input_policy="captured_native_text",
+    )
+    value = source_python(batch.contributions[0]["value"])
+    assert value["coordinate_basis"] == "raw_input_prefix" and value["tail"] == "; "
+    tokens = []
+
+    def visit(node):
+        if "token" in node:
+            tokens.append(node)
+        else:
+            for child in node["children"]:
+                visit(child)
+
+    visit(value["tree"])
+    (symbol,) = [token for token in tokens if token["text"] == "x"]
+    assert (symbol["start"], symbol["end"]) == (2, 3)
+    assert all(text[token["start"] : token["end"]] == token["text"] for token in tokens)
 
 
 def test_failed_whole_group_preserves_located_term_and_unlocated_alias():

@@ -173,6 +173,63 @@ def test_empty_block_has_explicit_not_applicable_availability(controlled):
     assert {column.status for column in product.availability} == {"not_applicable"}
 
 
+def test_retained_native_view_restores_exact_columns_and_absolute_heads(controlled):
+    from corpus_structure.ingest.annotation_views import annotation_view
+
+    request = item(controlled, " X  X\né e\u0301 x+y [3].")
+    (product,) = annotate((request,))
+    controlled.tokenizer = lambda _: pytest.fail("retained consumer retokenized")
+    view = annotation_view(product, request.block.text, controlled.vocab)
+    assert view.doc.text == request.block.text
+    assert [token.head.i for token in view.doc] == [0] * len(product.tokens)
+    assert [(token.lemma_, token.dep_) for token in view.doc] == [
+        (f"lemma:{i}", "ROOT" if i == 0 else "dep") for i in range(len(product.tokens))
+    ]
+    with pytest.raises(ValueError, match="text differs"):
+        annotation_view(product, request.block.text.replace("\n", " "), controlled.vocab)
+    with pytest.raises(AnnotationUnavailable, match="columns"):
+        annotation_view(replace(product, availability=()), request.block.text, controlled.vocab)
+    with view.doc.retokenize() as retokenizer:
+        retokenizer.merge(view.doc[1:3])
+    with pytest.raises(ValueError, match="population changed"):
+        view.check_layout()
+
+
+def test_retained_matchers_preserve_overlaps_and_source_coordinates(controlled):
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
+
+    request = item(controlled, "X X .", start=100)
+    (product,) = annotate((request,))
+    view = annotation_view(product, request.block.text, controlled.vocab)
+    rules = PreparedAnnotationRules(
+        controlled.vocab,
+        token_rules={"cue": [[{"TEXT": "X"}]]},
+        phrase_rules={"name": [("X", "X")]},
+        dependency_rules={
+            "role": [
+                [
+                    {"RIGHT_ID": "root", "RIGHT_ATTRS": {"DEP": "ROOT"}},
+                    {
+                        "LEFT_ID": "root",
+                        "REL_OP": ">",
+                        "RIGHT_ID": "other",
+                        "RIGHT_ATTRS": {"TEXT": "X"},
+                    },
+                ]
+            ]
+        },
+    )
+    matches = rules.match(view)
+    assert [(m.rule, m.extents) for m in matches[:3]] == [
+        ("cue", ((100, 101),)),
+        ("cue", ((102, 103),)),
+        ("name", ((100, 101), (102, 103))),
+    ]
+    assert matches[-1].mechanism == "dependency" and matches[-1].nodes == (0, 1)
+    assert all(m.dependency_digest == product.dependency_digest for m in matches)
+
+
 def test_products_are_detached_immutable_and_do_not_copy_passages_into_rows(controlled):
     (product,) = annotate((item(controlled),))
     assert not hasattr(product, "text")

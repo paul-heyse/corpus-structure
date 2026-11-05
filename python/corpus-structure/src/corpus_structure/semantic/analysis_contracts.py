@@ -412,7 +412,7 @@ def _standalone_model():
     return compile_execution_model(trusted_execution_inputs())
 
 
-def _profile(prepared: PreparedRelease | None):
+def _profile(prepared: PreparedRelease | None, *, require_current_implementations: bool = True):
     import json
 
     from .contracts import (
@@ -451,7 +451,10 @@ def _profile(prepared: PreparedRelease | None):
             "prepare a release with an admitted analysis profile; "
             "historical archives are read-only",
         )
-    if model.implementation_digests != _semantic_implementation_digests():
+    if (
+        require_current_implementations
+        and model.implementation_digests != _semantic_implementation_digests()
+    ):
         _fail(
             "unsupported_analysis_implementation",
             model.model_id,
@@ -874,10 +877,21 @@ class BoundAnalysisFamily:
 def bind_analysis_family(prepared: PreparedRelease, family: str) -> BoundAnalysisFamily:
     from .contracts import _fail
 
-    model, profile = _profile(prepared)
+    # Snapshot reads interpret the archived release's own declarations. A new
+    # grammar/report schema must not disable an unchanged read contract. Actual
+    # numerical/preparation consumers still require current semantic assets.
+    model, profile = _profile(prepared, require_current_implementations=family != "read")
     contract = next((item for item in profile.ownership if item.id == family), None)
     if contract is None:
         _fail("analysis_input_family", family, "use an admitted preparation family")
+    if family == "read":
+        current = next(
+            item for item in _standalone_model().analysis_profiles[0].ownership if item.id == "read"
+        )
+        if contract != current:
+            _fail(
+                "analysis_input_family", family, "archived read ownership contract is unsupported"
+            )
     model.require_operation(contract.operation)
     return BoundAnalysisFamily(prepared.release_id, model.model_id, contract)
 
