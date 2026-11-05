@@ -451,8 +451,6 @@ def _profile(prepared: PreparedRelease | None):
             "prepare a release with an admitted analysis profile; "
             "historical archives are read-only",
         )
-    for operation in model.analysis_profiles[0].shared_consumers:
-        model.require_operation(operation)
     if model.implementation_digests != _semantic_implementation_digests():
         _fail(
             "unsupported_analysis_implementation",

@@ -736,26 +736,74 @@ def test_alias_profile_consumers_use_semantic_declarations_with_separate_runtime
 
 
 def test_runtime_change_is_reported_separately_from_semantic_meaning():
-    from types import SimpleNamespace
+    from corpus_structure.semantic.contracts import analysis_implementation_inputs
+    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
 
     prepared = alias_release()
+    sources = analysis_implementation_inputs()
+    changed_sources = tuple(
+        replace(source, content=source.content + b"\n# runtime change\n")
+        if source.name == "text/sentences.py"
+        else source
+        for source in sources
+    )
+    before = prepare_runtime_binding(prepared, sources)
+    after = prepare_runtime_binding(prepared, changed_sources)
+    assert before.runtime_id != after.runtime_id
     report = compare_semantic_releases(
         prepared,
         prepared,
-        before_runtime=SimpleNamespace(release_id=prepared.release_id, runtime_id="runtime:one"),
-        after_runtime=SimpleNamespace(release_id=prepared.release_id, runtime_id="runtime:two"),
+        before_runtime=before,
+        after_runtime=after,
     ).model_dump(mode="json")
     assert report["changes"] == []
     assert any("Executable runtime changed independently" in value for value in report["unknowns"])
 
 
 def test_runtime_comparison_refuses_a_relabelled_release():
-    from types import SimpleNamespace
+    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
 
     prepared = alias_release()
+    runtime = prepare_runtime_binding(prepared)
     with pytest.raises(ValueError, match="another semantic release"):
         compare_semantic_releases(
             prepared,
             prepared,
-            before_runtime=SimpleNamespace(release_id="another-release", runtime_id="runtime:one"),
+            before_runtime=replace(runtime, release_id="another-release"),
         )
+
+
+def test_runtime_comparison_refuses_unauthenticated_archive():
+    from corpus_structure.semantic.runtime_bindings import (
+        RuntimeBindingError,
+        prepare_runtime_binding,
+    )
+
+    prepared = alias_release()
+    runtime = prepare_runtime_binding(prepared)
+    with pytest.raises(RuntimeBindingError, match="noncanonical or unsupported shape"):
+        compare_semantic_releases(
+            prepared,
+            prepared,
+            before_runtime=replace(runtime, archive=runtime.archive + b" "),
+            after_runtime=runtime,
+        )
+
+
+def test_semantic_release_change_does_not_imply_executable_runtime_change():
+    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
+
+    before = alias_release()
+    after = alias_release([{"match": "a", "replace": "b"}])
+    before_runtime = prepare_runtime_binding(before)
+    after_runtime = prepare_runtime_binding(after)
+    assert before_runtime.runtime_id != after_runtime.runtime_id
+    report = compare_semantic_releases(
+        before,
+        after,
+        before_runtime=before_runtime,
+        after_runtime=after_runtime,
+    ).model_dump(mode="json")
+    assert not any(
+        "Executable runtime changed independently" in value for value in report["unknowns"]
+    )

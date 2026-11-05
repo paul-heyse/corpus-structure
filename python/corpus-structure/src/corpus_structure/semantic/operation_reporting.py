@@ -751,12 +751,24 @@ def compare_semantic_releases(
             else "Changed semantic determinant bytes require qualified compatibility; "
             "behavior equivalence is unassessed."
         )
+    from .runtime_bindings import validate_runtime_binding
+
     for prepared, runtime in ((before, before_runtime), (after, after_runtime)):
-        if runtime is not None and runtime.release_id != prepared.release_id:
-            raise ValueError("runtime binding belongs to another semantic release")
+        if runtime is not None:
+            if runtime.release_id != prepared.release_id:
+                raise ValueError("runtime binding belongs to another semantic release")
+            validate_runtime_binding(runtime, prepared)
     if (before_runtime is None) != (after_runtime is None):
         unknowns.add("Runtime change is unassessed: supply both runtime bindings.")
-    elif before_runtime is not None and before_runtime.runtime_id != after_runtime.runtime_id:
+    elif (
+        before_runtime is not None
+        and after_runtime is not None
+        and (
+            before_runtime.implementation_digests != after_runtime.implementation_digests
+            or json.loads(before_runtime.manifest)["python_version"]
+            != json.loads(after_runtime.manifest)["python_version"]
+        )
+    ):
         unknowns.add(
             "Executable runtime changed independently of semantic release meaning: "
             + before_runtime.runtime_id
