@@ -138,6 +138,29 @@ BEGIN
      OR EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'inputs'->'sources') source_
       WHERE NOT(report->'inputs'->'sources' @> jsonb_build_array(source_))) THEN
      RAISE EXCEPTION 'dossier predecessor source/scope is incompatible' USING ERRCODE='23514'; END IF;
+    -- An input frame is a candidate/context inventory, not evidence that each
+    -- passage participated in the predecessor's semantic output. Resolve physical
+    -- citations so local alias equality cannot link a different source extent.
+    IF upstream.product->>'kind'='definition_applicability' THEN
+     IF member->>'role'='definition' THEN
+      IF NOT EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'definition'->'readings') reading
+       WHERE reading->>'outcome'='applicable_definition'
+       AND data.structural_citation(upstream.product,reading->>'target_id')=data.structural_citation(report,member->>'passage_id')) THEN
+       RAISE EXCEPTION 'definition member is not an applicable definition output of its predecessor' USING ERRCODE='23514'; END IF;
+     ELSIF data.structural_citation(upstream.product,upstream.product->'definition'->>'usage_id') IS DISTINCT FROM data.structural_citation(report,member->>'passage_id')
+      AND NOT EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'definition'->'readings') reading
+       WHERE data.structural_citation(upstream.product,reading->>'target_id')=data.structural_citation(report,member->>'passage_id')) THEN
+      RAISE EXCEPTION 'dossier member did not participate in its definition predecessor output' USING ERRCODE='23514'; END IF;
+    ELSE
+     IF member->>'role'='definition' OR NOT EXISTS(
+      SELECT FROM (
+       SELECT upstream.product->'comparison'->>'left_id' id UNION ALL SELECT upstream.product->'comparison'->>'right_id'
+       UNION ALL SELECT evidence.id FROM jsonb_array_elements(upstream.product->'comparison'->'dimensions') dimension
+        CROSS JOIN LATERAL (SELECT dimension->'left' side UNION ALL SELECT dimension->'right') selected_side
+        CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(selected_side.side->'evidence','[]')) evidence(id)
+      ) participant WHERE data.structural_citation(upstream.product,participant.id)=data.structural_citation(report,member->>'passage_id')) THEN
+      RAISE EXCEPTION 'dossier member did not participate in its comparison predecessor output' USING ERRCODE='23514'; END IF;
+    END IF;
    END LOOP;
   END IF;
   statement:=data.structural_public_statement(report);

@@ -1,7 +1,70 @@
-CREATE OR REPLACE FUNCTION eval.operation_review_history(p_project text,p_set bigint,p_exposure bigint)
+-- Metadata-first bound on the server-side SETOF tuplestore. Byte accounting is a
+-- conservative JSON-wire upper bound, not compressed pg_column_size. Body lengths
+-- aggregate one row at a time; raw pass bytes use TOAST length before base64 encoding.
+CREATE OR REPLACE FUNCTION eval.review_history_preflight(p_project text,p_set bigint,p_group boolean,p_max_rows bigint,p_max_bytes bigint)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE row_count bigint; units bigint; passes bigint; frames bigint; items bigint; evaluations bigint;
+ used_bytes numeric; overhead bigint:=512+6*octet_length(p_project)::bigint; partition_ text;
+BEGIN
+ IF p_max_rows IS NULL OR p_max_rows<1 OR p_max_bytes IS NULL OR p_max_bytes<1 THEN
+  RAISE EXCEPTION 'review history bounds must be positive' USING ERRCODE='23514'; END IF;
+ IF p_group THEN
+  PERFORM 1 FROM eval.structural_reference_set WHERE id=p_set AND project_id=p_project;
+  IF NOT FOUND THEN RAISE EXCEPTION 'review group is outside selected project' USING ERRCODE='23514'; END IF;
+  SELECT count(*) INTO passes FROM eval.structural_reference_pass WHERE set_id=p_set;
+  row_count:=1+passes;
+ ELSE
+  SELECT sampling->>'partition' INTO STRICT partition_ FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+  SELECT count(*) INTO units FROM eval.reference_unit WHERE set_id=p_set;
+  row_count:=1+units;
+  IF partition_ IN ('development','feature_fit') THEN
+   SELECT count(*) INTO passes FROM eval.reference_pass p JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set;
+   SELECT count(*) INTO frames FROM eval.reference_frame f JOIN eval.reference_pass p ON p.id=f.pass_id JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set;
+   SELECT count(*) INTO items FROM eval.reference_item i JOIN eval.reference_pass p ON p.id=i.pass_id JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set;
+   SELECT count(*) INTO evaluations FROM eval.reference_evaluation WHERE set_id=p_set AND project_id=p_project;
+   row_count:=2+2*units+passes+frames+items+evaluations;
+  END IF;
+ END IF;
+ -- Refuse even the minimum wire shape before body hydration or snapshot arrays.
+ IF row_count>p_max_rows OR row_count*2>p_max_bytes THEN
+  RAISE EXCEPTION 'review history exceeds declared row/byte bounds before capture' USING ERRCODE='23514'; END IF;
+ IF p_group THEN
+  SELECT COALESCE(sum(n),0) INTO used_bytes FROM (
+   SELECT octet_length(to_jsonb(s)::text)::numeric n FROM eval.structural_reference_set s WHERE id=p_set AND project_id=p_project
+   UNION ALL
+   SELECT octet_length(to_jsonb(m)::text)::numeric+2*octet_length(p.authored)::bigint
+    FROM eval.structural_reference_pass p
+    CROSS JOIN LATERAL (SELECT p.id,p.set_id,p.pass_kind,p.actor,p.content_digest,p.parents) m WHERE p.set_id=p_set
+  ) lengths;
+ ELSE
+  -- Inventory includes compact set metadata and units, never protected bodies.
+  SELECT 512+6*(octet_length(guideline)::bigint+octet_length(release_id)::bigint+octet_length(project_id)::bigint)
+   INTO used_bytes FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+  SELECT used_bytes+COALESCE(sum(octet_length(to_jsonb(m)::text)),0) INTO used_bytes
+   FROM eval.reference_unit u CROSS JOIN LATERAL (SELECT u.id,u.unit_key,u.source_view_id) m WHERE u.set_id=p_set;
+  IF partition_ IN ('development','feature_fit') THEN
+   SELECT used_bytes+COALESCE(sum(n),0) INTO used_bytes FROM (
+    SELECT octet_length(to_jsonb(s)::text)::numeric n FROM eval.reference_set s WHERE id=p_set AND project_id=p_project
+    UNION ALL SELECT octet_length(to_jsonb(u)::text)::numeric FROM eval.reference_unit u WHERE u.set_id=p_set
+    UNION ALL SELECT octet_length(to_jsonb(m)::text)::numeric+2*octet_length(p.authored)::bigint
+     FROM eval.reference_pass p JOIN eval.reference_unit u ON u.id=p.unit_id
+     CROSS JOIN LATERAL (SELECT p.id,p.unit_id,p.pass_kind,p.actor,p.content_digest) m WHERE u.set_id=p_set
+    UNION ALL SELECT octet_length(to_jsonb(f)::text)::numeric FROM eval.reference_frame f JOIN eval.reference_pass p ON p.id=f.pass_id JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set
+    UNION ALL SELECT octet_length(to_jsonb(i)::text)::numeric FROM eval.reference_item i JOIN eval.reference_pass p ON p.id=i.pass_id JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set
+    UNION ALL SELECT octet_length(to_jsonb(e)::text)::numeric FROM eval.reference_evaluation e WHERE set_id=p_set AND project_id=p_project
+   ) lengths;
+  END IF;
+ END IF;
+ IF used_bytes+overhead*row_count>p_max_bytes THEN
+  RAISE EXCEPTION 'review history exceeds declared byte bound before capture' USING ERRCODE='23514'; END IF;
+END $$;
+REVOKE ALL ON FUNCTION eval.review_history_preflight(text,bigint,boolean,bigint,bigint) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.operation_review_history_bounded(p_project text,p_set bigint,p_exposure bigint,p_max_rows bigint,p_max_bytes bigint)
 RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE selected eval.reference_set; entry record; passes jsonb;
 BEGIN
+ PERFORM eval.review_history_preflight(p_project,p_set,false,p_max_rows,p_max_bytes);
  SELECT * INTO STRICT selected FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
  IF selected.sampling->>'operation_protocol' IS DISTINCT FROM 'source-operation-reference-1' THEN
   RAISE EXCEPTION 'review history requires original operation protocol' USING ERRCODE='23514'; END IF;
@@ -43,6 +106,14 @@ BEGIN
   RETURN NEXT jsonb_build_object('kind','evaluation','value',to_jsonb(entry));
  END LOOP;
 END $$;
+REVOKE ALL ON FUNCTION eval.operation_review_history_bounded(text,bigint,bigint,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.operation_review_history_bounded(text,bigint,bigint,bigint,bigint) TO corpus_sem_evaluator;
+
+-- Compatible callers retain the same finite default bounds as the Python reader.
+CREATE OR REPLACE FUNCTION eval.operation_review_history(p_project text,p_set bigint,p_exposure bigint)
+RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT * FROM eval.operation_review_history_bounded(p_project,p_set,p_exposure,100000,67108864)
+$$;
 REVOKE ALL ON FUNCTION eval.operation_review_history(text,bigint,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.operation_review_history(text,bigint,bigint) TO corpus_sem_evaluator;
 
@@ -173,10 +244,11 @@ END $$;
 REVOKE ALL ON FUNCTION eval.record_structural_review_exposure(text,bigint,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.record_structural_review_exposure(text,bigint,text,text) TO corpus_sem_evaluator;
 
-CREATE OR REPLACE FUNCTION eval.structural_review_history(p_project text,p_set bigint,p_exposure bigint)
+CREATE OR REPLACE FUNCTION eval.structural_review_history_bounded(p_project text,p_set bigint,p_exposure bigint,p_max_rows bigint,p_max_bytes bigint)
 RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE selected eval.structural_reference_set; entry record; passes jsonb;
 BEGIN
+ PERFORM eval.review_history_preflight(p_project,p_set,true,p_max_rows,p_max_bytes);
  SELECT * INTO STRICT selected FROM eval.structural_reference_set WHERE id=p_set AND project_id=p_project;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('pass_id',p.id,'content_digest',p.content_digest) ORDER BY p.id),'[]')
   INTO passes FROM eval.structural_reference_pass p WHERE p.set_id=p_set;
@@ -190,5 +262,13 @@ BEGIN
   RETURN NEXT jsonb_build_object('kind','pass','value',to_jsonb(entry));
  END LOOP;
 END $$;
+REVOKE ALL ON FUNCTION eval.structural_review_history_bounded(text,bigint,bigint,bigint,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.structural_review_history_bounded(text,bigint,bigint,bigint,bigint) TO corpus_sem_evaluator;
+
+-- Compatible callers retain the same finite default bounds as the Python reader.
+CREATE OR REPLACE FUNCTION eval.structural_review_history(p_project text,p_set bigint,p_exposure bigint)
+RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT * FROM eval.structural_review_history_bounded(p_project,p_set,p_exposure,100000,67108864)
+$$;
 REVOKE ALL ON FUNCTION eval.structural_review_history(text,bigint,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.structural_review_history(text,bigint,bigint) TO corpus_sem_evaluator;

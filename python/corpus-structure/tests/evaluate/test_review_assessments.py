@@ -41,19 +41,33 @@ class Connection(MagicMock):
 
 
 def authored(value=b'{ "cases": [] }\n'):
-    return {"kind": "pass", "value": {
-        "authored_base64": base64.b64encode(value).decode(),
-        "content_digest": sha256(value).hexdigest(),
-    }}
+    return {
+        "kind": "pass",
+        "value": {
+            "authored_base64": base64.b64encode(value).decode(),
+            "content_digest": sha256(value).hexdigest(),
+        },
+    }
 
 
 def test_exact_author_bytes_and_explicit_receipt():
     conn = Connection([authored()])
-    rows = list(iter_assessment_review_rows(
-        conn, project_id="original", set_id=7, exposure_receipt_id=13,
-    ))
+    rows = list(
+        iter_assessment_review_rows(
+            conn,
+            project_id="original",
+            set_id=7,
+            exposure_receipt_id=13,
+        )
+    )
     assert base64.b64decode(rows[0]["value"]["authored_base64"]) == b'{ "cases": [] }\n'
-    assert conn.parameters == {"project": "original", "set_id": 7, "receipt": 13}
+    assert conn.parameters == {
+        "project": "original",
+        "set_id": 7,
+        "receipt": 13,
+        "max_rows": 100_000,
+        "max_bytes": 64 * 1024 * 1024,
+    }
     assert conn.result.closed
 
 
@@ -89,4 +103,6 @@ def test_callback_preserves_set_scope_and_does_not_create_principal():
     assert rows[0]["set_id"] == 7
     assert conn.parameters["receipt"] == 13
     with pytest.raises(ValueError, match="repeats"):
-        assessment_review_capture((AssessmentReviewSelection("p", 7), AssessmentReviewSelection("p", 7)))
+        assessment_review_capture(
+            (AssessmentReviewSelection("p", 7), AssessmentReviewSelection("p", 7))
+        )

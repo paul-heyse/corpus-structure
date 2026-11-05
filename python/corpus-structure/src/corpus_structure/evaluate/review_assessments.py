@@ -37,10 +37,18 @@ def iter_assessment_review_rows(
     if max_rows < 1 or max_bytes < 1:
         raise ValueError("assessment capture bounds must be positive")
     used = 0
-    function = "structural_review_history" if group else "operation_review_history"
+    function = "structural_review_history_bounded" if group else "operation_review_history_bounded"
     with conn.execute(
-        text(f"SELECT row FROM eval.{function}(:project,:set_id,:receipt) AS row"),
-        {"project": project_id, "set_id": set_id, "receipt": exposure_receipt_id},
+        text(
+            f"SELECT row FROM eval.{function}(:project,:set_id,:receipt,:max_rows,:max_bytes) AS row"
+        ),
+        {
+            "project": project_id,
+            "set_id": set_id,
+            "receipt": exposure_receipt_id,
+            "max_rows": max_rows,
+            "max_bytes": max_bytes,
+        },
         execution_options={"stream_results": True, "yield_per": 128},
     ) as result:
         for number, raw in enumerate(result.scalars(), 1):
@@ -72,14 +80,25 @@ def record_review_exposure(
     """Commit this receipt before delivering labels; a later export failure retains it."""
     if group and authorization_basis is not None:
         raise ValueError("group references are development-only")
-    function = ("record_structural_review_exposure" if group else
-                "record_feature_fit_review_exposure" if authorization_basis is not None else
-                "record_review_exposure")
-    arguments = ":project,:set_id,:purpose,:recipient" + (",:basis" if authorization_basis is not None else "")
+    function = (
+        "record_structural_review_exposure"
+        if group
+        else "record_feature_fit_review_exposure"
+        if authorization_basis is not None
+        else "record_review_exposure"
+    )
+    arguments = ":project,:set_id,:purpose,:recipient" + (
+        ",:basis" if authorization_basis is not None else ""
+    )
     return conn.execute(
         text(f"SELECT eval.{function}({arguments})"),
-        {"project": project_id, "set_id": set_id, "purpose": purpose,
-         "recipient": recipient_class, "basis": authorization_basis},
+        {
+            "project": project_id,
+            "set_id": set_id,
+            "purpose": purpose,
+            "recipient": recipient_class,
+            "basis": authorization_basis,
+        },
     ).scalar_one()
 
 
@@ -104,10 +123,13 @@ def assessment_review_capture(selections: tuple[AssessmentReviewSelection, ...])
         def rows():
             for selection in selections:
                 yield from iter_assessment_review_rows(
-                    conn, project_id=selection.project_id, set_id=selection.set_id,
+                    conn,
+                    project_id=selection.project_id,
+                    set_id=selection.set_id,
                     exposure_receipt_id=selection.exposure_receipt_id,
                     group=selection.group,
                 )
+
         return {"assessment_history": rows()}
 
     return capture
