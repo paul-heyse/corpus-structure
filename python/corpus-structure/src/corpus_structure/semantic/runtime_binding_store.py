@@ -49,21 +49,27 @@ def runtime_binding_for_run(
         inputs = tuple(
             SourceArtifact(row.input_name.removeprefix(prefix), bytes(row.content))
             for row in conn.execute(
-                select(archived_input.c.input_name, archived_input.c.content).where(
+                select(archived_input.c.input_name, archived_input.c.content)
+                .where(
                     archived_input.c.release_id == prepared.release_id,
                     archived_input.c.input_kind == "dependency",
                     archived_input.c.input_name.startswith(prefix),
-                ).order_by(archived_input.c.input_name)
+                )
+                .order_by(archived_input.c.input_name)
             )
         )
         return legacy_runtime_binding(prepared, inputs)
     stored = table("sem.runtime_binding")
-    row = conn.execute(
-        select(stored).where(
-            stored.c.release_id == selected.release_id,
-            stored.c.runtime_id == selected.runtime_id,
+    row = (
+        conn.execute(
+            select(stored).where(
+                stored.c.release_id == selected.release_id,
+                stored.c.runtime_id == selected.runtime_id,
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     binding = RuntimeBinding(
         row["release_id"],
         row["runtime_id"],

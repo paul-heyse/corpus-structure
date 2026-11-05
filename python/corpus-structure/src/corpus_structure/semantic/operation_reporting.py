@@ -812,10 +812,9 @@ def _alias_impact(before: PreparedRelease, after: PreparedRelease, changes, unkn
             if profile.alignment_policy is None:
                 continue
             reference = "analysis_profile:" + profile.id + "/alignment_policy"
-            if (
-                int(json.loads(model.content)["inputs"]["compiler_version"]) >= 27
-                or dict(model.implementation_digests).get("alignment/semantic_alignment.py")
-            ):
+            if int(json.loads(model.content)["inputs"]["compiler_version"]) >= 27 or dict(
+                model.implementation_digests
+            ).get("alignment/semantic_alignment.py"):
                 # Current semantic declarations identify the consumer; exact executable
                 # custody belongs to a runtime binding, not this semantic product.
                 consumers.add(reference)

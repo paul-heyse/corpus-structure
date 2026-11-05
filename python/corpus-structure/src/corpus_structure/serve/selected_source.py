@@ -816,10 +816,7 @@ class SelectedSourceReader:
             or context.model_id != self.header["interpretation_model_id"]
             or [list(value) for value in context.implementation_digests]
             != self.header["implementation_digests"]
-            or (
-                "runtime_id" in self.header
-                and context.runtime_id != self.header["runtime_id"]
-            )
+            or ("runtime_id" in self.header and context.runtime_id != self.header["runtime_id"])
         ):
             raise SelectedSourceUnavailable(
                 "admitted retained interpretation context/model/artifacts are required"

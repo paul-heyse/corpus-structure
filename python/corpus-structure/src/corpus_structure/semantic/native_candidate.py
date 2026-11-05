@@ -599,8 +599,12 @@ def series_native_definitions(connection, *, include_selected=True):
     ):
         definitions.append(
             _task_call_definition(
-                connection, runtime_sql, name=name, schema=schema,
-                grants=grants, source="runtime binding custody:forward",
+                connection,
+                runtime_sql,
+                name=name,
+                schema=schema,
+                grants=grants,
+                source="runtime binding custody:forward",
             )
         )
     definitions.append(
@@ -1379,9 +1383,15 @@ def prepare_series_candidate(
         # The runtime reuse kernel binds the expanded existing run row type. Like
         # new tables above, this prerequisite is rolled back before Alembic's diff.
         run = target_metadata.tables.get("ops.run")
-        if run is not None and "runtime_id" in run.c and connection.scalar(
-            text("SELECT NOT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.run'::regclass "
-                 "AND attname='runtime_id' AND NOT attisdropped)")
+        if (
+            run is not None
+            and "runtime_id" in run.c
+            and connection.scalar(
+                text(
+                    "SELECT NOT EXISTS(SELECT FROM pg_attribute WHERE attrelid='ops.run'::regclass "
+                    "AND attname='runtime_id' AND NOT attisdropped)"
+                )
+            )
         ):
             connection.exec_driver_sql("ALTER TABLE ops.run ADD COLUMN runtime_id text")
         authoring = _prepare_series_authoring(

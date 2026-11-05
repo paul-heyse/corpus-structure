@@ -730,9 +730,10 @@ def test_alias_profile_consumers_use_semantic_declarations_with_separate_runtime
     change = next(c for c in result["changes"] if c["aspect"] == "alias_normalization")
     assert "implementation:resolve_identity" in change["consumers"]
     assert any(c.startswith("analysis_profile:") for c in change["consumers"]) is not legacy
-    assert any(
-        "alignment implementation custody unavailable" in u for u in result["unknowns"]
-    ) is legacy
+    assert (
+        any("alignment implementation custody unavailable" in u for u in result["unknowns"])
+        is legacy
+    )
 
 
 def test_runtime_change_is_reported_separately_from_semantic_meaning():

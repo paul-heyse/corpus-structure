@@ -142,9 +142,7 @@ def _require_run_runtime(
     return prepared
 
 
-def start_run(
-    conn: Connection, run_id: RunId, *, prepared: PreparedRelease | None = None
-) -> int:
+def start_run(conn: Connection, run_id: RunId, *, prepared: PreparedRelease | None = None) -> int:
     """Start a source run through guarded DML; an exact running replay is harmless."""
     _require_run_runtime(conn, run_id, prepared)
     try:
