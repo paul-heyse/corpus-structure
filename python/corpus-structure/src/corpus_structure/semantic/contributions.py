@@ -103,6 +103,8 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
                 raise ValueError('located occurrence requires its actual source-piece identity')
         elif anchors and row.get('occurrence_id') != occurrence_identity(anchors):
             raise ValueError('proposal occurrence differs from its source pieces')
+        elif not anchors and 'occurrence_id' in row:
+            raise ValueError('unlocated contribution cannot claim an occurrence identity')
         if (row['score_state'] == 'native') != ('score' in row):
             raise ValueError('contribution score availability differs from actual score')
         if contribution_identity(row) != row['contribution_id']:
@@ -123,6 +125,9 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
         if row['kind'] == 'composite' and not members:
             raise ValueError('composite contribution requires explicit members')
     for op in ops:
+        retained = {'retained_task_id', 'retained_result_digest', 'retained_source_bindings'}
+        if retained.intersection(op) and (not retained <= op.keys() or not op['retained_source_bindings']):
+            raise ValueError('retained operation requires complete immutable source lineage')
         actual = sum(row['operation_key']==op['operation_key'] for row in output)
         if actual != op['emitted_count']:
             raise ValueError('operation emitted cardinality differs from contributions')

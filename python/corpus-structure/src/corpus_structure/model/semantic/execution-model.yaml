@@ -2508,6 +2508,13 @@ concepts:
     required: true
     multivalued: false
   relationships: []
+- id: SourceObservationBatch
+  family: source
+  scope: run
+  meaning: Immutable terminal source report containing private contribution and operation populations
+  identity: Producing invocation, operation version, input, configuration and selected source
+  attributes: [{name: report, range: text, required: true, multivalued: false}]
+  relationships: []
 - id: PreparedRecognitionSource
   family: source
   scope: run

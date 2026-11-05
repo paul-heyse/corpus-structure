@@ -30,6 +30,8 @@ BEGIN
   RAISE EXCEPTION 'method result outcome is not admitted by its release' USING ERRCODE='23514'; END IF;
  -- {source_record_guard}
  IF p_envelope ? 'contribution_operations' OR p_envelope ? 'contributions' THEN
+  IF p_envelope->>'outcome' IS DISTINCT FROM (CASE p_outcome WHEN 'done' THEN 'produced' ELSE p_outcome END) THEN
+   RAISE EXCEPTION 'contribution report differs from producing task outcome' USING ERRCODE='23514'; END IF;
   PERFORM ops.validate_source_contribution_report(t.id,p_envelope);
  END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP

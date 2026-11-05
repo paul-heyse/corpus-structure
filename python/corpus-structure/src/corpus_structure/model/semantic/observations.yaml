@@ -147,6 +147,14 @@ classes:
       records: {range: SourceRecord, multivalued: true, inlined: true}
       contribution_operations: {range: SourceContributionOperation, multivalued: true, inlined: true}
       contributions: {range: SourceContribution, multivalued: true, inlined: true}
+  RetainedContributionSourceBinding:
+    is_a: SourceRecordProduct
+    attributes:
+      original_source_view_id: {range: integer, minimum_value: 1, required: true}
+      current_source_view_id: {range: integer, minimum_value: 1, required: true}
+      original_source: {required: true}
+      current_source: {required: true}
+      physical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
   SourceContributionOperation:
     is_a: SourceRecordProduct
     description: One attributed semantic question under a shared invocation, including zero-output questions.
@@ -157,6 +165,9 @@ classes:
       outcome: {range: ContributionOperationOutcome, required: true}
       inspected_count: {range: integer, minimum_value: 0, required: true}
       emitted_count: {range: integer, minimum_value: 0, required: true}
+      retained_task_id: {range: integer, minimum_value: 1}
+      retained_result_digest: {pattern: '^[0-9a-f]{64}$'}
+      retained_source_bindings: {range: RetainedContributionSourceBinding, multivalued: true, inlined: true}
       report_digest: {pattern: '^[0-9a-f]{64}$'}
       inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
       computation_dependencies: {multivalued: true}

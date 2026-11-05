@@ -102,3 +102,15 @@ def test_unsupported_effect_refuses_preparation():
     sources=tuple(SourceArtifact(s.name,s.content.replace(b'equals_string: retain_private',b'equals_string: admit_public')) if s.name=='observations' else s for s in bundle.sources)
     with pytest.raises(Exception,match='unsupported contribution effect'):
         prepare_release(SourceBundle(bundle.root,sources))
+
+
+def test_unlocated_proposal_cannot_spoof_occurrence(prepared):
+    row,_=contribution(kind='proposal')
+    row.pop('anchors')
+    row['contribution_id']=contribution_identity(row)
+    with pytest.raises(ValueError,match='unlocated contribution cannot claim'):
+        bind_contributions(prepared,source='source',operations=(operation(1),),contributions=(row,))
+    row.pop('occurrence_id')
+    row['contribution_id']=contribution_identity(row)
+    _,bound=bind_contributions(prepared,source='source',operations=(operation(1),),contributions=(row,))
+    assert 'occurrence_id' not in bound[0]

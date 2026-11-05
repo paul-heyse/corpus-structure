@@ -71,6 +71,8 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("records/source-record-coordinates.sql", "semantic/sql/source_record_coordinates.sql"),
     ("records/record-projection.py", "semantic/record_projection.py"),
     ("contributions/contracts.py", "semantic/contributions.py"),
+    ("operations/assessment.py", "evaluate/operation_assessment.py"),
+    ("operations/assessment.sql", "semantic/sql/operation_assessment.sql"),
     ("contributions/read.py", "semantic/contribution_queries.py"),
     ("contributions/native.sql", "semantic/sql/source_contributions.sql"),
     ("records/source-anchor-coordinates.sql", "semantic/sql/source_anchor_coordinates.sql"),
@@ -120,7 +122,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
-    from corpus_structure.evaluate import record_policy, record_references
+    from corpus_structure.evaluate import operation_assessment, record_policy, record_references
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
@@ -139,6 +141,7 @@ def approved_implementations() -> Mapping[str, Any]:
         analytics,
         arrow_publication,
         consolidation,
+        contribution_queries,
         continuations,
         domain_operations,
         inference,
@@ -247,6 +250,10 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_items": references.ensure_items,
             "reference_grade": references.reference_evaluate,
             "reference_split": references.split_documents,
+            "reference_operation_set": operation_assessment.create_reference_set,
+            "reference_operation_pass": operation_assessment.record_pass,
+            "reference_operation_grade": operation_assessment.reference_evaluate,
+            "read_source_contributions": contribution_queries.read_source_contributions,
             "reference_record_set": record_references.create_reference_set,
             "reference_record_pass": record_references.record_pass,
             "reference_record_grade": record_references.reference_evaluate,

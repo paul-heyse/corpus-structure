@@ -642,6 +642,7 @@ def series_native_definitions(connection, *, include_selected=True):
         )
     reference_roles = {
         "record_reference_contract": (),
+        "validate_reference_source_scope": (),
         "record_reference_physical_source": (),
         "record_reference_applicability": ("corpus_sem_evaluator",),
         "record_reference_unit_binding": ("corpus_sem_evaluator",),
@@ -669,6 +670,22 @@ def series_native_definitions(connection, *, include_selected=True):
                 schema="eval",
             )
         )
+    operation_assessment_sql = Path(__file__).with_name("sql").joinpath("operation_assessment.sql").read_text()
+    for name, roles in {
+        "create_operation_reference_set": ("corpus_sem_evaluator",),
+        "validate_operation_reference_frame": (),
+        "record_operation_reference_pass": ("corpus_sem_evaluator",),
+        "operation_author_packet": ("corpus_sem_evaluator",),
+        "record_operation_reference_evaluation": ("corpus_sem_evaluator",),
+        "operation_review_export": ("corpus_sem_evaluator",),
+    }.items():
+        definitions.extend(_task_call_definitions(connection, operation_assessment_sql,
+            name=name, source="operation assessment:forward", schema="eval",
+            grants=tuple((role, "EXECUTE", False) for role in roles)))
+    for name in ("source_contribution_occurrence", "validate_source_anchor_coordinates",
+                 "validate_source_contribution_report", "project_source_contributions"):
+        definitions.extend(_task_call_definitions(connection, native_task_completion_sql(),
+            name=name, source="independent contributions:forward", grants=()))
     for name in (
         "record_feature_score",
         "record_source_float",
@@ -790,6 +807,9 @@ def series_native_definitions(connection, *, include_selected=True):
     # public semantic content. The guard joins the same managed native lifecycle.
     for relation in (
         *("data." + name for name in RECORD_ROW_TYPES),
+        "kb.source_contribution_operation",
+        "kb.source_contribution",
+        "kb.source_contribution_endpoint",
         "eval.reference_origin_group",
         "eval.reference_origin_source",
     ):

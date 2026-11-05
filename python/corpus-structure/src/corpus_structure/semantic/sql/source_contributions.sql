@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION ops.source_contribution_occurrence(p_anchors jsonb)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT 'source-occurrence:'||encode(sha256(convert_to(data.canonical_json(COALESCE(
-  jsonb_agg((a-'anchor_id'-'binding'-'pin')||jsonb_build_object('pin',jsonb_build_object('product_key',a->'pin'->'product_key','product_digest',a->'pin'->'product_digest')) ORDER BY n),'[]'))),'UTF8')),'hex')
+  jsonb_agg((a-'anchor_id'-'binding'-'pin')||jsonb_build_object('pin',jsonb_build_object('product_key',a->'pin'->'product_key','product_digest',a->'pin'->'product_digest')) ORDER BY n),'[]')),'UTF8')),'hex')
  FROM jsonb_array_elements(p_anchors) WITH ORDINALITY x(a,n)
 $$;
 REVOKE ALL ON FUNCTION ops.source_contribution_occurrence(jsonb) FROM PUBLIC;
@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION ops.validate_source_contribution_report(p_task bigint
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; v kb.source_view; shape json; op jsonb; c jsonb; a jsonb; ep jsonb;
  anchors jsonb; identities text[]; expected text; previous_ends jsonb; coordinate text; actual bigint;
- declaration json; role_definition jsonb;
+ declaration json; role_definition jsonb; retained ops.task; binding jsonb; old_view kb.source_view; new_view kb.source_view; old_descriptor jsonb; new_descriptor jsonb; retained_body jsonb;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -41,6 +41,35 @@ BEGIN
  IF cardinality(identities) IS DISTINCT FROM (SELECT count(DISTINCT x) FROM unnest(identities) x)
   AND cardinality(identities)>0 THEN RAISE EXCEPTION 'duplicate contribution identity' USING ERRCODE='23514'; END IF;
  FOR op IN SELECT value FROM jsonb_array_elements(p_envelope->'contribution_operations') LOOP
+  IF op ? 'retained_task_id' OR op ? 'retained_result_digest' OR op ? 'retained_source_bindings' THEN
+   IF NOT (op ? 'retained_task_id' AND op ? 'retained_result_digest' AND op ? 'retained_source_bindings')
+    OR jsonb_array_length(op->'retained_source_bindings')=0 THEN
+    RAISE EXCEPTION 'retained operation lacks complete immutable source lineage' USING ERRCODE='23514'; END IF;
+   SELECT * INTO STRICT retained FROM ops.task WHERE id=(op->>'retained_task_id')::bigint;
+   SELECT body INTO STRICT retained_body FROM ops.task_result WHERE task_id=retained.id;
+   IF retained.status NOT IN ('done','empty','failed') OR retained.reused_task_id IS NOT NULL
+    OR NOT EXISTS(SELECT FROM ops.run a JOIN ops.run b ON a.project_id=b.project_id
+     WHERE a.id=retained.run_id AND b.id=t.run_id)
+    OR encode(sha256(convert_to(data.canonical_json(retained_body),'UTF8')),'hex') IS DISTINCT FROM op->>'retained_result_digest' THEN
+    RAISE EXCEPTION 'retained operation task/result identity differs from immutable source' USING ERRCODE='23514'; END IF;
+   FOR binding IN SELECT value FROM jsonb_array_elements(op->'retained_source_bindings') LOOP
+    SELECT * INTO STRICT old_view FROM kb.source_view WHERE id=(binding->>'original_source_view_id')::bigint;
+    SELECT * INTO STRICT new_view FROM kb.source_view WHERE id=(binding->>'current_source_view_id')::bigint;
+    old_descriptor:=jsonb_build_object('document_id',old_view.document_id,'native_task_id',old_view.native_task_id,'native_product_key',old_view.native_product_key,'native_content_digest',old_view.native_content_digest,'section_pointer',old_view.section_pointer,'membership',old_view.membership,'projection_digest',old_view.projection_digest,'recipe_digest',old_view.recipe_digest,'analysis_eligible',old_view.analysis_eligible,'projection',old_view.projection);
+    new_descriptor:=jsonb_build_object('document_id',new_view.document_id,'native_task_id',new_view.native_task_id,'native_product_key',new_view.native_product_key,'native_content_digest',new_view.native_content_digest,'section_pointer',new_view.section_pointer,'membership',new_view.membership,'projection_digest',new_view.projection_digest,'recipe_digest',new_view.recipe_digest,'analysis_eligible',new_view.analysis_eligible,'projection',new_view.projection);
+    IF old_descriptor IS DISTINCT FROM new_descriptor
+     OR encode(sha256(convert_to(data.canonical_json(old_descriptor),'UTF8')),'hex') IS DISTINCT FROM binding->>'physical_digest'
+     OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=retained.run_id AND source_view_id=old_view.id)
+     OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=t.run_id AND source_view_id=new_view.id)
+     OR binding->>'original_source' IS DISTINCT FROM (CASE WHEN old_view.id=retained.unit_id THEN retained_body->>'source' ELSE old_view.key END)
+     OR binding->>'current_source' IS DISTINCT FROM (CASE WHEN new_view.id=t.unit_id THEN p_envelope->>'source' ELSE new_view.key END) THEN
+     RAISE EXCEPTION 'retained operation source correspondence differs from selected physical custody' USING ERRCODE='23514'; END IF;
+   END LOOP;
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(op->'retained_source_bindings') b
+    WHERE (b->>'original_source_view_id')::bigint=retained.unit_id
+     AND (b->>'current_source_view_id')::bigint=t.unit_id) THEN
+    RAISE EXCEPTION 'retained operation lacks primary source correspondence' USING ERRCODE='23514'; END IF;
+  END IF;
   SELECT count(*) INTO actual FROM jsonb_array_elements(p_envelope->'contributions') x WHERE x->>'operation_key'=op->>'operation_key';
   IF actual<>(op->>'emitted_count')::bigint OR (actual>0 AND op->>'outcome' IN ('empty','failed','skipped','unsupported','not_run'))
    OR (op->>'outcome' IN ('failed','skipped','unsupported','limited','not_run') AND COALESCE(op->>'reason','')='') THEN
@@ -67,6 +96,8 @@ BEGIN
   anchors:=COALESCE(c->'anchors','[]'); previous_ends:='{}';
   IF c->>'kind'='occurrence' AND jsonb_array_length(anchors)=0 THEN
    RAISE EXCEPTION 'located contribution occurrence requires source pieces' USING ERRCODE='23514'; END IF;
+  IF jsonb_array_length(anchors)=0 AND c ? 'occurrence_id' THEN
+   RAISE EXCEPTION 'unlocated contribution cannot claim an occurrence identity' USING ERRCODE='23514'; END IF;
   IF jsonb_array_length(anchors)>0 AND c->>'occurrence_id' IS DISTINCT FROM ops.source_contribution_occurrence(anchors) THEN
    RAISE EXCEPTION 'contribution occurrence identity differs from actual pieces' USING ERRCODE='23514'; END IF;
   FOR a IN SELECT value FROM jsonb_array_elements(anchors) LOOP
