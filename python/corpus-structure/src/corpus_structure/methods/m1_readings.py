@@ -34,7 +34,9 @@ EVENT_PROCEDURE = "independent-complete-reading-logistic-1"
 class M1ReadingConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     recipe: Literal["retained-m1-reading-resolution-1"] = RECIPE
-    source_dependencies: Literal["source_view_product"] = "source_view_product"
+    source_dependencies: Literal["source_view_product", "retained_source_result"] = (
+        "source_view_product"
+    )
     source_dependency_method: Literal["extract.m1_candidates"] = UPSTREAM
     subset: str = Field(default="statistics-m1-source-readings-2", min_length=1)
     feature_instances: tuple[FeatureInstance, ...] = ()
@@ -42,6 +44,15 @@ class M1ReadingConfig(BaseModel):
     # supplied exact declaration/bounds is verified against their retained digests.
     retained_schema_packs: dict[str, dict[str, Any]] = Field(default_factory=dict)
     retained_context_bounds: dict[str, int] | None = None
+    retained_source_tasks: tuple[int, ...] = ()
+
+    @model_validator(mode="before")
+    @classmethod
+    def historical_dependencies(cls, value):
+        if isinstance(value, dict) and value.get("retained_source_tasks"):
+            value = dict(value)
+            value["source_dependencies"] = "retained_source_result"
+        return value
 
     @field_validator("feature_instances", mode="before")
     @classmethod
@@ -55,6 +66,14 @@ class M1ReadingConfig(BaseModel):
 
     @model_validator(mode="after")
     def unambiguous_instances(self):
+        if any(type(task) is not int or task < 1 for task in self.retained_source_tasks) or len(
+            set(self.retained_source_tasks)
+        ) != len(self.retained_source_tasks):
+            raise ValueError("historical source tasks require distinct positive IDs")
+        if (self.source_dependencies == "retained_source_result") != bool(
+            self.retained_source_tasks
+        ):
+            raise ValueError("historical source mode requires explicit retained source tasks")
         keys = [
             (i.applicability.release_id, i.applicability.family, i.applicability.subset)
             for i in self.feature_instances
@@ -75,6 +94,20 @@ def _upstream(reader, view):
     ):
         raise ValueError("upstream M1 candidate source binding differs")
     return result
+
+
+def _historical(reader, view, cfg):
+    matches, errors = [], []
+    for task_id in cfg.retained_source_tasks:
+        try:
+            matches.append(reader.retained_source_result(view.ref.id, task_id, UPSTREAM))
+        except ValueError as error:
+            errors.append(f"task {task_id}: {error}")
+    if len(matches) != 1:
+        raise ValueError(
+            "historical source task correspondence is missing or ambiguous: " + "; ".join(errors)
+        )
+    return matches[0]
 
 
 def reading_diagnostics(row, details):
@@ -100,6 +133,26 @@ class M1Readings:
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
     def select(self, run, cfg):
+        if cfg.retained_source_tasks:
+            selected = []
+            candidates = tuple(view for view in run.reader.source_views() if view.analysis_eligible)
+            for task_id in cfg.retained_source_tasks:
+                matches, errors = [], []
+                for view in candidates:
+                    try:
+                        run.reader.retained_source_result(view.id, task_id, UPSTREAM)
+                        matches.append(view)
+                    except ValueError as error:
+                        errors.append(str(error))
+                if len(matches) != 1:
+                    raise ValueError(
+                        f"historical task {task_id} has no unique selected source: "
+                        + "; ".join(errors)
+                    )
+                selected.append(matches[0])
+            if len({view.id for view in selected}) != len(selected):
+                raise ValueError("historical tasks duplicate a current source selection")
+            return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, view.id, view.key) for view in selected)
         return tuple(
             UnitRef(TaskUnitType.SOURCE_VIEW, view.id, view.key)
             for view in run.reader.source_views()
@@ -108,9 +161,18 @@ class M1Readings:
 
     def input_digest(self, unit, cfg):
         view = unit.run.reader.source_view(unit.ref.unit_id)
-        return Digest(
-            canonical_bytes(dict(recipe=cfg.recipe, upstream=_upstream(unit.run.reader, view)))
-        )
+        if cfg.retained_source_tasks:
+            retained = _historical(unit.run.reader, view, cfg)
+            packet = dict(
+                recipe=cfg.recipe,
+                retained_task_id=retained.task_id,
+                retained_release_id=retained.release_id,
+                retained_result_digest=retained.body_digest,
+                retained_source_bindings=retained.source_bindings,
+            )
+        else:
+            packet = dict(recipe=cfg.recipe, upstream=_upstream(unit.run.reader, view))
+        return Digest(canonical_bytes(packet))
 
     def interpretation_request(self, group):
         """No coupling factors are manufactured from independent compatibility scores."""
@@ -121,21 +183,31 @@ class M1Readings:
         for unit in units:
             ctx.check_active()
             view = ctx.reader.source_view(unit.ref.unit_id)
-            upstream = _upstream(ctx.reader, view)
-            digest = sha256(canonical_bytes(upstream)).hexdigest()
-            detail = upstream["parse_detail"]
-            from .contribution_adapter import replay_retained_contributions
+            from .contribution_adapter import (
+                replay_historical_contributions,
+                replay_retained_contributions,
+            )
 
-            contribution_batch = replay_retained_contributions(
-                ctx.reader,
-                view,
-                upstream,
-                schema_packs=cfg.retained_schema_packs,
-                context_bounds=cfg.retained_context_bounds,
+            retained = _historical(ctx.reader, view, cfg) if cfg.retained_source_tasks else None
+            upstream = retained.result if retained else _upstream(ctx.reader, view)
+            digest = (
+                retained.body_digest if retained else sha256(canonical_bytes(upstream)).hexdigest()
+            )
+            detail = upstream["parse_detail"]
+            contribution_batch = (
+                replay_historical_contributions(ctx.reader, view, retained)
+                if retained
+                else replay_retained_contributions(
+                    ctx.reader,
+                    view,
+                    upstream,
+                    schema_packs=cfg.retained_schema_packs,
+                    context_bounds=cfg.retained_context_bounds,
+                )
             )
             details: dict[str, Any] = dict(
                 recipe=cfg.recipe,
-                source_pin=detail["source_pin"],
+                source_pin=asdict(NativeSourcePin.from_source(native_source_frame(view, ()))),
                 raw_candidate_result=dict(
                     method=UPSTREAM,
                     outcome=upstream["outcome"],
@@ -148,6 +220,17 @@ class M1Readings:
                 record_interpretation=[],
                 standing="private_candidates",
             )
+            if retained:
+                details["retained_input"] = dict(
+                    selected_task_id=retained.selected_task_id,
+                    task_id=retained.task_id,
+                    run_id=retained.run_id,
+                    release_id=retained.release_id,
+                    result_digest=retained.body_digest,
+                    source_bindings=retained.source_bindings,
+                    original_source_pin=detail["source_pin"],
+                    preserved_predecessor_records=len(upstream.get("records", ())),
+                )
             if upstream["outcome"] == "failed":
                 results.append(
                     UnitResult(
@@ -174,7 +257,9 @@ class M1Readings:
                 )
                 continue
             records, events = [], []
-            for original in upstream.get("records", ()):
+            # Historical whole records remain under their original release. This new
+            # operation derives local products; it never copies/relabels old records.
+            for original in () if retained else upstream.get("records", ()):
                 ctx.check_active()
                 row = ctx.reader.prepared.validate_json(
                     "SourceRecord", canonical_bytes(original)

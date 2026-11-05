@@ -713,3 +713,115 @@ def replay_retained_contributions(
             operation["operation_key"] = operation_identity({**operation, "item_key": key})
             batches.append(ContributionBatch((operation,)))
     return ContributionBatch.combine(batches)
+
+
+def replay_historical_contributions(reader, current_view, retained):
+    """Explicit successor derivation, retaining original report and coordinate identities."""
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.contributions import (
+        contribution_identity,
+        occurrence_identity,
+        operation_identity,
+    )
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.record_contracts import anchor_identity
+
+    from .m1_source import configured_pack_variants
+
+    originals = {view.ref.id: view for view in retained.source_views}
+    source_id = retained.result["parse_detail"]["source_pin"]["source_view_id"]
+    detached = SimpleNamespace(prepared=retained.prepared, source_view=originals.__getitem__)
+    config = SimpleNamespace(**retained.configuration)
+    variants = configured_pack_variants(retained.prepared, config)
+    packs = {pack.fingerprint: pack for group in variants.values() for _, _, pack in group}
+    original = replay_retained_contributions(
+        detached,
+        originals[source_id],
+        retained.result,
+        schema_packs=packs,
+        context_bounds=dict(
+            max_chars=config.max_context_chars, max_pieces=config.max_context_pieces, max_sources=16
+        ),
+    )
+    mappings = {}
+    for binding in retained.source_bindings:
+        old = originals[binding["original_source_view_id"]]
+        new = reader.source_view(binding["current_source_view_id"])
+        mappings[old.ref.id] = (
+            record_source_pin(native_source_frame(old, ())),
+            record_source_pin(native_source_frame(new, ())),
+        )
+    if mappings[source_id][1]["source_view_id"] != current_view.ref.id:
+        raise GlinerRefused("historical primary does not correspond to the current source")
+    map_digest = _digest(retained.source_bindings)
+    provenance = (
+        f"retained-task:{retained.task_id}:{retained.body_digest}",
+        "retained-source-map:" + map_digest,
+        "retained-release:" + retained.release_id,
+    )
+    operations, operation_keys = [], {}
+    for old in original.operations:
+        operation: dict[str, Any] = dict(
+            old,
+            retained_task_id=retained.task_id,
+            retained_result_digest=retained.body_digest,
+            retained_source_bindings=retained.source_bindings,
+            computation_dependencies=tuple(
+                sorted(
+                    {
+                        *old["computation_dependencies"],
+                        *provenance,
+                        "predecessor-operation:" + old["operation_key"],
+                    }
+                )
+            ),
+        )
+        operation["operation_key"] = operation_identity(operation)
+        operation_keys[old["operation_key"]] = operation["operation_key"]
+        operations.append(operation)
+
+    def pin(original_pin):
+        pair = mappings.get(original_pin["source_view_id"])
+        if pair is None or pair[0] != original_pin:
+            raise GlinerRefused(
+                "historical contribution has no authenticated source correspondence"
+            )
+        return pair[1]
+
+    identities, rows = {}, []
+    for old in original.contributions:
+        anchors = []
+        for original_anchor in old["anchors"]:
+            anchor: dict[str, Any] = dict(original_anchor, pin=pin(original_anchor["pin"]))
+            anchor["anchor_id"] = anchor_identity(anchor)
+            anchors.append(anchor)
+        row: dict[str, Any] = dict(
+            old,
+            pin=pin(old["pin"]),
+            anchors=tuple(anchors),
+            operation_key=operation_keys[old["operation_key"]],
+            endpoints=tuple(
+                dict(endpoint, contribution_id=identities[endpoint["contribution_id"]])
+                for endpoint in old["endpoints"]
+            ),
+            members=tuple(identities[identity] for identity in old["members"]),
+            computation_dependencies=tuple(
+                sorted(
+                    {
+                        *old["computation_dependencies"],
+                        *provenance,
+                        "predecessor-contribution:" + old["contribution_id"],
+                    }
+                )
+            ),
+        )
+        if anchors:
+            row["occurrence_id"] = occurrence_identity(anchors)
+        row["contribution_id"] = contribution_identity(row)
+        identities[old["contribution_id"]] = row["contribution_id"]
+        rows.append(row)
+    coordinates = tuple(
+        dict(coordinate, pin=pin(coordinate["pin"])) for coordinate in original.coordinate_texts
+    )
+    return ContributionBatch(tuple(operations), tuple(rows), coordinates)

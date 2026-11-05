@@ -275,6 +275,22 @@ class StableObservationReading(ObservationReading, Protocol):
     def input_refs(self) -> tuple[SourceObservationReference, ...]: ...
 
 
+@dataclass(frozen=True)
+class RetainedSourceResult:
+    """Authenticated historical producer input and exact selected-source correspondence."""
+
+    selected_task_id: int
+    task_id: int
+    run_id: int
+    release_id: str
+    body_digest: str
+    prepared: PreparedRelease
+    configuration: Mapping[str, Any]
+    result: Mapping[str, Any]
+    source_views: tuple[PreparedSourceView, ...]
+    source_bindings: tuple[Mapping[str, Any], ...]
+
+
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's selected source views."""
@@ -382,6 +398,12 @@ class SourcePreparationReader(Protocol):
 
     def source_result(self, source_view_id: int, method: str) -> Mapping[str, Any] | None:
         """Read an exact run-selected upstream SourceObservationBatch envelope."""
+        ...
+
+    def retained_source_result(
+        self, source_view_id: int, task_id: int, method: str
+    ) -> RetainedSourceResult:
+        """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
     def source_context_membership(self, source_view_id: int) -> str:

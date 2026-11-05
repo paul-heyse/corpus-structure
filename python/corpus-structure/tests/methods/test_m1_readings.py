@@ -1,5 +1,6 @@
 """Retained-product resolution; controlled extraction is never a native provider pass."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -29,7 +30,7 @@ def retained_fixture(monkeypatch, *, mode="definition"):
         method=producer.name,
         input_hash="retained-input",
         configuration_hash="retained-config",
-        parse_detail=product.parse_detail,
+        parse_detail=json.loads(canonical_bytes(product.parse_detail)),
         records=product.records,
         outcome=product.outcome.value,
     )
@@ -196,4 +197,95 @@ def test_historical_replay_consumes_exact_external_schema_without_reextracting(m
     calls = len(worker.calls)
     (result,) = M1Readings().run((unit,), M1ReadingConfig(retained_schema_packs=packs), ctx)
     assert len(worker.calls) == calls and result.contributions
+    assert result.contribution_operations is not None
     assert all(row["outcome"] in {"succeeded", "empty"} for row in result.contribution_operations)
+
+
+def test_explicit_historical_port_rebinds_new_alias_and_keeps_original_result(monkeypatch):
+    from copy import deepcopy
+    from dataclasses import replace
+    from hashlib import sha256
+
+    from corpus_structure.core.method import RetainedSourceResult
+    from corpus_structure.semantic.source_views import PreparedSourceView
+
+    unit, ctx, upstream, worker = retained_fixture(monkeypatch)
+    old = ctx.reader.source_view(unit.ref.unit_id)
+    current = PreparedSourceView(
+        replace(old.ref, id=70, key="successor:source:70"),
+        old.text,
+        old.pieces,
+        old.items,
+        old.ancestors,
+        old.health,
+    )
+    config = registry(ROOT / "domains/statistics").overlay("extract.m1_candidates", "default")
+    retained = RetainedSourceResult(
+        selected_task_id=37,
+        task_id=37,
+        run_id=14,
+        release_id="archived-release",
+        body_digest=sha256(canonical_bytes(upstream)).hexdigest(),
+        prepared=ctx.reader.prepared,
+        configuration=config.model_dump(mode="python"),
+        result=upstream,
+        source_views=(old,),
+        source_bindings=(
+            dict(
+                original_source_view_id=old.ref.id,
+                current_source_view_id=current.ref.id,
+                original_source=old.ref.key,
+                current_source=current.ref.key,
+                physical_digest="a" * 64,
+            ),
+        ),
+    )
+    ctx.reader.source_view = lambda identity: current
+    ctx.reader.source_result = lambda *_: pytest.fail("historical replay used current upstream")
+    ctx.reader.retained_source_result = lambda source, task, method: retained
+    ctx.reader.source_views = lambda: (current.ref,)
+    unit.ref = UnitRef(TaskUnitType.SOURCE_VIEW, current.ref.id, current.ref.key)
+    cfg = M1ReadingConfig(retained_source_tasks=(37,))
+    assert cfg.source_dependencies == "retained_source_result"
+    frozen, calls = deepcopy(upstream), len(worker.calls)
+    method = M1Readings()
+    assert method.select(SimpleNamespace(reader=ctx.reader), cfg) == (unit.ref,)
+    original_digest = method.input_digest(unit, cfg)
+    (result,) = method.run((unit,), cfg, ctx)
+    assert len(worker.calls) == calls and upstream == frozen
+    assert result.records == () and result.contributions
+    assert all(row["pin"]["source"] == current.ref.key for row in result.contributions)
+    assert all(row["pin"]["source_view_id"] == current.ref.id for row in result.contributions)
+    assert any(
+        "predecessor-contribution:" in dependency
+        for row in result.contributions
+        for dependency in row["computation_dependencies"]
+    )
+    assert result.parse_detail is not None
+    retained_input = result.parse_detail["retained_input"]
+    assert isinstance(retained_input, dict)
+    original_pin = retained_input["original_source_pin"]
+    assert isinstance(original_pin, dict)
+    assert original_pin["source_view_id"] == old.ref.id
+    assert result.contribution_operations is not None
+    assert all(
+        op["retained_task_id"] == 37 and op["retained_result_digest"] == retained.body_digest
+        for op in result.contribution_operations
+    )
+    changed = replace(retained, body_digest="b" * 64)
+    ctx.reader.retained_source_result = lambda *_: changed
+    assert method.input_digest(unit, cfg) != original_digest
+
+
+def test_historical_mode_has_no_implicit_or_ambiguous_fallback(monkeypatch):
+    unit, ctx, _upstream, worker = retained_fixture(monkeypatch)
+    cfg = M1ReadingConfig(retained_source_tasks=(37,))
+    calls = len(worker.calls)
+    ctx.reader.retained_source_result = lambda *_: (_ for _ in ()).throw(
+        ValueError("physical source changed")
+    )
+    with pytest.raises(ValueError, match="physical source changed"):
+        M1Readings().run((unit,), cfg, ctx)
+    assert len(worker.calls) == calls
+    with pytest.raises(ValueError, match="explicit retained"):
+        M1ReadingConfig(source_dependencies="retained_source_result")
