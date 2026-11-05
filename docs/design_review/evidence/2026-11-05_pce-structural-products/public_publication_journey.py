@@ -36,7 +36,7 @@ def main():
             before=dict(conn.execute(text('SELECT * FROM data.project WHERE project_id=:p'),{'p':source['project_id']}).mappings().one())
             dependencies=json.loads(source['dependencies']);dependencies['structural_admission']=witnesses
             binding=OperationBinding(source['release_id'],source['input_realization_id'],source['input_revision'],canonical_bytes(dependencies))
-            run=create_run(conn,project_id=source['project_id'],binding=binding,kind=source['kind'],options={'structural_private':True},code_commit=code_commit(),prepared=prepared,runtime_binding=runtime)
+            run=create_run(conn,project_id=source['project_id'],binding=binding,kind=source['kind'],options={**source['options'],'structural_private':True},code_commit=code_commit(),prepared=prepared,runtime_binding=runtime)
             start_run(conn,run,prepared=prepared)
             tasks=tuple(dict(row) for row in conn.execute(text("SELECT t.* FROM ops.cut_task member JOIN ops.task t ON t.id=member.task_id JOIN ops.completed_result completed ON completed.cut_id=member.cut_id WHERE completed.run_id=:run AND t.unit_type='run' ORDER BY t.id"),{'run':args.producer_run}).mappings())
             selected=[]

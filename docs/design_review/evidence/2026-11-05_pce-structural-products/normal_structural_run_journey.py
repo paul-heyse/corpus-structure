@@ -80,7 +80,7 @@ def main(release: str, attempt: str, existing_runs=()) -> None:
         with engine.begin() as conn:
             runtime_binding = prepare_runtime_binding(prepared)
             persist_runtime_binding(conn, prepared, runtime_binding)
-            joined = create_run(conn, project_id=PROJECT, binding=OperationBinding(release, realization, 0, canonical_bytes({"producer_runs": producer_runs, "frozen_products": [r.product_id for r in reports.values()]})), kind="full", options={"structural_private": True}, code_commit=code_commit(), prepared=prepared, runtime_binding=runtime_binding)
+            joined = create_run(conn, project_id=PROJECT, binding=OperationBinding(release, realization, 0, canonical_bytes({"producer_runs": producer_runs, "frozen_products": [r.product_id for r in reports.values()]})), kind="full", options={"structural_private": True, "domain": "statistics"}, code_commit=code_commit(), prepared=prepared, runtime_binding=runtime_binding)
             start_run(conn, joined, prepared=prepared)
             source_tasks = list(conn.execute(text("SELECT * FROM ops.task WHERE run_id=ANY(:runs) ORDER BY id"), {"runs": producer_runs}).mappings())
             assert len(source_tasks) == 4 and {t['unit_key'] for t in source_tasks} == {r.product_id for r in reports.values()}
