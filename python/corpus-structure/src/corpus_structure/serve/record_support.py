@@ -16,7 +16,6 @@ from sqlalchemy import Connection, and_, or_, select
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.query import (
     Evidence,
     OccurrenceSupport,
@@ -26,7 +25,6 @@ from corpus_structure.semantic.query import (
 )
 from corpus_structure.semantic.record_queries import CompletedRecordProjection, RecordReadLimit
 from corpus_structure.semantic.refusals import SemanticRefusal
-from corpus_structure.serve.export import _json as export_json
 from corpus_structure.serve.record_results import (
     RecordPage,
     RecordRequest,
@@ -89,6 +87,8 @@ class RecordSupportPage(_Ledger):
 
 
 def _transport(value):
+    from corpus_structure.serve.export import _json as export_json
+
     return json.loads(json.dumps(value, default=export_json, ensure_ascii=False, allow_nan=False))
 
 
@@ -121,6 +121,8 @@ class _SupportBudget:
                 raise RecordReadLimit("record support exceeds the requested transfer budget")
 
     def read(self, statement):
+        from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+
         if self.rows <= 0 or self.bytes <= 0:
             raise RecordReadLimit("record support transfer budget exhausted")
         try:

@@ -12,9 +12,25 @@ from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.serve.contributions import ContributionPage, ContributionRequest
 from corpus_structure.serve.record_results import RecordPage, RecordRequest
 from corpus_structure.serve.record_support import RecordSupportPage
+from corpus_structure.serve.structural_products import StructuralPage, StructuralRequest
 
 
 def register_record_tools(server: FastMCP, bound_run: Callable[[Context, int], Any]) -> None:
+    @server.tool(
+        annotations={"readOnlyHint": True}, output_schema=StructuralPage.model_json_schema()
+    )
+    @tool_refusals(ValueError)
+    def structural_products(ctx: Context, request: StructuralRequest) -> ToolResult:
+        """Read pinned cross-source proposals with original citations and explicit unknowns."""
+        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.serve.structural_products import serve_structural_products
+
+        active = bound_run(ctx, request.run_id)
+        with read_snapshot(active.engine) as conn:
+            page = serve_structural_products(conn, request)
+        return _bounded_mcp_result(page, request.max_bytes)
+
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=ContributionPage.model_json_schema()
     )

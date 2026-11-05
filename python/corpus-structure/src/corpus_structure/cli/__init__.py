@@ -21,9 +21,11 @@ from corpus_structure.cli import (
     query,
     records,
     regenerate,
+    review,
     schema,
     source,
     status,
+    structure,
 )
 from corpus_structure.cli import eval as evaluation
 from corpus_structure.cli.planned import Planned
@@ -42,6 +44,8 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     query.register,
     records.register,
     contributions.register,
+    review.register,
+    structure.register,
     explain.register,
     export.register,
     golden.register,
