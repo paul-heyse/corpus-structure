@@ -156,3 +156,44 @@ def test_resolver_decodes_archived_source_product_json_before_completion(monkeyp
     assert upstream["records"] is not None
     assert validated.record_id == upstream["records"][0]["record_id"]
     assert len(worker.calls) == before
+
+
+def test_replay_projects_retained_raw_without_model_and_before_record_filter(monkeypatch):
+    from copy import deepcopy
+
+    unit, ctx, upstream, worker = retained_fixture(monkeypatch)
+    before = deepcopy(upstream)
+    calls = len(worker.calls)
+    # Removing stronger record products cannot remove the returned local parts.
+    upstream["records"] = ()
+    frozen = deepcopy(upstream)
+    (result,) = M1Readings().run((unit,), M1ReadingConfig(), ctx)
+    assert len(worker.calls) == calls and upstream == frozen
+    assert result.records == ()
+    assert result.contributions and result.contribution_operations
+    assert any(row["semantic_type"] == "definition.term" for row in result.contributions)
+    assert all(row["standing"] == "retained_private" for row in result.contributions)
+    assert result.contribution_coordinate_texts
+    assert before["parse_detail"] == upstream["parse_detail"]
+
+
+def test_replay_missing_retained_profile_routes_only_missing_report(monkeypatch):
+    unit, ctx, upstream, worker = retained_fixture(monkeypatch)
+    upstream["parse_detail"]["effective_profiles"] = {}
+    calls = len(worker.calls)
+    (result,) = M1Readings().run((unit,), M1ReadingConfig(), ctx)
+    assert len(worker.calls) == calls
+    assert result.contribution_operations
+    assert all(row["outcome"] == "unsupported" for row in result.contribution_operations)
+    assert any("effective profile" in row["reason"] for row in result.contribution_operations)
+    assert result.contributions == ()
+
+
+def test_historical_replay_consumes_exact_external_schema_without_reextracting(monkeypatch):
+    unit, ctx, upstream, worker = retained_fixture(monkeypatch)
+    packs = upstream["parse_detail"].pop("schema_packs")
+    upstream["parse_detail"].pop("context_manifests")
+    calls = len(worker.calls)
+    (result,) = M1Readings().run((unit,), M1ReadingConfig(retained_schema_packs=packs), ctx)
+    assert len(worker.calls) == calls and result.contributions
+    assert all(row["outcome"] in {"succeeded", "empty"} for row in result.contribution_operations)

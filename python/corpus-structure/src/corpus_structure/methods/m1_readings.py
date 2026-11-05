@@ -38,6 +38,10 @@ class M1ReadingConfig(BaseModel):
     source_dependency_method: Literal["extract.m1_candidates"] = UPSTREAM
     subset: str = Field(default="statistics-m1-source-readings-2", min_length=1)
     feature_instances: tuple[FeatureInstance, ...] = ()
+    # Historical reports may predate in-report schema/context retention. An explicitly
+    # supplied exact declaration/bounds is verified against their retained digests.
+    retained_schema_packs: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    retained_context_bounds: dict[str, int] | None = None
 
     @field_validator("feature_instances", mode="before")
     @classmethod
@@ -87,7 +91,7 @@ def reading_diagnostics(row, details):
 
 class M1Readings:
     name = METHOD
-    version = "1"
+    version = "2"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
@@ -120,11 +124,21 @@ class M1Readings:
             upstream = _upstream(ctx.reader, view)
             digest = sha256(canonical_bytes(upstream)).hexdigest()
             detail = upstream["parse_detail"]
+            from .contribution_adapter import replay_retained_contributions
+
+            contribution_batch = replay_retained_contributions(
+                ctx.reader,
+                view,
+                upstream,
+                schema_packs=cfg.retained_schema_packs,
+                context_bounds=cfg.retained_context_bounds,
+            )
             details: dict[str, Any] = dict(
                 recipe=cfg.recipe,
                 source_pin=detail["source_pin"],
                 raw_candidate_result=dict(
                     method=UPSTREAM,
+                    outcome=upstream["outcome"],
                     input_hash=upstream["input_hash"],
                     configuration_hash=upstream["configuration_hash"],
                     dependency_digest=digest,
@@ -138,9 +152,24 @@ class M1Readings:
                 results.append(
                     UnitResult(
                         ref=unit.ref,
-                        outcome=ObservationOutcome.FAILED,
-                        error="required upstream M1 candidate operation failed",
+                        outcome=ObservationOutcome.PRODUCED
+                        if contribution_batch.contributions
+                        else ObservationOutcome.FAILED,
+                        error=None
+                        if contribution_batch.contributions
+                        else "required upstream M1 candidate operation failed",
                         parse_detail=details,
+                        contributions=contribution_batch.contributions,
+                        contribution_operations=contribution_batch.operations,
+                        contribution_coordinate_texts=contribution_batch.coordinate_texts,
+                        coverage=(
+                            CoverageDraft(
+                                family="retained_contribution_recovery",
+                                scope=view.ref.section_pointer,
+                                outcome="failed",
+                                reason="upstream failed; earlier returned parts remain private",
+                            ),
+                        ),
                     )
                 )
                 continue
@@ -220,10 +249,27 @@ class M1Readings:
             results.append(
                 UnitResult(
                     ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED if records else ObservationOutcome.EMPTY,
+                    outcome=ObservationOutcome.PRODUCED
+                    if records or contribution_batch.contributions
+                    else ObservationOutcome.EMPTY,
                     records=tuple(records),
+                    contributions=contribution_batch.contributions,
+                    contribution_operations=contribution_batch.operations,
+                    contribution_coordinate_texts=contribution_batch.coordinate_texts,
                     parse_detail=details,
                     coverage=(
+                        CoverageDraft(
+                            family="retained_contribution_recovery",
+                            scope=view.ref.section_pointer,
+                            outcome="partial"
+                            if any(
+                                operation["outcome"]
+                                in {"unsupported", "limited", "failed", "not_run"}
+                                for operation in contribution_batch.operations
+                            )
+                            else "complete",
+                            reason="retained report recovery; unavailable inputs are explicit",
+                        ),
                         CoverageDraft(
                             family="reading_resolution",
                             scope=view.ref.section_pointer,

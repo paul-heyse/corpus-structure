@@ -159,11 +159,18 @@ def native_model_observations(
 
     No absent score gets a default. These observations share checkpoint/head/context and
     decoder dependencies; repeated windows do not become independent evidence.
+    This score-only diagnostic is never the inventory of returned local contributions.
     """
     from .record_assembly import native_group_identity
 
     observations = {}
-    for group_index, group in enumerate(report.raw.get(family, ())):
+    raw = report.raw
+    groups = raw.get(family, ()) if isinstance(raw, Mapping) else ()
+    if not isinstance(groups, (list, tuple)):
+        return []  # The contribution adapter retains the unsupported shape and its diagnostic.
+    for group_index, group in enumerate(groups):
+        if not isinstance(group, Mapping):
+            continue
         # Native list order is confidence order, so retain the actually returned position
         # and raw span. Source-order assembly does not rewrite this model observation.
         outputs = (

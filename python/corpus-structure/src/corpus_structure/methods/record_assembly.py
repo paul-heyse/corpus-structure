@@ -28,9 +28,11 @@ from corpus_structure.semantic.record_contracts import (
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
-    NativeSourcePin,
     NativeSpanEvidence,
     SourceInterval,
+    evidence_anchor,
+    native_item_anchor,
+    record_source_pin,
 )
 from corpus_structure.semantic.types import PreparedRelease
 
@@ -325,16 +327,7 @@ def _pin(context: NativeSourceContext) -> dict[str, Any]:
 
 
 def _source_pin(source) -> dict[str, Any]:
-    product = source.native_product
-    return dict(
-        source=source.unit_ref,
-        native_product_task_id=product.task_id,
-        product_key=product.product_key,
-        product_digest=product.content_digest,
-        projection_digest=source.projection_digest,
-        recipe_digest=source.recipe_digest,
-        source_view_id=source.source_view_id,
-    )
+    return record_source_pin(source)
 
 
 def _require_canonical_context(context: NativeSourceContext) -> None:
@@ -342,18 +335,6 @@ def _require_canonical_context(context: NativeSourceContext) -> None:
         context.require_native_projection()
     except ContextRefused as error:
         raise GlinerRefused(str(error)) from error
-
-
-def _native_pointers(context: NativeSourceContext) -> set[str]:
-    native = json.loads(context.primary.native_context)
-    pointers = set()
-    for item in (*native["items"], *native["ancestors"]):
-        pointer = item.get("self_ref", item.get("pointer"))
-        pointers.add(pointer)
-        if isinstance(pointer, str) and re.fullmatch(r"#/tables/(0|[1-9][0-9]*)", pointer):
-            for index, _ in enumerate(item.get("data", {}).get("table_cells", ())):
-                pointers.add(f"{pointer}/data/table_cells/{index}")
-    return pointers
 
 
 def _assemble(
@@ -387,13 +368,7 @@ def _assemble(
             raise GlinerRefused("unsupported producer occurrence policy")
         occurrence_roles = READING_ROLES[family]
     pin = _pin(context)
-    primary_pin = NativeSourcePin.from_source(context.primary)
-    pointers = _native_pointers(context)
     diagnostics: list[AssemblyDiagnostic] = []
-    sources = {
-        source.source_view_id: source
-        for source in (context.primary, *(entry.source for entry in context.related))
-    }
     coordinates: dict[tuple[int, str, str], dict[str, Any]] = {}
     dependencies = {
         "release:" + prepared.release_id,
@@ -431,10 +406,10 @@ def _assemble(
         value_proposals: dict[str, dict[str, Any]] = {}
 
         def native_anchor(pointer: str, _anchors=anchors) -> dict[str, Any]:
-            if pointer not in pointers:
-                raise GlinerRefused("native pointer is outside the explicitly retained source view")
-            row: dict[str, Any] = dict(pin=pin, space="native", pointer=pointer, precision="item")
-            row["anchor_id"] = anchor_identity(row)
+            try:
+                row = native_item_anchor(context, pointer)
+            except ContextRefused as error:
+                raise GlinerRefused(str(error)) from error
             _anchors[row["anchor_id"]] = row
             return row
 
@@ -472,43 +447,13 @@ def _assemble(
                                 "literal fragments require one source-monotone coordinate space"
                             )
                         fragment_source, fragment_end = piece.source, piece.end
-                    piece_source = sources[piece.source.source_view_id]
-                    piece_pin = _source_pin(piece_source)
-                    if piece.source_field not in {None, "text", "orig", "cell_text"}:
-                        raise GlinerRefused(
-                            "alternate/recognized source space is unsupported by this assembler"
-                        )
-                    pointer = json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
-                    if (
-                        piece.cell_index is not None
-                        and piece.source_field == "cell_text"
-                        and re.fullmatch(r"#/tables/(0|[1-9][0-9]*)", pointer)
-                    ):
-                        pointer += f"/data/table_cells/{piece.cell_index}"
-                    row = dict(
-                        pin=piece_pin,
-                        space="selected_projection",
-                        pointer=pointer,
-                        precision="exact",
-                        start=piece.start,
-                        end=piece.end,
-                        source_piece=piece.quote,
-                    )
-                    if piece.source != primary_pin:
-                        row["binding"] = dict(
-                            version=2,
-                            relationship="selected_context",
-                            policy="attributed-selected-source-2",
-                        )
-                    row["anchor_id"] = anchor_identity(row)
+                    try:
+                        row, coordinate = evidence_anchor(context, piece)
+                    except ContextRefused as error:
+                        raise GlinerRefused(str(error)) from error
                     _anchors[row["anchor_id"]] = row
-                    coordinates[(piece.source.source_view_id, "selected_projection", pointer)] = (
-                        dict(
-                            pin=piece_pin,
-                            space="selected_projection",
-                            pointer=pointer,
-                            text=piece_source.text,
-                        )
+                    coordinates[(piece.source.source_view_id, row["space"], row["pointer"])] = (
+                        coordinate
                     )
                     mapped.append(row)
             # A role's ordered source pieces may not overlap or reverse a coordinate.
