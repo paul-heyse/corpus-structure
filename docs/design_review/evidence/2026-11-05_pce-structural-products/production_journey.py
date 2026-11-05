@@ -66,6 +66,17 @@ def freeze(attempt):
     print(json.dumps({'input':str(RAW/f'production-input-{attempt}.json'),'input_digest':inputs.identity,'sources':len(inputs.sources),'passages':len(inputs.passages),'targets':len(target_ids),'producer_executed':False}),flush=True)
 
 
+def refine(attempt,baseline):
+    original=json.loads((RAW/f'production-input-{baseline}.json').read_bytes())
+    inputs=StructuralInput.model_validate(original['inputs'])
+    limit='The NIST normal passage supplies qualitative symmetry/location properties only; it does not establish the density definition, meanings or derivation of mu/sigma, binomial-to-normal parameter mapping, or standard-normal interpretation.'
+    refined=inputs.model_copy(update={'coverage_limits':(*inputs.coverage_limits,limit)})
+    comparison=refined.model_copy(update={'question':original['questions']['comparison'],'policy_id':'source-qualified-literal-fields-1','coverage_limits':(*refined.coverage_limits,'Normal mean-use guidance is conditional on a histogram or normal probability plot indicating good normal approximation. Cauchy is a counter-context to generalization from symmetry alone, not a formal exception within that condition; the passage also says the median remains useful.','Modality retains conditional recommendation versus descriptive usefulness language; neither is an obligation or prohibition.')})
+    output={**original,'inputs':refined.model_dump(mode='json',exclude_none=True),'input_digest':refined.identity,'comparison_inputs':comparison.model_dump(mode='json',exclude_none=True),'comparison_input_digest':comparison.identity,'development_feedback':{'baseline':baseline,'C_sha256':sha256((RAW/'independent-semantic-C-001.md').read_bytes()).hexdigest(),'exposure':'operator-authorized exposed development refinement; no unseen-quality claim'},'producer_executed':False}
+    write(RAW/f'production-input-{attempt}.json',output)
+    print(json.dumps({'input':str(RAW/f'production-input-{attempt}.json'),'input_digest':refined.identity,'comparison_input_digest':comparison.identity,'producer_executed':False,'physical_cohort_unchanged':refined.sources==inputs.sources and refined.passages==inputs.passages}),flush=True)
+
+
 def produce(attempt,replay_from=None):
     import time
     from dataclasses import asdict
@@ -83,7 +94,14 @@ def produce(attempt,replay_from=None):
         original_normal=StructuralProductReport.model_validate_json((RAW/f'production-normal-{replay_from}.json').read_bytes())
         original_mean=StructuralProductReport.model_validate_json((RAW/f'production-mean-{replay_from}.json').read_bytes())
         implementation=json.loads((RAW/f'production-produced-{replay_from}.json').read_bytes())['implementation']
-        normal=replay_source_definition_candidates(original_normal,budget=10,readings=original_normal.definition.readings)
+        if selected.get('development_feedback'):
+            assert original_normal.inputs.sources==inputs.sources and original_normal.inputs.passages==inputs.passages
+            assert original_normal.inputs.inventory_id==inputs.inventory_id
+            original_normal=original_normal.model_copy(update={'inputs':inputs})
+            normal_readings=(DefinitionReading(target_id='nist-normal-location',outcome='applicable_explanation',evidence=('gs-normal-usage','nist-normal-location'),reason='The source explains qualitative normal symmetry and location properties relevant to the invoked distribution. Density, parameter-meaning/linkage and standard-normal support remain explicitly limited in the input coverage.'),)
+        else:
+            normal_readings=original_normal.definition.readings
+        normal=replay_source_definition_candidates(original_normal,budget=10,readings=normal_readings)
         mean=replay_source_definition_candidates(original_mean,budget=10,readings=(DefinitionReading(target_id='nist-mean-definition',outcome='applicable_definition',evidence=('nist-sample-mean-usage','nist-mean-definition'),reason='NIST explicitly names the sample mean in the confidence-limit formula context and separately defines the mean as the sum of data points divided by their count. This does not identify the unknown population mean with its sample estimate.'),))
         assert normal.inputs==inputs and mean.inputs==mean_inputs
         write(RAW/f'production-normal-{attempt}.json',normal.model_dump(mode='json',exclude_none=True))
@@ -96,12 +114,12 @@ def produce(attempt,replay_from=None):
             cached=tuple(EncodedVector(**v) for v in normal.retrieval_report['vectors'])
             mean=retrieve_source_definitions(engine,mean_inputs,usage_id=selected['mean_usage_id'],target_ids=selected['target_ids'],budget=5,channel_budget=11,cached_vectors=cached,readings=(DefinitionReading(target_id='nist-mean-definition',outcome='applicable_definition',evidence=('nist-sample-mean-usage','nist-mean-definition'),reason='NIST explicitly names the sample mean in the confidence-limit formula context and separately defines the mean as the sum of data points divided by their count. This does not identify the unknown population mean with its sample estimate.'),))
             write(RAW/f'production-mean-{attempt}.json',mean.model_dump(mode='json',exclude_none=True))
-    comparison_inputs=inputs.model_copy(update={'question':selected['questions']['comparison'],'policy_id':'source-qualified-literal-fields-1'})
-    left=ClauseReading(passage_id='nist-normal-location',fields=(ClauseField(dimension='condition',lexical_value='For a normal distribution',evidence=('nist-normal-location',)),ClauseField(dimension='object',lexical_value='the mean',evidence=('nist-normal-location',)),ClauseField(dimension='action',lexical_value='use the mean as the location estimator',evidence=('nist-normal-location',))))
-    right=ClauseReading(passage_id='nist-cauchy-exception',fields=(ClauseField(dimension='condition',lexical_value='for the Cauchy distribution',evidence=('nist-cauchy-exception',)),ClauseField(dimension='object',lexical_value='the mean',evidence=('nist-cauchy-exception',)),ClauseField(dimension='action',lexical_value='the mean is useless as a measure of the typical value',evidence=('nist-cauchy-exception',))))
+    comparison_inputs=StructuralInput.model_validate(selected['comparison_inputs']) if 'comparison_inputs' in selected else inputs.model_copy(update={'question':selected['questions']['comparison'],'policy_id':'source-qualified-literal-fields-1'})
+    left=ClauseReading(passage_id='nist-normal-location',fields=(*((ClauseField(dimension='modality',lexical_value='reasonable',evidence=('nist-normal-location',)),) if selected.get('development_feedback') else ()),ClauseField(dimension='condition',lexical_value='if a histogram or normal probability plot indicates that your data are approximated well by a normal distribution' if selected.get('development_feedback') else 'For a normal distribution',evidence=('nist-normal-location',)),ClauseField(dimension='object',lexical_value='the mean',evidence=('nist-normal-location',)),ClauseField(dimension='action',lexical_value='use the mean as the location estimator',evidence=('nist-normal-location',))))
+    right=ClauseReading(passage_id='nist-cauchy-exception',fields=(*((ClauseField(dimension='modality',lexical_value='is useless',evidence=('nist-cauchy-exception',)),) if selected.get('development_feedback') else ()),ClauseField(dimension='condition',lexical_value='for the Cauchy distribution',evidence=('nist-cauchy-exception',)),ClauseField(dimension='object',lexical_value='the mean',evidence=('nist-cauchy-exception',)),ClauseField(dimension='action',lexical_value='the mean is useless as a measure of the typical value',evidence=('nist-cauchy-exception',))))
     comparison=compare_clauses(comparison_inputs,left=left,right=right)
     write(RAW/f'production-comparison-{attempt}.json',comparison.model_dump(mode='json',exclude_none=True))
-    dossier_inputs=inputs.model_copy(update={'question':selected['questions']['dossier'],'policy_id':'explicit-source-membership-1','dependencies':(*inputs.dependencies,mean.product_id,comparison.product_id,normal.product_id),'coverage_limits':(*inputs.coverage_limits,'Membership/roles below are explicitly supplied producer readings, unassessed unless a separate independent group assessment qualifies them. Upstream product references establish traceability, not membership truth.')})
+    dossier_inputs=inputs.model_copy(update={'question':selected['questions']['dossier'],'policy_id':'explicit-source-membership-1','dependencies':(*inputs.dependencies,mean.product_id,comparison.product_id,normal.product_id),'coverage_limits':(*inputs.coverage_limits,"Dossier exception means selected counter-context, not a formal override within normality. missing_sections names member roles absent from this assembly, not topics absent from sources.",'Membership/roles below are explicitly supplied producer readings, unassessed unless a separate independent group assessment qualifies them. Upstream product references establish traceability, not membership truth.')})
     members=[]
     for pid,role,sense,upstream in (('nist-mean-definition','definition','sample-arithmetic-mean',mean.product_id),('nist-normal-location','usage','mean-as-location',comparison.product_id),('nist-cauchy-exception','exception','mean-as-location',comparison.product_id),('gs-normal-usage','unresolved_sense','normal-parameter-context',normal.product_id)):
         meaning=dict(passage_id=pid,role=role,sense=sense,scope=SCOPE,relation_product_id=upstream,qualification='proposed')
@@ -109,7 +127,7 @@ def produce(attempt,replay_from=None):
     dossier=assemble_dossier(dossier_inputs,root_id='provisional-sense:mean-location',members=members)
     write(RAW/f'production-dossier-{attempt}.json',dossier.model_dump(mode='json',exclude_none=True))
     reports=(normal,mean,comparison,dossier)
-    result=dict(outcome='passed',scope='retained actual E5/PostgreSQL score replay and deterministic private composition' if replay_from else 'actual E5/PostgreSQL retrieval and deterministic private structural composition only',quality_claim='not_established',public_admission='not_run',implementation=implementation,profile=asdict(E5),wall_seconds=time.perf_counter()-start,products=[dict(product_id=r.product_id,kind=r.kind,input_digest=r.inputs.identity) for r in reports],source_selection_sha256=sha256((RAW/f'production-input-{attempt}.json').read_bytes()).hexdigest(),producer_readings='Explicitly supplied source interpretations; not independent reference answers or C judgments.',defaults_activated=False,retained_score_replay_from=replay_from,provider_execution='not_run' if replay_from else 'passed')
+    result=dict(outcome='passed',scope='retained actual E5/PostgreSQL score replay and deterministic private composition' if replay_from else 'actual E5/PostgreSQL retrieval and deterministic private structural composition only',quality_claim='not_established',public_admission='not_run',implementation=implementation,profile=asdict(E5),wall_seconds=time.perf_counter()-start,products=[dict(product_id=r.product_id,kind=r.kind,input_digest=r.inputs.identity) for r in reports],source_selection_sha256=sha256((RAW/f'production-input-{attempt}.json').read_bytes()).hexdigest(),producer_readings='Source-grounded development refinements informed by authorized exposed C001 feedback; not independent validation.' if selected.get('development_feedback') else 'Explicitly supplied source interpretations; not independent reference answers or C judgments.',defaults_activated=False,retained_score_replay_from=replay_from,provider_execution='not_run' if replay_from else 'passed')
     write(RAW/f'production-produced-{attempt}.json',result)
     print(json.dumps(result),flush=True)
 
@@ -134,6 +152,15 @@ def persist(attempt,release):
     settings=Settings(); method=StructuralProductsMethod()
     reports=tuple(StructuralProductReport.model_validate_json((RAW/f'production-{name}-{attempt}.json').read_bytes()) for name in ('normal','mean','comparison','dossier'))
     input_realization='pce-structure-input:'+release
+    from corpus_structure.semantic.publication import admit_release
+    from corpus_structure.semantic.authored_sql import has_authored_sql, analyze_archived_sql, admit_archived_sql
+    with open_runtime_engine(settings,'pce10-release-admission',purpose='admit') as admission,admission.begin() as conn:
+        admitted=open_release(conn,release)
+        if has_authored_sql(admitted):
+            with open_runtime_engine(settings,'pce10-archived-sql-analysis',purpose='read') as reader,reader.connect() as source:
+                analyzed=analyze_archived_sql(source,release)
+            admit_archived_sql(conn,release,analyzed=analyzed)
+        admit_release(admitted,connection=conn)
     with open_runtime_engine(settings,'pce10-private-production',purpose='write') as engine:
         with engine.begin() as conn:
             prepared=open_release(conn,release)
@@ -153,6 +180,10 @@ def persist(attempt,release):
             with engine.begin() as conn:
                 config=record_method(conn,method,'three-source-'+str(index),params,key,prepared=prepared)
                 task=create_task(conn,run_id=run,config_id=config,stage='structural',unit_type='run',unit_key=unit_key,input_hash=sha256(method.input_digest(None,cfg).bytes).hexdigest())
+                status=conn.execute(text('SELECT status,reused_task_id FROM ops.task WHERE id=:id'),{'id':task}).mappings().one()
+                if status['status']=='reused':
+                    tasks.append(dict(task_id=task,product_id=report.product_id,reused_task_id=status['reused_task_id']))
+                    continue
                 claim=claim_tasks(conn,run_id=run,config_id=config,holder='pce10-three-source',prepared=prepared)[0]
             ref=UnitRef(TaskUnitType.RUN,unit_key=unit_key)
             result=method.run((SimpleNamespace(ref=ref),),cfg,None)[0]
@@ -163,7 +194,6 @@ def persist(attempt,release):
             tasks.append(dict(task_id=task,product_id=report.product_id,receipt=completion.model_dump(mode='json')))
         with engine.begin() as conn:
             cut=seal_cut(conn,run,'structural-final',final=True)
-            end_source_run(conn,run,prepared=prepared)
         completed=consolidate_cut(engine,cut,f'pce-structure-result:{run}')
         with engine.connect() as conn:
             after=dict(conn.execute(text('SELECT * FROM data.project WHERE project_id=:p'),{'p':PROJECT}).mappings().one())
@@ -173,10 +203,11 @@ def persist(attempt,release):
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('phase',choices=('freeze','produce','persist'));parser.add_argument('--attempt',default='001');parser.add_argument('--release');parser.add_argument('--replay-from');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('phase',choices=('freeze','refine','produce','persist'));parser.add_argument('--attempt',default='001');parser.add_argument('--release');parser.add_argument('--replay-from');args=parser.parse_args()
     if not args.attempt.isdigit():parser.error('attempt must be digits')
     RAW.mkdir(exist_ok=True)
     if args.phase=='freeze':freeze(args.attempt)
+    elif args.phase=='refine':refine(args.attempt,args.replay_from or '004')
     elif args.phase=='produce':produce(args.attempt,args.replay_from)
     else:
         if not args.release:parser.error('persist requires --release')

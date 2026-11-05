@@ -1,25 +1,61 @@
 """Independent structural expectations: unknown is not absence or equivalence."""
+
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from corpus_structure.methods.structural_products import (
-    StructuralProductsConfig, StructuralProductsMethod, assemble_dossier,
-    compare_clauses, definition_applicability,
+    StructuralProductsConfig,
+    StructuralProductsMethod,
+    assemble_dossier,
+    compare_clauses,
+    definition_applicability,
 )
 from corpus_structure.semantic.structural_products import (
-    DIMENSIONS, ClauseField, ClauseReading, DefinitionReading, DossierMember,
-    ExternalSourceRef, StructuralInput, StructuralPassage, source_target,
+    DIMENSIONS,
+    ClauseField,
+    ClauseReading,
+    DefinitionReading,
+    DossierMember,
+    ExternalSourceRef,
+    StructuralInput,
+    StructuralPassage,
+    source_target,
 )
 
 
 def inputs():
-    a = ExternalSourceRef(project_id="book-a", run_id=1, cut_id=1, release_id="release:a", result_revision=1, source_view_id=1, native_task_id=1, native_product_key="document", native_content_digest="a"*64, projection_digest="b"*64, recipe_digest="c"*64, coordinate_version=3)
-    b = a.model_copy(update={"project_id":"book-b", "run_id":2, "source_view_id":2})
-    pa = StructuralPassage(passage_id="a",source_ref=a.identity,start=0,end=5,text="hello",scope="scope")
-    pb = StructuralPassage(passage_id="b",source_ref=b.identity,start=10,end=15,text="world",scope="scope")
-    return StructuralInput(question="compare source clauses",scope="scope",inventory_id="inventory",policy_id="literal-fields-1",sources=(a,b),passages=(pa,pb),dependencies=("input-policy:1",))
+    a = ExternalSourceRef(
+        project_id="book-a",
+        run_id=1,
+        cut_id=1,
+        release_id="release:a",
+        result_revision=1,
+        source_view_id=1,
+        native_task_id=1,
+        native_product_key="document",
+        native_content_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        coordinate_version=3,
+    )
+    b = a.model_copy(update={"project_id": "book-b", "run_id": 2, "source_view_id": 2})
+    pa = StructuralPassage(
+        passage_id="a", source_ref=a.identity, start=0, end=5, text="hello", scope="scope"
+    )
+    pb = StructuralPassage(
+        passage_id="b", source_ref=b.identity, start=10, end=15, text="world", scope="scope"
+    )
+    return StructuralInput(
+        question="compare source clauses",
+        scope="scope",
+        inventory_id="inventory",
+        policy_id="literal-fields-1",
+        sources=(a, b),
+        passages=(pa, pb),
+        dependencies=("input-policy:1",),
+    )
 
 
 def test_original_projects_do_not_collapse_equal_text_and_source_targets_are_attributed():
@@ -29,113 +65,246 @@ def test_original_projects_do_not_collapse_equal_text_and_source_targets_are_att
     assert target.type_name == "source_backed_passage"
     assert target.description == "hello"
     assert target.source_binding.startswith("source-passage:")
-    with pytest.raises(ValueError,match="project_id"):
-        ExternalSourceRef.model_validate({**value.sources[0].model_dump(),"project_id":1})
+    with pytest.raises(ValueError, match="project_id"):
+        ExternalSourceRef.model_validate({**value.sources[0].model_dump(), "project_id": 1})
 
 
 def test_definition_candidates_do_not_imply_support_or_retrieval_miss():
     value = inputs()
-    report = definition_applicability(value,usage_id="a",candidate_list_id="list",eligible_targets=("b",),candidate_targets=("b",),readings=(DefinitionReading(target_id="b",outcome="mention",evidence=("b",),reason="merely mentions the expression"),))
+    report = definition_applicability(
+        value,
+        usage_id="a",
+        candidate_list_id="list",
+        eligible_targets=("b",),
+        candidate_targets=("b",),
+        readings=(
+            DefinitionReading(
+                target_id="b",
+                outcome="mention",
+                evidence=("b",),
+                reason="merely mentions the expression",
+            ),
+        ),
+    )
     assert report.definition is not None
     assert report.definition.readings[0].outcome == "mention"
     assert report.definition.retrieval_diagnosis == "not_independently_assessed"
     assert report.standing == "private_proposal"
-    with pytest.raises(ValueError,match="outside fixed candidate"):
-        definition_applicability(value,usage_id="a",candidate_list_id="list",eligible_targets=("b",),candidate_targets=(),readings=report.definition.readings)
+    with pytest.raises(ValueError, match="outside fixed candidate"):
+        definition_applicability(
+            value,
+            usage_id="a",
+            candidate_list_id="list",
+            eligible_targets=("b",),
+            candidate_targets=(),
+            readings=report.definition.readings,
+        )
 
 
 def test_clause_comparison_preserves_ten_dimensions_and_no_equivalence():
-    value=inputs()
-    left=ClauseReading(passage_id="a",fields=(ClauseField(dimension="modality",lexical_value="must",evidence=("a",)),))
-    right=ClauseReading(passage_id="b",fields=(ClauseField(dimension="modality",lexical_value="may",evidence=("b",)),))
-    report=compare_clauses(value,left=left,right=right)
+    value = inputs()
+    left = ClauseReading(
+        passage_id="a",
+        fields=(ClauseField(dimension="modality", lexical_value="must", evidence=("a",)),),
+    )
+    right = ClauseReading(
+        passage_id="b",
+        fields=(ClauseField(dimension="modality", lexical_value="may", evidence=("b",)),),
+    )
+    report = compare_clauses(value, left=left, right=right)
     assert report.comparison is not None
-    assert tuple(d.dimension for d in report.comparison.dimensions)==DIMENSIONS
-    assert [d.outcome for d in report.comparison.dimensions] == ["unknown","unknown","unknown","different_lexical_value","unknown","unknown","unknown","unknown","unknown","unknown"]
+    assert tuple(d.dimension for d in report.comparison.dimensions) == DIMENSIONS
+    assert [d.outcome for d in report.comparison.dimensions] == [
+        "unknown",
+        "unknown",
+        "unknown",
+        "different_lexical_value",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+    ]
     assert report.comparison.identity_standing == report.comparison.equivalence == "not_asserted"
     assert report.product_id.startswith("structural:")
     with pytest.raises(InterruptedError):
-        compare_clauses(value,left=left,right=right,cancelled=lambda:True)
+        compare_clauses(value, left=left, right=right, cancelled=lambda: True)
 
 
 def test_parent_scope_is_not_normalized_away():
-    value=inputs()
-    value=value.model_copy(update={"passages":(value.passages[0],value.passages[1].model_copy(update={"scope":"other"}))})
-    left=ClauseReading(passage_id="a",fields=(ClauseField(dimension="action",lexical_value="approve",evidence=("a",)),))
-    right=ClauseReading(passage_id="b",fields=(ClauseField(dimension="action",lexical_value="approve",evidence=("b",)),))
-    result = compare_clauses(value,left=left,right=right)
+    value = inputs()
+    value = value.model_copy(
+        update={
+            "passages": (value.passages[0], value.passages[1].model_copy(update={"scope": "other"}))
+        }
+    )
+    left = ClauseReading(
+        passage_id="a",
+        fields=(ClauseField(dimension="action", lexical_value="approve", evidence=("a",)),),
+    )
+    right = ClauseReading(
+        passage_id="b",
+        fields=(ClauseField(dimension="action", lexical_value="approve", evidence=("b",)),),
+    )
+    result = compare_clauses(value, left=left, right=right)
     assert result.comparison is not None
-    assert result.comparison.dimensions[1].outcome=="incompatible_applicability"
+    assert result.comparison.dimensions[1].outcome == "incompatible_applicability"
 
 
 def test_dossier_keeps_all_members_and_mandatory_representatives():
-    value=inputs()
-    members=tuple(DossierMember(member_id=str(i),passage_id="a" if i%2==0 else "b",role="exception" if i<3 else "usage",sense="sense",scope="scope",relation_product_id="relation:"+str(i)) for i in range(7))
-    report=assemble_dossier(value,root_id="sense",members=members)
+    value = inputs()
+    members = tuple(
+        DossierMember(
+            member_id=str(i),
+            passage_id="a" if i % 2 == 0 else "b",
+            role="exception" if i < 3 else "usage",
+            sense="sense",
+            scope="scope",
+            relation_product_id="relation:" + str(i),
+        )
+        for i in range(7)
+    )
+    report = assemble_dossier(value, root_id="sense", members=members)
     assert report.dossier is not None
-    assert len(report.dossier.members)==7
-    assert set(report.dossier.representatives)>={"0","1","2"}
-    assert len(report.dossier.representatives)==4
+    assert len(report.dossier.members) == 7
+    assert set(report.dossier.representatives) >= {"0", "1", "2"}
+    assert len(report.dossier.representatives) == 4
     assert "definition" in report.dossier.missing_sections
-    assert report==assemble_dossier(value,root_id="sense",members=tuple(reversed(members)))
-    with pytest.raises(ValueError,match="independent assessment"):
-        DossierMember.model_validate({**members[0].model_dump(),"qualification":"independently_supported"})
+    assert report == assemble_dossier(value, root_id="sense", members=tuple(reversed(members)))
+    with pytest.raises(ValueError, match="independent assessment"):
+        DossierMember.model_validate(
+            {**members[0].model_dump(), "qualification": "independently_supported"}
+        )
 
 
 def test_run_method_and_released_report_roundtrip():
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.observations import bind_result, observation_inputs
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
-    value=inputs()
-    report=assemble_dossier(value,root_id="sense",members=())
-    cfg=StructuralProductsConfig(report=report,structural_input_digest=value.identity)
-    method=StructuralProductsMethod()
-    ref=UnitRef(TaskUnitType.RUN,unit_key="run")
-    result=method.run((SimpleNamespace(ref=ref),),cfg,None)[0]
-    path=Path(__file__).parents[2]/"src/corpus_structure/model/semantic/core.yaml"
-    prepared=prepare_release(observation_inputs(SourceBundle("core",(SourceArtifact("core",path.read_bytes()),))))
-    bound=bind_result(prepared,source="run",method=method.name,operation_version=method.version,configuration_hash="config",input_hash="input",invocation_key="invocation",result=result)
-    payload=bound.model_dump(mode="json")
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.observations import bind_result, observation_inputs
+
+    value = inputs()
+    report = assemble_dossier(value, root_id="sense", members=())
+    cfg = StructuralProductsConfig(report=report, structural_input_digest=value.identity)
+    method = StructuralProductsMethod()
+    ref = UnitRef(TaskUnitType.RUN, unit_key="run")
+    result = method.run((SimpleNamespace(ref=ref),), cfg, None)[0]
+    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    prepared = prepare_release(
+        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
+    )
+    bound = bind_result(
+        prepared,
+        source="run",
+        method=method.name,
+        operation_version=method.version,
+        configuration_hash="config",
+        input_hash="input",
+        invocation_key="invocation",
+        result=result,
+    )
+    payload = bound.model_dump(mode="json")
     assert "records" not in payload
-    assert payload["structural_product"]["kind"]=="dossier"
+    assert payload["structural_product"]["kind"] == "dossier"
     from corpus_structure.semantic.structural_products import StructuralProductReport
-    roundtrip=StructuralProductReport.model_validate(payload["structural_product"])
-    assert roundtrip.product_id==report.product_id
-    assert roundtrip.inputs.identity==value.identity
-    assert method.select(None,StructuralProductsConfig())==[]
+
+    roundtrip = StructuralProductReport.model_validate(payload["structural_product"])
+    assert roundtrip.product_id == report.product_id
+    assert roundtrip.inputs.identity == value.identity
+    assert method.select(None, StructuralProductsConfig()) == []
 
 
 def test_retained_numeric_retrieval_json_binds_through_released_adapter():
     import json
-    from corpus_structure.methods.contextual_embeddings import E5, EncodedVector, identity
-    from corpus_structure.methods.structural_retrieval import source_definition_inventory
-    from corpus_structure.semantic.contextual_retrieval import ChannelHit, fuse_candidates
-    from corpus_structure.semantic.contextual_storage import enrichment_report
-    from corpus_structure.semantic.structural_products import StructuralProductReport
+
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.methods.contextual_embeddings import E5, EncodedVector, identity
+    from corpus_structure.methods.structural_retrieval import source_definition_inventory
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.contextual_retrieval import ChannelHit, fuse_candidates
+    from corpus_structure.semantic.contextual_storage import enrichment_report
     from corpus_structure.semantic.observations import bind_result, observation_inputs
-    value=inputs()
-    inventory=source_definition_inventory(value,target_ids=('b',))
-    value=value.model_copy(update={'inventory_id':inventory.inventory_id})
-    target=inventory.targets[0]
-    def vector(object_id,source,representation=''):
-        arguments=[object_id,source,E5.profile_id,'d'*64,representation]
-        return EncodedVector(identity('context-vector',arguments),object_id,source,E5.profile_id,'d'*64,(1.0,)+(0.0,)*(E5.dimension-1),representation)
-    query=vector('a','source-a');tv=vector('b',target.source_binding,target.representation_digest)
-    candidates=fuse_candidates(occurrence_id='a',query=query,inventory=inventory,channels={'dense':(ChannelHit('b',0.5),),'lexical':(),'alias':()},budget=1,channel_budget=1,lexical_query='hello')
-    raw=enrichment_report(profiles=(E5,),vectors=(query,tv),inventories=(inventory,),candidate_lists=(candidates,))
-    report=definition_applicability(value,usage_id='a',candidate_list_id=candidates.list_id,eligible_targets=('b',),candidate_targets=('b',),readings=())
-    report=StructuralProductReport.model_validate_json(json.dumps({**report.model_dump(mode='json',exclude_none=True),'retrieval_report':raw}))
-    cfg=StructuralProductsConfig(report=report,structural_input_digest=value.identity)
-    ref=UnitRef(TaskUnitType.RUN,unit_key='run')
-    result=StructuralProductsMethod().run((SimpleNamespace(ref=ref),),cfg,None)[0]
-    path=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
-    prepared=prepare_release(observation_inputs(SourceBundle('core',(SourceArtifact('core',path.read_bytes()),))))
-    bound=bind_result(prepared,source='run',method='structure.products',operation_version='1',configuration_hash='config',input_hash='input',invocation_key='invocation',result=result)
-    reopened=StructuralProductReport.model_validate(bound.model_dump(mode='json')['structural_product'])
-    assert reopened.product_id==report.product_id
-    assert reopened.retrieval_report['vectors'][0]['values'][:2]==[1.0,0.0]
-    assert reopened.definition is not None and reopened.definition.candidate_targets==('b',)
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    value = inputs()
+    inventory = source_definition_inventory(value, target_ids=("b",))
+    value = value.model_copy(update={"inventory_id": inventory.inventory_id})
+    target = inventory.targets[0]
+
+    def vector(object_id, source, representation=""):
+        arguments = [object_id, source, E5.profile_id, "d" * 64, representation]
+        return EncodedVector(
+            identity("context-vector", arguments),
+            object_id,
+            source,
+            E5.profile_id,
+            "d" * 64,
+            (1.0,) + (0.0,) * (E5.dimension - 1),
+            representation,
+        )
+
+    query = vector("a", "source-a")
+    tv = vector("b", target.source_binding, target.representation_digest)
+    candidates = fuse_candidates(
+        occurrence_id="a",
+        query=query,
+        inventory=inventory,
+        channels={"dense": (ChannelHit("b", 0.5),), "lexical": (), "alias": ()},
+        budget=1,
+        channel_budget=1,
+        lexical_query="hello",
+    )
+    raw = enrichment_report(
+        profiles=(E5,), vectors=(query, tv), inventories=(inventory,), candidate_lists=(candidates,)
+    )
+    report = definition_applicability(
+        value,
+        usage_id="a",
+        candidate_list_id=candidates.list_id,
+        eligible_targets=("b",),
+        candidate_targets=("b",),
+        readings=(),
+    )
+    report = StructuralProductReport.model_validate_json(
+        json.dumps({**report.model_dump(mode="json", exclude_none=True), "retrieval_report": raw})
+    )
+    cfg = StructuralProductsConfig(report=report, structural_input_digest=value.identity)
+    ref = UnitRef(TaskUnitType.RUN, unit_key="run")
+    result = StructuralProductsMethod().run((SimpleNamespace(ref=ref),), cfg, None)[0]
+    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    prepared = prepare_release(
+        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
+    )
+    bound = bind_result(
+        prepared,
+        source="run",
+        method="structure.products",
+        operation_version="1",
+        configuration_hash="config",
+        input_hash="input",
+        invocation_key="invocation",
+        result=result,
+    )
+    reopened = StructuralProductReport.model_validate(
+        bound.model_dump(mode="json")["structural_product"]
+    )
+    assert reopened.product_id == report.product_id
+    assert reopened.retrieval_report is not None
+    assert reopened.retrieval_report["vectors"][0]["values"][:2] == [1.0, 0.0]
+    assert reopened.definition is not None and reopened.definition.candidate_targets == ("b",)
+    from copy import deepcopy
+
+    from corpus_structure.methods.structural_retrieval import replay_source_definition_candidates
+
+    replayed = replay_source_definition_candidates(reopened, budget=1)
+    assert replayed.product_id == reopened.product_id
+    tampered = deepcopy(reopened.model_dump(mode="python"))
+    tampered["retrieval_report"]["candidate_lists"][0]["channel_results"][1]["hits"][0]["score"] = (
+        0.25
+    )
+    with pytest.raises(ValueError, match="reconstruct predecessor"):
+        replay_source_definition_candidates(
+            StructuralProductReport.model_validate(tampered), budget=1
+        )
