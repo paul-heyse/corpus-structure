@@ -59,6 +59,19 @@ def read_source_contributions(
         table("ops.method"),
     )
     run = table("ops.run")
+    actual_release = conn.scalar(select(run.c.release_id).where(run.c.id == run_id))
+    if actual_release != prepared.release_id:
+        raise ValueError("contribution run differs from the requested release")
+    if source_view_id is not None:
+        membership = table("ops.run_source_view")
+        if not conn.scalar(
+            select(
+                exists().where(
+                    membership.c.run_id == run_id, membership.c.source_view_id == source_view_id
+                )
+            )
+        ):
+            raise ValueError("contribution source view is outside the selected run")
     query = (
         select(
             selected.c.id.label("selected_task_id"),
