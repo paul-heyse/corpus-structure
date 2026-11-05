@@ -63,3 +63,12 @@ The [M1 target-design review](m1-target-design_2026-11-03.md) develops O01–O07
 five-family CPU-first release and stages O08–O11 as conditional or broader opportunities.
 The [target package](../target-pipeline-design/README.md) holds the integrated detailed proposal.
 These documents establish neither accepted implementation scope nor runtime qualification.
+
+## Progressive corpus enrichment — 2026-11-04
+
+The [progressive enrichment review](progressive-corpus-enrichment_2026-11-04.md) develops the
+operator-selected revised target: independently retained structural contributions, operation-level
+assessment and paired diffs, mathematical interpretation, parsing composition, contextual concept
+linking and source-grounded dossiers. O01–O10 retain concrete mechanisms and proposed rule impacts.
+The bounded retained-table comparison shows correct local structure inside unaccepted whole readings.
+The review does not update active plans, change runtime contracts or resume stopped M1 execution.

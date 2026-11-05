@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "id": "m1.retained-table-contributions",
+  "title": "Correct local table contributions within unaccepted whole readings",
+  "group": "M1",
+  "package": "M1-13",
+  "finalized": "2026-11-04",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which correct partial source-reading contributions survive inside the80unaccepted development table-occurrence matches?",
+  "answers": [
+    "progressive-corpus-enrichment O01",
+    "progressive-corpus-enrichment O02"
+  ],
+  "method": "One narrow normal-reader task37/run14 capture and detached comparison against immutable independently authored feature-fit C24; existing role/evidence semantics compared without new protected grade, fitting or admission.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-04_progressive-enrichment-review/compare_retained_tables.py --capture",
+    "uv run python docs/design_review/evidence/2026-11-04_progressive-enrichment-review/compare_retained_tables.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_retained_tables.py",
+      "role": null,
+      "sha256": "d84e3b55dbf14a44e2a99161ffdcbee0dfbf44530f5a4947dfb631032b8af9e1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/task37-table-candidates.json",
+      "role": null,
+      "sha256": "2f6579c3d3adcc135a7737e883ba5b70e5f9377fe375bbcd80f56065a1af05a8"
+    },
+    {
+      "path": "raw/comparison-001.json",
+      "role": null,
+      "sha256": "740aa90b64440d0c7d1516113dd06cad9cc8a5dc5de688ba75389ccaa66c7ff6"
+    },
+    {
+      "path": "raw/capture-001-executed.py.txt",
+      "role": null,
+      "sha256": "d84e3b55dbf14a44e2a99161ffdcbee0dfbf44530f5a4947dfb631032b8af9e1"
+    },
+    {
+      "path": "raw/comparison-001-executed.py.txt",
+      "role": null,
+      "sha256": "d84e3b55dbf14a44e2a99161ffdcbee0dfbf44530f5a4947dfb631032b8af9e1"
+    },
+    {
+      "path": "raw/capture-001.log",
+      "role": null,
+      "sha256": "15558e10b7005a1e47df5b29f6ac191f22d872a05aa1321f07333d9ad492adae"
+    },
+    {
+      "path": "raw/comparison-001.log",
+      "role": null,
+      "sha256": "1a5f386a935e90b82b4e3aa8e505d434617adbb47810ca0c6d423c78fb0bb396"
+    }
+  ],
+  "depends_on": [
+    "2026-11-04_m1-independent-assessment/m1.development-grade14",
+    "2026-11-04_m1-training-alignment/m1.feature-fit-alignment3"
+  ],
+  "results": [
+    {
+      "name": "Reference table occurrences",
+      "value": 80,
+      "of": null,
+      "unit": "occurrences",
+      "note": null
+    },
+    {
+      "name": "Table candidate interpretations",
+      "value": 182,
+      "of": null,
+      "unit": "interpretations",
+      "note": null
+    },
+    {
+      "name": "Occurrence-matched candidate interpretations",
+      "value": 80,
+      "of": null,
+      "unit": "interpretations",
+      "note": null
+    },
+    {
+      "name": "Unmatched table candidate interpretations",
+      "value": 102,
+      "of": null,
+      "unit": "interpretations",
+      "note": null
+    },
+    {
+      "name": "caption reading agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "caption evidence agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "cell reading agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "cell evidence agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "cell_value reading agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "cell_value evidence agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "header_path reading agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "header_path evidence agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "note reading agreement",
+      "value": 0,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "note evidence agreement",
+      "value": 0,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "row_label reading agreement",
+      "value": 0,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "row_label evidence agreement",
+      "value": 0,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "table reading agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "table evidence agreement",
+      "value": 80,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "unit reading agreement",
+      "value": 0,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    },
+    {
+      "name": "unit evidence agreement",
+      "value": 0,
+      "of": 80,
+      "unit": "matched candidates",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Within80occurrence-matched table candidates out of182table interpretations, all80agree with frozen C24 in table/cell locations,header_path,cell_value,caption role semantics and evidence; all80differ in row_label,unit,note. Correct native structural contributions remain in candidate records; they are not GLiNER success or accepted facts. Existing not_run policy events retained. This is detached finite-case reference agreement, not a new protected grade, standalone operation accuracy, calibration or whole-M1 qualification. Earlier interactive whole-reading refusal and interrupted SELECT remain separately reported observations.",
+  "consumed_by": [
+    "progressive-corpus-enrichment O01",
+    "progressive-corpus-enrichment O02",
+    "progressive-corpus-enrichment O08",
+    "M1-13"
+  ]
+}

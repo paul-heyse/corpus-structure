@@ -1,0 +1,14 @@
+{% set gid = '2026-11-04_progressive-enrichment-review/m1.retained-table-contributions' %}
+{% set provenance = record(gid) %}
+# Retained table contribution agreement
+
+Generated from the finalized evidence record. Scope: occurrence-matched run14 development
+candidates compared with independently authored frozen C24; no new grade or admission.
+
+| Role | Reading agreement | Evidence agreement |
+|---|---:|---:|
+{% for role in ['table', 'cell', 'header_path', 'cell_value', 'caption', 'row_label', 'unit', 'note'] %}
+| {{ role }} | {{ num(value('SELECT value_num FROM record_results WHERE gid=$g AND name=$n', g=gid, n=role+' reading agreement'), 0) }}/{{ num(value('SELECT "of" FROM record_results WHERE gid=$g AND name=$n', g=gid, n=role+' reading agreement'), 0) }} | {{ num(value('SELECT value_num FROM record_results WHERE gid=$g AND name=$n', g=gid, n=role+' evidence agreement'), 0) }}/{{ num(value('SELECT "of" FROM record_results WHERE gid=$g AND name=$n', g=gid, n=role+' evidence agreement'), 0) }} |
+{% endfor %}
+
+Unmatched table candidate interpretations remain outside these agreement denominators.
