@@ -414,4 +414,12 @@ def test_actual_blank_native_cell_retains_inspection_subject_without_text_occurr
     assert cell["anchors"][0]["pointer"] == "#/tables/0/data/table_cells/0"
     assert cell["anchors"][0]["precision"] == "item"
     assert all(name not in cell["anchors"][0] for name in ("start", "end", "source_piece"))
-    assert not any(row["kind"] == "occurrence" for row in batch.contributions)
+    assert cell["endpoints"] == ()
+    # The group also exposes the actual native cell object. Its structural
+    # occurrence is valid, while no located textual value is manufactured.
+    assert all(
+        anchor["precision"] == "item" and "source_piece" not in anchor
+        for row in batch.contributions
+        if row["kind"] == "occurrence"
+        for anchor in row["anchors"]
+    )

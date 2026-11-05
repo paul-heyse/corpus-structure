@@ -387,8 +387,11 @@ def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessm
             anchor_scopes=(scope,),
             include_details=True,
         )
-    assert len(inventory.contributions) == 1
-    proposal = inventory.contributions[0]
+    proposal = next(
+        value
+        for value in inventory.contributions
+        if value["kind"] == "proposal" and value["semantic_type"] == "table.cell_value"
+    )
     assert (
         proposal["source_field_state"] == "unstated"
         and proposal["anchor_role"] == "inspection_subject"
@@ -411,6 +414,7 @@ def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessm
     expected = OperationCase(
         case_id="blank-value",
         facet="source_field_state",
+        candidate_selector={"semantic_type": "table.cell_value"},
         anchor_ids=frame.anchor_ids,
         inspected_scope="table/cell/2",
         source_state="unstated",
