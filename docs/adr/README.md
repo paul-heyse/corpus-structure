@@ -43,6 +43,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0060](0060-m1-reference-applicability.md) | Preserve source-reference provenance across compatible execution successors | 2026-11-04 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0057](0057-m1-retained-reading-execution.md) |
 | [ADR-0061](0061-m1-native-record-frontends.md) | Qualify native fragment and latent record frontends for M1 | 2026-11-04 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0062](0062-progressive-contributions.md) | Retain and assess independent structural contributions through existing operations | 2026-11-05 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0053](0053-m1-sol-reference-assessment.md) |
+| [ADR-0063](0063-semantic-runtime-identity.md) | Semantic releases retain data meaning while immutable runtimes pin execution provenance | 2026-11-05 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

@@ -230,9 +230,11 @@ def _qualified_inputs(
     return sources
 
 
-def installed_runtime_id(prepared: PreparedRelease) -> str:
+def installed_runtime_id(
+    prepared: PreparedRelease, inputs: tuple[SourceArtifact, ...] | None = None
+) -> str:
     """Check execution compatibility without rendering or hydrating its source archive again."""
-    manifest = _manifest(prepared, _qualified_inputs(prepared), python_version=sys.version)
+    manifest = _manifest(prepared, _qualified_inputs(prepared, inputs), python_version=sys.version)
     return "runtime:" + sha256(manifest).hexdigest()
 
 
@@ -245,12 +247,12 @@ def prepare_runtime_binding(
 def require_installed_runtime(
     prepared: PreparedRelease, binding: RuntimeBinding | None = None
 ) -> RuntimeBinding:
-    current = prepare_runtime_binding(prepared)
     if binding is not None:
         validate_runtime_binding(binding, prepared)
-        if binding != current:
+        if binding.runtime_id != installed_runtime_id(prepared):
             raise RuntimeBindingError("installed runtime differs from the archived execution pin")
-    return current
+        return binding
+    return prepare_runtime_binding(prepared)
 
 
 def legacy_runtime_binding(

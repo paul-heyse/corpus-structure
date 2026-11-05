@@ -468,7 +468,7 @@ def _semantic_implementation_digests():
 
 def _analysis_runtime(prepared: PreparedRelease | None):
     from .runtime_bindings import (
-        require_installed_runtime,
+        installed_runtime_id,
         runtime_fingerprint,
         runtime_implementation_digests,
     )
@@ -476,8 +476,10 @@ def _analysis_runtime(prepared: PreparedRelease | None):
     if prepared is None:
         digests = runtime_implementation_digests()
         return digests, runtime_fingerprint(digests=digests)
-    runtime = require_installed_runtime(prepared)
-    return runtime.implementation_digests, runtime.runtime_id
+    from .contracts import analysis_implementation_inputs
+
+    inputs = analysis_implementation_inputs()
+    return runtime_implementation_digests(inputs), installed_runtime_id(prepared, inputs)
 
 
 @lru_cache(maxsize=1)
