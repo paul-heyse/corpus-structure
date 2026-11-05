@@ -305,9 +305,14 @@ def bind_result(
             raise ValueError("structural products require a produced RUN result")
         from .structural_products import StructuralProductReport
 
-        payload["structural_product"] = StructuralProductReport.model_validate(
+        structural = StructuralProductReport.model_validate(
             result.structural_product
         ).model_dump(mode="python", exclude_none=True)
+        if "retrieval_report" in structural:
+            structural["retrieval_report"] = prepared.validate_json(
+                "ContextualEnrichmentReport", canonical_bytes(structural["retrieval_report"])
+            ).model_dump(mode="python")
+        payload["structural_product"] = structural
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)
     payload["measurements"] = tuple(

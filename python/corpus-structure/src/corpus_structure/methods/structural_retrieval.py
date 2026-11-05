@@ -69,3 +69,39 @@ def source_definition_inventory(inputs: StructuralInput, *, target_ids: Sequence
     targets = tuple(source_target(passages[t]) for t in target_ids)
     selection = identity("source-definition-selection", [asdict(t) for t in targets])
     return freeze_inventory(targets, source_selection=selection, scope=inputs.scope, effective_version=effective_version)
+
+
+def replay_source_definition_candidates(report: StructuralProductReport, *, budget: int, readings: Sequence[DefinitionReading] = ()) -> StructuralProductReport:
+    """Refuse new channel work; re-fuse a retained exact source inventory/list.
+
+    The result is a new candidate-list/product identity. Original raw scores,
+    vectors and source-first population remain unchanged. This is not a new
+    encoder/provider execution or a claim of independent semantic quality.
+    """
+    from corpus_structure.methods.contextual_embeddings import EncodedVector
+    from corpus_structure.semantic.contextual_retrieval import ChannelHit, TargetRepresentation, fuse_candidates
+    if report.definition is None or report.retrieval_report is None:
+        raise ValueError("candidate replay requires retained source definition retrieval")
+    raw=report.retrieval_report
+    if len(raw['profiles'])!=1 or raw['profiles'][0]['profile_id']!=E5.profile_id:
+        raise ValueError("candidate replay requires the selected E5 source profile")
+    previous=next(c for c in raw['candidate_lists'] if c['list_id']==report.definition.candidate_list_id)
+    selected=next(i for i in raw['inventories'] if i['inventory_id']==previous['inventory_id'])
+    targets=tuple(TargetRepresentation(**{**t,'aliases':tuple(t.get('aliases',()))}) for t in selected['targets'])
+    inventory=freeze_inventory(targets,source_selection=selected['source_selection'],scope=selected['scope'],effective_version=selected.get('effective_version'),reliable_type=selected.get('reliable_type'),parent=selected.get('parent'))
+    if inventory.inventory_id!=selected['inventory_id'] or inventory.inventory_id!=report.inputs.inventory_id:
+        raise ValueError("retained candidate inventory differs from frozen input")
+    vectors=tuple(EncodedVector(**{**v,'values':tuple(v['values'])}) for v in raw['vectors'])
+    query=next(v for v in vectors if v.vector_id==previous['query_vector_id'])
+    channels={c['channel']:tuple(ChannelHit(h['target_id'],h['score'],tuple(h.get('evidence',()))) for h in c['hits']) for c in previous['channel_results']}
+    candidates=fuse_candidates(occurrence_id=previous['occurrence_id'],query=query,inventory=inventory,channels=channels,budget=budget,channel_budget=previous['channel_budget'],lexical_query=previous['lexical_query'])
+    # Verify that reconstructing the predecessor preserves its full intrinsic ID.
+    old=fuse_candidates(occurrence_id=previous['occurrence_id'],query=query,inventory=inventory,channels=channels,budget=previous['unique_target_budget'],channel_budget=previous['channel_budget'],lexical_query=previous['lexical_query'])
+    if old.list_id!=previous['list_id']:
+        raise ValueError("retained channel scores do not reconstruct predecessor list")
+    updated=enrichment_report(profiles=(E5,),vectors=vectors,inventories=(inventory,),candidate_lists=(candidates,))
+    available=tuple(c.target_id for c in candidates.candidates)
+    if len({r.target_id for r in readings})!=len(readings) or not {r.target_id for r in readings}<=set(inventory.target_ids):
+        raise ValueError("replayed source readings differ from target inventory")
+    result=definition_applicability(report.inputs,usage_id=report.definition.usage_id,candidate_list_id=candidates.list_id,eligible_targets=inventory.target_ids,candidate_targets=available,readings=tuple(r for r in readings if r.target_id in available),inventory_gap=report.definition.inventory_coverage=='known_gap')
+    return StructuralProductReport.model_validate({**result.model_dump(mode='python'),'retrieval_report':updated})
