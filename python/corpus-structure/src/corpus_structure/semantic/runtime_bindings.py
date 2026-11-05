@@ -60,7 +60,7 @@ def runtime_fingerprint(
 def _document(content: bytes, keys: set[str]) -> dict[str, Any]:
     try:
         value = json.loads(content)
-    except (ValueError, UnicodeError) as error:
+    except ValueError as error:
         raise RuntimeBindingError("runtime archive is not JSON") from error
     if not isinstance(value, dict) or set(value) != keys or canonical_bytes(value) != content:
         raise RuntimeBindingError("runtime archive has a noncanonical or unsupported shape")

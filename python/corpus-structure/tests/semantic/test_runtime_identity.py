@@ -4,7 +4,6 @@ import json
 from dataclasses import replace
 
 import pytest
-from semantic.test_execution_release import _bundle
 
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.contracts import (
@@ -22,6 +21,7 @@ from corpus_structure.semantic.runtime_bindings import (
     validate_runtime_binding,
 )
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from semantic.test_execution_release import _bundle
 
 
 @pytest.fixture(scope="module")

@@ -101,7 +101,10 @@ def test_retained_report_and_native_source_keep_their_budget_scope(monkeypatch, 
 
     monkeypatch.setattr(PublishedReadBudget, "preflight", admit)
     reader = BoundReader(
-        conn, 99, Mock(spec=PreparedRelease, release_id="current-release"), read_budget=caller_budget
+        conn,
+        99,
+        Mock(spec=PreparedRelease, release_id="current-release"),
+        read_budget=caller_budget,
     )
     result = reader.retained_source_result(current_view.ref.id, 37, "extract.m1_candidates")
     assert result.result["input_hash"] == "retained-input"
