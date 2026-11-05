@@ -2,7 +2,7 @@
 
 import json
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import pytest
 from evaluate.test_record_references_native import create_case, expected_reading, native_pass
@@ -135,7 +135,7 @@ def freeze(conn, case, partition="development"):
         cases=[asdict(expected)],
         adjudication_passes=[],
     )
-    return created, unit, frame, payload
+    return created, unit, frame, json.loads(json.dumps(payload))
 
 
 def test_native_source_only_passes_and_protected_inventory(
@@ -297,7 +297,7 @@ def test_native_exact_field_projection_authenticates_subject_map_and_alternative
             select(passes.c.pass_kind).where(passes.c.unit_id == derived_unit)
         ).scalars().all() == ["C"]
         assert derived_id is not None
-        mixed = deepcopy(derived)
+        mixed = json.loads(json.dumps(derived))
         mixed["cases"].append(
             dict(payload["cases"][0], case_id="unproved-new-case", reference_projection=None)
         )
@@ -352,20 +352,18 @@ def test_native_exact_field_projection_authenticates_subject_map_and_alternative
             source_piece="12",
         )
         anchor["anchor_id"] = anchor_identity(anchor)
-        foreign = OperationEvaluationFrame(
-            **dict(
-                asdict(frame),
-                unit=other["key"],
-                pin=pin,
-                anchor_ids=(anchor["anchor_id"],),
-                anchor_scopes=(
-                    {
-                        key: value
-                        for key, value in anchor.items()
-                        if key not in {"anchor_id", "source_piece"}
-                    },
-                ),
-            )
+        foreign = replace(
+            frame,
+            unit=other["key"],
+            pin=pin,
+            anchor_ids=(anchor["anchor_id"],),
+            anchor_scopes=(
+                {
+                    key: value
+                    for key, value in anchor.items()
+                    if key not in {"anchor_id", "source_piece"}
+                },
+            ),
         )
         created = create_reference_set(
             conn,
