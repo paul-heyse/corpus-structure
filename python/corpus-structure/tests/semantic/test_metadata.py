@@ -147,7 +147,13 @@ def test_all_data_children_are_pinned_to_the_realization_release() -> None:
             if item.name == "record_assertion_support":
                 # Support inherits scope through its complete required assertion identity.
                 # A nullable FK would permit an unbound row under MATCH SIMPLE.
-                identity = ("realization_id", "release_id", "record_id", "interpretation_id", "role")
+                identity = (
+                    "realization_id",
+                    "release_id",
+                    "record_id",
+                    "interpretation_id",
+                    "role",
+                )
                 assert all(not item.c[column].nullable for column in identity)
                 assert (
                     identity,
