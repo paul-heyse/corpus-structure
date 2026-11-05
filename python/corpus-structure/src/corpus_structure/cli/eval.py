@@ -24,15 +24,15 @@ def evaluate(
     json: JsonOpt = False,
 ):
     """Persist core, qualified-full and evidence P/R/F1 with exact pass-C snapshots."""
-    from corpus_structure.evaluate import record_references, semantic
+    from corpus_structure.evaluate import operation_assessment, record_references, semantic
 
     with reference_session(ctx, project, json=json) as (conn, pid):
         protocol = reference_protocol(conn, set_id, pid)
-        evaluator = (
-            record_references.reference_evaluate
-            if protocol == record_references.PROTOCOL
-            else semantic.reference_evaluate
-        )
+        evaluator = {
+            operation_assessment.PROTOCOL: operation_assessment.reference_evaluate,
+            record_references.PROTOCOL: record_references.reference_evaluate,
+            None: semantic.reference_evaluate,
+        }[protocol]
         result = evaluator(conn, project_id=pid, run_id=run, set_id=set_id)
     output(result, json)
 
@@ -159,3 +159,37 @@ def compare_record_evaluations(
 
 def register(app):
     app.add_typer(eval_app, name="eval")
+
+
+@eval_app.command("operation-compare")
+def compare_operation_evaluations(
+    ctx: typer.Context,
+    baseline: Annotated[int, typer.Option()],
+    revised: Annotated[int, typer.Option()],
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Compare case facets only on the same frozen operation/source/reference frames."""
+    from corpus_structure.evaluate.operation_assessment import compare_assessments, read_evaluation
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        result = compare_assessments(
+            read_evaluation(conn, project_id=pid, evaluation_id=baseline),
+            read_evaluation(conn, project_id=pid, evaluation_id=revised),
+        )
+    output(result, json)
+
+
+@eval_app.command("operation-export")
+def export_operation_review(
+    ctx: typer.Context,
+    set_id: Annotated[int, typer.Option()],
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Export development judgments; protected cohorts expose sealed inventory only."""
+    from corpus_structure.evaluate.operation_assessment import review_export
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        result = review_export(conn, project_id=pid, set_id=set_id)
+    output(result, json)

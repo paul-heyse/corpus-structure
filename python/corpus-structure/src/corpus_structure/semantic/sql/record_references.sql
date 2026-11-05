@@ -63,6 +63,118 @@ END $$;
 REVOKE ALL ON FUNCTION eval.record_reference_source_binding(bigint,bigint,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.record_reference_source_binding(bigint,bigint,bigint) TO corpus_sem_evaluator;
 
+-- Shared source closure for record and operation reference protocols. No labels are read.
+CREATE OR REPLACE FUNCTION eval.validate_reference_source_scope(p_unit bigint,p_frame jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE unit eval.reference_unit; reference_set eval.reference_set; selected kb.source_view;
+ pin jsonb; bound jsonb; expected jsonb; related kb.source_view;
+ captured jsonb; captured_view kb.source_view; source_snapshot jsonb; scope jsonb; scope_schema json;
+ scope_pointer text; scope_node jsonb; scope_text text; capture_schema json;
+BEGIN
+ SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit;
+ SELECT * INTO STRICT reference_set FROM eval.reference_set WHERE id=unit.set_id;
+ SELECT * INTO STRICT selected FROM kb.source_view WHERE id=unit.source_view_id;
+ bound:=p_frame->'evaluation_frame';
+ IF unit.context IS DISTINCT FROM jsonb_build_array(p_frame) OR bound->>'unit' IS DISTINCT FROM unit.unit_key
+  OR bound->>'release_id' IS DISTINCT FROM reference_set.release_id
+  OR unit.projection_digest IS DISTINCT FROM selected.projection_digest THEN
+  RAISE EXCEPTION 'immutable reference source frame differs' USING ERRCODE='23514'; END IF;
+ -- Recheck partition authority even when the legacy generic set/unit entry points
+ -- were used. Metadata strings alone never authorize feature-fit access.
+ IF NOT EXISTS(SELECT FROM kb.document d
+  JOIN eval.reference_origin_source member ON member.project_id=reference_set.project_id AND member.source_uri=d.source_uri
+  JOIN eval.reference_origin_group origin ON origin.project_id=member.project_id AND origin.origin_group=member.origin_group
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(reference_set.sampling->'eligible_units','[]')) eligible
+  WHERE d.id=selected.document_id AND d.project_id=reference_set.project_id
+   AND origin.partition=reference_set.sampling->>'partition'
+   AND reference_set.sampling->'origin_groups' @> jsonb_build_array(to_jsonb(origin))
+   AND eligible->>'unit_key'=unit.unit_key AND (eligible->>'source_view_id')::bigint=selected.id
+   AND eligible->>'origin_group'=origin.origin_group AND eligible->>'source_uri'=d.source_uri
+   AND eligible->'frame'=p_frame-'source_views') THEN
+  RAISE EXCEPTION 'record reference source has no immutable origin-partition/frame authority' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.document d JOIN kb.document copy ON copy.project_id=d.project_id AND copy.content_hash=d.content_hash
+  JOIN eval.reference_origin_source original ON original.project_id=d.project_id AND original.source_uri=d.source_uri
+  JOIN eval.reference_origin_source member ON member.project_id=copy.project_id AND member.source_uri=copy.source_uri
+  WHERE d.id=selected.document_id AND original.origin_group<>member.origin_group) THEN
+  RAISE EXCEPTION 'known source copies cannot supply separate partition origins' USING ERRCODE='23514'; END IF;
+ expected:=jsonb_build_object('source',eval.record_reference_source_binding(reference_set.source_run_id,selected.id,(reference_set.sampling->>'source_cut_id')::bigint),'native_product_task_id',selected.native_task_id,
+  'product_key',selected.native_product_key,'product_digest',selected.native_content_digest,
+  'projection_digest',selected.projection_digest,'recipe_digest',selected.recipe_digest,'source_view_id',selected.id);
+ IF bound->'pin' IS DISTINCT FROM expected THEN
+  RAISE EXCEPTION 'record reference primary pin is stale' USING ERRCODE='23514'; END IF;
+ IF jsonb_array_length(bound->'anchor_ids')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(bound->'anchor_ids'))
+  OR EXISTS(SELECT FROM jsonb_array_elements(bound->'anchor_ids') a WHERE jsonb_typeof(a)<>'string') THEN
+  RAISE EXCEPTION 'record reference anchor cut is malformed or duplicated' USING ERRCODE='23514'; END IF;
+ FOR pin IN SELECT value FROM jsonb_array_elements(bound->'related_pins') LOOP
+  SELECT * INTO STRICT related FROM kb.source_view WHERE id=(pin->>'source_view_id')::bigint;
+  IF related.id=selected.id OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=reference_set.source_run_id AND source_view_id=related.id)
+   OR related.native_build_id IS DISTINCT FROM selected.native_build_id
+   OR related.native_revision_id IS DISTINCT FROM selected.native_revision_id
+   OR (related.native_task_id,related.native_product_key,related.native_content_digest) IS DISTINCT FROM
+    (selected.native_task_id,selected.native_product_key,selected.native_content_digest)
+   OR pin IS DISTINCT FROM jsonb_build_object('source',related.key,'native_product_task_id',related.native_task_id,
+    'product_key',related.native_product_key,'product_digest',related.native_content_digest,
+    'projection_digest',related.projection_digest,'recipe_digest',related.recipe_digest,'source_view_id',related.id) THEN
+   RAISE EXCEPTION 'record reference related source closure is stale or unselected' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF jsonb_array_length(bound->'related_pins')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(bound->'related_pins')) THEN
+  RAISE EXCEPTION 'record reference repeats related pins' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(content,'UTF8')::json INTO STRICT scope_schema FROM sem.artifact
+ WHERE release_id=reference_set.release_id AND artifact_name='json_schema/RecordReferenceAnchorScope';
+ FOR scope IN SELECT value FROM jsonb_array_elements(bound->'anchor_scopes') LOOP
+  IF NOT public.json_matches_schema(scope_schema,scope::json)
+   OR (scope->'pin' IS DISTINCT FROM expected AND NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'related_pins') p WHERE p=scope->'pin'))
+   OR scope->>'space'='model_context'
+   OR (scope->>'precision'='exact' AND (scope->>'start' IS NULL OR scope->>'end' IS NULL OR NOT(0<=(scope->>'start')::bigint AND (scope->>'start')::bigint<(scope->>'end')::bigint)))
+   OR (scope->>'precision'<>'exact' AND (scope ? 'start' OR scope ? 'end'))
+   OR ((scope->>'space'='captured_recognition') IS DISTINCT FROM (scope ? 'recognition')) THEN
+   RAISE EXCEPTION 'record reference source scope is malformed, unbound or lossy' USING ERRCODE='23514'; END IF;
+  scope_pointer:=CASE WHEN scope->>'pointer' ~ '^#/tables/(0|[1-9][0-9]*)/data/table_cells/(0|[1-9][0-9]*)$'
+   THEN split_part(scope->>'pointer','/data/table_cells/',1) ELSE scope->>'pointer' END;
+  IF NOT EXISTS(SELECT FROM kb.source_view scope_view WHERE scope_view.id=(scope->'pin'->>'source_view_id')::bigint
+   AND (scope_view.projection->'items' ? scope_pointer OR COALESCE(scope_view.projection->'ancestors','[]') ? scope_pointer)) THEN
+   RAISE EXCEPTION 'record reference scope pointer is outside its selected view' USING ERRCODE='23514'; END IF;
+  IF scope->>'precision'='exact' AND scope->>'space'<>'captured_recognition' THEN
+   IF scope->>'space'='selected_projection' THEN
+    SELECT projection->>'text' INTO STRICT scope_text FROM kb.source_view WHERE id=(scope->'pin'->>'source_view_id')::bigint;
+   ELSE
+    SELECT native_json INTO STRICT scope_node FROM ops.read_pdf_published_items(
+     (scope->'pin'->>'native_product_task_id')::bigint,scope->'pin'->>'product_key',scope->'pin'->>'product_digest',ARRAY[scope_pointer]);
+    IF scope->>'pointer'<>scope_pointer THEN scope_node:=scope_node->'data'->'table_cells'->split_part(scope->>'pointer','/data/table_cells/',2)::integer; END IF;
+    scope_text:=scope_node->>'text';
+   END IF;
+   IF scope_text IS NULL OR (scope->>'end')::bigint>length(scope_text) THEN
+    RAISE EXCEPTION 'record reference scope exceeds its actual immutable source coordinate' USING ERRCODE='23514'; END IF;
+  END IF;
+  IF scope->>'space'='captured_recognition' AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'captured_coordinates') c
+   WHERE c->'pin'=scope->'pin' AND c->>'pointer'=scope->>'pointer' AND c->'recognition'=scope->'recognition'
+    AND (scope->>'end')::bigint<=length(c->>'text')) THEN
+   RAISE EXCEPTION 'record scope is outside independently frozen capture coordinates' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ SELECT jsonb_agg(to_jsonb(v) ORDER BY v.id) INTO source_snapshot FROM kb.source_view v WHERE v.id IN (
+  SELECT selected.id UNION ALL SELECT (p->>'source_view_id')::bigint FROM jsonb_array_elements(bound->'related_pins') p);
+ IF EXISTS(SELECT FROM jsonb_array_elements(source_snapshot) v WHERE NOT EXISTS(
+  SELECT FROM jsonb_array_elements(reference_set.sampling->'source_membership') m
+  WHERE (m->>'source_view_id')::bigint=(v->>'id')::bigint AND (m->>'run_id')::bigint=reference_set.source_run_id))
+  OR p_frame->'source_views' IS DISTINCT FROM source_snapshot THEN
+  RAISE EXCEPTION 'immutable record source frames are stale or incomplete' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(content,'UTF8')::json INTO STRICT capture_schema FROM sem.artifact
+ WHERE release_id=reference_set.release_id AND artifact_name='json_schema/RecordCoordinateText';
+ FOR captured IN SELECT value FROM jsonb_array_elements(p_frame->'captured_coordinates') LOOP
+  SELECT * INTO STRICT captured_view FROM kb.source_view WHERE id=(captured->'pin'->>'source_view_id')::bigint;
+  IF NOT(captured_view.projection->'items' ? (captured->>'pointer')
+   OR COALESCE(captured_view.projection->'ancestors','[]') ? (captured->>'pointer')) THEN
+   RAISE EXCEPTION 'captured coordinate pointer is outside frozen selected view' USING ERRCODE='23514'; END IF;
+  IF NOT public.json_matches_schema(capture_schema,captured::json) OR captured->>'space' IS DISTINCT FROM 'captured_recognition' OR NOT captured ? 'recognition'
+   OR (captured->'pin' IS DISTINCT FROM expected AND NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'related_pins') p WHERE p=captured->'pin'))
+   OR captured->>'text' IS DISTINCT FROM ops.record_captured_recognition_text(captured_view.native_task_id,
+    captured_view.native_product_key,captured_view.native_content_digest,captured->>'pointer',captured->'recognition') THEN
+   RAISE EXCEPTION 'frozen captured coordinate differs from actual retained recognition' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ RETURN expected;
+END $$;
+REVOKE ALL ON FUNCTION eval.validate_reference_source_scope(bigint,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION eval.create_source_record_reference_set(p_project text,p_run bigint,p_label text,p_split text,p_guideline text,p_sampling jsonb,p_units jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result bigint; source_release text; unit jsonb; metadata jsonb; group_snapshot jsonb; unit_id bigint; unit_snapshot jsonb; frozen_frame jsonb; source_cut bigint; membership_snapshot jsonb;
@@ -174,98 +286,7 @@ BEGIN
   OR (p_frame->>'context_dependency_digest' IS NOT NULL AND (p_frame->>'context_dependency_digest') !~ '^[a-f0-9]{64}$')
   OR btrim(COALESCE(p_payload->>'reason',''))='' THEN
   RAISE EXCEPTION 'record reference differs from frozen source/guideline/release protocol' USING ERRCODE='23514'; END IF;
- -- Recheck partition authority even when the legacy generic set/unit entry points
- -- were used. Metadata strings alone never authorize feature-fit access.
- IF NOT EXISTS(SELECT FROM kb.document d
-  JOIN eval.reference_origin_source member ON member.project_id=reference_set.project_id AND member.source_uri=d.source_uri
-  JOIN eval.reference_origin_group origin ON origin.project_id=member.project_id AND origin.origin_group=member.origin_group
-  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(reference_set.sampling->'eligible_units','[]')) eligible
-  WHERE d.id=selected.document_id AND d.project_id=reference_set.project_id
-   AND origin.partition=reference_set.sampling->>'partition'
-   AND reference_set.sampling->'origin_groups' @> jsonb_build_array(to_jsonb(origin))
-   AND eligible->>'unit_key'=unit.unit_key AND (eligible->>'source_view_id')::bigint=selected.id
-   AND eligible->>'origin_group'=origin.origin_group AND eligible->>'source_uri'=d.source_uri
-   AND eligible->'frame'=p_frame-'source_views') THEN
-  RAISE EXCEPTION 'record reference source has no immutable origin-partition/frame authority' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.document d JOIN kb.document copy ON copy.project_id=d.project_id AND copy.content_hash=d.content_hash
-  JOIN eval.reference_origin_source original ON original.project_id=d.project_id AND original.source_uri=d.source_uri
-  JOIN eval.reference_origin_source member ON member.project_id=copy.project_id AND member.source_uri=copy.source_uri
-  WHERE d.id=selected.document_id AND original.origin_group<>member.origin_group) THEN
-  RAISE EXCEPTION 'known source copies cannot supply separate partition origins' USING ERRCODE='23514'; END IF;
- expected:=jsonb_build_object('source',eval.record_reference_source_binding(reference_set.source_run_id,selected.id,(reference_set.sampling->>'source_cut_id')::bigint),'native_product_task_id',selected.native_task_id,
-  'product_key',selected.native_product_key,'product_digest',selected.native_content_digest,
-  'projection_digest',selected.projection_digest,'recipe_digest',selected.recipe_digest,'source_view_id',selected.id);
- IF bound->'pin' IS DISTINCT FROM expected THEN
-  RAISE EXCEPTION 'record reference primary pin is stale' USING ERRCODE='23514'; END IF;
- IF jsonb_array_length(bound->'anchor_ids')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(bound->'anchor_ids'))
-  OR EXISTS(SELECT FROM jsonb_array_elements(bound->'anchor_ids') a WHERE jsonb_typeof(a)<>'string') THEN
-  RAISE EXCEPTION 'record reference anchor cut is malformed or duplicated' USING ERRCODE='23514'; END IF;
- FOR pin IN SELECT value FROM jsonb_array_elements(bound->'related_pins') LOOP
-  SELECT * INTO STRICT related FROM kb.source_view WHERE id=(pin->>'source_view_id')::bigint;
-  IF related.id=selected.id OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=reference_set.source_run_id AND source_view_id=related.id)
-   OR related.native_build_id IS DISTINCT FROM selected.native_build_id
-   OR related.native_revision_id IS DISTINCT FROM selected.native_revision_id
-   OR (related.native_task_id,related.native_product_key,related.native_content_digest) IS DISTINCT FROM
-    (selected.native_task_id,selected.native_product_key,selected.native_content_digest)
-   OR pin IS DISTINCT FROM jsonb_build_object('source',related.key,'native_product_task_id',related.native_task_id,
-    'product_key',related.native_product_key,'product_digest',related.native_content_digest,
-    'projection_digest',related.projection_digest,'recipe_digest',related.recipe_digest,'source_view_id',related.id) THEN
-   RAISE EXCEPTION 'record reference related source closure is stale or unselected' USING ERRCODE='23514'; END IF;
- END LOOP;
- IF jsonb_array_length(bound->'related_pins')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements(bound->'related_pins')) THEN
-  RAISE EXCEPTION 'record reference repeats related pins' USING ERRCODE='23514'; END IF;
- SELECT convert_from(content,'UTF8')::json INTO STRICT scope_schema FROM sem.artifact
- WHERE release_id=reference_set.release_id AND artifact_name='json_schema/RecordReferenceAnchorScope';
- FOR scope IN SELECT value FROM jsonb_array_elements(bound->'anchor_scopes') LOOP
-  IF NOT public.json_matches_schema(scope_schema,scope::json)
-   OR (scope->'pin' IS DISTINCT FROM expected AND NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'related_pins') p WHERE p=scope->'pin'))
-   OR scope->>'space'='model_context'
-   OR (scope->>'precision'='exact' AND (scope->>'start' IS NULL OR scope->>'end' IS NULL OR NOT(0<=(scope->>'start')::bigint AND (scope->>'start')::bigint<(scope->>'end')::bigint)))
-   OR (scope->>'precision'<>'exact' AND (scope ? 'start' OR scope ? 'end'))
-   OR ((scope->>'space'='captured_recognition') IS DISTINCT FROM (scope ? 'recognition')) THEN
-   RAISE EXCEPTION 'record reference source scope is malformed, unbound or lossy' USING ERRCODE='23514'; END IF;
-  scope_pointer:=CASE WHEN scope->>'pointer' ~ '^#/tables/(0|[1-9][0-9]*)/data/table_cells/(0|[1-9][0-9]*)$'
-   THEN split_part(scope->>'pointer','/data/table_cells/',1) ELSE scope->>'pointer' END;
-  IF NOT EXISTS(SELECT FROM kb.source_view scope_view WHERE scope_view.id=(scope->'pin'->>'source_view_id')::bigint
-   AND (scope_view.projection->'items' ? scope_pointer OR COALESCE(scope_view.projection->'ancestors','[]') ? scope_pointer)) THEN
-   RAISE EXCEPTION 'record reference scope pointer is outside its selected view' USING ERRCODE='23514'; END IF;
-  IF scope->>'precision'='exact' AND scope->>'space'<>'captured_recognition' THEN
-   IF scope->>'space'='selected_projection' THEN
-    SELECT projection->>'text' INTO STRICT scope_text FROM kb.source_view WHERE id=(scope->'pin'->>'source_view_id')::bigint;
-   ELSE
-    SELECT native_json INTO STRICT scope_node FROM ops.read_pdf_published_items(
-     (scope->'pin'->>'native_product_task_id')::bigint,scope->'pin'->>'product_key',scope->'pin'->>'product_digest',ARRAY[scope_pointer]);
-    IF scope->>'pointer'<>scope_pointer THEN scope_node:=scope_node->'data'->'table_cells'->split_part(scope->>'pointer','/data/table_cells/',2)::integer; END IF;
-    scope_text:=scope_node->>'text';
-   END IF;
-   IF scope_text IS NULL OR (scope->>'end')::bigint>length(scope_text) THEN
-    RAISE EXCEPTION 'record reference scope exceeds its actual immutable source coordinate' USING ERRCODE='23514'; END IF;
-  END IF;
-  IF scope->>'space'='captured_recognition' AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'captured_coordinates') c
-   WHERE c->'pin'=scope->'pin' AND c->>'pointer'=scope->>'pointer' AND c->'recognition'=scope->'recognition'
-    AND (scope->>'end')::bigint<=length(c->>'text')) THEN
-   RAISE EXCEPTION 'record scope is outside independently frozen capture coordinates' USING ERRCODE='23514'; END IF;
- END LOOP;
- SELECT jsonb_agg(to_jsonb(v) ORDER BY v.id) INTO source_snapshot FROM kb.source_view v WHERE v.id IN (
-  SELECT selected.id UNION ALL SELECT (p->>'source_view_id')::bigint FROM jsonb_array_elements(bound->'related_pins') p);
- IF EXISTS(SELECT FROM jsonb_array_elements(source_snapshot) v WHERE NOT EXISTS(
-  SELECT FROM jsonb_array_elements(reference_set.sampling->'source_membership') m
-  WHERE (m->>'source_view_id')::bigint=(v->>'id')::bigint AND (m->>'run_id')::bigint=reference_set.source_run_id))
-  OR p_frame->'source_views' IS DISTINCT FROM source_snapshot THEN
-  RAISE EXCEPTION 'immutable record source frames are stale or incomplete' USING ERRCODE='23514'; END IF;
- SELECT convert_from(content,'UTF8')::json INTO STRICT capture_schema FROM sem.artifact
- WHERE release_id=reference_set.release_id AND artifact_name='json_schema/RecordCoordinateText';
- FOR captured IN SELECT value FROM jsonb_array_elements(p_frame->'captured_coordinates') LOOP
-  SELECT * INTO STRICT captured_view FROM kb.source_view WHERE id=(captured->'pin'->>'source_view_id')::bigint;
-  IF NOT(captured_view.projection->'items' ? (captured->>'pointer')
-   OR COALESCE(captured_view.projection->'ancestors','[]') ? (captured->>'pointer')) THEN
-   RAISE EXCEPTION 'captured coordinate pointer is outside frozen selected view' USING ERRCODE='23514'; END IF;
-  IF NOT public.json_matches_schema(capture_schema,captured::json) OR captured->>'space' IS DISTINCT FROM 'captured_recognition' OR NOT captured ? 'recognition'
-   OR (captured->'pin' IS DISTINCT FROM expected AND NOT EXISTS(SELECT FROM jsonb_array_elements(bound->'related_pins') p WHERE p=captured->'pin'))
-   OR captured->>'text' IS DISTINCT FROM ops.record_captured_recognition_text(captured_view.native_task_id,
-    captured_view.native_product_key,captured_view.native_content_digest,captured->>'pointer',captured->'recognition') THEN
-   RAISE EXCEPTION 'frozen captured coordinate differs from actual retained recognition' USING ERRCODE='23514'; END IF;
- END LOOP;
+ expected:=eval.validate_reference_source_scope(p_unit,p_frame);
  PERFORM ops.validate_source_record_coordinates(reference_set.source_run_id,selected.id,expected->>'source',p_payload->'records');
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'records') LOOP
   PERFORM data.validate_source_record_structure(reference_set.release_id,source_record);
