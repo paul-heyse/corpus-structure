@@ -406,7 +406,6 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 )
 
 
-@lru_cache(maxsize=1)
 def _standalone_model():
     from .contracts import compile_execution_model, trusted_execution_inputs
 
@@ -452,20 +451,35 @@ def _profile(prepared: PreparedRelease | None):
             "prepare a release with an admitted analysis profile; "
             "historical archives are read-only",
         )
-    if model.implementation_digests != _runtime_implementation_digests():
+    for operation in model.analysis_profiles[0].shared_consumers:
+        model.require_operation(operation)
+    if model.implementation_digests != _semantic_implementation_digests():
         _fail(
             "unsupported_analysis_implementation",
             model.model_id,
-            "bind the admitted implementation bytes to this runtime before analysis",
+            "bind the admitted semantic determinant bytes to this runtime before analysis",
         )
     return model, model.analysis_profiles[0]
 
 
-@lru_cache(maxsize=1)
-def _runtime_implementation_digests():
-    from .contracts import analysis_implementation_inputs
+def _semantic_implementation_digests():
+    from .contracts import trusted_execution_inputs
 
-    return tuple((item.name, item.digest) for item in analysis_implementation_inputs())
+    return tuple((item.name, item.digest) for item in trusted_execution_inputs().implementations)
+
+
+def _analysis_runtime(prepared: PreparedRelease | None):
+    from .runtime_bindings import (
+        require_installed_runtime,
+        runtime_fingerprint,
+        runtime_implementation_digests,
+    )
+
+    if prepared is None:
+        digests = runtime_implementation_digests()
+        return digests, runtime_fingerprint(digests=digests)
+    runtime = require_installed_runtime(prepared)
+    return runtime.implementation_digests, runtime.runtime_id
 
 
 @lru_cache(maxsize=1)
@@ -506,6 +520,7 @@ class PreparedInterpretationContext:
     bindings: bytes
     demand: str
     implementation_digests: tuple[tuple[str, str], ...] = ()
+    runtime_id: str | None = None
 
     @property
     def allow_local_definitions(self) -> bool:
@@ -574,9 +589,12 @@ class PreparedInterpretationContext:
             recipe.id: sha256(
                 canonical_bytes(
                     {
-                        name: self._components[name]
-                        for name in recipe.dependencies
-                        if name in self._components
+                        "runtime_id": self.runtime_id,
+                        "dependencies": {
+                            name: self._components[name]
+                            for name in recipe.dependencies
+                            if name in self._components
+                        },
                     }
                 )
             ).hexdigest()
@@ -635,6 +653,7 @@ def prepare_interpretation_context(
     from .contracts import _fail
 
     model, profile = _profile(prepared)
+    implementation_digests, runtime_id = _analysis_runtime(prepared)
     if kind not in {"any_value", "formula", "relation", "member", "set_expr"}:
         _fail("analysis_kind", kind, "use an admitted mathematical start kind")
     if demand not in {d.id for d in profile.demands}:
@@ -761,7 +780,8 @@ def prepare_interpretation_context(
         canonical_bytes(assumptions),
         canonical_bytes(binding_records),
         demand,
-        model.implementation_digests,
+        implementation_digests,
+        runtime_id,
     )
 
 

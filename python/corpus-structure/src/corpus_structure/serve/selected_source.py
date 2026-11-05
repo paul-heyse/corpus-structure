@@ -143,6 +143,7 @@ def _write_selected_package(
     *,
     interpretation_model_id,
     implementation_digests,
+    runtime_id=None,
     cancellation: BorrowerCancellation | None = None,
 ):
     cancellation = cancellation or BorrowerCancellation()
@@ -177,6 +178,8 @@ def _write_selected_package(
             )
         ],
     )
+    if runtime_id is not None:
+        header["runtime_id"] = runtime_id
     counts = Counter()
     digest, membership = sha256(), sha256()
     length = selected_count = 0
@@ -332,6 +335,7 @@ def export_selected_source(
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
 
     cancellation = cancellation or BorrowerCancellation()
     cancellation.check_active()
@@ -367,6 +371,17 @@ def export_selected_source(
                 raise SelectedSourceUnavailable(
                     "selected source requires a published record-backed product"
                 )
+            from sqlalchemy import select
+
+            from corpus_structure.semantic.metadata import table
+
+            producer_run_id = connection.execute(
+                select(table("ops.task").c.run_id).where(
+                    table("ops.task").c.id == request.pin.task_id
+                )
+            ).scalar_one()
+            producer_release = open_release(connection, reader.revision["release_id"])
+            runtime = runtime_binding_for_run(connection, producer_run_id, producer_release)
             from corpus_structure.semantic._operation_calls import (
                 materialize_read_pdf_selected_source_events,
                 prepare_read_pdf_selected_source_events,
@@ -405,7 +420,8 @@ def export_selected_source(
                     request,
                     temporary,
                     interpretation_model_id=model.model_id,
-                    implementation_digests=model.implementation_digests,
+                    implementation_digests=runtime.implementation_digests,
+                    runtime_id=runtime.runtime_id,
                     cancellation=cancellation,
                 )
         cancellation.check_active()
@@ -800,6 +816,10 @@ class SelectedSourceReader:
             or context.model_id != self.header["interpretation_model_id"]
             or [list(value) for value in context.implementation_digests]
             != self.header["implementation_digests"]
+            or (
+                "runtime_id" in self.header
+                and context.runtime_id != self.header["runtime_id"]
+            )
         ):
             raise SelectedSourceUnavailable(
                 "admitted retained interpretation context/model/artifacts are required"

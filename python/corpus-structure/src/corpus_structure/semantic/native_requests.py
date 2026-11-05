@@ -31,49 +31,29 @@ from .source_views import load_source_view, store_region_artifact
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
+    from .runtime_bindings import RuntimeBinding
     from .types import PreparedRelease
 
 
-def prepare_native_renderer(conn: Connection, prepared: PreparedRelease) -> dict[str, str]:
-    """Admit the archived renderer and its packages, independently of mathematical kernels."""
-    from importlib.metadata import version
-    from importlib.resources import files
-
-    from .contracts import _fail, bound_execution_model
+def prepare_native_renderer(
+    conn: Connection,
+    prepared: PreparedRelease,
+    *,
+    runtime_binding: RuntimeBinding | None = None,
+) -> dict[str, str]:
+    """Qualify the installed renderer under a separate exact runtime binding."""
+    from .contracts import bound_execution_model
+    from .runtime_bindings import require_installed_runtime
 
     model = bound_execution_model(prepared)
     model.require_operation("publish_pdf_region_artifact")
-    admitted = dict(model.implementation_digests)
-    implementation = files("corpus_structure").joinpath("serve/native_regions.py").read_bytes()
-    digest = sha256(implementation).hexdigest()
-    if admitted.get("pdf/regions.py") != digest:
-        _fail(
-            "unsupported_renderer_implementation",
-            model.model_id,
-            "bind the admitted PDF region renderer bytes before rendering, or explicitly "
-            "adopt the retained native product into a compatible current release",
-        )
-    inputs = table("sem.input")
-    retained = bytes(
-        conn.execute(
-            select(inputs.c.content).where(
-                inputs.c.release_id == prepared.release_id,
-                inputs.c.input_kind == "dependency",
-                inputs.c.input_name == "execution/implementation/libraries.json",
-            )
-        ).scalar_one()
+    runtime = require_installed_runtime(prepared, runtime_binding)
+    libraries = json.loads(runtime.input("libraries.json").content)
+    return dict(
+        implementation_digest=runtime.input("pdf/regions.py").digest,
+        runtime_id=runtime.runtime_id,
+        **{name: libraries[name] for name in ("pypdfium2", "Pillow")},
     )
-    if sha256(retained).hexdigest() != admitted.get("libraries.json"):
-        raise ValueError("retained renderer package manifest differs from admitted custody")
-    libraries = json.loads(retained)
-    runtime = {name: version(name) for name in ("pypdfium2", "Pillow")}
-    if any(libraries.get(name) != value for name, value in runtime.items()):
-        _fail(
-            "unsupported_renderer_packages",
-            model.model_id,
-            "bind the admitted pypdfium2 and Pillow versions before rendering",
-        )
-    return dict(implementation_digest=digest, **runtime)
 
 
 class NativeRequestLimits(BaseModel):
@@ -132,6 +112,7 @@ def request_source_view(
     from .claim_lifetime import maintained_claims
     from .contracts import require_bound_operation
     from .releases import open_release
+    from .runtime_bindings import require_installed_runtime
 
     limits = NativeRequestLimits(seconds=seconds, scale=scale)
     seconds, scale = limits.seconds, limits.scale
@@ -179,7 +160,12 @@ def request_source_view(
                 ref.id: tuple(reader.source_view_coverage(ref.id, "resolve.symbol_scope"))
                 for ref in ancestor_refs
             }
-        renderer = prepare_native_renderer(conn, prepared) if demand == "render" else None
+        runtime_binding = require_installed_runtime(prepared)
+        renderer = (
+            prepare_native_renderer(conn, prepared, runtime_binding=runtime_binding)
+            if demand == "render"
+            else None
+        )
     # Native syntax work runs after the bounded database snapshot has been released.
     kernel_rules = ()
     if demand != "render":
@@ -273,6 +259,8 @@ def request_source_view(
             kind="slice",
             options={"native_request": params},
             code_commit=code_commit,
+            prepared=prepared,
+            runtime_binding=runtime_binding,
         )
         from ._operation_calls import select_source_view
         from ._operation_ids import SourceViewId

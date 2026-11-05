@@ -384,3 +384,21 @@ def test_early_sink_failure_has_no_receipt_or_complete_trailer(offline_package, 
             write_package(request, context)
     assert not (request.destination / "receipt.json").exists()
     assert b'"event":"trailer"' not in (request.destination / "events.jsonl").read_bytes()
+
+
+def test_runtime_provenance_is_retained_and_required_when_exported(offline_package):
+    request, context = offline_package
+    _write_selected_package(
+        SourceBytes(),
+        source_events(independent_records()),
+        request,
+        request.destination,
+        interpretation_model_id=context.model_id,
+        implementation_digests=context.implementation_digests,
+        runtime_id=context.runtime_id,
+    )
+    with SelectedSourceReader(request.destination) as reader:
+        assert reader.header["runtime_id"] == context.runtime_id
+        reader.prepare_formula_inputs(context)
+        with pytest.raises(SelectedSourceUnavailable, match="context/model/artifacts"):
+            reader.prepare_formula_inputs(replace(context, runtime_id="runtime:different"))

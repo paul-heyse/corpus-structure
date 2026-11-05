@@ -25,6 +25,9 @@ from .identity import canonical_bytes
 from .refusals import DATABASE_ERRORS, SemanticRefusal
 from .types import Diagnostic, PreparedRelease
 
+if TYPE_CHECKING:
+    from .runtime_bindings import RuntimeBinding
+
 _SCHEMA_NAMES = ("OperationExplanation", "LocatedValidationReport", "SemanticImpactReport")
 _SCHEMA_PATH = "model/semantic/operation-report-schemas.json"
 
@@ -562,8 +565,14 @@ def _changed_members(before: Any, after: Any, model_path: str) -> list[dict[str,
     return visit(before, after, model_path)
 
 
-def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease) -> BaseModel:
-    """Compare normalized declared meaning; unknown dependencies are never an empty proof."""
+def compare_semantic_releases(
+    before: PreparedRelease,
+    after: PreparedRelease,
+    *,
+    before_runtime: RuntimeBinding | None = None,
+    after_runtime: RuntimeBinding | None = None,
+) -> BaseModel:
+    """Compare declared meaning, with optional separately identified runtime provenance."""
     old_model, new_model = bound_execution_model(before), bound_execution_model(after)
     changes = []
     unknowns = set()
@@ -731,9 +740,29 @@ def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease) -
             )
         )
     if old_model.implementation_digests != new_model.implementation_digests:
+        legacy = any(
+            int(json.loads(model.content)["inputs"]["compiler_version"]) <= 26
+            for model in (old_model, new_model)
+        )
         unknowns.add(
-            "Changed implementation bytes require qualified compatibility; "
+            "Changed legacy implementation custody mixes semantic determinants and executable "
+            "runtime bytes; behavior equivalence is unassessed."
+            if legacy
+            else "Changed semantic determinant bytes require qualified compatibility; "
             "behavior equivalence is unassessed."
+        )
+    for prepared, runtime in ((before, before_runtime), (after, after_runtime)):
+        if runtime is not None and runtime.release_id != prepared.release_id:
+            raise ValueError("runtime binding belongs to another semantic release")
+    if (before_runtime is None) != (after_runtime is None):
+        unknowns.add("Runtime change is unassessed: supply both runtime bindings.")
+    elif before_runtime is not None and before_runtime.runtime_id != after_runtime.runtime_id:
+        unknowns.add(
+            "Executable runtime changed independently of semantic release meaning: "
+            + before_runtime.runtime_id
+            + " -> "
+            + after_runtime.runtime_id
+            + "; behavior equivalence is unassessed."
         )
     _alias_impact(before, after, changes, unknowns)
     _projection_impact(before, after, changes, unknowns)
@@ -771,7 +800,12 @@ def _alias_impact(before: PreparedRelease, after: PreparedRelease, changes, unkn
             if profile.alignment_policy is None:
                 continue
             reference = "analysis_profile:" + profile.id + "/alignment_policy"
-            if dict(model.implementation_digests).get("alignment/semantic_alignment.py"):
+            if (
+                int(json.loads(model.content)["inputs"]["compiler_version"]) >= 27
+                or dict(model.implementation_digests).get("alignment/semantic_alignment.py")
+            ):
+                # Current semantic declarations identify the consumer; exact executable
+                # custody belongs to a runtime binding, not this semantic product.
                 consumers.add(reference)
             else:
                 consumer_unknowns.add(reference + ": alignment implementation custody unavailable")

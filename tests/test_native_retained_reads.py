@@ -30,7 +30,7 @@ def retained_release(monkeypatch):
         ),
     )
     # Preserve an admitted archive while independently making its runtime implementation differ.
-    monkeypatch.setattr(analysis_contracts, "_runtime_implementation_digests", lambda: ())
+    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
     return prepared
 
 
@@ -39,7 +39,7 @@ def test_retained_reader_preserves_pins_before_text_preparation_gate(retained_re
     reader = BoundReader(conn, 17, retained_release, analysis=False)
     assert reader.prepared is retained_release
     # Native pins remain readable; the actual text preparation boundary checks its bytes.
-    with pytest.raises(PreparationError, match="admitted implementation bytes"):
+    with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
         analysis_contracts.prepare_text_policy(retained_release)
     conn.execute.assert_not_called()
 
@@ -142,7 +142,7 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
     monkeypatch.setattr(
         "corpus_structure.semantic.pdf_storage._pdf_product_identity", native_identity
     )
-    with pytest.raises(PreparationError, match="admitted implementation bytes"):
+    with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
         source_views.load_source_view(conn, 31)
 
     retained = source_views.load_source_view(conn, 31, analysis=False)

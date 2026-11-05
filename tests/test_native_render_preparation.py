@@ -1,7 +1,5 @@
 """Rendering admits its own archived leaf implementation without preparing mathematics."""
 
-import importlib.metadata
-import importlib.resources
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -50,10 +48,10 @@ def test_renderer_admission_is_independent_of_mathematical_implementation(
 ):
     prepared, libraries = renderer_archive
     conn = renderer_connection(libraries)
-    monkeypatch.setattr(analysis_contracts, "_runtime_implementation_digests", lambda: ())
+    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
     # Creating a reader is lazy; only requesting analytical ownership admits math.
     reader = BoundReader(conn, 17, prepared)
-    with pytest.raises(PreparationError, match="admitted implementation bytes"):
+    with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
         analysis_contracts.bind_analysis_family(reader.prepared, "source")
 
     renderer = native_requests.prepare_native_renderer(conn, prepared)
@@ -63,25 +61,30 @@ def test_renderer_admission_is_independent_of_mathematical_implementation(
     assert len(renderer["implementation_digest"]) == 64
 
 
-@pytest.mark.parametrize("mismatch", ["implementation", "manifest", "packages"])
-def test_renderer_refuses_its_own_implementation_or_package_drift(
-    renderer_archive, monkeypatch, mismatch
-):
+def test_renderer_qualifies_the_explicit_runtime_binding(renderer_archive, monkeypatch):
+    from corpus_structure.semantic import runtime_bindings
+    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
+
     prepared, libraries = renderer_archive
-    conn = renderer_connection(libraries)
-    if mismatch == "implementation":
-        changed = MagicMock()
-        changed.joinpath.return_value.read_bytes.return_value = b"different renderer"
-        monkeypatch.setattr(importlib.resources, "files", lambda package: changed)
-        message = "admitted PDF region renderer bytes"
-    elif mismatch == "manifest":
-        conn.execute.return_value.scalar_one.return_value = libraries + b" "
-        message = "package manifest differs"
-    else:
-        monkeypatch.setattr(importlib.metadata, "version", lambda name: "different-version")
-        message = "admitted pypdfium2 and Pillow versions"
-    with pytest.raises((PreparationError, ValueError), match=message):
-        native_requests.prepare_native_renderer(conn, prepared)
+    binding = prepare_runtime_binding(prepared)
+    qualify = MagicMock(return_value=binding)
+    monkeypatch.setattr(runtime_bindings, "require_installed_runtime", qualify)
+    renderer = native_requests.prepare_native_renderer(
+        renderer_connection(libraries), prepared, runtime_binding=binding
+    )
+    qualify.assert_called_once_with(prepared, binding)
+    assert renderer["runtime_id"] == binding.runtime_id
+    assert renderer["implementation_digest"] == binding.input("pdf/regions.py").digest
+
+
+def test_renderer_refuses_unqualified_runtime(renderer_archive, monkeypatch):
+    from corpus_structure.semantic import runtime_bindings
+
+    prepared, libraries = renderer_archive
+    qualify = MagicMock(side_effect=ValueError("installed runtime differs"))
+    monkeypatch.setattr(runtime_bindings, "require_installed_runtime", qualify)
+    with pytest.raises(ValueError, match="installed runtime differs"):
+        native_requests.prepare_native_renderer(renderer_connection(libraries), prepared)
 
 
 def test_render_request_prepares_only_retained_view_and_renderer(renderer_archive, monkeypatch):
@@ -122,7 +125,7 @@ def test_render_request_prepares_only_retained_view_and_renderer(renderer_archiv
         "binding_of",
         lambda *args: OperationBinding(prepared.release_id, "z", 0, dependencies),
     )
-    monkeypatch.setattr(analysis_contracts, "_runtime_implementation_digests", lambda: ())
+    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
 
     class SnapshotPrepared(Exception):
         pass

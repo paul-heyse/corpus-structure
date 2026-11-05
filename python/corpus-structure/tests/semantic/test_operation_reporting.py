@@ -700,15 +700,25 @@ def test_missing_neutral_alias_product_does_not_invent_a_normalization_change():
     assert any(c["aspect"] == "alias_origin" for c in report["changes"])
 
 
-def test_alias_profile_consumer_without_implementation_custody_remains_unknown(monkeypatch):
+@pytest.mark.parametrize("legacy", [False, True])
+def test_alias_profile_consumers_use_semantic_declarations_with_separate_runtime_custody(
+    monkeypatch, legacy
+):
     from corpus_structure.semantic import operation_reporting as reports
     from corpus_structure.semantic.contracts import bound_execution_model
+    from corpus_structure.semantic.identity import canonical_bytes
 
     old = alias_release()
     new = alias_release([{"match": "a", "replace": "b"}])
     model = bound_execution_model(old)
+    import json
+
+    payload = json.loads(model.content)
+    if legacy:
+        payload["inputs"]["compiler_version"] = "26"
     without_alignment = replace(
         model,
+        content=canonical_bytes(payload),
         implementation_digests=tuple(
             pair
             for pair in model.implementation_digests
@@ -719,5 +729,33 @@ def test_alias_profile_consumer_without_implementation_custody_remains_unknown(m
     result = reports.compare_semantic_releases(old, new).model_dump(mode="json")
     change = next(c for c in result["changes"] if c["aspect"] == "alias_normalization")
     assert "implementation:resolve_identity" in change["consumers"]
-    assert not any(c.startswith("analysis_profile:") for c in change["consumers"])
-    assert any("alignment implementation custody unavailable" in u for u in result["unknowns"])
+    assert any(c.startswith("analysis_profile:") for c in change["consumers"]) is not legacy
+    assert any(
+        "alignment implementation custody unavailable" in u for u in result["unknowns"]
+    ) is legacy
+
+
+def test_runtime_change_is_reported_separately_from_semantic_meaning():
+    from types import SimpleNamespace
+
+    prepared = alias_release()
+    report = compare_semantic_releases(
+        prepared,
+        prepared,
+        before_runtime=SimpleNamespace(release_id=prepared.release_id, runtime_id="runtime:one"),
+        after_runtime=SimpleNamespace(release_id=prepared.release_id, runtime_id="runtime:two"),
+    ).model_dump(mode="json")
+    assert report["changes"] == []
+    assert any("Executable runtime changed independently" in value for value in report["unknowns"])
+
+
+def test_runtime_comparison_refuses_a_relabelled_release():
+    from types import SimpleNamespace
+
+    prepared = alias_release()
+    with pytest.raises(ValueError, match="another semantic release"):
+        compare_semantic_releases(
+            prepared,
+            prepared,
+            before_runtime=SimpleNamespace(release_id="another-release", runtime_id="runtime:one"),
+        )

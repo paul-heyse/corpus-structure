@@ -325,7 +325,7 @@ def test_explicit_implementation_bytes_are_part_of_identity_and_runtime_support(
             RegistryRow("execution_model", changed.model_id, changed.content),
         ),
     )
-    with pytest.raises(PreparationError, match="admitted implementation bytes"):
+    with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
         prepare_interpretation_context(prepared, macros={})
 
 
@@ -457,3 +457,29 @@ def test_invocation_identity_is_disjoint_and_binds_complete_decisions():
         invocation_identity(
             None, release="release:one", **dependencies, skip_reason=None, packet_hash=None
         )
+
+
+def test_runtime_change_invalidates_every_analysis_stage_without_changing_semantic_model(
+    monkeypatch,
+):
+    from corpus_structure.semantic import analysis_contracts
+
+    first = context()
+    monkeypatch.setattr(
+        analysis_contracts,
+        "_analysis_runtime",
+        lambda prepared: (first.implementation_digests, "runtime:independent-change"),
+    )
+    changed = context()
+    assert changed.model_id == first.model_id
+    assert changed.runtime_id != first.runtime_id
+    for demand in ("lexical", "structure", "syntax", "occurrences", "interpretation", "symbolic"):
+        assert changed.stage_key(demand) != first.stage_key(demand)
+
+
+def test_analysis_support_checks_current_semantic_determinants(monkeypatch):
+    from corpus_structure.semantic import analysis_contracts
+
+    monkeypatch.setattr(analysis_contracts, "_semantic_implementation_digests", lambda: ())
+    with pytest.raises(PreparationError, match="semantic determinant bytes"):
+        context()
