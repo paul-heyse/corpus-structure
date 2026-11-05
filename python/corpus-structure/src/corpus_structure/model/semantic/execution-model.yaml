@@ -10030,6 +10030,33 @@ operations:
   implementation: reference_record_set
   transitions: []
   projections: []
+- id: reference_operation_set
+  inputs:
+  - ReferenceSet
+  - InputCut
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  results:
+  - ReferenceSet
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-only operation frame, guideline and source-origin partition; no prediction-derived population or publication authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_operation_set
+  transitions: []
+  projections: []
 - id: reference_record_pass
   inputs:
   - ReferenceUnit
@@ -10056,6 +10083,32 @@ operations:
   implementation: reference_record_pass
   transitions: []
   projections: []
+- id: reference_operation_pass
+  inputs:
+  - ReferenceUnit
+  - SourceFrame
+  results:
+  - ReferencePass
+  - ReferenceCitationFrame
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-only operation frame, guideline and source-origin partition; no prediction-derived population or publication authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_operation_pass
+  transitions: []
+  projections: []
 - id: reference_record_grade
   inputs:
   - EvaluationResult
@@ -10079,6 +10132,31 @@ operations:
   - implementation_version
   precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
   implementation: reference_record_grade
+  transitions: []
+  projections: []
+- id: reference_operation_grade
+  inputs:
+  - EvaluationResult
+  - ReferenceSet
+  results:
+  - ReferenceEvaluation
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-only operation frame, guideline and source-origin partition; no prediction-derived population or publication authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_operation_grade
   transitions: []
   projections: []
 - id: reference_record_calibrate
@@ -10167,6 +10245,19 @@ operations:
   dependencies: [semantic_release, execution_model, input_binding, implementation_version]
   precision: Exact released field states, lexical values, ordered evidence, alternatives and admission standing; no new acceptance decision
   implementation: read_source_records
+  transitions: []
+  projections: []
+- id: read_source_contributions
+  inputs: [InputCut, SourceView]
+  results: [SourceObservationBatch]
+  applicability: [immutable_binding]
+  universe: Exact selected source task population, including missing and explicitly empty private contribution products
+  effects: []
+  outcomes: [applied, conflict]
+  outcome_domain: transaction
+  dependencies: [semantic_release, execution_model, input_binding, implementation_version]
+  precision: Private source contribution and operation identities, preserved source coordinate precision and independent semantic axes
+  implementation: read_source_contributions
   transitions: []
   projections: []
 implementations:
@@ -11421,6 +11512,25 @@ implementations:
   - protected_independent_reference_operation
   required_capabilities:
   - execution.reference_evaluation.v1
+- id: reference_operation_set
+  owner: evaluate.operation_assessment
+  symbol: create_reference_set
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceSet
+  - InputCut
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  result_concepts:
+  - ReferenceSet
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
 - id: reference_record_pass
   owner: evaluate.record_references
   symbol: record_pass
@@ -11439,8 +11549,43 @@ implementations:
   - protected_independent_reference_operation
   required_capabilities:
   - execution.reference_evaluation.v1
+- id: reference_operation_pass
+  owner: evaluate.operation_assessment
+  symbol: record_pass
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceUnit
+  - SourceFrame
+  result_concepts:
+  - ReferencePass
+  - ReferenceCitationFrame
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
 - id: reference_record_grade
   owner: evaluate.record_references
+  symbol: reference_evaluate
+  version: '1'
+  placement: python
+  input_concepts:
+  - EvaluationResult
+  - ReferenceSet
+  result_concepts:
+  - ReferenceEvaluation
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_operation_grade
+  owner: evaluate.operation_assessment
   symbol: reference_evaluate
   version: '1'
   placement: python
@@ -11514,6 +11659,16 @@ implementations:
   placement: core
   input_concepts: [EvaluationResult, SourceRecordInterpretation, SourceRecordAdmission]
   result_concepts: [SourceRecordProjection]
+  features: [typed_bound_inputs, explicit_outcomes]
+  effects: []
+  required_capabilities: []
+- id: read_source_contributions
+  owner: semantic.contribution_queries
+  symbol: read_source_contributions
+  version: '1'
+  placement: core
+  input_concepts: [InputCut, SourceView]
+  result_concepts: [SourceObservationBatch]
   features: [typed_bound_inputs, explicit_outcomes]
   effects: []
   required_capabilities: []

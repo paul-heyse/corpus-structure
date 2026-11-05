@@ -25,9 +25,9 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "25"
-# 24 and25 have the same immutable product shape; execution fences remain current-only.
-_READABLE_EXECUTION_COMPILERS = frozenset({"24", EXECUTION_COMPILER_VERSION})
+EXECUTION_COMPILER_VERSION = "26"
+# Prior products remain readable; execution fences remain current-only.
+_READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", EXECUTION_COMPILER_VERSION})
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -70,6 +70,10 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("records/source-record-report.sql", "semantic/sql/source_record_report.sql"),
     ("records/source-record-coordinates.sql", "semantic/sql/source_record_coordinates.sql"),
     ("records/record-projection.py", "semantic/record_projection.py"),
+    ("contributions/contracts.py", "semantic/contributions.py"),
+    ("contributions/read.py", "semantic/contribution_queries.py"),
+    ("contributions/native.sql", "semantic/sql/source_contributions.sql"),
+    ("records/source-anchor-coordinates.sql", "semantic/sql/source_anchor_coordinates.sql"),
     ("records/publication.sql", "semantic/sql/record_publication.sql"),
     ("records/finalization.sql", "semantic/sql/native_finalization.sql"),
     ("records/read.py", "semantic/record_queries.py"),

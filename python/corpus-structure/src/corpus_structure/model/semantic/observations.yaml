@@ -145,6 +145,64 @@ classes:
       coverage: {range: SourceCoverage, multivalued: true, inlined: true}
       measurements: {range: SourceMeasurement, multivalued: true, inlined: true}
       records: {range: SourceRecord, multivalued: true, inlined: true}
+      contribution_operations: {range: SourceContributionOperation, multivalued: true, inlined: true}
+      contributions: {range: SourceContribution, multivalued: true, inlined: true}
+  SourceContributionOperation:
+    is_a: SourceRecordProduct
+    description: One attributed semantic question under a shared invocation, including zero-output questions.
+    attributes:
+      operation_key: {required: true}
+      question: {required: true}
+      operation_version: {required: true}
+      outcome: {range: ContributionOperationOutcome, required: true}
+      inspected_count: {range: integer, minimum_value: 0, required: true}
+      emitted_count: {range: integer, minimum_value: 0, required: true}
+      report_digest: {pattern: '^[0-9a-f]{64}$'}
+      inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
+      computation_dependencies: {multivalued: true}
+      reason: {}
+  ContributionEndpoint:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true}
+      contribution_id: {required: true}
+  ContributionSemantics:
+    is_a: SourceRecordProduct
+    abstract: true
+    description: Released extension boundary for domain vocabulary and private effects.
+    attributes:
+      kind: {range: ContributionKind, required: true}
+      semantic_type: {required: true}
+      effect: {required: true}
+      assessment_event: {required: true}
+  RetainedContributionSemantics:
+    is_a: ContributionSemantics
+    attributes:
+      effect: {equals_string: retain_private}
+      assessment_event: {equals_string: local-contribution-1}
+  SourceContribution:
+    is_a: SourceRecordProduct
+    description: Independent private source product. No complete-record parent or knowledge authority is implied.
+    attributes:
+      contribution_id: {required: true}
+      contract: {required: true}
+      kind: {range: ContributionKind, required: true}
+      semantic_type: {required: true}
+      operation_key: {required: true}
+      observation_key: {}
+      item_key: {required: true}
+      pin: {range: RecordSourcePin, inlined: true, required: true}
+      anchors: {range: RecordAnchor, inlined: true, multivalued: true}
+      occurrence_id: {}
+      endpoints: {range: ContributionEndpoint, inlined: true, multivalued: true}
+      members: {multivalued: true}
+      disposition: {required: true}
+      standing: {required: true, equals_string: retained_private}
+      score_state: {range: ContributionScoreState, required: true}
+      score: {range: SourceValue, inlined: true}
+      value: {range: SourceValue, inlined: true}
+      reason: {}
+      computation_dependencies: {multivalued: true}
   RecordScalar:
     is_a: SourceRecordProduct
     abstract: true
@@ -347,6 +405,27 @@ classes:
       computation_dependencies: {multivalued: true}
       assertion_members: {multivalued: true}
 enums:
+  ContributionKind:
+    permissible_values:
+      occurrence: {}
+      proposal: {}
+      relation: {}
+      composite: {}
+      diagnostic: {}
+  ContributionOperationOutcome:
+    permissible_values:
+      succeeded: {}
+      empty: {}
+      failed: {}
+      skipped: {}
+      unsupported: {}
+      limited: {}
+      not_run: {}
+  ContributionScoreState:
+    permissible_values:
+      missing: {}
+      native: {}
+      unsupported: {}
   RecordSourceRelationship:
     permissible_values: {primary: {}, selected_context: {}}
   RecordRecognitionRole:

@@ -3913,3 +3913,133 @@ classes:
       ph:immutability: intrinsic
       ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns":["project_id","origin_group"],"target":"eval.reference_origin_group.project_id,origin_group"}]'
+
+  source_contribution_operation:
+    in_subset:
+    - kb
+    description: Private contribution index; immutable details remain once in the sealed
+      task envelope.
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      operation_key:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      question:
+        range: string
+        required: true
+      operation_version:
+        range: string
+        required: true
+      outcome:
+        range: string
+        required: true
+      inspected_count:
+        range: integer
+        required: true
+      emitted_count:
+        range: integer
+        required: true
+      report_digest:
+        range: string
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - operation_key
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"}]'
+      ph:indexes: '[["release_id", "question", "operation_version"]]'
+  source_contribution:
+    in_subset:
+    - kb
+    description: Private contribution index; immutable details remain once in the sealed
+      task envelope.
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      contribution_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      operation_key:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      semantic_type:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      occurrence_id:
+        range: string
+      disposition:
+        range: string
+        required: true
+      standing:
+        range: string
+        required: true
+      score_state:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - contribution_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
+        {"columns": ["task_id", "operation_key"], "target": "kb.source_contribution_operation.task_id,operation_key"},
+        {"columns": ["source_view_id"], "target": "kb.source_view.id"}]'
+      ph:indexes: '[["source_view_id", "kind"], ["operation_key"], ["occurrence_id"],
+        ["release_id", "kind", "semantic_type"]]'
+  source_contribution_endpoint:
+    in_subset:
+    - kb
+    description: Private contribution index; immutable details remain once in the sealed
+      task envelope.
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      contribution_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      role:
+        range: string
+        required: true
+      endpoint_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - contribution_id
+        - position
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"},
+        {"columns": ["task_id", "endpoint_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
+      ph:indexes: '[["task_id", "endpoint_id"]]'

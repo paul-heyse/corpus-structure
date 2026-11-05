@@ -840,6 +840,11 @@ def _prepare_release_uncached(
         PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
+    from .contributions import prepare_contribution_projection
+
+    contribution_projection = prepare_contribution_projection(tuple(definitions))
+    if contribution_projection is not None:
+        artifacts.append(contribution_projection)
     from .record_projection import prepare_record_projection
 
     record_projection = prepare_record_projection(tuple(definitions))
