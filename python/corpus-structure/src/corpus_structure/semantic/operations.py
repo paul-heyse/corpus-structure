@@ -1173,7 +1173,7 @@ class BoundReader:
             row["run_id"],
             open_release(self.conn, row["release_id"]),
             analysis=False,
-            read_budget=budget,
+            read_budget=self._read_budget,
         )
         view = original.source_view(row["unit_id"])
         detail = source_python(body["parse_detail"])
@@ -1185,7 +1185,7 @@ class BoundReader:
         for context in detail.get("contexts", ()):
             old_ids.update(identity for identity, _, _ in context.get("relationships", ()))
         old_views = tuple(original.source_view(identity) for identity in sorted(old_ids))
-        candidates = selected_source_views(self.conn, self.run_id, read_budget=budget)
+        candidates = selected_source_views(self.conn, self.run_id, read_budget=self._read_budget)
         bindings, used = [], set()
         for old in old_views:
             descriptor = _retained_source_descriptor(old)
