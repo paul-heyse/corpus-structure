@@ -933,3 +933,127 @@ def _source_context(source: NativeFrameSource) -> dict:
     if position != len(source.text):
         raise ContextRefused("source pieces do not cover the pinned projection")
     return context
+
+
+def record_source_pin(source: NativeFrameSource) -> dict[str, Any]:
+    """The existing record/contribution pin shape for an owned source view."""
+    product = source.native_product
+    return dict(
+        source=source.unit_ref,
+        native_product_task_id=product.task_id,
+        product_key=product.product_key,
+        product_digest=product.content_digest,
+        projection_digest=source.projection_digest,
+        recipe_digest=source.recipe_digest,
+        source_view_id=source.source_view_id,
+    )
+
+
+def evidence_anchor(
+    context: NativeSourceContext,
+    piece: NativeSpanEvidence | CapturedSpanEvidence,
+    *,
+    native: bool = False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Translate source-owner evidence once for records and local contributions.
+
+    No substring search or coordinate conversion occurs here. The evidence must belong
+    to the exact supplied source context; native and captured spaces stay distinct.
+    """
+    from .record_contracts import anchor_identity
+
+    sources = {
+        source.source_view_id: source
+        for source in (context.primary, *(entry.source for entry in context.related))
+    }
+    source = sources.get(piece.source.source_view_id)
+    if source is None or NativeSourcePin.from_source(source) != piece.source:
+        raise ContextRefused("evidence belongs to another source context")
+    relationship = "primary" if source == context.primary else "selected_context"
+    if isinstance(piece, CapturedSpanEvidence):
+        if piece.coordinate not in context.captured_coordinates:
+            raise ContextRefused("captured evidence coordinate is outside the context")
+        anchor = piece.record_anchor(relationship=relationship)
+        coordinate = dict(
+            pin=anchor["pin"],
+            space=anchor["space"],
+            pointer=anchor["pointer"],
+            recognition=anchor["recognition"],
+            text=piece.coordinate.text,
+        )
+        return anchor, coordinate
+    if piece.source_field not in {None, "text", "orig", "cell_text"}:
+        raise ContextRefused("unsupported native source text field")
+    if source.text[piece.start : piece.end] != piece.quote:
+        raise ContextRefused("evidence quote differs from pinned source")
+    pointer = json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
+    if piece.cell_index is not None and piece.source_field == "cell_text":
+        pointer += f"/data/table_cells/{piece.cell_index}"
+    pin = record_source_pin(source)
+    start, end, text, space = piece.start, piece.end, source.text, "selected_projection"
+    if native:
+        # The projection owner emits complete unchanged native fields. Establish that
+        # exact bridge before dropping view-relative offsets from physical identity.
+        owner = json.loads(source.native_context)
+        matches = [
+            row
+            for row in owner["pieces"]
+            if row.get("kind") == "native_text"
+            and row["item_ref"] == json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"]
+            and row.get("source_field") == piece.source_field
+            and row.get("cell_index") == piece.cell_index
+            and row["start"] <= piece.start < piece.end <= row["end"]
+        ]
+        items = {item.get("self_ref", item.get("pointer")): item for item in owner["items"]}
+        node = items.get(json.loads(piece.item_locator.removeprefix("pdf:"))["pointer"])
+        if piece.source_field == "cell_text" and node is not None:
+            node = node.get("data", {}).get("table_cells", ())[piece.cell_index]
+        text = node.get("text") if node is not None else None
+        if len(matches) != 1 or not isinstance(text, str):
+            raise ContextRefused("exact native field bridge is unavailable")
+        projection = matches[0]
+        if source.text[projection["start"] : projection["end"]] != text:
+            raise ContextRefused("projection is not an unchanged complete native text field")
+        start, end, space = (
+            piece.start - projection["start"],
+            piece.end - projection["start"],
+            "native",
+        )
+    anchor = dict(
+        pin=pin,
+        space=space,
+        pointer=pointer,
+        precision="exact",
+        start=start,
+        end=end,
+        source_piece=piece.quote,
+    )
+    if relationship != "primary":
+        anchor["binding"] = dict(
+            version=2, relationship=relationship, policy="attributed-selected-source-2"
+        )
+    anchor["anchor_id"] = anchor_identity(anchor)
+    return anchor, dict(pin=pin, space=anchor["space"], pointer=pointer, text=text)
+
+
+def native_item_anchor(context: NativeSourceContext, pointer: str) -> dict[str, Any]:
+    """Locate an actual native item/cell, without inventing an exact text quote."""
+    from .record_contracts import anchor_identity
+
+    native = json.loads(context.primary.native_context)
+    pointers = set()
+    for item in (*native["items"], *native["ancestors"]):
+        item_pointer = item.get("self_ref", item.get("pointer"))
+        pointers.add(item_pointer)
+        if isinstance(item_pointer, str) and item_pointer.startswith("#/tables/"):
+            pointers.update(
+                f"{item_pointer}/data/table_cells/{index}"
+                for index, _ in enumerate(item.get("data", {}).get("table_cells", ()))
+            )
+    if pointer not in pointers:
+        raise ContextRefused("native pointer is outside the explicitly retained source view")
+    anchor = dict(
+        pin=record_source_pin(context.primary), space="native", pointer=pointer, precision="item"
+    )
+    anchor["anchor_id"] = anchor_identity(anchor)
+    return anchor

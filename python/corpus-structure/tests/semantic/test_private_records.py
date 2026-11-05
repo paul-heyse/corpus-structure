@@ -644,11 +644,12 @@ def test_untrusted_private_candidate_grouping_is_not_promoted_and_reader_refuses
 
 
 @pytest.mark.parametrize("form", ["empty", "disconnected", "nested", "membership"])
+@pytest.mark.parametrize("datatype_name", ["RecordSourcePin", "SourceContribution"])
 def test_private_product_types_are_independently_refused_by_protected_knowledge_graph(
-    private_source, form
+    private_source, form, datatype_name
 ):
     case = private_source
-    datatype = case.prepared.index.definitions["RecordSourcePin"].iri
+    datatype = case.prepared.index.definitions[datatype_name].iri
     values = (ValueRow("private-product", "record", datatype=datatype),)
     roles = ()
     entities, memberships, evidence, support = (), (), (), ()

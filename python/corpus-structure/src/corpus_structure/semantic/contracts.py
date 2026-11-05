@@ -25,9 +25,9 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "25"
-# 24 and25 have the same immutable product shape; execution fences remain current-only.
-_READABLE_EXECUTION_COMPILERS = frozenset({"24", EXECUTION_COMPILER_VERSION})
+EXECUTION_COMPILER_VERSION = "26"
+# Prior products remain readable; execution fences remain current-only.
+_READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", EXECUTION_COMPILER_VERSION})
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -70,6 +70,13 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("records/source-record-report.sql", "semantic/sql/source_record_report.sql"),
     ("records/source-record-coordinates.sql", "semantic/sql/source_record_coordinates.sql"),
     ("records/record-projection.py", "semantic/record_projection.py"),
+    ("contributions/contracts.py", "semantic/contributions.py"),
+    ("operations/assessment.py", "evaluate/operation_assessment.py"),
+    ("operations/assessment.sql", "semantic/sql/operation_assessment.sql"),
+    ("contributions/read.py", "semantic/contribution_queries.py"),
+    ("contributions/source-custody.py", "semantic/records.py"),
+    ("contributions/native.sql", "semantic/sql/source_contributions.sql"),
+    ("records/source-anchor-coordinates.sql", "semantic/sql/source_anchor_coordinates.sql"),
     ("records/publication.sql", "semantic/sql/record_publication.sql"),
     ("records/finalization.sql", "semantic/sql/native_finalization.sql"),
     ("records/read.py", "semantic/record_queries.py"),
@@ -97,6 +104,7 @@ M1_IMPLEMENTATION_SOURCES = (
     ("records/m1-source.py", "methods/m1_source.py"),
     ("records/m1-annotations.py", "methods/m1_annotations.py"),
     ("records/m1-readings.py", "methods/m1_readings.py"),
+    ("records/contribution-adapter.py", "methods/contribution_adapter.py"),
     ("records/assembly.py", "methods/record_assembly.py"),
     ("records/packs.py", "methods/record_packs.py"),
     ("records/readings.py", "methods/record_readings.py"),
@@ -116,7 +124,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
-    from corpus_structure.evaluate import record_policy, record_references
+    from corpus_structure.evaluate import operation_assessment, record_policy, record_references
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
@@ -136,6 +144,7 @@ def approved_implementations() -> Mapping[str, Any]:
         arrow_publication,
         consolidation,
         continuations,
+        contribution_queries,
         domain_operations,
         inference,
         observations,
@@ -243,6 +252,10 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_items": references.ensure_items,
             "reference_grade": references.reference_evaluate,
             "reference_split": references.split_documents,
+            "reference_operation_set": operation_assessment.create_reference_set,
+            "reference_operation_pass": operation_assessment.record_pass,
+            "reference_operation_grade": operation_assessment.reference_evaluate,
+            "read_source_contributions": contribution_queries.read_source_contributions,
             "reference_record_set": record_references.create_reference_set,
             "reference_record_pass": record_references.record_pass,
             "reference_record_grade": record_references.reference_evaluate,

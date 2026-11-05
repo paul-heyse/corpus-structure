@@ -6,9 +6,33 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "read_source_contributions": {
+        "effects": (),
+        "implementation": "read_source_contributions",
+        "transitions": {},
+        "version": "1",
+    },
     "read_source_records": {
         "effects": (),
         "implementation": "read_source_records",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_operation_set": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_operation_set",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_operation_pass": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_operation_pass",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_operation_grade": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_operation_grade",
         "transitions": {},
         "version": "1",
     },

@@ -214,6 +214,31 @@ def authenticated_coordinate_texts(
     )
 
 
+def authenticated_contribution_coordinate_texts(conn, prepared, task, source, contributions):
+    """Same source custody owner for recordless, typed private contributions."""
+    if task["unit_type"] != "source_view":
+        raise ValueError("private contributions require a source-view task")
+    validated = tuple(
+        prepared.validate_python("SourceContribution", row).model_dump(mode="python")
+        for row in contributions
+    )
+    scope = _RecordSourceScope(
+        conn, prepared, (_SourceCoordinatesRequest(task["run_id"], task["unit_id"], validated),)
+    )
+    view = scope.views[(task["run_id"], task["unit_id"])]
+    if source not in {task["unit_key"], view["key"]}:
+        raise ValueError("contribution logical source differs from selected task/view")
+    return _authenticated_source_record_coordinates(
+        conn,
+        prepared,
+        run_id=task["run_id"],
+        source_view_id=task["unit_id"],
+        source=source,
+        records=validated,
+        scope=scope,
+    )
+
+
 def authenticated_source_record_coordinates(
     conn: Connection,
     prepared: PreparedRelease,

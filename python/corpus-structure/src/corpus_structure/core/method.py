@@ -275,6 +275,22 @@ class StableObservationReading(ObservationReading, Protocol):
     def input_refs(self) -> tuple[SourceObservationReference, ...]: ...
 
 
+@dataclass(frozen=True)
+class RetainedSourceResult:
+    """Authenticated historical producer input and exact selected-source correspondence."""
+
+    selected_task_id: int
+    task_id: int
+    run_id: int
+    release_id: str
+    body_digest: str
+    prepared: PreparedRelease
+    configuration: Mapping[str, Any]
+    result: Mapping[str, Any]
+    source_views: tuple[PreparedSourceView, ...]
+    source_bindings: tuple[Mapping[str, Any], ...]
+
+
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's selected source views."""
@@ -382,6 +398,12 @@ class SourcePreparationReader(Protocol):
 
     def source_result(self, source_view_id: int, method: str) -> Mapping[str, Any] | None:
         """Read an exact run-selected upstream SourceObservationBatch envelope."""
+        ...
+
+    def retained_source_result(
+        self, source_view_id: int, task_id: int, method: str
+    ) -> RetainedSourceResult:
+        """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
     def source_context_membership(self, source_view_id: int) -> str:
@@ -566,16 +588,29 @@ class UnitResult:
     # None preserves predecessor report absence; () records inspected candidate absence.
     records: tuple[Mapping[str, Any], ...] | None = None
 
+    contribution_operations: tuple[Mapping[str, Any], ...] | None = None
+    contributions: tuple[Mapping[str, Any], ...] | None = None
+    contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
+
     def __post_init__(self) -> None:
         match self.outcome:
             case ObservationOutcome.PRODUCED:
-                ok = bool(self.observations or self.records) and self.error is None
+                ok = (
+                    bool(self.observations or self.records or self.contributions)
+                    and self.error is None
+                )
             case ObservationOutcome.EMPTY:
-                ok = not self.observations and not self.records and self.error is None
+                ok = (
+                    not self.observations
+                    and not self.records
+                    and not self.contributions
+                    and self.error is None
+                )
             case ObservationOutcome.FAILED:
                 ok = (
                     not self.observations
                     and not self.records
+                    and not self.contributions
                     and not self.measurements
                     and bool(self.error)
                 )

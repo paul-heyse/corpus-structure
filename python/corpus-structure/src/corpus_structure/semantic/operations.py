@@ -7,7 +7,7 @@ release, method input and source item; task attempts and sequence IDs do not ent
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import Any
 
@@ -406,7 +406,11 @@ def complete_task(
     require_bound_operation(prepared, "complete")
     if outcome not in {"done", "empty", "failed"}:
         raise ValueError("invalid terminal outcome")
-    has_output = bool(observations) or bool((envelope or {}).get("records"))
+    has_output = (
+        bool(observations)
+        or bool((envelope or {}).get("records"))
+        or bool((envelope or {}).get("contributions"))
+    )
     if (outcome == "done") != has_output:
         raise ValueError("terminal outcome contradicts source outputs")
     if (outcome == "failed") != bool(error):
@@ -748,6 +752,15 @@ def prepare_unit_completion(
         record_coordinates = authenticated_coordinate_texts(
             conn, prepared, dict(task), source, records
         )
+    contribution_coordinates = ()
+    if result.contributions is not None:
+        from .records import authenticated_contribution_coordinate_texts
+
+        if (result.ref.unit_key, result.ref.unit_id) != (task["unit_key"], task["unit_id"]):
+            raise OperationConflict("contribution result differs from its exact task unit")
+        contribution_coordinates = authenticated_contribution_coordinate_texts(
+            conn, prepared, dict(task), source, result.contributions
+        )
     bound = bind_result(
         prepared,
         source=source,
@@ -762,6 +775,7 @@ def prepare_unit_completion(
         else None,
         records=records,
         record_coordinate_texts=record_coordinates,
+        contribution_coordinate_texts=contribution_coordinates,
     )
     # Native completion receives JSON, while complete_task admits each typed
     # observation through the Python boundary. Keep those representations separate.
@@ -858,6 +872,33 @@ class SourceObservationView:
     native_pointer: str | None = None
     projected_span: tuple[int, int] | None = None
     recognized_span: tuple[int, int] | None = None
+
+
+def _retained_source_ref(reference):
+    return dict(
+        document_id=reference.document_id,
+        native_task_id=reference.native_product.task_id,
+        native_product_key=reference.native_product.product_key,
+        native_content_digest=reference.native_product.content_digest,
+        section_pointer=reference.section_pointer,
+        membership=reference.membership,
+        projection_digest=reference.projection_digest,
+        recipe_digest=reference.recipe_digest,
+        analysis_eligible=reference.analysis_eligible,
+    )
+
+
+def _retained_source_descriptor(view):
+    return dict(
+        **_retained_source_ref(view.ref),
+        projection=dict(
+            text=view.text,
+            pieces=view.pieces,
+            items=[item["self_ref"] for item in view.items],
+            ancestors=[item.get("self_ref", item.get("pointer")) for item in view.ancestors],
+            health=view.health,
+        ),
+    )
 
 
 class BoundReader:
@@ -1056,6 +1097,134 @@ class BoundReader:
         # Return detached decoded columns; the enclosing stored envelope remains
         # the one persistence and source-product custody owner.
         return dict(body, parse_detail=source_python(body["parse_detail"]))
+
+    def retained_source_result(self, source_view_id, task_id, method):
+        """Read a named immutable producer result, never implicitly search older runs.
+
+        Both sides are independently selected and source-authenticated. The only
+        admitted relocation is a bijective logical alias over unchanged physical
+        placement, product and complete projection; old task/frame bytes stay intact.
+        """
+        from corpus_structure.core.method import RetainedSourceResult
+
+        from .observations import source_python
+        from .pdf_record_reader import PublishedReadBudget
+        from .proposals import native_source_frame
+        from .releases import open_release
+        from .source_contexts import NativeSourcePin
+        from .source_views import selected_source_views
+
+        if method != "extract.m1_candidates" or type(task_id) is not int or task_id < 1:
+            raise OperationConflict("historical source port requires an explicit M1 producer task")
+        selected = self.source_view(source_view_id)
+        tasks, results, configs, methods, runs = map(
+            table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method", "ops.run")
+        )
+        requested = (
+            self.conn.execute(select(tasks).where(tasks.c.id == task_id)).mappings().one_or_none()
+        )
+        if requested is None:
+            raise OperationConflict("historical producer task is missing")
+        origin_id = requested["reused_task_id"] or task_id
+        query = (
+            select(
+                tasks,
+                results.c.body,
+                configs.c.config_hash,
+                configs.c.params.label("producer_configuration"),
+                methods.c.name.label("method_name"),
+                runs.c.project_id.label("origin_project"),
+            )
+            .join(results, results.c.task_id == tasks.c.id)
+            .join(configs, configs.c.id == tasks.c.method_config_id)
+            .join(methods, methods.c.id == configs.c.method_id)
+            .join(runs, runs.c.id == tasks.c.run_id)
+            .where(tasks.c.id == origin_id)
+        )
+        budget = self._read_budget or PublishedReadBudget(16, 16_777_216)
+        budget.preflight(self.conn, query)
+        row = self.conn.execute(query).mappings().one_or_none()
+        if row is None:
+            raise OperationConflict("historical producer has no sealed result")
+        current_project = self.conn.execute(
+            select(runs.c.project_id).where(runs.c.id == self.run_id)
+        ).scalar_one()
+        requested_project = self.conn.execute(
+            select(runs.c.project_id).where(runs.c.id == requested["run_id"])
+        ).scalar_one()
+        if requested_project != current_project:
+            raise OperationConflict("historical task selection belongs to another project")
+        if row["origin_project"] != current_project or row["method_name"] != method:
+            raise OperationConflict("historical producer belongs to another project or method")
+        if row["unit_type"] != "source_view" or row["unit_id"] is None:
+            raise OperationConflict("historical producer does not name a source view")
+        body = row["body"]
+        budget.value(body)
+        if (
+            body.get("release_id") != row["release_id"]
+            or body.get("method") != method
+            or body.get("input_hash") != row["input_hash"]
+            or body.get("configuration_hash") != row["config_hash"]
+            or body.get("unit_key") != row["unit_key"]
+        ):
+            raise OperationConflict("historical producer body differs from its sealed task binding")
+        original = BoundReader(
+            self.conn,
+            row["run_id"],
+            open_release(self.conn, row["release_id"]),
+            analysis=False,
+            read_budget=budget,
+        )
+        view = original.source_view(row["unit_id"])
+        detail = source_python(body["parse_detail"])
+        if body.get("source") != view.ref.key or detail.get("source_pin") != asdict(
+            NativeSourcePin.from_source(native_source_frame(view, ()))
+        ):
+            raise OperationConflict("historical producer source frame differs from selected source")
+        old_ids = {view.ref.id}
+        for context in detail.get("contexts", ()):
+            old_ids.update(identity for identity, _, _ in context.get("relationships", ()))
+        old_views = tuple(original.source_view(identity) for identity in sorted(old_ids))
+        candidates = selected_source_views(self.conn, self.run_id, read_budget=budget)
+        bindings, used = [], set()
+        for old in old_views:
+            descriptor = _retained_source_descriptor(old)
+            matching = [
+                candidate
+                for candidate in candidates
+                if _retained_source_ref(candidate) == _retained_source_ref(old.ref)
+            ]
+            if old.ref.id == view.ref.id:
+                matching = [candidate for candidate in matching if candidate.id == selected.ref.id]
+            if len(matching) != 1 or matching[0].id in used:
+                raise OperationConflict(
+                    "historical source has no unique current physical correspondence"
+                )
+            current = self.source_view(matching[0].id)
+            if _retained_source_descriptor(current) != descriptor:
+                raise OperationConflict("historical source projection or native placement changed")
+            used.add(current.ref.id)
+            bindings.append(
+                dict(
+                    original_source_view_id=old.ref.id,
+                    current_source_view_id=current.ref.id,
+                    original_source=old.ref.key,
+                    current_source=current.ref.key,
+                    physical_digest=sha256(canonical_bytes(descriptor)).hexdigest(),
+                )
+            )
+        return RetainedSourceResult(
+            selected_task_id=task_id,
+            task_id=origin_id,
+            run_id=row["run_id"],
+            release_id=row["release_id"],
+            body_digest=sha256(canonical_bytes(body)).hexdigest(),
+            prepared=original.prepared,
+            configuration=row["producer_configuration"],
+            result=dict(body, parse_detail=detail),
+            source_views=old_views,
+            source_bindings=tuple(bindings),
+        )
 
     def _native_product_input(self, reference):
         """Selected/input pins or this running task's exact published output custody."""

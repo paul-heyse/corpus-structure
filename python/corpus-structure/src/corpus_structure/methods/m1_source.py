@@ -374,6 +374,17 @@ class M1Candidates:
                 ordinary_workload="unqualified",
             ),
         )
+        from corpus_structure.methods.contribution_adapter import (
+            ContributionBatch,
+            adapt_native_groups,
+            adapt_report,
+        )
+
+        contribution_batches = []
+        details["schema_packs"] = {
+            pack.fingerprint: asdict(pack) for variants in packs.values() for _, _, pack in variants
+        }
+        details["context_manifests"] = {}
         assemblies = []
         coverage = []
         details["execution"] = [
@@ -464,6 +475,12 @@ class M1Candidates:
                             )
                         )
                 continue
+            details["context_manifests"][str(index)] = dict(
+                version=context.version,
+                max_chars=context.max_chars,
+                max_pieces=context.max_pieces,
+                max_sources=context.max_sources,
+            )
             for family, variant, anchor, pack in (
                 (requested_family, variant, anchor, pack)
                 for requested_family in selection.families
@@ -484,6 +501,15 @@ class M1Candidates:
                         if family in {"table", "formula_context"}
                         else ()
                     )
+                    if native_groups:
+                        contribution_batches.append(
+                            adapt_native_groups(
+                                context,
+                                family=family,
+                                groups=native_groups,
+                                item_key=f"native/{index}/{family}/{variant}",
+                            )
+                        )
                     occurrence_roles = (anchor,)
                     native_diagnostics = ()
                     native_records = ()
@@ -505,6 +531,7 @@ class M1Candidates:
                                 context=index,
                                 family=family,
                                 operation="native_structure",
+                                context_digest=context.dependency_digest,
                                 groups=[asdict(group) for group in native_groups],
                                 diagnostics=[asdict(d) for d in native.diagnostics],
                                 **metadata,
@@ -525,6 +552,14 @@ class M1Candidates:
                         association_diagnostics=association_diagnostics,
                         **metadata,
                     )
+                    contribution_batches.append(
+                        adapt_report(
+                            report,
+                            context,
+                            pack=pack,
+                            item_key=f"retained/reports[{len(details['reports'])}]",
+                        )
+                    )
                     details["reports"].append(report_entry)
                     if family == "formula_context" and native_groups:
                         details["reports"].append(
@@ -532,6 +567,7 @@ class M1Candidates:
                                 context=index,
                                 family=family,
                                 operation="native_structure",
+                                context_digest=context.dependency_digest,
                                 groups=[asdict(group) for group in native_groups],
                                 **metadata,
                             )
@@ -705,11 +741,23 @@ class M1Candidates:
                             **metadata,
                         )
                     )
+                    details["producer_failure"] = str(error)
                     return UnitResult(
                         ref=unit.ref,
-                        outcome=ObservationOutcome.FAILED,
-                        error=str(error),
+                        outcome=ObservationOutcome.PRODUCED
+                        if any(batch.contributions for batch in contribution_batches)
+                        else ObservationOutcome.FAILED,
+                        error=None
+                        if any(batch.contributions for batch in contribution_batches)
+                        else str(error),
                         parse_detail=details,
+                        contributions=ContributionBatch.combine(contribution_batches).contributions,
+                        contribution_operations=ContributionBatch.combine(
+                            contribution_batches
+                        ).operations,
+                        contribution_coordinate_texts=ContributionBatch.combine(
+                            contribution_batches
+                        ).coordinate_texts,
                         coverage=(
                             *coverage,
                             CoverageDraft(
@@ -721,6 +769,7 @@ class M1Candidates:
                         ),
                     )
         ctx.check_active()
+        contribution_batch = ContributionBatch.combine(contribution_batches)
         records = tuple(
             record.model_dump(mode="python")
             for record in reconcile_record_candidates(ctx.reader.prepared, assemblies)
@@ -746,8 +795,13 @@ class M1Candidates:
         ]
         return UnitResult(
             ref=unit.ref,
-            outcome=ObservationOutcome.PRODUCED if records else ObservationOutcome.EMPTY,
+            outcome=ObservationOutcome.PRODUCED
+            if records or contribution_batch.contributions
+            else ObservationOutcome.EMPTY,
             records=records,
+            contributions=contribution_batch.contributions,
+            contribution_operations=contribution_batch.operations,
+            contribution_coordinate_texts=contribution_batch.coordinate_texts,
             coverage=tuple(coverage),
             parse_detail=details,
         )

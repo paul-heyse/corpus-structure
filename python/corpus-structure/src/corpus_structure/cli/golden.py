@@ -68,7 +68,7 @@ def reference_protocol(conn, set_id, project_id):
     """Route only from a stored, project-bound reference-set declaration."""
     from sqlalchemy import select
 
-    from corpus_structure.evaluate import record_references, semantic
+    from corpus_structure.evaluate import operation_assessment, record_references, semantic
     from corpus_structure.semantic.metadata import table
 
     sets = table("eval.reference_set")
@@ -77,8 +77,10 @@ def reference_protocol(conn, set_id, project_id):
         raise semantic.ReferenceError(f"unknown reference set {set_id}")
     if definition["project_id"] != project_id:
         raise semantic.ReferenceError("reference set belongs to another project")
-    protocol = definition["sampling"].get("record_protocol")
-    if protocol not in (None, record_references.PROTOCOL):
+    protocol = definition["sampling"].get("operation_protocol") or definition["sampling"].get(
+        "record_protocol"
+    )
+    if protocol not in (None, record_references.PROTOCOL, operation_assessment.PROTOCOL):
         raise semantic.ReferenceError("unsupported stored reference protocol")
     return protocol
 
@@ -267,6 +269,77 @@ def split_command(
     output(result, json)
 
 
+@golden_app.command("operation-create")
+def operation_create_command(
+    ctx: typer.Context,
+    from_run: Annotated[int, typer.Option()],
+    source_cut: Annotated[int, typer.Option()],
+    label: Annotated[str, typer.Option()],
+    split: Annotated[str, typer.Option()],
+    guideline: Annotated[str, typer.Option()],
+    guideline_text: InputFile,
+    partition: Annotated[str, typer.Option()],
+    sample: InputFile,
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Freeze operation source/output frames before independent A/B authoring."""
+    from corpus_structure.evaluate import operation_assessment as references
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        payload = read_object(sample)
+        if set(payload) != {"sampling", "frames"}:
+            raise references.ReferenceError("operation sample requires exactly sampling and frames")
+        try:
+            frames = {
+                key: references.decode_frame(value) for key, value in payload["frames"].items()
+            }
+            text = guideline_text.read_text(encoding="utf-8")
+        except (ValueError, OSError, TypeError, AttributeError) as error:
+            raise references.ReferenceError("invalid operation sample or guideline") from error
+        result = references.create_reference_set(
+            conn,
+            project_id=pid,
+            source_run_id=from_run,
+            source_cut_id=source_cut,
+            label=label,
+            legacy_split=split,
+            guideline=guideline,
+            guideline_text=text,
+            partition=partition,
+            sampling=payload["sampling"],
+            frames=frames,
+        )
+    output(result, json)
+
+
+@golden_app.command("operation-packet")
+def operation_packet_command(
+    ctx: typer.Context,
+    unit: Annotated[int, typer.Option()],
+    pass_kind: Annotated[str, typer.Option("--pass")],
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Read independent source-only A/B input or retained A/B adjudication input for C."""
+    from corpus_structure.evaluate import operation_assessment as references
+
+    with reference_session(ctx, project, json=json) as (conn, pid):
+        bound = references._unit(conn, unit)
+        if (
+            bound["project_id"] != pid
+            or reference_protocol(conn, bound["set_id"], pid) != references.PROTOCOL
+        ):
+            raise references.ReferenceError("unit is outside selected operation reference project")
+        if pass_kind in {"A", "B"}:
+            result = references.author_packet(conn, unit)
+        elif pass_kind == "C":
+            result = references.adjudication_packet(conn, unit)
+        else:
+            raise references.ReferenceError("operation packet --pass must be A, B or C")
+    output(result, json)
+
+
 @golden_app.command("create")
 def create_command(
     ctx: typer.Context,
@@ -350,7 +423,7 @@ def submit_command(
     json: JsonOpt = False,
 ):
     """Store an automated independent pass and its exact source citation frame."""
-    from corpus_structure.evaluate import record_references
+    from corpus_structure.evaluate import operation_assessment, record_references
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.semantic.proposals import (
         ProposalFrame,
@@ -363,7 +436,17 @@ def submit_command(
         if bound["project_id"] != pid:
             raise references.ReferenceError("reference unit belongs to another project")
         protocol = reference_protocol(conn, bound["set_id"], pid)
-        if protocol == record_references.PROTOCOL:
+        if protocol == operation_assessment.PROTOCOL:
+            operation_frame = operation_assessment.decode_frame(read_object(frame))
+            identity = operation_assessment.record_pass(
+                conn,
+                unit_id=unit,
+                pass_kind=pass_kind,
+                actor=actor,
+                authored=authored.read_bytes(),
+                frame=operation_frame,
+            )
+        elif protocol == record_references.PROTOCOL:
             record_frame = decode_record_frame(read_object(frame))
             identity = record_references.record_pass(
                 conn,

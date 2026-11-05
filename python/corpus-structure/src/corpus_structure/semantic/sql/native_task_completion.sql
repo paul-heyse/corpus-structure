@@ -15,7 +15,7 @@ BEGIN
  IF r.sealed OR r.status NOT IN ('created','running') OR t.status<>'running' OR t.attempt<>p_attempt OR t.claimed_by IS DISTINCT FROM p_holder THEN
    RAISE EXCEPTION 'task attempt lost or run sealed' USING ERRCODE='P0004';
  END IF;
- IF p_outcome NOT IN ('done','empty','failed') OR (p_outcome='done')<>(jsonb_array_length(p_rows)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'records','null'::jsonb)),0)>0) OR (p_outcome='failed')<>(p_error<>'null'::jsonb) THEN
+ IF p_outcome NOT IN ('done','empty','failed') OR (p_outcome='done')<>(jsonb_array_length(p_rows)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'records','null'::jsonb)),0)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'contributions','null'::jsonb)),0)>0) OR (p_outcome='failed')<>(p_error<>'null'::jsonb) THEN
    RAISE EXCEPTION 'inconsistent terminal outcome';
  END IF;
  SELECT m.* INTO STRICT method FROM ops.method m JOIN ops.method_config config ON config.method_id=m.id WHERE config.id=t.method_config_id;
@@ -29,6 +29,11 @@ BEGIN
  IF p_envelope ? 'outcome' AND NOT coalesce(dimensions->(method.name||'/result.outcome') ? (p_envelope->>'outcome'),false) THEN
   RAISE EXCEPTION 'method result outcome is not admitted by its release' USING ERRCODE='23514'; END IF;
  -- {source_record_guard}
+ IF p_envelope ? 'contribution_operations' OR p_envelope ? 'contributions' THEN
+  IF p_envelope->>'outcome' IS DISTINCT FROM (CASE p_outcome WHEN 'done' THEN 'produced' ELSE p_outcome END) THEN
+   RAISE EXCEPTION 'contribution report differs from producing task outcome' USING ERRCODE='23514'; END IF;
+  PERFORM ops.validate_source_contribution_report(t.id,p_envelope);
+ END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
    observation_outcome:=coalesce(item->>'outcome','produced');
    IF NOT coalesce(dimensions->(method.name||'/observation.family') ? (item->>'kind'),false)
@@ -77,6 +82,7 @@ BEGIN
    VALUES(t.id,t.release_id,item->>'observation_key',(item->>'ordinal')::bigint,item->>'kind',item->>'payload_definition',item->'payload',(item->>'rendition_id')::bigint,(item->>'segment_id')::bigint,(item->>'span_id')::bigint,(item->>'score')::numeric,coalesce(item->>'outcome','produced'),(item->>'source_view_id')::bigint) RETURNING id INTO oid;
    ids:=array_append(ids,oid);
  END LOOP;
+ IF p_envelope ? 'contributions' THEN PERFORM ops.project_source_contributions(t.id,p_envelope); END IF;
  IF p_envelope IS NOT NULL THEN INSERT INTO ops.task_result(task_id,release_id,body) VALUES(t.id,t.release_id,p_envelope); END IF;
  UPDATE ops.task SET status=p_outcome,result_digest=digest,error=CASE WHEN coalesce(t.error ? 'semantic_proposal_first_result',false) THEN coalesce(nullif(p_error,'null'::jsonb),'{}'::jsonb)||jsonb_build_object('semantic_proposal_first_result',t.error->'semantic_proposal_first_result') ELSE nullif(p_error,'null'::jsonb) END,finished_at=clock_timestamp(),lease_until=NULL WHERE id=t.id;
  RETURN jsonb_build_object('transaction','applied','receipt',jsonb_build_object('task_id',t.id,'run_id',t.run_id,'release_id',t.release_id,'attempt',t.attempt,'protocol',p_outcome,'result_digest',digest,'observation_ids',to_jsonb(ids)));
