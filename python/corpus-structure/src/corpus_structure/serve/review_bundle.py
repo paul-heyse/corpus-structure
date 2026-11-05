@@ -20,7 +20,7 @@ from typing import Any, Literal
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.semantic.capture_storage import LogicalRows
@@ -33,21 +33,39 @@ from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_views import load_source_view, selected_source_views
 from corpus_structure.serve.companion_export import _publish_directory
 from corpus_structure.serve.contributions import ContributionRequest, _contributions
+from corpus_structure.serve.structural_products import StructuralRequest, serve_structural_products
 from corpus_structure.settings import Settings
 
 FORMAT = "progressive-review-bundle-1"
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
+class ReviewComparison(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    baseline_evaluation_id: int = Field(strict=True, gt=0)
+    revised_evaluation_id: int = Field(strict=True, gt=0)
+
+
 class ReviewSelection(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    selections: tuple[ContributionRequest, ...] = Field(min_length=1)
+    selections: tuple[ContributionRequest, ...] = ()
+    structural_selections: tuple[StructuralRequest, ...] = ()
+    selected_evaluation_ids: tuple[int, ...] = ()
+    comparisons: tuple[ReviewComparison, ...] = ()
     completeness: Literal["selected_source_closure", "inventory"] = "selected_source_closure"
     max_bytes: int = Field(default=134_217_728, strict=True, gt=0)
     max_source_rows: int = Field(default=100_000, strict=True, gt=0)
 
     @model_validator(mode="after")
     def full_selections(self):
+        if not self.selections and not self.structural_selections:
+            raise ValueError("review requires a contribution or structural selection")
+        if any(item.after_task_id for item in self.structural_selections):
+            raise ValueError("structural review cannot begin after a task")
+        if len(set(self.selected_evaluation_ids)) != len(self.selected_evaluation_ids) or any(
+            type(value) is not int or value < 1 for value in self.selected_evaluation_ids
+        ):
+            raise ValueError("selected evaluations must have distinct positive identifiers")
         if any(item.cursor is not None for item in self.selections):
             raise ValueError("review selection cannot begin at a continuation")
         identities = [canonical_bytes(item.selection()) for item in self.selections]
@@ -78,6 +96,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
     seen_releases: set[str] = set()
     seen_documents: set[int] = set()
     seen_producers: set[int] = set()
+    validated_external: set[str] = set()
     budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
     for index, original in enumerate(selection.selections):
         cancellation.check_active()
@@ -139,41 +158,113 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             yield "reports", {"origin_task_id": report_id, **dict(report)}
         if not source_ids <= permitted:
             raise SemanticRefusal("raw report source is outside selected/original run membership")
-        for source_id in sorted(source_ids - seen_sources):
+        yield from _capture_sources(conn, source_ids, budget, seen_sources,
+                                    seen_documents, seen_producers, cancellation)
+    for index, original in enumerate(selection.structural_selections):
+        after = 0
+        while True:
             cancellation.check_active()
-            source = load_source_view(conn, source_id, analysis=False, read_budget=budget)
-            seen_sources.add(source_id)
-            producer_id = source.ref.native_product.task_id
-            if producer_id not in seen_producers:
-                run = table("ops.run")
-                statement = (select(task.c.id, task.c.run_id, task.c.release_id,
-                                    task.c.input_hash, task.c.packet_hash, task.c.result_digest,
-                                    cfg.c.params.label("configuration"), cfg.c.config_hash,
-                                    run.c.runtime_id, run.c.dependencies)
-                             .join(cfg, cfg.c.id == task.c.method_config_id)
-                             .join(run, run.c.id == task.c.run_id)
-                             .where(task.c.id == producer_id))
-                budget.preflight(conn, statement)
-                row = dict(conn.execute(statement).mappings().one())
-                budget.value(row)
-                seen_producers.add(producer_id)
-                yield "source_producers", row
-            if source.ref.document_id not in seen_documents:
-                document = table("kb.document")
-                statement = select(document).where(document.c.id == source.ref.document_id)
-                budget.preflight(conn, statement)
-                row = dict(conn.execute(statement).mappings().one())
-                budget.value(row)
-                seen_documents.add(source.ref.document_id)
-                yield "documents", row
-            yield "sources", {
-                "source_view_id": source_id,
-                "ref": asdict(source.ref),
-                "text": source.text,
-                "context": source.context(),
-                "source_coverage": "selected_projection_only",
-                "original_page_map": "unknown_unless_retained_in_native_items",
-            }
+            page = serve_structural_products(
+                conn, original.model_copy(update={"after_task_id": after})
+            )
+            if after == 0:
+                yield "structural_selections", {"selection_index": index,
+                    **page.model_dump(mode="json", exclude={"reports", "task_ids"})}
+            for task_id, report in zip(page.task_ids, page.reports, strict=True):
+                tasks = table("ops.task")
+                origin_id = conn.scalar(select(func.coalesce(tasks.c.reused_task_id, tasks.c.id))
+                                        .where(tasks.c.id == task_id))
+                yield "structural_products", {"selection_index": index,
+                    "selected_task_id": task_id, "origin_task_id": origin_id,
+                    "product_id": report.product_id,
+                    "report": report.model_dump(mode="json")}
+                if selection.completeness == "inventory":
+                    continue
+                for ref in report.inputs.sources:
+                    if ref.identity in validated_external:
+                        continue
+                    session = bind_completed_result(conn, ref.run_id)
+                    if (session.binding.release_id != ref.release_id
+                            or session.binding.data_revision != ref.result_revision
+                            or session.completed_cut_id != ref.cut_id):
+                        raise SemanticRefusal("structural original run/cut/revision differs")
+                    run = table("ops.run")
+                    if conn.scalar(
+                            select(run.c.project_id).where(run.c.id == ref.run_id)
+                    ) != ref.project_id:
+                        raise SemanticRefusal("structural original source project differs")
+                    refs = {item.id: item for item in selected_source_views(conn, ref.run_id)}
+                    bound = refs.get(ref.source_view_id)
+                    if (bound is None or bound.native_product.task_id != ref.native_task_id
+                            or bound.native_product.product_key != ref.native_product_key
+                            or bound.native_product.content_digest != ref.native_content_digest
+                            or bound.projection_digest != ref.projection_digest
+                            or bound.recipe_digest != ref.recipe_digest):
+                        raise SemanticRefusal("structural original source binding differs")
+                    views = table("kb.source_view")
+                    build_id = conn.scalar(select(views.c.native_build_id)
+                                           .where(views.c.id == ref.source_view_id))
+                    if ref.coordinate_version != (3 if build_id is not None else 2):
+                        raise SemanticRefusal("structural source coordinate version differs")
+                    validated_external.add(ref.identity)
+                    yield from _capture_sources(conn, {ref.source_view_id}, budget, seen_sources,
+                                                seen_documents, seen_producers, cancellation)
+                if origin_id not in seen_reports:
+                    result, cfg = table("ops.task_result"), table("ops.method_config")
+                    statement = (select(result.c.body, tasks.c.input_hash,
+                                        tasks.c.run_id.label("origin_run_id"),
+                                        cfg.c.params.label("configuration"), cfg.c.config_hash)
+                                 .join(tasks, tasks.c.id == result.c.task_id)
+                                 .join(cfg, cfg.c.id == tasks.c.method_config_id)
+                                 .where(result.c.task_id == origin_id))
+                    budget.preflight(conn, statement)
+                    raw = dict(conn.execute(statement).mappings().one())
+                    budget.value(raw)
+                    seen_reports.add(origin_id)
+                    yield "reports", {"origin_task_id": origin_id, **raw}
+            if page.next_after_task_id is None:
+                break
+            after = page.next_after_task_id
+
+
+def _capture_sources(conn, source_ids, budget, seen_sources, seen_documents,
+                     seen_producers, cancellation):
+    task, cfg = table("ops.task"), table("ops.method_config")
+    for source_id in sorted(source_ids - seen_sources):
+        cancellation.check_active()
+        source = load_source_view(conn, source_id, analysis=False, read_budget=budget)
+        seen_sources.add(source_id)
+        producer_id = source.ref.native_product.task_id
+        if producer_id not in seen_producers:
+            run = table("ops.run")
+            statement = (select(task.c.id, task.c.run_id, task.c.release_id,
+                                task.c.input_hash, task.c.packet_hash, task.c.result_digest,
+                                cfg.c.params.label("configuration"), cfg.c.config_hash,
+                                run.c.runtime_id, run.c.dependencies)
+                         .join(cfg, cfg.c.id == task.c.method_config_id)
+                         .join(run, run.c.id == task.c.run_id)
+                         .where(task.c.id == producer_id))
+            budget.preflight(conn, statement)
+            row = dict(conn.execute(statement).mappings().one())
+            budget.value(row)
+            seen_producers.add(producer_id)
+            yield "source_producers", row
+        if source.ref.document_id not in seen_documents:
+            document = table("kb.document")
+            statement = select(document).where(document.c.id == source.ref.document_id)
+            budget.preflight(conn, statement)
+            row = dict(conn.execute(statement).mappings().one())
+            budget.value(row)
+            seen_documents.add(source.ref.document_id)
+            yield "documents", row
+        yield "sources", {
+            "source_view_id": source_id,
+            "ref": asdict(source.ref),
+            "text": source.text,
+            "context": source.context(),
+            "source_coverage": "selected_projection_only",
+            "original_page_map": "unknown_unless_retained_in_native_items",
+        }
 
 
 
@@ -358,13 +449,25 @@ def export_review_bundle(
             yield from capture_review_relations(conn, selection, cancellation)
             if evaluator_capture is not None:
                 for name, values in evaluator_capture(conn).items():
-                    for value in values:
-                        yield name, value
+                    yield from _named_rows(name, values)
         for name, values in (extra_relations or {}).items():
-            for value in values:
-                yield name, value
+            yield from _named_rows(name, values)
 
-    return write_review_bundle(selection, destination, rows(), cancellation=cancellation)
+    from corpus_structure.serve.review_views import compose_review_views
+
+    return write_review_bundle(
+        selection, destination, compose_review_views(selection, rows()), cancellation=cancellation
+    )
+
+
+def _named_rows(name, values):
+    try:
+        for value in values:
+            yield name, value
+    finally:
+        close = getattr(values, "close", None)
+        if close is not None:
+            close()
 
 
 def _member(root: Path, name: str) -> Path:
@@ -395,6 +498,10 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     present_reports: set[int] = set()
     omitted_reports: set[int] = set()
     bound_selections: set[int] = set()
+    bound_structural: set[int] = set()
+    structural_reports = []
+    structural_refs = {}
+    captured_refs = {}
     for name, spec in manifest["relations"].items():
         if not _NAME.fullmatch(name):
             raise ValueError("invalid review relation")
@@ -432,9 +539,42 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                                     or not payload["cut_id"]):
                                 raise ValueError("review selected run/cut differs")
                             bound_selections.add(index)
+                        if name == "structural_selections":
+                            index = payload["selection_index"]
+                            if (index in bound_structural
+                                    or not 0 <= index < len(selection.structural_selections)
+                                    or payload["run_id"] != (
+                                        selection.structural_selections[index].run_id)
+                                    or not payload["cut_id"]):
+                                raise ValueError("structural selected run/cut differs")
+                            bound_structural.add(index)
+                        if name == "structural_products":
+                            from corpus_structure.semantic.structural_products import (
+                                StructuralProductReport,
+                            )
+                            report = StructuralProductReport.model_validate(payload["report"])
+                            if report.product_id != payload["product_id"]:
+                                raise ValueError("structural product identity differs")
+                            needed_sources.update(
+                                ref.source_view_id for ref in report.inputs.sources
+                            )
+                            structural_refs.update(
+                                (ref.identity, ref) for ref in report.inputs.sources
+                            )
+                            needed_reports.add(payload["origin_task_id"])
+                            structural_reports.extend(
+                                (ref.source_view_id, passage.start, passage.end,
+                                 sha256(passage.text.encode()).hexdigest())
+                                for passage in report.inputs.passages
+                                for ref in report.inputs.sources
+                                if ref.identity == passage.source_ref
+                            )
                         if name == "sources":
                             _validate_source(payload)
+                            if payload["source_view_id"] in present_sources:
+                                raise ValueError("review source member repeats")
                             present_sources.add(payload["source_view_id"])
+                            captured_refs[payload["source_view_id"]] = payload["ref"]
                         elif name in {"inventory", "reports"}:
                             needed_sources.update(_source_ids(payload))
                             if name == "reports":
@@ -459,8 +599,32 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     if selection.completeness == "selected_source_closure":
         if bound_selections != set(range(len(selection.selections))):
             raise ValueError("review selected snapshot members are missing")
+        if bound_structural != set(range(len(selection.structural_selections))):
+            raise ValueError("review structural snapshot members are missing")
         if not needed_sources <= present_sources:
             raise ValueError("review required source members are missing")
+        for ref in structural_refs.values():
+            captured = captured_refs[ref.source_view_id]
+            if (captured["projection_digest"] != ref.projection_digest
+                    or captured["recipe_digest"] != ref.recipe_digest
+                    or captured["native_product"]["task_id"] != ref.native_task_id
+                    or captured["native_product"]["product_key"] != ref.native_product_key
+                    or captured["native_product"]["content_digest"] != ref.native_content_digest):
+                raise ValueError("structural source differs from exported original pin")
+        if structural_reports:
+            sources_path = _member(root, manifest["relations"]["sources"]["files"]["jsonl"]["path"])
+            pending_sources = {entry[0] for entry in structural_reports}
+            with sources_path.open("rb") as source_stream:
+                for line in source_stream:
+                    source = json.loads(json.loads(line)["payload_json"])
+                    for source_id, start, end, digest in structural_reports:
+                        if source_id == source["source_view_id"]:
+                            if (end > len(source["text"]) or sha256(
+                                    source["text"][start:end].encode()).hexdigest() != digest):
+                                raise ValueError("structural passage differs from exported source")
+                            pending_sources.discard(source_id)
+            if pending_sources:
+                raise ValueError("structural source excerpt members are missing")
         if not needed_reports <= present_reports | omitted_reports:
             raise ValueError("review required report members are missing")
     if {path.name for path in root.iterdir()} != expected:

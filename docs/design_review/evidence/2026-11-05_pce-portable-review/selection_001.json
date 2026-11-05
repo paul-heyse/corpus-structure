@@ -1,0 +1,29 @@
+{
+  "selections": [
+    {
+      "run_id": 45,
+      "source_view_id": null,
+      "method": null,
+      "operation_key": null,
+      "operation_version": null,
+      "contribution_id": null,
+      "occurrence_id": null,
+      "kind": null,
+      "include_details": false,
+      "include_interpretation": true,
+      "include_assessment": true,
+      "include_publication": true,
+      "include_support": true,
+      "cursor": null,
+      "limit": 100,
+      "max_bytes": 8000000,
+      "page_bytes": 1000000
+    }
+  ],
+  "structural_selections": [],
+  "selected_evaluation_ids": [],
+  "comparisons": [],
+  "completeness": "selected_source_closure",
+  "max_bytes": 134217728,
+  "max_source_rows": 100000
+}

@@ -182,3 +182,70 @@ def test_complete_scope_requires_bound_snapshot_and_report(tmp_path):
         write_review_bundle(request, tmp_path / "missing", iter([
             ("selections", {"selection_index": 0, "run_id": 1, "cut_id": 2}),
             ("inventory", {"population": "report", "row": {"origin_task_id": 99}})]))
+
+
+def structural_rows():
+    from corpus_structure.semantic.structural_products import (
+        DossierProduct,
+        ExternalSourceRef,
+        StructuralInput,
+        StructuralPassage,
+        StructuralProductReport,
+    )
+    source = source_row()
+    ref = ExternalSourceRef(project_id="original", run_id=1, cut_id=2, release_id="release:old",
+        result_revision=0, source_view_id=1, native_task_id=1, native_product_key="native",
+        native_content_digest="a" * 64, projection_digest=source["ref"]["projection_digest"],
+        recipe_digest="b" * 64, coordinate_version=3)
+    inputs = StructuralInput(
+        question="scope dossier", scope="statistics", inventory_id="inventory:1",
+        policy_id="policy:1", sources=(ref,), passages=(StructuralPassage(passage_id="p1",
+            source_ref=ref.identity, start=0, end=2, text="qq", scope="statistics"),),
+        dependencies=("source-view:1",))
+    report = StructuralProductReport(kind="dossier", inputs=inputs, dossier=DossierProduct(
+        root_id="sense:1", members=(), representatives=(), missing_sections=("definition",)))
+    return [
+        ("structural_selections", {"selection_index": 0, "run_id": 2, "cut_id": 3}),
+        ("structural_products", {"selection_index": 0, "selected_task_id": 100,
+            "origin_task_id": 100, "product_id": report.product_id,
+            "report": report.model_dump(mode="json")}),
+        ("reports", {"origin_task_id": 100,
+            "body": {"structural_product": report.model_dump(mode="json")}}),
+        ("sources", source),
+    ]
+
+
+def test_structural_only_bundle_retains_original_source_pin_and_passage(tmp_path):
+    from corpus_structure.serve.structural_products import StructuralRequest
+    request = ReviewSelection(structural_selections=(StructuralRequest(run_id=2),))
+    write_review_bundle(request, tmp_path / "structural", iter(structural_rows()))
+    assert inspect_review_bundle(tmp_path / "structural")["relations"]["structural_products"] == 1
+
+
+def test_structural_passage_that_does_not_match_exported_source_is_refused(tmp_path):
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+    from corpus_structure.serve.structural_products import StructuralRequest
+    request = ReviewSelection(structural_selections=(StructuralRequest(run_id=2),))
+    rows = structural_rows()
+    report_value = rows[1][1]["report"]
+    report_value["inputs"]["passages"][0]["text"] = "xx"
+    rows[1][1]["product_id"] = StructuralProductReport.model_validate(report_value).product_id
+    with pytest.raises(ValueError, match="passage differs from exported source"):
+        write_review_bundle(request, tmp_path / "wrong-text", iter(rows))
+    assert not (tmp_path / "wrong-text").exists()
+
+
+def test_nested_assessment_iterator_settles_when_export_budget_refuses(tmp_path):
+    from corpus_structure.serve.review_bundle import _named_rows
+
+    settled = []
+    def assessment_rows():
+        try:
+            yield {"authored": "x" * 1000}
+        finally:
+            settled.append(True)
+    with pytest.raises(SemanticRefusal, match="budget"):
+        write_review_bundle(selection(max_bytes=100), tmp_path / "review",
+                            _named_rows("assessment_history", assessment_rows()))
+    assert settled == [True]
+    assert not (tmp_path / "review").exists()
