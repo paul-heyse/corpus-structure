@@ -144,6 +144,16 @@ def test_all_data_children_are_pinned_to_the_realization_release() -> None:
                         ),
                     ) in _foreign_keys(name)
                 name = "data.fact"
+            if item.name == "record_assertion_support":
+                # Support inherits scope through its complete required assertion identity.
+                # A nullable FK would permit an unbound row under MATCH SIMPLE.
+                identity = ("realization_id", "release_id", "record_id", "interpretation_id", "role")
+                assert all(not item.c[column].nullable for column in identity)
+                assert (
+                    identity,
+                    tuple(f"data.record_assertion.{column}" for column in identity),
+                ) in _foreign_keys(name)
+                name = "data.record_assertion"
             assert (
                 ("realization_id", "release_id"),
                 ("data.realization.realization_id", "data.realization.release_id"),
