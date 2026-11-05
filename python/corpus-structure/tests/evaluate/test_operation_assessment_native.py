@@ -201,16 +201,27 @@ def test_native_source_only_passes_and_protected_inventory(
         assert graded.result["units"][0]["cases"][0]["case_id"] == "cell-value"
         assert graded.result["units"][0]["cases"][0]["judgment"] == "unsupported"
         assert "comparisons" not in graded.result["units"][0]
-        stored = conn.scalar(select(table("eval.reference_evaluation").c.result).where(
-            table("eval.reference_evaluation").c.id == graded.id))
+        stored = conn.scalar(
+            select(table("eval.reference_evaluation").c.result).where(
+                table("eval.reference_evaluation").c.id == graded.id
+            )
+        )
         assert stored == graded.result
-        statement = text("SELECT eval.record_operation_reference_evaluation("
-            "'private-records',:r,:s,CAST(:n AS jsonb),CAST(:v AS jsonb))")
+        statement = text(
+            "SELECT eval.record_operation_reference_evaluation("
+            "'private-records',:r,:s,CAST(:n AS jsonb),CAST(:v AS jsonb))"
+        )
 
         def record(result, set_id=created["set_id"]):
-            return conn.scalar(statement, dict(r=source.run, s=set_id,
-                n=canonical_bytes(graded.reference_snapshot).decode(),
-                v=canonical_bytes(result).decode()))
+            return conn.scalar(
+                statement,
+                dict(
+                    r=source.run,
+                    s=set_id,
+                    n=canonical_bytes(graded.reference_snapshot).decode(),
+                    v=canonical_bytes(result).decode(),
+                ),
+            )
 
         for protocol in ("source-record-evaluation-1", "scientific-evaluation-1", "unknown"):
             invalid = dict(graded.result, protocol=protocol)
@@ -221,19 +232,37 @@ def test_native_source_only_passes_and_protected_inventory(
         with pytest.raises(DBAPIError, match="misses selected source cases"), conn.begin_nested():
             record(invalid)
         # Report-supplied protocol cannot choose operation validation for another trusted set.
-        for index, sampling in enumerate(({}, {"record_protocol": "source-record-reference-1"},
-                         {"operation_protocol": "source-operation-reference-999"})):
-            foreign = conn.scalar(text("SELECT eval.create_reference_set('private-records',"
-                ":release,:run,:label,'dev','independent',"
-                "CAST(:sampling AS jsonb))"),
-                dict(release=source.prepared.release_id, run=source.run,
-                     label=f"foreign protocol control {index}",
-                     sampling=canonical_bytes(sampling).decode()))
+        for index, sampling in enumerate(
+            (
+                {},
+                {"record_protocol": "source-record-reference-1"},
+                {"operation_protocol": "source-operation-reference-999"},
+            )
+        ):
+            foreign = conn.scalar(
+                text(
+                    "SELECT eval.create_reference_set('private-records',"
+                    ":release,:run,:label,'dev','independent',"
+                    "CAST(:sampling AS jsonb))"
+                ),
+                dict(
+                    release=source.prepared.release_id,
+                    run=source.run,
+                    label=f"foreign protocol control {index}",
+                    sampling=canonical_bytes(sampling).decode(),
+                ),
+            )
             invalid = dict(graded.result, set_id=foreign)
             with pytest.raises(DBAPIError, match="trusted set protocol"), conn.begin_nested():
                 record(invalid, foreign)
-        assert conn.scalar(select(table("eval.reference_evaluation").c.id).where(
-            table("eval.reference_evaluation").c.set_id == created["set_id"])) == graded.id
+        assert (
+            conn.scalar(
+                select(table("eval.reference_evaluation").c.id).where(
+                    table("eval.reference_evaluation").c.set_id == created["set_id"]
+                )
+            )
+            == graded.id
+        )
     with source.writer.begin() as conn, pytest.raises(DBAPIError):
         conn.execute(text("SELECT authored FROM eval.reference_pass LIMIT 1"))
 

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "pce.semantic-runtime",
+  "title": "Separate semantic meaning from exact runtime custody",
+  "group": "PCE",
+  "package": "PCE-00/01",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can runtime-only repairs preserve semantic/data identity while exact execution provenance and compatibility remain enforced?",
+  "answers": [
+    "PCE-00",
+    "PCE-01",
+    "PCE-02",
+    "PCE-03"
+  ],
+  "method": "Independent five-case semantic identity controls, actual candidate install/admission/rollback, protected runtime storage and run/reuse fences; persistent preservation and old-reader results are recorded by the consuming foundation record.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_runtime_identity.py",
+    "uv run python docs/design_review/evidence/2026-11-05_semantic-runtime-identity/author-candidate.py attempt-004",
+    "uv run pytest python/corpus-structure/tests/semantic/test_runtime_bindings_native.py -q --strict-markers --strict-config"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author-candidate.py",
+      "role": null,
+      "sha256": "5edc4eb6529243090b4a298dde3c9647202c77cc8ad5dfe90e2c3858855e0326"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "attempt-004/receipt.json",
+      "role": null,
+      "sha256": "9e80e06ecf4bd06dd0a22801e9290f1553591697b49930bdbdd6524a2cdea5cd"
+    },
+    {
+      "path": "attempt-004/native_operations.json",
+      "role": null,
+      "sha256": "a9354c4fd5975c8210ef1ea06e4b4372afa6ed4faa4a139c94d5b3b2cee65bd9"
+    },
+    {
+      "path": "attempt-004/native_admission.sql",
+      "role": null,
+      "sha256": "59b9e6a92d14ccb61bacdabfc1e6557fca9f35c10088493a6dc6382fcd40b384"
+    },
+    {
+      "path": "native-attempt-005.log",
+      "role": null,
+      "sha256": "21177dfa0ba4a4b7929ac2f09c6bee82425fa4618c3da0941ba5d70e844efc51"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native runtime controls",
+      "value": 12,
+      "of": null,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Candidate native transitions",
+      "value": 14,
+      "of": null,
+      "unit": "transitions",
+      "note": null
+    },
+    {
+      "name": "Candidate total operations",
+      "value": 21,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Passed bounded runtime storage/native enforcement at frozen132. Positive semantic assets remain release-owned; exact executable bytes have independent immutable runtime archives and same-release run pins. Changed runtime refuses execution/reuse while legacy provenance is read only from its archive. No new producer quality or full-series qualification follows; failed setup/candidate attempts remain retained.",
+  "consumed_by": [
+    "PCE-00",
+    "PCE-01",
+    "PCE-02",
+    "PCE-03",
+    "ADR-0063"
+  ]
+}

@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "id": "pce.foundations-00-03",
+  "title": "Private progressive contributions and fresh protected operation assessment",
+  "group": "PCE",
+  "package": "PCE-00–03",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do independently retained products survive failed assembly and support granular source-first/output-first assessment without conflating runtime and data identity?",
+  "answers": [
+    "PCE-00",
+    "PCE-01",
+    "PCE-02",
+    "PCE-03"
+  ],
+  "method": "Released private contracts, additive native custody/read/projection, complete returned-output adaptation, independent source-only A/B/C, exact frozen-question correspondence, actual protected grades and sealed provenance/export verification on persistent nondefault runs27/28.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_contributions.py python/corpus-structure/tests/semantic/test_retained_source_budgets.py python/corpus-structure/tests/methods/test_contribution_adapter.py python/corpus-structure/tests/methods/test_m1_readings.py python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/methods/test_record_readings.py python/corpus-structure/tests/semantic/test_source_contexts.py python/corpus-structure/tests/semantic/test_captured_source_contexts.py python/corpus-structure/tests/evaluate/test_operation_assessment.py python/corpus-structure/tests/semantic/test_contributions_native.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py python/corpus-structure/tests/semantic/test_private_records.py python/corpus-structure/tests/evaluate/test_record_references_native.py python/corpus-structure/tests/semantic/test_native_attributed_evidence.py python/corpus-structure/tests/semantic/test_runtime_identity.py python/corpus-structure/tests/semantic/test_runtime_bindings_native.py python/corpus-structure/tests/semantic/test_analysis_contracts.py python/corpus-structure/tests/semantic/test_operation_reporting.py python/corpus-structure/tests/semantic/test_selected_source.py python/corpus-structure/tests/semantic/test_execution_release.py python/corpus-structure/tests/semantic/test_execution_projection.py python/corpus-structure/tests/semantic/test_contracts.py tests/test_native_render_preparation.py tests/test_native_retained_reads.py",
+    "uv run pytest python/corpus-structure/tests/semantic/test_runtime_identity.py",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-foundations/migrate_runtime_003.py",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-foundations/migrate_runtime_004.py",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-foundations/verify_legacy_runtime_001.py",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-foundations/pce03_native_assessment_004.py grade --registration pce03-fresh-source-register-003.json --prediction-run 28 --receipt pce03-fresh-source-grade-005",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-foundations/pce03_native_assessment_004.py output-grade --registration pce03-fresh-output-register-003.json --receipt pce03-fresh-output-grade-005",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-foundations/pce03_custody_report_001.py --receipt pce03-fresh-custody-final-001 --source-grade pce03-fresh-source-grade-005.json --output-grade pce03-fresh-output-grade-005.json",
+    "just types",
+    "uv run ruff check",
+    "just ready",
+    "just ruff",
+    "just docs-check",
+    "just adr-lint",
+    "just lint-agents",
+    "just rules-scan",
+    "just rules-test"
+  ],
+  "agents": [
+    {
+      "role": "fresh source-first reference A",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B use only source/rubric, without values/targets/scores; fresh C uses source plus independent A/B. No historical reference truth."
+    },
+    {
+      "role": "fresh source-first reference B",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B use only source/rubric, without values/targets/scores; fresh C uses source plus independent A/B. No historical reference truth."
+    },
+    {
+      "role": "fresh source-first reference C",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B use only source/rubric, without values/targets/scores; fresh C uses source plus independent A/B. No historical reference truth."
+    },
+    {
+      "role": "fresh output-first reference A",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B use only source/rubric, without values/targets/scores; fresh C uses source plus independent A/B. No historical reference truth."
+    },
+    {
+      "role": "fresh output-first reference B",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B use only source/rubric, without values/targets/scores; fresh C uses source plus independent A/B. No historical reference truth."
+    },
+    {
+      "role": "fresh output-first reference C",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B use only source/rubric, without values/targets/scores; fresh C uses source plus independent A/B. No historical reference truth."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "prepare_cohort.py",
+      "role": null,
+      "sha256": "d234edd997767f207a1f99b39dba30a85a1484fbc40bb94b8ae81702e615eedc"
+    },
+    {
+      "path": "raw/source-cohort-001.json",
+      "role": null,
+      "sha256": "30709d153a089dae7e6af13c898997906475fcd8232a78781a29138a3abbb04c"
+    },
+    {
+      "path": "raw/author-source-packet-001.json",
+      "role": null,
+      "sha256": "f94bab1d0ec93aeefe77f73121698b410ccafa336d413d72604647047c0d9aab"
+    },
+    {
+      "path": "raw/author-A-001.json",
+      "role": null,
+      "sha256": "0470cbcbe3dedc63b1b486b81beedefa50ef4e32a0aebf89edd33ac0073982ad"
+    },
+    {
+      "path": "raw/author-B-001.json",
+      "role": null,
+      "sha256": "aeac8e0d6205e077f786e553d4c69f7c30b3d84a56ab9e497e3cdaa92f7330d6"
+    },
+    {
+      "path": "raw/author-C-001.json",
+      "role": null,
+      "sha256": "6f1c71370b347d061be169f125247d311c1a3fdfb28e9cffc36c9aaf5bb2b0e3"
+    },
+    {
+      "path": "raw/output-author-A-001.json",
+      "role": null,
+      "sha256": "64765f80a02c708aa8cae664262006f68764a44a0809b5becbc22e952b179af4"
+    },
+    {
+      "path": "raw/output-author-B-001.json",
+      "role": null,
+      "sha256": "22d7467908b77e4761d1e0c77a8093bfbb2d44a4b2348562e6eeba8cc24af27a"
+    },
+    {
+      "path": "raw/output-author-C-001.json",
+      "role": null,
+      "sha256": "188d6318b2168e372d88e17aee8476ef11d10f10309354d314f532450bac3055"
+    },
+    {
+      "path": "raw/pce03-fresh-source-grade-005-driver.py",
+      "role": null,
+      "sha256": "ab11b9671012a8897fdc5f26b3dba723716118012824259db32d15b134a1e48e"
+    },
+    {
+      "path": "raw/pce03-fresh-output-grade-005-driver.py",
+      "role": null,
+      "sha256": "ab11b9671012a8897fdc5f26b3dba723716118012824259db32d15b134a1e48e"
+    },
+    {
+      "path": "raw/pce03-fresh-custody-final-001-script.py",
+      "role": null,
+      "sha256": "6737796006e533cf6008a92775d4c9db4481294654bd1e6fe04a3bca724d185d"
+    },
+    {
+      "path": "migrate_runtime_003.py",
+      "role": null,
+      "sha256": "87262734654c3a1abc0ace1bba39b48b28a1b24c08f1eb0e2215cd2398c0ec6c"
+    },
+    {
+      "path": "migrate_runtime_004.py",
+      "role": null,
+      "sha256": "9836951ad7524459b2d1541e8b2d78b12e3a82ef33e2cc3e1082d401c7a61627"
+    },
+    {
+      "path": "verify_legacy_runtime_001.py",
+      "role": null,
+      "sha256": "b64b2f0405d7bf5f33f22cc09e95e336b1db4550a19a461cd1fc006675bf355b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/root-final-functional-002.log",
+      "role": null,
+      "sha256": "8e916d5dc400593d1bf636c25ebd42f9a4287e1b1566f53cdda1678f40ca0ce0"
+    },
+    {
+      "path": "raw/runtime-types-002.log",
+      "role": null,
+      "sha256": "f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726"
+    },
+    {
+      "path": "raw/runtime-ruff-002.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/runtime-ready-001.log",
+      "role": null,
+      "sha256": "0262d421ee547eaadf4c3c372843c762672f21f44515e8d1b1403cc0bb5a9896"
+    },
+    {
+      "path": "raw/runtime-migrate-working-003.json",
+      "role": null,
+      "sha256": "b712c59665b3cc68a9a9f9fa7562e36de6cfaeca820b79761382286039cb9b56"
+    },
+    {
+      "path": "raw/runtime-migrate-working-004.json",
+      "role": null,
+      "sha256": "d875ed02c5e37f0ed264fbe854b4e0daa2fc4d7608525c89a30c4a1ff52d7eef"
+    },
+    {
+      "path": "raw/legacy-runtime-read-001.json",
+      "role": null,
+      "sha256": "4079404a68dc08fb1595e1ecf85f8d75b87c27de5781963b1b3ed2db061a415f"
+    },
+    {
+      "path": "raw/pce03-fresh-source-register-003.json",
+      "role": null,
+      "sha256": "ec7ef4bd12101b608ba48aa1efdbcbc48ec0df8f6d8946811e7e02d62a0f7567"
+    },
+    {
+      "path": "raw/pce03-fresh-output-register-003.json",
+      "role": null,
+      "sha256": "d121879a40e5744d7662e58bb231b8e7df1afbbdf90cffbd3014e755d5d15875"
+    },
+    {
+      "path": "raw/pce03-fixed-output-reidentification-003.json",
+      "role": null,
+      "sha256": "8aa120ddc6e6786619de5fc704a6592797ee2d02fd40835a6e20e6f03fab555a"
+    },
+    {
+      "path": "raw/pce03-fixed-question-controls-001.json",
+      "role": null,
+      "sha256": "06f0c96d50ec4fa0c4168d37277f666f57547b5cc2dd96116ef73a13704d1926"
+    },
+    {
+      "path": "raw/pce03-fresh-source-grade-005.json",
+      "role": null,
+      "sha256": "42297c2c6237bf801bde7d9536729514d2a025eb7a263ab2cdae191f480420df"
+    },
+    {
+      "path": "raw/pce03-fresh-output-grade-005.json",
+      "role": null,
+      "sha256": "2589a4ae488e25978499e0b6440845a46077d844a25effd380bf9c1242092cc9"
+    },
+    {
+      "path": "raw/pce03-fresh-custody-final-001.json",
+      "role": null,
+      "sha256": "0ec7ca40c157307538dcef47b8cd361d6efd9470a06ca0e90d0a6873ffd35093"
+    },
+    {
+      "path": "raw/pce03-actual-assessment-summary-001.json",
+      "role": null,
+      "sha256": "86c34086bc7c91b78df78fbaf9aa2620b7b5165f79dc20dc68a3523e20c41ff8"
+    },
+    {
+      "path": "raw/pce03-journey-attempts-002.json",
+      "role": null,
+      "sha256": "81a309a90d1745d6c718234412014a611324a2504dba2b92d17ee0ac9b839ad4"
+    },
+    {
+      "path": "raw/final-types-001.log",
+      "role": "final applicable check",
+      "sha256": "f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726"
+    },
+    {
+      "path": "raw/final-ruff-001.log",
+      "role": "final applicable check",
+      "sha256": "87ff4259d18533536575ec2e1e9fbc0504a3270d871a364383eb19b6dd98d71f"
+    },
+    {
+      "path": "raw/final-docs-check-001.log",
+      "role": "final applicable check",
+      "sha256": "fcc4f7cc5db692f8a89149fbf9aca398997b22afc4530090aaa166ed6f928810"
+    },
+    {
+      "path": "raw/final-adr-lint-001.log",
+      "role": "final applicable check",
+      "sha256": "2a4c69c1a0582745b6d0a3684f9f775335da98219c655bfc367a30a5c7ad4b40"
+    },
+    {
+      "path": "raw/final-lint-agents-001.log",
+      "role": "final applicable check",
+      "sha256": "2e347ebd0673f57ce4872f60b78bb2511bf2ed3f45e7a5d3c34cef16fab499d0"
+    },
+    {
+      "path": "raw/final-rules-scan-001.log",
+      "role": "final applicable check",
+      "sha256": "d60f91c14e5dddc1ba1529b72c6508a2260f1cffa3bdadbf7c384fd98e4e74d0"
+    },
+    {
+      "path": "raw/final-rules-test-001.log",
+      "role": "final applicable check",
+      "sha256": "012bebef7210d778a64089170c2ad0e75414fa15c343d3a1cebb0ad812ec5cba"
+    },
+    {
+      "path": "raw/final-turn-end-001.log",
+      "role": "root maintenance",
+      "sha256": "5be4e1e834fe1ef43eb86769f77ffbec342918af7f5f19d74a447b4faf45546c"
+    }
+  ],
+  "depends_on": [
+    "2026-11-05_semantic-runtime-identity/pce.semantic-runtime",
+    "2026-11-05_operation-grade-dispatch/pce.operation-grade-dispatch"
+  ],
+  "results": [
+    {
+      "name": "Selected functional union at132",
+      "value": 421,
+      "of": null,
+      "unit": "tests",
+      "note": "Source75d5e98b; changed133 grading branches separately requalified, counts not summed."
+    },
+    {
+      "name": "Source-first facets",
+      "value": 93,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Source supported",
+      "value": 16,
+      "of": null,
+      "unit": "facets",
+      "note": "Nine literals and seven explicit inspected unstated cells."
+    },
+    {
+      "name": "Source unsupported",
+      "value": 73,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Source unassessed",
+      "value": 4,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Missing table-attachment facets",
+      "value": 64,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Newly captured on paired source frame",
+      "value": 16,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Frozen output facets",
+      "value": 24,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Output supported",
+      "value": 3,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Output unsupported",
+      "value": 5,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Output ambiguous",
+      "value": 2,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Output unassessed",
+      "value": 14,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Preserved tables at132",
+      "value": 21,
+      "of": null,
+      "unit": "tables",
+      "note": null
+    },
+    {
+      "name": "Preserved tables at133",
+      "value": 22,
+      "of": null,
+      "unit": "tables",
+      "note": null
+    },
+    {
+      "name": "Reopened retained private products",
+      "value": 5099,
+      "of": null,
+      "unit": "products",
+      "note": null
+    },
+    {
+      "name": "Reopened operation inventory",
+      "value": 432,
+      "of": null,
+      "unit": "operations",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "PCE-00–03 private-foundation scope passes its selected functional/native and actual protected assessment obligations. Failed native/setup/serializer/query attempts remain. Six stored grades7–12 and sealed source/pass/runtime/export checks authenticate declared-case results. Sixteen captured source facets coexist with73 missing/unsupported and4 unassessed; all64 table attachments remain missing. Output24 has3 supported/5 unsupported/2 ambiguous/14 unassessed. No population estimate, calibration, new extraction efficacy, public eligibility, original-page completeness or whole-PCE claim follows. No provider/conversion/training reran; reference authors are explicitly model-assisted. Semantic identity remains19379a91... through validator repair, defaults and retained data are unchanged, worktrees removed. PCE-04–11 and concrete refinement investigations remain with their owning plan.",
+  "consumed_by": [
+    "PCE-00",
+    "PCE-01",
+    "PCE-02",
+    "PCE-03",
+    "ADR-0063"
+  ]
+}

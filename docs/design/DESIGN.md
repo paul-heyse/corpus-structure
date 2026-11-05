@@ -287,7 +287,7 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
-**Accepted target; implementation/qualification in progress,2026-11-05.** Semantic meaning and
+**Implemented; scoped native and identity controls Tested,2026-11-05.** Semantic meaning and
 executable provenance have distinct immutable owners. `sem.runtime_binding` archives exact
 runtime inputs; each new run pins a same-release runtime identity. Native custody and deployed
 operation/effect enforcement remain authoritative. Historical runs keep their producing provenance.
@@ -482,7 +482,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Accepted target; implementation/qualification in progress,2026-11-05.** Semantic identity
+**Implemented; scoped native and identity controls Tested,2026-11-05.** Semantic identity
 includes data/model/output contracts, declared behavior versions and parsing grammar/model assets.
 Incidental executable-source changes have a separate runtime identity. A budget-only repair must
 preserve semantic release/data identity; execution, caches and task reuse retain exact runtime

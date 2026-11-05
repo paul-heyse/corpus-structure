@@ -1,9 +1,10 @@
 # Operation assessment and capability qualification
 
-**Target: Proposed, 2026-11-04.** Owns PCE-03 and PCE-11 design/completion criteria. The
+**PCE-03 implemented with bounded native assessment Tested, 2026-11-05; PCE-11 Planned.** Owns PCE-03 and PCE-11 design/completion criteria. The
 [coordinator](../progressive-corpus-enrichment_2026-11-04.md) owns live package state and disposition.
-Consumes progressive-review O02/O08/O09/O10 and accepted RC01/03/04/08. Product execution remains
-stopped; no local accuracy, embedding quality or new qualification is claimed by this document.
+Consumes progressive-review O02/O08/O09/O10 and accepted RC01/03/04/08. The coordinator and linked
+evidence own actual local findings and bounded qualification; PCE-11 remains Planned. No embedding
+quality or population accuracy is established by this document.
 
 ## Baseline and intended change
 
@@ -67,10 +68,18 @@ retain separate execution lineage but do not multiply captured knowledge.
 
 Reference authors receive source/context and the rubric without production candidates or scores.
 Preserve independent author passes, agreement/adjudication and assessor assistance attribution.
-Reuse independently authored field values/anchors from old references only when they answer the
-new exact question; retain a versioned projection with source reference IDs, correspondence and
-scope. The old whole-reading Boolean cannot supply local truth. A/B/C passes and old record grades
-remain immutable; changed questions require new protocol/frame identities.
+**Operator amendment, 2026-11-05:** author fresh references for the go-forward operation
+contracts and representative current products. Historical whole-reading references, their field
+projections and compatibility bridges are not this execution's qualification basis. If the old
+data lacks the information needed by a question, select or produce suitable data and author it
+afresh; do not retrofit inadequate references. Old A/B/C bytes and grades retain their historical
+meaning. The new protocol has no historical-field-projection or derived-C bypass.
+
+Fresh source-first A/B/C packets bind native source coordinates, the new rubric and actual
+inspection scope. Fresh output-first packets expose the declared question and relevant source
+context for the frozen emitted population; earlier source answers are not automatically assigned
+to a different question. Raw producer observations can remain inputs to PCE-02 when complete and
+representative, but any resulting products are independently assessed under the fresh protocol.
 
 Protected fitting/calibration/final access follows existing custody. Default development review
 exports include development judgments and sealed-population inventory only. Feedback on exposed
@@ -135,11 +144,42 @@ zero predictions; ambiguous valid alternatives; source/release mismatch and stal
 Expected anchors/structures are authored independently of production adapters and validators.
 Calling a validator twice cannot establish semantic correctness.
 
-The retained 80 matched table cases are a development starting point with recorded reference
-projection scope. Include independent source-first cases outside that match subset and account
-for the 102 unmatched table interpretations without assuming all are false positives. Do not
-turn that bounded comparison into a new population grade. Actual completeness of case acquisition,
-native access, local scoring and export is required; quality results carry their measured scope.
+The initial bounded source cohort uses up to four text items and one table per selected view,
+with up to sixteen source-selected body cells per table. Its fresh authoring currently covers
+five text items and sixteen cells. A separate frozen output population selects up to twenty-four
+products with fresh question-specific A/B/C authoring. Cases that truly lack source support or a
+comparable prediction remain explicitly ambiguous or unassessed; that standing cannot substitute
+for authoring available questions. The former 80 matched/102 unmatched comparison is historical
+diagnostic evidence only, not a source of new labels or denominators. Actual case acquisition,
+protected pass storage, local scoring and reports are required; findings carry their measured scope.
+
+### Delivered initial assessment and remaining refinements — 2026-11-05
+
+The coordinator's linked evidence supplies both fresh A/B/C frames, actual protected grades,
+same-case paired changes and sealed export/custody checks. The source-only baseline and retained
+derivation share a frozen source cohort. Output authoring uses a separate frozen24-question frame;
+its exact raw-item/operation/physical-source/recursive-member correspondence survives the one-time
+identity-scheme transition without reselection or importing historical reference truth.
+
+Observed source capture is granular: nine literal cells and seven explicitly inspected blank
+cells are supported. Missing explicit cue-state products, four missing scientific-symbol literals,
+four unassessed contextual roles and all64 missing table attachment facets stay visible. The
+retained relation population consists of25 definition attachments; it contains no table relations.
+This is an observed output-population gap, not proof of which upstream component caused it.
+PCE-07 should trace returned-field versus structural-context paths before selecting a refinement;
+PCE-04 cannot infer attachment eligibility from the supported value literal alone.
+
+Output assessment separately distinguishes supported literals, coarse location failing an exact
+literal event, wrong definition-field structures, permissible ambiguity and unavailable semantic
+events. Fourteen sampled diagnostics/composites lack an independent source rubric/subject and remain
+unassessed; new rubrics belong with the operation that makes those meanings assessable. No capture
+percentage, population estimate, calibrated probability or full-record acceptance follows.
+
+Current case-level reports and counts are owned by the coordinator and its evidence record,
+not duplicated score tables here. Native133 dispatches validation from the immutable reference-set
+protocol to the operation validator; record/scientific checks and forged-protocol refusal remain.
+This validator-only repair preserved release/model/manifest/artifact identity and required no new
+source run or re-authoring of suitable fresh references.
 
 ## PCE-11: assembled qualification and deliberate adoption
 

@@ -2,10 +2,10 @@
 
 ## Progressive enrichment target
 
-**Accepted target; implementation/qualification pending PCE-00–03, 2026-11-05.** Independent
+**Implemented private foundation; bounded Tested, 2026-11-05.** Independent
 source contributions and operation-specific assessment extend the existing release, observation,
 source custody and protected reference/read owners. Complete records remain stronger products;
-local correctness is not inferred from their grades. Exact shared contracts and remaining work
+local correctness is not inferred from their grades. Executable contracts, bounded evidence and remaining work
 are owned by the [PCE series](../plans/progressive-corpus-enrichment_2026-11-04.md) and its
 contribution/assessment companions. Existing record-specific rules below retain their scope;
 they do not impose a universal completeness gate on independently typed products.
@@ -14,7 +14,7 @@ they do not impose a universal completeness gate on independently typed products
 
 ## Current compiler and compatibility owner
 
-**Accepted target; identity controls Tested, native integration in progress,2026-11-05.** Semantic
+**Implemented; identity, native and retained-data controls Tested,2026-11-05.** Semantic
 compiler17/execution compiler27 separate positively declared semantic assets from exact executable
 runtime provenance. `contracts.SEMANTIC_IMPLEMENTATION_NAMES` owns the mixed-input classification;
 the schema/catalog and grammar/model/output contracts stay release-bound. `runtime_bindings` owns

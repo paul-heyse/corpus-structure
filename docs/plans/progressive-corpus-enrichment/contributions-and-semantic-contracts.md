@@ -1,11 +1,12 @@
 # Progressive corpus enrichment: contributions and semantic contracts
 
-**Proposed implementation plan, 2026-11-04.** This companion develops PCE-01 and PCE-02 of the
+**Implemented private PCE-01/02 foundation; bounded Tested, 2026-11-05.** This companion develops PCE-01 and PCE-02 of the
 [coordinator](../progressive-corpus-enrichment_2026-11-04.md). The coordinator is the sole owner
 of package state, scheduled opportunity disposition, rule-change decisions and combined acceptance.
 This document owns the shared contracts below and their migration design; package descriptions
-are required future work, not a second execution ledger. Product checks and qualification are
-**not_run** for this planning engagement. Source baseline: `a3b0f21d`, inspected 2026-11-04.
+are obligations, not a second execution ledger. The coordinator and its linked evidence own
+current checks and qualification. Planning source baseline: `a3b0f21d`, inspected 2026-11-04;
+the current integrated implementation is identified in the coordinator.
 
 The source is the [progressive-enrichment functional review](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md),
 particularly [O01](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O01),
@@ -75,8 +76,9 @@ span would amplify storage, hydration and validation. No throughput or capacity 
 <a id="shared-contracts"></a>
 ## Shared contracts
 
-These are the series' **Proposed** shared semantics. PCE-01 moves their enduring definitions into
-the executable model and owning D-documents; subsequent packages consume the resulting versioned
+These are the series' accepted shared semantics under ADR-0062, with implementation and testing
+bounded by the coordinator. PCE-01 moves enduring definitions into the executable model and
+owning D-documents; subsequent packages consume the resulting versioned
 contract. Names below state meanings, not a demand for a new class or relation for every noun.
 They can be physically combined where their custody and access paths agree.
 
@@ -227,10 +229,11 @@ Other packages add domain meanings using this contract rather than each introduc
 custody conventions. An operation-specific product that genuinely needs different invariants
 must update the owning model and explain the distinction.
 
-**Available intermediate capability.** A manually specified small contribution batch can be
-bound, sealed and read without a record, with authentic source and operation lineage. This is the
-prerequisite slice PCE-02/03 and the producer companions need. Full PCE-01 completion still needs
-consumer projection integration, forward migration behavior and the independent controls below.
+**Available capability.** Independent contribution batches can be bound, sealed and selected
+without a record, with authentic source and operation lineage. Actual retained-output derivation,
+additive native migration/preservation and protected assessment now exercise this boundary.
+The coordinator owns bounded closure evidence; public local admission/query migration remains
+PCE-04, and portable review/lifecycle completion remains PCE-09.
 
 **Independent acceptance cases.** Hand-specify source strings, offsets, operation questions and
 expected relationships; production validators can enforce admission but cannot derive both the
@@ -360,6 +363,6 @@ provider output and is not required to reinterpret sufficient retained bytes.
 
 The package controls establish their stated contracts, not full-series qualification. PCE-11
 owns the final-source union and assembled native/query/CLI/MCP/export journeys through the
-coordinator. No product tests, native migrations, model calls, database writes or benefit
-measurements were run for this plan: **not_run**. The planning claims are **Proposed**; source
-inspection establishes the baseline described above, not implementation of the new target.
+coordinator. The original plan-authoring engagement ran no product qualification. Current native,
+preservation, retained-output and independent assessment receipts are linked from the coordinator;
+their bounded scope does not establish new producer quality or full-series benefits.

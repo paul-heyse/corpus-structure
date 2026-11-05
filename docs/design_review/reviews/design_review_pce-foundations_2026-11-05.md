@@ -1,5 +1,10 @@
 # PCE foundations: combined design/target review
 
+**Latest independent judgment, 2026-11-05: accept scoped the assembled PCE-00–03 architecture**
+([§13](#assembled-continuation), identity continuation§14). The first-proposal assessment preserves its exact
+subject and findings; §13 reassesses the resulting code. Runtime acceptance remains separately
+owned by the PCE coordinator.
+
 **Independent design/target review, 2026-11-05.** **Decision: accept the scoped target direction;
 revise the first implementation proposal before claiming the boundary complete.** The proposed
 architecture makes useful local structure independently retainable and assessable while keeping
@@ -198,6 +203,217 @@ performed in a producer adapter. Disposition belongs in the PCE coordinator.
 
 These findings are independent. F02 establishes source correspondence; F01 controls physical
 demand. Neither repeated source validation nor a narrower truth claim fixes the other.
+
+<a id="assembled-continuation"></a>
+## 13. Independent assembled continuation — 2026-11-05
+
+**Decision: accept scoped the assembled private contribution and operation-assessment
+architecture.** A fresh `design-reviewer` context performed this combined design/target assessment.
+No additional material architectural finding was identified. The result continues this engagement
+and consumes its PCE audit refresh at `cd9bd586`, core/template3.3, heuristics1.0,
+code-intelligence1.4 and relevant test-assessment1.2. It does not refresh the broad audit.
+
+### Examined subject and evidence cutoff
+
+**Implemented; source-inspected 2026-11-05.** The subject is main`74dd8423` plus the explicit
+fresh-reference amendments in the coordinator, assessment companion and D7, the companion's
+current-state clarification and the frozen131 E501 layout exception. The final inspected product
+amendment is the two-line retained-report/source-budget separation subsequently committed as
+`4eee0d15`; `semantic/operations.py` blob`b7f69469f50dcd5c1b6e068498fc284430b93f97`.
+Other decisive blobs are contribution_queries`8951239d0eb8e5b7696a761f81f6d9762cfcedf8`,
+operation_assessment`b29765ca3bb6191dcf26b562e69e3f884909c7f1` and
+contribution_adapter`48876e8f6a595ddd90ba2d55174598c7ca3ada4a`.
+
+The reviewer inspected declarations/binding, native validation/completion, M1 integration and
+selected tests. Historical-field projection and derived-C absence was checked within the new
+assessment Python/SQL paths and selected tests, not claimed repository-wide. The coordinator's
+71-control native receipt, migration131, source-only run23 and fresh sets4/5/passes34–42 are
+attributed execution evidence. Complete source-first/output-first grading and the final affected
+regression command were pending at this review cutoff. The reviewer ran no tests, databases,
+models, migrations or benchmarks; source/diff/blob inspection and Context7 lookup passed.
+
+### Governing distinctions and composition
+
+Executable binding and native completion distinguish authenticated physical occurrence, immutable
+private interpretation, actual operation outcome, source-field state, independent assessment
+and publication. Located proposals use their authenticated occurrence; genuinely unlocated
+products retain their raw input and reason without inventing that join. Operations exist even
+when their contribution population is empty. Native validation and compact indexes participate
+in the existing fenced task transaction, preserving one report/release/source lifecycle.
+
+The adapter preserves complete returned objects independently of confidence diagnostics.
+Natural-group-derived attachments name their derivation and absence of independent relation-head
+output or score. Available endpoints do not establish a correct relationship. Blank-field
+inspection retains a structural subject; `_literal_product` prevents its quotation from becoming
+a present value. Exact question/version, source frame, rubric and inspected scope govern assessment.
+
+| Revealing change | Resulting boundary and implication |
+|---|---|
+| Correct value, wrong header | Separate product identities and endpoint-semantic assessment preserve value support while rejecting the attachment |
+| Empty field versus uninspected region | Explicit state capture differs from absence detection; zero output is not captured structure |
+| Repeated windows or reused task | Physical occurrence, semantic product and `(origin_task_id, contribution_id)` observation retain distinct grains; aliases add no independent votes |
+| New semantic role | Adapter/question/rubric supply the meaning; source identity and task lifecycle stay reusable |
+| New decoder or preparation | Explicit report/profile/preparation dependencies change; unavailable reconstruction remains unsupported |
+| Later failure | Earlier contribution batches survive with actual failure/not-run coverage; no complete record is required |
+| Wide report/detail | Indexed selection and aggregate pre-hydration byte admission bound client transfer; they do not bound all database array-expansion work |
+| Current derivation from retained raw input | Exact named input and physical-source correspondence are checked; historical reference answers supply no new truth |
+
+Sharing envelopes, context-scoped reconstruction, distinct-anchor native validation and indexed
+selection provides a credible route for the bounded local workload. The budget repair keeps
+the one-report16-row guard out of source hydration while retaining the actual caller source budget.
+Its controlled test establishes propagation; only the actual registered journey can establish
+native hydration. No latency, memory or capacity improvement is measured.
+
+The evaluator's dense case-to-occurrence assignment matrix is proportionate to this bounded
+cohort. Corpus-wide assessment would require reconsidering selected populations and matrix/access
+paths before a capacity claim. This is an excluded expansion, not an unreported delivery promise.
+
+Record-only retention would lose useful partial products. A parallel contribution/reference
+subsystem would duplicate source, release and recovery decisions. Extending the current owners
+preserves the necessary meanings with the least additional lifecycle machinery.
+
+### Library mechanisms
+
+PostgreSQL owns relational selection, JSON expansion, aggregate admission and atomic completion;
+SQLAlchemy Core builds explicit selected queries. The existing semantic compiler remains the
+schema authority. `scipy.optimize.linear_sum_assignment` supplies minimum-cost assignment while
+the evaluator defines exact-match eligibility, occurrence groups and unmatched columns. SciPy
+does not define semantic truth or correctness probabilities. Context7 retrieved the pinned
+SciPy1.18.1 [official assignment documentation](https://github.com/scipy/scipy/blob/v1.18.1/doc/source/tutorial/optimize.rst)
+on2026-11-05. No additional framework or dependency is warranted by this scope.
+
+### Independent judgments and gates
+
+| Judgment | Scoped verdict and basis |
+|---|---|
+| A1 · FP-01/02/06 | Satisfied: adapter, source, question/rubric and lifecycle changes have identifiable owners |
+| A2 · FP-04/05 | Satisfied: executable binding/native enforcement govern occurrence, proposal, outcome, source state and judgment |
+| A3 · FP-03 | Satisfied: existing owners compose explicitly; useful products survive failed assembly |
+| A4 · FP-07 | Satisfied for the bounded increment: shared envelopes, indexed reads and pre-transfer admission; larger assessment/serving excluded |
+
+Relevant DP-01–10/13–24 and CI-01–04/06–13 are supported in this scope. General recursive
+graph analysis and broad serving projections are not introduced or qualified by this increment.
+
+| Gate | Independent static verdict and limit |
+|---|---|
+| G1 | Pass: existing source/release/task/reference authorities |
+| G2 | Pass: location, derived meaning, state and assessment direction stay distinct; F02's path refuses |
+| G3 | Pass: Python/native closure; final affected native evidence remains coordinator-owned |
+| G4 | Pass: explicit reconstruction/effects, no inspected hidden fallback or reference-to-producer route |
+| G5 | Pass in inspected architecture: common fenced atomic completion; no complete operational recovery claim |
+| G6 | Pass in scope: immutable dependencies, physical correspondence and product lineage |
+| G7 | Pass with limits: `quality_claim="not_established"`, `population_claim="declared_cases_only"`; pending journey is explicit |
+| G8 | Pass: established relational/compiler/assignment mechanisms |
+| CI-G1 | Pass: observation, derived candidate, judgment and publication are separate |
+| CI-G2 | Pass for selected private assessment: native anchors/endpoint closure; portable/public journeys excluded |
+| CI-G3 | Pass in inspected architecture: source-first frames exclude outputs and protected immutable A/B/C custody remains |
+
+### Findings, impacts and enclosing boundary
+
+F01 is corrected by aggregate selected-detail admission before fetch; its native refusal control
+checks that detail-fetch never occurs. F02 is corrected in Python and native validation while
+retaining valid unlocated products. Implementation F03's native score check uses its declared
+`contribution` variable; F04 preserves blank-field inspection subjects without fabricated value
+evidence. The F05 historical-projection path is removed. F06 distinguishes unique products from
+actual origin-task/product observations. Current closure and receipts remain in the coordinator.
+The budget propagation correction is a scoped implementation repair, not a new architectural finding.
+
+**Rule impacts: none beyond accepted RC01–08 and the fresh-reference amendment.** No new ADR,
+standing gate, qualification framework or historical-label migration is recommended.
+
+Accept scoped the architecture, subject to separate completion of actual fresh source-first and
+output-first journeys and final-source evidence reconciliation. PCE-04 public admission, PCE-09
+portable export/consumer cutover, PCE-11 full-series qualification, new producer quality,
+larger-population capacity and measured benefits remain excluded. The independent positive
+design judgment does not establish any of those capabilities or close their owning obligations.
+
+## 14. Independent semantic/runtime identity continuation — 2026-11-05
+
+**Decision: accept scoped the assembled semantic/runtime separation architecture.** A fresh
+independent design-reviewer context found no additional material architectural defect. This
+continues the combined engagement and its scoped diagnostic baseline at `cd9bd586`; it does not
+refresh the broad audit or establish deployment, final qualification or assessment completion.
+
+**Implemented; source-inspected2026-11-05.** The subject is main`c7072a17`, ADR-0063 and the
+D2/D3/DESIGN amendments. Decisive sources are contracts, runtime binding preparation/storage,
+run creation/start/claim/reuse, analysis contexts, rendering, impact reporting, selected-source
+provenance and physical/native runtime guards. Pending generated adapters, admission constants
+and migration132 in `/tmp/corpus-runtime-storage` were inspected separately; their final-source
+integration remains coordinator-owned. The inspected candidate receipt reports passed installation,
+admission, ownership/ACL and rollback controls over12native/19total operations, with
+`persistent_deployment=false`. It is not evidence of a deployed database.
+
+The standard remains core/template3.3, heuristics1.0, code-intelligence1.4 and relevant
+test-assessment1.2. Reviewer source/artifact inspection passed; tests, migrations, database/model
+execution and benchmarks were not_run by this reviewer.
+
+The governing model distinguishes released interpretation, exact executable custody, run
+production and correctness. Sixteen positively declared grammar/model/output-contract assets
+remain semantic determinants. Exact owned executable bytes have their own archive and identity.
+Neither the archive nor its fingerprint proves execution or truth.
+
+| Revealing change | Inspected result |
+|---|---|
+| Budget-only repair | Runtime fingerprint changes independently of semantic preparation/products |
+| Grammar/model/output-contract revision | Declared semantic assets continue to change semantic identity |
+| Added executable helper | Complete owned package Python/SQL capture includes its provenance |
+| Altered archive | Canonical shape, hash, membership and semantic-binding checks reject inconsistent custody |
+| Execution with another runtime | Start/claim compare installed fingerprint with the immutable producing pin |
+| Task reuse after code change | Python twin selection and native `valid_reuse` retain the runtime premise |
+| Analysis cache | Stage keys include runtime identity separately from semantic/model inputs |
+| Export or historical read | Exact producer-run archive supplies provenance; installed bytes never synthesize it |
+
+The positive declaration makes semantic responsibility explicit. Future interpretation-changing
+code still needs its owned contract revision; excluding code bytes from semantic identity does
+not establish behavioral equivalence. Whole-package runtime identity conservatively invalidates
+otherwise reusable computation after unrelated code changes. This trades reuse precision for
+complete custody; no dependency-analysis/equivalence framework is warranted by this increment.
+
+One intrinsic runtime relation and a same-release run FK are justified: existing semantic input,
+artifact and registry sets are closed and immutable. Appending alternate code there would create
+competing archive meaning. Store the runtime archive once; execution compares compact pins without
+hydrating archived source. Installed fingerprint acquisition still reads the owned footprint,
+which is conservative and credible for this bounded local workflow. No latency/capacity benefit
+is measured.
+
+| Judgment | Scoped verdict |
+|---|---|
+| A1 | Satisfied: semantic assets, runtime custody, native admission and producer reads have distinct owners |
+| A2 | Satisfied: interpretation, executable provenance and correctness govern actual consumers |
+| A3 | Satisfied: existing compiler/native/run/task machinery composes without a parallel engine |
+| A4 | Satisfied for the bounded workload: shared archives, compact execution checks and truthful reuse premises |
+
+G1–G4 and G6 pass in the inspected architecture. G5 passes architecturally with migration,
+deployment and recovery qualification still open. G7 passes with stated evidence limits: a
+rolled-back candidate is not deployed support. G8 passes through established canonicalization,
+relational constraints and native operation machinery. CI-G1/CI-G2 pass for inspected attribution
+and producing-runtime provenance; CI-G3 is preserved without a reference-to-producer route or
+new quality claim. Relevant criteria include FP-02/04/06/07, DP-01–09/18–24 and CI-01/06/10/11/13.
+
+**Rule impacts: none beyond ADR-0063 and its accepted owner amendments.** Historical archives and
+frozen predecessors remain unchanged. This positive architectural judgment does not close the
+coordinator's current integration, native qualification or actual protected-assessment obligations.
+
+## 15. Coordinator execution reconciliation — 2026-11-05
+
+This section records subsequent implementation/qualification evidence; it does not relabel the
+independent reviewers' static work as their test runs. Native132/133 were applied additively with
+21/22 critical retained-table preservation hashes. Exact legacy producer provenance and private
+products remain readable. The421-test selected union at132 is supplemented by the affected133
+operation/scientific/source-record controls and actual stored fresh grades7–12. All runtime-only
+validator changes preserved release19379a91…, model, manifest and complete artifact digest map;
+source runs27/28 and suitable fresh A/B/C were retained.
+
+Actual grading exposed and corrected shared-trigger dispatch F08: the immutable set protocol
+selects the existing operation validator once, with forged protocols refused and older branches
+preserved. This is reconciled through the same model/owner composition, not a parallel evaluator.
+Source93 facets yield16 supported/73 unsupported/4 unassessed; the independent output24 frame
+yields3 supported/5 unsupported/2 ambiguous/14 unassessed. Missing table associations and unavailable
+semantic events remain explicit. Functional acceptance does not establish new extraction efficacy,
+public eligibility, population reliability or whole-system qualification. The
+[coordinator](../../plans/progressive-corpus-enrichment_2026-11-04.md) and
+[evidence account](../evidence/2026-11-05_pce-foundations/README.md) own current dispositions,
+commands, source applicability and further refinements.
 
 ## 8–10. Architectural judgments and verification obligations
 
