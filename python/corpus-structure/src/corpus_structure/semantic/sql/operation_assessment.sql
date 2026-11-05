@@ -1,23 +1,12 @@
 -- Exact-question reuse delegates physical/source/schema compatibility to the existing
 -- record reference owner. User-supplied correspondence never establishes authority.
-CREATE OR REPLACE FUNCTION eval.operation_reference_field_projection(p_run bigint,p_pass bigint,p_frame bigint,p_record text,p_field integer,p_question text)
+CREATE OR REPLACE FUNCTION eval.operation_reference_field_projection_bound(p_run bigint,p_pass bigint,p_frame bigint,p_record text,p_field integer,p_question text,authored jsonb,original_partition text,binding jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE original_unit bigint; authored jsonb; original_partition text; original_record jsonb; original_field jsonb;
- binding jsonb; evidence_id text; evidence jsonb; anchor_id text; original_anchor jsonb; actual_anchor jsonb; pair jsonb;
+DECLARE original_record jsonb; original_field jsonb; evidence_id text; evidence jsonb; anchor_id text; original_anchor jsonb; actual_anchor jsonb; pair jsonb;
  anchors jsonb:='[]'; ids jsonb:='[]'; pieces jsonb:='[]'; alternatives jsonb; seen text[]:='{}';
 BEGIN
  IF p_question NOT IN ('value','location') OR p_question IS NULL OR p_field<0 OR p_field IS NULL THEN
   RAISE EXCEPTION 'only exact source value/location projection is supported; role reinterpretation requires a declared contract' USING ERRCODE='23514'; END IF;
- SELECT p.unit_id,convert_from(p.authored,'UTF8')::jsonb,s.sampling->>'partition'
- INTO STRICT original_unit,authored,original_partition FROM eval.reference_pass p
- JOIN eval.reference_frame f ON f.pass_id=p.id JOIN eval.reference_unit u ON u.id=p.unit_id
- JOIN eval.reference_set s ON s.id=u.set_id
- WHERE p.id=p_pass AND f.id=p_frame AND p.pass_kind='C'
-  AND p.content_digest=encode(sha256(p.authored),'hex');
- -- Revalidates the independent pass and its frozen source frame, unchanged relevant
- -- field/role/value/state declarations and guideline, then resolves a bijective,
- -- authenticated physical successor. An unrelated execution-code change is harmless.
- binding:=eval.record_reference_unit_binding(p_run,original_unit,p_pass,p_frame);
  SELECT value INTO STRICT original_record FROM jsonb_array_elements(authored->'records') WHERE value->>'record_id'=p_record;
  original_field:=original_record->'fields'->p_field;
  IF original_field IS NULL OR original_field->>'state' IS DISTINCT FROM 'present'
@@ -41,9 +30,6 @@ BEGIN
   END LOOP;
  END LOOP;
  IF anchors='[]' THEN RAISE EXCEPTION 'projected field has no independently authored source evidence' USING ERRCODE='23514'; END IF;
- PERFORM ops.validate_source_anchor_coordinates(p_run,
-  (binding->'prediction_frame'->'evaluation_frame'->'pin'->>'source_view_id')::bigint,
-  binding->'prediction_frame'->'evaluation_frame'->'pin'->>'source',anchors);
  alternatives:=CASE WHEN p_question='value' THEN jsonb_build_array(jsonb_build_object('source_pieces',pieces))
   ELSE jsonb_build_array(jsonb_build_object('source_anchor_ids',ids)) END;
  RETURN jsonb_build_object('protocol','exact-field-projection-1','source_pass_id',p_pass,'source_frame_id',p_frame,
@@ -54,6 +40,45 @@ BEGIN
   'scope','exact independently authored source literal/location only; no whole-record or contextual-role truth',
   'anchors',anchors,'expected_alternatives',alternatives);
 END $$;
+REVOKE ALL ON FUNCTION eval.operation_reference_field_projection_bound(bigint,bigint,bigint,text,integer,text,jsonb,text,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.operation_reference_field_projections(p_run bigint,p_pass bigint,p_frame bigint,p_fields jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE original_unit bigint; authored jsonb; original_partition text; binding jsonb; item jsonb;
+ proofs jsonb:='[]'; anchors jsonb;
+BEGIN
+ IF jsonb_typeof(p_fields) IS DISTINCT FROM 'array' OR jsonb_array_length(p_fields)=0 OR jsonb_array_length(p_fields)>1000 THEN
+  RAISE EXCEPTION 'exact field projection requires a finite nonempty field selection' USING ERRCODE='23514'; END IF;
+ SELECT p.unit_id,convert_from(p.authored,'UTF8')::jsonb,s.sampling->>'partition'
+ INTO STRICT original_unit,authored,original_partition FROM eval.reference_pass p
+ JOIN eval.reference_frame f ON f.pass_id=p.id JOIN eval.reference_unit u ON u.id=p.unit_id
+ JOIN eval.reference_set s ON s.id=u.set_id
+ WHERE p.id=p_pass AND f.id=p_frame AND p.pass_kind='C'
+  AND p.content_digest=encode(sha256(p.authored),'hex');
+ -- One protected owner validation per immutable pass/frame, including unchanged
+ -- relevant source/field/role/value/state/guideline declarations and physical custody.
+ binding:=eval.record_reference_unit_binding(p_run,original_unit,p_pass,p_frame);
+ FOR item IN SELECT value FROM jsonb_array_elements(p_fields) LOOP
+  IF item-ARRAY['record_id','field_index','question']<>'{}' THEN
+   RAISE EXCEPTION 'unknown exact field projection selector' USING ERRCODE='23514'; END IF;
+  proofs:=proofs||jsonb_build_array(eval.operation_reference_field_projection_bound(p_run,p_pass,p_frame,
+   item->>'record_id',(item->>'field_index')::integer,item->>'question',authored,original_partition,binding));
+ END LOOP;
+ SELECT jsonb_agg(DISTINCT a) INTO anchors FROM jsonb_array_elements(proofs) proof
+  CROSS JOIN LATERAL jsonb_array_elements(proof->'anchors') a;
+ PERFORM ops.validate_source_anchor_coordinates(p_run,
+  (binding->'prediction_frame'->'evaluation_frame'->'pin'->>'source_view_id')::bigint,
+  binding->'prediction_frame'->'evaluation_frame'->'pin'->>'source',anchors);
+ RETURN proofs;
+END $$;
+REVOKE ALL ON FUNCTION eval.operation_reference_field_projections(bigint,bigint,bigint,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.operation_reference_field_projections(bigint,bigint,bigint,jsonb) TO corpus_sem_evaluator;
+
+CREATE OR REPLACE FUNCTION eval.operation_reference_field_projection(p_run bigint,p_pass bigint,p_frame bigint,p_record text,p_field integer,p_question text)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT eval.operation_reference_field_projections(p_run,p_pass,p_frame,jsonb_build_array(
+  jsonb_build_object('record_id',p_record,'field_index',p_field,'question',p_question)))->0
+$$;
 REVOKE ALL ON FUNCTION eval.operation_reference_field_projection(bigint,bigint,bigint,text,integer,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.operation_reference_field_projection(bigint,bigint,bigint,text,integer,text) TO corpus_sem_evaluator;
 
@@ -134,6 +159,7 @@ CREATE OR REPLACE FUNCTION eval.validate_operation_reference_frame(p_unit bigint
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE unit eval.reference_unit; reference_set eval.reference_set; selected kb.source_view;
  source_record jsonb; pin jsonb; bound jsonb; expected jsonb; related kb.source_view;
+ projection_group record; proofs jsonb; proof jsonb; proof_key text; proof_map jsonb:='{}';
  captured jsonb; captured_view kb.source_view; source_snapshot jsonb; scope jsonb; scope_schema json; scope_pointer text; scope_node jsonb; scope_text text; capture_schema json;
 BEGIN
  SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit;
@@ -188,6 +214,23 @@ BEGIN
  expected:=eval.validate_reference_source_scope(p_unit,p_frame);
  IF jsonb_typeof(p_payload->'cases') IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION 'operation cases must be an array' USING ERRCODE='23514'; END IF;
+ FOR projection_group IN SELECT
+  (c->'reference_projection'->>'source_pass_id')::bigint AS pass_id,
+  (c->'reference_projection'->>'source_frame_id')::bigint AS frame_id,
+  jsonb_agg(jsonb_build_object('record_id',c->'reference_projection'->>'source_record_id',
+   'field_index',(c->'reference_projection'->>'source_field_index')::integer,
+   'question',c->'reference_projection'->>'question')) AS fields
+  FROM jsonb_array_elements(p_payload->'cases') c
+  WHERE c->'reference_projection' IS NOT NULL AND c->'reference_projection'<>'null'
+  GROUP BY c->'reference_projection'->>'source_pass_id',c->'reference_projection'->>'source_frame_id' LOOP
+  proofs:=eval.operation_reference_field_projections(reference_set.source_run_id,projection_group.pass_id,
+   projection_group.frame_id,projection_group.fields);
+  FOR proof IN SELECT value FROM jsonb_array_elements(proofs) LOOP
+   proof_key:=data.canonical_json(jsonb_build_array(proof->'source_pass_id',proof->'source_frame_id',proof->'source_record_id',
+    proof->'source_field_index',proof->'question'));
+   proof_map:=proof_map||jsonb_build_object(proof_key,proof);
+  END LOOP;
+ END LOOP;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
     'assessor_provenance','contribution_kind','contribution_id','error_category','reference_projection','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role']<>'{}'
@@ -223,9 +266,9 @@ BEGIN
     OR NOT(captured ?& ARRAY['source_pass_id','source_frame_id','source_record_id','source_field_index','source_field','question','correspondence','scope'])
     OR captured->>'question' IS DISTINCT FROM source_record->>'facet' THEN
     RAISE EXCEPTION 'local projection requires its exact independent source question' USING ERRCODE='23514'; END IF;
-   source_snapshot:=eval.operation_reference_field_projection(reference_set.source_run_id,
-    (captured->>'source_pass_id')::bigint,(captured->>'source_frame_id')::bigint,
-    captured->>'source_record_id',(captured->>'source_field_index')::integer,captured->>'question');
+   proof_key:=data.canonical_json(jsonb_build_array(captured->'source_pass_id',captured->'source_frame_id',
+    captured->'source_record_id',captured->'source_field_index',captured->'question'));
+   source_snapshot:=proof_map->proof_key;
    IF captured IS DISTINCT FROM source_snapshot
     OR captured->>'source_partition' IS DISTINCT FROM reference_set.sampling->>'partition'
     OR captured->'target_pin' IS DISTINCT FROM bound->'pin'

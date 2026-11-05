@@ -57,37 +57,21 @@ class OperationEvaluationFrame:
         for values in (self.anchor_ids, self.contribution_ids):
             if len(values) != len(set(values)):
                 raise ReferenceError("operation frame repeats an identity")
-        if any(
-            not getattr(self, field).strip()
-            for field in (
-                "unit",
-                "release_id",
-                "guideline_version",
-                "rubric_version",
-                "context_policy",
-                "operation_question",
-                "operation_version",
-                "domain",
-            )
-        ):
+        if any(not getattr(self, field).strip() for field in (
+            "unit", "release_id", "guideline_version", "rubric_version", "context_policy",
+            "operation_question", "operation_version", "domain",
+        )):
             raise ReferenceError("operation frame requires explicit versioned question and context")
 
 
 def encode_frame(frame: OperationEvaluationFrame, *, captured_coordinates=()) -> dict[str, Any]:
-    return dict(
-        protocol=FRAME_PROTOCOL,
-        evaluation_frame=asdict(frame),
-        captured_coordinates=list(captured_coordinates),
-        context_dependency_digest=None,
-    )
+    return dict(protocol=FRAME_PROTOCOL, evaluation_frame=asdict(frame),
+                captured_coordinates=list(captured_coordinates), context_dependency_digest=None)
 
 
 def decode_frame(value: Mapping[str, Any]) -> OperationEvaluationFrame:
     if value.get("protocol") != FRAME_PROTOCOL or set(value) - {
-        "protocol",
-        "evaluation_frame",
-        "captured_coordinates",
-        "context_dependency_digest",
+        "protocol", "evaluation_frame", "captured_coordinates", "context_dependency_digest",
         "source_views",
     }:
         raise ReferenceError("unsupported immutable operation frame")
@@ -129,30 +113,16 @@ class OperationCase:
 
     def __post_init__(self):
         if self.judgment not in JUDGMENTS or self.source_state not in {
-            "stated",
-            "unstated",
-            "uninspected",
-            "unresolved",
+            "stated", "unstated", "uninspected", "unresolved",
         }:
             raise ReferenceError("unknown operation judgment or source field state")
         if self.expectation_mode not in {"structure", "absence_detection"}:
-            raise ReferenceError(
-                "operation expectation must declare structure or absence_detection"
-            )
+            raise ReferenceError("operation expectation must declare structure or absence_detection")
         if self.anchor_endpoint_role is not None and self.contribution_kind != "relation":
             raise ReferenceError("endpoint anchored assessment requires a relation contribution")
-        if not all(
-            (
-                self.case_id,
-                self.facet,
-                self.inspected_scope,
-                self.explanation,
-                self.assessor_provenance,
-            )
-        ):
-            raise ReferenceError(
-                "case requires inspected scope, explanation and assessor provenance"
-            )
+        if not all((self.case_id, self.facet, self.inspected_scope, self.explanation,
+                    self.assessor_provenance)):
+            raise ReferenceError("case requires inspected scope, explanation and assessor provenance")
         if self.source_state == "uninspected" and self.judgment != "unassessed":
             raise ReferenceError("uninspected source cannot supply a local truth label")
         if self.source_state == "stated" and self.judgment == "supported" and not self.alternatives:
@@ -161,24 +131,9 @@ class OperationCase:
             raise ReferenceError("permissible alternatives require nonempty exact structures")
         if self.reference_projection is not None:
             projection = self.reference_projection
-            if (
-                not {
-                    "protocol",
-                    "source_pass_id",
-                    "source_frame_id",
-                    "source_record_id",
-                    "source_field_index",
-                    "source_field",
-                    "question",
-                    "correspondence",
-                    "scope",
-                }
-                <= projection.keys()
-                or projection["protocol"] != "exact-field-projection-1"
-            ):
-                raise ReferenceError(
-                    "reused reference requires versioned exact-question projection"
-                )
+            if not {"protocol", "source_pass_id", "source_frame_id", "source_record_id", "source_field_index",
+                    "source_field", "question", "correspondence", "scope"} <= projection.keys() or projection["protocol"] != "exact-field-projection-1":
+                raise ReferenceError("reused reference requires versioned exact-question projection")
             if projection["question"] != self.facet or not projection["scope"]:
                 raise ReferenceError("old whole-reading labels cannot supply local truth")
 
@@ -188,58 +143,30 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
         raise TypeError("operation pass must retain exact submitted bytes")
     try:
         payload = json.loads(authored)
-        expected = dict(
-            protocol=PROTOCOL,
-            release_id=frame.release_id,
-            unit_ref=frame.unit,
-            guideline=frame.guideline_version,
-            rubric_version=frame.rubric_version,
-            context_policy=frame.context_policy,
-            operation_question=frame.operation_question,
-            operation_version=frame.operation_version,
-            domain=frame.domain,
-            direction=frame.direction,
-        )
-        if set(payload) - {
-            *expected,
-            "reason",
-            "cases",
-            "adjudication_passes",
-            "reference_derivation",
-        }:
+        expected = dict(protocol=PROTOCOL, release_id=frame.release_id, unit_ref=frame.unit,
+                        guideline=frame.guideline_version, rubric_version=frame.rubric_version,
+                        context_policy=frame.context_policy, operation_question=frame.operation_question,
+                        operation_version=frame.operation_version, domain=frame.domain,
+                        direction=frame.direction)
+        if set(payload) - {*expected, "reason", "cases", "adjudication_passes", "reference_derivation"}:
             raise ReferenceError("unknown operation pass fields")
-        if (
-            any(payload.get(key) != value for key, value in expected.items())
-            or not payload["reason"].strip()
-        ):
+        if any(payload.get(key) != value for key, value in expected.items()) or not payload["reason"].strip():
             raise ReferenceError("operation pass differs from frozen question/source/rubric")
         cases = []
         for item in payload["cases"]:
             raw = dict(item)
             raw["anchor_ids"] = tuple(raw["anchor_ids"])
             raw["alternatives"] = tuple(raw["alternatives"])
-            raw["permissible_anchor_sets"] = tuple(
-                tuple(values) for values in raw.get("permissible_anchor_sets", ())
-            )
+            raw["permissible_anchor_sets"] = tuple(tuple(values) for values in raw.get("permissible_anchor_sets", ()))
             case = OperationCase(**raw)
             if frame.direction == "source_first" and case.contribution_id is not None:
                 raise ReferenceError("source-first missing occurrence cannot acquire an output ID")
-            if (
-                frame.direction == "output_first"
-                and case.contribution_id not in frame.contribution_ids
-            ):
+            if frame.direction == "output_first" and case.contribution_id not in frame.contribution_ids:
                 raise ReferenceError("output case is outside frozen contribution population")
-            endpoint_anchors = {
-                identity
-                for option in case.alternatives
-                for endpoint in option.get("endpoint_semantics", ())
-                for identity in endpoint["anchor_ids"]
-            }
-            if (
-                set(case.anchor_ids)
-                | endpoint_anchors
-                | {identity for values in case.permissible_anchor_sets for identity in values}
-            ) - set(frame.anchor_ids):
+            endpoint_anchors = {identity for option in case.alternatives
+                                for endpoint in option.get("endpoint_semantics", ())
+                                for identity in endpoint["anchor_ids"]}
+            if (set(case.anchor_ids) | endpoint_anchors | {identity for values in case.permissible_anchor_sets for identity in values}) - set(frame.anchor_ids):
                 raise ReferenceError("case anchors are outside independently frozen source scope")
             cases.append(case)
         if len({case.case_id for case in cases}) != len(cases):
@@ -258,8 +185,7 @@ def _matches(actual: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
         if key == "endpoint_semantics":
             endpoints = actual[key]
             if len(endpoints) != len(value) or any(
-                a["role"] != b["role"]
-                or a["anchor_ids"] != b["anchor_ids"]
+                a["role"] != b["role"] or a["anchor_ids"] != b["anchor_ids"]
                 or not _matches(a["fields"], b.get("fields", {}))
                 for a, b in zip(endpoints, value, strict=True)
             ):
@@ -274,16 +200,12 @@ def _literal_product(value: Mapping[str, Any]) -> Mapping[str, Any]:
     value = dict(value, source_anchor_ids=[anchor["anchor_id"] for anchor in anchors])
     if value.get("anchor_role") == "inspection_subject":
         return value
-    if anchors and all(
-        anchor.get("precision") == "exact" and "source_piece" in anchor for anchor in anchors
-    ):
+    if anchors and all(anchor.get("precision") == "exact" and "source_piece" in anchor for anchor in anchors):
         return dict(value, source_pieces=[anchor["source_piece"] for anchor in anchors])
     return value
 
 
-def _comparison_product(
-    value: Mapping[str, Any], closure: Mapping[str, Mapping[str, Any]]
-) -> Mapping[str, Any]:
+def _comparison_product(value: Mapping[str, Any], closure: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any]:
     value = _literal_product(value)
     if value.get("kind") != "relation":
         return value
@@ -291,37 +213,23 @@ def _comparison_product(
     for endpoint in value.get("endpoints", ()):
         target = closure.get(endpoint["contribution_id"])
         if target is None:
-            raise ReferenceError(
-                "attachment assessment requires complete selected endpoint closure"
-            )
-        endpoints.append(
-            dict(
-                role=endpoint["role"],
-                anchor_ids=[a["anchor_id"] for a in target.get("anchors", ())],
-                fields=_literal_product(target),
-            )
-        )
+            raise ReferenceError("attachment assessment requires complete selected endpoint closure")
+        endpoints.append(dict(role=endpoint["role"], anchor_ids=[a["anchor_id"] for a in target.get("anchors", ())],
+                              fields=_literal_product(target)))
     return dict(value, endpoint_semantics=endpoints)
 
 
 def _case_anchors(case: OperationCase, value: Mapping[str, Any]) -> set[str]:
     if case.anchor_endpoint_role is None:
         return {anchor["anchor_id"] for anchor in value.get("anchors", ())}
-    endpoints = [
-        endpoint
-        for endpoint in value.get("endpoint_semantics", ())
-        if endpoint["role"] == case.anchor_endpoint_role
-    ]
+    endpoints = [endpoint for endpoint in value.get("endpoint_semantics", ())
+                 if endpoint["role"] == case.anchor_endpoint_role]
     return set(endpoints[0]["anchor_ids"]) if len(endpoints) == 1 else set()
 
 
-def score_cases(
-    frame: OperationEvaluationFrame,
-    cases: Sequence[OperationCase],
-    contributions: Sequence[Mapping[str, Any]],
-    *,
-    endpoint_closure: Sequence[Mapping[str, Any]] | None = None,
-) -> dict[str, Any]:
+def score_cases(frame: OperationEvaluationFrame, cases: Sequence[OperationCase],
+                contributions: Sequence[Mapping[str, Any]], *,
+                endpoint_closure: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
     from scipy.optimize import linear_sum_assignment
 
     unique: dict[str, Mapping[str, Any]] = {}
@@ -335,22 +243,9 @@ def score_cases(
             missing_observation_lineage += 1
         else:
             observed.add((contribution["origin_task_id"], identity))
-        sidecars = {
-            "selected_task_id",
-            "origin_task_id",
-            "source",
-            "method",
-            "cut_member",
-            "task_status",
-            "source_view_id",
-            "task_id",
-            "position",
-        }
-        if identity in unique and canonical_bytes(
-            {key: value for key, value in unique[identity].items() if key not in sidecars}
-        ) != canonical_bytes(
-            {key: value for key, value in contribution.items() if key not in sidecars}
-        ):
+        sidecars = {"selected_task_id", "origin_task_id", "source", "method", "cut_member",
+                    "task_status", "source_view_id", "task_id", "position"}
+        if identity in unique and canonical_bytes({key: value for key, value in unique[identity].items() if key not in sidecars}) != canonical_bytes({key: value for key, value in contribution.items() if key not in sidecars}):
             raise ReferenceError("one contribution identity has conflicting retained payloads")
         unique[identity] = contribution
     closure = dict(unique)
@@ -360,23 +255,16 @@ def score_cases(
     if frame.direction == "output_first":
         if set(frame.contribution_ids) - unique.keys():
             raise ReferenceError("frozen output population is absent from prediction capture")
-        selected = [
-            _comparison_product(unique[identity], closure) for identity in frame.contribution_ids
-        ]
+        selected = [_comparison_product(unique[identity], closure) for identity in frame.contribution_ids]
     if len({case.case_id for case in cases}) != len(cases):
         raise ReferenceError("assessment repeats an independent case identity")
     candidates_by_case = {
-        case.case_id: [
-            value
-            for value in selected
-            if value.get("kind") == case.contribution_kind
-            and _matches(value, case.candidate_selector)
-            and (case.contribution_id is None or value["contribution_id"] == case.contribution_id)
-            and any(
-                _case_anchors(case, value) == set(anchors)
-                for anchors in (case.anchor_ids, *case.permissible_anchor_sets)
-            )
-        ]
+        case.case_id: [value for value in selected
+                      if value.get("kind") == case.contribution_kind
+                      and _matches(value, case.candidate_selector)
+                      and (case.contribution_id is None or value["contribution_id"] == case.contribution_id)
+                      and any(_case_anchors(case, value) == set(anchors)
+                              for anchors in (case.anchor_ids, *case.permissible_anchor_sets))]
         for case in cases
     }
     assignments = {}
@@ -386,29 +274,17 @@ def score_cases(
     for value in selected:
         anchors = value.get("anchors", ())
         occurrence = value.get("occurrence_id") or (
-            sorted(anchor["anchor_id"] for anchor in anchors)
-            if anchors
-            else value["contribution_id"]
-        )
+            sorted(anchor["anchor_id"] for anchor in anchors) if anchors else value["contribution_id"])
         if value.get("kind") == "relation":
-            occurrence = [
-                [endpoint["role"], endpoint["anchor_ids"]]
-                for endpoint in value.get("endpoint_semantics", ())
-            ]
+            occurrence = [[endpoint["role"], endpoint["anchor_ids"]]
+                          for endpoint in value.get("endpoint_semantics", ())]
         key = canonical_bytes([value.get("kind"), occurrence])
         occurrence_groups.setdefault(key, []).append(value)
     groups = [occurrence_groups[key] for key in sorted(occurrence_groups)]
     for facet in sorted({case.facet for case in cases}):
-        eligible = sorted(
-            (
-                case
-                for case in cases
-                if case.facet == facet
-                and case.judgment in {"supported", "ambiguous"}
-                and case.source_state in {"stated", "unstated", "unresolved"}
-            ),
-            key=lambda value: value.case_id,
-        )
+        eligible = sorted((case for case in cases if case.facet == facet and
+                           case.judgment in {"supported", "ambiguous"} and
+                           case.source_state in {"stated", "unstated", "unresolved"}), key=lambda value: value.case_id)
         if not eligible:
             continue
         # Each reference has an explicit unmatched column. Invalid matches cost more
@@ -416,46 +292,27 @@ def score_cases(
         matrix = []
         for case in eligible:
             ids = {value["contribution_id"] for value in candidates_by_case[case.case_id]}
-            matrix.append(
-                [
-                    0
-                    if any(
-                        value["contribution_id"] in ids
-                        and any(_matches(value, option) for option in case.alternatives)
-                        for value in group
-                    )
-                    else len(eligible) + 2
-                    for group in groups
-                ]
-                + [1] * len(eligible)
-            )
+            matrix.append([
+                0 if any(value["contribution_id"] in ids and any(_matches(value, option) for option in case.alternatives)
+                         for value in group) else len(eligible) + 2 for group in groups
+            ] + [1] * len(eligible))
         rows, columns = linear_sum_assignment(matrix)
         for row, column in zip(rows, columns, strict=True):
             if column < len(groups) and matrix[row][column] == 0:
                 case = eligible[row]
                 ids = {value["contribution_id"] for value in candidates_by_case[case.case_id]}
-                assignments[case.case_id] = next(
-                    value
-                    for value in groups[column]
-                    if value["contribution_id"] in ids
-                    and any(_matches(value, option) for option in case.alternatives)
-                )
+                assignments[case.case_id] = next(value for value in groups[column]
+                    if value["contribution_id"] in ids and any(_matches(value, option) for option in case.alternatives))
     results = []
     for case in sorted(cases, key=lambda value: value.case_id):
         candidates = candidates_by_case[case.case_id]
-        matches = [
-            value
-            for value in candidates
-            if any(_matches(value, option) for option in case.alternatives)
-        ]
+        matches = [value for value in candidates
+                   if any(_matches(value, option) for option in case.alternatives)]
         matched = assignments.get(case.case_id)
         if case.judgment == "unassessed" or case.source_state == "uninspected":
             judgment, category = "unassessed", "uninspected"
         elif case.judgment == "ambiguous" or case.source_state == "unresolved":
-            judgment, category = (
-                "ambiguous",
-                "permissible_alternatives" if matched else "unresolved",
-            )
+            judgment, category = "ambiguous", "permissible_alternatives" if matched else "unresolved"
         elif case.source_state == "unstated" and case.expectation_mode == "absence_detection":
             judgment = "unsupported" if candidates else "supported"
             category = "spurious" if candidates else "inspected_unstated"
@@ -465,136 +322,64 @@ def score_cases(
             judgment, category = "supported", None
         else:
             judgment = "unsupported"
-            category = (
-                "duplicate_occurrence"
-                if matches
-                else (
-                    case.error_category or ("wrong_structure" if candidates else "missing_output")
-                )
-            )
-        results.append(
-            dict(
-                case_id=case.case_id,
-                facet=case.facet,
-                judgment=judgment,
-                source_state=case.source_state,
-                error_category=category,
-                expectation_mode=case.expectation_mode,
-                capture_outcome=(
-                    "true_negative"
-                    if category == "inspected_unstated"
-                    else "captured_structure"
-                    if matched is not None and judgment == "supported"
-                    else "not_captured"
-                ),
-                contribution_id=matched["contribution_id"] if matched else case.contribution_id,
-                candidate_ids=[value["contribution_id"] for value in candidates],
-                explanation=case.explanation,
-                reference_projection=case.reference_projection,
-            )
-        )
+            category = "duplicate_occurrence" if matches else (
+                case.error_category or ("wrong_structure" if candidates else "missing_output"))
+        results.append(dict(case_id=case.case_id, facet=case.facet, judgment=judgment,
+                            source_state=case.source_state, error_category=category,
+                            expectation_mode=case.expectation_mode,
+                            capture_outcome=("true_negative" if category == "inspected_unstated" else
+                                             "captured_structure" if matched is not None and judgment == "supported" else
+                                             "not_captured"),
+                            contribution_id=matched["contribution_id"] if matched else case.contribution_id,
+                            candidate_ids=[value["contribution_id"] for value in candidates],
+                            explanation=case.explanation, reference_projection=case.reference_projection))
     facets = {}
     for facet in sorted({case.facet for case in cases}):
-        counts = Counter(
-            value["judgment"]
-            for value in results
-            if value["facet"] == facet and value["expectation_mode"] == "structure"
-        )
+        counts = Counter(value["judgment"] for value in results if value["facet"] == facet and value["expectation_mode"] == "structure")
         facets[facet] = {label: counts[label] for label in JUDGMENTS}
-    detection_facets = {
-        facet: {
-            label: sum(
-                value["facet"] == facet
-                and value["judgment"] == label
-                and value["expectation_mode"] == "absence_detection"
-                for value in results
-            )
-            for label in JUDGMENTS
-        }
-        for facet in facets
-    }
-    return dict(
-        direction=frame.direction,
-        grain="operation_case_facet",
-        facets=facets,
-        cases=results,
-        absence_detection_facets=detection_facets,
-        prediction_count=len(selected),
-        prediction_count_grain="unique_semantic_contribution_product",
-        producer_observation_count=len(observed) if not missing_observation_lineage else None,
-        producer_observation_count_grain="unique_origin_task_and_contribution_id",
-        missing_producer_observation_lineage=missing_observation_lineage,
-        quality_claim="not_established",
-    )
+    detection_facets = {facet: {label: sum(value["facet"] == facet and value["judgment"] == label and
+                                          value["expectation_mode"] == "absence_detection" for value in results)
+                                for label in JUDGMENTS} for facet in facets}
+    return dict(direction=frame.direction, grain="operation_case_facet", facets=facets, cases=results,
+                absence_detection_facets=detection_facets,
+                prediction_count=len(selected), prediction_count_grain="unique_semantic_contribution_product",
+                producer_observation_count=len(observed) if not missing_observation_lineage else None,
+                producer_observation_count_grain="unique_origin_task_and_contribution_id",
+                missing_producer_observation_lineage=missing_observation_lineage,
+                quality_claim="not_established")
 
 
 def compare_assessments(baseline: Mapping[str, Any], revised: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("protocol", "set_id", "reference_snapshot", "frame_digest"):
         if baseline.get(key) != revised.get(key):
-            raise ReferenceError(
-                "operation comparison requires same frozen source/rubric/reference cases"
-            )
-    a = {
-        (unit["unit_id"], case["case_id"]): case
-        for unit in baseline["units"]
-        for case in unit["cases"]
-    }
-    b = {
-        (unit["unit_id"], case["case_id"]): case
-        for unit in revised["units"]
-        for case in unit["cases"]
-    }
+            raise ReferenceError("operation comparison requires same frozen source/rubric/reference cases")
+    a = {(unit["unit_id"], case["case_id"]): case for unit in baseline["units"] for case in unit["cases"]}
+    b = {(unit["unit_id"], case["case_id"]): case for unit in revised["units"] for case in unit["cases"]}
     if a.keys() != b.keys():
         raise ReferenceError("changed semantic grain requires explicit correspondence")
-    changes: dict[str, list[Any]] = {
-        key: []
-        for key in (
-            "newly_captured",
-            "corrected",
-            "regressed",
-            "newly_spurious",
-            "still_unresolved",
-            "unchanged",
-        )
-    }
+    changes: dict[str, list[Any]] = {key: [] for key in (
+        "newly_captured", "corrected", "regressed", "newly_spurious", "still_unresolved", "unchanged")}
     for identity in sorted(a):
         old, new = a[identity], b[identity]
         if new["judgment"] in {"ambiguous", "unassessed"}:
             category = "still_unresolved"
         elif old["judgment"] != "supported" and new["judgment"] == "supported":
-            category = (
-                "newly_captured" if old["error_category"] == "missing_output" else "corrected"
-            )
+            category = "newly_captured" if old["error_category"] == "missing_output" else "corrected"
         elif old["judgment"] == "supported" and new["judgment"] == "unsupported":
             category = "newly_spurious" if new["error_category"] == "spurious" else "regressed"
         else:
             category = "unchanged"
-        changes[category].append(
-            dict(unit_id=identity[0], case_id=identity[1], baseline=old, revised=new)
-        )
-    return dict(
-        protocol="source-operation-comparison-1", changes=changes, quality_claim="not_established"
-    )
+        changes[category].append(dict(unit_id=identity[0], case_id=identity[1], baseline=old, revised=new))
+    return dict(protocol="source-operation-comparison-1", changes=changes, quality_claim="not_established")
 
 
-def create_reference_set(
-    conn: Connection,
-    *,
-    project_id: str,
-    source_run_id: int,
-    source_cut_id: int,
-    label: str,
-    legacy_split: str,
-    guideline: str,
-    guideline_text: str,
-    partition: str,
-    sampling: Mapping[str, Any],
-    frames: Mapping[str, OperationEvaluationFrame],
-) -> dict[str, Any]:
+def create_reference_set(conn: Connection, *, project_id: str, source_run_id: int,
+                         source_cut_id: int, label: str, legacy_split: str, guideline: str,
+                         guideline_text: str, partition: str, sampling: Mapping[str, Any],
+                         frames: Mapping[str, OperationEvaluationFrame]) -> dict[str, Any]:
     runs = table("ops.run")
-    release_id = conn.scalar(
-        select(runs.c.release_id).where(runs.c.id == source_run_id, runs.c.project_id == project_id)
-    )
+    release_id = conn.scalar(select(runs.c.release_id).where(
+        runs.c.id == source_run_id, runs.c.project_id == project_id))
     if release_id is None or partition not in PARTITIONS or legacy_split not in {"dev", "test"}:
         raise ReferenceError("operation reference run/partition/split is invalid")
     require_bound_operation(open_release(conn, release_id), "reference_operation_set")
@@ -605,34 +390,14 @@ def create_reference_set(
     for key, frame in frames.items():
         if (frame.unit, frame.release_id, frame.guideline_version) != (key, release_id, guideline):
             raise ReferenceError("operation frame differs from source/guideline/release")
-        selected.append(
-            dict(
-                unit_key=key,
-                source_view_id=by_key[key]["source_view_id"],
-                frame=encode_frame(frame),
-            )
-        )
-    metadata = dict(
-        sampling,
-        operation_protocol=PROTOCOL,
-        partition=partition,
-        source_frame_abi=FRAME_PROTOCOL,
-        source_cut_id=source_cut_id,
-        guideline_text=guideline_text,
-        guideline_digest=sha256(guideline_text.encode()).hexdigest(),
-    )
-    result = _call(
-        conn,
-        "SELECT eval.create_operation_reference_set(:p,:r,:l,:s,:g,"
-        "CAST(:m AS jsonb),CAST(:u AS jsonb))",
-        p=project_id,
-        r=source_run_id,
-        l=label,
-        s=legacy_split,
-        g=guideline,
-        m=_json(metadata),
-        u=_json(selected),
-    ).scalar_one()
+        selected.append(dict(unit_key=key, source_view_id=by_key[key]["source_view_id"], frame=encode_frame(frame)))
+    metadata = dict(sampling, operation_protocol=PROTOCOL, partition=partition,
+                    source_frame_abi=FRAME_PROTOCOL, source_cut_id=source_cut_id,
+                    guideline_text=guideline_text,
+                    guideline_digest=sha256(guideline_text.encode()).hexdigest())
+    result = _call(conn, "SELECT eval.create_operation_reference_set(:p,:r,:l,:s,:g,CAST(:m AS jsonb),CAST(:u AS jsonb))",
+                   p=project_id, r=source_run_id, l=label, s=legacy_split, g=guideline,
+                   m=_json(metadata), u=_json(selected)).scalar_one()
     return dict(set_id=result, release_id=release_id, units=selected, sampling=metadata)
 
 
@@ -640,29 +405,15 @@ def author_packet(conn: Connection, unit_id: int) -> dict[str, Any]:
     return _call(conn, "SELECT eval.operation_author_packet(:u)", u=unit_id).scalar_one()
 
 
-def record_pass(
-    conn: Connection,
-    *,
-    unit_id: int,
-    pass_kind: str,
-    actor: str,
-    authored: bytes,
-    frame: OperationEvaluationFrame,
-) -> int:
+def record_pass(conn: Connection, *, unit_id: int, pass_kind: str, actor: str,
+                authored: bytes, frame: OperationEvaluationFrame) -> int:
     unit = _unit(conn, unit_id)
     require_bound_operation(open_release(conn, unit["release_id"]), "reference_operation_pass")
     if decode_frame(unit["context"][0]) != frame:
         raise ReferenceError("operation pass differs from independently frozen frame")
     decode_authored(authored, frame)
-    return _call(
-        conn,
-        "SELECT eval.record_operation_reference_pass(:u,:k,:a,:b,CAST(:f AS jsonb))",
-        u=unit_id,
-        k=pass_kind,
-        a=actor,
-        b=authored,
-        f=_json(unit["context"][0]),
-    ).scalar_one()
+    return _call(conn, "SELECT eval.record_operation_reference_pass(:u,:k,:a,:b,CAST(:f AS jsonb))",
+                 u=unit_id, k=pass_kind, a=actor, b=authored, f=_json(unit["context"][0])).scalar_one()
 
 
 def read_pass(conn: Connection, pass_id: int, *, frame_id: int | None = None) -> dict[str, Any]:
@@ -674,9 +425,7 @@ def read_pass(conn: Connection, pass_id: int, *, frame_id: int | None = None) ->
     citation = conn.execute(query.order_by(frames.c.version.desc()).limit(1)).mappings().one()
     unit = _unit(conn, row["unit_id"])
     authored = bytes(row["authored"])
-    if sha256(authored).hexdigest() != row["content_digest"] or unit["context"] != [
-        citation["source_frame"]
-    ]:
+    if sha256(authored).hexdigest() != row["content_digest"] or unit["context"] != [citation["source_frame"]]:
         raise ReferenceError("operation pass digest or frozen frame changed")
     payload = decode_authored(authored, decode_frame(citation["source_frame"]))
     return dict(row, authored=authored, frame_id=citation["id"], payload=payload)
@@ -687,51 +436,24 @@ def adjudication_packet(conn: Connection, unit_id: int) -> dict[str, Any]:
     if not passes["A"] or not passes["B"]:
         raise ReferenceError("operation adjudication requires independent A and B")
     a, b = (read_pass(conn, passes[kind][-1]) for kind in ("A", "B"))
-    return dict(
-        source=author_packet(conn, unit_id),
-        adjudication_passes=[a["id"], b["id"]],
-        authors=[
-            dict(
-                pass_id=value["id"],
-                actor=value["actor"],
-                authored=value["authored"].decode(),
-                content_digest=value["content_digest"],
-            )
-            for value in (a, b)
-        ],
-        agreement=dict(
-            equal_cases=canonical_bytes([asdict(case) for case in a["payload"]["cases"]])
-            == canonical_bytes([asdict(case) for case in b["payload"]["cases"]])
-        ),
-    )
+    return dict(source=author_packet(conn, unit_id), adjudication_passes=[a["id"], b["id"]],
+                authors=[dict(pass_id=value["id"], actor=value["actor"], authored=value["authored"].decode(),
+                              content_digest=value["content_digest"]) for value in (a, b)],
+                agreement=dict(equal_cases=canonical_bytes([asdict(case) for case in a["payload"]["cases"]]) ==
+                               canonical_bytes([asdict(case) for case in b["payload"]["cases"]])))
 
 
-def reference_evaluate(
-    conn: Connection, *, project_id: str, run_id: int, set_id: int
-) -> ReferenceReport:
+def reference_evaluate(conn: Connection, *, project_id: str, run_id: int, set_id: int) -> ReferenceReport:
     from corpus_structure.semantic.contribution_queries import read_source_contributions
 
     completed = _completed(conn, run_id, project_id)
     prepared = open_release(conn, completed["release_id"])
     require_bound_operation(prepared, "reference_operation_grade")
     sets, units = table("eval.reference_set"), table("eval.reference_unit")
-    definition = (
-        conn.execute(select(sets).where(sets.c.id == set_id, sets.c.project_id == project_id))
-        .mappings()
-        .one()
-    )
-    if (
-        definition["sampling"].get("operation_protocol") != PROTOCOL
-        or definition["release_id"] != prepared.release_id
-    ):
-        raise ReferenceError(
-            "operation evaluation source release differs; correspondence is required"
-        )
-    selected = (
-        conn.execute(select(units).where(units.c.set_id == set_id).order_by(units.c.id))
-        .mappings()
-        .all()
-    )
+    definition = conn.execute(select(sets).where(sets.c.id == set_id, sets.c.project_id == project_id)).mappings().one()
+    if definition["sampling"].get("operation_protocol") != PROTOCOL or definition["release_id"] != prepared.release_id:
+        raise ReferenceError("operation evaluation source release differs; correspondence is required")
+    selected = conn.execute(select(units).where(units.c.set_id == set_id).order_by(units.c.id)).mappings().all()
     snapshot = _call(conn, "SELECT eval.native_reference_snapshot(:s)", s=set_id).scalar_one()
     if not selected or len(snapshot) != len(selected):
         raise ReferenceError("every operation unit requires adjudicated C, including zero output")
@@ -739,177 +461,77 @@ def reference_evaluate(
     reports = []
     for unit in selected:
         frame = decode_frame(unit["context"][0])
-        reference = read_pass(
-            conn, frozen[unit["id"]]["pass_id"], frame_id=frozen[unit["id"]]["frame_id"]
-        )
-        inventory = read_source_contributions(
-            conn,
-            prepared=prepared,
-            run_id=run_id,
-            source_view_id=unit["source_view_id"],
-            cut_id=completed["cut_id"],
-            limit=10000,
-        )
+        reference = read_pass(conn, frozen[unit["id"]]["pass_id"], frame_id=frozen[unit["id"]]["frame_id"])
+        inventory = read_source_contributions(conn, prepared=prepared, run_id=run_id,
+            source_view_id=unit["source_view_id"], cut_id=completed["cut_id"], limit=10000)
         if inventory.more:
             raise ReferenceError("operation summary capture exceeds bounded source inventory")
-        report_views = {
-            report["selected_task_id"]: report["source_view_id"] for report in inventory.reports
-        }
-        operations = [
-            dict(value)
-            for value in inventory.operations
-            if report_views.get(value["selected_task_id"]) == unit["source_view_id"]
-            and value["question"] == frame.operation_question
-            and value["operation_version"] == frame.operation_version
-        ]
+        report_views = {report["selected_task_id"]: report["source_view_id"] for report in inventory.reports}
+        operations = [dict(value) for value in inventory.operations
+                      if report_views.get(value["selected_task_id"]) == unit["source_view_id"]
+                      and value["question"] == frame.operation_question
+                      and value["operation_version"] == frame.operation_version]
         operation_keys = {value["operation_key"] for value in operations}
-        endpoint_roles = tuple(
-            sorted(
-                {
-                    case.anchor_endpoint_role
-                    for case in reference["payload"]["cases"]
-                    if case.anchor_endpoint_role is not None
-                }
-            )
-        )
-        captured = read_source_contributions(
-            conn,
-            prepared=prepared,
-            run_id=run_id,
-            source_view_id=unit["source_view_id"],
-            cut_id=completed["cut_id"],
-            limit=10000,
-            include_details=True,
-            operation_keys=tuple(sorted(operation_keys)),
+        endpoint_roles = tuple(sorted({case.anchor_endpoint_role for case in reference["payload"]["cases"]
+                                       if case.anchor_endpoint_role is not None}))
+        captured = read_source_contributions(conn, prepared=prepared, run_id=run_id,
+            source_view_id=unit["source_view_id"], cut_id=completed["cut_id"], limit=10000,
+            include_details=True, operation_keys=tuple(sorted(operation_keys)),
             anchor_ids=frame.anchor_ids if frame.direction == "source_first" else None,
             anchor_scopes=frame.anchor_scopes if frame.direction == "source_first" else None,
             anchor_endpoint_roles=endpoint_roles,
-            contribution_ids=frame.contribution_ids if frame.direction == "output_first" else None,
-        )
+            contribution_ids=frame.contribution_ids if frame.direction == "output_first" else None)
         if captured.more:
-            raise ReferenceError(
-                "operation selected contribution capture exceeds bounded source inventory"
-            )
+            raise ReferenceError("operation selected contribution capture exceeds bounded source inventory")
         predictions = list(captured.contributions)
         prediction_ids = {value["contribution_id"] for value in predictions}
-        endpoint_ids = {
-            endpoint["contribution_id"]
-            for value in predictions
-            for endpoint in value.get("endpoints", ())
-        } - prediction_ids
-        endpoints = (
-            read_source_contributions(
-                conn,
-                prepared=prepared,
-                run_id=run_id,
-                source_view_id=unit["source_view_id"],
-                cut_id=completed["cut_id"],
-                limit=10000,
-                include_details=True,
-                contribution_ids=tuple(sorted(endpoint_ids)),
-            )
-            if endpoint_ids
-            else None
-        )
+        endpoint_ids = {endpoint["contribution_id"] for value in predictions
+                        for endpoint in value.get("endpoints", ())} - prediction_ids
+        endpoints = read_source_contributions(conn, prepared=prepared, run_id=run_id,
+            source_view_id=unit["source_view_id"], cut_id=completed["cut_id"], limit=10000,
+            include_details=True, contribution_ids=tuple(sorted(endpoint_ids))) if endpoint_ids else None
         if endpoints is not None and endpoints.more:
             raise ReferenceError("operation endpoint closure exceeds bounded source inventory")
         closure = (*predictions, *(endpoints.contributions if endpoints is not None else ()))
-        report = score_cases(
-            frame, reference["payload"]["cases"], predictions, endpoint_closure=closure
-        )
-        reports.append(
-            dict(
-                report,
-                unit_id=unit["id"],
-                source_view_id=unit["source_view_id"],
-                producer_operations=operations,
-                producer_reports=[
-                    dict(value)
-                    for value in inventory.reports
-                    if value["source_view_id"] == unit["source_view_id"]
-                ],
-                prediction_ids=[value["contribution_id"] for value in predictions],
-            )
-        )
-    result = dict(
-        protocol=EVALUATION_PROTOCOL,
-        set_id=set_id,
-        run_id=run_id,
-        release_id=prepared.release_id,
-        reference_snapshot=snapshot,
-        units=reports,
-        partition=definition["sampling"]["partition"],
-        frame_digest=sha256(canonical_bytes([unit["context"] for unit in selected])).hexdigest(),
-        quality_claim="not_established",
-        population_claim="declared_cases_only",
-    )
-    identity = _call(
-        conn,
-        "SELECT eval.record_operation_reference_evaluation(:p,:r,:s,"
-        "CAST(:n AS jsonb),CAST(:v AS jsonb))",
-        p=project_id,
-        r=run_id,
-        s=set_id,
-        n=_json(snapshot),
-        v=_json(result),
-    ).scalar_one()
-    return ReferenceReport(
-        id=identity,
-        project_id=project_id,
-        run_id=run_id,
-        set_id=set_id,
-        reference_snapshot=snapshot,
-        result=result,
-    )
+        report = score_cases(frame, reference["payload"]["cases"], predictions,
+                             endpoint_closure=closure)
+        reports.append(dict(report, unit_id=unit["id"], source_view_id=unit["source_view_id"],
+                            producer_operations=operations,
+                            producer_reports=[dict(value) for value in inventory.reports
+                                              if value["source_view_id"] == unit["source_view_id"]],
+                            prediction_ids=[value["contribution_id"] for value in predictions]))
+    result = dict(protocol=EVALUATION_PROTOCOL, set_id=set_id, run_id=run_id, release_id=prepared.release_id,
+                  reference_snapshot=snapshot, units=reports, partition=definition["sampling"]["partition"],
+                  frame_digest=sha256(canonical_bytes([unit["context"] for unit in selected])).hexdigest(),
+                  quality_claim="not_established", population_claim="declared_cases_only")
+    identity = _call(conn, "SELECT eval.record_operation_reference_evaluation(:p,:r,:s,CAST(:n AS jsonb),CAST(:v AS jsonb))",
+                     p=project_id, r=run_id, s=set_id, n=_json(snapshot), v=_json(result)).scalar_one()
+    return ReferenceReport(id=identity, project_id=project_id, run_id=run_id, set_id=set_id,
+                           reference_snapshot=snapshot, result=result)
 
 
 def operation_assessment_native_sql() -> str:
-    return (
-        Path(__file__)
-        .resolve()
-        .parents[1]
-        .joinpath("semantic/sql/operation_assessment.sql")
-        .read_text()
-    )
+    return Path(__file__).resolve().parents[1].joinpath("semantic/sql/operation_assessment.sql").read_text()
 
 
 def read_evaluation(conn: Connection, *, project_id: str, evaluation_id: int) -> Mapping[str, Any]:
     evaluations = table("eval.reference_evaluation")
-    row = (
-        conn.execute(
-            select(evaluations).where(
-                evaluations.c.id == evaluation_id, evaluations.c.project_id == project_id
-            )
-        )
-        .mappings()
-        .one_or_none()
-    )
+    row = conn.execute(select(evaluations).where(
+        evaluations.c.id == evaluation_id, evaluations.c.project_id == project_id)).mappings().one_or_none()
     if row is None or row["result"].get("protocol") != EVALUATION_PROTOCOL:
         raise ReferenceError("unknown immutable operation evaluation in selected project")
-    digest = sha256(
-        canonical_bytes(dict(snapshot=row["reference_snapshot"], result=row["result"]))
-    ).hexdigest()
+    digest = sha256(canonical_bytes(dict(snapshot=row["reference_snapshot"], result=row["result"]))).hexdigest()
     if digest != row["content_digest"]:
         raise ReferenceError("immutable operation evaluation digest differs")
     return row["result"]
 
 
 def review_export(conn: Connection, *, project_id: str, set_id: int) -> dict[str, Any]:
-    return _call(
-        conn, "SELECT eval.operation_review_export(:p,:s)", p=project_id, s=set_id
-    ).scalar_one()
+    return _call(conn, "SELECT eval.operation_review_export(:p,:s)", p=project_id, s=set_id).scalar_one()
 
 
-def project_reference_field(
-    conn: Connection,
-    *,
-    prediction_run_id: int,
-    pass_id: int,
-    frame_id: int,
-    record_id: str,
-    field_index: int,
-    question: str,
-) -> dict[str, Any]:
+def project_reference_field(conn: Connection, *, prediction_run_id: int, pass_id: int, frame_id: int,
+                            record_id: str, field_index: int, question: str) -> dict[str, Any]:
     """Project only exact source literals/locations through authenticated correspondence.
 
     The existing record owner verifies unchanged source/field/role/value/state and
@@ -917,17 +539,13 @@ def project_reference_field(
     labels from an old grade or reinterprets contextual roles.
     """
     if question not in {"value", "location"} or field_index < 0:
-        raise ReferenceError(
-            "only exact source value/location projection is supported; "
-            "role reinterpretation requires a declared contract"
-        )
-    return _call(
-        conn,
-        "SELECT eval.operation_reference_field_projection(:r,:p,:f,:i,:n,:q)",
-        r=prediction_run_id,
-        p=pass_id,
-        f=frame_id,
-        i=record_id,
-        n=field_index,
-        q=question,
-    ).scalar_one()
+        raise ReferenceError("only exact source value/location projection is supported; role reinterpretation requires a declared contract")
+    return _call(conn, "SELECT eval.operation_reference_field_projection(:r,:p,:f,:i,:n,:q)",
+                 r=prediction_run_id, p=pass_id, f=frame_id, i=record_id, n=field_index, q=question).scalar_one()
+
+
+def project_reference_fields(conn: Connection, *, prediction_run_id: int, pass_id: int, frame_id: int,
+                             fields: Sequence[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    """One authenticated source closure for a finite selection of exact field questions."""
+    return tuple(_call(conn, "SELECT eval.operation_reference_field_projections(:r,:p,:f,CAST(:s AS jsonb))",
+                       r=prediction_run_id, p=pass_id, f=frame_id, s=_json(fields)).scalar_one())
