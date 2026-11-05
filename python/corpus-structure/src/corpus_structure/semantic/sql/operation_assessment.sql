@@ -247,13 +247,13 @@ BEGIN
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') a WHERE jsonb_typeof(a)<>'object' OR a='{}')
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
    OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')
-   OR NOT(bound->'anchor_ids' @> source_record->'anchor_ids')
+   OR NOT((bound->'anchor_ids') @> (source_record->'anchor_ids'))
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') expected_option
     CROSS JOIN LATERAL jsonb_array_elements(COALESCE(expected_option->'endpoint_semantics','[]')) endpoint
     WHERE endpoint-ARRAY['role','anchor_ids','fields']<>'{}' OR btrim(COALESCE(endpoint->>'role',''))=''
      OR jsonb_typeof(endpoint->'anchor_ids') IS DISTINCT FROM 'array'
      OR jsonb_typeof(endpoint->'fields') IS DISTINCT FROM 'object'
-     OR NOT(bound->'anchor_ids' @> endpoint->'anchor_ids'))
+     OR NOT((bound->'anchor_ids') @> (endpoint->'anchor_ids')))
    OR (source_record ? 'permissible_anchor_sets' AND (jsonb_typeof(source_record->'permissible_anchor_sets') IS DISTINCT FROM 'array'
      OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'permissible_anchor_sets') permitted
       WHERE jsonb_typeof(permitted)<>'array' OR NOT(bound->'anchor_ids' @> permitted))))
@@ -272,8 +272,8 @@ BEGIN
    IF captured IS DISTINCT FROM source_snapshot
     OR captured->>'source_partition' IS DISTINCT FROM reference_set.sampling->>'partition'
     OR captured->'target_pin' IS DISTINCT FROM bound->'pin'
-    OR NOT(source_record->'anchor_ids' @> captured->'correspondence'->'anchor_ids')
-    OR NOT(captured->'correspondence'->'anchor_ids' @> source_record->'anchor_ids')
+    OR NOT((source_record->'anchor_ids') @> (captured->'correspondence'->'anchor_ids'))
+    OR NOT((captured->'correspondence'->'anchor_ids') @> (source_record->'anchor_ids'))
     OR source_record->'alternatives' IS DISTINCT FROM captured->'expected_alternatives'
     OR COALESCE(source_record->'permissible_anchor_sets','[]')<>'[]'
     OR COALESCE(source_record->>'expectation_mode','structure')<>'structure'

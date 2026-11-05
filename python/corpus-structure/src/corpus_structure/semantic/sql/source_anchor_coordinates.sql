@@ -120,3 +120,4 @@ BEGIN
   RAISE USING MESSAGE=SQLERRM,ERRCODE='23514',DETAIL='{"protocol":"corpus-invariant-1","guard":"native_source_address","version":"2","invariant":"published_document_address"}';
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_source_anchor_coordinates(bigint,bigint,text,jsonb) FROM PUBLIC;
+

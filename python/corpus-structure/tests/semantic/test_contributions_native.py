@@ -169,7 +169,7 @@ def test_native_anchorless_occurrence_spoof_refuses_at_protected_completion(priv
     [
         ("foreign_pin", "pin differs"),
         ("missing_endpoint", "endpoint unavailable"),
-        ("synthetic_gap", "source pieces"),
+        ("synthetic_gap", "persisted source text"),
         ("wrong_text", "persisted source text"),
     ],
 )
@@ -188,12 +188,14 @@ def test_native_contribution_source_and_closure_refusals(private_source, change,
     else:
         anchor = row["anchors"][0]
         if change == "synthetic_gap":
-            anchor.update(space="selected_projection", start=1, end=4, source_piece="2\n1")
+            # Deliberately mislabel a joined projection interval as continuous
+            # native cell text. All content IDs are valid; native custody must
+            # reject the fabricated quote across the synthetic separator.
+            anchor.update(start=1, end=4, source_piece="2\n1")
         else:
             anchor["source_piece"] = "99"
         anchor["anchor_id"] = anchor_identity(anchor)
-        if change != "synthetic_gap":
-            row["occurrence_id"] = occurrence_identity(row["anchors"])
+        row["occurrence_id"] = occurrence_identity(row["anchors"])
     row["contribution_id"] = contribution_identity(row)
     with case.writer.begin() as conn, pytest.raises((InvariantViolation, DBAPIError)) as error:
         bypass(case, conn, raw)

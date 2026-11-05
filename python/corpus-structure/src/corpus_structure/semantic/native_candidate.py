@@ -675,7 +675,6 @@ def series_native_definitions(connection, *, include_selected=True):
     )
     for name, roles in {
         "create_operation_reference_set": ("corpus_sem_evaluator",),
-        "operation_reference_field_projection": ("corpus_sem_evaluator",),
         "validate_operation_reference_frame": (),
         "record_operation_reference_pass": ("corpus_sem_evaluator",),
         "operation_author_packet": ("corpus_sem_evaluator",),
