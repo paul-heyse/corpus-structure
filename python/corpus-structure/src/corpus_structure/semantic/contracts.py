@@ -25,9 +25,48 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "26"
+EXECUTION_COMPILER_VERSION = "27"
 # Prior products remain readable; execution fences remain current-only.
-_READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", EXECUTION_COMPILER_VERSION})
+_READABLE_EXECUTION_COMPILERS = frozenset({"24", "25", "26", EXECUTION_COMPILER_VERSION})
+
+# These are meaning-bearing model/grammar/output-contract assets, not executable provenance.
+# New assets require an explicit role here; incidental Python/SQL implementation bytes belong
+# to the separately archived runtime binding and must never determine semantic release identity.
+SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
+    {
+        "capture/companion-projection-model.yaml",
+        "capture/operation-report-schemas.json",
+        "pdf/payload-model.yaml",
+        "pdf/selected-source-model.yaml",
+        "records/reference-model.yaml",
+        "records/policy-model.yaml",
+        "pdf/docling-validation.schema.json",
+        "pdf/record-model.yaml",
+        "unified/linkml-types.yaml",
+        "pdf/record-physical.yaml",
+        "pdf/read-projections.yaml",
+        "pdf/staging-model.yaml",
+        "grammar/extension.lark",
+        "grammar/shipped.lark",
+        "text/model.json",
+        "libraries.json",
+    }
+)
+
+
+def semantic_implementation_inputs(
+    inputs: tuple[SourceArtifact, ...],
+) -> tuple[SourceArtifact, ...]:
+    """Select the positively declared semantic assets from a captured runtime footprint."""
+    unknown = {
+        source.name
+        for source in inputs
+        if source.name not in SEMANTIC_IMPLEMENTATION_NAMES
+        and not source.name.endswith((".py", ".sql"))
+    }
+    if unknown:
+        raise ValueError("implementation assets lack a declared role: " + ", ".join(sorted(unknown)))
+    return tuple(source for source in inputs if source.name in SEMANTIC_IMPLEMENTATION_NAMES)
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -953,7 +992,7 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
     return ExecutionModelInputs(
         trusted_execution_schema(),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
-        analysis_implementation_inputs(),
+        semantic_implementation_inputs(analysis_implementation_inputs()),
     )
 
 
@@ -987,6 +1026,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("invocation/server.py", "intervene/semantic_server.py"),
                 ("invocation/method.py", "core/method.py"),
                 ("invocation/operations.py", "semantic/operations.py"),
+                ("invocation/runtime-bindings.py", "semantic/runtime_bindings.py"),
+                ("invocation/runtime-binding-store.py", "semantic/runtime_binding_store.py"),
+                ("invocation/runtime-bindings.sql", "semantic/sql/runtime_bindings.sql"),
                 ("records/records.py", "semantic/records.py"),
                 *M1_IMPLEMENTATION_SOURCES,
                 ("records/record-contracts.py", "semantic/record_contracts.py"),
@@ -1647,11 +1689,12 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
                 "pdf/recognition_methods.py",
             }
         )
+    required_implementations.intersection_update(SEMANTIC_IMPLEMENTATION_NAMES)
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",
             inputs.catalog.name,
-            "supply the exact grammar/transformer implementation input set",
+            "supply the exact semantic model/grammar/output-contract input set",
         )
     identity = {
         "implementations": [

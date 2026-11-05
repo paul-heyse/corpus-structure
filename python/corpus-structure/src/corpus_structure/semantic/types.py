@@ -14,8 +14,8 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION: Literal["16"] = "16"
-READABLE_COMPILER_VERSIONS = frozenset({"14", "15", "16"})
+SEMANTIC_COMPILER_VERSION: Literal["17"] = "17"
+READABLE_COMPILER_VERSIONS = frozenset({"14", "15", "16", "17"})
 BOUNDARY_ABI_VERSION = "12"
 
 
