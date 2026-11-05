@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "id": "pce.local-04-08",
+  "title": "Qualified local contributions, contextual retrieval and granular parser assessment",
+  "group": "PCE",
+  "package": "PCE-04–08",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do selected progressive local contributions survive incomplete assembly, support protected granular assessment and independently qualified publication through actual common consumers?",
+  "answers": [
+    "PCE-04",
+    "PCE-05",
+    "PCE-06",
+    "PCE-07",
+    "PCE-08"
+  ],
+  "method": "Additive native134–144, owned actual CPU encoders and bounded GLiNER/spaCy/Lark consumers, complete typed replay, fresh source-only A/B/C, exact protected paired source/output grading, common atomic source/semantic publication and real CLI/external MCP/selected JSONL export.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/methods/test_contribution_adapter.py python/corpus-structure/tests/methods/test_m1_readings.py python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/methods/test_m1_annotation_selection.py python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/methods/test_local_interpretation.py python/corpus-structure/tests/methods/test_m1_cli.py python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/tests/semantic/test_record_interpretation.py python/corpus-structure/tests/semantic/test_local_interpretation.py python/corpus-structure/tests/semantic/test_local_admission.py python/corpus-structure/tests/semantic/test_local_semantic_admission.py python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contribution_journey.py python/corpus-structure/tests/semantic/test_contribution_transport.py python/corpus-structure/tests/semantic/test_contributions.py python/corpus-structure/tests/semantic/test_retained_source_budgets.py python/corpus-structure/tests/semantic/test_analysis_contracts.py python/corpus-structure/tests/semantic/test_operation_reporting.py python/corpus-structure/tests/db/test_outcomes.py --basetemp=build/test-receipts/pce-local-functional-001",
+    "uv run pytest python/corpus-structure/tests/evaluate/test_operation_assessment.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py python/corpus-structure/tests/semantic/test_local_semantic_admission.py python/corpus-structure/tests/semantic/test_local_admission_native.py python/corpus-structure/tests/semantic/test_contributions_native.py python/corpus-structure/tests/semantic/test_contribution_selectors_native.py python/corpus-structure/tests/semantic/test_private_records.py python/corpus-structure/tests/semantic/test_record_publication_native.py python/corpus-structure/tests/semantic/test_record_support_native.py python/corpus-structure/tests/semantic/test_alembic_array_types.py python/corpus-structure/tests/semantic/test_contextual_enrichment_native.py python/corpus-structure/tests/semantic/test_local_attribute_native.py --basetemp=build/test-receipts/pce-local-native-144-001",
+    "uv run pytest python/corpus-structure/tests/semantic/test_local_semantic_admission_native.py -q -x",
+    "uv run pytest docs/design_review/evidence/2026-11-05_pce-local-capabilities/test_pce07_output_serialization.py --basetemp=build/test-receipts/pce-output-serialization-final-003 -q",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-local-capabilities/migrate_local_011.py",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-local-capabilities/pce07_paired_assessment.py retained --release release:1bf171f3667ef76260b78179f46d15dd4fbed8bcb6a8bb6587e4cd08878abce5 --realization pce-local-input:release:1bf171f3667ef76260b78179f46d15dd4fbed8bcb6a8bb6587e4cd08878abce5 --runtime runtime:761f21fb0d06167211e86aa107d760ca712d9526eb457670c04b64d51129634c --retained-tasks 122 --receipt whitespace-retained-002",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-local-capabilities/pce07_paired_assessment.py grade --registration parser-source-register-001.json --baseline-run 31 --prediction-run 43 --receipt parser-source-paired-001",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-local-capabilities/pce07_paired_assessment.py output-grade --registration parser-output-register-002.json --receipt parser-output-grade-002",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-local-capabilities/contribution_v3_transport_current.py",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-local-capabilities/contribution_transport_current.py",
+    "just types",
+    "just ruff",
+    "just ready",
+    "just docs-check",
+    "just adr-lint",
+    "just deps",
+    "just lint-agents",
+    "just rules-scan",
+    "just rules-test",
+    "just turn-end"
+  ],
+  "agents": [
+    {
+      "role": "fresh contextual-source reference A",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B see only source/rubric, no producer values/scores/targets or old truth; C sees source plus independent A/B. Raw answers and format-only revisions remain; literals, contextual evidence, semantic values and evaluability stay distinct."
+    },
+    {
+      "role": "fresh contextual-source reference B",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B see only source/rubric, no producer values/scores/targets or old truth; C sees source plus independent A/B. Raw answers and format-only revisions remain; literals, contextual evidence, semantic values and evaluability stay distinct."
+    },
+    {
+      "role": "fresh contextual-source reference C",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "A/B see only source/rubric, no producer values/scores/targets or old truth; C sees source plus independent A/B. Raw answers and format-only revisions remain; literals, contextual evidence, semantic values and evaluability stay distinct."
+    },
+    {
+      "role": "fresh output-first reference A",
+      "model": "gpt-6.1-sol/high",
+      "brief": "output-author-brief.md",
+      "separation": "A/B see only source/rubric, no producer values/scores/targets or old truth; C sees source plus independent A/B. Raw answers and format-only revisions remain; literals, contextual evidence, semantic values and evaluability stay distinct."
+    },
+    {
+      "role": "fresh output-first reference B",
+      "model": "gpt-6.1-sol/high",
+      "brief": "output-author-brief.md",
+      "separation": "A/B see only source/rubric, no producer values/scores/targets or old truth; C sees source plus independent A/B. Raw answers and format-only revisions remain; literals, contextual evidence, semantic values and evaluability stay distinct."
+    },
+    {
+      "role": "fresh output-first reference C",
+      "model": "gpt-6.1-sol/high",
+      "brief": "output-author-brief.md",
+      "separation": "A/B see only source/rubric, no producer values/scores/targets or old truth; C sees source plus independent A/B. Raw answers and format-only revisions remain; literals, contextual evidence, semantic values and evaluability stay distinct."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "parser-source-input-002.json",
+      "role": "accepted input",
+      "sha256": "d891dfb2916451579a5689fe75cce2e6d545cf3fb06b539225f065e59b9ad5cf"
+    },
+    {
+      "path": "output-author-brief.md",
+      "role": "accepted input",
+      "sha256": "f1f552cb979c712cfebcb864af28763c1ee68a41a18dfdd729f1feaa745bcab0"
+    },
+    {
+      "path": "raw/runtime-local-009.json",
+      "role": "accepted input",
+      "sha256": "b4e135f5f66c1574e7c58b51e4bca1c4d5b06e16a5a43e66955ee4c429b45334"
+    },
+    {
+      "path": "raw/contextual-source-author-packet-001.json",
+      "role": "accepted input",
+      "sha256": "8c1477eaa19819319a48c5894868e62e08511022ccc1e5ae54285e8cf1ed1487"
+    },
+    {
+      "path": "raw/contextual-author-A-001.json",
+      "role": "accepted input",
+      "sha256": "7ade73a5bd3ab9ed166a8d929a90d73a34c44a37126f3b79f9e597ba520e22f5"
+    },
+    {
+      "path": "raw/contextual-author-B-001.json",
+      "role": "accepted input",
+      "sha256": "87247d6030f86f707ddc6862447c86a577d9ffc4aec276ec39d5666b0e43f9cb"
+    },
+    {
+      "path": "raw/contextual-author-C-001.json",
+      "role": "accepted input",
+      "sha256": "c4afcad65c3731f06fcf6fd517a65514abcd058a7ad3a481bf8b59e4d79ee086"
+    },
+    {
+      "path": "raw/parser-source-wrappers-001.json",
+      "role": "accepted input",
+      "sha256": "2d93cdff64f0d563c5eb874e10bcad0686518725ec21d21552b52613b7d27d98"
+    },
+    {
+      "path": "raw/parser-output-selection-002.json",
+      "role": "accepted input",
+      "sha256": "3d14d201f61ecee6dff1a47b292ddf3485c51035bdf4a1ce3f3d75678de13108"
+    },
+    {
+      "path": "raw/parser-output-selection-002-author-source-packet.json",
+      "role": "accepted input",
+      "sha256": "6f8ed207dce4a4d364fbfd1ef56eb2621ee5cb8f5c391e9f4642ccf310768fef"
+    },
+    {
+      "path": "raw/parser-output-author-A-002.json",
+      "role": "accepted input",
+      "sha256": "ecaf24c9f49b8618232581bda33f30913f890c87bc70a59fe6ecee39ee5047f0"
+    },
+    {
+      "path": "raw/parser-output-author-B-002.json",
+      "role": "accepted input",
+      "sha256": "a5358def301a05a3cf4b470172cd606f10ad470f5aa76f7001c06d573c20055c"
+    },
+    {
+      "path": "raw/parser-output-author-C-002.json",
+      "role": "accepted input",
+      "sha256": "014f7b6e1c26eb02575f9080d3a8173e66e3497442eed4564b3ade08bf3b573b"
+    },
+    {
+      "path": "raw/parser-output-author-A-003.json",
+      "role": "accepted input",
+      "sha256": "68632c681cec36899c70f641faba97e04b9edabc50be247dbd471ba652d7ebf9"
+    },
+    {
+      "path": "raw/parser-output-author-B-003.json",
+      "role": "accepted input",
+      "sha256": "dc7b63e8a77225594872c45dd99791e51c5d28b7150ca0ca727e439e1423a9cd"
+    },
+    {
+      "path": "raw/parser-output-author-C-003.json",
+      "role": "accepted input",
+      "sha256": "ef810eb6a63469f7e8d4442669f96d48e366f04ef7f5c123d3fde639a1e8a4ef"
+    },
+    {
+      "path": "raw/parser-output-wrappers-005-driver.py",
+      "role": "accepted input",
+      "sha256": "68c262e638d89a4bb17221ff24d26333a42ed8f98c531d7b0b039d2212f7766c"
+    },
+    {
+      "path": "raw/parser-output-grade-002-driver.py",
+      "role": "accepted input",
+      "sha256": "68c262e638d89a4bb17221ff24d26333a42ed8f98c531d7b0b039d2212f7766c"
+    },
+    {
+      "path": "contextual_corpus_native_preflight.py",
+      "role": "accepted input",
+      "sha256": "360b1b1e9ca927959a62d26415b12620edff0f7bf10c275e92739d941545abb4"
+    },
+    {
+      "path": "contribution_v3_transport_current.py",
+      "role": "accepted input",
+      "sha256": "ba80c828b57718e0153f5f37873c26d5763e41231d82dc8e6285e09e2b4f2d18"
+    },
+    {
+      "path": "migrate_local_011.py",
+      "role": "accepted input",
+      "sha256": "398cff875f817658c4a2efd3c23f066564deadecda276ee24562d263bd44dd92"
+    },
+    {
+      "path": "native144-candidate-001/native_operations.json",
+      "role": "accepted input",
+      "sha256": "5cc4cba77798436c29d14aaf0eae8a3c2232ffcd4cba6ae88d64d701d4932e51"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/root-final-functional-001.log",
+      "role": "selected actual receipt",
+      "sha256": "f8d85abbba9dc14e60461a7a2483092e8df6a70a0c145f8e9766acf79e090efa"
+    },
+    {
+      "path": "raw/root-final-native-144-001.log",
+      "role": "selected actual receipt",
+      "sha256": "db54db086b626e67e58c887a6bc08101cab79f6240b727313d4ab29f47732991"
+    },
+    {
+      "path": "f27-batch-validation/pytest-native144-003.log",
+      "role": "selected actual receipt",
+      "sha256": "f2aa5f306aaa31bd9f4154a174946b6d11ed5065237ba8ec355a0fe47af5f95a"
+    },
+    {
+      "path": "f27-batch-validation/rollback-002.log",
+      "role": "selected actual receipt",
+      "sha256": "95070d7884ea89fc3255213e3bc609525c3cbb285745bd0b11172fa28d639107"
+    },
+    {
+      "path": "raw/local-migrate-working-011.json",
+      "role": "selected actual receipt",
+      "sha256": "f155b89d9bdf0b3e99262c8a14990e586b8d3c6374e527fbf3d07cbdd1483937"
+    },
+    {
+      "path": "raw/contextual-comparison-001.json",
+      "role": "selected actual receipt",
+      "sha256": "9ab31c3b470a93e1ef3a579a936481614a8b5f66bda5f486e088e6d29e06ddcc"
+    },
+    {
+      "path": "raw/contextual-corpus-e5-expanded-001-result.json",
+      "role": "selected actual receipt",
+      "sha256": "46980c8d94d78715a6e7f701114fb39cc0bb694be9979e973f33c6e806863e01"
+    },
+    {
+      "path": "raw/contextual-e5-grade-002.json",
+      "role": "selected actual receipt",
+      "sha256": "7b5d8cd51a27631dff63aa9bbb30babfdaa2ae1687c27c58fac14d2a57853420"
+    },
+    {
+      "path": "raw/contextual-qwen-grade-001.json",
+      "role": "selected actual receipt",
+      "sha256": "19cf499570e3337d022699d15b3b0e38a53ff3bff48490f803ffc50c40224573"
+    },
+    {
+      "path": "raw/contextual-e5-grade-004.json",
+      "role": "selected actual receipt",
+      "sha256": "35e4a3e254a15a868ad90ba5e20f97e019d441b44ba7486b4e85299cc14040a3"
+    },
+    {
+      "path": "raw/contextual-local-publication-003-result.json",
+      "role": "selected actual receipt",
+      "sha256": "70d848d1486328f74a9c77165e54ec59f7df6f0d08a3492c6dbde0463e7090dc"
+    },
+    {
+      "path": "raw/contribution-v3-transport-002.json",
+      "role": "selected actual receipt",
+      "sha256": "cf30dbbae4e74b5e6a34cb351d29154f89b03402b2ae048f5d425feaef707baa"
+    },
+    {
+      "path": "raw/contribution-v3-transport-002-export",
+      "role": "selected actual receipt",
+      "sha256": "956b6ee5c55f5b24cf41b08d3d5284fb0b1117041ba9a671c53dd483348bcbed"
+    },
+    {
+      "path": "raw/contribution-transport-current-001.json",
+      "role": "selected actual receipt",
+      "sha256": "752157609ebfef8a897d9f70cf4041760d3bd2c8caf19b41014b297931632da1"
+    },
+    {
+      "path": "raw/parser-corpus-003-readonly-recovery-002.json",
+      "role": "selected actual receipt",
+      "sha256": "2cdffedbf6c3ac9781ba06ad41df82a0730cee4a14af063c274b8597c9336e2d"
+    },
+    {
+      "path": "raw/whitespace-retained-002.json",
+      "role": "selected actual receipt",
+      "sha256": "971c0052b015278e540f762f9336de7f262e9660bb9f35ab8b16a04455e39bdf"
+    },
+    {
+      "path": "raw/parser-source-paired-001.json",
+      "role": "selected actual receipt",
+      "sha256": "4a26810419c13a2af7956c2fd09a83b842a487aca80973003cf76db7b4da5b8a"
+    },
+    {
+      "path": "raw/parser-output-wrappers-005.json",
+      "role": "selected actual receipt",
+      "sha256": "e9c56ca679a645a99d1e7aab3ab8ea1bd6aceae9dfede09c748379c6b2f905ea"
+    },
+    {
+      "path": "raw/parser-output-register-002.json",
+      "role": "selected actual receipt",
+      "sha256": "3caa399f6009db638e9538807a4c7834966ec7c6d6926ef72d8e35d6be800d98"
+    },
+    {
+      "path": "raw/parser-output-grade-002.json",
+      "role": "selected actual receipt",
+      "sha256": "9077850140dde26fa0dd943ba7cbf0b9976a1187f8cf1cd91cca901e9e3f8eb9"
+    },
+    {
+      "path": "raw/parser-output-serialization-007.log",
+      "role": "selected actual receipt",
+      "sha256": "0d734b41b5244f95227e78404943c869e6b4edfff1d77027a087c1b2cf87b1a7"
+    },
+    {
+      "path": "raw/parser-local-refusal-survival-002.json",
+      "role": "selected actual receipt",
+      "sha256": "712ad0d5d96414b4584e46c42cd83d436617c5d47ea2342f655df03699a3349d"
+    },
+    {
+      "path": "raw/owned-source-budgets-001.log",
+      "role": "selected actual receipt",
+      "sha256": "430db1d1eff95c7abe66ebfc4303f0718304d297edda4a347f54f616092d7338"
+    },
+    {
+      "path": "raw/normal-source-budget-native-read-001.log",
+      "role": "selected actual receipt",
+      "sha256": "063b1815bf34b963cd40fa1d6e2a74d4b11b762d6423737dceecd00308e605d1"
+    },
+    {
+      "path": "raw/types-009.log",
+      "role": "selected actual receipt",
+      "sha256": "f4c15961ff0edd3286077d414cfc7df85f0c385879a7cd197a433395a5392726"
+    },
+    {
+      "path": "raw/ruff-009.log",
+      "role": "selected actual receipt",
+      "sha256": "87ff4259d18533536575ec2e1e9fbc0504a3270d871a364383eb19b6dd98d71f"
+    },
+    {
+      "path": "raw/ready-003.log",
+      "role": "selected actual receipt",
+      "sha256": "0262d421ee547eaadf4c3c372843c762672f21f44515e8d1b1403cc0bb5a9896"
+    },
+    {
+      "path": "raw/final-docs-check-001.log",
+      "role": "selected actual receipt",
+      "sha256": "a2507b2ea762abf5b1d715feca6069efd5019b3226fc42fb03c47825eb4b9cb1"
+    },
+    {
+      "path": "raw/final-adr-lint-001.log",
+      "role": "selected actual receipt",
+      "sha256": "6748739426d2c705a808fed162b33dc19e36e24a6a4d0fa9704b6e4649dd22bb"
+    },
+    {
+      "path": "raw/final-deps-001.log",
+      "role": "selected actual receipt",
+      "sha256": "0feb910cb6a36a166270a85588caf1e7ed761aad32607e230880f684fbfc0641"
+    },
+    {
+      "path": "raw/final-lint-agents-001.log",
+      "role": "selected actual receipt",
+      "sha256": "2e347ebd0673f57ce4872f60b78bb2511bf2ed3f45e7a5d3c34cef16fab499d0"
+    },
+    {
+      "path": "raw/final-rules-scan-001.log",
+      "role": "selected actual receipt",
+      "sha256": "d60f91c14e5dddc1ba1529b72c6508a2260f1cffa3bdadbf7c384fd98e4e74d0"
+    },
+    {
+      "path": "raw/final-rules-test-001.log",
+      "role": "selected actual receipt",
+      "sha256": "012bebef7210d778a64089170c2ad0e75414fa15c343d3a1cebb0ad812ec5cba"
+    },
+    {
+      "path": "raw/final-turn-end-001.log",
+      "role": "selected actual receipt",
+      "sha256": "482a75175f8489d0fb8e15ad2bba6f17bee3353250ce01f275f279a09e79eb37"
+    }
+  ],
+  "depends_on": [
+    "2026-11-05_pce-foundations/pce.foundations-00-03"
+  ],
+  "results": [
+    {
+      "name": "Selected functional suite",
+      "value": 418,
+      "of": null,
+      "unit": "tests",
+      "note": "Final parser/encoder/numerical code at runtime008; later publication-only changes covered by native144/actual45."
+    },
+    {
+      "name": "Selected final144 native union",
+      "value": 158,
+      "of": null,
+      "unit": "tests",
+      "note": "Not summed with overlapping suites."
+    },
+    {
+      "name": "Complete semantic admission144 file",
+      "value": 21,
+      "of": null,
+      "unit": "tests",
+      "note": "Independent stale/foreign/malformed/multi-witness controls."
+    },
+    {
+      "name": "Evidence-wrapper controls",
+      "value": 21,
+      "of": null,
+      "unit": "tests",
+      "note": "Expected literals/source context not metadata; exact independent fields; no gap concatenation."
+    },
+    {
+      "name": "Preserved archive/data/run/reference tables",
+      "value": 28,
+      "of": null,
+      "unit": "tables",
+      "note": "Before/after final144 hashes equal."
+    },
+    {
+      "name": "Source-first facets",
+      "value": 92,
+      "of": null,
+      "unit": "facets",
+      "note": "Same source/question/version/rubric across baseline31 and replay43."
+    },
+    {
+      "name": "Source supported",
+      "value": 30,
+      "of": null,
+      "unit": "facets",
+      "note": "Fourteen newly captured;58 uncaptured/unsupported;4 unassessed."
+    },
+    {
+      "name": "Newly captured source facets",
+      "value": 14,
+      "of": null,
+      "unit": "facets",
+      "note": "13 positive header associations plus1 literal, no observed regression."
+    },
+    {
+      "name": "Output-first facets",
+      "value": 24,
+      "of": null,
+      "unit": "facets",
+      "note": "Outcome-blind capability-selected002, separate denominator."
+    },
+    {
+      "name": "Output supported",
+      "value": 9,
+      "of": null,
+      "unit": "facets",
+      "note": "Predicate/ordered endpoints do not establish captured qualifiers/full scientific statement."
+    },
+    {
+      "name": "Output role errors",
+      "value": 2,
+      "of": null,
+      "unit": "facets",
+      "note": "Private defined_term predictions where independent source supports mentioned_term."
+    },
+    {
+      "name": "Output ambiguous",
+      "value": 2,
+      "of": null,
+      "unit": "facets",
+      "note": null
+    },
+    {
+      "name": "Output unassessed",
+      "value": 11,
+      "of": null,
+      "unit": "facets",
+      "note": "Includes item-only exact-literal applicability; source fact remains."
+    },
+    {
+      "name": "Retained producer products",
+      "value": 7530,
+      "of": null,
+      "unit": "products",
+      "note": "No extraction rerun for replay43."
+    },
+    {
+      "name": "Retained products plus private derived attachments",
+      "value": 7868,
+      "of": null,
+      "unit": "products",
+      "note": "338 added private associations; not independent evidence votes."
+    },
+    {
+      "name": "Public denotation claims",
+      "value": 16,
+      "of": null,
+      "unit": "claims",
+      "note": "Actual45 cached origin130/evaluation20; zero complete records."
+    },
+    {
+      "name": "Public source events",
+      "value": 33,
+      "of": null,
+      "unit": "events",
+      "note": "17 distinct physical occurrences, not33 independent sources."
+    },
+    {
+      "name": "Reused original target vectors",
+      "value": 20,
+      "of": null,
+      "unit": "vectors",
+      "note": "Actual inventory20→21; fresh queries/new target and rebuilt lists."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "PCE-04–08 selected functional/native/provider/consumer and independent review obligations pass within the declared bounded scope. Actual source92 gains14 captured facets; output24 retains9 supported,2 genuine role errors,2 ambiguous,11 unassessed. Complete typed products survive assembly/no-factor failures; exact current independent denotations publish without complete records. Failed/interrupted attempts, insufficient selection001 and invalid literal grade001 remain, superseded by corrected immutable references/grades. No held-out truth, historical label upcast, population accuracy, calibration, scientific truth, full-corpus/portable-review/default adoption or untriggered solver efficacy is established. Semantic release1bf survives operational repairs; exact runtime009 differs, defaults remain null/null/0, old rows preserved and no auxiliary worktrees remain. PCE-09–11 retain remaining scope.",
+  "consumed_by": [
+    "PCE-04",
+    "PCE-05",
+    "PCE-06",
+    "PCE-07",
+    "PCE-08",
+    "ADR-0064"
+  ]
+}

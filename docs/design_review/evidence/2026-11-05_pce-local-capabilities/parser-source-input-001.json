@@ -1,0 +1,43 @@
+{
+  "protocol": "pce07-bounded-native-parser-input-1",
+  "project_id": "m1-source-grinstead-snell",
+  "source_provenance": {
+    "artifact": "../2026-11-05_pce-foundations/raw/source-only-unit-2-002.json",
+    "sha256": "f05123362733acac9cd6cc9441654b9d5bbd95aafc73cf103624a13a785c6ad1",
+    "use": "Physical pin and primary native pointers only; no reference judgments consumed."
+  },
+  "physical_pin": {
+    "native_product_task_id": 1,
+    "product_key": "integrated",
+    "product_digest": "e8ee2f72912fe174fdaf76918b7cb347ad245fecdf9c827688814729b9961cba",
+    "projection_digest": "9263830d5b9815b70201f2871e9feebb7895b0c3a9332c2e1c177e177f9d8545",
+    "recipe_digest": "9c7adb9e5ea430fd5010be6995d3593e1bce5ce6e9573237323ac7a7c31148cc",
+    "section_pointer": "#/groups/1",
+    "membership": "descendants"
+  },
+  "region_groups": {
+    "unchanged_source_first_unit2": ["#/texts/341", "#/texts/285", "#/texts/200", "#/texts/95", "#/tables/0"],
+    "contextual_source8": ["#/texts/25", "#/texts/35", "#/texts/42", "#/texts/140", "#/texts/148", "#/texts/166", "#/texts/193", "#/texts/325"],
+    "captured_native_formula": ["#/texts/5", "#/texts/20"]
+  },
+  "candidate_base_configuration": "contextual",
+  "candidate_overrides": {
+    "local_schema": {
+      "entities": ["distribution", "quantity", "condition"],
+      "entity_attributes": {
+        "role": {
+          "labels": ["defined_term", "mentioned_term"],
+          "applies_to": ["distribution"],
+          "qualify_labels": true
+        }
+      },
+      "relations": ["approximated_by", "arises_from", "condition_for"]
+    },
+    "annotation_token_rules": {
+      "definition_cue": [[{"LOWER": {"IN": ["defined", "called", "denotes", "represents"]}}]],
+      "condition_cue": [[{"LOWER": {"IN": ["if", "when", "assuming", "assumed", "provided"]}}]]
+    },
+    "formula_syntax": true,
+    "formula_syntax_input_policy": "captured_native_text"
+  }
+}
