@@ -205,6 +205,7 @@ def prepare_contribution_projection(definitions):
                     "kb.source_contribution_operation",
                     "kb.source_contribution",
                     "kb.source_contribution_endpoint",
+                    "kb.source_contribution_anchor",
                 ],
                 standing="retained_private",
                 detail_owner="ops.task_result",

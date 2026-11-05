@@ -105,7 +105,7 @@ class OperationCase:
     """One independent question; alternatives contain exact permitted output fields.
 
     Anchor IDs come from independent source authoring. A case with an unstated
-    source field expects absence; uninspected never implies absence. An output ID
+    source field requires explicit state capture; uninspected never implies absence. An output ID
     exists only for output-first cases. Explanation and provenance are mandatory.
     """
 
@@ -124,6 +124,8 @@ class OperationCase:
     reference_projection: Mapping[str, Any] | None = None
     candidate_selector: Mapping[str, Any] = field(default_factory=dict)
     permissible_anchor_sets: tuple[tuple[str, ...], ...] = ()
+    expectation_mode: str = "structure"
+    anchor_endpoint_role: str | None = None
 
     def __post_init__(self):
         if self.judgment not in JUDGMENTS or self.source_state not in {
@@ -133,6 +135,12 @@ class OperationCase:
             "unresolved",
         }:
             raise ReferenceError("unknown operation judgment or source field state")
+        if self.expectation_mode not in {"structure", "absence_detection"}:
+            raise ReferenceError(
+                "operation expectation must declare structure or absence_detection"
+            )
+        if self.anchor_endpoint_role is not None and self.contribution_kind != "relation":
+            raise ReferenceError("endpoint anchored assessment requires a relation contribution")
         if not all(
             (
                 self.case_id,
@@ -215,8 +223,15 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
                 and case.contribution_id not in frame.contribution_ids
             ):
                 raise ReferenceError("output case is outside frozen contribution population")
+            endpoint_anchors = {
+                identity
+                for option in case.alternatives
+                for endpoint in option.get("endpoint_semantics", ())
+                for identity in endpoint["anchor_ids"]
+            }
             if (
                 set(case.anchor_ids)
+                | endpoint_anchors
                 | {identity for values in case.permissible_anchor_sets for identity in values}
             ) - set(frame.anchor_ids):
                 raise ReferenceError("case anchors are outside independently frozen source scope")
@@ -231,16 +246,72 @@ def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[st
 
 def _matches(actual: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
     """Partial object equality is rubric-declared; sequences retain order and membership."""
-    return all(
-        key in actual and canonical_bytes(actual[key]) == canonical_bytes(value)
-        for key, value in expected.items()
-    )
+    for key, value in expected.items():
+        if key not in actual:
+            return False
+        if key == "endpoint_semantics":
+            endpoints = actual[key]
+            if len(endpoints) != len(value) or any(
+                a["role"] != b["role"]
+                or a["anchor_ids"] != b["anchor_ids"]
+                or not _matches(a["fields"], b.get("fields", {}))
+                for a, b in zip(endpoints, value, strict=True)
+            ):
+                return False
+        elif canonical_bytes(actual[key]) != canonical_bytes(value):
+            return False
+    return True
+
+
+def _literal_product(value: Mapping[str, Any]) -> Mapping[str, Any]:
+    anchors = value.get("anchors", ())
+    if anchors and all(
+        anchor.get("precision") == "exact" and "source_piece" in anchor for anchor in anchors
+    ):
+        return dict(value, source_pieces=[anchor["source_piece"] for anchor in anchors])
+    return value
+
+
+def _comparison_product(
+    value: Mapping[str, Any], closure: Mapping[str, Mapping[str, Any]]
+) -> Mapping[str, Any]:
+    value = _literal_product(value)
+    if value.get("kind") != "relation":
+        return value
+    endpoints = []
+    for endpoint in value.get("endpoints", ()):
+        target = closure.get(endpoint["contribution_id"])
+        if target is None:
+            raise ReferenceError(
+                "attachment assessment requires complete selected endpoint closure"
+            )
+        endpoints.append(
+            dict(
+                role=endpoint["role"],
+                anchor_ids=[a["anchor_id"] for a in target.get("anchors", ())],
+                fields=_literal_product(target),
+            )
+        )
+    return dict(value, endpoint_semantics=endpoints)
+
+
+def _case_anchors(case: OperationCase, value: Mapping[str, Any]) -> set[str]:
+    if case.anchor_endpoint_role is None:
+        return {anchor["anchor_id"] for anchor in value.get("anchors", ())}
+    endpoints = [
+        endpoint
+        for endpoint in value.get("endpoint_semantics", ())
+        if endpoint["role"] == case.anchor_endpoint_role
+    ]
+    return set(endpoints[0]["anchor_ids"]) if len(endpoints) == 1 else set()
 
 
 def score_cases(
     frame: OperationEvaluationFrame,
     cases: Sequence[OperationCase],
     contributions: Sequence[Mapping[str, Any]],
+    *,
+    endpoint_closure: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     from scipy.optimize import linear_sum_assignment
 
@@ -255,11 +326,16 @@ def score_cases(
         ):
             raise ReferenceError("one contribution identity has conflicting retained payloads")
         unique[identity] = contribution
-    selected = [unique[identity] for identity in sorted(unique)]
+    closure = dict(unique)
+    for value in endpoint_closure or ():
+        closure[value["contribution_id"]] = value
+    selected = [_comparison_product(unique[identity], closure) for identity in sorted(unique)]
     if frame.direction == "output_first":
         if set(frame.contribution_ids) - unique.keys():
             raise ReferenceError("frozen output population is absent from prediction capture")
-        selected = [unique[identity] for identity in frame.contribution_ids]
+        selected = [
+            _comparison_product(unique[identity], closure) for identity in frame.contribution_ids
+        ]
     if len({case.case_id for case in cases}) != len(cases):
         raise ReferenceError("assessment repeats an independent case identity")
     candidates_by_case = {
@@ -270,7 +346,7 @@ def score_cases(
             and _matches(value, case.candidate_selector)
             and (case.contribution_id is None or value["contribution_id"] == case.contribution_id)
             and any(
-                {anchor["anchor_id"] for anchor in value.get("anchors", ())} == set(anchors)
+                _case_anchors(case, value) == set(anchors)
                 for anchors in (case.anchor_ids, *case.permissible_anchor_sets)
             )
         ]
@@ -287,6 +363,11 @@ def score_cases(
             if anchors
             else value["contribution_id"]
         )
+        if value.get("kind") == "relation":
+            occurrence = [
+                [endpoint["role"], endpoint["anchor_ids"]]
+                for endpoint in value.get("endpoint_semantics", ())
+            ]
         key = canonical_bytes([value.get("kind"), occurrence])
         occurrence_groups.setdefault(key, []).append(value)
     groups = [occurrence_groups[key] for key in sorted(occurrence_groups)]
@@ -297,7 +378,7 @@ def score_cases(
                 for case in cases
                 if case.facet == facet
                 and case.judgment in {"supported", "ambiguous"}
-                and case.source_state in {"stated", "unresolved"}
+                and case.source_state in {"stated", "unstated", "unresolved"}
             ),
             key=lambda value: value.case_id,
         )
@@ -348,7 +429,7 @@ def score_cases(
                 "ambiguous",
                 "permissible_alternatives" if matched else "unresolved",
             )
-        elif case.source_state == "unstated":
+        elif case.source_state == "unstated" and case.expectation_mode == "absence_detection":
             judgment = "unsupported" if candidates else "supported"
             category = "spurious" if candidates else "inspected_unstated"
         elif case.judgment == "unsupported":
@@ -371,6 +452,14 @@ def score_cases(
                 judgment=judgment,
                 source_state=case.source_state,
                 error_category=category,
+                expectation_mode=case.expectation_mode,
+                capture_outcome=(
+                    "true_negative"
+                    if category == "inspected_unstated"
+                    else "captured_structure"
+                    if matched is not None and judgment == "supported"
+                    else "not_captured"
+                ),
                 contribution_id=matched["contribution_id"] if matched else case.contribution_id,
                 candidate_ids=[value["contribution_id"] for value in candidates],
                 explanation=case.explanation,
@@ -379,13 +468,30 @@ def score_cases(
         )
     facets = {}
     for facet in sorted({case.facet for case in cases}):
-        counts = Counter(value["judgment"] for value in results if value["facet"] == facet)
+        counts = Counter(
+            value["judgment"]
+            for value in results
+            if value["facet"] == facet and value["expectation_mode"] == "structure"
+        )
         facets[facet] = {label: counts[label] for label in JUDGMENTS}
+    detection_facets = {
+        facet: {
+            label: sum(
+                value["facet"] == facet
+                and value["judgment"] == label
+                and value["expectation_mode"] == "absence_detection"
+                for value in results
+            )
+            for label in JUDGMENTS
+        }
+        for facet in facets
+    }
     return dict(
         direction=frame.direction,
         grain="operation_case_facet",
         facets=facets,
         cases=results,
+        absence_detection_facets=detection_facets,
         prediction_count=len(selected),
         quality_claim="not_established",
     )
@@ -598,28 +704,26 @@ def reference_evaluate(
     snapshot = _call(conn, "SELECT eval.native_reference_snapshot(:s)", s=set_id).scalar_one()
     if not selected or len(snapshot) != len(selected):
         raise ReferenceError("every operation unit requires adjudicated C, including zero output")
-    inventory = read_source_contributions(
-        conn,
-        prepared=prepared,
-        run_id=run_id,
-        cut_id=completed["cut_id"],
-        limit=10000,
-        include_details=True,
-    )
-    if inventory.more:
-        raise ReferenceError(
-            "operation prediction capture exceeds bounded inventory; select a smaller frame"
-        )
     frozen = {value["unit_id"]: value for value in snapshot}
     reports = []
-    report_views = {
-        report["selected_task_id"]: report["source_view_id"] for report in inventory.reports
-    }
     for unit in selected:
         frame = decode_frame(unit["context"][0])
         reference = read_pass(
             conn, frozen[unit["id"]]["pass_id"], frame_id=frozen[unit["id"]]["frame_id"]
         )
+        inventory = read_source_contributions(
+            conn,
+            prepared=prepared,
+            run_id=run_id,
+            source_view_id=unit["source_view_id"],
+            cut_id=completed["cut_id"],
+            limit=10000,
+        )
+        if inventory.more:
+            raise ReferenceError("operation summary capture exceeds bounded source inventory")
+        report_views = {
+            report["selected_task_id"]: report["source_view_id"] for report in inventory.reports
+        }
         operations = [
             dict(value)
             for value in inventory.operations
@@ -628,13 +732,60 @@ def reference_evaluate(
             and value["operation_version"] == frame.operation_version
         ]
         operation_keys = {value["operation_key"] for value in operations}
-        predictions = [
-            value
-            for value in inventory.contributions
-            if value["pin"]["source_view_id"] == unit["source_view_id"]
-            and value["operation_key"] in operation_keys
-        ]
-        report = score_cases(frame, reference["payload"]["cases"], predictions)
+        endpoint_roles = tuple(
+            sorted(
+                {
+                    case.anchor_endpoint_role
+                    for case in reference["payload"]["cases"]
+                    if case.anchor_endpoint_role is not None
+                }
+            )
+        )
+        captured = read_source_contributions(
+            conn,
+            prepared=prepared,
+            run_id=run_id,
+            source_view_id=unit["source_view_id"],
+            cut_id=completed["cut_id"],
+            limit=10000,
+            include_details=True,
+            operation_keys=tuple(sorted(operation_keys)),
+            anchor_ids=frame.anchor_ids if frame.direction == "source_first" else None,
+            anchor_scopes=frame.anchor_scopes if frame.direction == "source_first" else None,
+            anchor_endpoint_roles=endpoint_roles,
+            contribution_ids=frame.contribution_ids if frame.direction == "output_first" else None,
+        )
+        if captured.more:
+            raise ReferenceError(
+                "operation selected contribution capture exceeds bounded source inventory"
+            )
+        predictions = list(captured.contributions)
+        prediction_ids = {value["contribution_id"] for value in predictions}
+        endpoint_ids = {
+            endpoint["contribution_id"]
+            for value in predictions
+            for endpoint in value.get("endpoints", ())
+        } - prediction_ids
+        endpoints = (
+            read_source_contributions(
+                conn,
+                prepared=prepared,
+                run_id=run_id,
+                source_view_id=unit["source_view_id"],
+                cut_id=completed["cut_id"],
+                limit=10000,
+                include_details=True,
+                contribution_ids=tuple(sorted(endpoint_ids)),
+            )
+            if endpoint_ids
+            else None
+        )
+        if endpoints is not None and endpoints.more:
+            raise ReferenceError("operation endpoint closure exceeds bounded source inventory")
+        closure = (*predictions, *(endpoints.contributions if endpoints is not None else ()))
+        report = score_cases(
+            frame, reference["payload"]["cases"], predictions, endpoint_closure=closure
+        )
         reports.append(
             dict(
                 report,
@@ -671,7 +822,14 @@ def reference_evaluate(
         n=_json(snapshot),
         v=_json(result),
     ).scalar_one()
-    return ReferenceReport(identity, project_id, run_id, set_id, snapshot, result)
+    return ReferenceReport(
+        id=identity,
+        project_id=project_id,
+        run_id=run_id,
+        set_id=set_id,
+        reference_snapshot=snapshot,
+        result=result,
+    )
 
 
 def operation_assessment_native_sql() -> str:

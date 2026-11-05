@@ -9,7 +9,7 @@ REVOKE ALL ON FUNCTION ops.source_contribution_occurrence(jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.validate_source_contribution_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task; v kb.source_view; shape json; op jsonb; c jsonb; a jsonb; ep jsonb;
+DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; anchor_ jsonb; ep jsonb;
  anchors jsonb; identities text[]; expected text; previous_ends jsonb; coordinate text; actual bigint;
  declaration json; role_definition jsonb; retained ops.task; binding jsonb; old_view kb.source_view; new_view kb.source_view; old_descriptor jsonb; new_descriptor jsonb; retained_body jsonb; retained_digests jsonb:='{}'; retained_sources jsonb:='{}';
  operation_map jsonb; identity_map jsonb; output_counts jsonb; schemas jsonb:='{}'; allowed_contracts jsonb;
@@ -51,7 +51,6 @@ BEGIN
   'retained_result_digest',o->'retained_result_digest','retained_source_bindings',o->'retained_source_bindings')
   FROM jsonb_array_elements(p_envelope->'contribution_operations') o
   WHERE o ? 'retained_task_id' OR o ? 'retained_result_digest' OR o ? 'retained_source_bindings' LOOP
-  IF true THEN
    IF NOT (op ? 'retained_task_id' AND op ? 'retained_result_digest' AND op ? 'retained_source_bindings')
     OR jsonb_array_length(op->'retained_source_bindings')=0 THEN
     RAISE EXCEPTION 'retained operation lacks complete immutable source lineage' USING ERRCODE='23514'; END IF;
@@ -84,7 +83,6 @@ BEGIN
     WHERE (b->>'original_source_view_id')::bigint=retained.unit_id
      AND (b->>'current_source_view_id')::bigint=t.unit_id) THEN
     RAISE EXCEPTION 'retained operation lacks primary source correspondence' USING ERRCODE='23514'; END IF;
-  END IF;
  END LOOP;
  FOR op IN SELECT value FROM jsonb_array_elements(p_envelope->'contribution_operations') LOOP
   actual:=COALESCE((output_counts->>(op->>'operation_key'))::bigint,0);
@@ -92,59 +90,59 @@ BEGIN
    OR (op->>'outcome' IN ('failed','skipped','unsupported','limited','not_run') AND COALESCE(op->>'reason','')='') THEN
    RAISE EXCEPTION 'operation outcome or cardinality differs from actual contribution population' USING ERRCODE='23514'; END IF;
  END LOOP;
- FOR c IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions') LOOP
-  IF c->>'standing'<>'retained_private' OR NOT operation_map ? (c->>'operation_key') THEN
+ FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions') LOOP
+  IF contribution->>'standing'<>'retained_private' OR NOT operation_map ? (contribution->>'operation_key') THEN
    RAISE EXCEPTION 'contribution lacks private standing or operation population' USING ERRCODE='23514'; END IF;
-  IF NOT schemas ? (c->>'contract') THEN
+  IF NOT schemas ? (contribution->>'contract') THEN
    SELECT convert_from(content,'UTF8')::json INTO declaration FROM sem.artifact
-    WHERE release_id=t.release_id AND artifact_name='json_schema/'||(c->>'contract');
-   IF declaration IS NOT NULL THEN schemas:=schemas||jsonb_build_object(c->>'contract',declaration); END IF;
+    WHERE release_id=t.release_id AND artifact_name='json_schema/'||(contribution->>'contract');
+   IF declaration IS NOT NULL THEN schemas:=schemas||jsonb_build_object(contribution->>'contract',declaration); END IF;
   END IF;
-  declaration:=(schemas->(c->>'contract'))::json;
+  declaration:=(schemas->(contribution->>'contract'))::json;
   -- Only released domain contracts with an implemented private effect may be named.
-  IF declaration IS NULL OR NOT COALESCE(allowed_contracts ? (c->>'contract'),false) THEN
+  IF declaration IS NULL OR NOT COALESCE(allowed_contracts ? (contribution->>'contract'),false) THEN
    RAISE EXCEPTION 'contribution semantic contract unavailable' USING ERRCODE='23514'; END IF;
-  IF NOT public.json_matches_schema(declaration,jsonb_build_object('kind',c->'kind','semantic_type',c->'semantic_type',
+  IF NOT public.json_matches_schema(declaration,jsonb_build_object('kind',contribution->'kind','semantic_type',contribution->'semantic_type',
     'effect','retain_private','assessment_event','local-contribution-1')::json) THEN
    RAISE EXCEPTION 'contribution semantics differ from released contract' USING ERRCODE='23514'; END IF;
-  IF c->'pin' IS DISTINCT FROM jsonb_build_object('source',p_envelope->>'source',
+  IF contribution->'pin' IS DISTINCT FROM jsonb_build_object('source',p_envelope->>'source',
     'native_product_task_id',v.native_task_id,'product_key',v.native_product_key,'product_digest',v.native_content_digest,
     'projection_digest',v.projection_digest,'recipe_digest',v.recipe_digest,'source_view_id',v.id) THEN
    RAISE EXCEPTION 'contribution pin differs from exact selected source view' USING ERRCODE='23514'; END IF;
-  anchors:=COALESCE(c->'anchors','[]'); previous_ends:='{}';
-  IF c->>'kind'='occurrence' AND jsonb_array_length(anchors)=0 THEN
+  anchors:=COALESCE(contribution->'anchors','[]'); previous_ends:='{}';
+  IF contribution->>'kind'='occurrence' AND jsonb_array_length(anchors)=0 THEN
    RAISE EXCEPTION 'located contribution occurrence requires source pieces' USING ERRCODE='23514'; END IF;
-  IF jsonb_array_length(anchors)=0 AND c ? 'occurrence_id' THEN
+  IF jsonb_array_length(anchors)=0 AND contribution ? 'occurrence_id' THEN
    RAISE EXCEPTION 'unlocated contribution cannot claim an occurrence identity' USING ERRCODE='23514'; END IF;
-  IF jsonb_array_length(anchors)>0 AND c->>'occurrence_id' IS DISTINCT FROM ops.source_contribution_occurrence(anchors) THEN
+  IF jsonb_array_length(anchors)>0 AND contribution->>'occurrence_id' IS DISTINCT FROM ops.source_contribution_occurrence(anchors) THEN
    RAISE EXCEPTION 'contribution occurrence identity differs from actual pieces' USING ERRCODE='23514'; END IF;
-  FOR a IN SELECT value FROM jsonb_array_elements(anchors) LOOP
-   IF a->>'space'='selected_projection' THEN RAISE EXCEPTION 'physical occurrence requires canonical native coordinates' USING ERRCODE='23514'; END IF;
+  FOR anchor_ IN SELECT value FROM jsonb_array_elements(anchors) LOOP
+   IF anchor_->>'space'='selected_projection' THEN RAISE EXCEPTION 'physical occurrence requires canonical native coordinates' USING ERRCODE='23514'; END IF;
    expected:='record-anchor:'||encode(sha256(convert_to(data.canonical_json(
-    (a-'anchor_id')||jsonb_build_object('pin',a->'pin'-'source_view_id')),'UTF8')),'hex');
-   IF a->>'anchor_id' IS DISTINCT FROM expected THEN
+    (anchor_-'anchor_id')||jsonb_build_object('pin',anchor_->'pin'-'source_view_id')),'UTF8')),'hex');
+   IF anchor_->>'anchor_id' IS DISTINCT FROM expected THEN
     RAISE EXCEPTION 'contribution source anchor identity differs from contents' USING ERRCODE='23514'; END IF;
-   coordinate:=data.canonical_json(jsonb_build_array(a->'pin'-'source_view_id',a->'space',a->'pointer',a->'recognition'));
-   IF a->>'precision'='exact' THEN
-    IF a->>'start' IS NULL OR a->>'end' IS NULL OR (a->>'start')::bigint < COALESCE((previous_ends->>coordinate)::bigint,0) THEN
+   coordinate:=data.canonical_json(jsonb_build_array(anchor_->'pin'-'source_view_id',anchor_->'space',anchor_->'pointer',anchor_->'recognition'));
+   IF anchor_->>'precision'='exact' THEN
+    IF anchor_->>'start' IS NULL OR anchor_->>'end' IS NULL OR (anchor_->>'start')::bigint < COALESCE((previous_ends->>coordinate)::bigint,0) THEN
      RAISE EXCEPTION 'contribution source pieces overlap or reverse order' USING ERRCODE='23514'; END IF;
-    previous_ends:=previous_ends||jsonb_build_object(coordinate,(a->>'end')::bigint);
+    previous_ends:=previous_ends||jsonb_build_object(coordinate,(anchor_->>'end')::bigint);
    END IF;
   END LOOP;
-  IF (c->>'score_state'='native') IS DISTINCT FROM (c ? 'score') THEN
+  IF (contribution->>'score_state'='native') IS DISTINCT FROM (c ? 'score') THEN
    RAISE EXCEPTION 'contribution score availability differs from actual score' USING ERRCODE='23514'; END IF;
-  expected:='source-contribution:'||encode(sha256(convert_to(data.canonical_json(c-'contribution_id'),'UTF8')),'hex');
-  IF c->>'contribution_id' IS DISTINCT FROM expected THEN
+  expected:='source-contribution:'||encode(sha256(convert_to(data.canonical_json(contribution-'contribution_id'),'UTF8')),'hex');
+  IF contribution->>'contribution_id' IS DISTINCT FROM expected THEN
    RAISE EXCEPTION 'contribution identity differs from immutable contents' USING ERRCODE='23514'; END IF;
-  FOR ep IN SELECT value FROM jsonb_array_elements(COALESCE(c->'endpoints','[]')) LOOP
-   IF NOT identity_map ? (ep->>'contribution_id') OR ep->>'contribution_id'=c->>'contribution_id' THEN
+  FOR ep IN SELECT value FROM jsonb_array_elements(COALESCE(contribution->'endpoints','[]')) LOOP
+   IF NOT identity_map ? (ep->>'contribution_id') OR ep->>'contribution_id'=contribution->>'contribution_id' THEN
     RAISE EXCEPTION 'contribution endpoint unavailable or self-referential' USING ERRCODE='23514'; END IF;
   END LOOP;
-  IF EXISTS(SELECT FROM jsonb_array_elements_text(COALESCE(c->'members','[]')) x
-    WHERE NOT identity_map ? x OR x=c->>'contribution_id') THEN
+  IF EXISTS(SELECT FROM jsonb_array_elements_text(COALESCE(contribution->'members','[]')) x
+    WHERE NOT identity_map ? x OR x=contribution->>'contribution_id') THEN
    RAISE EXCEPTION 'contribution member unavailable or self-referential' USING ERRCODE='23514'; END IF;
-  IF (c->>'kind'='relation' AND jsonb_array_length(COALESCE(c->'endpoints','[]'))<2)
-   OR (c->>'kind'='composite' AND jsonb_array_length(COALESCE(c->'members','[]'))=0) THEN
+  IF (contribution->>'kind'='relation' AND jsonb_array_length(COALESCE(contribution->'endpoints','[]'))<2)
+   OR (contribution->>'kind'='composite' AND jsonb_array_length(COALESCE(contribution->'members','[]'))=0) THEN
    RAISE EXCEPTION 'relation/composite contribution lacks endpoints/members' USING ERRCODE='23514'; END IF;
  END LOOP;
  SELECT COALESCE(jsonb_agg(a),'[]') INTO anchors FROM (SELECT DISTINCT a
@@ -165,6 +163,11 @@ BEGIN
  SELECT p_task,p_envelope->>'release_id',c->>'contribution_id',n-1,c->>'operation_key',c->>'kind',c->>'semantic_type',
   (c->'pin'->>'source_view_id')::bigint,c->>'occurrence_id',c->>'disposition',c->>'standing',c->>'score_state'
  FROM jsonb_array_elements(p_envelope->'contributions') WITH ORDINALITY x(c,n);
+ INSERT INTO kb.source_contribution_anchor(task_id,contribution_id,position,anchor_id,source_view_id,pointer,space,precision,"start","end")
+ SELECT p_task,c->>'contribution_id',n-1,a->>'anchor_id',(a->'pin'->>'source_view_id')::bigint,
+  a->>'pointer',a->>'space',a->>'precision',(a->>'start')::bigint,(a->>'end')::bigint
+ FROM jsonb_array_elements(p_envelope->'contributions') c,
+ LATERAL jsonb_array_elements(COALESCE(c->'anchors','[]')) WITH ORDINALITY x(a,n);
  INSERT INTO kb.source_contribution_endpoint(task_id,contribution_id,position,role,endpoint_id)
  SELECT p_task,c->>'contribution_id',n-1,e->>'role',e->>'contribution_id'
  FROM jsonb_array_elements(p_envelope->'contributions') c,

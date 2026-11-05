@@ -111,8 +111,8 @@ def test_unstated_and_uninspected_are_not_pooled(frame):
     )
     result = score_cases(frame, (unstated, uninspected), ())
     assert result["facets"]["note"] == {
-        "supported": 1,
-        "unsupported": 0,
+        "supported": 0,
+        "unsupported": 1,
         "ambiguous": 0,
         "unassessed": 1,
     }
@@ -232,6 +232,7 @@ def test_old_whole_reading_boolean_cannot_supply_local_truth(frame):
             scope="independently authored cell text only",
         ),
     )
+    assert value.reference_projection is not None
     assert value.reference_projection["source_pass_id"] == 80
 
 
@@ -275,8 +276,11 @@ def test_exact_relation_direction_and_order_cannot_be_renamed_as_match(frame):
             {"role": "unit", "contribution_id": "v"},
         ],
     )
+    closure = (prediction("u"), prediction("v", anchors=("cell-2",)))
     assert (
-        score_cases(frame, (relation,), (reversed_relation,))["cases"][0]["judgment"]
+        score_cases(frame, (relation,), (reversed_relation,), endpoint_closure=closure)["cases"][0][
+            "judgment"
+        ]
         == "unsupported"
     )
 
@@ -290,4 +294,88 @@ def test_unstated_note_does_not_mark_a_value_proposal_spurious(frame):
         candidate_selector={"semantic_type": "table.note"},
     )
     result = score_cases(frame, (note,), (prediction(),))
-    assert result["cases"][0]["judgment"] == "supported"
+    assert result["cases"][0]["judgment"] == "unsupported"
+    assert result["cases"][0]["error_category"] == "missing_output"
+
+
+def test_true_negative_requires_declared_detection_question_and_separate_counts(frame):
+    note = replace(
+        case(),
+        facet="note",
+        source_state="unstated",
+        alternatives=(),
+        candidate_selector={"semantic_type": "table.note"},
+        expectation_mode="absence_detection",
+    )
+    result = score_cases(frame, (note,), ())
+    assert result["cases"][0]["capture_outcome"] == "true_negative"
+    assert result["facets"]["note"]["supported"] == 0
+    assert result["absence_detection_facets"]["note"]["supported"] == 1
+
+
+def test_explicit_unstated_field_capture_requires_actual_structure(frame):
+    note = replace(
+        case(), facet="note", source_state="unstated", alternatives=({"disposition": "unstated"},)
+    )
+    assert score_cases(frame, (note,), ())["cases"][0]["error_category"] == "missing_output"
+    output = prediction(disposition="unstated")
+    assert (
+        score_cases(frame, (note,), (output,))["cases"][0]["capture_outcome"]
+        == "captured_structure"
+    )
+
+
+def test_attachment_requires_right_cell_and_right_header_source_semantics(frame):
+    primary = prediction("cell-value", anchors=("cell-1",))
+    other = prediction("other-cell-value", anchors=("cell-2",))
+    header = dict(
+        prediction("header", anchors=("term-1",)), semantic_type="table.header_path", value="Speed"
+    )
+    expected = replace(
+        case(),
+        facet="header_attachment",
+        contribution_kind="relation",
+        anchor_endpoint_role="cell_value",
+        alternatives=(
+            {
+                "semantic_type": "table.header_path_attachment",
+                "endpoint_semantics": [
+                    {"role": "cell_value", "anchor_ids": ["cell-1"], "fields": {"value": "12"}},
+                    {
+                        "role": "header_path",
+                        "anchor_ids": ["term-1"],
+                        "fields": {"semantic_type": "table.header_path", "value": "Speed"},
+                    },
+                ],
+            },
+        ),
+    )
+    relation = dict(
+        contribution_id="attachment",
+        kind="relation",
+        anchors=[],
+        semantic_type="table.header_path_attachment",
+        endpoints=[
+            {"role": "cell_value", "contribution_id": "cell-value"},
+            {"role": "header_path", "contribution_id": "header"},
+        ],
+    )
+    closure = (primary, other, header)
+    correct = score_cases(frame, (expected,), (relation,), endpoint_closure=closure)
+    assert correct["cases"][0]["judgment"] == "supported"
+    wrong_cell = dict(
+        relation,
+        endpoints=[
+            {"role": "cell_value", "contribution_id": "other-cell-value"},
+            {"role": "header_path", "contribution_id": "header"},
+        ],
+    )
+    wrong = score_cases(frame, (expected,), (wrong_cell,), endpoint_closure=closure)
+    assert wrong["cases"][0]["judgment"] == "unsupported"
+    # A correct header proposal existing elsewhere cannot establish attachment.
+    assert (
+        score_cases(frame, (expected,), (header,), endpoint_closure=closure)["cases"][0]["judgment"]
+        == "unsupported"
+    )
+    with pytest.raises(ReferenceError, match="endpoint closure"):
+        score_cases(frame, (expected,), (relation,))

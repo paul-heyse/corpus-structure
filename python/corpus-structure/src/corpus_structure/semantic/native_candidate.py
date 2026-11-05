@@ -830,6 +830,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "kb.source_contribution_operation",
         "kb.source_contribution",
         "kb.source_contribution_endpoint",
+        "kb.source_contribution_anchor",
         "eval.reference_origin_group",
         "eval.reference_origin_source",
     ):

@@ -4043,3 +4043,49 @@ classes:
       ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"},
         {"columns": ["task_id", "endpoint_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
       ph:indexes: '[["task_id", "endpoint_id"]]'
+
+  source_contribution_anchor:
+    in_subset:
+    - kb
+    description: Finite private source address index for selected native scopes before
+      evidence hydration.
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      contribution_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      anchor_id:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      pointer:
+        range: string
+        required: true
+      space:
+        range: string
+        required: true
+      precision:
+        range: string
+        required: true
+      start:
+        range: integer
+      end:
+        range: integer
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - contribution_id
+        - position
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"},
+        {"columns": ["source_view_id"], "target": "kb.source_view.id"}]'
+      ph:indexes: '[["source_view_id", "pointer", "space", "start", "end"], ["anchor_id"]]'
