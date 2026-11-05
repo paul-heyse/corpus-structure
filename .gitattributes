@@ -75,3 +75,8 @@ docs/design_review/evidence/2026-11-03_ac14-acceptance/native*/candidate-*/* fil
 
 # Hash-bound generated native DDL retains the original compiler bytes.
 python/corpus-structure/semantic_alembic/versions/semantic_m1_admission_20261104_physical.sql filter=lfs diff=lfs merge=lfs -text
+
+docs/design_review/evidence/2026-11-05_pce-structural-products/native_candidate_*/** filter=lfs diff=lfs merge=lfs -text
+
+python/corpus-structure/semantic_alembic/versions/semantic_pce_structure_20261105_* filter=lfs diff=lfs merge=lfs -text
+python/corpus-structure/semantic_alembic/versions/semantic_pce_exposure_20261105_* filter=lfs diff=lfs merge=lfs -text

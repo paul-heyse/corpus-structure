@@ -4229,3 +4229,57 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "inventory_id"], "target": "kb.contextual_inventory.task_id,inventory_id"}, {"columns": ["task_id", "vector_id"], "target": "kb.contextual_vector.task_id,vector_id"}]'
+
+  review_exposure:
+    in_subset: [eval]
+    attributes:
+      id: {range: integer, required: true, annotations: {ph:identity: 'true'}}
+      project_id: {required: true}
+      set_id: {range: integer, required: false}
+      group_set_id: {range: integer, required: false}
+      partition: {required: true}
+      pass_snapshot: {range: json_payload, required: true}
+      purpose: {required: true}
+      recipient_class: {required: true}
+      authorization_basis: {required: false}
+      exposed_at: {required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:read_roles: '["corpus_sem_evaluator"]'
+      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["set_id"],"target":"eval.reference_set.id"},{"columns":["group_set_id"],"target":"eval.structural_reference_set.id"}]'
+      ph:checks: '["partition IN (''development'',''feature_fit'')", "partition <> ''feature_fit'' OR (authorization_basis IS NOT NULL AND length(btrim(authorization_basis)) > 0)", "(set_id IS NULL) <> (group_set_id IS NULL)"]'
+
+  structural_reference_set:
+    in_subset: [eval]
+    attributes:
+      id: {range: integer, required: true, annotations: {ph:identity: 'true'}}
+      project_id: {required: true}
+      release_id: {required: true}
+      frame: {range: json_payload, required: true}
+      frame_digest: {required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:read_roles: '["corpus_sem_evaluator"]'
+      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["release_id"],"target":"sem.release.release_id"}]'
+
+  structural_reference_pass:
+    in_subset: [eval]
+    attributes:
+      id: {range: integer, required: true, annotations: {ph:identity: 'true'}}
+      set_id: {range: integer, required: true}
+      pass_kind: {required: true}
+      actor: {required: true}
+      authored: {range: bytes, required: true}
+      content_digest: {required: true}
+      parents: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:read_roles: '["corpus_sem_evaluator"]'
+      ph:foreign_keys: '[{"columns":["set_id"],"target":"eval.structural_reference_set.id"}]'
+      ph:checks: '["pass_kind IN (''A'',''B'',''C'')"]'

@@ -709,6 +709,17 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple((role, "EXECUTE", False) for role in roles),
             )
         )
+    review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
+    for name in ("operation_review_history", "record_review_exposure", "create_structural_reference_set", "record_structural_reference_pass", "structural_review_history", "record_structural_review_exposure", "record_feature_fit_review_exposure"):
+        definitions.extend(
+            _task_call_definitions(connection, review_sql, name=name,
+                source="operation review history:forward", schema="eval",
+                grants=(("corpus_sem_evaluator", "EXECUTE", False),))
+        )
+    structural_sql = Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
+    for name in ("validate_structural_source", "validate_structural_input", "validate_structural_product_report"):
+        definitions.extend(_task_call_definitions(connection, structural_sql, name=name,
+            source="structural products:forward", schema="ops", grants=()))
     for name in (
         "source_contribution_occurrence",
         "validate_source_anchor_coordinates",

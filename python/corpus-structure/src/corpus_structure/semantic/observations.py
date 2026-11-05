@@ -300,6 +300,14 @@ def bind_result(
         )
         payload["contribution_operations"] = operations
         payload["contributions"] = contributions
+    if result.structural_product is not None:
+        if result.ref.unit_type.value != "run" or result.outcome.value != "produced":
+            raise ValueError("structural products require a produced RUN result")
+        from .structural_products import StructuralProductReport
+
+        payload["structural_product"] = StructuralProductReport.model_validate(
+            result.structural_product
+        ).model_dump(mode="python", exclude_none=True)
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)
     payload["measurements"] = tuple(

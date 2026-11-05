@@ -5635,6 +5635,15 @@ operations:
   - id: agent.general/observation.confidence_source
     field: observations.confidence_source
     outcome_domain: confidence_provenance_agent
+  - id: structure.products/family
+    field: family
+    outcome_domain: method_family_consolidate
+  - id: structure.products/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: structure.products/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: consolidate.claims/family
     field: family
     outcome_domain: method_family_consolidate

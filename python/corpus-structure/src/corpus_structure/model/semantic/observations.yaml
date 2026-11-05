@@ -151,6 +151,7 @@ classes:
       records: {range: SourceRecord, multivalued: true, inlined: true}
       contribution_operations: {range: SourceContributionOperation, multivalued: true, inlined: true}
       contributions: {range: SourceContribution, multivalued: true, inlined: true}
+      structural_product: {range: StructuralProductReport, inlined: true}
   LocalInterpretationReport:
     is_a: SourceRecordProduct
     description: Sealed private local question over an exact retained contribution selection; no admission authority.
@@ -626,6 +627,246 @@ classes:
       inventories: {range: ContextualInventory, inlined: true, multivalued: true}
       candidate_lists: {range: ContextualCandidateList, inlined: true, multivalued: true}
       relationship_decisions: {range: ContextualRelationshipDecision, inlined: true, multivalued: true}
+  ClauseField:
+    is_a: SourceRecordProduct
+    attributes:
+      dimension:
+        required: true
+        range: StructuralClauseFieldDimensionValue
+      lexical_value:
+        required: true
+      evidence:
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+  ComparisonProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      left_id:
+        required: true
+      right_id:
+        required: true
+      dimensions:
+        range: DimensionComparison
+        inlined: true
+        multivalued: true
+      equivalence:
+        equals_string: not_asserted
+      identity_standing:
+        equals_string: not_asserted
+  DefinitionProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      usage_id:
+        required: true
+      candidate_list_id:
+        required: true
+      eligible_targets:
+        multivalued: true
+      candidate_targets:
+        multivalued: true
+      readings:
+        range: StructuralDefinitionReading
+        inlined: true
+        multivalued: true
+      inventory_coverage:
+        range: StructuralDefinitionProductInventoryCoverageValue
+      retrieval_diagnosis:
+        equals_string: not_independently_assessed
+  StructuralDefinitionReading:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id:
+        required: true
+      outcome:
+        required: true
+        range: StructuralDefinitionReadingOutcomeValue
+      evidence:
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+      reason:
+        required: true
+  DimensionComparison:
+    is_a: SourceRecordProduct
+    attributes:
+      dimension:
+        required: true
+        range: StructuralDimensionComparisonDimensionValue
+      outcome:
+        required: true
+        range: StructuralDimensionComparisonOutcomeValue
+      left:
+        range: ClauseField
+        inlined: true
+      right:
+        range: ClauseField
+        inlined: true
+  DossierMember:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id:
+        required: true
+      passage_id:
+        required: true
+      role:
+        required: true
+        range: StructuralDossierMemberRoleValue
+      sense:
+        required: true
+      scope:
+        required: true
+      effective_version: {}
+      relation_product_id:
+        required: true
+      qualification:
+        range: StructuralDossierMemberQualificationValue
+      assessment_id: {}
+  DossierProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      root_id:
+        required: true
+      members:
+        range: DossierMember
+        inlined: true
+        multivalued: true
+      representatives:
+        multivalued: true
+      missing_sections:
+        range: StructuralDossierProductMissingSectionsItemValue
+        multivalued: true
+      membership_completeness:
+        equals_string: declared_selection
+  ExternalSourceRef:
+    is_a: SourceRecordProduct
+    attributes:
+      project_id:
+        required: true
+      run_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      cut_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      release_id:
+        required: true
+      result_revision:
+        required: true
+        range: integer
+        minimum_value: 0
+      source_view_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      native_task_id:
+        required: true
+        range: integer
+        minimum_value: 1
+      native_product_key:
+        required: true
+      native_content_digest:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      projection_digest:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      recipe_digest:
+        required: true
+        pattern: ^[0-9a-f]{64}$
+      coordinate_version:
+        required: true
+        range: integer
+        minimum_value: 2
+        maximum_value: 3
+  StructuralExclusion:
+    is_a: SourceRecordProduct
+    attributes:
+      left:
+        required: true
+      right:
+        required: true
+  StructuralInput:
+    is_a: SourceRecordProduct
+    attributes:
+      question:
+        required: true
+      scope:
+        required: true
+      inventory_id:
+        required: true
+      policy_id:
+        required: true
+      sources:
+        required: true
+        range: ExternalSourceRef
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 1
+      passages:
+        required: true
+        range: StructuralPassage
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 1
+      dependencies:
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+      exclusions:
+        range: StructuralExclusion
+        inlined: true
+        multivalued: true
+      coverage_limits:
+        multivalued: true
+  StructuralPassage:
+    is_a: SourceRecordProduct
+    attributes:
+      passage_id:
+        required: true
+      source_ref:
+        required: true
+      start:
+        required: true
+        range: integer
+        minimum_value: 0
+      end:
+        required: true
+        range: integer
+        minimum_value: 1
+      text:
+        required: true
+      scope:
+        required: true
+      effective_version: {}
+      parent: {}
+  StructuralProductReport:
+    is_a: SourceRecordProduct
+    attributes:
+      version:
+        equals_string: structural-product-1
+      kind:
+        required: true
+        range: StructuralStructuralProductReportKindValue
+      inputs:
+        required: true
+        range: StructuralInput
+        inlined: true
+      standing:
+        equals_string: private_proposal
+      definition:
+        range: DefinitionProduct
+        inlined: true
+      comparison:
+        range: ComparisonProduct
+        inlined: true
+      dossier:
+        range: DossierProduct
+        inlined: true
+      retrieval_report: {range: ContextualEnrichmentReport, inlined: true}
+
 enums:
   ContributionAnchorRole:
     permissible_values:
@@ -710,3 +951,82 @@ enums:
       unknown: {}
       unsupported: {}
       failed: {}
+
+  StructuralClauseFieldDimensionValue:
+    permissible_values:
+      actor: {}
+      action: {}
+      object: {}
+      modality: {}
+      condition: {}
+      threshold_unit: {}
+      exception: {}
+      order_dependency: {}
+      parent: {}
+      version: {}
+  StructuralDefinitionProductInventoryCoverageValue:
+    permissible_values:
+      declared_selection: {}
+      known_gap: {}
+  StructuralDefinitionReadingOutcomeValue:
+    permissible_values:
+      applicable_definition: {}
+      applicable_explanation: {}
+      mention: {}
+      example: {}
+      ambiguous: {}
+      insufficient_support: {}
+  StructuralDimensionComparisonDimensionValue:
+    permissible_values:
+      actor: {}
+      action: {}
+      object: {}
+      modality: {}
+      condition: {}
+      threshold_unit: {}
+      exception: {}
+      order_dependency: {}
+      parent: {}
+      version: {}
+  StructuralDimensionComparisonOutcomeValue:
+    permissible_values:
+      same_lexical_value: {}
+      different_lexical_value: {}
+      unknown: {}
+      incompatible_applicability: {}
+  StructuralDossierMemberRoleValue:
+    permissible_values:
+      definition: {}
+      terminology: {}
+      usage: {}
+      relationship: {}
+      variant: {}
+      exception: {}
+      revision: {}
+      conflict: {}
+      unresolved_sense: {}
+      open_question: {}
+  StructuralDossierMemberQualificationValue:
+    permissible_values:
+      proposed: {}
+      independently_supported: {}
+      ambiguous: {}
+      rejected: {}
+      unsupported: {}
+  StructuralDossierProductMissingSectionsItemValue:
+    permissible_values:
+      definition: {}
+      terminology: {}
+      usage: {}
+      relationship: {}
+      variant: {}
+      exception: {}
+      revision: {}
+      conflict: {}
+      unresolved_sense: {}
+      open_question: {}
+  StructuralStructuralProductReportKindValue:
+    permissible_values:
+      definition_applicability: {}
+      qualified_comparison: {}
+      dossier: {}

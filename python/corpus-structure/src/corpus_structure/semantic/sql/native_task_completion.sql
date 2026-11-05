@@ -15,7 +15,7 @@ BEGIN
  IF r.sealed OR r.status NOT IN ('created','running') OR t.status<>'running' OR t.attempt<>p_attempt OR t.claimed_by IS DISTINCT FROM p_holder THEN
    RAISE EXCEPTION 'task attempt lost or run sealed' USING ERRCODE='P0004';
  END IF;
- IF p_outcome NOT IN ('done','empty','failed') OR (p_outcome='done')<>(jsonb_array_length(p_rows)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'records','null'::jsonb)),0)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'contributions','null'::jsonb)),0)>0) OR (p_outcome='failed')<>(p_error<>'null'::jsonb) THEN
+ IF p_outcome NOT IN ('done','empty','failed') OR (p_outcome='done')<>(jsonb_array_length(p_rows)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'records','null'::jsonb)),0)>0 OR COALESCE(jsonb_array_length(NULLIF(p_envelope->'contributions','null'::jsonb)),0)>0 OR NULLIF(p_envelope->'structural_product','null'::jsonb) IS NOT NULL) OR (p_outcome='failed')<>(p_error<>'null'::jsonb) THEN
    RAISE EXCEPTION 'inconsistent terminal outcome';
  END IF;
  SELECT m.* INTO STRICT method FROM ops.method m JOIN ops.method_config config ON config.method_id=m.id WHERE config.id=t.method_config_id;
@@ -28,6 +28,9 @@ BEGIN
  WHERE operation->>'id'='configure_method' AND domain->>'id'=d->>'outcome_domain';
  IF p_envelope ? 'outcome' AND NOT coalesce(dimensions->(method.name||'/result.outcome') ? (p_envelope->>'outcome'),false) THEN
   RAISE EXCEPTION 'method result outcome is not admitted by its release' USING ERRCODE='23514'; END IF;
+ IF NULLIF(p_envelope->'structural_product','null'::jsonb) IS NOT NULL THEN
+  PERFORM ops.validate_structural_product_report(t.id,p_envelope);
+ END IF;
  -- {source_record_guard}
  IF p_envelope ? 'contribution_operations' OR p_envelope ? 'contributions' THEN
   IF p_envelope->>'outcome' IS DISTINCT FROM (CASE p_outcome WHEN 'done' THEN 'produced' ELSE p_outcome END) THEN

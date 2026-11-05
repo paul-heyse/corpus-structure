@@ -451,6 +451,7 @@ def complete_task(
         bool(observations)
         or bool((envelope or {}).get("records"))
         or bool((envelope or {}).get("contributions"))
+        or bool((envelope or {}).get("structural_product"))
     )
     if (outcome == "done") != has_output:
         raise ValueError("terminal outcome contradicts source outputs")
