@@ -1,8 +1,10 @@
 # Portable review: retained-data capture and detached inspection
 
-**Tested, 2026-11-05; bounded component evidence.** This folder retains the actual ordinary
-run45 review package, its capture command and a detached source/decision walkthrough. It does
-not establish complete PCE-09, PCE-10 or PCE-11 qualification.
+**Tested and Measured, 2026-11-05; selected native integration and detached evidence.**
+The current final-runtime packet is `raw/combined_004`, retaining automatic51/52 and public87
+alongside ordinary31/43/45's graded source unit46. The original ordinary45 component packet,
+controlled failed-assembly cases and earlier combined attempts remain preserved. This folder
+alone does not establish complete PCE-09, PCE-10 or PCE-11 qualification.
 
 - `uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/capture_001.py`:
   **passed**. The destination is fresh/no-replace; the retained original is not overwritten on
@@ -159,3 +161,39 @@ already retained by runs51/52 are exported as data.
 The packet remains an attributed completed effect even if a subsequent producer/runtime is
 qualified separately. Final-source full-union qualification, source/runtime applicability,
 scientific truth and persistent default adoption remain the coordinator's responsibilities.
+
+### Final-runtime combined004 result
+
+**Tested and Measured, 2026-11-05.** The final recapture **passed**:
+
+```sh
+uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_review_journey.py --attempt 004 --paired --structural-run 51 --structural-run 52 --structural-run 87 --group-set 4 --group-set 5 --group-set 6 --group-set 7 --max-bytes 536870912
+```
+
+`raw/combined_004_receipt.json` records the actual missing43 producer-closure refusal with no
+published destination, then successful full evaluator CLI capture, offline verification and
+detached walkthrough. `raw/combined_004` is the self-contained final packet. Its selection digest
+is `2afebe556c65475d60337d185e6f2d5567086e0f2ae14c9472517329aea83317`.
+
+Public run87/cut117 uses final native151/domain `statistics`, logical release
+`release:bf5e216e03f9cfab2946a8cddac13443d909c40c35ef33f64c83ba4d0c42eb91` and runtime
+`runtime:ba9e7644ffa02523e5e358f7ace13f3e12213a1cb102fe4abb8f2e8d7c62c268`.
+Its original producers205–208 are present in the packet's12 raw reports. Automatic143/144 retain
+their actual earlier provider attribution; the final supplied005 products have separate producer
+and runtime evidence. The coordinator's package source freeze was commit `2f3745ea`; only evidence
+and documentation changed during this capture. The structural evidence owner documents the
+[producer/publication context](../2026-11-05_pce-structural-products/README.md).
+
+The packet retains the same declared counts and granular limits described for003:8 source
+projections,3 documents,6 structural products,4 public structural witnesses,239 history rows,
+30 original authored A/B/C passes,80 selected local assessment cases,13000 distinct contribution
+identities and667 distinct own physical occurrence identities. The detached walkthrough includes
+the independent exact-`Y` inventory/source check. Automatic model observations remain distinct
+from independent judgments; neither zero emissions nor absent complete records establish failed
+assembly. No model or PDF/OCR operation was invoked by recapture.
+
+The final export produced273250089 bytes. Its command measured49.08 seconds wall,44.70 seconds
+user CPU,2.07 seconds system CPU and3069188 KiB peak CLI RSS (`raw/combined_004.time.txt`). These
+are process measurements for this selected operation, excluding PostgreSQL/server and total
+host memory; they do not establish a performance envelope. Prior003 and all failed attempts
+remain unchanged. Complete-plan qualification and adoption are accounted for by the coordinator.
