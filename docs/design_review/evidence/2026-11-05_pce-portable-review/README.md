@@ -1,7 +1,7 @@
 # Portable review: retained-data capture and detached inspection
 
 **Tested and Measured, 2026-11-05; selected native integration and detached evidence.**
-The current final-runtime packet is `raw/combined_004`, retaining automatic51/52 and public87
+The current final-runtime packet is `raw/combined_005`, retaining automatic51/52 and public87
 alongside ordinary31/43/45's graded source unit46. The original ordinary45 component packet,
 controlled failed-assembly cases and earlier combined attempts remain preserved. This folder
 alone does not establish complete PCE-09, PCE-10 or PCE-11 qualification.
@@ -118,7 +118,7 @@ unit and536870912 bytes for the packet, with source unit46 unfiltered by method/
 This preserves full producer closure for the selected graded units. These are declared request
 bounds, not performance or corpus-completeness claims.
 
-### Actual combined003 result
+### Actual combined003 under the prior source freeze
 
 **Tested and Measured, 2026-11-05; declared selected development scope.** The following command
 **passed** the missing43 refusal, real evaluator CLI export, offline verification and detached
@@ -128,7 +128,9 @@ source/producer/grade walkthrough:
 uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_review_journey.py --attempt 003 --paired --structural-run 51 --structural-run 52 --structural-run 77 --group-set 4 --group-set 5 --group-set 6 --group-set 7 --max-bytes 536870912
 ```
 
-`raw/combined_003_receipt.json` retains exact subprocess commands/outcomes. The packet has8
+`raw/combined_003_receipt.json` retains exact subprocess commands/outcomes. Its then-current
+checks did not yet enforce every referenced original-source release contract; corrected005 is the
+current closure result. The packet has8
 source projections,3 documents,12 raw reports (including original parser122, replay128,
 automatic143/144 and final public producer180–183),6 structural products and4 public structural
 witnesses. Its239 history rows preserve30 original A/B/C authored passes and10 explicit cohort
@@ -162,7 +164,7 @@ The packet remains an attributed completed effect even if a subsequent producer/
 qualified separately. Final-source full-union qualification, source/runtime applicability,
 scientific truth and persistent default adoption remain the coordinator's responsibilities.
 
-### Final-runtime combined004 result
+### Combined004 under the prior source freeze
 
 **Tested and Measured, 2026-11-05.** The final recapture **passed**:
 
@@ -172,7 +174,9 @@ uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combine
 
 `raw/combined_004_receipt.json` records the actual missing43 producer-closure refusal with no
 published destination, then successful full evaluator CLI capture, offline verification and
-detached walkthrough. `raw/combined_004` is the self-contained final packet. Its selection digest
+detached walkthrough under the then-current validator. A subsequent review found that referenced
+original-source release contracts also had to be captured and enforced;005 supplies that corrected
+closure.004 remains prior-context evidence. Its selection digest
 is `2afebe556c65475d60337d185e6f2d5567086e0f2ae14c9472517329aea83317`.
 
 Public run87/cut117 uses final native151/domain `statistics`, logical release
@@ -197,3 +201,44 @@ user CPU,2.07 seconds system CPU and3069188 KiB peak CLI RSS (`raw/combined_004.
 are process measurements for this selected operation, excluding PostgreSQL/server and total
 host memory; they do not establish a performance envelope. Prior003 and all failed attempts
 remain unchanged. Complete-plan qualification and adoption are accounted for by the coordinator.
+
+### Final corrected-contract combined005 result
+
+**Tested and Measured, 2026-11-05.** The final corrected-contract capture **passed**:
+
+```sh
+uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_review_journey.py --attempt 005 --paired --structural-run 51 --structural-run 52 --structural-run 98 --group-set 4 --group-set 5 --group-set 6 --group-set 7 --max-bytes 536870912
+```
+
+`raw/combined_005_receipt.json` records the real missing43 producer-closure refusal without a
+published destination, successful full evaluator CLI export, offline verification and detached
+walkthrough. `raw/combined_005` is the current packet. Its selection digest is
+`62b4b95f9ad7de3784aa74a936bd03ec35c3b452b3da2c098aaf938c1c2f2872`.
+
+Public98/cut132 reuses producer97/cut131 origins234–237 through selected tasks238–241, using
+logical release `release:bf5e216e03f9cfab2946a8cddac13443d909c40c35ef33f64c83ba4d0c42eb91`,
+native151/domain `statistics` and runtime
+`runtime:d86238b27a3ae2c460a492ea10a9577914243e747cffae46dc5971befa612c73`.
+The coordinator declared package source freeze004 before capture; package code remained frozen.
+Automatic51/52 retain their original actual provider attribution and unassessed model standing.
+
+The detached helper independently enumerates demanded release IDs from selected ordinary
+bindings, selected structural releases and every declared original structural source reference,
+and requires them to be contained in captured contracts. The actual demanded and captured sets
+are equal: analytical `bf5e216…`, original Grinstead-Snell `1bf171…` and original Forbes/NIST
+`bc69d3…`, with full identifiers in the walkthrough receipt. The actual count is3; the helper
+checks set containment rather than assuming that count. This closes the original-source contract
+omission left outside the earlier003/004 validators' scope.
+
+Other declared populations and limits remain unchanged:12 raw reports include original122,
+replay128, automatic143/144 and final234–237;8 source projections,3 documents,6 structural
+products,4 public structural witnesses,239 history rows,30 original authored A/B/C passes,
+80 selected local assessment cases,13000 distinct contribution identities and667 distinct own
+physical occurrence identities. The exact paired-`Y` inventory/source check passed. All historical
+partitions and original authored bytes remain intact. No model or PDF/OCR operation was invoked.
+
+The final packet contains278060918 bytes. The capture command measured48.69 seconds wall,
+44.77 seconds user CPU,1.97 seconds system CPU and3066556 KiB peak CLI RSS
+(`raw/combined_005.time.txt`), excluding PostgreSQL/server and total host memory. These are
+selected-operation measurements, not an operating envelope. All prior packets and failed attempts
+remain preserved. The coordinator owns complete-plan qualification, applicability and adoption.

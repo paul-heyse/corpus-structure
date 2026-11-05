@@ -104,6 +104,15 @@ def main(root):
     assert {value["report"]["kind"] for value in structural} == {
         "definition_applicability", "qualified_comparison", "dossier",
     }
+    contract_releases = {row["release_id"] for row in relation(root, "contracts")}
+    demanded_releases = {row["binding"]["release_id"] for row in relation(root, "selections")}
+    demanded_releases.update(row["release_id"]
+                             for row in relation(root, "structural_selections"))
+    demanded_releases.update(ref["release_id"] for row in structural
+                             for ref in row["report"]["inputs"]["sources"])
+    assert demanded_releases and demanded_releases <= contract_releases, (
+        "an actual selected or original-source release contract is absent"
+    )
     public = list(relation(root, "structural_public_assertions"))
     assert public and all(item["standing"] == "admitted_structural_statement" for item in public)
     gaps = list(relation(root, "gaps"))
@@ -155,6 +164,8 @@ def main(root):
         zero_emission_gap_rows=sum(row["emitted_count"] == 0 for row in observed_gaps),
         independently_assessed_gap_rows=len(assessed_gaps),
         gap_semantic_claim="observed execution outcome does not establish semantic miss",
+        demanded_release_ids=sorted(demanded_releases),
+        captured_contract_release_ids=sorted(contract_releases),
         source_trace=dict(contribution_id=chosen["contribution_id"],
                           source_view_id=source["source_view_id"], pointer=anchor["pointer"],
                           source_piece=anchor["source_piece"]),
