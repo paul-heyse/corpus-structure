@@ -502,7 +502,7 @@ SUPPORTED_EFFECT_VERSIONS = {
     "atomic_terminal_result_and_reports": "1",
     "attempt_every_owned_teardown": "1",
     "capture_final_cut": "1",
-    "construct_new_run": "1",
+    "construct_new_run": "2",
     "coordinated_run_and_task_terminalization": "1",
     "durable_checked_progress": "1",
     "final_cut_seals_source_atomically": "1",

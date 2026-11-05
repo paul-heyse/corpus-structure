@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Connection, select
 
 from .metadata import table
 from .runtime_bindings import RuntimeBinding, validate_runtime_binding
 from .types import PreparedRelease, SourceArtifact
 
+if TYPE_CHECKING:
+    from ._operation_ids import RuntimeId
+
 
 def persist_runtime_binding(
     conn: Connection, prepared: PreparedRelease, binding: RuntimeBinding
-):
+) -> RuntimeId:
     """Validate exact bytes before the operation-owned, idempotent native registration."""
     from ._operation_calls import ReleaseId, RuntimeId, register_runtime_binding
 

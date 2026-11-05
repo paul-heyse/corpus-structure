@@ -121,8 +121,27 @@ def create_run(
         raise
 
 
-def start_run(conn: Connection, run_id: RunId) -> int:
+def _require_run_runtime(
+    conn: Connection, run_id: RunId, prepared: PreparedRelease | None = None
+) -> PreparedRelease:
+    """Authenticate one execution/claim boundary, independently of historical read access."""
+    from .releases import open_release
+    from .runtime_binding_store import runtime_binding_for_run
+    from .runtime_bindings import require_installed_runtime
+
+    if prepared is None:
+        run = table("ops.run")
+        release_id = conn.execute(select(run.c.release_id).where(run.c.id == run_id)).scalar_one()
+        prepared = open_release(conn, release_id)
+    require_installed_runtime(prepared, runtime_binding_for_run(conn, run_id, prepared))
+    return prepared
+
+
+def start_run(
+    conn: Connection, run_id: RunId, *, prepared: PreparedRelease | None = None
+) -> int:
     """Start a source run through guarded DML; an exact running replay is harmless."""
+    _require_run_runtime(conn, run_id, prepared)
     try:
         from ._operation_calls import start_source_run as invoke
 
@@ -348,6 +367,7 @@ def claim_tasks(
         raise ValueError("nonempty claim holder required")
     from ._operation_calls import claim_tasks as invoke
 
+    _require_run_runtime(conn, run_id, prepared)
     model = None
     if prepared is not None:
         from dataclasses import asdict
