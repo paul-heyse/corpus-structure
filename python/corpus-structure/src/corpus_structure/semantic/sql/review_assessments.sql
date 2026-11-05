@@ -20,7 +20,7 @@ BEGIN
  IF NOT EXISTS(SELECT FROM eval.review_exposure e WHERE e.id=p_exposure AND e.set_id=p_set
   AND e.project_id=p_project AND e.pass_snapshot=passes
   AND e.partition=selected.sampling->>'partition'
-  AND e.xmin::text IS DISTINCT FROM pg_current_xact_id_if_assigned()::text) THEN
+  AND e.creator_xact_id IS NOT NULL AND e.creator_xact_id IS DISTINCT FROM pg_current_xact_id_if_assigned()::text) THEN
   RAISE EXCEPTION 'development labels require exact recorded exposure' USING ERRCODE='23514'; END IF;
  RETURN NEXT jsonb_build_object('kind','set_definition','value',to_jsonb(selected));
  FOR entry IN SELECT * FROM eval.reference_unit WHERE set_id=p_set ORDER BY id LOOP
@@ -56,8 +56,8 @@ BEGIN
   RAISE EXCEPTION 'review exposure requires declared development use' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('pass_id',p.id,'content_digest',p.content_digest) ORDER BY p.id),'[]')
   INTO passes FROM eval.reference_pass p JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set;
- INSERT INTO eval.review_exposure(project_id,set_id,partition,pass_snapshot,purpose,recipient_class,exposed_at)
- VALUES(p_project,p_set,'development',passes,p_purpose,p_recipient,clock_timestamp()::text) RETURNING id INTO result;
+ INSERT INTO eval.review_exposure(project_id,set_id,partition,pass_snapshot,purpose,recipient_class,creator_xact_id,exposed_at)
+ VALUES(p_project,p_set,'development',passes,p_purpose,p_recipient,pg_current_xact_id()::text,clock_timestamp()::text) RETURNING id INTO result;
  RETURN result;
 END $$;
 REVOKE ALL ON FUNCTION eval.record_review_exposure(text,bigint,text,text) FROM PUBLIC;
@@ -74,8 +74,8 @@ BEGIN
   RAISE EXCEPTION 'feature-fit exposure requires explicit cohort authorization basis' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('pass_id',p.id,'content_digest',p.content_digest) ORDER BY p.id),'[]')
   INTO passes FROM eval.reference_pass p JOIN eval.reference_unit u ON u.id=p.unit_id WHERE u.set_id=p_set;
- INSERT INTO eval.review_exposure(project_id,set_id,partition,pass_snapshot,purpose,recipient_class,authorization_basis,exposed_at)
- VALUES(p_project,p_set,'feature_fit',passes,p_purpose,p_recipient,p_basis,clock_timestamp()::text) RETURNING id INTO result;
+ INSERT INTO eval.review_exposure(project_id,set_id,partition,pass_snapshot,purpose,recipient_class,authorization_basis,creator_xact_id,exposed_at)
+ VALUES(p_project,p_set,'feature_fit',passes,p_purpose,p_recipient,p_basis,pg_current_xact_id()::text,clock_timestamp()::text) RETURNING id INTO result;
  RETURN result;
 END $$;
 REVOKE ALL ON FUNCTION eval.record_feature_fit_review_exposure(text,bigint,text,text,text) FROM PUBLIC;
@@ -129,7 +129,7 @@ BEGIN
  FOR item IN SELECT value FROM jsonb_array_elements(payload->'cases') LOOP
   IF item-ARRAY['case_id','facet','path','expected','source_passages','judgment','explanation']<>'{}'
    OR btrim(COALESCE(item->>'case_id',''))='' OR btrim(COALESCE(item->>'explanation',''))=''
-   OR COALESCE(item->>'facet','') NOT IN ('applicability','scope','difference','membership','source_support','completeness')
+   OR COALESCE(item->>'facet','') NOT IN ('applicability','scope','difference','membership','source_support','completeness','public_statement')
    OR COALESCE(item->>'judgment','') NOT IN ('supported','unsupported','ambiguous','unassessed')
    OR NOT (item ? 'expected') OR jsonb_typeof(item->'path') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'path')=0
    OR EXISTS(SELECT FROM jsonb_array_elements(item->'path') v WHERE NOT (
@@ -166,8 +166,8 @@ BEGIN
   RAISE EXCEPTION 'review exposure requires declared use' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('pass_id',p.id,'content_digest',p.content_digest) ORDER BY p.id),'[]')
   INTO passes FROM eval.structural_reference_pass p WHERE p.set_id=p_set;
- INSERT INTO eval.review_exposure(project_id,group_set_id,partition,pass_snapshot,purpose,recipient_class,exposed_at)
- VALUES(p_project,p_set,'development',passes,p_purpose,p_recipient,clock_timestamp()::text) RETURNING id INTO result;
+ INSERT INTO eval.review_exposure(project_id,group_set_id,partition,pass_snapshot,purpose,recipient_class,creator_xact_id,exposed_at)
+ VALUES(p_project,p_set,'development',passes,p_purpose,p_recipient,pg_current_xact_id()::text,clock_timestamp()::text) RETURNING id INTO result;
  RETURN result;
 END $$;
 REVOKE ALL ON FUNCTION eval.record_structural_review_exposure(text,bigint,text,text) FROM PUBLIC;
@@ -182,7 +182,7 @@ BEGIN
   INTO passes FROM eval.structural_reference_pass p WHERE p.set_id=p_set;
  IF NOT EXISTS(SELECT FROM eval.review_exposure e WHERE e.id=p_exposure AND e.group_set_id=p_set
   AND e.project_id=p_project AND e.pass_snapshot=passes
-  AND e.xmin::text IS DISTINCT FROM pg_current_xact_id_if_assigned()::text) THEN
+  AND e.creator_xact_id IS NOT NULL AND e.creator_xact_id IS DISTINCT FROM pg_current_xact_id_if_assigned()::text) THEN
   RAISE EXCEPTION 'group labels require exact recorded exposure' USING ERRCODE='23514'; END IF;
  RETURN NEXT jsonb_build_object('kind','structural_set','value',to_jsonb(selected));
  FOR entry IN SELECT id,set_id,pass_kind,actor,content_digest,parents,encode(authored,'base64') AS authored_base64

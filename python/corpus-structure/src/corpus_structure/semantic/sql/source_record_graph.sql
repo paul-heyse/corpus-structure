@@ -9,6 +9,7 @@ BEGIN
  PERFORM data.validate_record_projection(r,z);
  PERFORM data.validate_local_assertions(r,z);
  PERFORM data.validate_local_semantic_assertions(r,z);
+ PERFORM data.validate_structural_assertions(r,z);
  IF EXISTS(SELECT FROM sem.class_definition c WHERE c.release_id=r AND
   (c.name='SourceRecordProduct' OR EXISTS(SELECT FROM sem.class_hierarchy h
    JOIN sem.class_definition root ON root.release_id=h.release_id AND root.class_id=h.ancestor_id

@@ -1,0 +1,201 @@
+"""Independent semantic identity and provenance boundaries for public projection."""
+
+from copy import deepcopy
+
+from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
+from corpus_structure.semantic.structural_products import (
+    DefinitionProduct,
+    DossierMember,
+    DossierProduct,
+    ExternalSourceRef,
+    StructuralDefinitionReading,
+    StructuralInput,
+    StructuralPassage,
+    StructuralProductReport,
+)
+
+
+def source():
+    return ExternalSourceRef(
+        project_id="source-project",
+        run_id=1,
+        cut_id=2,
+        release_id="old",
+        result_revision=4,
+        source_view_id=5,
+        native_task_id=6,
+        native_product_key="book",
+        native_content_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        coordinate_version=3,
+    )
+
+
+def inputs():
+    ref = source()
+    return StructuralInput(
+        question="What defines this usage?",
+        scope="statistics",
+        inventory_id="frozen-targets",
+        policy_id="declared-source-1",
+        sources=(ref,),
+        passages=(
+            StructuralPassage(
+                passage_id="usage",
+                source_ref=ref.identity,
+                start=0,
+                end=4,
+                text="mean",
+                scope="statistics",
+            ),
+            StructuralPassage(
+                passage_id="target",
+                source_ref=ref.identity,
+                start=5,
+                end=14,
+                text="sum/count",
+                scope="statistics",
+            ),
+        ),
+        dependencies=("frozen-source-input",),
+    )
+
+
+def definition():
+    return StructuralProductReport(
+        kind="definition_applicability",
+        inputs=inputs(),
+        definition=DefinitionProduct(
+            usage_id="usage",
+            candidate_list_id="list1",
+            eligible_targets=("target",),
+            candidate_targets=("target",),
+            readings=(
+                StructuralDefinitionReading(
+                    target_id="target",
+                    outcome="applicable_definition",
+                    evidence=("target",),
+                    reason="supplied reading",
+                ),
+            ),
+        ),
+    )
+
+
+def test_definition_projection_preserves_meaning_without_derivation():
+    value = structural_statement(definition())
+    assert value["definition"]["usage"]["text"] == "mean"
+    assert value["definition"]["readings"][0]["outcome"] == "applicable_definition"
+    assert value["definition"]["readings"][0]["evidence"][0]["start"] == 5
+    physical = value["definition"]["usage"]["source"]
+    assert physical["native_content_digest"] == "a" * 64
+    assert not {"run_id", "native_task_id", "source_view_id"} & physical.keys()
+    assert "candidate_list_id" not in value["definition"]
+    assert "reason" not in value["definition"]["readings"][0]
+
+
+def test_generated_alias_and_execution_changes_do_not_change_claim():
+    original = definition()
+    changed = deepcopy(original.model_dump(mode="json"))
+    changed["inputs"]["sources"][0].update(
+        run_id=99,
+        cut_id=100,
+        release_id="replay",
+        result_revision=101,
+        source_view_id=102,
+        native_task_id=103,
+    )
+    new_ref = ExternalSourceRef.model_validate(changed["inputs"]["sources"][0])
+    for p in changed["inputs"]["passages"]:
+        p["source_ref"] = new_ref.identity
+    changed["definition"]["candidate_list_id"] = "list-after-replay"
+    changed["definition"]["readings"][0]["reason"] = "different derivation explanation"
+    after = StructuralProductReport.model_validate(changed)
+    assert original.product_id != after.product_id
+    assert structural_claim_id(structural_statement(original)) == structural_claim_id(
+        structural_statement(after)
+    )
+
+
+def test_scope_and_outcome_are_semantic():
+    original = definition()
+    changed = original.model_dump(mode="json")
+    changed["definition"]["readings"][0]["outcome"] = "mention"
+    assert structural_claim_id(structural_statement(original)) != structural_claim_id(
+        structural_statement(StructuralProductReport.model_validate(changed))
+    )
+
+
+def test_dossier_complete_membership_does_not_depend_on_display():
+    members = tuple(
+        DossierMember(
+            member_id=str(i),
+            passage_id="target",
+            role=role,
+            sense="mean",
+            scope="statistics",
+            relation_product_id="structural:upstream",
+        )
+        for i, role in enumerate(("definition", "exception", "conflict"))
+    )
+    report = StructuralProductReport(
+        kind="dossier",
+        inputs=inputs(),
+        dossier=DossierProduct(
+            root_id="mean",
+            members=members,
+            representatives=("0", "1", "2"),
+            missing_sections=("revision",),
+        ),
+    )
+    statement = structural_statement(report)
+    assert len(statement["dossier"]["members"]) == 3
+    assert statement["dossier"]["admission_scope"] == "membership_assembly_not_member_truth"
+    assert report.dossier is not None
+    displayed = report.model_copy(
+        update={"dossier": report.dossier.model_copy(update={"representatives": ("0",)})}
+    )
+    assert structural_statement(displayed) == statement
+
+
+def test_public_statement_and_policy_are_released_shapes():
+    from pathlib import Path
+
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.observations import observation_inputs
+
+    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    prepared = prepare_release(
+        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
+    )
+    prepared.validate_python(
+        "StructuralPublicationPolicy",
+        {
+            "policy_id": "independent-structural-definition-1",
+            "policy_version": "1",
+            "product_kind": "definition_applicability",
+            "facet": "public_statement",
+        },
+    )
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    prepared.validate_json(
+        "StructuralPublicStatement", canonical_bytes(structural_statement(definition()))
+    )
+
+
+def test_numeric_retrieval_is_raw_task_provenance_not_envelope_identity():
+    report = definition()
+    with_scores = report.model_copy(
+        update={"retrieval_report": {"score": 0.000001, "vector": [0.1, -0.0]}}
+    )
+    changed_scores = report.model_copy(
+        update={"retrieval_report": {"score": 0.000002, "vector": [0.2, -0.0]}}
+    )
+    assert with_scores.product_id == changed_scores.product_id == report.product_id
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    assert canonical_bytes(with_scores.model_dump(mode="json")) != canonical_bytes(
+        changed_scores.model_dump(mode="json")
+    )

@@ -998,6 +998,9 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
         from .local_semantic_admission import load_semantic_grade_evidence
 
         job = dict(job, local_semantic_grades=load_semantic_grade_evidence(conn, dict(job), cut_id))
+        from .structural_admission import load_structural_grade_evidence
+
+        job = dict(job, structural_grades=load_structural_grade_evidence(conn, dict(job), cut_id))
         known, copied = _known_input(conn, prepared, job, observations)
     return _project_cut(
         prepared,
@@ -2258,9 +2261,13 @@ def _project_cut(
         batch = replace(batch, **projection)
     from .local_admission import project_local_assertions
     from .local_semantic_admission import project_semantic_assertions
+    from .structural_admission import project_structural_assertions
 
     batch = replace(
         batch,
+        structural_assertion=project_structural_assertions(
+            prepared, job.get("structural_grades", ())
+        ),
         local_assertion=project_local_assertions(prepared, record_reports),
         local_semantic_assertion=project_semantic_assertions(
             prepared, job.get("local_semantic_grades", ())

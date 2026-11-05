@@ -8,7 +8,11 @@ from pydantic import Field, JsonValue, model_validator
 from sqlalchemy import Connection, text
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.structural_products import StructuralInput, StructuralProductReport, StructuralValue
+from corpus_structure.semantic.structural_products import (
+    StructuralInput,
+    StructuralProductReport,
+    StructuralValue,
+)
 
 
 class StructuralEvaluationFrame(StructuralValue):
@@ -32,7 +36,15 @@ class StructuralEvaluationFrame(StructuralValue):
 
 class StructuralReferenceCase(StructuralValue):
     case_id: str = Field(min_length=1)
-    facet: Literal["applicability", "scope", "difference", "membership", "source_support", "completeness"]
+    facet: Literal[
+        "applicability",
+        "scope",
+        "difference",
+        "membership",
+        "source_support",
+        "completeness",
+        "public_statement",
+    ]
     path: tuple[str | int, ...] = Field(min_length=1)
     expected: JsonValue
     source_passages: tuple[str, ...] = Field(min_length=1)
@@ -61,27 +73,52 @@ class StructuralAuthoredReference(StructuralValue):
 
 
 def create_structural_reference_set(
-    conn: Connection, *, project_id: str, release_id: str, frame: StructuralEvaluationFrame,
+    conn: Connection,
+    *,
+    project_id: str,
+    release_id: str,
+    frame: StructuralEvaluationFrame,
 ) -> int:
-    return conn.execute(text(
-        "SELECT eval.create_structural_reference_set(:project,:release,CAST(:frame AS jsonb))"
-    ), {"project": project_id, "release": release_id,
-        "frame": canonical_bytes(frame.model_dump(mode="json", exclude_none=True)).decode()}).scalar_one()
+    return conn.execute(
+        text(
+            "SELECT eval.create_structural_reference_set(:project,:release,CAST(:frame AS jsonb))"
+        ),
+        {
+            "project": project_id,
+            "release": release_id,
+            "frame": canonical_bytes(frame.model_dump(mode="json", exclude_none=True)).decode(),
+        },
+    ).scalar_one()
 
 
 def record_structural_reference_pass(
-    conn: Connection, *, set_id: int, pass_kind: Literal["A", "B", "C"], actor: str,
-    authored: bytes, parents: tuple[int, ...] = (),
+    conn: Connection,
+    *,
+    set_id: int,
+    pass_kind: Literal["A", "B", "C"],
+    actor: str,
+    authored: bytes,
+    parents: tuple[int, ...] = (),
 ) -> int:
     StructuralAuthoredReference.model_validate_json(authored)
-    return conn.execute(text(
-        "SELECT eval.record_structural_reference_pass(:set,:kind,:actor,:authored,CAST(:parents AS jsonb))"
-    ), {"set": set_id, "kind": pass_kind, "actor": actor, "authored": authored,
-        "parents": canonical_bytes(list(parents)).decode()}).scalar_one()
+    return conn.execute(
+        text(
+            "SELECT eval.record_structural_reference_pass("
+            ":set,:kind,:actor,:authored,CAST(:parents AS jsonb))"
+        ),
+        {
+            "set": set_id,
+            "kind": pass_kind,
+            "actor": actor,
+            "authored": authored,
+            "parents": canonical_bytes(list(parents)).decode(),
+        },
+    ).scalar_one()
 
 
 def score_structural_reference(
-    frame: StructuralEvaluationFrame, reference: StructuralAuthoredReference,
+    frame: StructuralEvaluationFrame,
+    reference: StructuralAuthoredReference,
     product: dict[str, Any],
 ) -> dict[str, Any]:
     """Compare independently authored expectations; matching is not public admission."""
@@ -97,24 +134,45 @@ def score_structural_reference(
     for case in reference.cases:
         if not set(case.source_passages) <= passage_ids:
             raise ValueError("reference cites outside frozen source group")
-        actual: Any = product
+        if case.facet == "public_statement":
+            from corpus_structure.semantic.structural_admission import structural_statement
+
+            actual: Any = {"public_statement": structural_statement(report)}
+        else:
+            actual = product
         found = True
         for step in case.path:
-            if (isinstance(actual, dict) and isinstance(step, str) and step in actual) or (
-                isinstance(actual, list) and isinstance(step, int) and 0 <= step < len(actual)
-            ):
+            if isinstance(actual, dict) and isinstance(step, str) and step in actual:
+                actual = actual[step]
+            elif isinstance(actual, list) and isinstance(step, int) and 0 <= step < len(actual):
                 actual = actual[step]
             else:
                 found = False
                 actual = None
                 break
-        cases.append(dict(
-            case_id=case.case_id, facet=case.facet, judgment=case.judgment,
-            outcome="unassessed" if case.judgment == "unassessed" else (
-                "match" if found and canonical_bytes(actual) == canonical_bytes(case.expected)
-                else "mismatch"
-            ), found=found, expected=case.expected, actual=actual,
-            source_passages=list(case.source_passages), explanation=case.explanation,
-        ))
-    return dict(protocol="structural-reference-comparison-1", frame_digest=frame.identity,
-                cases=cases, quality_claim="declared_cases_only", publication_authority=False)
+        cases.append(
+            dict(
+                case_id=case.case_id,
+                facet=case.facet,
+                judgment=case.judgment,
+                outcome="unassessed"
+                if case.judgment == "unassessed"
+                else (
+                    "match"
+                    if found and canonical_bytes(actual) == canonical_bytes(case.expected)
+                    else "mismatch"
+                ),
+                found=found,
+                expected=case.expected,
+                actual=actual,
+                source_passages=list(case.source_passages),
+                explanation=case.explanation,
+            )
+        )
+    return dict(
+        protocol="structural-reference-comparison-1",
+        frame_digest=frame.identity,
+        cases=cases,
+        quality_claim="declared_cases_only",
+        publication_authority=False,
+    )

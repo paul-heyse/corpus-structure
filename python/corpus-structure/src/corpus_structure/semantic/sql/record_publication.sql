@@ -746,7 +746,7 @@ BEGIN
  revision:=data.publish_contract_batch(r,z,b,p_content);
  IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion_support) THEN
   RAISE EXCEPTION 'source records require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM pg_temp.sp_local_assertion) OR EXISTS(SELECT FROM pg_temp.sp_local_semantic_assertion) THEN
+ IF EXISTS(SELECT FROM pg_temp.sp_local_assertion) OR EXISTS(SELECT FROM pg_temp.sp_local_semantic_assertion) OR EXISTS(SELECT FROM pg_temp.sp_structural_assertion) THEN
   RAISE EXCEPTION 'local source assertions require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
  RETURN revision;
 END $fn$;

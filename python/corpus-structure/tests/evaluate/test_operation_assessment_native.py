@@ -36,7 +36,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
 
 
-def freeze(conn, case, partition="development"):
+def freeze(conn, case, partition="development", label="operation-source-only"):
     uri = conn.scalar(
         select(table("kb.document").c.source_uri).where(
             table("kb.document").c.id == case.view_row["document_id"]
@@ -97,7 +97,7 @@ def freeze(conn, case, partition="development"):
         project_id="private-records",
         source_run_id=case.run,
         source_cut_id=case.cut,
-        label="operation-source-only",
+        label=label,
         legacy_split="dev",
         guideline=frame.guideline_version,
         guideline_text="Transcribe only independently selected source cell.",
@@ -364,3 +364,48 @@ def test_native_conditional_proposal_endpoint_cases_preserve_kind_and_source_sco
         assert stored["alternatives"][0]["endpoint_semantics"][0]["anchor_ids"] == [
             frame.anchor_ids[0]
         ]
+
+
+@pytest.mark.parametrize("partition", ["final_event_calibration", "final_assessment"])
+def test_sealed_access_control_fixture_history_has_no_labels(
+    reference_source, semantic_evaluator_engine, partition
+):
+    """Controlled fixture labels test access only; no valid heldout quality follows."""
+    from corpus_structure.evaluate.review_assessments import iter_assessment_review_rows
+
+    source = reference_source
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, frame, payload = freeze(
+            conn, source, partition, label="sealed-access-control-fixture-not-research-evidence"
+        )
+        ids = []
+        for kind in ("A", "B", "C"):
+            payload["adjudication_passes"] = ids if kind == "C" else []
+            identity = record_pass(
+                conn,
+                unit_id=unit,
+                pass_kind=kind,
+                actor=f"sealed-access-control-fixture-{kind}",
+                authored=json.dumps(payload).encode(),
+                frame=frame,
+            )
+            if kind != "C":
+                ids.append(identity)
+        rows = list(
+            iter_assessment_review_rows(
+                conn, project_id="private-records", set_id=created["set_id"]
+            )
+        )
+        assert {row["kind"] for row in rows} == {"set", "unit_inventory"}
+        assert (
+            next(row for row in rows if row["kind"] == "set")["value"]["judgments_exposed"] is False
+        )
+        assert all("authored_base64" not in row["value"] for row in rows)
+    with source.writer.begin() as conn:
+        with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+            list(
+                iter_assessment_review_rows(
+                    conn, project_id="private-records", set_id=created["set_id"]
+                )
+            )
+        assert getattr(refused.value.orig, "sqlstate", None) == "42501"

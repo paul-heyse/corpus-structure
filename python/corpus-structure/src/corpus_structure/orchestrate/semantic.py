@@ -61,6 +61,7 @@ def run_source_methods(
     extraction_policy_config: str | None = None,
     record_acceptance: Sequence[Mapping[str, Any]] = (),
     local_semantic_admission: Sequence[Mapping[str, Any]] = (),
+    structural_admission: Sequence[Mapping[str, Any]] = (),
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
@@ -297,6 +298,9 @@ def run_source_methods(
             "scope": dict(scope_record) if scope_record is not None else None,
             "policy": policy_source,
             **({"record_acceptance": list(record_acceptance)} if record_acceptance else {}),
+            **(
+                {"structural_admission": list(structural_admission)} if structural_admission else {}
+            ),
             **(
                 {"local_semantic_admission": list(local_semantic_admission)}
                 if local_semantic_admission

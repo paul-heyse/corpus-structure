@@ -1,5 +1,6 @@
 """Receipt inserted under savepoint must not deliver labels before top-level commit."""
 import json
+import sys
 from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -23,6 +24,7 @@ with open_runtime_engine(Settings(), purpose='evaluate') as e, e.connect() as c:
             report = {'outcome': 'failed', 'precommit_label_delivery': True,
                       'returned_row_count': len(rows)}
         print(json.dumps(report))
-        Path(__file__).with_name('raw').joinpath('receipt-savepoint-146.json').write_text(json.dumps(report)+'\n')
+        with Path(__file__).with_name('raw').joinpath(sys.argv[1]).open('x') as output:
+            output.write(json.dumps(report)+'\n')
     finally:
         tx.rollback()

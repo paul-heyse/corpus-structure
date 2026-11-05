@@ -3,6 +3,7 @@
 These values are reports, not admission witnesses. Their source references must be
 validated at native task completion; model validation alone grants no authority.
 """
+
 from __future__ import annotations
 
 from hashlib import sha256
@@ -15,8 +16,30 @@ from .identity import canonical_bytes
 Positive = Annotated[int, Field(strict=True, gt=0)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 Nonempty = Annotated[str, Field(min_length=1)]
-Dimension = Literal["actor", "action", "object", "modality", "condition", "threshold_unit", "exception", "order_dependency", "parent", "version"]
-DIMENSIONS: tuple[Dimension, ...] = ("actor", "action", "object", "modality", "condition", "threshold_unit", "exception", "order_dependency", "parent", "version")
+Dimension = Literal[
+    "actor",
+    "action",
+    "object",
+    "modality",
+    "condition",
+    "threshold_unit",
+    "exception",
+    "order_dependency",
+    "parent",
+    "version",
+]
+DIMENSIONS: tuple[Dimension, ...] = (
+    "actor",
+    "action",
+    "object",
+    "modality",
+    "condition",
+    "threshold_unit",
+    "exception",
+    "order_dependency",
+    "parent",
+    "version",
+)
 
 
 class StructuralValue(BaseModel):
@@ -89,7 +112,14 @@ class StructuralInput(StructuralValue):
         return self
 
 
-DefinitionOutcome = Literal["applicable_definition", "applicable_explanation", "mention", "example", "ambiguous", "insufficient_support"]
+DefinitionOutcome = Literal[
+    "applicable_definition",
+    "applicable_explanation",
+    "mention",
+    "example",
+    "ambiguous",
+    "insufficient_support",
+]
 
 
 class StructuralDefinitionReading(StructuralValue):
@@ -110,7 +140,9 @@ class DefinitionProduct(StructuralValue):
 
     @model_validator(mode="after")
     def membership(self) -> Self:
-        if len(set(self.eligible_targets)) != len(self.eligible_targets) or len(set(self.candidate_targets)) != len(self.candidate_targets):
+        if len(set(self.eligible_targets)) != len(self.eligible_targets) or len(
+            set(self.candidate_targets)
+        ) != len(self.candidate_targets):
             raise ValueError("duplicate eligible target or candidate")
         if not set(self.candidate_targets) <= set(self.eligible_targets):
             raise ValueError("candidate is outside eligible inventory")
@@ -140,7 +172,9 @@ class ClauseReading(StructuralValue):
 
 class DimensionComparison(StructuralValue):
     dimension: Dimension
-    outcome: Literal["same_lexical_value", "different_lexical_value", "unknown", "incompatible_applicability"]
+    outcome: Literal[
+        "same_lexical_value", "different_lexical_value", "unknown", "incompatible_applicability"
+    ]
     left: ClauseField | None = None
     right: ClauseField | None = None
 
@@ -153,7 +187,18 @@ class ComparisonProduct(StructuralValue):
     identity_standing: Literal["not_asserted"] = "not_asserted"
 
 
-MemberRole = Literal["definition", "terminology", "usage", "relationship", "variant", "exception", "revision", "conflict", "unresolved_sense", "open_question"]
+MemberRole = Literal[
+    "definition",
+    "terminology",
+    "usage",
+    "relationship",
+    "variant",
+    "exception",
+    "revision",
+    "conflict",
+    "unresolved_sense",
+    "open_question",
+]
 MANDATORY_ROLES = frozenset({"exception", "revision", "conflict"})
 
 
@@ -165,7 +210,9 @@ class DossierMember(StructuralValue):
     scope: Nonempty
     effective_version: str | None = None
     relation_product_id: Nonempty
-    qualification: Literal["proposed", "independently_supported", "ambiguous", "rejected", "unsupported"] = "proposed"
+    qualification: Literal[
+        "proposed", "independently_supported", "ambiguous", "rejected", "unsupported"
+    ] = "proposed"
     assessment_id: str | None = None
 
     @model_validator(mode="after")
@@ -187,7 +234,10 @@ class DossierProduct(StructuralValue):
         ids = {m.member_id for m in self.members}
         if len(ids) != len(self.members):
             raise ValueError("duplicate dossier member")
-        if len(set(self.representatives)) != len(self.representatives) or not set(self.representatives) <= ids:
+        if (
+            len(set(self.representatives)) != len(self.representatives)
+            or not set(self.representatives) <= ids
+        ):
             raise ValueError("invalid representative membership")
         return self
 
@@ -205,7 +255,11 @@ class StructuralProductReport(StructuralValue):
 
     @model_validator(mode="after")
     def closure(self) -> Self:
-        if (self.definition is not None, self.comparison is not None, self.dossier is not None) != (self.kind == "definition_applicability", self.kind == "qualified_comparison", self.kind == "dossier"):
+        if (self.definition is not None, self.comparison is not None, self.dossier is not None) != (
+            self.kind == "definition_applicability",
+            self.kind == "qualified_comparison",
+            self.kind == "dossier",
+        ):
             raise ValueError("structural report must contain exactly its declared product")
         passages = {p.passage_id for p in self.inputs.passages}
         cited: set[str] = set()
@@ -230,13 +284,30 @@ class StructuralProductReport(StructuralValue):
 
     @property
     def product_id(self) -> str:
-        return "structural:" + self.identity
+        return (
+            "structural:"
+            + sha256(
+                canonical_bytes(
+                    self.model_dump(mode="json", exclude_none=True, exclude={"retrieval_report"})
+                )
+            ).hexdigest()
+        )
 
 
 def source_target(passage: StructuralPassage):
     """A source quotation target, distinct from a curator-authored descriptor."""
     from .contextual_retrieval import target_representation
-    return target_representation(passage.passage_id, "source-passage:" + passage.identity, passage.text, passage.text, parent=passage.parent, scope=passage.scope, effective_version=passage.effective_version, type_name="source_backed_passage")
+
+    return target_representation(
+        passage.passage_id,
+        "source-passage:" + passage.identity,
+        passage.text,
+        passage.text,
+        parent=passage.parent,
+        scope=passage.scope,
+        effective_version=passage.effective_version,
+        type_name="source_backed_passage",
+    )
 
 
 # Private producer API alias; released class name cannot collide with graph readings.

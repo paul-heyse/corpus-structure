@@ -843,6 +843,7 @@ classes:
       effective_version: {}
       parent: {}
   StructuralProductReport:
+    description: Structural-product envelope identity is SHA256 of canonical released report values excluding retrieval_report; full immutable task result digest retains raw retrieval derivation. Public claim identity is a separate source-resolved projection.
     is_a: SourceRecordProduct
     attributes:
       version:
@@ -866,6 +867,257 @@ classes:
         range: DossierProduct
         inlined: true
       retrieval_report: {range: ContextualEnrichmentReport, inlined: true}
+
+  StructuralPublicationPolicy:
+    attributes:
+      policy_id:
+        range: string
+        required: true
+      policy_version:
+        range: string
+        required: true
+        equals_string: '1'
+      product_kind:
+        range: StructuralStructuralProductReportKindValue
+        required: true
+      facet:
+        range: string
+        required: true
+        equals_string: public_statement
+  StructuralPhysicalCitationSource:
+    attributes:
+      project_id:
+        range: string
+        required: true
+      native_product_key:
+        range: string
+        required: true
+      native_content_digest:
+        range: string
+        required: true
+      projection_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      coordinate_version:
+        range: integer
+        required: true
+  StructuralPublicCitation:
+    attributes:
+      source:
+        range: StructuralPhysicalCitationSource
+        required: true
+        inlined: true
+      start:
+        range: integer
+        required: true
+      end:
+        range: integer
+        required: true
+      text:
+        range: string
+        required: true
+      scope:
+        range: string
+        required: true
+      effective_version:
+        range: string
+      parent:
+        range: string
+  StructuralPublicExclusion:
+    attributes:
+      left:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+      right:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+  StructuralPublicDefinitionReading:
+    attributes:
+      target:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+      outcome:
+        range: StructuralDefinitionReadingOutcomeValue
+        required: true
+      evidence:
+        range: StructuralPublicCitation
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+  StructuralPublicDefinition:
+    attributes:
+      usage:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+      eligible_targets:
+        range: StructuralPublicCitation
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+      candidate_targets:
+        range: StructuralPublicCitation
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+      readings:
+        range: StructuralPublicDefinitionReading
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+      inventory_coverage:
+        range: StructuralDefinitionProductInventoryCoverageValue
+        required: true
+      retrieval_diagnosis:
+        range: string
+        required: true
+        equals_string: not_independently_assessed
+  StructuralPublicClauseField:
+    attributes:
+      dimension:
+        range: StructuralClauseFieldDimensionValue
+        required: true
+      lexical_value:
+        range: string
+        required: true
+      evidence:
+        range: StructuralPublicCitation
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+  StructuralPublicDimension:
+    attributes:
+      dimension:
+        range: StructuralClauseFieldDimensionValue
+        required: true
+      outcome:
+        range: StructuralDimensionComparisonOutcomeValue
+        required: true
+      left:
+        range: StructuralPublicClauseField
+        inlined: true
+      right:
+        range: StructuralPublicClauseField
+        inlined: true
+  StructuralPublicComparison:
+    attributes:
+      left:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+      right:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+      dimensions:
+        range: StructuralPublicDimension
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+      equivalence:
+        range: string
+        required: true
+        equals_string: not_asserted
+      identity_standing:
+        range: string
+        required: true
+        equals_string: not_asserted
+  StructuralPublicDossierMember:
+    attributes:
+      passage:
+        range: StructuralPublicCitation
+        required: true
+        inlined: true
+      role:
+        range: StructuralDossierMemberRoleValue
+        required: true
+      sense:
+        range: string
+        required: true
+      scope:
+        range: string
+        required: true
+      effective_version:
+        range: string
+        required: false
+      qualification:
+        range: StructuralDossierMemberQualificationValue
+        required: true
+  StructuralPublicDossier:
+    attributes:
+      root:
+        range: string
+        required: true
+      members:
+        range: StructuralPublicDossierMember
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+      missing_sections:
+        range: StructuralDossierProductMissingSectionsItemValue
+        multivalued: true
+        required: false
+      membership_completeness:
+        range: string
+        required: true
+        equals_string: declared_selection
+      admission_scope:
+        range: string
+        required: true
+        equals_string: membership_assembly_not_member_truth
+  StructuralPublicStatement:
+    attributes:
+      version:
+        range: string
+        required: true
+        equals_string: structural-public-statement-1
+      kind:
+        range: StructuralStructuralProductReportKindValue
+        required: true
+      question:
+        range: string
+        required: true
+      scope:
+        range: string
+        required: true
+      inventory_id:
+        range: string
+        required: true
+      input_policy_id:
+        range: string
+        required: true
+      coverage_limits:
+        range: string
+        multivalued: true
+        required: false
+      exclusions:
+        range: StructuralPublicExclusion
+        multivalued: true
+        required: false
+        inlined: true
+        inlined_as_list: true
+      definition:
+        range: StructuralPublicDefinition
+        inlined: true
+      comparison:
+        range: StructuralPublicComparison
+        inlined: true
+      dossier:
+        range: StructuralPublicDossier
+        inlined: true
 
 enums:
   ContributionAnchorRole:

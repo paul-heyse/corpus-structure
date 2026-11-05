@@ -3,9 +3,9 @@
 CREATE OR REPLACE FUNCTION ops.task_dependency_scope(p_dependencies jsonb,p_method text)
 RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT CASE WHEN p_method NOT IN ('extract.m1_annotations','extract.m1_candidates')
- THEN p_dependencies - 'local_semantic_admission' ELSE
+ THEN p_dependencies - ARRAY['local_semantic_admission','structural_admission'] ELSE
  (p_dependencies - ARRAY['guideline','agent_configurations','operation_versions','policy',
-   'extraction_policy','extraction_policy_config','corpus','scope','record_acceptance','local_semantic_admission'])
+   'extraction_policy','extraction_policy_config','corpus','scope','record_acceptance','local_semantic_admission','structural_admission'])
  || jsonb_build_object('operations',
    CASE WHEN p_method='extract.m1_annotations' THEN jsonb_build_object(
      p_method,p_dependencies->'operations'->p_method)

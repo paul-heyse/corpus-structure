@@ -59,6 +59,7 @@ from .record_projection import (
     SourceRecordRow,
 )
 from .refusals import SemanticReason, decode_semantic_reason
+from .structural_admission import StructuralAssertionRow
 from .types import PreparedRelease
 
 
@@ -313,6 +314,7 @@ _ROW_TYPES = {
     **RECORD_ROW_TYPES,
     "local_assertion": LocalAssertionRow,
     "local_semantic_assertion": LocalSemanticAssertionRow,
+    "structural_assertion": StructuralAssertionRow,
     "entity": EntityRow,
     "entity_source": EntitySourceRow,
     "entity_resolution": EntityResolutionRow,
@@ -373,6 +375,7 @@ class PublicationBatch:
     batch_id: str
     local_assertion: tuple[LocalAssertionRow, ...] = ()
     local_semantic_assertion: tuple[LocalSemanticAssertionRow, ...] = ()
+    structural_assertion: tuple[StructuralAssertionRow, ...] = ()
     entity: tuple[EntityRow, ...] = ()
     entity_source: tuple[EntitySourceRow, ...] = ()
     entity_resolution: tuple[EntityResolutionRow, ...] = ()

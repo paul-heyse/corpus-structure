@@ -4242,6 +4242,7 @@ classes:
       purpose: {required: true}
       recipient_class: {required: true}
       authorization_basis: {required: false}
+      creator_xact_id: {required: false}
       exposed_at: {required: true}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
@@ -4283,3 +4284,60 @@ classes:
       ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns":["set_id"],"target":"eval.structural_reference_set.id"}]'
       ph:checks: '["pass_kind IN (''A'',''B'',''C'')"]'
+
+  structural_assertion:
+    in_subset:
+    - data
+    description: Independently adjudicated full structural statement; dossier assembly does not certify
+      member truth.
+    attributes:
+      realization_id:
+        required: true
+      release_id:
+        required: true
+      assertion_id:
+        required: true
+      claim_id:
+        required: true
+      product_id:
+        required: true
+      product_kind:
+        required: true
+      policy_id:
+        required: true
+      policy_version:
+        required: true
+      c_content_digest:
+        required: true
+      frame_digest:
+        required: true
+      case_id:
+        required: true
+      statement_json:
+        required: true
+      sources_json:
+        required: true
+      selected_task_id:
+        range: integer
+        required: true
+      origin_task_id:
+        range: integer
+        required: true
+      cut_id:
+        range: integer
+        required: true
+      set_id:
+        range: integer
+        required: true
+      c_pass_id:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - assertion_id
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id"],"target":"ops.task.id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["set_id"],"target":"eval.structural_reference_set.id"},{"columns":["c_pass_id"],"target":"eval.structural_reference_pass.id"}]'

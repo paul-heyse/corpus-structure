@@ -710,16 +710,41 @@ def series_native_definitions(connection, *, include_selected=True):
             )
         )
     review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
-    for name in ("operation_review_history", "record_review_exposure", "create_structural_reference_set", "record_structural_reference_pass", "structural_review_history", "record_structural_review_exposure", "record_feature_fit_review_exposure"):
+    for name in (
+        "operation_review_history",
+        "record_review_exposure",
+        "create_structural_reference_set",
+        "record_structural_reference_pass",
+        "structural_review_history",
+        "record_structural_review_exposure",
+        "record_feature_fit_review_exposure",
+    ):
         definitions.extend(
-            _task_call_definitions(connection, review_sql, name=name,
-                source="operation review history:forward", schema="eval",
-                grants=(("corpus_sem_evaluator", "EXECUTE", False),))
+            _task_call_definitions(
+                connection,
+                review_sql,
+                name=name,
+                source="operation review history:forward",
+                schema="eval",
+                grants=(("corpus_sem_evaluator", "EXECUTE", False),),
+            )
         )
     structural_sql = Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
-    for name in ("validate_structural_source", "validate_structural_input", "validate_structural_product_report"):
-        definitions.extend(_task_call_definitions(connection, structural_sql, name=name,
-            source="structural products:forward", schema="ops", grants=()))
+    for name in (
+        "validate_structural_source",
+        "validate_structural_input",
+        "validate_structural_product_report",
+    ):
+        definitions.extend(
+            _task_call_definitions(
+                connection,
+                structural_sql,
+                name=name,
+                source="structural products:forward",
+                schema="ops",
+                grants=(),
+            )
+        )
     for name in (
         "source_contribution_occurrence",
         "validate_source_anchor_coordinates",
@@ -859,6 +884,28 @@ def series_native_definitions(connection, *, include_selected=True):
                     )
                 )
     definitions.extend(_current_source_guard_definitions(connection))
+    structural_publication = (
+        Path(__file__).with_name("sql").joinpath("structural_publication.sql").read_text()
+    )
+    for name in (
+        "structural_citation",
+        "structural_citations",
+        "structural_public_statement",
+        "structural_publication_candidates",
+        "validate_structural_assertions",
+    ):
+        definitions.append(
+            _task_call_definition(
+                connection,
+                structural_publication,
+                name=name,
+                source="structural publication:forward",
+                schema="data",
+                grants=(("corpus_sem_writer", "EXECUTE", False),)
+                if name == "structural_publication_candidates"
+                else (),
+            )
+        )
     from .record_projection import RECORD_ROW_TYPES
 
     # Accepted record rows and origin assignments are append-only, like existing
@@ -867,6 +914,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "sem.runtime_binding",
         "data.local_assertion",
         "data.local_semantic_assertion",
+        "data.structural_assertion",
         *("data." + name for name in RECORD_ROW_TYPES),
         "kb.source_contribution_operation",
         "kb.source_contribution",
