@@ -35,7 +35,7 @@ from .operation_scenario_support import prepare_operation_scenario
 def alternate_runtime(prepared):
     inputs = tuple(
         SourceArtifact(item.name, item.content + b"\n# independent runtime variant\n")
-        if item.name == "invocation/operations.py"
+        if item.name in {"invocation/operations.py", "package/semantic/operations.py"}
         else item
         for item in analysis_implementation_inputs()
     )
