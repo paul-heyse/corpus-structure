@@ -736,10 +736,11 @@ decisions and update owning design sections in the same changes, preserving surv
 | RC07 — Mathematical queries | Local decision queries and selected composites need not require complete-record events | `record_interpretation` and operation declarations; retain numerical/exactness/dependence limits and explicit non-positive outcomes |
 | RC08 — Review/export contracts | Expose typed intermediate products, source-first gaps and complete declared-scope portable evidence | D8, existing captured exports/reader budgets; separately authorize protected judgments, preserve source and stage population distinctions |
 
-The [current M1 plan](../plans/first-production-milestone_2026-11-03.md) remains the owner of
-scheduled findings until deliberately revised. This review neither closes its findings nor creates
-a competing mutable progress register. Existing design-spike references are mechanism/evidence
-leads, not automatic scope or permission to restart them.
+At review publication the [M1 plan](../plans/first-production-milestone_2026-11-03.md) owned
+scheduled findings. The subsequent [progressive enrichment coordinator](../plans/progressive-corpus-enrichment_2026-11-04.md)
+now owns the new scope and explicitly transferred remaining obligations. This review neither
+closes findings nor creates a competing mutable progress register. Existing design-spike
+references are mechanism/evidence leads, not automatic scope or permission to restart them.
 
 ## Priorities and integration sequence for subsequent planning
 

@@ -1,5 +1,5 @@
 # Status
-_Updated2026-11-04; progressive enrichment review published; M1 execution remains stopped._
+_Updated2026-11-04; progressive enrichment plan series created; product execution remains stopped._
 
 ## Accepted foundation and retained state
 
@@ -13,29 +13,32 @@ _Updated2026-11-04; progressive enrichment review published; M1 execution remain
 - All worktrees are removed. Approved APT cache cleanup reclaimed2.37GiB. Retained evidence,
   source products and project DBs remain. No PDF/OCR/recognition reran in this review.
 
-## Progressive enrichment review
+## Progressive enrichment plan
 
-- [Functional review](docs/functional_reviews/progressive-corpus-enrichment_2026-11-04.md)
-  records Proposed O01–O10 and RC01–08 for the operator-selected revised milestone.
-  It recommends typed independent contributions, source-first/output-first operation assessment,
-  structural diffs, local mathematical interpretation, embedding-assisted concept candidates,
-  explicit link selection, dossiers and portable review exports. Whole-record grades retain scope.
-- Current observations/raw reports are reusable foundations; typed public operation products and
-  their independent assessment are proposed. No product, dependency, ADR or active plan changed.
-- [Bounded comparison](docs/design_review/evidence/2026-11-04_progressive-enrichment-review/README.md)
-  passes capture/detached comparison against frozen development C24:80matched table candidates
-  agree in table/cell/header/value/caption semantics and evidence; row_label/unit/note differ.
-  This is retained-case reference agreement, not a new protected grade or operation accuracy.
-  Native structural contributions are distinguished from GLiNER output. Old failures remain.
-- Review uses current source, retained development evidence, Context7/primary library research
-  and focused independent design assessment. Encoder quality/runtime fit and new products remain
-  unqualified. Evidence checks/render, turn-end and docs-check pass2026-11-04; product tests not_run.
+- [New coordinator](docs/plans/progressive-corpus-enrichment_2026-11-04.md) owns Planned
+  PCE-00–PCE-11, progressive-review O01–O10 and transferred remaining M1 obligations.
+  Six companions detail contributions, assessment/qualification, parsing/mathematics,
+  embeddings/linking, cross-document products and publication/review/lifecycle.
+- RC01–RC08 were accepted as planning decisions2026-11-04. Successor ADRs and architecture
+  changes are scheduled, not implemented. M1 plans remain as superseded historical checkpoints;
+  old whole-record grades and failed/interrupted runs retain their original meanings.
+- Concrete library mechanisms, conditions and verification are retained in the
+  [mathematical/parser](docs/plans/progressive-corpus-enrichment/parsing-and-mathematical-interpretation.md)
+  and [embedding/linking](docs/plans/progressive-corpus-enrichment/contextual-embeddings-and-concept-linking.md)
+  companions. Native inference, fitting and runtime alternatives have distinct triggers.
+- [Qualification](docs/plans/progressive-corpus-enrichment/operation-assessment-and-qualification.md)
+  separates source-first/output-first assessment, local facets, public eligibility and stronger
+  composite claims. No new product quality or qualification follows from plan authoring.
+- [Retained comparison](docs/design_review/evidence/2026-11-04_progressive-enrichment-review/README.md)
+  remains80matched development table cases with value/header/caption agreement and row/unit/note
+  differences; it is not a new protected grade or operation accuracy estimate.
+- Plan publication: `just docs-check` passed2026-11-04; focused static consistency review found no material gaps. Product/model/provider qualification not_run for documentation scope.
 
 ## Stopped M1 baseline
 
 - [M1 coordinator](docs/plans/first-production-milestone_2026-11-03.md#current-m1-execution-checkpoint--2026-11-04)
-  remains the owner of scheduled findings and old package state until deliberately revised.
-  No whole M1 package is complete; the new review does not silently close old obligations.
+  preserves historical package state; the new coordinator owns transferred remaining obligations.
+  No whole M1 package is complete; plan supersession does not close old implementation gaps.
 - Native130 previously passed26publication/support,16reference/policy and11reuse cases;
   147method cases/globaltypes/empty-head authoring pass at their recorded source boundaries.
 - Actual source-only snapshots11–13 and protected sets1–3 retain27pages/11views/three origins;
@@ -52,5 +55,6 @@ _Updated2026-11-04; progressive enrichment review published; M1 execution remain
 
 ## Next
 
-Use the functional review to create/revise implementation plans and successor decisions around
-progressive enrichment. Product execution remains stopped; no further model runs were launched.
+PCE-00 successor decisions and focused foundation integration, then typed retained contributions,
+independent local assessment and an early portable review bundle. Product execution remains stopped;
+no model runs, database changes, dependency installations or PDF reprocessing occurred in authoring.

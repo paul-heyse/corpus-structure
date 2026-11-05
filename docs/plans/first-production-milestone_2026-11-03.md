@@ -1,9 +1,10 @@
 # First production milestone: qualified CPU semantic assembly
 
-**Status:** Active M1 execution; AC prerequisite accepted2026-11-04. Implemented candidate
-foundations and current controlled native/consumer tests; M1 functional and release obligations remain open.
-**Created:** 2026-11-03. **Target claims:** Proposed. This coordinator owns package state,
-shared decisions, execution order and scheduled opportunity/investigation disposition. Companions
+**Status:** Superseded for remaining implementation scope by the [progressive enrichment series](progressive-corpus-enrichment_2026-11-04.md), 2026-11-04. Execution remains stopped.
+This plan preserves historical package state, targets and bounded receipts; no whole M1 package
+is declared complete. The successor coordinator owns transferred remaining work and disposition.
+**Created:** 2026-11-03. **Target claims:** Proposed. This coordinator preserves historical package state,
+shared decisions and the former execution/disposition account; the successor owns current work. Companions
 own detailed designs and completion criteria, not competing progress tables.
 
 ## Outcome, sources and authority
@@ -334,7 +335,7 @@ experiments. The result constrains dependent work even when it selects an existi
 
 ## Execution queue and readiness
 
-M1-00/01/02/03/04/05/06/07/08/09/10/11/12/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
+The following is the frozen predecessor queue, not executable current scope. M1-00/01/02/03/04/05/06/07/08/09/10/11/12/13 were **In progress** at the bounded scope below; other packages were **Planned**. Remaining obligations transfer through the successor coordinator’s M1 transition table.
 Dependencies below mean working capability/evidence unless explicitly
 identified as an early settled contract. Design of consumers may proceed from settled contracts
 while implementation of their required producers is underway. Document order is not a global barrier.
@@ -385,7 +386,7 @@ future execution reaches adoption of a concrete release.
 
 ## Source coverage and scheduled disposition
 
-This table is the sole current disposition owner for scheduled M1 recommendations. Detailed
+This table preserves predecessor dispositions. The [successor coordinator](progressive-corpus-enrichment_2026-11-04.md#m1-transition-and-surviving-obligations) now owns transferred remaining obligations; this table is not a second live ledger. Detailed
 investigation questions/branches belong with their capability companion. Deferred review-only
 opportunities retain reasoning at their source, referenced below; there is no second execution ledger.
 

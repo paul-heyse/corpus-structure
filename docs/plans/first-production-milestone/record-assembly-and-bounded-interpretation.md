@@ -1,5 +1,7 @@
 # M1 record assembly and bounded interpretation
 
+> Historical predecessor design/checkpoint, retained 2026-11-04. Remaining scope is superseded by the [progressive enrichment series](../progressive-corpus-enrichment_2026-11-04.md#m1-transition-and-surviving-obligations). Targets and receipts below retain their original meanings; product execution remains stopped.
+
 **Target: Proposed; mixed implementation maturity · reconciled 2026-11-04.** This companion
 owns the detailed design and completion conditions for M1-08/09/10. The
 [coordinator](../first-production-milestone_2026-11-03.md) owns current package state,
