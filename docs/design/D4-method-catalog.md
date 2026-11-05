@@ -1354,3 +1354,22 @@ canonical-form fusion only, status from agent proposals and M19 rules.
 **Implemented; scoped Tested (2026-10-30).** Source segmentation and M13 use one immutable token-layout producer. Source builds retain spans/roles bound to configuration, implementation and content; M13 reads the selected producing task, checks its expected tokenizer configuration and reconstructs historical/incompatible inputs. Interval/per-symbol indexes preserve source selection. Current segmentation remains active after bounded reduced-parser/senter/rule comparison.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Cross-source structural RUN operations
+
+**Implemented; bounded provider/native behavior Tested, 2026-11-05.**
+`structure.definitions` validates explicit original source inputs, settles readers, performs
+owned E5 nomination under a frozen target inventory and applies owned GLiNER six-way
+usage–passage classification. Raw preparation/profile/request/reply/stage data remains in the
+immutable `UnitResult.parse_detail`; partial failure preserves completed upstream outcomes.
+The method takes no supplied readings or protected reference values. Actual semantic errors
+remain recorded by the [PCE coordinator](../plans/progressive-corpus-enrichment_2026-11-04.md).
+
+`structure.products` separately binds supplied typed definition/comparison/dossier reports.
+Its deterministic import is not automatic semantic discovery. Both are finite RUN operations
+under the existing task/release/native completion owner. A graph permits one effective config
+per method; conflicting defaults refuse before DB/model work, while equivalent aliases/global
+overrides remain valid. Separate single-config executions can be explicitly composed without
+bypassing dependency/reuse checks. No new per-dossier scheduler or model framework is introduced.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)

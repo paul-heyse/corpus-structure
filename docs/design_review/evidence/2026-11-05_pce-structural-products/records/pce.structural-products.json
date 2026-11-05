@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "id": "pce.structural-products",
+  "title": "Original-source structural products and exact independent publication",
+  "group": "PCE",
+  "package": "PCE-10",
+  "finalized": "2026-11-05",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "pce.structural-products-2",
+  "question": "Can bounded cross-source structural products preserve original custody and independently qualified publication through common consumers?",
+  "answers": [
+    "PCE-09",
+    "PCE-10",
+    "PCE-11",
+    "ADR-0065"
+  ],
+  "method": "Finite released RUN reports with authenticated original-source group frames, actual E5/GLiNER automatic producer, independent source/output A/B/C, deterministic supplied comparison/dossier assembly, exact selected-cut public witness reuse, native rollback faults and real named CLI/full detached export.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-05_pce-structural-products/normal_structural_run_journey.py --release release:bf5e216e03f9cfab2946a8cddac13443d909c40c35ef33f64c83ba4d0c42eb91 --attempt 011",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-structural-products/public_reference_journey.py --release release:bf5e216e03f9cfab2946a8cddac13443d909c40c35ef33f64c83ba4d0c42eb91 --attempt 005 --out public-reference-bindings-001.json",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-structural-products/public_publication_journey.py --producer-run 97 --bindings public-reference-bindings-001.json --out public-published-003.json"
+  ],
+  "agents": [
+    {
+      "role": "independent source and public-statement A/B; semantic C",
+      "model": "individual runtime model identifiers not retained in authored artifacts",
+      "brief": null,
+      "separation": "Source-only A/B independently inspected original source002 before outputs. Manual005 used explicitly exposed C001 feedback. Separate output-first A/B/C005 judge exact whole statements; actual automatic51/52 quality is a separate20-cell artifact, never relabelled as manual support."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/production-input-002.json",
+      "role": "frozen independent frame or authored pass",
+      "sha256": "fdea8318b5f8856b5248c903d554abbd42f44590ed406743b30b8578d70c871c"
+    },
+    {
+      "path": "raw/independent-source-A-001.json",
+      "role": "frozen independent frame or authored pass",
+      "sha256": "2040c38fe658a41389f9b00b2b6a8cc999c994d588ae8a3abab6d6b5bbc55f75"
+    },
+    {
+      "path": "raw/independent-source-B-001.md",
+      "role": "frozen independent frame or authored pass",
+      "sha256": "2b48c4030982d6cae489be3be442c81a616828dcbc98ae8d391e9da99b9ac920"
+    },
+    {
+      "path": "raw/independent-public-A-005.json",
+      "role": "frozen independent frame or authored pass",
+      "sha256": "0692184168495c329f47d27f3220dcd1d22495513779ddbe8cecdaabaf69426f"
+    },
+    {
+      "path": "raw/independent-public-B-005.json",
+      "role": "frozen independent frame or authored pass",
+      "sha256": "1d33235ce3f31f8b0aa55cd6a729f2dad4330a099ea4d857f3bed5c08246ea85"
+    },
+    {
+      "path": "raw/independent-public-C-005.json",
+      "role": "frozen independent frame or authored pass",
+      "sha256": "5e6b1b7471fcccf659f768d1cd4bbfbfc54770af01001770f3cc8ddae3675d7f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/normal-structural-run-011.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "8397c8a528781ec5f80a6db5d1f06623c62ecc774630984a61c80478bdf08b37"
+    },
+    {
+      "path": "raw/public-published-003.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "15ce37e2ae5738d40b432ead831761b34a0628fc9eb1108c9c46addca907a3c8"
+    },
+    {
+      "path": "raw/public-negative-controls-003.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "2d9ac0979df259ddce25d331d8da1083f833543f875b57113f36455be2571826"
+    },
+    {
+      "path": "raw/structural-export-closure-002.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "4563f6f25b8da536977fef9dc417a6358ac5ce2e808a6d91fa9796e507dffba4"
+    },
+    {
+      "path": "raw/native-assessment-controls-008.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "979ba2f826623f47c2f66194882e8dfe0fba87b1164d7e357430149454f63a57"
+    },
+    {
+      "path": "raw/structural-numeric-controls-151.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "2e39ce0dd968a820ec7a426be7e55e58911408b02af9cc6fcd57fbe60fad1b5d"
+    },
+    {
+      "path": "raw/public-reference-bindings-001.json",
+      "role": "actual retained native or consumer receipt",
+      "sha256": "3b610454c666868a741fa6fc15b1ff1926e723533e3baa1eb01ecbd321bcf65d"
+    },
+    {
+      "path": "raw/public-cli-structural_definitions-003.json",
+      "role": "actual named query response",
+      "sha256": "545f1ddba36ba966561455023def017fd4f573583ec4964d8c7fa10c0a159404"
+    },
+    {
+      "path": "raw/public-cli-structural_comparisons-003.json",
+      "role": "actual named query response",
+      "sha256": "8b3432766c700f44098fb797967f7965ab6e9a3afc8795e452b90f821feccef6"
+    },
+    {
+      "path": "raw/public-cli-structural_dossiers-003.json",
+      "role": "actual named query response",
+      "sha256": "f97cbbbaaf0ab2b8b3effaa4e6aaa127b85b3d5ccd14fc4d38df8728ca1402b0"
+    }
+  ],
+  "depends_on": [
+    "pce.automatic-quality",
+    "2026-11-05_pce-local-capabilities/pce.local-04-08"
+  ],
+  "results": [
+    {
+      "name": "Supplied source-supported statements",
+      "value": 4,
+      "of": null,
+      "unit": "statements",
+      "note": "Two definition-applicability reports, one comparison and one dossier; exposed development support."
+    },
+    {
+      "name": "Finite structural public policies",
+      "value": 3,
+      "of": null,
+      "unit": "policies",
+      "note": null
+    },
+    {
+      "name": "Exact origins reused into final public98",
+      "value": 4,
+      "of": null,
+      "unit": "origins",
+      "note": "234\u2013237 selected as238\u2013241; producer97/cut131 \u2192public98/cut132."
+    },
+    {
+      "name": "Native fault refusals",
+      "value": 14,
+      "of": null,
+      "unit": "controls",
+      "note": "Wrong-real/missing predecessor, foreign/stale/unsupported/ambiguous custody and staged tampering; exact stage baseline separately passes."
+    },
+    {
+      "name": "Declared comparison dimensions",
+      "value": 10,
+      "of": null,
+      "unit": "dimensions",
+      "note": "Explicit unknowns retained; no equivalence or governing-policy selection."
+    },
+    {
+      "name": "Complete declared dossier members",
+      "value": 4,
+      "of": null,
+      "unit": "members",
+      "note": "Exception and unresolved member survive representative display; assembly support does not establish member truth."
+    },
+    {
+      "name": "Project defaults activated",
+      "value": 0,
+      "of": null,
+      "unit": "projects",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Original source projects stay isolated. Actual registered automatic producer and supplied report importer both complete with their own provenance; the automatic semantic gaps remain in the separate partial quality record. The final supplied producer93\u201396/composed97 and public98 use exact runtime d86238b27a3ae2c460a492ea10a9577914243e747cffae46dc5971befa612c73 under unchanged bf5e semantic release/native151. All four exact independent statements publish through the common native batch, and14 current native fault controls refuse. Real typed named queries retain private producer standing separately from public witnesses. Full structural export includes actual original-release contracts; missing selected-cut dossier predecessors refuse. Original source/assessment bytes, failed attempts, migrations, stronger record policies and all nondefault boundaries remain. Broader final functional qualification and actual fresh MCP are separately accounted for by PCE-11. Superseded by pce.structural-products-2: the raw checks contain13 refusals plus one passing staged baseline, not14 refusals; no execution result changed.",
+  "consumed_by": [
+    "PCE-09",
+    "PCE-10",
+    "PCE-11",
+    "ADR-0065"
+  ]
+}

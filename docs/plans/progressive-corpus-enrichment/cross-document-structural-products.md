@@ -1,12 +1,66 @@
 # Cross-document structural products
 
-**Proposed implementation target · 2026-11-04 · baseline `a3b0f21d`.** This companion
+**Implemented and bounded qualified target · 2026-11-05.** This companion
 develops PCE-10 from the functional review's
 [O07](../../functional_reviews/progressive-corpus-enrichment_2026-11-04.md#O07), using O01/O02,
 O05/O06 and O08–10 foundations. The
 [coordinator](../progressive-corpus-enrichment_2026-11-04.md) solely owns execution state,
 opportunity disposition, accepted RC01–08 planning decisions dated 2026-11-04 and assembled
-completion. No product capability, model result or qualification is claimed by this plan.
+completion. Actual receipts and their limits are summarized below; the coordinator owns final acceptance.
+
+## Delivered bounded realization — 2026-11-05
+
+**Implemented; component/native/provider results Tested within their recorded scope.**
+[ADR-0065](../../adr/0065-cross-source-structural-products.md) and D1/D8 own finite RUN-unit
+structural reports. `ExternalSourceRef` retains each original project, completed run/cut,
+release/result revision, native product and coordinate/projection recipe. The analysis project
+does not copy documents or weaken source-local ownership. Source-backed passages remain distinct
+from curator descriptors. One captured source closure settles before CPU model work.
+
+`structure.definitions` is an actual registered producer: source authentication, existing owned
+E5 encoding, exact scoped PostgreSQL/pgvector nomination and GLiNER six-way usage–passage
+classification. It accepts no supplied labels or protected feedback. Raw requests/replies,
+effective profile, preparation and stage outcomes remain in the immutable task result's
+`parse_detail`. A model failure retains successful prior stages instead of inventing semantic
+abstentions. `structure.products` separately imports supplied typed readings through the same
+native lifecycle; comparison and dossier construction in this selected increment use that route.
+They are not claimed as automatic clause extraction or automatic membership discovery.
+
+The typed comparison retains all ten declared dimensions, including explicit unknowns. The
+dossier separates complete membership from representative display and retains the designated
+exception and unresolved member. Its member qualification is producer metadata, not admission
+authority. Finite independent policies admit exact source-resolved statements through the common
+`PublicationBatch`; dossier predecessors must be selected in this cut and actually emit the
+member's physical citation in the required semantic role. Shared input inventory is insufficient.
+
+Named queries `structural_definitions`, `structural_comparisons`, `structural_dossiers`,
+`ci structure list`, registered MCP `structural_products` and portable review use the common bounded
+reader. Reports remain private proposals even when a separate public assertion facet exists.
+Source-context hydration, publication support, continuation, selected rows and bytes retain their
+explicit contracts. Neither resemblance nor an admitted dossier promotes member truth or identity.
+
+The frozen source-only inventory002 and independent A001/B001 cover two usage questions across
+Grinstead–Snell, Forbes and NIST. Actual E5 budget5 missed the arithmetic-mean definition; retained
+score replay at budget10 retrieves it at rank9 without re-encoding. Manual005 incorporates explicitly
+exposed C001 feedback and has four independently supported whole statements. Actual automatic
+runs51/52 use original002 inputs: independent C inspected20 pair judgments, with12 supported and
+8 wrong. Seven wrong judgments assign definition applicability to unrelated/nondefining targets;
+one upgrades a relevant normal explanation to a definition. Both relevant targets were retrieved,
+so these observed errors are classification failures. Both automatic whole statements remain
+unsupported. These are separate case populations, not a paired model-improvement experiment.
+
+The selected Grinstead–Snell material lacks the normal density and standard-normal definitions;
+parent-scoped parameters and broader version/enterprise transfer remain unestablished. No PDF,
+recognition, whole-book extraction, training, reranker, MMR or scientific solver was rerun to fill
+those gaps. Source-only inspection, model execution, semantic support and public eligibility remain
+distinct. The [structural evidence](../../design_review/evidence/2026-11-05_pce-structural-products/README.md)
+retains exact inputs, independent passes, failed attempts, native versions and commands.
+
+The current orchestration contract permits one effective configuration per method in a graph.
+Equivalent aliases and global overrides resolving to the same configuration are supported;
+conflicting effective configurations refuse before any DB/model work. Four supplied configurations
+run separately and are deterministically composed into a final cut. That composition does not
+bypass reuse determinants or claim a general multi-configuration scheduler.
 
 ## Result and boundaries
 

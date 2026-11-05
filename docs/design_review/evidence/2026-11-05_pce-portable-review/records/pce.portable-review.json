@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "id": "pce.portable-review",
+  "title": "Portable selected-source review and detached reconstruction",
+  "group": "PCE",
+  "package": "PCE-09",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the selected exposed-development corpus and structural outputs be reconstructed offline with exact source, raw report and assessment closure?",
+  "answers": [
+    "PCE-09",
+    "PCE-11"
+  ],
+  "method": "Actual evaluator CLI export on one selected snapshot, explicit cohort capabilities/exposure, required-producer refusal, versioned JSONL/Parquet/digests, dynamic original-release contract closure and files-only independent case walkthrough. Separate actual controlled upstream-success/downstream-binder-failure export survives fixture disposal.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_review_journey.py --attempt 005 --paired --structural-run 51 --structural-run 52 --structural-run 98 --group-set 4 --group-set 5 --group-set 6 --group-set 7",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_detached_walkthrough.py docs/design_review/evidence/2026-11-05_pce-portable-review/raw/combined_005",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/failed_assembly_detached_002.py"
+  ],
+  "agents": [
+    {
+      "role": "detached qualification executor",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "Actual retained native CLI/provider artifacts and offline source-specific assertions; no production edits, no newly authored semantic labels."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/combined_005_selection.json",
+      "role": "declared final selection and bounds",
+      "sha256": "b6c96fcfda6c669db89ae0163fa3f65659e725986a9ec8275cc081afc55aee8e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/combined_005",
+      "role": "actual retained result",
+      "sha256": "2730babb4080d7b4b40b3281af33ca56fed30237684bb037d3945cec86b1e7a9"
+    },
+    {
+      "path": "raw/combined_005_receipt.json",
+      "role": "actual retained result",
+      "sha256": "e52a7fe585a2b31dc4c0d5d0a4c92eb802b0e48f834909986ce775db16a083cc"
+    },
+    {
+      "path": "raw/combined_005.time.txt",
+      "role": "actual retained result",
+      "sha256": "4ffd8ed6a0404500bc0669a6d3df80594ae10513a9e8d59069afd7f1e5d4d45b"
+    },
+    {
+      "path": "raw/combined_005_walkthrough.stdout.json",
+      "role": "actual retained result",
+      "sha256": "e0ea8b9eadf65e815eccd0846dd44511e46d1d3912a8def0906da64365c20793"
+    },
+    {
+      "path": "raw/failed_assembly_control_002",
+      "role": "actual retained result",
+      "sha256": "d133b32f94f592e38ef485377cc5e074799ddb17f1434a927f99808faf9b1d38"
+    },
+    {
+      "path": "raw/failed_assembly_detached_002.json",
+      "role": "actual retained result",
+      "sha256": "d8b0091c010c11f1820858e72e84b675bac55700b46de0fe65f2be694f73e0bf"
+    },
+    {
+      "path": "raw/combined_001_driver.log",
+      "role": "actual retained result",
+      "sha256": "9e18ebb7540e9ad28f916ab5c9f78d8266c31ac36413bb3174c3a092d8e7add8"
+    },
+    {
+      "path": "raw/combined_002_driver.log",
+      "role": "actual retained result",
+      "sha256": "cc7bddae9330f9ce97d259452f974300b89500c22f74f1b7743107794834a49b"
+    },
+    {
+      "path": "raw/combined_budget_diagnosis_003.json",
+      "role": "actual retained result",
+      "sha256": "d910fc6ad3adc8dc6333d61418ad3d8e3013e284a677c8e28213a51cd0db7c53"
+    }
+  ],
+  "depends_on": [
+    "2026-11-05_pce-local-capabilities/pce.local-04-08"
+  ],
+  "results": [
+    {
+      "name": "Final package size",
+      "value": 278060918,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Export elapsed wall",
+      "value": 48.69,
+      "of": null,
+      "unit": "seconds",
+      "note": "One actual command on a concurrently qualifying host; no capacity promise."
+    },
+    {
+      "name": "Export user CPU",
+      "value": 44.77,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Export system CPU",
+      "value": 1.97,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Export maximum resident set",
+      "value": 3066556,
+      "of": null,
+      "unit": "KiB",
+      "note": null
+    },
+    {
+      "name": "Captured source projections",
+      "value": 8,
+      "of": null,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "Original documents",
+      "value": 3,
+      "of": null,
+      "unit": "documents",
+      "note": null
+    },
+    {
+      "name": "Retained raw producer reports",
+      "value": 12,
+      "of": null,
+      "unit": "reports",
+      "note": null
+    },
+    {
+      "name": "Original independent author passes",
+      "value": 30,
+      "of": null,
+      "unit": "passes",
+      "note": null
+    },
+    {
+      "name": "Selected local assessment cases",
+      "value": 80,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Historical selected contribution identities",
+      "value": 13000,
+      "of": null,
+      "unit": "identities",
+      "note": "Across three selected runs, not13000 independent facts."
+    },
+    {
+      "name": "Distinct own physical occurrences",
+      "value": 667,
+      "of": null,
+      "unit": "occurrences",
+      "note": null
+    },
+    {
+      "name": "Structural products",
+      "value": 6,
+      "of": null,
+      "unit": "products",
+      "note": "Two actual automatic reports plus four independently reviewed supplied reports; no shared quality claim."
+    },
+    {
+      "name": "Public structural witnesses",
+      "value": 4,
+      "of": null,
+      "unit": "witnesses",
+      "note": null
+    },
+    {
+      "name": "Demanded archived release contract sets",
+      "value": 3,
+      "of": null,
+      "unit": "releases",
+      "note": "Equality checked dynamically for actual1bf171/bc69d3/bf5e216 refs, not a universal expected count."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The final005 full packet reconstructs its selected sources, configurations, raw reports234–237/143/144/122/128, original passes, selected grades and public98 witnesses without DB access. Omitting assessed43 refuses before publication. The exact Y source case is absent in baseline31 and captured in43; four contextual cases remain unresolved. Actual controlled successful occurrence survives later failed assembly. Original partitions/labels remain unchanged, calibration/final remain excluded, automatic standing remains unassessed in the protected-grade store and its separate independent20-cell quality result remains limited. Attempts001/002 budget/stack-depth failures and003/004 earlier-closure packets remain preserved. No original-document/full-corpus completeness, population accuracy, scientific truth or default activation follows.",
+  "consumed_by": [
+    "PCE-09",
+    "PCE-11"
+  ]
+}

@@ -1,0 +1,27 @@
+# Selected progressive enrichment evidence
+
+Generated from finalized records. These are separate scoped outcomes: actual provider execution,
+independent semantic judgment, qualified public statements and portable reconstruction do not
+establish the same claim. The PCE coordinator owns package acceptance and remaining work.
+
+{% for gid in [
+  '2026-11-05_pce-structural-products/pce.automatic-quality',
+  '2026-11-05_pce-structural-products/pce.structural-products-2',
+  '2026-11-05_pce-portable-review/pce.portable-review',
+  '2026-11-05_pce-portable-review/pce.consumer-freshness',
+  '2026-11-05_pce-structural-products/pce.assembled-11'
+] %}
+{% set r = record(gid) %}
+## {{ r.title }}
+
+Outcome: **{{ r.outcome }}**. Record: `{{ gid }}`.
+
+| Observation | Value | Unit | Scope |
+|---|---:|---|---|
+{% for row in query('SELECT name, value_num, value_text, "of", unit, note FROM record_results WHERE gid=$g', g=gid) %}
+| {{ row.name }} | {% if row.value_num is not none %}{{ num(row.value_num, 2 if row.unit == 'seconds' else 0) }}{% else %}{{ row.value_text }}{% endif %}{% if row.of is not none %}/{{ row.of }}{% endif %} | {{ row.unit or '' }} | {{ row.note or '' }} |
+{% endfor %}
+
+{{ r.conclusion }}
+
+{% endfor %}

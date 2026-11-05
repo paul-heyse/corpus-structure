@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "id": "pce.assembled-11",
+  "title": "Selected progressive enrichment qualification and final-source reconciliation",
+  "group": "PCE",
+  "package": "PCE-09–11",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are all required selected PCE09–11 capabilities implemented, independently inspectable and functionally qualified under the final source with accurate scope and quality limits?",
+  "answers": [
+    "PCE-09",
+    "PCE-10",
+    "PCE-11",
+    "ADR-0065"
+  ],
+  "method": "Complete collected Python scope partitioned through the unchanged receipt runner, item-bound native context union, independent focused repairs, actual providers/independent judgments/publication/consumer packets, final installed-runtime native custody and bounded source-impact reconciliation. Hygiene and operational measurements remain distinct from semantic quality.",
+  "commands": [
+    "just test-all",
+    "just turn-end",
+    "just hygiene",
+    "just types",
+    "just ruff",
+    "just ready",
+    "just model check",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/pce-final-runtime-consumers-006 -- python/corpus-structure/tests/semantic/test_runtime_bindings_native.py python/corpus-structure/tests/semantic/test_review_bundle.py python/corpus-structure/tests/semantic/test_review_capture_regressions.py python/corpus-structure/tests/semantic/test_structural_queries.py python/corpus-structure/tests/test_review_cli.py python/corpus-structure/tests/semantic/test_contribution_journey.py tests/test_native_math_methods.py tests/scripts/test_test_receipts.py",
+    "uv run python scripts/test_receipts.py run --out-dir build/test-receipts/qualification/pce-render-006 --python-only -- python/corpus-structure/tests/semantic/test_published_region_artifact.py",
+    "uv run python scripts/test_receipts.py run --out-dir build/test-receipts/qualification/pce-physical-006 --python-only -- python/corpus-structure/tests/semantic/test_metadata.py python/corpus-structure/tests/semantic/test_typed_realization.py"
+  ],
+  "agents": [
+    {
+      "role": "independent assembled design reviewer",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "Source/contract and attributed-receipt review; did not execute the reported tests or author producer outputs. F01–F03 and final scope/identity limits remain explicit."
+    },
+    {
+      "role": "bounded qualification executors",
+      "model": "gpt-6.1-sol/high",
+      "brief": null,
+      "separation": "Scoped stale-test diagnosis, typed generation and actual render repair; root coordinated a frozen package and final affected-source checks. Independent semantic source/automatic judgments retain separate records."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/final-installed-runtime-006/producer-manifest.json",
+      "role": "unchanged producer98/d862 archive provenance",
+      "sha256": "d86238b27a3ae2c460a492ea10a9577914243e747cffae46dc5971befa612c73"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/qualification-006",
+      "role": "immutable final qualification scope, results and context",
+      "sha256": "00a3fde169536179629b682f5cdd62f1c91f6b511c168bbe2ec1e566c503a739"
+    },
+    {
+      "path": "raw/final-installed-runtime-006",
+      "role": "immutable final qualification scope, results and context",
+      "sha256": "1c09a4f81ad6aa5c0e393a7fc48ce3311afcbaf3abce5b263c1a8c035e3b2b81"
+    }
+  ],
+  "depends_on": [
+    "pce.structural-products-2",
+    "pce.automatic-quality",
+    "2026-11-05_pce-portable-review/pce.portable-review",
+    "2026-11-05_pce-portable-review/pce.consumer-freshness"
+  ],
+  "results": [
+    {
+      "name": "Collected functional cases",
+      "value": 4722,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Selected required cases passing after repairs",
+      "value": 4714,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Eligible native cases in required union",
+      "value": 829,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Unselected opt-in host-auth fault cases not run",
+      "value": 8,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Initial failed broad cases retained",
+      "value": 12,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Final runtime and consumer focused controls",
+      "value": 130,
+      "of": null,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Final typed and metadata controls",
+      "value": 18,
+      "of": null,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Actual rendered-region provenance/replay/refusal control",
+      "value": 1,
+      "of": null,
+      "unit": "test",
+      "note": null
+    },
+    {
+      "name": "Rust tests selected by nextest",
+      "value": 0,
+      "of": null,
+      "unit": "tests",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected PCE09–11 functional acceptance is complete and nondefault. All4714 required cases have passing eligible outcomes after repairs, including829 native cases; no selected required case remains unresolved. Raw broad-attempt/classifier histories remain failed because prior failures are preserved. Eight explicit opt-in shared/root-auth fault controls were not_run outside this unchanged PCE scope, not counted as passed; nextest selected zero Rust tests, so no Rust functional coverage is claimed. Actual render/runtime/typed checks and fresh MCP002/export006 qualify the two changed runtime source files while unchanged semantic/native behavior retains applicable prior passing case evidence. Native151 and logical bf5e remain unchanged; installed7b2 is separately archived/registered, producer98/d862 is untouched, all four defaults stay null/null/0. Independent automatic20-pair quality still has8 errors and both whole statements unsupported; manual005 support does not replace that result. No whole-workspace all-green recipe, host-auth campaign, full-corpus/unseen/scientific quality, calibration, automatic clause/member discovery or adoption is established.",
+  "consumed_by": [
+    "PCE-09",
+    "PCE-10",
+    "PCE-11",
+    "ADR-0065"
+  ]
+}

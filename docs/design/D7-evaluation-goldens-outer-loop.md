@@ -687,3 +687,21 @@ then the successive `phase0-golden` runs, whose scope resolves the dev set's uni
 **Implemented; scoped Tested (2026-10-30).** Current semantic evaluation consumes model-bound alignment policy, prepared sides and dependency-aware comparisons. Historical grades remain unchanged. Citation placement owns immutable frame preparation and uses the native RapidFuzz scorer, preserving source spans, precedence, counts and timeout outcomes. Compiler7/profile3/native0037 are scoped verified; assembled qualification remains PE-12.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Cross-source group assessment and portable feedback
+
+**Implemented; bounded native controls Tested, 2026-11-05.** Structural assessment uses a
+finite group frame with every original source pin, exact question/operation/rubric and selected
+products. Independent A/B authored bytes and C parent identities are retained. Whole public
+statement judgments are distinct from per-pair or per-dimension diagnostics. Production-supplied
+confidence/qualifications and model success cannot supply independent support.
+
+Evaluator history requires the selected project/native capability and a committed exact-pass
+exposure receipt. Already exposed feature-fit use records its basis without changing partition;
+group development cohorts retain their separate project. Native row/byte preflight precedes raw
+history materialization. Sealed fixture labels establish access controls, not held-out research
+quality. Actual automatic20-pair semantic findings remain separate from four supported manually
+assembled statements and cannot inherit their grades. Source-only A/B, output-first authoring,
+exposed development feedback and unseen-origin claims retain distinct provenance.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)

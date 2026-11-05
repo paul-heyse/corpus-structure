@@ -6,7 +6,7 @@ scheduled disposition, rule-change decisions and overall completion. It consumes
 [contribution contracts](contributions-and-semantic-contracts.md#shared-contracts), and does not
 redefine their identities or maintain another progress register. Source baseline: `a3b0f21d`,
 inspected 2026-11-04. The selected execution boundary below supersedes blanket `not_run`
-statements for its implemented route. PCE-09 and unselected policies remain Proposed.
+statements for its implemented route. PCE-09 is complete for the bounded selection below; the coordinator owns final selected qualification.
 
 ## Selected implementation and evidence — 2026-11-05
 
@@ -49,6 +49,46 @@ independent products and O02's assessment population. RC04 and RC08 were explici
 planning decisions with RC01–RC08 on 2026-11-04. Execution must first carry their consequences
 through the coordinator's successor ADR/architectural-owner routes. Planning acceptance does not
 remove the current whole-record admission cap or authorize current private products as knowledge.
+
+## Delivered portable review contract — 2026-11-05
+
+**Implemented; bounded Tested.** `ci review export`, `verify` and `inspect` use versioned
+matching JSONL/Parquet, logical and physical digests, a readable overview and explicit contracts.
+The existing owned capture and atomic fresh-directory/no-replace publisher remain the lifetime
+owner. Verification occurs after readers settle and before destination publication. Missing,
+tampered, over-budget and cancelled captures do not yield a successful completion receipt.
+
+One snapshot captures selected source/operation/contribution inventories, raw report bodies,
+source excerpts with native/piece/context addresses, producer configurations, interpretations,
+public witnesses and assessment/gap/change/capability matrices. Sources and raw reports are
+shared once. Known retained-parser dependencies are followed from the released producer config;
+opaque diagnostics never become invented source-custody edges. Coordinate versions come from
+the actual decoded source kind, not unrelated native-build metadata.
+
+`ci review export-evaluated` is the explicit evaluator boundary. Each selected cohort retains
+its own project, native capability and exposure receipt. Already exposed feature-fit history
+requires its explicit basis; group development judgments do not inherit that basis. Original
+partitions and all A/B/C authored bytes remain unchanged. Exposure receipts must commit before
+history delivery, including across savepoints; native row/byte preflight precedes materialization.
+Calibration/final controls expose inventories only. Ordinary selections cannot elevate authority.
+
+A full selected-source-closure export includes the actual assessed run/unit and declared raw
+producer origins, including retained parser parents. Selecting public45 while omitting assessed43
+cannot masquerade as complete grade evidence. Reduced inventory exports state their narrower
+scope. Offline verification checks these cross-relation obligations as well as file integrity.
+No complete-corpus, original-PDF or private-grade completeness follows from a public page.
+
+The detached failed-assembly control retains a successful exact native occurrence in an upstream
+task after a separate production binder fails a required downstream role. After fixture disposal,
+the packet still resolves the contribution, source span, raw failure and rejected nomination.
+This is an actual controlled assembly failure; zero complete records alone establishes no failure.
+No source projects, PDFs or model weights are copied for the control. Historical record readers
+and exports keep their stronger contracts; the obsolete unused embedding model declarations and
+projections were retired coherently at model0.6.5, without deleting archives or migrations.
+
+The [portable evidence](../../design_review/evidence/2026-11-05_pce-portable-review/README.md)
+owns actual CLI capture, detached walkthrough, lifecycle refusals and selected resource receipts.
+The coordinator owns final combined/native/public acceptance and the R1–R7 dispositions.
 
 ## Intended operator and consumer behavior
 
@@ -395,6 +435,11 @@ scope. PCE-09's detached-review acceptance must use the assembled package withou
 PCE-11 owns final-source full union, review cadence and applicable broad qualification through the
 coordinator. No package-local pass establishes benefit magnitude or complete-series acceptance.
 
-No production changes, model/provider execution, database writes, functional test commands or
-performance measurements were run for this plan: **not_run**. Publication/link checks for the
-plan documents are the coordinator's responsibility and do not establish product qualification.
+**Implemented and bounded Tested, 2026-11-05.** The coordinator now accounts for actual native
+publication, real CLI/fresh external MCP, controlled failed assembly, detached source/grade
+reconstruction and final consumer006 measurements. Renderer provenance and generated physical
+fingerprint corrections retain the semantic release and original producing archives. The selected
+4714-case union is qualified with preserved failed history; eight unselected host-auth fault
+controls and zero-test Rust selection are not_run. These limits, actual commands and final-source
+applicability are explicit in the coordinator and immutable evidence records. Publication/link
+checks establish documentation only.

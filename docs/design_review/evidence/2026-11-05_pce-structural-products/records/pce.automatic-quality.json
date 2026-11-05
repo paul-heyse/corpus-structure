@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "id": "pce.automatic-quality",
+  "title": "Actual automatic definition applicability and observed classification gaps",
+  "group": "PCE",
+  "package": "PCE-10",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which nominated source-pair readings are independently supported in the actual automatic runs51/52?",
+  "answers": [
+    "PCE-10",
+    "PCE-11"
+  ],
+  "method": "Independent source-only A/B plus source-grounded C inspection of the exact retained automatic source002 inputs, E5 lists, GLiNER replies and native completed reports; separate per-pair and whole-statement judgments.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-05_pce-structural-products/automatic_run_journey.py --release release:bf5e216e03f9cfab2946a8cddac13443d909c40c35ef33f64c83ba4d0c42eb91 --attempt 005"
+  ],
+  "agents": [
+    {
+      "role": "independent actual automatic semantic C",
+      "model": "runtime model identifier not retained in authored artifact",
+      "brief": null,
+      "separation": "Inspected actual automatic outputs and original source002 plus exposed source-only A/B; did not substitute manual005 or execute providers. Exposed development cohort, no unseen-origin claim."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/production-input-002.json",
+      "role": "frozen input",
+      "sha256": "fdea8318b5f8856b5248c903d554abbd42f44590ed406743b30b8578d70c871c"
+    },
+    {
+      "path": "raw/independent-source-A-001.json",
+      "role": "frozen input",
+      "sha256": "2040c38fe658a41389f9b00b2b6a8cc999c994d588ae8a3abab6d6b5bbc55f75"
+    },
+    {
+      "path": "raw/independent-source-B-001.md",
+      "role": "frozen input",
+      "sha256": "2b48c4030982d6cae489be3be442c81a616828dcbc98ae8d391e9da99b9ac920"
+    },
+    {
+      "path": "raw/automatic-runs-005.json",
+      "role": "frozen input",
+      "sha256": "7a6c0297803b9a933ceaf122f93ee71b5e2b8f4e2c275d72f70d00b484a25669"
+    },
+    {
+      "path": "raw/automatic-assessment-input-005.json",
+      "role": "frozen input",
+      "sha256": "f81023a2f0c4135e7e815860754448f2a90f35dac9ccb50b850af00991b2822e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/independent-automatic-C-001.json",
+      "role": "independent granular semantic assessment",
+      "sha256": "65d1c532c4a2b7d3deab0fd6d2d43c4ff4afdc8db0d19511d45a9c6120860244"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Inspected source-pair judgments",
+      "value": 20,
+      "of": null,
+      "unit": "pairs",
+      "note": null
+    },
+    {
+      "name": "Supported judgments",
+      "value": 12,
+      "of": 20,
+      "unit": "pairs",
+      "note": "Normal5; mean7; includes11 supported insufficient-support negatives."
+    },
+    {
+      "name": "Wrong judgments",
+      "value": 8,
+      "of": 20,
+      "unit": "pairs",
+      "note": "Seven applicability/definition errors; one explanation-to-definition overclaim."
+    },
+    {
+      "name": "Supported emitted positive readings",
+      "value": 1,
+      "of": 9,
+      "unit": "readings",
+      "note": "The arithmetic-mean definition at rank9."
+    },
+    {
+      "name": "Unsupported automatic whole statements",
+      "value": 2,
+      "of": 2,
+      "unit": "statements",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Actual automatic execution and independently inspectable raw output are available, but both whole automatic statements fail source support. Each relevant target was retrieved (normalrank2, meanrank9); observed errors arise in classification. This is granular exposed-development evidence, not population accuracy, provider requalification, calibration or a passing substitute from corrected manual005. Refinement remains F37 in the PCE coordinator.",
+  "consumed_by": [
+    "PCE-10",
+    "PCE-11"
+  ]
+}

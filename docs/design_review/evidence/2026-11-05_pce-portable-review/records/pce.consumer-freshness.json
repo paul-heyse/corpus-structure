@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "id": "pce.consumer-freshness",
+  "title": "Repaired installed consumer reads unchanged archived enrichment",
+  "group": "PCE",
+  "package": "PCE-11",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do final installed readers preserve selected archived data and its original producing runtime after operational repairs?",
+  "answers": [
+    "PCE-09",
+    "PCE-10",
+    "PCE-11"
+  ],
+  "method": "Fresh external stdio MCP002 and actual evaluator export006 under installed7b2, offline verification and detached source-specific walkthrough, then field/digest comparison with005 while retaining producer98/d862.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/final_mcp_journey.py --attempt 002",
+    "uv run python docs/design_review/evidence/2026-11-05_pce-portable-review/combined_review_journey.py --attempt 006 --paired --structural-run 51 --structural-run 52 --structural-run 98 --group-set 4 --group-set 5 --group-set 6 --group-set 7"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/combined_005/manifest.json",
+      "role": "prior selected closure",
+      "sha256": "5c7daf6624c3f25c1123b5f78008c12674c1f909529ee076016965e1cf4a36c8"
+    },
+    {
+      "path": "raw/combined_006_selection.json",
+      "role": "same explicit selection and bounds",
+      "sha256": "b6c96fcfda6c669db89ae0163fa3f65659e725986a9ec8275cc081afc55aee8e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/combined_006",
+      "role": "actual final consumer evidence",
+      "sha256": "092d3f094fe183ba8bb484d5eb5417ff6e72b2773f176a0d4136e99c030a9d42"
+    },
+    {
+      "path": "raw/combined_006_receipt.json",
+      "role": "actual final consumer evidence",
+      "sha256": "f22966ebbe39dee39a8118f163d62d181302401280a3c0f49d9c734212f747fb"
+    },
+    {
+      "path": "raw/combined_006.time.txt",
+      "role": "actual final consumer evidence",
+      "sha256": "5ab90f43f10f88b38fe2703f1af95a22534d81820e8fdc50d25e219d3a833c4b"
+    },
+    {
+      "path": "raw/consumer_freshness_006.json",
+      "role": "actual final consumer evidence",
+      "sha256": "3aba23cc7c08001286b51b296d43311d5cb9e095a52782ef2e4d259c4f4d756c"
+    },
+    {
+      "path": "raw/final_mcp_002.log",
+      "role": "actual final consumer evidence",
+      "sha256": "2e319ae1d4ac77d80d3ccc9a3f5f9a25653e00159bec660ef1b2bb3251cdfecb"
+    },
+    {
+      "path": "raw/final_mcp_002_byte_refusal.json",
+      "role": "actual final consumer evidence",
+      "sha256": "60cf09da04a2c71f6576ac74a991f1fd491f88f962deedbafacacbf6e6d0aefc"
+    },
+    {
+      "path": "raw/final_mcp_002_page1.json",
+      "role": "actual final consumer evidence",
+      "sha256": "8b20394cf2d16a7d81471c263469146f3661888b65569784be4e6b14b940e40e"
+    },
+    {
+      "path": "raw/final_mcp_002_page2.json",
+      "role": "actual final consumer evidence",
+      "sha256": "d9791b2399b101e5265f0d64a3b4daf54f13c4f9ec06565eb2d280b7f995214c"
+    },
+    {
+      "path": "raw/final_mcp_002_page3.json",
+      "role": "actual final consumer evidence",
+      "sha256": "4605eed7f423f51e6d1d47c5f1768a7cbb4b2fb9ba3570dca6e3fdd044c0aa74"
+    },
+    {
+      "path": "raw/final_mcp_002_page4.json",
+      "role": "actual final consumer evidence",
+      "sha256": "4caeddd23e14c17e68cabeebfc47cb86211da524ce5a596bf5daa46eee99a0fd"
+    },
+    {
+      "path": "raw/final_mcp_002_private.json",
+      "role": "actual final consumer evidence",
+      "sha256": "7878b868d6d2461e357127abf377da05402e250e4c3a2a9b7909ccd86a58e460"
+    },
+    {
+      "path": "raw/final_mcp_002_receipt.json",
+      "role": "actual final consumer evidence",
+      "sha256": "3201c33045ebd6a8f2176182f6632ab91c5d1db4a5763ca41f08df4d3ac02c78"
+    },
+    {
+      "path": "raw/final_mcp_002_supported.json",
+      "role": "actual final consumer evidence",
+      "sha256": "2d642872bf80d3be1e2d10648a7dcaa8c5d66cb348de8b0fffe839000c433c62"
+    },
+    {
+      "path": "raw/final_mcp_002_wrong_cut.json",
+      "role": "actual final consumer evidence",
+      "sha256": "a14cf04d692856345c516840c9819e3e33950496c9fdc277faac35ad0dbadff3"
+    }
+  ],
+  "depends_on": [
+    "pce.portable-review"
+  ],
+  "results": [
+    {
+      "name": "Final review package size",
+      "value": 278060956,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "Measured export wall",
+      "value": 42.17,
+      "of": null,
+      "unit": "seconds",
+      "note": "One actual CLI on concurrently qualifying host; no capacity promise."
+    },
+    {
+      "name": "Measured export user CPU",
+      "value": 39.4,
+      "of": null,
+      "unit": "seconds",
+      "note": "One actual CLI on concurrently qualifying host; no capacity promise."
+    },
+    {
+      "name": "Measured export system CPU",
+      "value": 1.94,
+      "of": null,
+      "unit": "seconds",
+      "note": "One actual CLI on concurrently qualifying host; no capacity promise."
+    },
+    {
+      "name": "Maximum resident set",
+      "value": 3080568,
+      "of": null,
+      "unit": "KiB",
+      "note": "One actual CLI on concurrently qualifying host; no capacity promise."
+    },
+    {
+      "name": "Unchanged complete logical relations",
+      "value": 14,
+      "of": null,
+      "unit": "relations",
+      "note": null
+    },
+    {
+      "name": "Delivery-identity-only relations",
+      "value": 2,
+      "of": null,
+      "unit": "relations",
+      "note": "Same semantic rows; two metadata relations differ only in capture/exposure receipt identities."
+    },
+    {
+      "name": "Actual fresh external MCP responses",
+      "value": 8,
+      "of": null,
+      "unit": "responses",
+      "note": null
+    },
+    {
+      "name": "Producing runtimes retagged",
+      "value": 0,
+      "of": null,
+      "unit": "runs",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Installed7b2 reads exact archived producer98/d862 under unchanged bf5e. Source contracts, raw reports, independent judgments, inventory, semantic statements and support are preserved; only fresh capture/exposure-delivery identities differ. Real MCP calls cover default/support/private/public agreement, four one-item pages, wrong-cut/one-byte refusal and clean settlement. No model/PDF execution, result retagging or default adoption accompanies repair. This establishes selected reader compatibility and detached reconstruction, not new semantic quality, population accuracy, host attachment or original-document completeness.",
+  "consumed_by": [
+    "PCE-09",
+    "PCE-10",
+    "PCE-11"
+  ]
+}

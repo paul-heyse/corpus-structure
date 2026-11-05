@@ -1252,3 +1252,29 @@ variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as 
 **Proposed (accepted target,2026-10-30).** Symbol-role declarations carry scoped authority independently of consolidated entity attachment. Token keys remain independent of physical recognizers; source occurrences retain rendition custody and exact offsets.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Cross-source structural products
+
+**Implemented; bounded native/provider behavior Tested, 2026-11-05.** Finite RUN-unit
+`StructuralProductReport` variants distinguish definition applicability, qualified comparison and
+dossier membership. Original source references retain project, completed run/cut/release/result
+revision, native product and projection/coordinate recipe; analysis projects do not copy sources.
+Source-backed passages and curator descriptors are different types. A group assessment frame
+retains every original source rather than selecting an arbitrary primary source.
+
+Definition readings distinguish applicable definition/explanation, mention/example, ambiguity and
+insufficient support. Comparison keeps ten meaning-bearing dimensions and their explicit unknowns.
+Dossier complete membership is independent of representative display; designated exceptions,
+revisions, conflicts and unresolved senses cannot disappear through display selection. Member
+qualification is producer metadata; public admission requires its own source-resolved statement
+and actual selected upstream semantic participants. Neither grouping nor similarity establishes
+canonical identity, scientific truth or a governing organizational policy.
+
+Report envelope identity excludes numeric retrieval detail while retaining its candidate-list
+reference; the immutable result digest retains the complete raw derivation. Public claim identity
+binds the source-resolved semantic statement and qualifications, separately from execution and
+display provenance. Automatic provider execution and independent semantic support are separate:
+actual automatic outputs have known classification errors and remain nondefault. The
+[PCE coordinator](../plans/progressive-corpus-enrichment_2026-11-04.md) owns exact acceptance and limits.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)

@@ -188,6 +188,15 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Implemented; bounded native/publication Tested, 2026-11-05.** Cross-source structural
+products retain original source occurrence, typed report envelope, complete raw task result,
+source-resolved public claim and admission witness as distinct identities. Numeric retrieval
+spelling and display choices do not redefine the scoped public statement. Definition applicability,
+qualified comparison and dossier assembly retain separate claims; member truth and scientific
+truth are not implied by assembly support.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
+
 **Implemented; bounded native and actual publication Tested,2026-11-05.** Local public claim
 identity binds its event, physical occurrence and complete scoped semantic statement. Its
 admission-witness identity separately binds exact producer/cut, policy and applicable assessment.
@@ -241,6 +250,15 @@ uses its frozen claim form until scheduled consumer migration.
 <a id="section-b2"></a>
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Implemented; bounded native/publication Tested, 2026-11-05.** Original-project source guards
+remain intact. Finite RUN-unit structural reports use the existing immutable task lifecycle;
+independent multi-source assessments bind exact original pins. Supplemental structural assertions
+publish through the common PublicationBatch/realization with exact current whole-statement
+witnesses and selected-cut upstream semantic participants. Automatic model proposals remain
+private unless their own exact policy evidence qualifies them.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
 
 **Accepted target; implementation in qualification, 2026-11-05.** Local captured-source
 assertions and independently assessed semantic assertions use common consolidation. A later
@@ -496,6 +514,15 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Implemented; bounded native/consumer controls Tested, 2026-11-05.** Finite released
+structural variants, original-source references, group frames and operation-specific public
+policies govern producer completion and common atomic publication. The captured review carries
+current operation contracts and each referenced original source release's archived declarations;
+readers do not reinterpret old source bytes under only the new registry. Operational envelope
+repairs retain semantic release identity while exact runtime archives remain separately bound.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
 
 **Implemented; bounded native and actual publication Tested,2026-11-05.** Released local
 eligibility policies, typed assertion rows and native guards extend the same generated model

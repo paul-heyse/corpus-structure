@@ -960,3 +960,18 @@ remain atomic. Candidate input construction derives admitted occurrence/evidence
 while external inputs retain full independent boundary enforcement.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Cross-source structural admission
+
+**Implemented; bounded native controls Tested, 2026-11-05.** Definition applicability,
+qualified comparison and dossier statements use supplemental `structural_assertion` rows in the
+existing realization and `PublicationBatch`, with the same atomic staging/fencing transaction.
+Three finite independent policies require exact current supported whole-statement group C with
+current distinct A/B parents, original source closure, same project/release and selected producer
+origin. Writers receive only narrowly selected eligible witnesses; raw protected C remains evaluator-only.
+Dossier predecessors resolve through this publication cut, including repeated historical imports,
+and must emit the member citation in the required semantic role. Shared input inventory alone
+cannot authorize the edge. Final native publication recomputes eligibility. Original occurrence,
+semantic-denotation and stronger complete-record policies retain their meanings.
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)

@@ -1,9 +1,9 @@
 # Operation assessment and capability qualification
 
-**PCE-03 implemented with bounded native assessment Tested, 2026-11-05; PCE-11 Planned.** Owns PCE-03 and PCE-11 design/completion criteria. The
+**PCE-03 implemented with bounded native assessment Tested, 2026-11-05; PCE-11 complete for the selected scope.** Owns PCE-03 and PCE-11 design/completion criteria. The
 [coordinator](../progressive-corpus-enrichment_2026-11-04.md) owns live package state and disposition.
 Consumes progressive-review O02/O08/O09/O10 and accepted RC01/03/04/08. The coordinator and linked
-evidence own actual local findings and bounded qualification; PCE-11 remains Planned. No
+evidence own actual local findings and bounded qualification; PCE-11 is qualified on the selected retained cohort. No
 population accuracy is established by this document. Actual bounded contextual quality and parser
 comparisons are recorded at the coordinator's evidence owner, separately from PCE-11.
 
@@ -284,6 +284,30 @@ without silently changing prior standing. Perform the binding's assembled design
 resolve material integration findings and update enduring architecture with implemented contracts.
 Do not promote package-local checks to full qualification.
 
-**PCE-11 assembled qualification:** not_run. The implemented PCE-03 protocol and selected
-PCE-04–08 evidence above do not establish this enclosing boundary. The coordinator owns remaining
-functional work and qualification; documentation checks validate publication only.
+**PCE-11 assembled qualification: Complete for the selected scope, 2026-11-05.** The selected cohort remains
+Grinstead–Snell, Forbes and NIST, with nondefault results. Actual automatic source002 and supplied
+refined005 products have separate assessment/quality standing. The portable packet captures
+unfiltered graded source units31/43/45, actual automatic51/52 and the final structural publication,
+original raw parser122/replay128, independent group sets4–7 and selected local grades. Full closure
+refuses without the assessed producer or typed dossier predecessors; the detached verifier requires
+source context, raw reports and structural release contracts. Known wrong automatic readings are
+retained as errors, not treated as unassessed success or replaced by manual outputs.
+
+The real combined evaluator CLI and files-only walkthrough pass within the explicit bounds.
+Native protected-label denials, exposure commit controls, stale/foreign/unsupported statement and
+staged-tamper refusals pass alongside the four policy-positive statements. A controlled
+upstream occurrence survives an actual downstream binder failure and fixture disposal; it is not
+claimed as corpus-quality evidence. Actual E5/GLiNER execution and raw stages are retained separately
+from semantic judgment. Untriggered Pyro/pgmpy/fitting/training/ANN/reranking investigations remain
+conditional; no numerical/scientific promise is established by their nonexecution.
+
+The assembled [design/target review](../../design_review/reviews/design_review_pce-assembled_2026-11-05.md)
+accepts the bounded corrected architecture after F01 closure, F02 selected-witness query/budget
+and F03 renderer/generated-contract corrections. Actual final receipts establish the selected
+4714-case union, including829 native cases and fresh affected render/typed/runtime/consumer
+results. Eight opt-in unchanged host-auth fault controls are not_run outside this scope; Rust
+nextest selected zero tests, so no Rust functional coverage follows. Failed/interrupted attempts
+remain unchanged. Installed7b2 and original producer98/d862 retain their separate exact archives
+under the same bf5e release. Fresh MCP002/combined006 preserve original semantic relations and
+defaults. The coordinator/evidence records own this applicability account; source inspection and
+documentation publication alone do not establish functional qualification.

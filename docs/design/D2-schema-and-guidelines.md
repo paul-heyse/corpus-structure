@@ -14,6 +14,11 @@ they do not impose a universal completeness gate on independently typed products
 
 ## Current compiler and compatibility owner
 
+**Stage A model 0.6.5; Tested2026-11-05.** The logged revision and generated projections now
+complete the previously declared retirement of unused legacy embedding shapes and vocabulary.
+`just model check` and56 focused model/change controls pass; contextual vector/profile contracts
+retain their separate released semantic owner. Historical revisions and migrations remain intact.
+
 **Implemented; identity, native and retained-data controls Tested,2026-11-05.** Semantic
 compiler17/execution compiler27 separate positively declared semantic assets from exact executable
 runtime provenance. `contracts.SEMANTIC_IMPLEMENTATION_NAMES` owns the mixed-input classification;

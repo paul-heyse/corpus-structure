@@ -684,3 +684,41 @@ and prepares actual formula inputs using a caller-supplied admitted interpretati
 missing context/artifacts or required outside values remain explicit input requirements. The
 fragment is not represented as a complete DoclingDocument, and full-book inference is unnecessary
 for this consumer's qualification.
+
+## Cross-source structural products
+
+**Implemented; bounded consumer controls Tested, 2026-11-05.** Named queries
+`structural_definitions`, `structural_comparisons` and `structural_dossiers`, `ci structure list`
+and registered MCP `structural_products` use the same bounded run/cut reader. Reports retain
+`private_proposal` standing; optional publication/support facets carry separately admitted
+statements and exact witnesses. They do not promote every reported candidate or dossier member.
+Cursors bind selection and page scope through the existing query journey. Ordinary registration
+and retained reads do not start encoders, GLiNER, parsers or compiler work.
+
+`ci review export` captures one selected snapshot into matching versioned JSONL/Parquet relations,
+source context/pieces, raw reports/configurations and assessment/gap/change/capability views.
+`ci review verify` and `inspect` operate offline. Shared payloads appear once; existing bounded
+capture, cancellation settlement and atomic no-replace publication own the lifecycle. Full
+selected-source closure requires actual assessed producer run/unit and declared raw-parent bodies;
+opaque diagnostics grant no source authority. Coordinate versions derive from decoded source kind.
+
+`ci review export-evaluated` is an explicit restricted evaluator route. Cohort project/capability
+and exposure receipt are selected independently; an ordinary request cannot elevate them.
+Native row/byte preflight precedes history materialization. Required exposure commits before
+history delivery, including savepoints. Original partitions/passes remain unchanged. Sealed
+calibration/final populations are inventories, with labels excluded. Public witness scope remains
+`published_admission_witnesses_only`. Exact package/source/quality acceptance belongs to the
+[PCE coordinator](../plans/progressive-corpus-enrichment_2026-11-04.md).
+
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
+
+### Runtime provenance for rendering and retained readers
+
+**Implemented; actual bounded controls Tested, 2026-11-05.** A renderer's declared component
+digest and library versions remain its released provenance shape. Exact execution archive custody
+belongs to the native request's parent run and participates in runtime/reuse fencing. An unrelated
+installed-source repair does not retag immutable producing runs. Compatible current readers expose
+both original production standing and current selected capture identities; fresh MCP/portable
+checks qualify that compatibility separately from original model execution.
+
+> Decision: [ADR-0063](../adr/0063-semantic-runtime-identity.md)

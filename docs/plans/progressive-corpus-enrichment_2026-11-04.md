@@ -1,11 +1,11 @@
 # Progressive corpus enrichment
 
-**Status:** In progress. PCE-00–PCE-08 are Complete within their explicitly bounded
-foundation/local-capability scope below; PCE-09–PCE-11 remain Planned. **Created:** 2026-11-04; **updated:** 2026-11-05.
-**Claims:** private contracts, retained derivation, protected assessment, selected local publication,
-contextual retrieval and parser mechanisms are Implemented and bounded Tested. Selected
-consumer/paired acceptance is complete; assembled targets remain Planned. This coordinator
-alone owns package state, disposition and completion.
+**Status:** Complete for the explicitly selected PCE-00–11 capability scope, with qualified
+nondefault results and the quality/source limits below. **Created:** 2026-11-04; **updated:** 2026-11-05.
+**Claims:** implemented contracts, native/publication/consumer behavior and final selected
+functional union are Tested; bounded operational measurements and independent case findings are
+retained. Full-corpus/scientific/unseen-origin quality and default adoption remain unestablished.
+This coordinator alone owns package state, finding disposition and completion.
 
 ## Outcome and authority
 
@@ -142,15 +142,89 @@ remains applicable after publication-only144 changes, exercised by the final nat
   public CLI/fresh MCP/atomic export pass. Source-only selection001 and invalid grade001 remain.
 - Typing, Ruff, readiness and the applicable final documentation/process/evidence checks are
   recorded at the evidence owner. Rust source is unchanged; no new Rust qualification is claimed.
-- Whole `just test-all`/PCE-11 qualification and adoption remain not_run because PCE-09–11 functional
-  scope is not implemented. This bounded acceptance does not restart stopped M1 adaptation.
+- At this earlier local boundary, enclosing qualification/adoption were not_run. Final PCE-11
+  qualification below owns the current selected result; stopped M1 adaptation was not restarted.
 
-PCE-09 next assembles portable review/lifecycle products from these exact granular results.
+PCE-09/10 acceptance below now supplies portable review/lifecycle and structural products from these exact granular results.
 Its review should carry the two role errors, source58 uncaptured facets, ambiguous/unassessed
 output questions, one contextual selector abstention and14 separately authored non-denotation
 relationships into the capability manifest and refinement decisions. They are observed limits,
 not completed knowledge or grounds to fabricate probabilities. Genuine sparse coupled requests,
 new target types or training needs reopen their conditional investigations only when demonstrated.
+
+## PCE-09/10 bounded acceptance — 2026-11-05
+
+**Implemented and Tested within the selected scope.** ADR-0065, the updated architectural
+owners and [assembled design/target review](../design_review/reviews/design_review_pce-assembled_2026-11-05.md)
+carry original-source structural meaning, shared lifecycle and the corrected capture boundary.
+Current [structural evidence](../design_review/evidence/2026-11-05_pce-structural-products/README.md)
+and [portable evidence](../design_review/evidence/2026-11-05_pce-portable-review/README.md) retain
+exact commands, raw reports, independent passes and every failed/superseded attempt.
+
+- Final supplied producers93–96 compose97/cut131; public98/cut132 reuses234–237 as238–241 and
+  admits four exact independently supported statements under three policies. All13 native fault
+  refusals plus the exact staged baseline pass. No project default is activated.
+- Named queries, ordinary CLI and fresh external stdio MCP98 agree on four private reports with
+  separately requested public assertions/support. Paging and real wrong-cut/byte refusals pass.
+- Final combined005 captures all selected sources, raw reports/configurations, independent passes,
+  grades and paired changes; demanded original/current release contracts equal captured contracts.
+  Missing43 and missing dossier predecessors refuse. Offline verification/source-specific
+  walkthrough passes without DB/model access. The actual upstream-success/later failed-assembly
+  native control remains a separate control, not a fabricated corpus failure.
+- Model0.6.5 coherently retires unused legacy embedding declarations/generated projections.
+  Historical record contracts, archives, source bytes, raw results, migrations, plans and evidence
+  remain intact. No model/PDF rerun accompanies deterministic imports or operational budget fixes.
+
+The logical release is `bf5e216e03f9cfab2946a8cddac13443d909c40c35ef33f64c83ba4d0c42eb91`;
+final exact runtime is `d86238b27a3ae2c460a492ea10a9577914243e747cffae46dc5971befa612c73`,
+with native151. Automatic51/52 retain their original valid runtime/native150 context and source002
+inputs. The later151 importer-only numeric comparison repair does not alter that automatic branch;
+source validation/profile/classification semantics match, and raw provider execution is not repeated.
+Their independently assessed8 wrong judgments remain F37, separate from supported manual005.
+No unseen-origin, full-corpus, scientific-truth, automatic clause/membership discovery or adoption
+claim follows. The final PCE-11 account below owns the completed selected union and handoff.
+
+## PCE-11 final qualification — 2026-11-05
+
+**Tested and Measured within the selected scope; qualified nondefault.** The full collected
+functional inventory contained4722 cases. After focused repairs,4714 required cases have passing
+outcomes, including all829 declared native cases with eligible item-bound provenance. Eight
+explicit opt-in shared-cluster/root-authentication fault controls were not_run for this unchanged,
+unselected host-authentication campaign. Their raw skipped outcomes remain blocked; neither they
+nor whole-workspace all-green qualification are claimed. Rust nextest listed zero tests and is
+not_run/empty-selection; Rust functional coverage is not claimed. Clippy and the applicable hygiene
+checks pass with rustc1.101.0-nightly (2d20b42b8 2026-11-04).
+
+The original broad attempts failed and remain failed. The case-union classifier deliberately
+retains that history while reporting no unresolved selected required case. Corrected checks retain
+independent expectations: current compiler17/execution27, historical archive reads, real purpose
+credentials and administrator rights, nullable historical runtime pins, complete transitive scoped
+FK identity/non-nullability, exact rendered-artifact replay and immutable projection membership.
+No validator or permission boundary was weakened to pass a check.
+
+Late production corrections refresh the generated typed physical fingerprint and remove an
+unsupported duplicate renderer `runtime_id`. Exact runtime provenance stays on the owning run;
+the released three-field renderer meaning and native151 remain unchanged. Fresh18 metadata/typed,
+actual rendered-region/MCP/provenance control and130 runtime/consumer checks pass on the final
+source. The native-registered installed archive is
+`7b2bc478e40d9e2b3d06873d2cf4479d7b0d99cf0fd1958488b1275863a6b721`.
+Its only changed runtime inputs against producer98 are the generated fingerprint and renderer
+request helper (including its alias). The logical bf5e release is unchanged. Existing producer98
+keeps its exact d862 archive and original data; operational repair does not retag it.
+
+Fresh MCP002 and portable combined006 pass under the repaired consumer. Fourteen logical
+relations remain identical to005; only new capture/exposure-receipt identities change. Final006
+contains278060956 bytes; one measured export used42.17s wall/39.40s user/1.94s system CPU and
+3080568KiB maximum resident set on the concurrent qualification host. These describe this selected
+command, with no capacity or whole-corpus performance promise. All four original/analysis project
+defaults remain null/null/generation0. No source/model/PDF operation was rerun for these repairs.
+
+The [evidence summary](../design_review/evidence/2026-11-05_pce-structural-products/qualification-summary.md)
+and immutable records own commands, actual required/excluded manifests, failed/interrupted
+attempts, final-source impact mapping and native/provider/consumer/resource applicability.
+The assembled review accepts the corrected bounded architecture; scientific truth, full-corpus
+completeness, unseen-origin quality and default adoption remain unestablished. F37/F39 below own
+explicit future refinement/coverage limits rather than hidden completion claims.
 
 ## Rule changes and decision routes
 
@@ -209,9 +283,9 @@ new producer quality, population estimate or enclosing PCE completion is establi
 | PCE-06 Link selection — Complete | PCE-05 candidates, PCE-03 judgments | Scoped explicit relationships/alternatives/local senses, then exclusion-safe identity; candidate generation and selection independently assessed |
 | PCE-07 Parsing composition — Complete | PCE-02/03 observed structural errors | Qualified native GLiNER, retained spaCy and declared Lark operations; selected refinements with local/downstream comparison |
 | PCE-08 Interpretation — Complete | PCE-01/03; actual finite coupled question | Local queries and selected composites retaining exactness/limits; triggered native successor and learned-model decisions remain distinct |
-| PCE-09 Review/export/lifecycle | Early PCE-01/02/03, then PCE-04–08 | Self-contained declared-scope evidence bundle, consistent selectors, reuse/invalidation/cancellation and migrated consumers; early bundle before new extraction |
-| PCE-10 Cross-document products | PCE-04/05/06 and needed PCE-07/08 slices | Source-backed definition retrieval, qualified comparisons and dossiers with same assessment/export contracts |
-| PCE-11 Assembled qualification | Required functional scope, independent references and final source | Actual native/public/provider/resource union, capability manifests, remaining limits and deliberate adoption result |
+| PCE-09 Review/export/lifecycle — Complete, selected scope | Early PCE-01/02/03, then PCE-04–08 | Self-contained declared-scope evidence bundle, consistent selectors, reuse/invalidation/cancellation and migrated consumers; early bundle before new extraction |
+| PCE-10 Cross-document products — Complete, selected scope | PCE-04/05/06 and needed PCE-07/08 slices | Source-backed definition retrieval, qualified comparisons and dossiers with same assessment/export contracts |
+| PCE-11 Assembled qualification — Complete, selected scope | Required functional scope, independent references and final source | Actual native/public/provider/resource union, capability manifests, remaining limits and deliberate adoption result |
 
 First useful increment: PCE-01/02, working PCE-03 and early PCE-09 on retained development output.
 Next expose qualified local products through PCE-04, then contextual linking. Parser and math
@@ -259,6 +333,29 @@ source-review opportunity closure remains separately bounded by its required pac
 | PCE execution F28 | Output sample capability coverage | Closed: protocol2 freezes explicit new-capability priorities and deterministic fill before judgments. Independent A/B/C use selection002; initial001 stays insufficient-coverage evidence. Permutation/value/score independence controls and actual24-root registration/grades26–30 pass; no label-driven reselection. |
 
 | PCE execution F29 / local review F02 | Literal-facet assessment mapping | Closed: literal-only mapping validates independent ordered exact pieces; semantic values in other facets stay unchanged. Item-only blank inspection retains its source fact and explicit exact-literal unassessed applicability. Twenty-one wrapper controls and independent reinspection of wrappers005/new registration/evaluations26–30 pass. Grade001 remains invalid for accuracy claims; final9 supported/2 role errors/2 ambiguous/11 unassessed replace its diagnoses. |
+
+
+| Finding | Component | Current disposition / closure obligation |
+|---|---|---|
+| PCE execution F30 / integrated R1 | Portable coordinate custody | Closed: decoded source-kind cache replaces build-ID inference. Independent version2/3 controls and final combined005 original-source closure pass; no v2 full-corpus claim. |
+| PCE execution F31 / integrated R2 | Dossier selected predecessors | Closed: exact selected-cut resolution replaces historical-origin ambiguity. Final98 reuses234–237 into238–241 despite repeated historical products; native controls003 and public98 pass. |
+| PCE execution F32 / integrated R3 | Mixed evaluator CLI | Closed: per-group project and non-group-only feature-fit basis dispatch. Three focused controls and actual mixed evaluator CLI combined005 pass with exact exposure receipts. |
+| PCE execution F33 / integrated R4 | Assessment review closure | Closed: final combined005 refuses missing43 before publication; full unfiltered graded unit46 captures actual raw128 plus retained parent122 and selected structural234–237. Complete offline reconstruction passes. |
+| PCE execution F34 / integrated R5 | Native history budgets | Closed for selected151 scope: native row/byte preflight precedes raw SETOF capture; explicit/default controls and actual combined005 complete history capture pass. Raw protected access remains evaluator-only. |
+| PCE execution F35 / integrated R6 | Opaque raw diagnostics | Closed: declared pin/frame slots replace recursive raw-JSON source discovery; actual successful upstream occurrence/later failed binder packet retains bad diagnostic source_view_id without inventing source custody. Native/offline controls and combined005 pass. |
+| PCE execution F36 / integrated R7 | Dossier semantic upstream link | Closed: predecessor must emit the member physical citation in the required semantic role. Final98 correct publication passes; native controls003 reject wrong-but-real selected mean predecessor for Cauchy plus staged tampering. |
+
+| PCE execution F37 | Automatic definition semantics | Open refinement, nondefault: actual runs51/52 retain20 inspected pair judgments,12 supported and8 wrong. Both automatic whole statements are unsupported. Relevant targets are retrieved (normal rank2; arithmetic mean rank9); observed false positives belong to classification, not inferred retrieval failure. Seven wrong applicability/definition judgments plus one explanation-to-definition overclaim remain explicit. Next selected refinement must hold inventory/lists/questions fixed, retain actual raw outputs and reassess independently; manual005 is not a passing substitute. |
+| PCE execution F38 | Conflicting method configurations | Closed for current one-effective-config graph contract: resolve overrides first, allow identical effective aliases, refuse conflicts before DB/model work. Three independent controls pass; final producer72–75/composed76 use valid separate configurations and exact native binding. A general multi-config scheduler remains unselected. |
+| PCE execution F39 | Selected source and transfer limits | Explicit bounded omission: selected Grinstead–Snell material lacks normal density/standard-normal definition and cannot qualify parameter/version/scope transfer. Recognition defects and unselected source remain visible. New representative source selection/reference authoring is the trigger for broader claims; no wholesale PDF rerun or enterprise extrapolation is authorized by this result. |
+
+| PCE execution F40 / assembled F01 | Structural packet reconstruction | Closed: structural-only export002 refuses missing selected-cut dossier predecessors and captures all referenced producer/original-source release contracts by actual IDs. Final combined005 independently verifies demanded/captured release-set equality and detached reconstruction. |
+| PCE execution F41 / assembled F02 | Large graded-unit export | Closed for the selected7868-product unit: caller-declared128MiB contribution bound (8MB default unchanged) and flat typed/deduplicated VALUES membership replace the insufficient32MB ceiling and PostgreSQL stack-overflowing tuple IN. Native10000-row/transfer preflight remains. Actual combined004 captures all selected original producers/grades, and missing43 refuses. No throughput/corpus-capacity claim. |
+
+| PCE execution F42 / assembled F03 | Final qualification drift and renderer contract | Closed for selected scope: source/schema renderer mismatch fixed within released three-field meaning while preserving exact parent runtime; generated typed fingerprint refreshed. Actual native rendering, provenance/replay/refusal and18 typed/metadata +130 runtime/consumer controls pass. Stale compiler/settings/reader-rights/resource-tuple tests were aligned to existing ADR-0056/0063 without changing operator privileges or weakening native invariants. All selected required cases have passing evidence; failed attempts remain. |
+| PCE execution F43 | Unchanged host-auth fault campaign | Not_run outside selected PCE scope: eight explicit opt-in root/shared-cluster authentication crash/recovery controls remain blocked/skipped in the broad receipt. Authentication/provisioning sources were unchanged. Revisit when that owner changes or the operator selects its host-level fault campaign; current native application-purpose access controls are qualified separately. |
+
+Source: [independent implementation review](../design_review/evidence/2026-11-05_pce-structural-products/implementation-review-001.md). Current closure stays here; automatic producer, native/public journeys and PCE-11 union are not inferred from component passes.
 
 ### Foundation reference baseline and retained obligations
 
@@ -374,8 +471,13 @@ affected evidence after any later mutation. Preserve failed/interrupted results.
 active paths only after real consumers migrate; never delete historical plans/evidence, raw reports
 or immutable migrations. Use persistent `corpus_structure_dev` with intended permissions.
 
-**Next:** PCE-04 local publication, using the actual local-support distinctions and gaps above.
-PCE-05–11 retain their declared dependencies, concrete library mechanisms and qualification
-obligations. New source/model work is selected for a missing/changed input or observed refinement;
-operational runtime-only repairs do not force semantic data/reference regeneration. No later package
-or default adoption is authorized by completion of this bounded increment.
+**Current execution result:** PCE-09 through PCE-11 are Complete for the selected retained
+Grinstead–Snell/Forbes/NIST capability scope, with qualified nondefault results. Final source,
+required/excluded native/functional scope, current consumer/archived producer identities and
+quality findings are accounted for above. Plans, evidence, original bytes and failed attempts remain.
+
+**Next:** targeted F37 applicability refinement under fixed source/inventory/list questions, then
+fresh independent evaluation if feedback is used; F39 broader source selection/reference authoring
+when that scope is selected. Conditional inference/training/ANN/transfer investigations retain their
+existing triggers. No remaining required execution is hidden behind those optional investigations.
+Keep all results nondefault until adoption is separately selected.
