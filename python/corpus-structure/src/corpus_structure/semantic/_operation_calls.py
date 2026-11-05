@@ -48,6 +48,7 @@ from ._operation_ids import ProjectId as ProjectId
 from ._operation_ids import RealizationId as RealizationId
 from ._operation_ids import ReleaseId as ReleaseId
 from ._operation_ids import RunId as RunId
+from ._operation_ids import RuntimeId as RuntimeId
 from ._operation_ids import SourceViewId as SourceViewId
 from ._operation_ids import TaskAttempt as TaskAttempt
 from ._operation_ids import TaskId as TaskId
@@ -302,12 +303,97 @@ def initialize_source_project(
         return materialize_initialize_source_project(row)
 
 
-CREATE_RUN_CONTRACT_DIGEST = "8ff3fd0cb67fd9acb28b42faca922be61301e7226ef22be0239cc50010b11f03"
+REGISTER_RUNTIME_BINDING_CONTRACT_DIGEST = (
+    "f0ee952a1b7c29e55dbd885373e6ca893b882317aa1a88ae2e35a0ee6d618e99"
+)
+
+
+class _register_runtime_bindingRequest(OperationResult):
+    release_id: ReleaseId
+    runtime_id: RuntimeId
+    manifest: bytes
+    archive: bytes
+
+
+_register_runtime_binding_function = func.sem.register_runtime_binding(
+    bindparam("release_id", type_=Text()),
+    bindparam("runtime_id", type_=Text()),
+    bindparam("manifest", type_=BYTEA()),
+    bindparam("archive", type_=BYTEA()),
+    type_=Text(),
+)
+_register_runtime_binding_statement = select(_register_runtime_binding_function)
+
+
+def prepare_register_runtime_binding(
+    *,
+    release_id: ReleaseId,
+    runtime_id: RuntimeId,
+    manifest: bytes,
+    archive: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str]:
+    _request = _register_runtime_bindingRequest(
+        release_id=release_id,
+        runtime_id=runtime_id,
+        manifest=manifest,
+        archive=archive,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "start_run",
+            "register_runtime_binding",
+            REGISTER_RUNTIME_BINDING_CONTRACT_DIGEST,
+        )
+    return _register_runtime_binding_statement.params(
+        **{
+            "release_id": _request.release_id,
+            "runtime_id": _request.runtime_id,
+            "manifest": _request.manifest,
+            "archive": _request.archive,
+        }
+    )
+
+
+_register_runtime_binding_adapter = TypeAdapter(RuntimeId)
+
+
+def materialize_register_runtime_binding(row: tuple[str]) -> RuntimeId:
+    with native_result_scope("start_run", "register_runtime_binding", "runtime_id"):
+        checked = _register_runtime_binding_adapter.validate_python(row[0], strict=True)
+        return checked
+
+
+def register_runtime_binding(
+    conn: Connection,
+    *,
+    release_id: ReleaseId,
+    runtime_id: RuntimeId,
+    manifest: bytes,
+    archive: bytes,
+    projection_context: PreparedRelease | None = None,
+) -> RuntimeId:
+    _statement = prepare_register_runtime_binding(
+        release_id=release_id,
+        runtime_id=runtime_id,
+        manifest=manifest,
+        archive=archive,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("start_run", "register_runtime_binding"):
+        row = _native_result.one()
+        return materialize_register_runtime_binding(row)
+
+
+CREATE_RUN_CONTRACT_DIGEST = "f51b77ef54c54a01fedcd69ad2ba5893e3964b126a26e6a7d63f6e565f10922a"
 
 
 class _create_runRequest(OperationResult):
     project_id: ProjectId
     release_id: ReleaseId
+    runtime_id: RuntimeId
     realization_id: RealizationId
     revision: Annotated[int, Field(ge=-9223372036854775808, le=9223372036854775807)]
     dependencies: bytes
@@ -321,6 +407,7 @@ class _create_runRequest(OperationResult):
 _create_run_function = func.ops.create_run(
     bindparam("project_id", type_=Text()),
     bindparam("release_id", type_=Text()),
+    bindparam("runtime_id", type_=Text()),
     bindparam("realization_id", type_=Text()),
     bindparam("revision", type_=BigInteger()),
     bindparam("dependencies", type_=BYTEA()),
@@ -338,6 +425,7 @@ def prepare_create_run(
     *,
     project_id: ProjectId,
     release_id: ReleaseId,
+    runtime_id: RuntimeId,
     realization_id: RealizationId,
     revision: int,
     dependencies: bytes,
@@ -351,6 +439,7 @@ def prepare_create_run(
     _request = _create_runRequest(
         project_id=project_id,
         release_id=release_id,
+        runtime_id=runtime_id,
         realization_id=realization_id,
         revision=revision,
         dependencies=dependencies,
@@ -368,6 +457,7 @@ def prepare_create_run(
         **{
             "project_id": _request.project_id,
             "release_id": _request.release_id,
+            "runtime_id": _request.runtime_id,
             "realization_id": _request.realization_id,
             "revision": _request.revision,
             "dependencies": _request.dependencies,
@@ -394,6 +484,7 @@ def create_run(
     *,
     project_id: ProjectId,
     release_id: ReleaseId,
+    runtime_id: RuntimeId,
     realization_id: RealizationId,
     revision: int,
     dependencies: bytes,
@@ -407,6 +498,7 @@ def create_run(
     _statement = prepare_create_run(
         project_id=project_id,
         release_id=release_id,
+        runtime_id=runtime_id,
         realization_id=realization_id,
         revision=revision,
         dependencies=dependencies,
@@ -740,7 +832,7 @@ def collect_method_configuration(result: Result[int, int, str, str, str]) -> Rec
 
 
 LOCK_SCHEDULE_RUN_CONTRACT_DIGEST = (
-    "0d9f9ca551329908dc832d4531fe422287b74aad76e130844f0a69318be21dbc"
+    "63eb42e2a0203c4df7039c8af589de8779e6aaa3e7009cf6257977fec89599b9"
 )
 
 
@@ -749,6 +841,7 @@ class LockedScheduleRun(NativeRowResult):
     id: int
     project_id: str
     release_id: str
+    runtime_id: str | None
     input_realization_id: str
     input_revision: int
     dependency_digest: str
@@ -775,6 +868,7 @@ _lock_schedule_run_function = func.ops.lock_execution_run(
     column("id", BigInteger()),
     column("project_id", Text()),
     column("release_id", Text()),
+    column("runtime_id", Text()),
     column("input_realization_id", Text()),
     column("input_revision", BigInteger()),
     column("dependency_digest", Text()),
@@ -794,6 +888,7 @@ class _lock_schedule_runColumns(Protocol):
     id: Column[int]
     project_id: Column[str]
     release_id: Column[str]
+    runtime_id: Column[str | None]
     input_realization_id: Column[str]
     input_revision: Column[int]
     dependency_digest: Column[str]
@@ -813,6 +908,7 @@ _lock_schedule_run_statement = select(
     _lock_schedule_run_columns.id,
     _lock_schedule_run_columns.project_id,
     _lock_schedule_run_columns.release_id,
+    _lock_schedule_run_columns.runtime_id,
     _lock_schedule_run_columns.input_realization_id,
     _lock_schedule_run_columns.input_revision,
     _lock_schedule_run_columns.dependency_digest,
@@ -829,25 +925,43 @@ _lock_schedule_run_statement = select(
 
 
 def _lock_schedule_run_result(
-    row: tuple[int, str, str, str, int, str, bytes, str, int, str, str, str, str, str | None, bool],
+    row: tuple[
+        int,
+        str,
+        str,
+        str | None,
+        str,
+        int,
+        str,
+        bytes,
+        str,
+        int,
+        str,
+        str,
+        str,
+        str,
+        str | None,
+        bool,
+    ],
 ) -> LockedScheduleRun:
     with native_result_scope("schedule", "LockedScheduleRun"):
         return LockedScheduleRun(
             id=row[0],
             project_id=row[1],
             release_id=row[2],
-            input_realization_id=row[3],
-            input_revision=row[4],
-            dependency_digest=row[5],
-            dependencies=row[6],
-            kind=row[7],
-            phase=row[8],
-            options=row[9],
-            guideline=row[10],
-            status=row[11],
-            code_commit=row[12],
-            result_realization_id=row[13],
-            sealed=row[14],
+            runtime_id=row[3],
+            input_realization_id=row[4],
+            input_revision=row[5],
+            dependency_digest=row[6],
+            dependencies=row[7],
+            kind=row[8],
+            phase=row[9],
+            options=row[10],
+            guideline=row[11],
+            status=row[12],
+            code_commit=row[13],
+            result_realization_id=row[14],
+            sealed=row[15],
         )
 
 
@@ -856,7 +970,9 @@ def prepare_lock_schedule_run(
     run_id: RunId,
     operation: str = "schedule",
     projection_context: PreparedRelease | None = None,
-) -> Select[int, str, str, str, int, str, bytes, str, int, str, str, str, str, str | None, bool]:
+) -> Select[
+    int, str, str, str | None, str, int, str, bytes, str, int, str, str, str, str, str | None, bool
+]:
     _request = _lock_schedule_runRequest(
         run_id=run_id,
         operation=operation,
@@ -2232,7 +2348,7 @@ def finish_evaluation(
 
 
 LOCK_FINALIZATION_RUN_CONTRACT_DIGEST = (
-    "8911a666fff590afcd50c949d0127375d22dd90120be692a45f9b5b277a44e90"
+    "0365b8c598a91840084912fac61766772f68ada355be93391ae5cf0286271fd1"
 )
 
 
@@ -2241,6 +2357,7 @@ class LockedFinalizationRun(NativeRowResult):
     id: int
     project_id: str
     release_id: str
+    runtime_id: str | None
     input_realization_id: str
     input_revision: int
     dependency_digest: str
@@ -2265,6 +2382,7 @@ _lock_finalization_run_function = func.ops.lock_finalization_run(
     column("id", BigInteger()),
     column("project_id", Text()),
     column("release_id", Text()),
+    column("runtime_id", Text()),
     column("input_realization_id", Text()),
     column("input_revision", BigInteger()),
     column("dependency_digest", Text()),
@@ -2284,6 +2402,7 @@ class _lock_finalization_runColumns(Protocol):
     id: Column[int]
     project_id: Column[str]
     release_id: Column[str]
+    runtime_id: Column[str | None]
     input_realization_id: Column[str]
     input_revision: Column[int]
     dependency_digest: Column[str]
@@ -2305,6 +2424,7 @@ _lock_finalization_run_statement = select(
     _lock_finalization_run_columns.id,
     _lock_finalization_run_columns.project_id,
     _lock_finalization_run_columns.release_id,
+    _lock_finalization_run_columns.runtime_id,
     _lock_finalization_run_columns.input_realization_id,
     _lock_finalization_run_columns.input_revision,
     _lock_finalization_run_columns.dependency_digest,
@@ -2321,25 +2441,43 @@ _lock_finalization_run_statement = select(
 
 
 def _lock_finalization_run_result(
-    row: tuple[int, str, str, str, int, str, bytes, str, int, str, str, str, str, str | None, bool],
+    row: tuple[
+        int,
+        str,
+        str,
+        str | None,
+        str,
+        int,
+        str,
+        bytes,
+        str,
+        int,
+        str,
+        str,
+        str,
+        str,
+        str | None,
+        bool,
+    ],
 ) -> LockedFinalizationRun:
     with native_result_scope("evaluate", "LockedFinalizationRun"):
         return LockedFinalizationRun(
             id=row[0],
             project_id=row[1],
             release_id=row[2],
-            input_realization_id=row[3],
-            input_revision=row[4],
-            dependency_digest=row[5],
-            dependencies=row[6],
-            kind=row[7],
-            phase=row[8],
-            options=row[9],
-            guideline=row[10],
-            status=row[11],
-            code_commit=row[12],
-            result_realization_id=row[13],
-            sealed=row[14],
+            runtime_id=row[3],
+            input_realization_id=row[4],
+            input_revision=row[5],
+            dependency_digest=row[6],
+            dependencies=row[7],
+            kind=row[8],
+            phase=row[9],
+            options=row[10],
+            guideline=row[11],
+            status=row[12],
+            code_commit=row[13],
+            result_realization_id=row[14],
+            sealed=row[15],
         )
 
 
@@ -2347,7 +2485,9 @@ def prepare_lock_finalization_run(
     *,
     run_id: RunId,
     projection_context: PreparedRelease | None = None,
-) -> Select[int, str, str, str, int, str, bytes, str, int, str, str, str, str, str | None, bool]:
+) -> Select[
+    int, str, str, str | None, str, int, str, bytes, str, int, str, str, str, str, str | None, bool
+]:
     _request = _lock_finalization_runRequest(
         run_id=run_id,
     )
@@ -8448,4 +8588,4 @@ def record_direction(
         return materialize_record_direction(row)
 
 
-CALL_CONTRACT_DIGEST = "2576cc01538b5e3f4f349d9b83eaf3d6569ff3b9be277be2a022b62847c52d9b"
+CALL_CONTRACT_DIGEST = "4f15509f486e28fe1a21828a80f96ddf29a72a131c7a3dd12344e76f657f9ba0"

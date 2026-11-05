@@ -31,7 +31,7 @@ BEGIN
  OR model->'inputs'->>'compiler_version' IS DISTINCT FROM '27' THEN
   RAISE EXCEPTION 'runtime binding belongs to another execution model' USING ERRCODE='23514'; END IF;
  SELECT coalesce(jsonb_agg(jsonb_build_object('name',value->>0,'sha256',value->>1)
-  ORDER BY value->>0 COLLATE "C"),'[]'::jsonb) INTO expected
+  ORDER BY (value->>0) COLLATE "C"),'[]'::jsonb) INTO expected
  FROM jsonb_array_elements(model->'implementation_digests');
  IF manifest->'semantic_inputs' IS DISTINCT FROM expected THEN
   RAISE EXCEPTION 'runtime semantic inputs differ from released meaning' USING ERRCODE='23514'; END IF;
@@ -44,7 +44,7 @@ BEGIN
  END LOOP;
  IF jsonb_array_length(manifest->'implementation_inputs')=0
  OR (SELECT count(*)<>count(DISTINCT value->>'name') FROM jsonb_array_elements(manifest->'implementation_inputs'))
- OR (SELECT coalesce(jsonb_agg(value ORDER BY value->>'name' COLLATE "C"),'[]'::jsonb)
+ OR (SELECT coalesce(jsonb_agg(value ORDER BY (value->>'name') COLLATE "C"),'[]'::jsonb)
   FROM jsonb_array_elements(manifest->'implementation_inputs')) IS DISTINCT FROM manifest->'implementation_inputs' THEN
   RAISE EXCEPTION 'runtime implementation inputs must be unique and ordered' USING ERRCODE='23514'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(archive->'inputs') LOOP

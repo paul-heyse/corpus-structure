@@ -4,6 +4,7 @@ import json
 from hashlib import sha256
 from types import SimpleNamespace
 
+import psycopg
 import pytest
 from pydantic import create_model
 from sqlalchemy import select, text
@@ -121,6 +122,7 @@ def test_native_registration_refuses_altered_or_incompatible_binding(
             manifest=manifest_bytes, archive=canonical_bytes(archive),
             projection_context=prepared,
         )
+    assert isinstance(rejected.value.orig, psycopg.Error)
     assert rejected.value.orig.sqlstate == "23514"
 
 
@@ -143,6 +145,7 @@ def test_native_pin_and_archive_are_immutable_and_writer_cannot_bypass_registrat
             release_id=prepared.release_id, runtime_id="runtime:unregistered",
             manifest_bytes=b"{}", archive_bytes=b"{}",
         ))
+    assert isinstance(denied.value.orig, psycopg.Error)
     assert denied.value.orig.sqlstate == "42501"
     with semantic_writer_engine.connect() as conn:
         assert runtime_binding_for_run(conn, run, prepared) == binding

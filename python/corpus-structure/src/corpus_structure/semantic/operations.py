@@ -114,6 +114,7 @@ def create_run(
             options=cast(JsonValue, dict(options)),
             guideline=guideline,
             code_commit=code_commit,
+            projection_context=prepared,
         )
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":

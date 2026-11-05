@@ -1,0 +1,49 @@
+# Semantic release and runtime provenance separation
+
+Native candidate authoring and focused storage qualification for ADR-0063, dated 2026-11-05.
+The immutable semantic release governs meaning. Runtime archives retain implementation bytes,
+and each new run pins one same-release runtime. Historical archives and run rows are retained.
+
+`author-candidate.py` acquires an authenticated temporary PostgreSQL clone, upgrades it through
+frozen migration 131, derives a candidate, actually installs and admits its native definitions,
+and rolls the candidate transaction back. The current author also refreshes the prospective Python
+admission hashes from the selected candidate, then exercises actual archival, two runtime
+registrations, run creation, provenance reopening and the installed start fence as maintenance
+caller. Restricted principal qualification belongs to the separate native fixture run. The author
+never deploys to the persistent development database.
+Each unique `attempt-*` directory retains its generated candidate and outcome, including failures.
+
+Run from the repository root:
+
+```sh
+uv run python docs/design_review/evidence/2026-11-05_semantic-runtime-identity/author-candidate.py attempt-001
+```
+
+Candidate installation establishes its bounded native source/owner/ACL compatibility only.
+Focused functional results and persistent deployment are separate obligations.
+
+Verified 2026-11-05:
+
+| Receipt | Outcome | Scope |
+|---|---|---|
+| `attempt-001/receipt.json` | passed | Initial candidate installation, native admission, owner/ACL/nullability and rollback; no functional archival control yet |
+| `attempt-002/receipt.json` | failed | Redundant source-guard selection produced a duplicate managed identity; removed the redundant selection |
+| `attempt-003/receipt.json` | failed | Actual runtime registration exposed PostgreSQL collation precedence on an integer JSON index; parenthesized the text result |
+| `attempt-004/receipt.json` | passed | 14 native transitions, 21 total operations; installation, exact admission, owner-native positive controls and rollback |
+| `native-attempt-001.log` | blocked | Worktree `.envrc` approval prevented the read-only principal inventory; reviewed and approved the activation |
+| `native-attempt-002.log` | failed | Prospective migration wrapper lacked its PostgreSQL type import; fixed before freezing |
+| `native-attempt-003.log` | failed | Prospective revision exceeded Alembic's 32-character version column; shortened it before freezing |
+| `native-attempt-004.log` | failed | All 12 controls reached actual archival and exposed old semantic-compiler guards; forward guards now retain 14–16 reading and admit compiler 17 |
+| `native-attempt-005.log` | passed | All 12 runtime storage controls using real protected writer/admin fixtures and frozen migration 132 |
+
+The native command was:
+
+```sh
+uv run pytest python/corpus-structure/tests/semantic/test_runtime_bindings_native.py -q --strict-markers --strict-config
+```
+
+These controls cover exact archives, same-release pins, altered/unknown contract refusal,
+immutable pins and archive bytes, direct writer denial, old creation ABI refusal, exact-runtime
+reuse fencing, and refusal to start or claim under another installed runtime. Ruff and Pyrefly
+passed for the changed storage, admission, prospective migration wrapper and native test scope.
+Persistent old-release/run preservation and the assembled development journey remain separate.
