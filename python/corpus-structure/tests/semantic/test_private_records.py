@@ -73,7 +73,8 @@ class RawReport(BaseModel):
 
 
 @pytest.fixture
-def private_source(semantic_db_engine, semantic_writer_engine, tmp_path):
+def private_source(semantic_db_engine, semantic_writer_engine, tmp_path, request):
+    include_blank_cell = getattr(request, "param", {}).get("include_blank_cell", False)
     schema = dict(
         id="https://example/private-records",
         name="private_records",
@@ -147,16 +148,16 @@ def private_source(semantic_db_engine, semantic_writer_engine, tmp_path):
         parent=section,
         data=TableData(
             num_rows=1,
-            num_cols=2,
+            num_cols=3 if include_blank_cell else 2,
             table_cells=[
                 TableCell(
-                    text="12",
+                    text="" if column == 2 else "12",
                     start_row_offset_idx=0,
                     end_row_offset_idx=1,
                     start_col_offset_idx=column,
                     end_col_offset_idx=column + 1,
                 )
-                for column in range(2)
+                for column in range(3 if include_blank_cell else 2)
             ],
         ),
     )

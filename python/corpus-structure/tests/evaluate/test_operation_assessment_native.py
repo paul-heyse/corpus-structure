@@ -35,20 +35,38 @@ def freeze(conn, case, partition="development"):
             table("kb.document").c.id == case.view_row["document_id"]
         )
     )
-    assign_origin(
-        conn,
-        project_id="private-records",
-        origin_group="operation-fixture-origin",
-        partition=partition,
-        source_uris=(uri,),
-        provenance={"source": "independent two-cell control"},
-    )
-    split_documents(
-        conn,
-        "private-records",
-        SplitConfig(forced_dev={uri: "controlled source"}),
-        release_id=case.prepared.release_id,
-    )
+    origins = table("eval.reference_origin_source")
+    if (
+        conn.scalar(
+            select(origins.c.origin_group).where(
+                origins.c.project_id == "private-records", origins.c.source_uri == uri
+            )
+        )
+        is None
+    ):
+        assign_origin(
+            conn,
+            project_id="private-records",
+            origin_group="operation-fixture-origin",
+            partition=partition,
+            source_uris=(uri,),
+            provenance={"source": "independent two-cell control"},
+        )
+    splits = table("eval.document_split")
+    if (
+        conn.scalar(
+            select(splits.c.id).where(
+                splits.c.project_id == "private-records", splits.c.source_uri == uri
+            )
+        )
+        is None
+    ):
+        split_documents(
+            conn,
+            "private-records",
+            SplitConfig(forced_dev={uri: "controlled source"}),
+            release_id=case.prepared.release_id,
+        )
     logical = source_binding(
         conn, source_run_id=case.run, source_view_id=case.view, source_cut_id=case.cut
     )

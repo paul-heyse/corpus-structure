@@ -478,9 +478,34 @@ def adapt_native_groups(context, *, family, groups, item_key, dependencies=()):
                     members.append(
                         builder.diagnostic(path + "/location", asdict(field), str(error))
                     )
+            inspection_subject = field.state != "present" and bool(
+                field.inspected_pointer or field.inspected_spans
+            )
+            if inspection_subject:
+                try:
+                    if field.inspected_pointer:
+                        anchors = [native_item_anchor(context, field.inspected_pointer)]
+                    else:
+                        anchors = []
+                        for span in field.inspected_spans:
+                            for piece in context.map_span(
+                                span.start, span.end, literal=span.text, allow_multiple=True
+                            ):
+                                anchor, coordinate = evidence_anchor(context, piece, native=True)
+                                anchors.append(anchor)
+                                builder.coordinates[
+                                    canonical_bytes(
+                                        {k: v for k, v in coordinate.items() if k != "text"}
+                                    )
+                                ] = coordinate
+                except ContextRefused as error:
+                    anchors = []
+                    members.append(
+                        builder.diagnostic(path + "/inspection", asdict(field), str(error))
+                    )
             builder.operation["inspected_count"] += 1
             occurrence = None
-            if anchors:
+            if anchors and not inspection_subject:
                 occurrence = builder.add(
                     kind="occurrence",
                     semantic_type="source_occurrence",
@@ -494,6 +519,8 @@ def adapt_native_groups(context, *, family, groups, item_key, dependencies=()):
                     item_key=path,
                     anchors=anchors,
                     value=source_value(asdict(field)),
+                    source_field_state=field.state,
+                    anchor_role="inspection_subject" if inspection_subject else "evidence",
                     endpoints=(dict(role="occurrence", contribution_id=occurrence),)
                     if occurrence
                     else (),

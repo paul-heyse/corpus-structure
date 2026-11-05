@@ -212,21 +212,18 @@ def read_source_contributions(
     more = more or len(rows) > limit
     rows = rows[:limit]
     details = {}
-    if include_details and rows:
-        # One report expansion per task in each query, independent of selected
-        # contribution count. The budget bounds transferred/decoded payload bytes;
-        # PostgreSQL still owns parsing and expansion of each stored JSON report.
-        positions = {}
-        for row in rows:
-            positions.setdefault(row["task_id"], []).append(row["position"])
-        selection = json.dumps(
-            [dict(task_id=task, positions=chosen) for task, chosen in positions.items()]
-        )
+    operation_details = {}
+    if include_details:
+        # One expansion per report array in each query, independent of selected
+        # row count. Admit the combined operation/contribution transfer budget
+        # before either payload is decoded. PostgreSQL owns report expansion.
+        requests = []
+        total_bytes = 0
         grouped_sql = """
           SELECT r.task_id,jsonb_agg(c.value ORDER BY c.ordinality) AS selected_details
           FROM jsonb_to_recordset(CAST(:selection AS jsonb)) s(task_id bigint,positions bigint[])
           JOIN ops.task_result r ON r.task_id=s.task_id
-          CROSS JOIN LATERAL jsonb_array_elements(r.body->'contributions')
+          CROSS JOIN LATERAL jsonb_array_elements(r.body->:field)
             WITH ORDINALITY c(value,ordinality)
           WHERE c.ordinality-1=ANY(s.positions) GROUP BY r.task_id
         """
@@ -235,11 +232,30 @@ def read_source_contributions(
             + grouped_sql
             + ") bounded"
         )
-        if conn.scalar(byte_query, dict(selection=selection)) > max_bytes:
+        for field, selected_rows, identity in (
+            ("contributions", rows, "contribution_id"),
+            ("contribution_operations", op_rows, "operation_key"),
+        ):
+            if not selected_rows:
+                continue
+            positions = {}
+            for row in selected_rows:
+                positions.setdefault(row["task_id"], []).append(row["position"])
+            params = dict(
+                field=field,
+                selection=json.dumps(
+                    [dict(task_id=task, positions=chosen) for task, chosen in positions.items()]
+                ),
+            )
+            total_bytes += conn.scalar(byte_query, params)
+            requests.append((field, identity, params))
+        if total_bytes > max_bytes:
             raise ValueError("contribution detail read exceeds byte budget before hydration")
-        for report in conn.execute(text(grouped_sql), dict(selection=selection)).mappings():
-            for raw in report["selected_details"]:
-                details[report["task_id"], raw["contribution_id"]] = raw
+        for field, identity, params in requests:
+            target = details if field == "contributions" else operation_details
+            for report in conn.execute(text(grouped_sql), params).mappings():
+                for raw in report["selected_details"]:
+                    target[report["task_id"], raw[identity]] = raw
     output = []
     for row in rows:
         report = origins[row["task_id"]]
@@ -257,8 +273,22 @@ def read_source_contributions(
         }
         if include_details:
             raw = details[row["task_id"], row["contribution_id"]]
-            row = prepared.validate_python("SourceContribution", raw).model_dump(mode="python")
+            row = prepared.validate_json("SourceContribution", json.dumps(raw)).model_dump(
+                mode="python"
+            )
         output.append({**row, **meta})
+    if include_details:
+        op_rows = tuple(
+            {
+                **prepared.validate_json(
+                    "SourceContributionOperation",
+                    json.dumps(operation_details[row["task_id"], row["operation_key"]]),
+                ).model_dump(mode="python"),
+                "task_id": row["task_id"],
+                "position": row["position"],
+            }
+            for row in op_rows
+        )
     operation_output = tuple(
         {
             **row,

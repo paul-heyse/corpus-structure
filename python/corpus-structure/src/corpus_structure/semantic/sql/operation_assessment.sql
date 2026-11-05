@@ -131,11 +131,11 @@ BEGIN
   RAISE EXCEPTION 'operation cases must be an array' USING ERRCODE='23514'; END IF;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
-    'assessor_provenance','contribution_kind','contribution_id','error_category','reference_projection','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role']<>'{}'
+    'assessor_provenance','contribution_kind','contribution_id','error_category','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role']<>'{}'
    OR NOT(source_record ?& ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation','assessor_provenance'])
    OR EXISTS(SELECT FROM unnest(ARRAY['case_id','facet','inspected_scope','explanation']) k WHERE btrim(COALESCE(source_record->>k,''))='')
-   OR source_record->>'judgment' NOT IN ('supported','unsupported','ambiguous','unassessed')
-   OR source_record->>'source_state' NOT IN ('stated','unstated','uninspected','unresolved')
+   OR COALESCE(source_record->>'judgment','') NOT IN ('supported','unsupported','ambiguous','unassessed')
+   OR COALESCE(source_record->>'source_state','') NOT IN ('stated','unstated','uninspected','unresolved')
    OR jsonb_typeof(source_record->'anchor_ids') IS DISTINCT FROM 'array'
    OR jsonb_typeof(source_record->'alternatives') IS DISTINCT FROM 'array'
    OR jsonb_typeof(source_record->'assessor_provenance') IS DISTINCT FROM 'object' OR source_record->'assessor_provenance'='{}'
@@ -145,34 +145,20 @@ BEGIN
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') a WHERE jsonb_typeof(a)<>'object' OR a='{}')
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
    OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')
-   OR NOT(bound->'anchor_ids' @> source_record->'anchor_ids')
-   OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') expected
-    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(expected->'endpoint_semantics','[]')) endpoint
+   OR NOT((bound->'anchor_ids') @> (source_record->'anchor_ids'))
+   OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') expected_option
+    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(expected_option->'endpoint_semantics','[]')) endpoint
     WHERE endpoint-ARRAY['role','anchor_ids','fields']<>'{}' OR btrim(COALESCE(endpoint->>'role',''))=''
      OR jsonb_typeof(endpoint->'anchor_ids') IS DISTINCT FROM 'array'
      OR jsonb_typeof(endpoint->'fields') IS DISTINCT FROM 'object'
-     OR NOT(bound->'anchor_ids' @> endpoint->'anchor_ids'))
+     OR NOT((bound->'anchor_ids') @> (endpoint->'anchor_ids')))
    OR (source_record ? 'permissible_anchor_sets' AND (jsonb_typeof(source_record->'permissible_anchor_sets') IS DISTINCT FROM 'array'
      OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'permissible_anchor_sets') permitted
-      WHERE jsonb_typeof(permitted)<>'array' OR NOT(bound->'anchor_ids' @> permitted))))
+      WHERE jsonb_typeof(permitted)<>'array' OR NOT((bound->'anchor_ids') @> permitted))))
    OR (bound->>'direction'='source_first' AND source_record->>'contribution_id' IS NOT NULL)
    OR (bound->>'direction'='output_first' AND (source_record->>'contribution_id' IS NULL OR NOT(bound->'contribution_ids' ? (source_record->>'contribution_id')))) THEN
    RAISE EXCEPTION 'operation case differs from independent source/facet authority' USING ERRCODE='23514'; END IF;
-  IF source_record->'reference_projection' IS NOT NULL AND source_record->'reference_projection'<>'null' THEN
-   captured:=source_record->'reference_projection';
-   IF captured->>'protocol' IS DISTINCT FROM 'exact-field-projection-1'
-    OR NOT(captured ?& ARRAY['source_pass_id','source_frame_id','source_record_id','source_field_index','source_field','question','correspondence','scope'])
-    OR captured->>'question' IS DISTINCT FROM source_record->>'facet' OR btrim(COALESCE(captured->>'scope',''))=''
-    OR captured->>'question' NOT IN ('value','role','location')
-    OR NOT EXISTS(SELECT FROM eval.reference_pass p JOIN eval.reference_frame f ON f.pass_id=p.id
-      JOIN eval.reference_unit u ON u.id=p.unit_id JOIN eval.reference_set s ON s.id=u.set_id
-      WHERE p.id=(captured->>'source_pass_id')::bigint AND f.id=(captured->>'source_frame_id')::bigint
-       AND s.project_id=reference_set.project_id AND s.sampling->>'partition'=reference_set.sampling->>'partition'
-       AND EXISTS(SELECT FROM jsonb_array_elements(convert_from(p.authored,'UTF8')::jsonb->'records') r
-        WHERE r->>'record_id'=captured->>'source_record_id'
-         AND r->'fields'->(captured->>'source_field_index')::integer=captured->'source_field')) THEN
-    RAISE EXCEPTION 'local projection requires exact source reference and original protected partition' USING ERRCODE='23514'; END IF;
-  END IF;
+
  END LOOP;
  IF jsonb_array_length(p_payload->'cases')<>(SELECT count(DISTINCT r->>'case_id') FROM jsonb_array_elements(p_payload->'cases') r) THEN
   RAISE EXCEPTION 'operation reference duplicates case identities' USING ERRCODE='23514'; END IF;

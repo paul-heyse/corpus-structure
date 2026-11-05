@@ -158,9 +158,38 @@ def test_repeated_windows_do_not_multiply_one_physical_occurrence(frame):
 
 def test_reused_task_sidecars_do_not_change_contribution_identity(frame):
     result = score_cases(
-        frame, (case(),), (prediction(selected_task_id=1), prediction(selected_task_id=2))
+        frame,
+        (case(),),
+        (
+            prediction(
+                selected_task_id=1,
+                origin_task_id=10,
+                task_status="done",
+                source_view_id=23,
+                task_id=10,
+                position=0,
+            ),
+            prediction(
+                selected_task_id=2,
+                origin_task_id=10,
+                task_status="reused",
+                source_view_id=23,
+                task_id=10,
+                position=0,
+            ),
+            prediction(
+                selected_task_id=3,
+                origin_task_id=11,
+                task_status="done",
+                source_view_id=23,
+                task_id=11,
+                position=2,
+            ),
+        ),
     )
     assert result["prediction_count"] == 1
+    assert result["prediction_count_grain"] == "unique_semantic_contribution_product"
+    assert result["producer_observation_count"] == 2
     assert result["facets"]["value"]["supported"] == 1
 
 
@@ -215,25 +244,11 @@ def test_protocol_rejects_source_release_mismatch_and_fabricated_output(frame):
     assert decode_frame(encode_frame(frame)) == frame
 
 
-def test_old_whole_reading_boolean_cannot_supply_local_truth(frame):
-    with pytest.raises(ReferenceError, match="projection"):
-        replace(case(), reference_projection={"whole_reading_correct": True})
-    value = replace(
-        case(),
-        reference_projection=dict(
-            protocol="exact-field-projection-1",
-            source_pass_id=80,
-            source_frame_id=81,
-            source_record_id="reference-record",
-            source_field_index=0,
-            source_field={"role": "value", "original": "12"},
-            question="value",
-            correspondence={"source_cell": "cell-1"},
-            scope="independently authored cell text only",
-        ),
-    )
-    assert value.reference_projection is not None
-    assert value.reference_projection["source_pass_id"] == 80
+def test_old_reference_projection_is_not_a_fresh_operation_answer(frame):
+    value = payload(frame, (case(),))
+    value["cases"][0]["reference_projection"] = {"whole_reading_correct": True}
+    with pytest.raises(ReferenceError):
+        decode_authored(json.dumps(value).encode(), frame)
 
 
 def assessment(frame, predictions):
@@ -315,14 +330,30 @@ def test_true_negative_requires_declared_detection_question_and_separate_counts(
 
 def test_explicit_unstated_field_capture_requires_actual_structure(frame):
     note = replace(
-        case(), facet="note", source_state="unstated", alternatives=({"disposition": "unstated"},)
+        case(),
+        facet="note",
+        source_state="unstated",
+        alternatives=({"source_field_state": "unstated", "anchor_role": "inspection_subject"},),
     )
     assert score_cases(frame, (note,), ())["cases"][0]["error_category"] == "missing_output"
-    output = prediction(disposition="unstated")
+    output = prediction(source_field_state="unstated", anchor_role="inspection_subject")
     assert (
         score_cases(frame, (note,), (output,))["cases"][0]["capture_outcome"]
         == "captured_structure"
     )
+
+
+def test_inspection_subject_quote_does_not_become_value_literal(frame):
+    output = dict(
+        prediction(),
+        anchor_role="inspection_subject",
+        source_field_state="unstated",
+        anchors=[
+            {"anchor_id": "cell-1", "precision": "exact", "source_piece": "some inspected context"}
+        ],
+    )
+    literal = replace(case(), alternatives=({"source_pieces": ["some inspected context"]},))
+    assert score_cases(frame, (literal,), (output,))["cases"][0]["judgment"] == "unsupported"
 
 
 def test_attachment_requires_right_cell_and_right_header_source_semantics(frame):

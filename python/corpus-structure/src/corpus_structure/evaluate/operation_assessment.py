@@ -121,7 +121,6 @@ class OperationCase:
     contribution_kind: str = "proposal"
     contribution_id: str | None = None
     error_category: str | None = None
-    reference_projection: Mapping[str, Any] | None = None
     candidate_selector: Mapping[str, Any] = field(default_factory=dict)
     permissible_anchor_sets: tuple[tuple[str, ...], ...] = ()
     expectation_mode: str = "structure"
@@ -159,28 +158,6 @@ class OperationCase:
             raise ReferenceError("stated supported case requires independent expected structure")
         if any(not isinstance(value, Mapping) or not value for value in self.alternatives):
             raise ReferenceError("permissible alternatives require nonempty exact structures")
-        if self.reference_projection is not None:
-            projection = self.reference_projection
-            if (
-                not {
-                    "protocol",
-                    "source_pass_id",
-                    "source_frame_id",
-                    "source_record_id",
-                    "source_field_index",
-                    "source_field",
-                    "question",
-                    "correspondence",
-                    "scope",
-                }
-                <= projection.keys()
-                or projection["protocol"] != "exact-field-projection-1"
-            ):
-                raise ReferenceError(
-                    "reused reference requires versioned exact-question projection"
-                )
-            if projection["question"] != self.facet or not projection["scope"]:
-                raise ReferenceError("old whole-reading labels cannot supply local truth")
 
 
 def decode_authored(authored: bytes, frame: OperationEvaluationFrame) -> dict[str, Any]:
@@ -265,6 +242,9 @@ def _matches(actual: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
 
 def _literal_product(value: Mapping[str, Any]) -> Mapping[str, Any]:
     anchors = value.get("anchors", ())
+    value = dict(value, source_anchor_ids=[anchor["anchor_id"] for anchor in anchors])
+    if value.get("anchor_role") == "inspection_subject":
+        return value
     if anchors and all(
         anchor.get("precision") == "exact" and "source_piece" in anchor for anchor in anchors
     ):
@@ -316,9 +296,27 @@ def score_cases(
     from scipy.optimize import linear_sum_assignment
 
     unique: dict[str, Mapping[str, Any]] = {}
+    observed = set()
+    missing_observation_lineage = 0
     for contribution in contributions:
         identity = contribution["contribution_id"]
-        sidecars = {"selected_task_id", "origin_task_id", "source", "method", "cut_member"}
+        if frame.direction == "output_first" and identity not in frame.contribution_ids:
+            continue
+        if contribution.get("origin_task_id") is None:
+            missing_observation_lineage += 1
+        else:
+            observed.add((contribution["origin_task_id"], identity))
+        sidecars = {
+            "selected_task_id",
+            "origin_task_id",
+            "source",
+            "method",
+            "cut_member",
+            "task_status",
+            "source_view_id",
+            "task_id",
+            "position",
+        }
         if identity in unique and canonical_bytes(
             {key: value for key, value in unique[identity].items() if key not in sidecars}
         ) != canonical_bytes(
@@ -463,7 +461,6 @@ def score_cases(
                 contribution_id=matched["contribution_id"] if matched else case.contribution_id,
                 candidate_ids=[value["contribution_id"] for value in candidates],
                 explanation=case.explanation,
-                reference_projection=case.reference_projection,
             )
         )
     facets = {}
@@ -493,6 +490,10 @@ def score_cases(
         cases=results,
         absence_detection_facets=detection_facets,
         prediction_count=len(selected),
+        prediction_count_grain="unique_semantic_contribution_product",
+        producer_observation_count=len(observed) if not missing_observation_lineage else None,
+        producer_observation_count_grain="unique_origin_task_and_contribution_id",
+        missing_producer_observation_lineage=missing_observation_lineage,
         quality_claim="not_established",
     )
 
@@ -867,52 +868,3 @@ def review_export(conn: Connection, *, project_id: str, set_id: int) -> dict[str
     return _call(
         conn, "SELECT eval.operation_review_export(:p,:s)", p=project_id, s=set_id
     ).scalar_one()
-
-
-def project_reference_field(
-    conn: Connection,
-    *,
-    pass_id: int,
-    frame_id: int,
-    record_id: str,
-    field_index: int,
-    question: str,
-) -> dict[str, Any]:
-    """Project an independently authored field, never an old grade/whole-reading label.
-
-    The returned exact field and anchors are evidence for the named question only.
-    Calling code must keep the source partition; native submission verifies that
-    provenance and refuses a projection into a differently protected cohort.
-    """
-    from .record_references import read_pass as read_record_pass
-
-    if question not in {"value", "role", "location"} or field_index < 0:
-        raise ReferenceError(
-            "reference projection supports only exact value, role or location questions"
-        )
-    source = read_record_pass(conn, pass_id, frame_id=frame_id)
-    records = [record for record in source.records if record["record_id"] == record_id]
-    if len(records) != 1 or field_index >= len(records[0]["fields"]):
-        raise ReferenceError("source reference field is absent or ambiguous")
-    record = records[0]
-    field = record["fields"][field_index]
-    evidence_ids = set(field.get("evidence_sets", ()))
-    anchor_ids = {
-        anchor
-        for evidence in record["evidence_sets"]
-        if evidence["set_id"] in evidence_ids
-        for anchor in evidence["anchors"]
-    }
-    anchors = [anchor for anchor in record["anchors"] if anchor["anchor_id"] in anchor_ids]
-    return dict(
-        protocol="exact-field-projection-1",
-        source_pass_id=pass_id,
-        source_frame_id=frame_id,
-        source_record_id=record_id,
-        source_field_index=field_index,
-        source_field=dict(field),
-        question=question,
-        correspondence=dict(anchor_ids=sorted(anchor_ids)),
-        scope=f"exact independently authored field {question}; no whole-record truth",
-        anchors=anchors,
-    )

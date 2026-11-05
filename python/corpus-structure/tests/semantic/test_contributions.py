@@ -219,3 +219,22 @@ def test_unlocated_proposal_cannot_spoof_occurrence(prepared):
         prepared, source="source", operations=(operation(1),), contributions=(row,)
     )
     assert "occurrence_id" not in bound[0]
+
+
+def test_two_operations_keep_distinct_observations_of_one_physical_occurrence(prepared):
+    first, coordinate = contribution(item="same-return-position")
+    second = dict(first, operation_key="second-operation")
+    second["contribution_id"] = contribution_identity(second)
+    operations = (
+        operation(1),
+        dict(operation(1), operation_key="second-operation", question="independent-window"),
+    )
+    _, rows = bind_contributions(
+        prepared,
+        source="source",
+        operations=operations,
+        contributions=(first, second),
+        coordinate_texts=(coordinate,),
+    )
+    assert rows[0]["contribution_id"] != rows[1]["contribution_id"]
+    assert rows[0]["occurrence_id"] == rows[1]["occurrence_id"]

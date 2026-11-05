@@ -119,18 +119,23 @@ BEGIN
   FOR anchor_ IN SELECT value FROM jsonb_array_elements(anchors) LOOP
    IF anchor_->>'space'='selected_projection' THEN RAISE EXCEPTION 'physical occurrence requires canonical native coordinates' USING ERRCODE='23514'; END IF;
    expected:='record-anchor:'||encode(sha256(convert_to(data.canonical_json(
-    (anchor_-'anchor_id')||jsonb_build_object('pin',anchor_->'pin'-'source_view_id')),'UTF8')),'hex');
+    (anchor_-'anchor_id')||jsonb_build_object('pin',(anchor_->'pin')-'source_view_id')),'UTF8')),'hex');
    IF anchor_->>'anchor_id' IS DISTINCT FROM expected THEN
     RAISE EXCEPTION 'contribution source anchor identity differs from contents' USING ERRCODE='23514'; END IF;
-   coordinate:=data.canonical_json(jsonb_build_array(anchor_->'pin'-'source_view_id',anchor_->'space',anchor_->'pointer',anchor_->'recognition'));
+   coordinate:=data.canonical_json(jsonb_build_array((anchor_->'pin')-'source_view_id',anchor_->'space',anchor_->'pointer',anchor_->'recognition'));
    IF anchor_->>'precision'='exact' THEN
     IF anchor_->>'start' IS NULL OR anchor_->>'end' IS NULL OR (anchor_->>'start')::bigint < COALESCE((previous_ends->>coordinate)::bigint,0) THEN
      RAISE EXCEPTION 'contribution source pieces overlap or reverse order' USING ERRCODE='23514'; END IF;
     previous_ends:=previous_ends||jsonb_build_object(coordinate,(anchor_->>'end')::bigint);
    END IF;
   END LOOP;
-  IF (contribution->>'score_state'='native') IS DISTINCT FROM (c ? 'score') THEN
+  IF (contribution->>'score_state'='native') IS DISTINCT FROM (contribution ? 'score') THEN
    RAISE EXCEPTION 'contribution score availability differs from actual score' USING ERRCODE='23514'; END IF;
+  IF contribution->>'score_state'='native' THEN
+   IF contribution->'score'->>'kind' NOT IN ('integer','float') THEN
+    RAISE EXCEPTION 'native contribution score requires an actual numeric value' USING ERRCODE='23514'; END IF;
+   IF contribution->'score'->>'kind'='float' THEN PERFORM data.record_source_float(contribution->'score'); END IF;
+  END IF;
   expected:='source-contribution:'||encode(sha256(convert_to(data.canonical_json(contribution-'contribution_id'),'UTF8')),'hex');
   IF contribution->>'contribution_id' IS DISTINCT FROM expected THEN
    RAISE EXCEPTION 'contribution identity differs from immutable contents' USING ERRCODE='23514'; END IF;

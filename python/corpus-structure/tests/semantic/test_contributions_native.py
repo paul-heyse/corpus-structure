@@ -169,7 +169,7 @@ def test_native_anchorless_occurrence_spoof_refuses_at_protected_completion(priv
     [
         ("foreign_pin", "pin differs"),
         ("missing_endpoint", "endpoint unavailable"),
-        ("synthetic_gap", "source pieces"),
+        ("synthetic_gap", "persisted source text"),
         ("wrong_text", "persisted source text"),
     ],
 )
@@ -188,12 +188,14 @@ def test_native_contribution_source_and_closure_refusals(private_source, change,
     else:
         anchor = row["anchors"][0]
         if change == "synthetic_gap":
-            anchor.update(space="selected_projection", start=1, end=4, source_piece="2\n1")
+            # Deliberately mislabel a joined projection interval as continuous
+            # native cell text. All content IDs are valid; native custody must
+            # reject the fabricated quote across the synthetic separator.
+            anchor.update(start=1, end=4, source_piece="2\n1")
         else:
             anchor["source_piece"] = "99"
         anchor["anchor_id"] = anchor_identity(anchor)
-        if change != "synthetic_gap":
-            row["occurrence_id"] = occurrence_identity(row["anchors"])
+        row["occurrence_id"] = occurrence_identity(row["anchors"])
     row["contribution_id"] = contribution_identity(row)
     with case.writer.begin() as conn, pytest.raises((InvariantViolation, DBAPIError)) as error:
         bypass(case, conn, raw)
@@ -298,3 +300,134 @@ def test_scope_and_endpoint_indexes_select_before_detail(private_source):
         assert [row["contribution_id"] for row in endpoint.contributions] == [
             proposal["contribution_id"]
         ]
+
+
+def test_native_score_state_missing_is_not_zero(private_source):
+    case = private_source
+    result = drafts(case)
+    raw = envelope(case, result)
+    proposal = raw["contributions"][1]
+    proposal["score"] = {"kind": "integer", "integer": 0}
+    proposal["contribution_id"] = contribution_identity(proposal)
+    with case.writer.begin() as conn:
+        with pytest.raises(DBAPIError, match="score availability"), conn.begin_nested():
+            bypass(case, conn, raw)
+        proposal["score_state"] = "native"
+        proposal["contribution_id"] = contribution_identity(proposal)
+        bypass(case, conn, raw)
+    with case.writer.connect() as conn:
+        values = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            include_details=True,
+        ).contributions
+        assert "score" not in values[0]
+        assert values[1]["score_state"] == "native" and values[1]["score"] == {
+            "kind": "integer",
+            "integer": 0,
+        }
+
+
+@pytest.mark.parametrize("private_source", [{"include_blank_cell": True}], indirect=True)
+def test_actual_blank_cell_subject_survives_native_read_and_source_first_assessment(private_source):
+    from dataclasses import replace
+
+    from corpus_structure.evaluate.operation_assessment import (
+        OperationCase,
+        OperationEvaluationFrame,
+        score_cases,
+    )
+    from corpus_structure.methods.contribution_adapter import adapt_native_groups
+    from corpus_structure.methods.record_assembly import native_table_groups
+    from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+
+    case = private_source
+    with case.writer.connect() as conn:
+        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
+        source = replace(native_source_frame(view, ()), unit_ref="private-unit")
+        context = NativeSourceContext(
+            source,
+            (),
+            (SourceSlice(case.view, 0, len(source.text)),),
+            "independently selected blank cell",
+            "native-test",
+            "exact native table subject",
+        )
+        groups = native_table_groups(
+            context, table_pointer=case.table, cells=(2,), row_paths={}, header_paths={}
+        )
+        batch = adapt_native_groups(
+            context, family="table", groups=groups, item_key="actual-blank-cell"
+        )
+    result = UnitResult(
+        ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
+        outcome=ObservationOutcome.PRODUCED,
+        contribution_operations=batch.operations,
+        contributions=batch.contributions,
+        contribution_coordinate_texts=batch.coordinate_texts,
+    )
+    with case.writer.begin() as conn:
+        complete(case, conn, result)
+    specified = drafts(case).contributions
+    assert specified is not None
+    pin = specified[0]["pin"]
+    anchor = dict(
+        pin=pin, space="native", pointer=case.table + "/data/table_cells/2", precision="item"
+    )
+    anchor["anchor_id"] = anchor_identity(anchor)
+    scope = {key: value for key, value in anchor.items() if key != "anchor_id"}
+    with case.writer.connect() as conn:
+        inventory = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            anchor_scopes=(scope,),
+            include_details=True,
+        )
+    proposal = next(
+        value
+        for value in inventory.contributions
+        if value["kind"] == "proposal" and value["semantic_type"] == "table.cell_value"
+    )
+    assert (
+        proposal["source_field_state"] == "unstated"
+        and proposal["anchor_role"] == "inspection_subject"
+    )
+    assert not any(name in proposal["anchors"][0] for name in ("source_piece", "start", "end"))
+    frame = OperationEvaluationFrame(
+        unit="blank-cell",
+        release_id=case.prepared.release_id,
+        guideline_version="blank-1",
+        rubric_version="blank-1",
+        context_policy="native-only",
+        operation_question="native-cell",
+        operation_version="1",
+        domain="controlled-table",
+        direction="source_first",
+        pin=pin,
+        anchor_ids=(anchor["anchor_id"],),
+        anchor_scopes=(scope,),
+    )
+    expected = OperationCase(
+        case_id="blank-value",
+        facet="source_field_state",
+        candidate_selector={"semantic_type": "table.cell_value"},
+        anchor_ids=frame.anchor_ids,
+        inspected_scope="table/cell/2",
+        source_state="unstated",
+        judgment="supported",
+        alternatives=({"source_field_state": "unstated", "anchor_role": "inspection_subject"},),
+        explanation=(
+            "The independently specified native cell text is blank; "
+            "its inspection subject remains attributable."
+        ),
+        assessor_provenance={"source": "authored fixture"},
+    )
+    scored = score_cases(frame, (expected,), inventory.contributions)
+    assert scored["cases"][0]["capture_outcome"] == "captured_structure"
+    assert score_cases(frame, (expected,), ())["cases"][0]["error_category"] == "missing_output"

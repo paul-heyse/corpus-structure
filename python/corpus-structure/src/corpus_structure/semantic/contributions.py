@@ -142,6 +142,11 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
             raise ValueError("unlocated contribution cannot claim an occurrence identity")
         if (row["score_state"] == "native") != ("score" in row):
             raise ValueError("contribution score availability differs from actual score")
+        if row["score_state"] == "native":
+            from .observations import source_python
+
+            if type(source_python(row["score"])) not in {int, float}:
+                raise ValueError("native contribution score requires an actual numeric value")
         if contribution_identity(row) != row["contribution_id"]:
             raise ValueError("contribution identity differs from immutable contents")
         output.append(row)
