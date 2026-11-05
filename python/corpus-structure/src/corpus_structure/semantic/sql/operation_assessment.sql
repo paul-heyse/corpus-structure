@@ -237,9 +237,9 @@ END $$;
 REVOKE ALL ON FUNCTION eval.operation_author_packet(bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.operation_author_packet(bigint) TO corpus_sem_evaluator;
 
-CREATE OR REPLACE FUNCTION eval.record_operation_reference_evaluation(p_project text,p_run bigint,p_set bigint,p_snapshot jsonb,p_result jsonb)
-RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE result bigint; reference_set eval.reference_set; completed ops.completed_result; snap jsonb;
+CREATE OR REPLACE FUNCTION eval.validate_operation_reference_evaluation(p_project text,p_run bigint,p_set bigint,p_snapshot jsonb,p_result jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE reference_set eval.reference_set; completed ops.completed_result; snap jsonb;
  unit eval.reference_unit; source_frame jsonb; authored jsonb;
 BEGIN
  PERFORM 1 FROM eval.reference_unit WHERE set_id=p_set FOR UPDATE;
@@ -281,6 +281,14 @@ BEGIN
         AND actual->>'facet'=expected->>'facet' AND actual->>'judgment' IN ('supported','unsupported','ambiguous','unassessed')))) THEN
    RAISE EXCEPTION 'operation evaluation misses selected source cases or changes their grain' USING ERRCODE='23514'; END IF;
  END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION eval.validate_operation_reference_evaluation(text,bigint,bigint,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION eval.record_operation_reference_evaluation(p_project text,p_run bigint,p_set bigint,p_snapshot jsonb,p_result jsonb)
+RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE result bigint;
+BEGIN
+ -- The table's trusted-set trigger dispatches to the same owned validator for every insert.
  INSERT INTO eval.reference_evaluation(project_id,run_id,set_id,reference_snapshot,result,content_digest)
  VALUES(p_project,p_run,p_set,p_snapshot,p_result,encode(sha256(convert_to(data.canonical_json(
   jsonb_build_object('snapshot',p_snapshot,'result',p_result)),'UTF8')),'hex')) RETURNING id INTO result;

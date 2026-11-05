@@ -1,6 +1,7 @@
 """Actual evaluator pass custody; controlled source, never model-quality evidence."""
 
 import json
+from copy import deepcopy
 from dataclasses import asdict
 
 import pytest
@@ -21,12 +22,16 @@ from corpus_structure.evaluate.operation_assessment import (
     author_packet,
     create_reference_set,
     record_pass,
+    reference_evaluate,
     review_export,
 )
 from corpus_structure.evaluate.record_references import assign_origin, source_binding
 from corpus_structure.evaluate.semantic import split_documents
 from corpus_structure.evaluate.split import SplitConfig
+from corpus_structure.semantic.domain_operations import consolidate_cut
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operations import seal_cut
 
 
 def freeze(conn, case, partition="development"):
@@ -183,6 +188,52 @@ def test_native_source_only_passes_and_protected_inventory(
         )
         exported = review_export(conn, project_id="private-records", set_id=created["set_id"])
         assert exported["judgments_exposed"] and len(exported["judgments"]) == 1
+    with source.writer.begin() as conn:
+        final = seal_cut(conn, source.run, "operation-grade-final", final=True)
+    consolidate_cut(source.writer, final, "operation-grade-output")
+    with semantic_evaluator_engine.begin() as conn:
+        graded = reference_evaluate(
+            conn, project_id="private-records", run_id=source.run, set_id=created["set_id"]
+        )
+        assert graded.result["protocol"] == "source-operation-evaluation-1"
+        assert graded.result["quality_claim"] == "not_established"
+        assert graded.result["population_claim"] == "declared_cases_only"
+        assert graded.result["units"][0]["cases"][0]["case_id"] == "cell-value"
+        assert graded.result["units"][0]["cases"][0]["judgment"] == "unsupported"
+        assert "comparisons" not in graded.result["units"][0]
+        stored = conn.scalar(select(table("eval.reference_evaluation").c.result).where(
+            table("eval.reference_evaluation").c.id == graded.id))
+        assert stored == graded.result
+        statement = text("SELECT eval.record_operation_reference_evaluation("
+            "'private-records',:r,:s,CAST(:n AS jsonb),CAST(:v AS jsonb))")
+
+        def record(result, set_id=created["set_id"]):
+            return conn.scalar(statement, dict(r=source.run, s=set_id,
+                n=canonical_bytes(graded.reference_snapshot).decode(),
+                v=canonical_bytes(result).decode()))
+
+        for protocol in ("source-record-evaluation-1", "scientific-evaluation-1", "unknown"):
+            invalid = dict(graded.result, protocol=protocol)
+            with pytest.raises(DBAPIError, match="trusted set protocol"), conn.begin_nested():
+                record(invalid)
+        invalid = deepcopy(graded.result)
+        invalid["units"][0]["cases"] = []
+        with pytest.raises(DBAPIError, match="misses selected source cases"), conn.begin_nested():
+            record(invalid)
+        # Report-supplied protocol cannot choose operation validation for another trusted set.
+        for index, sampling in enumerate(({}, {"record_protocol": "source-record-reference-1"},
+                         {"operation_protocol": "source-operation-reference-999"})):
+            foreign = conn.scalar(text("SELECT eval.create_reference_set('private-records',"
+                ":release,:run,:label,'dev','independent',"
+                "CAST(:sampling AS jsonb))"),
+                dict(release=source.prepared.release_id, run=source.run,
+                     label=f"foreign protocol control {index}",
+                     sampling=canonical_bytes(sampling).decode()))
+            invalid = dict(graded.result, set_id=foreign)
+            with pytest.raises(DBAPIError, match="trusted set protocol"), conn.begin_nested():
+                record(invalid, foreign)
+        assert conn.scalar(select(table("eval.reference_evaluation").c.id).where(
+            table("eval.reference_evaluation").c.set_id == created["set_id"])) == graded.id
     with source.writer.begin() as conn, pytest.raises(DBAPIError):
         conn.execute(text("SELECT authored FROM eval.reference_pass LIMIT 1"))
 

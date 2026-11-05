@@ -116,10 +116,21 @@ REVOKE ALL ON FUNCTION sem.require_scientific_layout(text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION eval.guard_scientific_decisions() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scientific$
-DECLARE r text; recipe jsonb; rule jsonb; parent jsonb; reference_protocol text;
+DECLARE r text; recipe jsonb; rule jsonb; parent jsonb; reference_protocol text; operation_protocol text;
 BEGIN
- SELECT release_id,sampling->>'record_protocol' INTO STRICT r,reference_protocol
+ SELECT release_id,sampling->>'record_protocol',sampling->>'operation_protocol'
+ INTO STRICT r,reference_protocol,operation_protocol
   FROM eval.reference_set WHERE id=NEW.set_id;
+ IF operation_protocol IS NOT NULL OR NEW.result->>'protocol'='source-operation-evaluation-1' THEN
+  IF operation_protocol IS DISTINCT FROM 'source-operation-reference-1'
+   OR reference_protocol IS NOT NULL OR NEW.result->>'family'='source_records'
+   OR NEW.result->>'protocol' IS DISTINCT FROM 'source-operation-evaluation-1' THEN
+   RAISE EXCEPTION 'reference family and trusted set protocol differ' USING ERRCODE='23514';
+  END IF;
+  PERFORM eval.validate_operation_reference_evaluation(
+   NEW.project_id,NEW.run_id,NEW.set_id,NEW.reference_snapshot,NEW.result);
+  RETURN NEW;
+ END IF;
  IF reference_protocol='source-record-reference-1'
   OR NEW.result->>'family'='source_records'
   OR NEW.result->>'protocol'='source-record-evaluation-1' THEN

@@ -695,6 +695,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_operation_reference_frame": (),
         "record_operation_reference_pass": ("corpus_sem_evaluator",),
         "operation_author_packet": ("corpus_sem_evaluator",),
+        "validate_operation_reference_evaluation": (),
         "record_operation_reference_evaluation": ("corpus_sem_evaluator",),
         "operation_review_export": ("corpus_sem_evaluator",),
     }.items():
