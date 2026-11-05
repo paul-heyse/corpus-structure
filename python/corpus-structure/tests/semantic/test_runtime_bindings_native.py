@@ -90,7 +90,9 @@ def test_distinct_runtime_pins_preserve_one_release_and_reopen_exact_archives(
         ).one() == original
 
 
-@pytest.mark.parametrize("mutation", ["release", "archive", "contract", "semantic", "membership"])
+@pytest.mark.parametrize(
+    "mutation", ["release", "archive", "contract", "model", "compiler", "semantic", "membership"]
+)
 def test_native_registration_refuses_altered_or_incompatible_binding(
     semantic_db_engine, semantic_writer_engine, mutation
 ):
@@ -103,6 +105,10 @@ def test_native_registration_refuses_altered_or_incompatible_binding(
         archive["inputs"][0]["content_hex"] = "00"
     elif mutation == "contract":
         manifest["version"] = "runtime-binding-999"
+    elif mutation == "model":
+        manifest["execution_model_id"] = "execution:another"
+    elif mutation == "compiler":
+        manifest["execution_compiler_version"] = "26"
     elif mutation == "semantic":
         manifest["semantic_inputs"] = []
     else:
@@ -191,3 +197,29 @@ def test_changed_runtime_cannot_start_or_claim_an_existing_run(
                 holder="worker", prepared=prepared)
         assert conn.scalar(select(table("ops.run").c.status).where(
             table("ops.run").c.id == run)) == "created"
+
+
+def test_unknown_runtime_and_legacy_creation_abi_cannot_create_an_unpinned_current_run(
+    semantic_db_engine, semantic_writer_engine
+):
+    prepared = prepare_operation_scenario(semantic_db_engine)
+    with (
+        pytest.raises(DBAPIError, match="unknown same-release runtime binding"),
+        semantic_writer_engine.begin() as conn,
+    ):
+        calls.create_run(
+            conn, project_id=calls.ProjectId("p"),
+            release_id=calls.ReleaseId(prepared.release_id),
+            runtime_id=calls.RuntimeId("runtime:unknown"),
+            realization_id=calls.RealizationId("z"), revision=0, dependencies=b"{}",
+            kind="full", phase=0, options={}, guideline="", code_commit="test",
+            projection_context=prepared,
+        )
+    with (
+        pytest.raises(DBAPIError, match="new run requires an immutable runtime binding"),
+        semantic_writer_engine.begin() as conn,
+    ):
+        conn.execute(text("SELECT ops.create_run('p',:release,'z',0,'{}'::bytea,'full',"
+            "0,'{}'::jsonb,'','test')"), {"release": prepared.release_id})
+    with semantic_writer_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM ops.run")) == 0
