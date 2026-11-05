@@ -35,6 +35,8 @@ from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.releases import open_release
+from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
+from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
 from corpus_structure.semantic.source_views import (
     load_source_view,
     store_native_source_frame,
@@ -293,14 +295,29 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     anyio.run(image_delivery)
     included, refused = deliveries
     included_body, refused_body = included.structured_content, refused.structured_content
-    assert included_body is not None and refused_body is not None
+    assert included_body is not None and refused_body is not None, [
+        content.text
+        for delivery in deliveries
+        for content in delivery.content
+        if content.type == "text"
+    ]
     assert not included.is_error and included_body["inline_image"]["disposition"] == "included"
     assert any(content.type == "image" for content in included.content)
     assert refused.is_error and refused_body["inline_image"]["disposition"] == "refused"
     assert all(content.type != "image" for content in refused.content)
     assert refused_body["artifact_digest"] == included_body["artifact_digest"]
     assert refused_body["inline_image"]["reason"] == "oversized_item"
+    expected_runtime = prepare_runtime_binding(prepared)
     with semantic_db_engine.connect() as conn:
+        for body in (included_body, refused_body):
+            assert (
+                conn.scalar(
+                    text("SELECT run_id FROM ops.task WHERE id=:task"),
+                    {"task": body["task_id"]},
+                )
+                == body["run_id"]
+            )
+            assert runtime_binding_for_run(conn, body["run_id"], prepared) == expected_runtime
         artifact_digest = refused_body["artifact_digest"]
         assert (
             conn.scalar(

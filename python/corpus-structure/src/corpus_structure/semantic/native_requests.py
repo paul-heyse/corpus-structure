@@ -51,7 +51,6 @@ def prepare_native_renderer(
     libraries = json.loads(runtime.input("libraries.json").content)
     return dict(
         implementation_digest=runtime.input("pdf/regions.py").digest,
-        runtime_id=runtime.runtime_id,
         **{name: libraries[name] for name in ("pypdfium2", "Pillow")},
     )
 
