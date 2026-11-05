@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Connection, select
 
 from .metadata import table
-from .runtime_bindings import RuntimeBinding, validate_runtime_binding
+from .runtime_bindings import RuntimeBinding, RuntimeBindingError, validate_runtime_binding
 from .types import PreparedRelease, SourceArtifact
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ def runtime_binding_for_run(
         select(run.c.release_id, run.c.runtime_id).where(run.c.id == run_id)
     ).one()
     if selected.release_id != prepared.release_id:
-        raise ValueError("run and prepared release differ")
+        raise RuntimeBindingError("run and prepared release differ")
     if selected.runtime_id is None:
         from .runtime_bindings import legacy_runtime_binding
 
