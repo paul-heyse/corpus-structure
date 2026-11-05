@@ -298,3 +298,31 @@ def test_scope_and_endpoint_indexes_select_before_detail(private_source):
         assert [row["contribution_id"] for row in endpoint.contributions] == [
             proposal["contribution_id"]
         ]
+
+
+def test_native_score_state_missing_is_not_zero(private_source):
+    case = private_source
+    result = drafts(case)
+    raw = envelope(case, result)
+    proposal = raw["contributions"][1]
+    proposal["score"] = {"kind": "integer", "integer": 0}
+    proposal["contribution_id"] = contribution_identity(proposal)
+    with case.writer.begin() as conn:
+        with pytest.raises(DBAPIError, match="score availability"), conn.begin_nested():
+            bypass(case, conn, raw)
+        proposal["score_state"] = "native"
+        proposal["contribution_id"] = contribution_identity(proposal)
+        bypass(case, conn, raw)
+    with case.writer.connect() as conn:
+        values = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            include_details=True,
+        ).contributions
+        assert "score" not in values[0]
+        assert values[1]["score_state"] == "native" and values[1]["score"] == {
+            "kind": "integer",
+            "integer": 0,
+        }

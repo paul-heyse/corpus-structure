@@ -208,6 +208,8 @@ classes:
       endpoints: {range: ContributionEndpoint, inlined: true, multivalued: true}
       members: {multivalued: true}
       disposition: {required: true}
+      source_field_state: {range: RecordFieldState}
+      anchor_role: {range: ContributionAnchorRole}
       standing: {required: true, equals_string: retained_private}
       score_state: {range: ContributionScoreState, required: true}
       score: {range: SourceValue, inlined: true}
@@ -416,6 +418,10 @@ classes:
       computation_dependencies: {multivalued: true}
       assertion_members: {multivalued: true}
 enums:
+  ContributionAnchorRole:
+    permissible_values:
+      evidence: {}
+      inspection_subject: {}
   ContributionKind:
     permissible_values:
       occurrence: {}

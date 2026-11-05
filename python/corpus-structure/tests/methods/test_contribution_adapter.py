@@ -392,3 +392,26 @@ def test_missing_primary_never_invents_alias_attachment_from_group_cooccurrence(
     assert alias["anchors"]
     assert not any(row["kind"] == "relation" for row in batch.contributions)
     assert any(row["kind"] == "composite" for row in batch.contributions)
+
+
+def test_actual_blank_native_cell_retains_inspection_subject_without_text_occurrence():
+    from corpus_structure.methods.record_assembly import native_table_groups
+
+    ctx = context(
+        "context",
+        items=[
+            dict(self_ref="#/texts/1", text="context"),
+            dict(self_ref="#/tables/0", data=dict(table_cells=[dict(text="")])),
+        ],
+    )
+    groups = native_table_groups(
+        ctx, table_pointer="#/tables/0", cells=(0,), row_paths={}, header_paths={}
+    )
+    batch = adapt_native_groups(ctx, family="table", groups=groups, item_key="blank-cell")
+    (cell,) = proposals(batch, "table.cell_value")
+    assert cell["source_field_state"] == "unstated"
+    assert cell["anchor_role"] == "inspection_subject"
+    assert cell["anchors"][0]["pointer"] == "#/tables/0/data/table_cells/0"
+    assert cell["anchors"][0]["precision"] == "item"
+    assert all(name not in cell["anchors"][0] for name in ("start", "end", "source_piece"))
+    assert not any(row["kind"] == "occurrence" for row in batch.contributions)
