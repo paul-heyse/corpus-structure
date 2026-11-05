@@ -126,14 +126,18 @@ def _require_run_runtime(
 ) -> PreparedRelease:
     """Authenticate one execution/claim boundary, independently of historical read access."""
     from .releases import open_release
-    from .runtime_binding_store import runtime_binding_for_run
-    from .runtime_bindings import require_installed_runtime
+    from .runtime_bindings import RuntimeBindingError, installed_runtime_id
 
+    run = table("ops.run")
+    selected = conn.execute(
+        select(run.c.release_id, run.c.runtime_id).where(run.c.id == run_id)
+    ).one()
     if prepared is None:
-        run = table("ops.run")
-        release_id = conn.execute(select(run.c.release_id).where(run.c.id == run_id)).scalar_one()
-        prepared = open_release(conn, release_id)
-    require_installed_runtime(prepared, runtime_binding_for_run(conn, run_id, prepared))
+        prepared = open_release(conn, selected.release_id)
+    if prepared.release_id != selected.release_id:
+        raise RuntimeBindingError("run and prepared release differ")
+    if selected.runtime_id is None or selected.runtime_id != installed_runtime_id(prepared):
+        raise RuntimeBindingError("installed runtime differs from the archived execution pin")
     return prepared
 
 
