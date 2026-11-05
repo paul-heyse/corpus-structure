@@ -79,7 +79,12 @@ Scoped Ruff and Pyrefly checks on the three new/modified review test files **pas
 
 `combined_review_journey.py` declares selected ordinary runs43/45 (optionally31 for the genuine
 paired local evaluations18→19), corrected local evaluations26–30, explicitly selected structural
-run and group sets. It first omits run43 and requires a producer-closure refusal without creating
+runs and group sets. Final selection also includes actual automatic runs51/52 alongside the
+final supplied005 public-product run. Their raw E5 inputs/implementation and GLiNER preparation,
+profiles and raw replies remain inspectable; raw model standing remains unassessed and no score
+is promoted to semantic quality. Automatic inputs002 and refined supplied005 have different
+applicability limits, so their difference does not establish a paired model improvement.
+It first omits run43 and requires a producer-closure refusal without creating
 a package, then captures the complete selection through the real evaluator CLI. The source
 cohort keeps its original exposed `feature_fit` partition under an explicit authorization basis;
 the structural cohort uses its own project and no feature-fit basis. All original A/B/C authored

@@ -57,7 +57,7 @@ def metrics(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--attempt", required=True)
-    parser.add_argument("--structural-run", type=int, required=True)
+    parser.add_argument("--structural-run", type=int, action="append", required=True)
     parser.add_argument("--group-set", type=int, action="append", required=True)
     parser.add_argument("--paired", action="store_true")
     parser.add_argument("--max-bytes", type=int, default=268_435_456)
@@ -68,8 +68,9 @@ def main():
     bundle = RAW / name
     selected = dict(
         selections=[request(run) for run in ([31, 43, 45] if args.paired else [43, 45])],
-        structural_selections=[dict(run_id=args.structural_run, include_publication=True,
-                                   include_support=True, max_bytes=8_000_000)],
+        structural_selections=[dict(run_id=run, include_publication=True,
+                                   include_support=True, max_bytes=8_000_000)
+                               for run in args.structural_run],
         selected_evaluation_ids=([18, 19] if args.paired else []) + list(range(26, 31)),
         comparisons=[dict(baseline_evaluation_id=18, revised_evaluation_id=19)]
         if args.paired else [],
@@ -100,7 +101,7 @@ def main():
     negative_passed = (negative["returncode"] == 1 and not missing_destination.exists()
                        and "assessment producer closure missing" in detail)
     report = dict(scope="explicit selected exposed development review; no population claim",
-                  structural_run=args.structural_run, group_sets=args.group_set,
+                  structural_runs=args.structural_run, group_sets=args.group_set,
                   missing_producer=dict(**negative, expected_refusal_passed=negative_passed))
     if not negative_passed:
         report["outcome"] = "failed"
