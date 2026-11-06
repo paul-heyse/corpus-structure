@@ -418,6 +418,10 @@ class SourcePreparationReader(Protocol):
         """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
+    def structural_source_frame(self, inputs: Any, source_ref: str) -> Any:
+        """Detach an exact selected native frame from authenticated structural inputs."""
+        ...
+
     def structural_source_annotations(self, inputs: Any, source_ref: str, profile: Any) -> Any:
         """Detach authenticated original source and unchanged retained annotation products."""
         ...

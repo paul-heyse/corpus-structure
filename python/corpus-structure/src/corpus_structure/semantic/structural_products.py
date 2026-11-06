@@ -9,10 +9,12 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from .contextual_links import RetainedRelationshipDecisionRef
 from .identity import canonical_bytes
+from .structural_base import StructuralValue
+from .artifact_identity import ArtifactIdentityProduct
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -41,14 +43,6 @@ DIMENSIONS: tuple[Dimension, ...] = (
     "parent",
     "version",
 )
-
-
-class StructuralValue(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    @property
-    def identity(self) -> str:
-        return sha256(canonical_bytes(self.model_dump(mode="json", exclude_none=True))).hexdigest()
 
 
 class ExternalSourceRef(StructuralValue):
@@ -487,7 +481,7 @@ class DossierProduct(StructuralValue):
 class StructuralProductReport(StructuralValue):
     version: Literal["structural-product-3"] = "structural-product-3"
     kind: Literal[
-        "definition_components", "definition_applicability", "qualified_comparison", "dossier"
+        "definition_components", "definition_applicability", "qualified_comparison", "dossier", "artifact_identity"
     ]
     inputs: StructuralInput
     standing: Literal["private_proposal"] = "private_proposal"
@@ -495,6 +489,7 @@ class StructuralProductReport(StructuralValue):
     definition: DefinitionProduct | None = None
     comparison: ComparisonProduct | None = None
     dossier: DossierProduct | None = None
+    artifact_identity: ArtifactIdentityProduct | None = None
     # The released ContextualEnrichmentReport validates this ordinary upstream report.
     retrieval_report: dict[str, Any] | None = None
 
@@ -505,11 +500,13 @@ class StructuralProductReport(StructuralValue):
             self.definition is not None,
             self.comparison is not None,
             self.dossier is not None,
+            self.artifact_identity is not None,
         ) != (
             self.kind == "definition_components",
             self.kind == "definition_applicability",
             self.kind == "qualified_comparison",
             self.kind == "dossier",
+            self.kind == "artifact_identity",
         ):
             raise ValueError("structural report must contain exactly its declared product")
         passages = {p.passage_id for p in self.inputs.passages}
@@ -563,6 +560,14 @@ class StructuralProductReport(StructuralValue):
                 passage=next((p for p in self.inputs.passages if p.passage_id==member.passage_id),None)
                 if passage is None or span.passage_id!=member.passage_id or not passage.start<=span.start<span.end<=passage.end or passage.text[span.start-passage.start:span.end-passage.start]!=span.text:
                     raise ValueError("dossier member citation differs from original source")
+        if self.artifact_identity:
+            by_id = {p.passage_id:p for p in self.inputs.passages}
+            for record in self.artifact_identity.records:
+                for citation in record.citations:
+                    passage=by_id.get(citation.passage_id)
+                    if passage is None or citation.source_ref != passage.source_ref or not passage.start <= citation.start < citation.end <= passage.end or passage.text[citation.start-passage.start:citation.end-passage.start] != citation.text:
+                        raise ValueError("artifact citation differs from its exact original source")
+                    cited.add(citation.passage_id)
         if not cited <= passages:
             raise ValueError("structural evidence lies outside declared passage closure")
         return self

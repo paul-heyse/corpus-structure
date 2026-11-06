@@ -17,7 +17,7 @@ class StructuralRequest(BaseModel):
     cut_id: int | None = Field(default=None, strict=True, gt=0)
     kind: (
         Literal[
-            "definition_components", "definition_applicability", "qualified_comparison", "dossier"
+            "definition_components", "definition_applicability", "qualified_comparison", "dossier", "artifact_identity"
         ]
         | None
     ) = None
