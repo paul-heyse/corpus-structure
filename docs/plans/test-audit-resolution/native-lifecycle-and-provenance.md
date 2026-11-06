@@ -1,6 +1,6 @@
 # Native lifecycle and provenance
 
-**Status:** Implemented; full qualification stopped by operator2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
+**Status:** Original TR-06–08 Implemented; TR-14/15 amendments Proposed; full qualification stopped. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
 and DTA disposition. Reuse native_test_support, qualification_plugin and test_receipts; no
 second janitor, observation subsystem or qualification register is selected.
 
@@ -114,7 +114,7 @@ Exercise assembled aggregation to show a locally incomplete result cannot disapp
 classifier tests, not fictional Rust product tests or a new Rust test body. No current erroneous
 production/Rust qualification is alleged.
 
-## Tooling and environment disposition
+## Original tooling and environment disposition (historical repair selection)
 
 Retain PgAdmin on dedicated18/corpus:5434, actual purpose logins and ADR-0032/0048 recovery/replay.
 Persistent corpus_structure_dev remains normal development under ADR-0056. Isolated tests use
@@ -133,7 +133,7 @@ authority does not approve a new architecture. Run just ready after any actual e
 [pgTAP](https://pgtap.org/documentation.html). TR-09/10 owns fresh integrated qualification;
 this document supplies no new native pass or performance measurement.
 
-## Parallel harness and stopped evidence — 2026-11-06
+## Historical parallel harness and stopped evidence — 2026-11-06
 
 The first serial attempt completed504native-required cases with item-bound contexts before the
 operator stop;338native obligations were not claimed. All8shared-cluster/root-auth controls passed.
@@ -146,3 +146,122 @@ report/lifecycle/native-context identities and required-from manifests. Two real
 and40new parallel probe cases establish the bounded reporting/isolation behavior, not all16worker
 native template/connection capacity. Pending original cases remain1390; the operator requested no
 successful-case replay and a stop after configuration/plan handoff.
+
+
+## Proposed native amendments — TR-14/15
+
+This section extends the original tooling disposition for new opportunities; original TR-06–08
+implementation and stopped receipts above remain historical. Consume tooling review I03/I05/I06/
+I08/I11. Keep PgAdmin, actual logins, observer activation and direct-owner lifecycle controls.
+Public pytest state is not a substitute for callbacks' acquired facts or a reason to reroute all
+native callers through a new plugin API.
+
+### TR-14 — Additive required-node coverage contract
+
+classify() currently keeps any included failed attempt in aggregate status even when a successful
+repair covers its required node. Keep that status and CLI exit meaning. Add a required_node_coverage
+object to the existing classify JSON with status covered/unresolved/not_declared, required and
+unresolved node lists, and an applicability note that this is node coverage, not complete qualification.
+A nonempty explicit required-from manifest is needed for covered; no manifest is not_declared and
+an explicitly empty required selection is unresolved, not successful qualification. Reuse existing
+coverage/_union_node_status; add no new global outcome vocabulary or acceptance service.
+
+Only a passing node with its own item-bound acquired identity can cover a currently native-required
+node. Identity-complete still does not mean complete deployment/policy reproducibility. Keep
+source_contexts_differ and original invocation/native metadata visible. Existing code does not
+infer compatible sources: the owning plan judges applicability from actual changed contracts,
+configuration and scope. The additive object reports observed node coverage, not automatic evidence
+eligibility; differing hashes neither silently invalidate nor authorize evidence. A wrong-context
+repair must be visibly unsuitable in the owner's acceptance account, not hidden behind covered.
+
+Retain reportlog and per-worker journals. Worker summaries may aid diagnosis but never attest a
+lost acquisition. No second disposition register, mandatory seed field or historical receipt rewrite.
+Consumer migration includes classify JSON tests, CLI usage/output documentation and qualification
+accounting; legacy status readers continue to work. Acceptance pairs failed attempt + repaired pass,
+missing/empty required manifest, literal/group aliases, contextless native pass, differing source
+contexts and process/collection loss. covered must never override cleanup, provider, Rust or missing
+prerequisite obligations in the combined acceptance account.
+
+### TR-15A — Required bounded SQL contract comparison
+
+Use the available located-component custody/basis contract in
+semantic/test_contributions_native.py::test_native_located_component_custody_and_basis_refusal,
+not a hypothetical later producer. Hand-author the same valid value-role/source-dependency rows,
+invalid basis dependency and duplicate/missing member comparison in Python and pgTAP1.3.4. The
+comparison assesses readable independent expectations, native diagnostics and total lifecycle/report
+burden, not corpus semantic efficacy. Retain Python-only if pgTAP adds no meaningful simplification
+or useful assurance; record the decision and reason at TR-15. This decision completes comparison,
+not entered adoption work. No speedup claim follows without measurement.
+
+The comparison itself uses a PgAdmin-owned disposable migrated clone: maintenance installs the
+test-only extension after normal deployment checks, then existing authenticated purpose-driver
+connections execute the independent Python query and pgTAP SQL over equivalent owned premises.
+Retain actual acquisition context, SQL/TAP results, fixed plans and errors for the bounded decision;
+inspect TAP outcomes rather than inferring success from execute() returning. No new permanent TAP
+parser/runner or psql provenance bridge is needed just to decide retain/adopt. Re-resolve the named
+test's current equivalent after concurrent WCE cutover; compare the same custody/basis meaning,
+not resurrected legacy fixtures. If extension availability or purpose rights prevent the comparison,
+report the prerequisite and keep TR-15A open; do not broaden grants or claim an executed retain result.
+
+If adopted, PgAdmin owns an isolated migrated clone. Maintenance installs pgtap only after checking
+the application's normal four-extension deployment; do not add pgtap to production prerequisites.
+Run pg_prove3.37 serially as a bounded owned subprocess against that exact clone with actual purpose
+credentials; do not expose secrets in argv/artifacts or broaden role privileges to permit assertions.
+Explicitly schema/signature-qualify SQL and preserve pg_prove's controlled psql flags/ON_ERROR_STOP.
+Use explicit plan, BEGIN, finish and ROLLBACK; do_tap does not imply runtests rollback. Resident test
+functions/custom collectors are not required for this initial file-level suite.
+
+Resolve the new psql session's identity bridge before qualification: its own SQL must observe
+current_user/session_user, database/OID, server incarnation/version and endpoint context, associated
+with the enclosing pytest item. Reuse native-context/v1 semantics and driver acquisition comparisons;
+a Python connection cannot attest psql's acquisition. Retain the expected file/plan, raw TAP,
+stderr, exit status and identity separately using bounded diagnostics/artifacts. Do not confuse
+TAP-comment diagnostics with a successful plan or sum nested assertion counts into pytest items.
+If a faithful bridge or required role behavior is unavailable, retain the Python route and record
+that limitation; do not grant extra privileges or call the SQL route passed.
+
+Adoption acceptance: valid script, intentional wrong SQLSTATE, duplicate/missing row, missing
+assertion, SQL error and malformed/truncated TAP produce discriminating outcomes. Wrong endpoint,
+wrong purpose and missing native identity cannot claim native qualification. Cleanup closes child
+sessions before dropping only the acknowledged owned clone. No nested pg_prove --jobs pool initially;
+parallel outer pytest items retain isolated clones. Migrate only actual replaced assertions and
+preserve independent committed-session/application/driver checks.
+
+### TR-15B — Shared sealed preparation, dormant until needed
+
+Retain per-worker semantic_head_template and committed clones. Enter comparison only when repeated
+head bootstrap materially obstructs an actual required workload. Compare existing preparation with
+one run-owned sealed template serving independent worker/test clones, using existing leases and
+acknowledged ownership/policy replay. Complete dependency identity includes migration/extension/
+runtime prerequisites, not a naked testrun_uid. Never initialize during pure collection or reuse
+mutable application state. No persistent cross-run cache or new janitor.
+
+Selection needs useful avoided work and credible final ownership after worker replacement. Exercise
+racing consumers, initializer failure, stale deployment, ACL/default mismatch, worker death and a
+live clone when template cleanup begins. The creating worker cannot delete a shared source before
+all consumers settle. Keep cold bootstrap/migration tests cold. Record retain/adopt with focused
+D3/ADR-0032 design advice; any actual rule impact requires existing operator disposition first.
+Inactive trigger means this branch is not required execution or missing qualification.
+
+### TR-15C — Private cluster, dormant until its server-level subject exists
+
+Enter only for a concrete cold-cluster, extension-loading configuration, restart or incompatible
+server setting scenario. Use installed postgresql-common293 pg_virtualenv, explicit PostgreSQL18,
+nonroot/private paths and exact acquired endpoint; normalize inherited PGHOSTADDR/PGSERVICE and
+other conflicting libpq selectors without assuming explicit DSNs cannot override them. Preserve
+logs and bounded owned settlement on failed startup/interruption. Default fsync=off/--nosync cannot
+establish durability/recovery: choose real durability settings before such a claim.
+
+Cluster creation is not OS isolation, automatic per-file isolation or crash-proof cleanup. Never
+mutate18/main or ordinary18/corpus to implement this comparison. Original dedicated-cluster peer/
+operator auth controls remain in their exclusive lane; private generic controls cannot substitute
+for their actual-environment claims. Multiple PostgreSQL versions, PGXS/core TAP/isolationtester,
+staged extensions and custom installation prefixes enter only for a real supported scenario.
+Inactive branches keep their missing trigger explicit; an entered branch must establish endpoint,
+conflicting parent environment, startup failure/interruption and full owned cleanup or remain open.
+
+Sources: [PostgreSQL testing reference](<../../libraries/postgresql/pgTAP, pg_prove, and pg_virtualenv.md>)
+§2–5 and addendum §1–5, [pgTAP1.3.4](https://pgxn.org/dist/pgtap/1.3.4/),
+[pg_prove](https://metacpan.org/dist/TAP-Parser-SourceHandler-pgTAP/view/bin/pg_prove), installed
+/usr/bin/pg_virtualenv and /usr/share/perl5/TAP/Parser/SourceHandler/pgTAP.pm. The review checked
+these interfaces; new routes remain Proposed, not implemented or tested by plan publication.

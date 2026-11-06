@@ -1,6 +1,6 @@
 # Test audit resolution
 
-**Status:** Incomplete; implementation delivered, execution stopped at operator request2026-11-06. **Created:** 2026-11-05.
+**Status:** Incomplete; original implementation delivered and qualification stopped; tooling amendments TR-11–15 Proposed. **Revised:** 2026-11-06. **Created:** 2026-11-05.
 This coordinator owns the new series' packages, scheduled remaining DTA scope and combined
 acceptance. Companion plans own detailed designs; architecture and accepted ADRs remain authority.
 
@@ -11,13 +11,48 @@ composition, proportionate preparation and trustworthy native/qualification life
 all23 DTA identities and the material unnumbered questions. A corrected historical manifestation
 is a preservation obligation, not authorization to repeat or undo its implementation.
 
-Consume the [test audit](../design_review/test-audit/README.md), publication `1e42a6e5`, inspected
-source `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`. Authoring baseline is clean `1e42a6e5`;
-product/tests/harness/configuration are unchanged from the audited source. The audit is static:
+Original input: the [test audit](../design_review/test-audit/README.md), publication `1e42a6e5`, inspected
+source `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`. Original authoring baseline was `1e42a6e5`;
+the implementation checkpoints below describe subsequent changes. The audit is static:
 its418-file reading is not a product test pass. The previous TA series supplies historical
 implementation and bounded receipts, not fresh final-source qualification for this series.
-The operator explicitly requested new plans only: existing plan documents and their index are
-not amended. Their scoped historical statuses remain intact.
+That original publication created new plans only. The operator now authorized revision of this
+series from the tooling improvement review; historical receipts retain their original meanings.
+
+## Tooling amendment basis and boundary — 2026-11-06
+
+Consume [tooling review](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md)
+at `23d677be8978a04ab8c5f8c3494f0a36899167a6`, I01–I11 and its capability appendix.
+Authoring-start baseline is `93a782920945a0a59b4c69c0dc87ca91c2b8453b`: intervening commits only
+published the library inputs; product/test source is unchanged from the review's `5599cb0d`.
+The three tooling input hashes still match the review, including the PostgreSQL addendum after
+line1099. Read the current source before execution because WCE work is concurrent.
+
+Current configuration is pytest9.1.1/xdist3.8.0, `-n auto --dist=loadgroup`; the last WCE
+checkpoint reports32 workers on this host. Dedicated18/corpus now declares256 connections and
+1024 locks per transaction. Neither configuration establishes full parallel capacity. References
+below to16workers/100connections belong to the stopped historical campaign, not current defaults.
+Retain the compatibility hold; no library upgrade or new host tuning is selected here.
+
+The parallel target is reproducible actual worker/group behavior and proportionate preparation,
+not a fixed CPU count or a new resource scheduler. PgAdmin remains the native owner; independent
+expectations and protected source/reference custody remain authoritative. New WCE cases consume
+available contracts, not unfinished producers or invented labels. WCE/PCE finding disposition,
+product algorithms and future producer-specific acceptance remain with their existing owners.
+WCE plan files are unchanged by this revision.
+
+During authoring, `e5ade8a5` records the operator-directed current-only WCE cutover through
+ADR-0067, `2350ae05` freezes development questions and `f1ab022f` publishes native contract work.
+These concurrent changes are not test-series implementation evidence. Follow current architectural
+authority and reconcile actual consumer migration at execution; this plan does not execute that
+cutover. Preserve raw historical plans/evidence/migrations, but
+do not turn earlier executable-legacy-reader controls into permanent compatibility obligations
+where the current WCE decision deliberately replaces them. The semantic guarantee needs a current
+counterpart or an explicit owning disposition; old counts are not the new required manifest.
+
+Only document authoring is authorized by this publication. Original qualification stays stopped;
+future implementation of selected amendments requires its own execution instruction. The operator
+selected fresh qualification after that implementation, not after these document changes.
 
 The operator selected2026-11-05: include necessary bounded production/infrastructure corrections
 and fresh integrated qualification. This publication authorizes neither repair execution nor new
@@ -59,6 +94,7 @@ structural hypotheses until implemented; no speedup is claimed.
 | [Scenario composition and preparation](test-audit-resolution/scenario-composition-and-preparation.md) | TR-01/02: explicit source/reference scenarios, collection and mathematical preparation |
 | [Native lifecycle and provenance](test-audit-resolution/native-lifecycle-and-provenance.md) | TR-06/07/08: self-contained fixture controls, active observation, context/runner semantics |
 | [Qualification and preservation](test-audit-resolution/qualification-and-preservation.md) | TR-09/10: retained guarantees, required evidence, assembled review and completion |
+| [Parallel execution and harness](test-audit-resolution/parallel-execution-and-harness.md) | TR-11/12: actual parallelism, affinity, distributed collection/report conformance; consumes receipt semantics from native support |
 
 The scenario owner supplies original source/dependency/profile inputs and prepared release to
 both native builders and independent reference consumers. It never supplies their expected answer.
@@ -83,11 +119,14 @@ artifact controls; current empty selection still establishes no Rust functional 
 
 TR-02 selects staged workers: current explicit pickle contracts plus a bounded native Token reducer preserve
 transported terminal positions without a new wire protocol. Per-active-stage and direct whole-page deadlines remain distinct. Initial source-only feasibility missed Lark end-position loss; execution exposed it and
-the scenario companion owns the correction. independent worker controls belong to execution. No
-architecturally consequential authoring choice is left to an indefinite investigation.
-Tool candidates are resolved in the companions: existing Python/native mechanisms are selected;
-pgTAP/isolationtester remain useful alternatives but add no necessary capability for this scope.
-No installation or dependency change is currently scheduled.
+the scenario companion owns the correction. Independent worker controls belong to execution. No
+architecturally consequential authoring choice for that original repair is left to an indefinite investigation.
+The original repair target selected existing Python/native mechanisms. The amendment retains
+that foundation and explicitly compares a bounded pgTAP route under TR-15; private clusters and
+shared templates have entry gates, not automatic adoption. No installation or dependency change
+is selected at publication. No new rule impact is selected. Shared-template ownership changes,
+if warranted, receive focused D3/ADR-0032 design assessment before dependent implementation;
+any actual rule change follows the operator's existing decision route.
 
 ## Package queue
 
@@ -112,6 +151,48 @@ TR-05 and TR-06 can proceed independently of scenario extraction. TR-04's score 
 independent. TR-07/08 share files and need one coordinated owner; TR-01/03 share source fixtures.
 The root owns integration and acceptance. Workers receive coherent outcomes and explicit write
 scope; a package is not automatically a separate worker. No broken consumer waits for TR-09.
+
+### Proposed tooling packages and useful execution order
+
+Original package state above is retained; the following work is not yet implemented.
+
+| Package | Prerequisite capability | Result and completion boundary |
+|---|---|---|
+| TR-11 | Current configuration, public collection/report contracts, original receipt controls | Actual worker/group facts and serial/two-worker conformance; injective canonical identities, explicit fault-lane refusal, durable native attribution |
+| TR-12 | TR-11 conformance; actual preparation-consumer inventory | Compare coarse versus dependency-shaped affinity; select and migrate the justified grouping, retaining warm/cold preparation and nested deadlines |
+| TR-13 | Existing scenario/frame/scoring contracts; source-authored expectations | Current WCE facet matrices and bounded diagnostics across pure/native/read consumers; no future-producer efficacy claim |
+| TR-14 | Existing TR-08 semantics; TR-11 identity map | Additive required-node coverage, unchanged attempt status/CLI contract, explicit applicability limits and safe failed-only selection |
+| TR-15 | Exact available witnessed SQL contract; native lifecycle/provenance | Required bounded Python/pgTAP comparison and documented adopt/retain outcome; entered adoption branches fully integrated. Shared-template/private-cluster branches remain gated |
+
+Establish TR-11 before changing shared scheduling/identity; TR-13 can proceed independently on
+stable source contracts, and TR-14 can develop its additive semantics alongside TR-11. TR-15's
+comparison needs only the existing located-component custody/basis contract, not WCE04 completion.
+TR-09 then reconciles all changed consumers and TR-10 qualifies the selected integrated scope.
+Shared editing surfaces (root hooks/plugin/classifier) require coordinated ownership even where
+capability work is logically independent.
+
+### Tooling review disposition
+
+This table is the single scheduled-disposition owner; companion designs supply detail, not copies
+of mutable progress. Review references below use the tooling review, not WCE's separate I01–I05.
+
+| Source recommendation | Component/package | Disposition and settling evidence |
+|---|---|---|
+| [review#I01](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I01) | Parallel harness/TR-11; TR-10 | Open/Proposed: requested/effective/working concurrency, selected envelope and final receipts agree |
+| [review#I02](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I02) | Preparation/TR-12 | Open/Proposed: compare affinity alternatives, preserve tier/warm/cold semantics, migrate actual consumers |
+| [review#I03](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I03) | Native/TR-15 | Deferred, trigger: repeated bootstrap materially obstructs a required workload; retain worker-local templates until then |
+| [review#I04](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I04) | Harness/TR-11 | Open/Proposed: real serial/two-worker grouping/alias/phase/loss controls, including ambiguity rejection |
+| [review#I05](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I05) | Native/assertions/TR-15 | Open/Proposed comparison; adopt only for useful simplification/additional assurance with actual psql identity and faithful TAP integration |
+| [review#I06](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I06) | Native/TR-15 | Deferred, trigger: actual server lifecycle/configuration variation needed; private environment cannot replace dedicated-cluster claims |
+| [review#I07](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I07) | Scenarios/assertions/TR-13 | Open/Proposed: current independent question/facet cases; future producer-specific obligations link to WCE02–12 |
+| [review#I08](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I08) | Assertion/native/harness/TR-11/13 | Open/Proposed: useful phase/source diagnostics without label leakage or loss of durable acquisition events |
+| [review#I09](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I09) | Qualification/TR-14 | Open/Proposed: failed-only selection cannot silently broaden or lose unfinished obligations; no automatic retries |
+| [review#I10](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I10) | Qualification/TR-10 | Open: fresh parallel ordinary plus exclusive fault/native/applicable hygiene union after selected functionality |
+| [review#I11](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I11) | Native report contract/TR-14 | Open/Proposed: additive coverage distinct from history/applicability/full qualification, independently discriminating artifact controls |
+
+The review's capability appendix remains the detailed source. [Qualification](test-audit-resolution/qualification-and-preservation.md#capability-appendix-disposition)
+groups its remaining capabilities by concrete trigger and owner; availability alone adds no required
+work. No new DTA identity or audit refresh follows from these improvements.
 
 ## Finding disposition
 
@@ -170,9 +251,10 @@ Missing required evidence prevents Complete. A design decision is not implementa
 pass is not full-series acceptance. Broad product/provider/adoption claims remain outside this
 series. Quantitative benefits require separate measurements if later claimed.
 
-**Next:** none in this engagement. The operator requested the failing-test correction, parallel
-configuration and this handoff, then a stop for a different plan. Do not resume qualification
-automatically. Remaining obligations and exact pending selection are recorded below.
+**Next after separate execution authorization:** implement TR-11 and ready TR-13/TR-14 work;
+settle TR-12's grouping and TR-15's bounded SQL comparison before adopting replacements. Complete
+TR-09 and fresh TR-10 qualification after selected functionality. Document publication does not
+resume the stopped campaign or run its pending1390nodes. Its exact historical selection remains below.
 
 ## Execution checkpoint — 2026-11-05
 
@@ -303,3 +385,19 @@ maintenance and documentation checks are recorded in the handoff, without a runt
 **Final stop publication passed,2026-11-06:** `just turn-end`, `just docs-check` and task-scoped
 `git diff --check`. STATUS points to this incomplete/stopped owner and the pending selection.
 No further functional execution is scheduled in this engagement.
+
+
+## Amendment authoring assessment — 2026-11-06
+
+A focused independent design reviewer assessed the coordinator and all five companions against
+the source review, current foundation, package prerequisites and conditional acceptance. It found
+one sequencing clarification: TR-15A needs isolated extension/purpose-driver setup for comparison
+before adoption, while the full pg_prove identity bridge remains conditional. That clarification
+is incorporated; no other material correction remains. This is authoring advice, not a fresh
+audit or runtime/architectural qualification.
+
+All I01–I11 routes and grouped capability triggers are retained. WCE plan files, concurrent
+architecture/native work, library input bytes and original evidence were not edited by this
+revision. Product tests, probes, provider/native execution, installation and qualification are
+not_run for this document-only task. Publication uses just turn-end, just docs-check and scoped
+git diff --check; actual outcomes are reported in the publication commit and final handoff.

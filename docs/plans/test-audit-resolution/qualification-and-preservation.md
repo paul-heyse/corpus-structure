@@ -1,6 +1,6 @@
 # Qualification and preservation
 
-**Status:** Incomplete/stopped by operator2026-11-06; static preservation reconciled, final qualification unfinished.
+**Status:** Original campaign stopped; TR-14 amendments and updated TR-09/10 acceptance Proposed,2026-11-06. Final qualification unfinished.
 The [coordinator](../test-audit-resolution_2026-11-05.md) owns TR-09/10, all DTA dispositions
 and combined acceptance. Historical TA/PCE/UM receipts keep their original dates and limits.
 
@@ -56,7 +56,7 @@ and selected-node manifests; overlapping results are not added as though they we
 ### Required native and process evidence
 
 Include the eight opt-in shared-cluster/root-auth crash controls because observer/lifecycle support
-changes can alter their acquisition and cleanup context. For a separately authorized fresh campaign, use `just test-all` for the16worker ordinary lane, then `just test-native-faults` for the exclusive serial fault lane, on the exact owned cluster/role envelope, preserving unrelated
+changes can alter their acquisition and cleanup context. After selected amendment implementation, use `just test-all` for the selected parallel ordinary lane, then `just test-native-faults` for the exclusive serial fault lane, on the exact owned cluster/role envelope, preserving unrelated
 rows, resources and failures. They are not replaced by mocks or source inspection. The broad
 functional route plus additional explicit native selections may supply the union if source/context
 and required-node association match. Each selected node must have its actual prerequisite/outcome. Reconcile native-required marking
@@ -149,3 +149,82 @@ reduce the original1390pending count. Fault selection/refusal collection control
 test bodies. [Evidence](../../design_review/evidence/2026-11-06_parallel-test-execution/README.md)
 retains all failed/earlier attempts and precise commands. This establishes configured parallelism,
 not complete16worker application-template capacity or full-series qualification.
+
+
+## Current amendment acceptance — TR-09/10/14
+
+**Proposed revision,2026-11-06; review I09/I10/I11.** The stopped checkpoint above describes the
+original campaign and its no-replay boundary. Future selected infrastructure implementation uses
+fresh qualification after functional scope and migrated consumers, as explicitly requested by the
+operator during review preparation. This document publication neither resumes the old1390-node
+selection nor runs a baseline campaign. Successful old receipts remain bounded evidence, not an
+automatic substitute for changed harness/native/source context.
+
+At execution establish the required union from actual current collection and selected conditional
+branches. Preserve DTA guarantees with current counterparts and independent expectations. Reconcile
+WCE's authorized current-only cutover rather than requiring obsolete executable semantic readers;
+raw source, frozen migrations, plans/evidence and original failed/interrupted receipts remain.
+Later WCE producers/quality/reference cohorts remain with WCE02–12; their absence does not become
+an invented implementation or a synthetic provider pass in this test series.
+
+After TR-11–14 and TR-15's required comparison/entered adoptions, TR-09 inventories actual changed
+callers and retires only replaced helper mechanisms. Obtain assembled design/target assessment at
+the applicable cadence. Finalize source with just turn-end; run just test-all with current selected
+parallel settings, then required just test-native-faults exclusively with -n0. Record requested and
+actual workers/groups, nested cap8, native cluster/version/extension/config context and source.
+The auto/loadgroup route is initial default; previous16-worker receipts remain historical. Server
+limits256/1024 are context, not proof of capacity. Include any adopted SQL/private-cluster route in
+the required union. Rust uses release nextest and rustc --version; empty selection is not_run.
+Run applicable just hygiene. Missing required resources/providers stay blocked.
+
+After a full attempt repair failures and rerun failing tests/checks, preserving successful results
+with applicability. Pending/interrupted/unstarted nodes are still obligations. If a shared harness,
+configuration or source correction affects a successful result, identify the consequence and
+reconcile its applicability explicitly instead of silently asserting coverage or replaying the
+entire suite. Counts from overlapping recipes do not sum to union coverage.
+
+TR-14's additive required_node_coverage is owned by the native companion. Existing aggregate status
+and CLI exit remain conservative history; covered means observed required-node coverage only. The
+root separately accounts for source/context suitability, cleanup, collection, providers, native
+obligations, Rust and hygiene. A failed attempt plus passing repair retains failed history while
+allowing a reasoned eligible union. No mandatory hash-equality gate or new acceptance service.
+
+### Safe failed-only iteration
+
+Use explicit canonical manifests/argument files from existing receipt outcomes for qualification.
+Local pytest --lf with --last-failed-no-failures=none and, if adopted, pg_prove --state failed,save are diagnostic conveniences, not
+required scope. Missing/stale history or an empty failure selection must return an explicit empty/
+invalid-selection result rather than fall back to the whole suite. Retain unstarted/collection-loss
+nodes separately; source changes are not dependency analysis merely because file times changed.
+No automatic retry plugin, repeated successful-case replay or hidden XPASS/skip policy is selected.
+Supported strict duplicate IDs, required-empty checks and targeted thread/unraisable warnings must
+be scoped to the responsibility they protect, not blindly enabled suite-wide.
+
+Acceptance: no-history, no-failures, stale ID, interrupted node, collection error, crash and cleanup
+failure never silently broaden or disappear into success. Keep original attempts; actual fault
+bodies run only in their exclusive qualification lane, not on every subprocess harness edit.
+
+## Capability appendix disposition
+
+The coordinator owns review I01–I11 scheduled state. The review's detailed appendix remains the
+capability evidence; these grouped routes retain all remaining leads without a second mutable ledger.
+
+| Capability families from review appendix | Route, trigger and closure meaning |
+|---|---|
+| Discovery/imports/deselection/identity, fixture composition/scopes/parametrization, assertions/exception groups and typed diagnostics | TR-11–13 use public mechanisms locally. No custom SQL collector/dynamic registration until actual discovery/provider needs require it; an Item alone does not inherit Python fixtures/assertions. |
+| Plugin/config/hooks/Stash/reporting, capture/logging/tmp paths, skip/xfail/importorskip | TR-11/13/14; preserve process/phase and prerequisite distinctions. Missing required coverage cannot become optional inapplicability; process-global monkeypatch is not thread isolation. |
+| Async/AnyIO/Trio, Hypothesis, unittest/xUnit, doctest/Sybil, public fixture typing | Retain existing engines and cold/property/MCP controls. Enter new async backend only with a real consumer and aligned loop/task lifetime; shared fixtures do not reset per generated example. Executable docs need actual public examples. No framework migration is scheduled. |
+| Durations/worker-stats, pytest-benchmark, memory/allocation checks | Conditional on a concrete preparation/recipe/retention issue. Existing durations/events first; benchmark selected kernels separately if plugin disallows xdist; verify Python3.14/wheel support. Cache allowances and child/server/GPU working sets bound claims. No mandatory speedup or memory gate. |
+| Coverage contexts, snapshots, seeded order/randomization | Conditional diagnostic extension for touched refusal/export/interference behavior. Reviewed structural output only; no protected labels or producer-generated semantic answers. Preserve existing Rust insta rules. Coverage/order probes do not establish correctness or real interleavings. |
+| Timeout/retry/forked companions and worker crash recovery | Retain faulthandler/supervisor/spawn and real cleanup. No rerunfailures/fork layer; recovery does not undo external effects. Required first failures remain visible. |
+| tox/Nox, each, remote/interpreter gateways, proxies, rate-limit/load plugins | Deferred until another environment or actual external-provider pacing/load requirement exists. Source/service provisioning and shared storage remain explicit prerequisites; repeated weighted runs are not functional qualification. |
+| PostgreSQL typed/scalar/bag/set/cursor assertions, signatures/catalog/security/index metadata | TR-15A selects only actual touched contracts after comparison; name visibility differs from signature identity and metadata differs from behavior/planner choice. Existing native attestation remains. |
+| SQL lifecycle/plans/extensions, pg_prove files/jobs/history/source handlers/formatters/archive/inline SQL | TR-15A only on adoption; preserve SQL/process/TAP dual failures, native acquisition, expected file membership and sessions. No mixed Perl harness or nested jobs without useful independent responsibility. |
+| Casts/domains/enums/rules/operators/inheritance/FDW/language/opclasses/tablespaces and column permissions | Deferred at review owner until a touched contract governs those object properties; no general catalog campaign. Exact type/index representation is not symbolic equivalence or absolute safety. |
+| pg_tapgen overloaded body/schema snapshots | Unselected as an added qualification layer; current attestation already owns body identity. One-time legacy-schema inspection may use reviewed output if an actual unfamiliar-schema need appears; experimental generator/DBI prerequisites remain. |
+| pg_virtualenv configurations/versions/durability/diagnostics, PGXS/pg_buildext/autopkgtest/core TAP/isolationtester, staged/custom-prefix extensions | TR-15C only for an actual server/extension-development subject. No new supported version or OS isolation claim. Installed293 package-stage EXTRA_REGRESS_OPTS affects nested instances, not blanket reuse of one cluster. |
+
+Unused mechanisms retain their source-review triggers, not implicit plan-completion obligations.
+Compare retaining current behavior for each entered investigation. A suitable retain decision closes
+that investigation; an adopted implementation needs its own actual acceptance. Publication checks
+are docs-check/turn-end, not product/provider/native results.

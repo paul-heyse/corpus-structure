@@ -1,6 +1,6 @@
 # Scenario composition and preparation
 
-**Status:** Implemented; TR-02 focused Tested; full qualification stopped by operator2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-01/02
+**Status:** Original TR-01/02 Implemented; TR-12/13 amendments Proposed; full qualification stopped. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-01/02
 and finding disposition. Package-relative paths below designate test support unless stated.
 
 ## TR-01 — Explicit pure/native/reference composition
@@ -173,3 +173,42 @@ are retained, not scheduled for replay. The new16worker configuration puts share
 consumers in one loadgroup; their own bounded child pool and deadline semantics are unchanged.
 New parallel configuration evidence is separate from the earlier28case math transport record.
 The qualification companion owns remaining1390 original nodes and the explicit stop.
+
+
+## Proposed preparation and WCE composition amendments — TR-12/13
+
+Consume tooling review I02/I07 through the coordinator. TR-12's collected affinity and actual
+consumer migration are owned by [parallel harness](parallel-execution-and-harness.md#tr-12--preparation-shaped-affinity).
+This document owns preparation validity: content, reading, extraction and scoped products retain
+complete source/configuration dependencies, immutable reuse and separate active-stage deadlines.
+A fixture name change must update scheduling consumers with its dependency; no ambient cache or
+new preparation service is introduced. Pure collection still activates no compiler/database/NLP.
+
+TR-13 extends ordinary scenario values/builders for current witnessed components and frame-v2
+assessment. Inputs are independently selected original source coordinates, dependency closure,
+question/version, scope, partition/exposure and declared output IDs where the direction needs them.
+Source-first scenarios can have real opportunities without any prediction; output-first scenarios
+freeze exact emitted IDs after production. Builders create valid downstream setup, not expected
+semantic judgments. Negative boundary tests may use raw malformed inputs so constructors do not
+repair or reject the defect before native enforcement.
+
+Keep source/frame setup reusable across pure scoring and native custody variants; request native
+publication only where its effect is the claim. The actual current migration set includes
+semantic/test_contributions{,_native}.py and evaluate/test_operation_assessment{,_native}.py,
+plus structural-assessment and current read/export consumers found by import/call search. Later
+WCE04–10 producers supply their own available questions/outputs through the WCE owner, not an
+invented placeholder producer or newly required corpus campaign. Coordinate with the current-only
+WCE cutover: retire affected executable legacy scenarios only with the owning migration and
+current-contract counterparts; preserve frozen source/reference bytes and prior test receipts.
+
+Construct separately collected pytest.param cases with stable meaningful IDs. Use indirect setup
+for native variants; required finite matrix membership is independently authored and checked before
+parametrization. Empty required matrices are errors; a legitimate product zero-output is a positive
+case. An automatically generated matrix from the producer's own declaration cannot establish that
+its semantic alternatives are complete. Per-case expectations and diagnostics are owned by
+[assertions](assertions-and-independent-evidence.md#tr-13--independent-question-matrices-and-diagnostics).
+
+Acceptance: pure cases require no native prerequisites, native cases use actual purpose connections,
+source-first opportunities survive candidate filtering, output IDs stay exact, and mutations receive
+owned state. Any shared helper replacement migrates its actual callers in the same slice. These
+amendments are Proposed; old TR-01/02 passes do not establish their execution.

@@ -1,6 +1,6 @@
 # Assertions and independent evidence
 
-**Status:** Implemented; assembled review accepted; full qualification stopped by operator2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md)
+**Status:** Original TR-03–05 Implemented; TR-13 amendments Proposed; full qualification stopped. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md)
 owns TR-03/04/05 and DTA disposition. Paths below are package-relative unless marked root.
 
 ## Target and invariants
@@ -132,3 +132,48 @@ and the expected renderer fields come from the qualified archive. Only that fail
 it passed in build/test-receipts/qualification/test-audit-renderer-failure-repair-20261106.
 Successful cases were not rerun. Full attempt and interruption remain retained; coordinator owns
 remaining1390-node scope and the operator stop. No full qualification claim follows.
+
+
+## TR-13 — Independent question matrices and diagnostics
+
+**Proposed,2026-11-06; review I07/I08.** Extend current independent operation-assessment controls
+and native component custody tests with the scenario inputs from the preparation companion.
+The assurance owner authors expected endpoints, roles, multiplicity, state and numeric boundaries;
+production validators may enforce setup but do not compute both actual and expected meaning.
+Stable pytest.param IDs identify question/facet and distinction. Required outcomes remain separate
+collected cases; runtime subtests are optional diagnostics inside a case, not new union obligations.
+
+Required current-contract cases distinguish right location/wrong role (the WCE-R01 regression),
+right role/wrong endpoint, compatible overlap/exclusive alternatives, missing/extra/duplicate exact
+outputs, repeated windows/physical occurrences, missing reference/missing output, ambiguous/unresolved,
+unstated/uninspected and local component support/unsupported whole statement. Exposure/partition
+controls retain original origin family (WCE-R02); parameter/header/note examples (WCE-R03) enter
+only with suitable actual source and question. No synthetic case establishes authentic source
+quality or independent author agreement. Protected A/B/C reference services remain semantic owners;
+pytest gains no second reference ledger. Later threshold/unit/revision/cohort cases enter with their
+actual WCE producers, without expanding this test series into those product algorithms.
+
+Reuse assert rewriting for shared assertion modules before import, narrow pytest_assertrepr_compare
+where useful, and Item.add_report_section for phase diagnostics. Show frozen frame/question/source
+identifiers, facet, expected/actual endpoint-role members and missing versus uninspected. Do not
+dump protected answers, normalize away duplicates or build a new assertion engine. Exact row sets,
+Counter-style bags and independently specified numeric tolerances remain credible simple choices.
+Native errors retain intended SQLSTATE/constraint/message identity, positive premises and valid siblings.
+
+TR-15 compares the same current located-component custody/basis case in Python and SQL before
+selecting pgTAP. SQL expectations use results_eq only for contractual order, bag_eq for multiplicity,
+set_eq only for true sets; schema/signature-qualified catalog assertions protect promised properties,
+not every installed object. Name inventory is not overload inventory; generated body checksums do
+not replace independent behavior or existing native_sql_body/source_frame_admission attestation.
+
+Acceptance includes deliberate wrong answers for each changed comparator, exact required case
+membership and phase-attributable distributed diagnostics. Native/read/CLI/MCP/export variants
+establish only their exercised boundaries. Existing frozen archive meanings and original failed
+attempts retain their own historical scope; current-only cutover determines executable counterparts.
+TR-09 reconciles consumer/retirement coverage; TR-10 qualifies the selected final source.
+
+Mechanisms and versions: pytest9.1.1 rewriting/parametrization/public reports and the existing
+Psycopg diagnostics, from the [pytest reference](../../libraries/analytical_infrastructure/pytest.md)
+§5/6/9/10. No9.2-only public types or automatic snapshot updates are selected. The [WCE assessment
+owner](../witnessed-corpus-enrichment/assessment-source-expansion-and-qualification.md) retains
+source quality, fitting eligibility and later producer-specific requirements. WCE plan files are unchanged.
