@@ -172,3 +172,179 @@ def serve_structural_products(conn: Connection, request: StructuralRequest) -> S
     if len(canonical_bytes(page.model_dump(mode="json"))) > request.max_bytes:
         raise SemanticRefusal("structural response exceeds byte budget; narrow the page")
     return page
+
+
+class DossierRepresentationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    run_id: int = Field(strict=True, gt=0)
+    task_id: int = Field(strict=True, gt=0)
+    cut_id: int | None = Field(default=None, strict=True, gt=0)
+    limit: int = Field(default=20, strict=True, ge=1, le=100)
+    max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
+    continuation: DossierContinuation | None = None
+
+
+class DossierRepresentationPage(BaseModel):
+    version: Literal["dossier-representation-1"] = "dossier-representation-1"
+    run_id: int
+    cut_id: int
+    task_id: int
+    product_id: str
+    policy: str
+    membership_digest: str
+    facet_digest: str
+    members: tuple[dict[str, JsonValue], ...]
+    citations: tuple[dict[str, JsonValue], ...]
+    supported_facets: tuple[dict[str, JsonValue], ...]
+    full_member_count: int
+    omitted_member_count: int
+    missing_facet_count: int
+    mandatory_overflow: bool
+    continuation: DossierContinuation | None = None
+    standing: Literal["private_proposals"] = "private_proposals"
+
+
+_DOSSIER_SLICE_SQL = """
+WITH source AS (
+ SELECT body->'structural_product' report FROM ops.task_result WHERE task_id=:origin_id
+), chosen AS (
+ SELECT id,ord FROM source,
+ jsonb_array_elements(report#>'{dossier,representation,selected}') WITH ORDINALITY choice(id,ord)
+ WHERE ord>:offset AND ord<=:end_offset
+), selected_members AS (
+ SELECT m,ord FROM source,chosen,jsonb_array_elements(report#>'{dossier,members}') m
+ WHERE m->'member_id'=chosen.id
+), selected_citations AS (
+ SELECT DISTINCT jsonb_build_object('member_id',m->'member_id','source',s,
+ 'citation',m->'citation','scope',m->'scope','effective_version',m->'effective_version') c
+ FROM source,selected_members,jsonb_array_elements(report#>'{inputs,passages}') p,
+ jsonb_array_elements(report#>'{inputs,sources}') s
+ WHERE p->'passage_id'=m->'passage_id'
+ AND p->>'source_ref'=encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')
+), payload AS (
+ SELECT jsonb_build_object(
+  'members',COALESCE((SELECT jsonb_agg(m ORDER BY ord) FROM selected_members),'[]'),
+  'citations',COALESCE((SELECT jsonb_agg(c ORDER BY data.canonical_json(c))
+   FROM selected_citations),'[]'),
+  'supported_facets',COALESCE((SELECT jsonb_agg(f ORDER BY f->>'facet_id')
+   FROM source,jsonb_array_elements(report#>'{dossier,supported_facets}')f
+   WHERE EXISTS(SELECT FROM chosen WHERE chosen.id=f->'member_id')),'[]')) body
+) SELECT {projection} FROM payload
+"""
+
+
+def serve_dossier_representation(
+    conn: Connection, request: DossierRepresentationRequest
+) -> DossierRepresentationPage:
+    """Read selected exact members only, after immutable metadata/byte admission."""
+    from sqlalchemy import text
+
+    from corpus_structure.semantic.metadata import table
+
+    session = bind_completed_result(conn, request.run_id)
+    cut = session.completed_cut_id
+    if cut is None or (request.cut_id is not None and request.cut_id != cut):
+        raise SemanticRefusal("dossier representation requires its exact completed cut")
+    selected, origin = table("ops.task"), table("ops.task").alias("dossier_origin")
+    result, membership = table("ops.task_result"), table("ops.cut_task")
+    report = result.c.body["structural_product"]
+    dossier = report["dossier"]
+    representation = dossier["representation"]
+    metadata = (
+        conn.execute(
+            select(
+                origin.c.id.label("origin_id"),
+                (
+                    "structural:"
+                    + func.encode(
+                        func.sha256(
+                            func.convert_to(
+                                func.data.canonical_json(report.op("-")("retrieval_report")), "UTF8"
+                            )
+                        ),
+                        "hex",
+                    )
+                ).label("product_id"),
+                representation["policy"].astext.label("policy"),
+                representation["membership_digest"].astext.label("membership_digest"),
+                representation["facet_digest"].astext.label("facet_digest"),
+                representation["mandatory_overflow"].as_boolean().label("mandatory_overflow"),
+                func.jsonb_array_length(representation["selected"]).label("selected_count"),
+                func.jsonb_array_length(dossier["members"]).label("full_member_count"),
+                func.jsonb_array_length(representation["omitted"]).label("omitted_member_count"),
+                func.jsonb_array_length(representation["missing_facets"]).label(
+                    "missing_facet_count"
+                ),
+            )
+            .select_from(selected)
+            .join(origin, origin.c.id == func.coalesce(selected.c.reused_task_id, selected.c.id))
+            .join(result, result.c.task_id == origin.c.id)
+            .join(
+                membership, (membership.c.task_id == selected.c.id) & (membership.c.cut_id == cut)
+            )
+            .where(
+                selected.c.run_id == request.run_id,
+                selected.c.id == request.task_id,
+                selected.c.release_id == session.prepared.release_id,
+                origin.c.release_id == session.prepared.release_id,
+                selected.c.status.in_(("done", "reused")),
+                selected.c.unit_type == "run",
+                report["kind"].astext == "dossier",
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if metadata is None:
+        raise SemanticRefusal("dossier task is outside the selected completed cut")
+    binding = {
+        key: metadata[key] for key in ("product_id", "membership_digest", "facet_digest", "policy")
+    }
+    offset = 0
+    if request.continuation:
+        if any(getattr(request.continuation, key) != value for key, value in binding.items()):
+            raise SemanticRefusal(
+                "dossier continuation differs from exact membership/facets/policy"
+            )
+        offset = request.continuation.offset
+    if offset > metadata["selected_count"]:
+        raise SemanticRefusal("dossier continuation is outside representation")
+    end = min(offset + request.limit, metadata["selected_count"])
+    continuation = (
+        DossierContinuation(**binding, offset=end) if end < metadata["selected_count"] else None
+    )
+    base = dict(
+        run_id=request.run_id,
+        cut_id=cut,
+        task_id=request.task_id,
+        **binding,
+        full_member_count=metadata["full_member_count"],
+        omitted_member_count=metadata["omitted_member_count"],
+        missing_facet_count=metadata["missing_facet_count"],
+        mandatory_overflow=metadata["mandatory_overflow"],
+        continuation=continuation,
+    )
+    metadata_bytes = (
+        len(
+            canonical_bytes(
+                {
+                    key: value.model_dump(mode="json") if isinstance(value, BaseModel) else value
+                    for key, value in base.items()
+                }
+            )
+        )
+        + 256
+    )
+    parameters = dict(origin_id=metadata["origin_id"], offset=offset, end_offset=end)
+    size = conn.scalar(
+        text(_DOSSIER_SLICE_SQL.replace("{projection}", "octet_length(body::text)")), parameters
+    )
+    if size is None or size + metadata_bytes > request.max_bytes:
+        raise SemanticRefusal("dossier representation exceeds byte budget; narrow the member page")
+    payload = conn.scalar(text(_DOSSIER_SLICE_SQL.replace("{projection}", "body")), parameters)
+    if not isinstance(payload, dict):
+        raise SemanticRefusal("dossier representation payload is unavailable")
+    page = DossierRepresentationPage.model_validate({**base, **payload})
+    if len(canonical_bytes(page.model_dump(mode="json"))) > request.max_bytes:
+        raise SemanticRefusal("dossier representation response exceeds byte budget")
+    return page

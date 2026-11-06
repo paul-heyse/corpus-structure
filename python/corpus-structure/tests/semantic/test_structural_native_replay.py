@@ -151,3 +151,42 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
         )
         assert public == structural_statement(report)
         assert len(actual["members"]) == 2 and {m["passage_id"] for m in actual["members"]} == {"a"}
+
+
+def test_native_representation_projects_only_selected_member_closure(semantic_db_engine):
+    from corpus_structure.methods.structural_products import select_dossier
+    from corpus_structure.semantic.structural_products import DossierMember, LocatedDefinitionSpan
+    from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
+
+    inputs = threshold_inputs("retained source", "uncited source")
+    p = inputs.passages[0]
+    citation = LocatedDefinitionSpan(passage_id=p.passage_id, start=p.start, end=p.end, text=p.text)
+    members = tuple(
+        DossierMember(
+            member_id=str(i),
+            passage_id=p.passage_id,
+            citation=citation,
+            role="exception",
+            scope=p.scope,
+            sense="unresolved",
+            relation_product_id="upstream",
+        )
+        for i in range(3)
+    )
+    report = select_dossier(inputs, root_id="root", members=members, member_budget=1)
+    sql = _DOSSIER_SLICE_SQL.replace(
+        "SELECT body->'structural_product' report FROM ops.task_result WHERE task_id=:origin_id",
+        "SELECT CAST(:report AS jsonb) report",
+    ).replace("{projection}", "body")
+    with semantic_db_engine.connect() as conn:
+        result = conn.scalar(
+            text(sql),
+            dict(report=report.model_dump_json(exclude_none=True), offset=1, end_offset=2),
+        )
+    assert [m["member_id"] for m in result["members"]] == ["1"]
+    assert (
+        len(result["citations"]) == 1
+        and result["citations"][0]["citation"]["text"] == "retained source"
+    )
+    assert result["citations"][0]["source"] == inputs.sources[0].model_dump(mode="json")
+    assert result["supported_facets"] == []

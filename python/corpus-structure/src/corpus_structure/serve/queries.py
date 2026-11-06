@@ -16,6 +16,7 @@ from corpus_structure.serve.results import (
     FindAnswer,
     StatementAnswer,
 )
+from corpus_structure.serve.structural_products import DossierRepresentationPage
 
 
 class Params(BaseModel):
@@ -381,6 +382,62 @@ class StructuralProducts(Query):
             raise InvalidContinuation("invalid structural query position")
 
 
+class DossierRepresentationParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    task_id: int = Field(strict=True, gt=0)
+    member_limit: int = Field(default=20, strict=True, ge=1, le=100)
+    page_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
+
+
+class DossierRepresentationQuery(Query):
+    name = "dossier_representation"
+    version = "dossier-representation-query-1"
+    params = DossierRepresentationParams
+    result = DossierRepresentationPage
+
+    def rows(self, ctx, p, after=None):
+        from corpus_structure.serve.structural_products import (
+            DossierContinuation,
+            DossierRepresentationRequest,
+            serve_dossier_representation,
+        )
+
+        self.validate_position(after)
+        if after == "done":
+            return
+        cursor = DossierContinuation.model_validate_json(after) if after else None
+        while True:
+            page = serve_dossier_representation(
+                ctx.conn,
+                DossierRepresentationRequest(
+                    run_id=ctx.run_id,
+                    task_id=p.task_id,
+                    limit=p.member_limit,
+                    max_bytes=p.page_bytes,
+                    continuation=cursor,
+                ),
+            )
+            yield Positioned(
+                page, page.continuation.model_dump_json() if page.continuation else "done"
+            )
+            if page.continuation is None:
+                return
+            cursor = page.continuation
+
+    def validate_position(self, position):
+        from corpus_structure.semantic.refusals import InvalidContinuation
+        from corpus_structure.serve.structural_products import DossierContinuation
+
+        if position is None or position == "done":
+            return
+        if not isinstance(position, str):
+            raise InvalidContinuation("invalid dossier continuation")
+        try:
+            DossierContinuation.model_validate_json(position)
+        except ValueError as error:
+            raise InvalidContinuation("invalid dossier continuation") from error
+
+
 GENERIC = (
     Entity(),
     Claims(),
@@ -392,4 +449,5 @@ GENERIC = (
     StructuralProducts("structural_applicability", "definition_applicability"),
     StructuralProducts("structural_comparisons", "qualified_comparison"),
     StructuralProducts("structural_dossiers", "dossier"),
+    DossierRepresentationQuery(),
 )
