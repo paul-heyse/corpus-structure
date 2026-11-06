@@ -81,3 +81,22 @@ def test_named_rule_availability_is_preserved_per_variant(monkeypatch,states,ava
     result=retained_annotation_components(object(),inputs,passage,cfg,retained=retained)
     assert result.available is available and result.components==()
     assert tuple(operation['availability'] for operation in result.operations)==states
+
+
+
+def test_authentic_unsupported_annotation_version_is_unavailable_without_decoding(monkeypatch):
+    from corpus_structure.semantic import structural_sources as owner
+    from corpus_structure.semantic import proposals
+    inputs,source,_=manifest()
+    body=dict(release_id=source.release_id,source='source:53',method='extract.m1_annotations',operation_version='1',unit_key='source:53',input_hash='input',configuration_hash='config',parse_detail={'do_not_decode':'unsupportedformat'})
+    row=dict(origin_task_id=285,release_id=source.release_id,unit_key='source:53',input_hash='input',config_hash='config',version='1',body=body)
+    monkeypatch.setattr(owner,'load_source_view',lambda *args,**kwargs:object())
+    monkeypatch.setattr(proposals,'native_source_frame',lambda *args:SimpleNamespace(unit_ref='source:53'))
+    class Budget:
+        def preflight(self,*args):pass
+        def value(self,*args):pass
+    class Conn:
+        def execute(self,*args):return SimpleNamespace(mappings=lambda:(row,))
+    result=load_structural_annotations(Conn(),inputs,source.identity,None,read_budget=Budget())
+    assert result.annotations==() and result.annotation_task_id==285
+    assert 'version 1 is unsupported' in result.errors[0]
