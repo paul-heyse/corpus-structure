@@ -8,22 +8,15 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.refusals import SemanticRefusal
 import pytest
 
-from corpus_structure.core.method import MethodSettings
-from corpus_structure.core.vocab import Stage
 from corpus_structure.evaluate.record_references import assign_origin
 from corpus_structure.evaluate.structural_assessment import (
     StructuralAuthoredReference, StructuralEvaluationFrame, StructuralReferenceCase,
     StructuralSourceGroup, StructuralSourceOpportunity, create_structural_reference_set,
     record_structural_reference_pass,
 )
-from corpus_structure.methods.structural_products import StructuralProductsMethod
-from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
-from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import OperationBinding
 from .native_record_fixtures import private_source as private_source
 from .native_record_fixtures import private_source_options as private_source_options
 from .test_contextual_workflow_native import completed_component_case
@@ -62,17 +55,13 @@ def test_exact_component_admits_without_whole_applicability(private_source, sema
         set_id=set_id,c_pass_id=c,c_content_digest=digest,frame_digest=frozen.identity,policy_id="independent-definition-component-1")
 
     def produce(binding, output):
-        run=semantic.run_source_methods(case.writer,project_id="private-records",prepared=case.prepared,
-            binding=OperationBinding(case.prepared.release_id,"wce-source",completed.source_revision,b"{}"),
-            registry=MethodRegistry([StructuralProductsMethod()],MethodsFile(configs={"structure.products":{"default":dict(report=completed.report.model_dump(mode="json"),structural_input_digest=completed.inputs.identity)}})),
-            graph=Graph(((Stage.ASSEMBLE,(Step("structure.products/default"),)),),policy_propose=False),
-            structural_admission=(binding,),method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
+        run=completed.produce_component(structural_admission=(binding,))
         finalize_bound_run(case.writer,run.run_id,output)
         return run.run_id
 
     run=produce(admission,"component-publication")
     with case.writer.connect() as conn:
-        rows=conn.execute(select(table("data.structural_assertion")).where(table("data.structural_assertion").c.realization_id=="component-publication")).mappings().all()
+        rows=conn.execute(select(table("data.structural_assertion")).join(table("ops.task"),table("ops.task").c.id==table("data.structural_assertion").c.selected_task_id).where(table("ops.task").c.run_id==run)).mappings().all()
     assert len(rows)==1
     assert rows[0]["policy_id"]=="independent-definition-component-1"
     assert rows[0]["statement_json"]==canonical_bytes(expected).decode()
