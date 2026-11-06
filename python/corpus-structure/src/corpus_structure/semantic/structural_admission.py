@@ -13,6 +13,7 @@ from hashlib import sha256
 from typing import Any
 
 from .identity import canonical_bytes
+from .refusals import SemanticRefusal
 from .structural_products import StructuralProductReport
 
 POLICIES = {
@@ -27,6 +28,8 @@ def structural_statement(
     report: StructuralProductReport, component_id: str | None = None
 ) -> dict[str, Any]:
     """Project complete meaning and physical citations, without derivation aliases."""
+    if report.kind not in POLICIES:
+        raise SemanticRefusal(f"No public structural policy for private {report.kind} reports")
     refs = {s.identity: s.model_dump(mode="json", exclude_none=True) for s in report.inputs.sources}
     passages = {p.passage_id: p for p in report.inputs.passages}
 

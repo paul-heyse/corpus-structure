@@ -1372,7 +1372,7 @@ classes:
         required: true
         equals_string: '1'
       product_kind:
-        range: StructuralStructuralProductReportKindValue
+        range: StructuralPublicProductKindValue
         required: true
       facet:
         range: string
@@ -1570,7 +1570,7 @@ classes:
         required: true
         equals_string: structural-public-statement-3
       kind:
-        range: StructuralStructuralProductReportKindValue
+        range: StructuralPublicProductKindValue
         required: true
       scope:
         range: string
@@ -1804,6 +1804,13 @@ enums:
       conflict: {}
       unresolved_sense: {}
       open_question: {}
+  StructuralPublicProductKindValue:
+    description: Structural kinds with an implemented independent public-statement policy. Private artifact identity diagnostics have no publication policy.
+    permissible_values:
+      definition_components: {}
+      definition_applicability: {}
+      qualified_comparison: {}
+      dossier: {}
   StructuralStructuralProductReportKindValue:
     permissible_values:
       artifact_identity: {}

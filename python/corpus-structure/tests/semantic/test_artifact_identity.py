@@ -241,6 +241,12 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
             (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),), cfg, ctx
         )
         assert result.structural_product is not None
+        from corpus_structure.semantic.refusals import SemanticRefusal
+        from corpus_structure.semantic.structural_admission import structural_statement
+        from corpus_structure.semantic.structural_products import StructuralProductReport
+
+        with pytest.raises(SemanticRefusal, match="No public structural policy"):
+            structural_statement(StructuralProductReport.model_validate(result.structural_product))
         from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
 
         product = ArtifactIdentityProduct.model_validate(

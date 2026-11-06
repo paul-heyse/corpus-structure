@@ -252,6 +252,18 @@ def test_public_statement_and_policy_are_released_shapes():
     prepared.validate_json(
         "StructuralPublicStatement", canonical_bytes(structural_statement(definition()))
     )
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        prepared.validate_python(
+            "StructuralPublicationPolicy",
+            {
+                "policy_id": "artifact-publication-is-not-defined",
+                "policy_version": "1",
+                "product_kind": "artifact_identity",
+                "facet": "public_statement",
+            },
+        )
 
 
 def test_numeric_retrieval_is_raw_task_provenance_not_envelope_identity():
