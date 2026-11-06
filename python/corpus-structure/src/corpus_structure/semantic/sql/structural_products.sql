@@ -225,7 +225,7 @@ BEGIN
    RAISE EXCEPTION 'supplied structural report differs from its frozen configuration' USING ERRCODE='23514'; END IF;
  ELSIF method_ IN ('structure.definitions','structure.definition_components') THEN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
-    OR product->>'kind' NOT IN ('definition_components','definition_applicability') THEN
+    OR product->>'kind' IS DISTINCT FROM (CASE method_ WHEN 'structure.definition_components' THEN 'definition_components' ELSE 'definition_applicability' END) THEN
    RAISE EXCEPTION 'definition report differs from frozen source/question input' USING ERRCODE='23514'; END IF;
  ELSE
   RAISE EXCEPTION 'method does not declare a structural report producer' USING ERRCODE='23514';
@@ -249,6 +249,7 @@ BEGIN
     RAISE EXCEPTION 'definition component identity differs from complete meaning' USING ERRCODE='23514'; END IF;
    FOR ref IN SELECT dimension->'term' UNION ALL SELECT dimension->'content' LOOP
     passage:=passage_map->(ref->>'passage_id');
+    IF method_='structure.definition_components' AND NOT config_->'target_ids' ? (ref->>'passage_id') THEN RAISE EXCEPTION 'definition span is outside inspected target selection' USING ERRCODE='23514'; END IF;
     IF passage IS NULL OR (ref->>'start')::bigint<(passage->>'start')::bigint OR (ref->>'end')::bigint>(passage->>'end')::bigint
      OR (ref->>'end')::bigint<=(ref->>'start')::bigint OR ref->>'text' IS DISTINCT FROM substring(passage->>'text' FROM (ref->>'start')::integer-(passage->>'start')::integer+1 FOR (ref->>'end')::integer-(ref->>'start')::integer)
      OR dimension->>'scope' IS DISTINCT FROM passage->>'scope' OR dimension->>'effective_version' IS DISTINCT FROM passage->>'effective_version' THEN
