@@ -107,3 +107,36 @@ completed run/cut/runtime, premise states and bounded outcome. The portable bund
 verification retain selected original source closure, both contract populations, producer
 provenance, private report and selection; protected cohorts are excluded and scientific truth
 remains unestablished.
+
+## Actual CLI and stdio MCP consumers — 2026-11-06
+
+`consumer_check.py consumer003`: **passed** three fresh `ci` CLI subprocesses and three
+actual stdio MCP subprocesses through `FastMCP.Client`/`StdioTransport(keep_alive=False)`.
+The retained selections are component121/cut156 (including its one local public assertion
+and support facet), contextual relationship127/cut162 (details and interpretations), and
+private applicability130/cut164. The component term is the actual normal-density term, the
+relationship retains `defined-by`, and applicability retains `applicable_definition`.
+
+CLI and MCP agree on every binding, content and standing field except the contribution
+reader's per-read `binding.capture_id`. Both raw capture IDs are retained, validated as
+distinct UUIDs and identified explicitly in `relationship-parity.json`; no other field is
+excluded. Commands, actual CLI process IDs/exit codes, raw JSON, stderr, MCP tool inventories
+and responses are retained under `consumer003/`. These calls execute no provider, producer,
+evaluator, protected-cohort capture or publication mutation.
+
+Earlier attempts remain: `consumer001` passed all three CLI reads but the MCP subprocess
+refused startup against stale generated report-schema metadata. The root regenerated that
+owned product. `consumer002` passed all CLI reads and component MCP parity; relationship MCP
+returned successfully, then the evidence script's overstrict comparison failed only because
+independent read snapshots correctly had different capture IDs. `consumer003` applies the
+narrow corrected comparison and passes all six actual consumers.
+
+```bash
+uv run python docs/design_review/evidence/2026-11-06_wce05-corpus-linking/consumer_check.py consumer003
+```
+
+The transport follows the existing `tests/semantic/test_runtime_entrypoints.py` subprocess
+pattern. Context7 confirmed the supported explicit command/args/env/cwd/log-file configuration
+and `keep_alive=False` lifecycle against the [FastMCP transport documentation](https://github.com/prefecthq/fastmcp/blob/main/docs/clients/transports.mdx).
+This consumer evidence establishes delivery/parity for the stated retained selections, not
+corpus completeness, scientific truth or new independent semantic support.

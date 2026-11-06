@@ -1,2 +1,4 @@
 actual*/** filter=lfs diff=lfs merge=lfs -text
 actual*.log filter=lfs diff=lfs merge=lfs -text
+consumer*/** filter=lfs diff=lfs merge=lfs -text
+consumer*.log filter=lfs diff=lfs merge=lfs -text
