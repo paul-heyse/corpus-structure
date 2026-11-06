@@ -228,11 +228,11 @@ classes:
     is_a: SourceRecordProduct
     description: Independently judged scoped denotation only; no universal confidence or canonical identity.
     attributes:
-      policy_id: {required: true, equals_string: independent-contextual-denotation-1}
+      policy_id: {required: true, equals_string: independent-contextual-relationship-2}
       policy_version: {required: true, equals_string: '1'}
-      facet: {required: true, equals_string: denotation}
-      rubric_version: {required: true, equals_string: contextual-denotation-1}
-      context_policy: {required: true, equals_string: declared-native-source-and-curated-targets-1}
+      facet: {required: true, equals_string: relationship}
+      rubric_version: {required: true, equals_string: contextual-relationship-2}
+      context_policy: {required: true, equals_string: declared-native-source-and-extracted-components-2}
   ComponentBasis:
     is_a: SourceRecordProduct
     description: Attributed evidence for a private component; never an admission witness.
@@ -645,7 +645,8 @@ classes:
       scope: {required: true}
       effective_version: {}
       evidence_ids: {multivalued: true, minimum_cardinality: 1, required: true}
-      basis: {required: true, equals_string: explicit_source_cue}
+      basis: {required: true, pattern: '^(explicit_source_cue|producer_group|geometry|model_reading|admitted_derivation)$'}
+      support_state: {required: true, pattern: '^(supported|unsupported|unassessed|ambiguous)$'}
   ContextualProposalWitness:
     is_a: SourceRecordProduct
     attributes:
@@ -672,10 +673,38 @@ classes:
       effective_version: {}
       policy_id: {required: true}
       exclusion_snapshot: {required: true}
-      outcome: {required: true, pattern: '^(selected|ambiguous|local_sense|new_concept|insufficient_evidence)$'}
-      alternatives: {range: ContextualRelationshipWitness, inlined: true, multivalued: true}
+      outcome: {required: true, pattern: '^(selected|partial|ambiguous|local_sense|new_concept|insufficient_evidence)$'}
+      questions: {range: ContextualRelationshipQuestion, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      witnesses: {range: ContextualRelationshipWitness, inlined: true, multivalued: true}
+      selected_edges: {range: ContextualRelationshipEdge, inlined: true, multivalued: true}
+      alternative_groups: {range: ContextualAlternativeGroup, inlined: true, multivalued: true}
       proposal: {range: ContextualProposalWitness, inlined: true}
       reason: {}
+  ContextualRelationshipQuestion:
+    is_a: SourceRecordProduct
+    attributes:
+      question_id: {required: true}
+      relation_kinds: {required: true, multivalued: true, minimum_cardinality: 1}
+      occurrence_role: {required: true}
+      target_role: {required: true}
+      multiplicity: {required: true, pattern: '^(one|many)$'}
+      exhaustive: {required: true, range: boolean}
+  ContextualRelationshipEdge:
+    is_a: SourceRecordProduct
+    attributes:
+      edge_id: {required: true}
+      question_id: {required: true}
+      occurrence_id: {required: true}
+      target_id: {required: true}
+      relation: {required: true}
+      witnesses: {range: ContextualRelationshipWitness, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      selection: {required: true, pattern: '^(forced|preferred)$'}
+  ContextualAlternativeGroup:
+    is_a: SourceRecordProduct
+    attributes:
+      question_id: {required: true}
+      edges: {range: ContextualRelationshipEdge, inlined: true, multivalued: true, required: true, minimum_cardinality: 2}
+      reason: {required: true}
   ContextualProductCounts:
     is_a: SourceRecordProduct
     attributes:
@@ -691,13 +720,32 @@ classes:
       origin_task_id: {range: integer, minimum_value: 1, required: true}
       origin_runtime_id: {required: true}
       result_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+  ExtractedComponentTarget:
+    is_a: SourceRecordProduct
+    attributes:
+      reference: {required: true, range: RetainedComponentRef, inlined: true}
+      label: {required: true}
+      description: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      parent: {}
+  StructuralPublicDefinitionComponent:
+    attributes:
+      term: {required: true, range: StructuralPublicCitation, inlined: true}
+      content: {required: true, range: StructuralPublicCitation, inlined: true}
+      interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
+      basis: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      alternatives: {multivalued: true}
   ContextualEnrichmentReport:
     is_a: SourceRecordProduct
     attributes:
+      component_targets: {range: ExtractedComponentTarget, inlined: true, multivalued: true}
       curated_registry_id: {}
       vector_reuse: {range: ContextualVectorReuse, multivalued: true, inlined: true}
       product_counts: {range: ContextualProductCounts, inlined: true, required: true}
-      version: {required: true, equals_string: contextual-enrichment-1}
+      version: {required: true, equals_string: contextual-enrichment-2}
       profiles: {range: ContextualProfile, inlined: true, multivalued: true}
       vectors: {range: ContextualVector, inlined: true, multivalued: true}
       inventories: {range: ContextualInventory, inlined: true, multivalued: true}
@@ -730,6 +778,61 @@ classes:
         equals_string: not_asserted
       identity_standing:
         equals_string: not_asserted
+  RetainedComponentRef:
+    is_a: SourceRecordProduct
+    attributes:
+      product_id: {required: true}
+      component_id: {required: true, pattern: '^[0-9a-f]{64}$'}
+      operation_id: {required: true}
+      operation_version: {required: true}
+      project_id: {required: true}
+      run_id: {required: true, range: integer, minimum_value: 1}
+      cut_id: {required: true, range: integer, minimum_value: 1}
+      release_id: {required: true}
+      result_revision: {required: true, range: integer, minimum_value: 0}
+      selected_task_id: {required: true, range: integer, minimum_value: 1}
+      origin_task_id: {required: true, range: integer, minimum_value: 1}
+      runtime_fingerprint: {required: true}
+      dependencies: {required: true, multivalued: true, minimum_cardinality: 1}
+  LocatedDefinitionSpan:
+    is_a: SourceRecordProduct
+    attributes:
+      passage_id: {required: true}
+      start: {required: true, range: integer, minimum_value: 0}
+      end: {required: true, range: integer, minimum_value: 1}
+      text: {required: true}
+  LocatedDefinitionComponent:
+    is_a: SourceRecordProduct
+    attributes:
+      component_id: {required: true, pattern: '^[0-9a-f]{64}$'}
+      term: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      content: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
+      basis: {required: true, pattern: '^(matched_cue|returned_producer_group|native_geometry|model_reading|admitted_derivation)$'}
+      scope: {required: true}
+      effective_version: {}
+      alternatives: {multivalued: true}
+      evidence: {required: true, multivalued: true, minimum_cardinality: 1}
+      reason: {required: true}
+  DefinitionStage:
+    is_a: SourceRecordProduct
+    attributes:
+      passage_id: {required: true}
+      operation: {required: true, pattern: '^(located_extraction|attachment|usage_applicability)$'}
+      outcome: {required: true, pattern: '^(succeeded|empty|unavailable|failed|not_run)$'}
+      reason: {required: true}
+  DefinitionComponentsProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      components: {range: LocatedDefinitionComponent, inlined: true, multivalued: true}
+      stages: {range: DefinitionStage, inlined: true, multivalued: true}
+  ApplicabilityPremise:
+    is_a: SourceRecordProduct
+    attributes:
+      dimension: {required: true, pattern: '^(scope|parent|parameterization|convention|version|sense)$'}
+      state: {required: true, pattern: '^(compatible|incompatible|unknown|inapplicable)$'}
+      evidence: {multivalued: true}
+      reason: {required: true}
   DefinitionProduct:
     is_a: SourceRecordProduct
     attributes:
@@ -752,6 +855,8 @@ classes:
   StructuralDefinitionReading:
     is_a: SourceRecordProduct
     attributes:
+      component_ref: {required: true, range: RetainedComponentRef, inlined: true}
+      premises: {required: true, range: ApplicabilityPremise, inlined: true, multivalued: true, minimum_cardinality: 1}
       target_id:
         required: true
       outcome:
@@ -923,7 +1028,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       version:
-        equals_string: structural-product-1
+        equals_string: structural-product-2
       kind:
         required: true
         range: StructuralStructuralProductReportKindValue
@@ -933,6 +1038,7 @@ classes:
         inlined: true
       standing:
         equals_string: private_proposal
+      definition_components: {range: DefinitionComponentsProduct, inlined: true}
       definition:
         range: DefinitionProduct
         inlined: true
@@ -1014,10 +1120,11 @@ classes:
         inlined: true
   StructuralPublicDefinitionReading:
     attributes:
+      component_ref: {required: true, range: RetainedComponentRef, inlined: true}
+      premises: {required: true, range: ApplicabilityPremise, multivalued: true, inlined: true}
       target:
-        range: StructuralPublicCitation
+        range: string
         required: true
-        inlined: true
       outcome:
         range: StructuralDefinitionReadingOutcomeValue
         required: true
@@ -1034,23 +1141,17 @@ classes:
         required: true
         inlined: true
       eligible_targets:
-        range: StructuralPublicCitation
+        range: string
         multivalued: true
         required: false
-        inlined: true
-        inlined_as_list: true
       candidate_targets:
-        range: StructuralPublicCitation
+        range: string
         multivalued: true
         required: false
-        inlined: true
-        inlined_as_list: true
       readings:
         range: StructuralPublicDefinitionReading
         multivalued: true
         required: false
-        inlined: true
-        inlined_as_list: true
       inventory_coverage:
         range: StructuralDefinitionProductInventoryCoverageValue
         required: true
@@ -1156,10 +1257,11 @@ classes:
         equals_string: membership_assembly_not_member_truth
   StructuralPublicStatement:
     attributes:
+      definition_component: {range: StructuralPublicDefinitionComponent, inlined: true}
       version:
         range: string
         required: true
-        equals_string: structural-public-statement-1
+        equals_string: structural-public-statement-2
       kind:
         range: StructuralStructuralProductReportKindValue
         required: true
@@ -1306,10 +1408,8 @@ enums:
         description: The target mentions relevant terminology but does not define or explain the meaning invoked in the usage.
       example:
         description: The target illustrates a relevant concept through an example rather than defining or explaining the source usage.
-      ambiguous:
-        description: The supplied usage and target allow competing applicability readings that the source context cannot resolve.
-      insufficient_support:
-        description: The target supplies no source-grounded definition or explanation applicable to the supplied usage; topical similarity is insufficient.
+      incompatible: {}
+      unresolved: {}
   StructuralDimensionComparisonDimensionValue:
     permissible_values:
       actor: {}
@@ -1361,6 +1461,7 @@ enums:
       open_question: {}
   StructuralStructuralProductReportKindValue:
     permissible_values:
+      definition_components: {}
       definition_applicability: {}
       qualified_comparison: {}
       dossier: {}

@@ -14,6 +14,55 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.contextual_identity_value(jsonb) FROM PUBLIC;
 
+-- Restore explicit optional nulls used by typed decision identity.
+CREATE OR REPLACE FUNCTION ops.contextual_nullable_value(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE result jsonb;
+BEGIN
+ IF jsonb_typeof(p)='array' THEN SELECT COALESCE(jsonb_agg(ops.contextual_nullable_value(value) ORDER BY n),'[]') INTO result FROM jsonb_array_elements(p) WITH ORDINALITY x(value,n); RETURN result;
+ ELSIF jsonb_typeof(p)='object' THEN
+  SELECT COALESCE(jsonb_object_agg(key,ops.contextual_nullable_value(value)),'{}') INTO result FROM jsonb_each(p);
+  IF p ? 'witness_id' THEN result:=result||jsonb_build_object('effective_version',p->'effective_version'); END IF;
+  RETURN result;
+ END IF;
+ RETURN p;
+END $$;
+REVOKE ALL ON FUNCTION ops.contextual_nullable_value(jsonb) FROM PUBLIC;
+
+-- Replay question-relative selection from the complete witnessed input population.
+CREATE OR REPLACE FUNCTION ops.validate_contextual_selection(d jsonb,candidates jsonb,inventory jsonb) RETURNS void
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE question jsonb; edges jsonb; edge jsonb; selected jsonb:='[]'; groups jsonb:='[]'; expected text; actual_pairs jsonb;
+BEGIN
+ IF jsonb_array_length(d->'questions')=0 OR EXISTS(SELECT FROM jsonb_array_elements(d->'questions') q GROUP BY q->>'question_id' HAVING count(*)>1)
+ OR EXISTS(SELECT FROM jsonb_array_elements(d->'questions') q,LATERAL jsonb_array_elements_text(q->'relation_kinds') k GROUP BY k HAVING count(*)>1)
+ OR EXISTS(SELECT FROM jsonb_array_elements(d->'witnesses') w GROUP BY w->>'witness_id' HAVING count(*)>1)
+ OR EXISTS(SELECT FROM jsonb_array_elements(d->'witnesses') w WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(d->'questions') q WHERE q->'relation_kinds' ? (w->>'relation'))) THEN
+  RAISE EXCEPTION 'relationship question ownership or witness population invalid' USING ERRCODE='23514'; END IF;
+ FOR question IN SELECT value FROM jsonb_array_elements(d->'questions') ORDER BY value->>'question_id' LOOP
+  WITH eligible AS (
+   SELECT w FROM jsonb_array_elements(d->'witnesses') w WHERE question->'relation_kinds' ? (w->>'relation')
+   AND w->>'support_state' NOT IN ('unsupported','ambiguous') AND w->>'occurrence_id'<>w->>'target_id'
+   AND NOT (w->>'relation' IN ('denotes','alias-of') AND EXISTS(SELECT FROM jsonb_array_elements(d->'exclusions') ex WHERE
+    (ex->>'left'=w->>'occurrence_id' AND ex->>'right'=w->>'target_id') OR (ex->>'right'=w->>'occurrence_id' AND ex->>'left'=w->>'target_id')))
+   AND NOT (d->>'effective_version' IS NULL AND EXISTS(SELECT FROM jsonb_array_elements(inventory->'targets') target WHERE target->>'target_id'=w->>'target_id' AND target->>'effective_version' IS NOT NULL))
+  ), pair AS (
+   SELECT w->>'target_id' target_id,w->>'relation' relation,jsonb_agg(w ORDER BY w->>'witness_id') witnesses FROM eligible GROUP BY w->>'target_id',w->>'relation'
+  ), meanings AS (
+   SELECT target_id,relation,jsonb_build_object('question_id',question->>'question_id','occurrence_id',d->>'occurrence_id','target_id',target_id,'relation',relation,'witnesses',witnesses,'selection',CASE WHEN (question->>'exhaustive')::boolean THEN 'forced' ELSE 'preferred' END) meaning FROM pair
+  ) SELECT COALESCE(jsonb_agg(meaning||jsonb_build_object('edge_id','scoped-edge:'||encode(sha256(convert_to(data.canonical_json(ops.contextual_nullable_value(meaning)),'UTF8')),'hex')) ORDER BY target_id,relation),'[]') INTO edges FROM meanings;
+  IF question->>'multiplicity'='one' AND jsonb_array_length(edges)>1 THEN
+   groups:=groups||jsonb_build_array(jsonb_build_object('question_id',question->>'question_id','edges',edges,'reason','competing senses under declared exclusive question'));
+  ELSE selected:=selected||edges; END IF;
+ END LOOP;
+ IF jsonb_strip_nulls(d->'selected_edges') IS DISTINCT FROM jsonb_strip_nulls(selected) OR jsonb_strip_nulls(d->'alternative_groups') IS DISTINCT FROM jsonb_strip_nulls(groups) THEN
+  RAISE EXCEPTION 'selected edges or alternatives differ from exact question replay' USING ERRCODE='23514'; END IF;
+ expected:=CASE WHEN jsonb_array_length(selected)>0 THEN CASE WHEN jsonb_array_length(groups)>0 THEN 'partial' ELSE 'selected' END WHEN jsonb_array_length(groups)>0 THEN 'ambiguous' WHEN d ? 'proposal' THEN d->'proposal'->>'kind' ELSE 'insufficient_evidence' END;
+ IF d->>'outcome' IS DISTINCT FROM expected OR ((jsonb_array_length(selected)>0 OR jsonb_array_length(groups)>0) AND d ? 'proposal') THEN
+  RAISE EXCEPTION 'decision outcome differs from question-relative selection' USING ERRCODE='23514'; END IF;
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_contextual_selection(jsonb,jsonb,jsonb) FROM PUBLIC;
+
 -- Independent source contributions share existing task/report and source custody.
 CREATE OR REPLACE FUNCTION ops.source_contribution_occurrence(p_anchors jsonb)
 RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -166,7 +215,7 @@ BEGIN
    registry_id:=NULL; registry_targets:='[]'::jsonb;
    IF (EXISTS(SELECT FROM ops.method_config cfg JOIN ops.method m ON m.id=cfg.method_id
         WHERE cfg.id=t.method_config_id AND (cfg.params ? 'registry_targets' OR m.name='retrieve.contextual'))
-        OR jsonb_array_length(report->'inventories')>0) AND NOT report ? 'curated_registry_id' THEN
+        OR jsonb_array_length(report->'inventories')>0) AND NOT report ? 'curated_registry_id' AND jsonb_array_length(COALESCE(report->'component_targets','[]'))=0 THEN
     RAISE EXCEPTION 'contextual target input requires its registered curated registry custody' USING ERRCODE='23514'; END IF;
    IF report ? 'curated_registry_id' THEN
     SELECT COALESCE(jsonb_agg(jsonb_build_object('target_id',x->'target_id','label',x->'label',
@@ -206,7 +255,7 @@ BEGIN
     IF profile IS NULL OR vec->>'vector_id' IS DISTINCT FROM expected
      OR (vec->>'source_binding' IS DISTINCT FROM p_envelope->>'source' AND NOT EXISTS(
       SELECT FROM jsonb_array_elements(registry_targets) rt WHERE rt->>'target_id'=vec->>'object_id'
-       AND vec->>'source_binding'='curated-target:'||encode(sha256(convert_to(data.canonical_json(rt),'UTF8')),'hex')))
+       AND vec->>'source_binding'='curated-target:'||encode(sha256(convert_to(data.canonical_json(rt),'UTF8')),'hex')) AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(report->'component_targets','[]')) ct WHERE ct->'reference'->>'component_id'=vec->>'object_id' AND vec->>'source_binding'='definition-component:'||encode(sha256(convert_to(data.canonical_json(ct->'reference'),'UTF8')),'hex')))
      OR public.vector_dims((vec->'values')::text::public.vector)<>(profile->>'dimension')::integer
      OR abs(public.vector_norm((vec->'values')::text::public.vector)-1)>0.00001 THEN
      RAISE EXCEPTION 'contextual vector profile/source/value binding differs' USING ERRCODE='23514'; END IF;
@@ -264,11 +313,18 @@ BEGIN
         WHERE v_->>'object_id'=target_product->>'target_id' AND v_->>'profile_id'=prof->>'profile_id'
          AND v_->>'representation_digest'=target_product->>'representation_digest')<>1) THEN
       RAISE EXCEPTION 'target representation differs or lacks its exact profile/vector' USING ERRCODE='23514'; END IF;
-     IF registry_id IS NULL OR NOT EXISTS(SELECT FROM jsonb_array_elements(registry_targets) registry_target
+     IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(report->'component_targets','[]')) ct WHERE ct->'reference'->>'component_id'=target_product->>'target_id') THEN
+      SELECT value INTO STRICT witness FROM jsonb_array_elements(report->'component_targets') ct(value) WHERE value->'reference'->>'component_id'=target_product->>'target_id';
+      normalized_target:=ops.resolve_retained_component(witness->'reference')->'component';
+      IF witness->>'label' IS DISTINCT FROM normalized_target->'term'->>'text' OR witness->>'description' IS DISTINCT FROM normalized_target->'content'->>'text'
+       OR witness->>'scope' IS DISTINCT FROM normalized_target->>'scope' OR witness->>'effective_version' IS DISTINCT FROM normalized_target->>'effective_version'
+       OR target_product->>'label' IS DISTINCT FROM witness->>'label' OR target_product->>'description' IS DISTINCT FROM witness->>'description'
+       OR target_product->>'source_binding' IS DISTINCT FROM 'definition-component:'||encode(sha256(convert_to(data.canonical_json(witness->'reference'),'UTF8')),'hex') THEN
+       RAISE EXCEPTION 'component target descriptor differs from authenticated located content' USING ERRCODE='23514'; END IF;
+     ELSIF registry_id IS NULL OR NOT EXISTS(SELECT FROM jsonb_array_elements(registry_targets) registry_target
        WHERE registry_target=normalized_target-'source_binding'-'representation_digest'
-        AND target_product->>'source_binding'='curated-target:'||encode(sha256(convert_to(
-         data.canonical_json(registry_target),'UTF8')),'hex')) THEN
-      RAISE EXCEPTION 'curated target differs from registered descriptor input/binding' USING ERRCODE='23514'; END IF;
+        AND target_product->>'source_binding'='curated-target:'||encode(sha256(convert_to(data.canonical_json(registry_target),'UTF8')),'hex')) THEN
+      RAISE EXCEPTION 'target lacks authenticated component custody' USING ERRCODE='23514'; END IF;
      IF (target_product->>'scope' NOT IN ('global',inv->>'scope'))
       OR (inv->>'effective_version' IS NOT NULL AND target_product->>'effective_version' IS NOT NULL
        AND target_product->>'effective_version' IS DISTINCT FROM inv->>'effective_version')
@@ -371,34 +427,17 @@ BEGIN
       FROM jsonb_array_elements(decision->'exclusions') e),'[]')),'UTF8')),'hex');
     IF decision->>'exclusion_snapshot' IS DISTINCT FROM expected
      OR decision->>'source_binding' IS DISTINCT FROM p_envelope->>'source'
-     OR decision->>'policy_id'<>'source-supported-scoped-links-1' THEN
+     OR decision->>'policy_id'<>'source-supported-scoped-links-2' THEN
      RAISE EXCEPTION 'relationship policy/source/exclusion snapshot differs' USING ERRCODE='23514'; END IF;
-    expected:='scoped-relationship:'||encode(sha256(convert_to(data.canonical_json(
-     (decision-'decision_id')||jsonb_build_object('effective_version',decision->'effective_version',
-      'proposal',CASE WHEN decision ? 'proposal' THEN decision->'proposal'||
-       jsonb_build_object('effective_version',decision->'proposal'->'effective_version') ELSE 'null'::jsonb END,
-      'reason',decision->'reason','alternatives',COALESCE((SELECT jsonb_agg(w||
-       jsonb_build_object('effective_version',w->'effective_version') ORDER BY n)
-       FROM jsonb_array_elements(decision->'alternatives') WITH ORDINALITY a(w,n)),'[]'))),'UTF8')),'hex');
-    IF decision->>'decision_id' IS DISTINCT FROM expected THEN
-     RAISE EXCEPTION 'relationship identity differs from exact decision/exclusions' USING ERRCODE='23514'; END IF;
+    expected:='scoped-relationship:'||encode(sha256(convert_to(data.canonical_json(ops.contextual_nullable_value(decision-'decision_id')||jsonb_build_object('effective_version',decision->'effective_version','proposal',CASE WHEN decision ? 'proposal' THEN ops.contextual_nullable_value(decision->'proposal') ELSE 'null'::jsonb END,'reason',decision->'reason')),'UTF8')),'hex');
+    IF decision->>'decision_id' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'relationship identity differs from complete question decision' USING ERRCODE='23514'; END IF;
     candidate_list:=list_map->(decision->>'candidate_list_id');
     inv:=inventory_map->(candidate_list->>'inventory_id');
     IF candidate_list IS NULL OR decision->>'occurrence_id' IS DISTINCT FROM candidate_list->>'occurrence_id'
      OR decision->>'scope' IS DISTINCT FROM inv->>'scope'
      OR decision->>'effective_version' IS DISTINCT FROM inv->>'effective_version' THEN
      RAISE EXCEPTION 'relationship differs from frozen question/scope' USING ERRCODE='23514'; END IF;
-    IF (decision->>'outcome'='selected' AND
-       (SELECT count(DISTINCT jsonb_build_array(w->>'target_id',w->>'relation'))
-        FROM jsonb_array_elements(decision->'alternatives') w)<>1)
-     OR (decision->>'outcome'='ambiguous' AND
-       (SELECT count(DISTINCT jsonb_build_array(w->>'target_id',w->>'relation'))
-        FROM jsonb_array_elements(decision->'alternatives') w)<2)
-     OR (decision->>'outcome' IN ('insufficient_evidence','local_sense','new_concept')
-       AND jsonb_array_length(decision->'alternatives')<>0)
-     OR (decision->>'outcome'='insufficient_evidence' AND COALESCE(decision->>'reason','')='')
-     OR (decision->>'outcome' IN ('selected','ambiguous','insufficient_evidence') AND decision ? 'proposal') THEN
-     RAISE EXCEPTION 'relationship outcome differs from supported alternatives' USING ERRCODE='23514'; END IF;
+    PERFORM ops.validate_contextual_selection(decision,candidate_list,inv);
     IF decision->>'outcome' IN ('local_sense','new_concept') THEN
      witness:=decision->'proposal';
      IF witness IS NULL OR witness->>'kind' IS DISTINCT FROM decision->>'outcome'
@@ -413,44 +452,30 @@ BEGIN
       OR EXISTS(SELECT FROM jsonb_array_elements_text(witness->'evidence_ids') e WHERE NOT identity_map ? e) THEN
       RAISE EXCEPTION 'local proposal differs from examined source/list/evidence' USING ERRCODE='23514'; END IF;
     END IF;
-    FOR witness IN SELECT value FROM jsonb_array_elements(decision->'alternatives') LOOP
+    FOR witness IN SELECT value FROM jsonb_array_elements(decision->'witnesses') LOOP
      IF witness->>'source_binding' IS DISTINCT FROM p_envelope->>'source'
       OR witness->>'occurrence_id' IS DISTINCT FROM decision->>'occurrence_id'
       OR witness->>'scope' IS DISTINCT FROM decision->>'scope'
       OR witness->>'effective_version' IS DISTINCT FROM decision->>'effective_version'
       OR NOT EXISTS(SELECT FROM jsonb_array_elements(candidate_list->'candidates') c
        WHERE c->>'target_id'=witness->>'target_id')
-      OR (decision->>'effective_version' IS NULL AND EXISTS(
-       SELECT FROM jsonb_array_elements(inv->'targets') versioned_target
-        WHERE versioned_target->>'target_id'=witness->>'target_id'
-         AND versioned_target->>'effective_version' IS NOT NULL))
-      OR witness->>'basis'<>'explicit_source_cue'
+      OR witness->>'basis' NOT IN ('explicit_source_cue','producer_group','geometry','model_reading','admitted_derivation')
       OR EXISTS(SELECT FROM jsonb_array_elements_text(witness->'evidence_ids') e
        WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') cue
         WHERE cue->>'contribution_id'=e AND cue->>'kind' IN ('occurrence','proposal')
          AND jsonb_array_length(COALESCE(cue->'anchors','[]'))>0
          AND NOT EXISTS(SELECT FROM jsonb_array_elements(cue->'anchors') contextual_anchor
-          WHERE contextual_anchor->>'precision'<>'exact')))
-      OR (witness->>'relation' IN ('alias-of','denotes') AND EXISTS(
-       SELECT FROM jsonb_array_elements(decision->'exclusions') ex
-       WHERE (ex->>'left'=decision->>'occurrence_id' AND ex->>'right'=witness->>'target_id')
-        OR (ex->>'right'=decision->>'occurrence_id' AND ex->>'left'=witness->>'target_id'))) THEN
+          WHERE contextual_anchor->>'precision'<>'exact'))) THEN
       RAISE EXCEPTION 'relationship witness differs from source/endpoints/evidence' USING ERRCODE='23514'; END IF;
     END LOOP;
-    IF p_envelope->>'method'='retrieve.contextual' AND decision->>'outcome'='selected'
-     AND decision->'alternatives'->0->>'relation'='denotes'
-     AND (SELECT count(*) FROM jsonb_array_elements(p_envelope->'contributions') cc
-       WHERE cc->>'semantic_type'='contextual.denotation'
-        AND cc->'computation_dependencies'->>2=decision->>'decision_id')<>1 THEN
-     RAISE EXCEPTION 'selected denotation requires one independently addressable proposal' USING ERRCODE='23514'; END IF;
    END LOOP;
   END;
  END LOOP;
  -- Scoped denotation statements are addressable products of the retained typed decision.
  FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions')
-   WHERE value->>'semantic_type'='contextual.denotation' LOOP
+   WHERE value->>'semantic_type'='contextual.relationship' LOOP
   DECLARE statement jsonb:=data.record_source_json(contribution->'value');
-   denotation jsonb; denotation_report jsonb; denotation_list jsonb; denotation_target jsonb;
+   denotation jsonb; selected_edge jsonb; denotation_report jsonb; denotation_list jsonb; denotation_target jsonb;
    source_cue jsonb; denotation_operation jsonb; matches bigint;
   BEGIN
    SELECT count(*) INTO matches FROM jsonb_array_elements(p_envelope->'contribution_operations') oo,
@@ -461,31 +486,33 @@ BEGIN
     FROM jsonb_array_elements(p_envelope->'contribution_operations') oo,
      LATERAL jsonb_array_elements(oo->'contextual_enrichment'->'relationship_decisions') dd
     WHERE dd->>'decision_id'=contribution->'computation_dependencies'->>2;
+   SELECT edge INTO STRICT selected_edge FROM jsonb_array_elements(denotation->'selected_edges') edge
+    WHERE edge->>'edge_id'=contribution->'computation_dependencies'->>4 ;
    SELECT ll INTO denotation_list FROM jsonb_array_elements(denotation_report->'candidate_lists') ll
     WHERE ll->>'list_id'=denotation->>'candidate_list_id';
    SELECT tt INTO denotation_target FROM jsonb_array_elements(denotation_report->'inventories') ii,
     LATERAL jsonb_array_elements(ii->'targets') tt
     WHERE ii->>'inventory_id'=denotation_list->>'inventory_id'
-     AND tt->>'target_id'=denotation->'alternatives'->0->>'target_id';
+     AND tt->>'target_id'=selected_edge->>'target_id';
    SELECT cc INTO source_cue FROM jsonb_array_elements(p_envelope->'contributions') cc
     WHERE cc->>'contribution_id'=contribution->'members'->>0;
    denotation_operation:=operation_map->(contribution->>'operation_key');
    IF contribution->>'kind'<>'proposal' OR contribution->>'score_state'<>'missing'
-    OR denotation->>'outcome'<>'selected' OR denotation->'alternatives'->0->>'relation'<>'denotes'
+    OR denotation->>'outcome' NOT IN ('selected','partial')
     OR jsonb_array_length(contribution->'members')<>1 OR source_cue IS NULL
     OR source_cue->>'kind'<>'occurrence'
     OR source_cue->>'occurrence_id' IS DISTINCT FROM denotation->>'occurrence_id'
     OR contribution->'anchors' IS DISTINCT FROM source_cue->'anchors'
     OR contribution->'pin' IS DISTINCT FROM source_cue->'pin'
     OR contribution->>'occurrence_id' IS DISTINCT FROM source_cue->>'occurrence_id'
-    OR NOT (denotation->'alternatives'->0->'evidence_ids') ? (source_cue->>'contribution_id')
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(selected_edge->'witnesses') w WHERE w->'evidence_ids' ? (source_cue->>'contribution_id'))
     OR statement IS DISTINCT FROM jsonb_build_object(
       'target_id',denotation_target->'target_id',
-      'target_source_binding',denotation_target->'source_binding','relation','denotes',
-      'scope',denotation->'scope','effective_version',denotation->'effective_version')
+      'target_source_binding',denotation_target->'source_binding','relation',selected_edge->>'relation',
+      'scope',denotation->'scope','effective_version',denotation->'effective_version','edge_id',selected_edge->'edge_id','question_id',selected_edge->'question_id')
     OR contribution->'computation_dependencies' IS DISTINCT FROM jsonb_build_array(
       source_cue->>'contribution_id',denotation->>'candidate_list_id',denotation->>'decision_id',
-      denotation_report->>'curated_registry_id')
+      (SELECT ii->>'source_selection' FROM jsonb_array_elements(denotation_report->'inventories') ii WHERE ii->>'inventory_id'=denotation_list->>'inventory_id'),selected_edge->>'edge_id')
     OR NOT ((denotation_operation->'computation_dependencies') @> (contribution->'computation_dependencies'))
     OR denotation_operation->>'report_digest' IS DISTINCT FROM split_part(denotation->>'decision_id',':',2)
     THEN RAISE EXCEPTION 'denotation proposal differs from selected source-bound scoped decision' USING ERRCODE='23514'; END IF;

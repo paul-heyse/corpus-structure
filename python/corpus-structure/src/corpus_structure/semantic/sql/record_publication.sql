@@ -895,7 +895,7 @@ BEGIN
  SELECT jsonb_agg(anchor->'anchor_id' ORDER BY anchor->>'anchor_id') INTO anchor_ids
   FROM jsonb_array_elements(contribution->'anchors') anchor;
  RETURN NOT (contribution->>'kind' IS DISTINCT FROM 'proposal'
-   OR contribution->>'semantic_type' IS DISTINCT FROM 'contextual.denotation'
+   OR contribution->>'semantic_type' IS DISTINCT FROM 'contextual.relationship'
    OR contribution->>'standing' IS DISTINCT FROM 'retained_private'
    OR contribution->>'anchor_role' IS NOT DISTINCT FROM 'inspection_subject'
    OR contribution->>'occurrence_id' IS NULL
@@ -905,29 +905,29 @@ BEGIN
      OR NOT(anchor ?& ARRAY['start','end','source_piece']) OR (anchor->>'start')::bigint<0
      OR (anchor->>'end')::bigint<=(anchor->>'start')::bigint
      OR length(anchor->>'source_piece')<>(anchor->>'end')::bigint-(anchor->>'start')::bigint)
-   OR statement-ARRAY['target_id','target_source_binding','relation','scope','effective_version']<>'{}'
-   OR NOT(statement ?& ARRAY['target_id','target_source_binding','relation','scope','effective_version'])
-   OR statement->>'relation' IS DISTINCT FROM 'denotes'
+   OR statement-ARRAY['target_id','target_source_binding','relation','scope','effective_version','edge_id','question_id']<>'{}'
+   OR NOT(statement ?& ARRAY['target_id','target_source_binding','relation','scope','effective_version','edge_id','question_id'])
+   OR statement->>'relation' NOT IN ('denotes','alias-of','defined-by','specializes','compared-with','participates-in')
    OR operation->>'outcome' IS DISTINCT FROM 'succeeded'
-   OR operation->>'question' IS DISTINCT FROM 'contextual denotation selection for supplied occurrence'
-   OR operation->>'operation_version' IS DISTINCT FROM '1'
+   OR operation->>'question' IS DISTINCT FROM 'contextual relationship selection for located occurrence'
+   OR operation->>'operation_version' IS DISTINCT FROM '2'
    OR bound->>'direction' IS DISTINCT FROM 'source_first'
    OR bound->>'operation_question' IS DISTINCT FROM (operation->>'question')
    OR bound->>'operation_version' IS DISTINCT FROM (operation->>'operation_version')
-   OR bound->>'rubric_version' IS DISTINCT FROM 'contextual-denotation-1'
-   OR bound->>'context_policy' IS DISTINCT FROM 'declared-native-source-and-curated-targets-1'
+   OR bound->>'rubric_version' IS DISTINCT FROM 'contextual-relationship-2'
+   OR bound->>'context_policy' IS DISTINCT FROM 'declared-native-source-and-extracted-components-2'
    OR bound->'pin' IS DISTINCT FROM contribution->'pin'
-   OR authored_case->>'facet' IS DISTINCT FROM 'denotation'
+   OR authored_case->>'facet' IS DISTINCT FROM 'relationship'
    OR authored_case->>'judgment' IS DISTINCT FROM 'supported'
    OR authored_case->>'source_state' IS DISTINCT FROM 'stated'
    OR COALESCE(authored_case->>'expectation_mode','structure')<>'structure'
    OR COALESCE(authored_case->>'contribution_kind','proposal')<>'proposal'
    OR authored_case->>'contribution_id' IS NOT NULL OR authored_case->>'anchor_endpoint_role' IS NOT NULL
-   OR COALESCE(authored_case->'candidate_selector','{}') NOT IN ('{}'::jsonb,'{"semantic_type":"contextual.denotation"}'::jsonb)
+   OR COALESCE(authored_case->'candidate_selector','{}') NOT IN ('{}'::jsonb,'{"semantic_type":"contextual.relationship"}'::jsonb)
    OR jsonb_array_length(authored_case->'alternatives')<>1
    OR (SELECT jsonb_agg(x ORDER BY x) FROM jsonb_array_elements(authored_case->'anchor_ids') x) IS DISTINCT FROM anchor_ids
    OR NOT((bound->'anchor_ids') @> anchor_ids)
-   OR assessed_case->>'facet' IS DISTINCT FROM 'denotation'
+   OR assessed_case->>'facet' IS DISTINCT FROM 'relationship'
    OR assessed_case->>'judgment' IS DISTINCT FROM 'supported'
    OR assessed_case->>'source_state' IS DISTINCT FROM 'stated'
    OR assessed_case->>'expectation_mode' IS DISTINCT FROM 'structure'
@@ -936,7 +936,7 @@ BEGIN
    OR assessed_case->>'contribution_id' IS DISTINCT FROM contribution->>'contribution_id'
    OR NOT EXISTS(SELECT FROM jsonb_array_elements(authored_case->'alternatives') option
     WHERE option-ARRAY['semantic_type','value']='{}' AND option ?& ARRAY['semantic_type','value']
-     AND option->>'semantic_type'='contextual.denotation' AND option->'value'=contribution->'value'));
+     AND option->>'semantic_type'='contextual.relationship' AND option->'value'=contribution->'value'));
 END $semantic$;
 REVOKE ALL ON FUNCTION data.local_semantic_case_matches(jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
 
@@ -946,16 +946,16 @@ DECLARE statement jsonb:=data.record_source_json(contribution->'value');
 BEGIN
  RETURN jsonb_build_object(
    'claim_id','local-semantic-claim:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-    'contextual.denotation',contribution->>'occurrence_id',statement)),'UTF8')),'hex'),
+    'contextual.relationship',contribution->>'occurrence_id',statement)),'UTF8')),'hex'),
    'selected_task_id',(a->>'selected_task_id')::bigint,'origin_task_id',(a->>'origin_task_id')::bigint,'cut_id',(a->>'cut_id')::bigint,
    'contribution_id',contribution->>'contribution_id','operation_key',operation->>'operation_key',
    'operation_version',operation->>'operation_version','operation_question',operation->>'question',
-   'policy_id','independent-contextual-denotation-1','policy_version','1',
+   'policy_id','independent-contextual-relationship-2','policy_version','1',
    'source',source_name,
    'occurrence_id',contribution->>'occurrence_id','evaluation_id',(a->>'evaluation_id')::bigint,
    'evaluation_digest',grade->>'evaluation_digest','unit_id',(a->>'unit_id')::bigint,'pass_id',(a->>'pass_id')::bigint,'frame_id',(a->>'frame_id')::bigint,
-   'case_id',authored_case->>'case_id','facet','denotation','rubric_version','contextual-denotation-1',
-   'context_policy','declared-native-source-and-curated-targets-1',
+   'case_id',authored_case->>'case_id','facet','relationship','rubric_version','contextual-relationship-2',
+   'context_policy','declared-native-source-and-extracted-components-2',
    'statement_json',data.canonical_json(statement),'anchors_json',data.canonical_json(contribution->'anchors'));
 END $semantic$;
 REVOKE ALL ON FUNCTION data.local_semantic_assertion_value(jsonb,jsonb,jsonb,text,jsonb,jsonb) FROM PUBLIC;
@@ -1000,7 +1000,7 @@ BEGIN
   FROM origins origin CROSS JOIN LATERAL jsonb_array_elements(origin.contributions) contribution(value)
   JOIN kb.source_contribution product ON product.task_id=origin.task_id
    AND product.contribution_id=contribution.value->>'contribution_id'
-   AND product.release_id=p_release AND product.semantic_type='contextual.denotation'
+   AND product.release_id=p_release AND product.semantic_type='contextual.relationship'
  ), units AS MATERIALIZED (
   SELECT g.evaluation_id,g.evaluation_digest,u.value unit FROM grades g
   CROSS JOIN LATERAL jsonb_array_elements(g.evidence->'units') u(value)

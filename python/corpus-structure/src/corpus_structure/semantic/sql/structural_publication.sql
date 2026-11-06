@@ -18,25 +18,34 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION data.structural_citations(jsonb,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb)
+CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb,component_id text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb;
 BEGIN
- result:=jsonb_build_object('version','structural-public-statement-1','kind',report->>'kind',
+ result:=jsonb_build_object('version','structural-public-statement-2','kind',report->>'kind',
   'question',report->'inputs'->>'question','scope',report->'inputs'->>'scope',
   'inventory_id',report->'inputs'->>'inventory_id','input_policy_id',report->'inputs'->>'policy_id',
   'coverage_limits',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(report->'inputs'->'coverage_limits') v),'[]'),
   'exclusions',COALESCE((SELECT jsonb_agg(v ORDER BY data.canonical_json(v)) FROM (
    SELECT jsonb_build_object('left',data.structural_citation(report,e->>'left'),'right',data.structural_citation(report,e->>'right')) v
    FROM jsonb_array_elements(report->'inputs'->'exclusions') e) x),'[]'));
- IF report->>'kind'='definition_applicability' THEN
+ IF report->>'kind'='definition_components' THEN
+  SELECT v INTO STRICT value FROM jsonb_array_elements(report->'definition_components'->'components') v WHERE v->>'component_id'=component_id;
+  IF value->>'interpretation'='unresolved' THEN RAISE EXCEPTION 'unresolved attachment is not a supported public component' USING ERRCODE='23514'; END IF;
+  result:=result||jsonb_build_object('definition_component',jsonb_strip_nulls(jsonb_build_object(
+   'term',data.structural_citation(report,value->'term'->>'passage_id')||((value->'term')-'passage_id'),
+   'content',data.structural_citation(report,value->'content'->>'passage_id')||((value->'content')-'passage_id'),
+   'interpretation',value->'interpretation','basis',value->'basis','scope',value->'scope','effective_version',value->'effective_version',
+   'alternatives',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'alternatives') v),'[]'))));
+ ELSIF component_id IS NOT NULL THEN RAISE EXCEPTION 'component selector requires component report' USING ERRCODE='23514';
+ ELSIF report->>'kind'='definition_applicability' THEN
   value:=report->'definition';
   SELECT COALESCE(jsonb_agg(v ORDER BY data.canonical_json(v)),'[]') INTO items FROM (
-   SELECT jsonb_build_object('target',data.structural_citation(report,r->>'target_id'),'outcome',r->>'outcome',
-    'evidence',data.structural_citations(report,r->'evidence')) v FROM jsonb_array_elements(value->'readings') r) x;
+   SELECT jsonb_build_object('target',r->'target_id','component_ref',r->'component_ref','outcome',r->'outcome',
+    'premises',r->'premises','evidence',data.structural_citations(report,r->'evidence')) v FROM jsonb_array_elements(value->'readings') r) x;
   result:=result||jsonb_build_object('definition',jsonb_build_object('usage',data.structural_citation(report,value->>'usage_id'),
-   'eligible_targets',data.structural_citations(report,value->'eligible_targets'),
-   'candidate_targets',data.structural_citations(report,value->'candidate_targets'),'readings',items,
+   'eligible_targets',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'eligible_targets') v),'[]'),
+   'candidate_targets',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'candidate_targets') v),'[]'),'readings',items,
    'inventory_coverage',value->>'inventory_coverage','retrieval_diagnosis',value->>'retrieval_diagnosis'));
  ELSIF report->>'kind'='qualified_comparison' THEN
   value:=report->'comparison'; items:='[]';
@@ -65,7 +74,7 @@ BEGIN
  ELSE RAISE EXCEPTION 'unsupported public structural variant' USING ERRCODE='23514'; END IF;
  RETURN result;
 END $$;
-REVOKE ALL ON FUNCTION data.structural_public_statement(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION data.structural_public_statement(jsonb,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION data.structural_publication_candidates(p_project text,p_release text,p_run bigint,p_cut bigint)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -80,7 +89,7 @@ BEGIN
  SELECT convert_from(content,'UTF8')::json INTO shape FROM sem.artifact
  WHERE release_id=p_release AND artifact_name='json_schema/StructuralPublicationPolicy';
  FOR binding IN SELECT value FROM jsonb_array_elements(COALESCE(convert_from(job.dependencies,'UTF8')::jsonb->'structural_admission','[]')) LOOP
-  IF shape IS NULL OR binding-ARRAY['product_id','set_id','c_pass_id','c_content_digest','frame_digest','policy_id']<>'{}'
+  IF shape IS NULL OR binding-ARRAY['product_id','component_id','set_id','c_pass_id','c_content_digest','frame_digest','policy_id']<>'{}'
    OR NOT binding ?& ARRAY['product_id','set_id','c_pass_id','c_content_digest','frame_digest','policy_id'] THEN
    RAISE EXCEPTION 'structural admission requires released exact witness binding' USING ERRCODE='23514'; END IF;
   SELECT t.id selected_task_id,origin.id origin_task_id,result.body INTO STRICT selected
@@ -91,7 +100,7 @@ BEGIN
    AND t.status IN ('done','reused') AND t.unit_type='run'
    AND 'structural:'||encode(sha256(convert_to(data.canonical_json((result.body->'structural_product')-'retrieval_report'),'UTF8')),'hex')=binding->>'product_id';
   report:=selected.body->'structural_product';
-  policy:=CASE report->>'kind' WHEN 'definition_applicability' THEN 'independent-structural-definition-1'
+  policy:=CASE report->>'kind' WHEN 'definition_components' THEN 'independent-definition-component-1' WHEN 'definition_applicability' THEN 'independent-witnessed-applicability-1'
    WHEN 'qualified_comparison' THEN 'independent-structural-comparison-1' WHEN 'dossier' THEN 'independent-structural-dossier-1' END;
   IF policy IS NULL OR binding->>'policy_id' IS DISTINCT FROM policy OR NOT public.json_matches_schema(shape,
    jsonb_build_object('policy_id',policy,'policy_version','1','product_kind',report->>'kind','facet','public_statement')::json) THEN
@@ -163,7 +172,7 @@ BEGIN
     END IF;
    END LOOP;
   END IF;
-  statement:=data.structural_public_statement(report);
+  statement:=data.structural_public_statement(report,binding->>'component_id');
   SELECT convert_from(content,'UTF8')::json INTO STRICT statement_shape FROM sem.artifact
    WHERE release_id=p_release AND artifact_name='json_schema/StructuralPublicStatement';
   IF NOT public.json_matches_schema(statement_shape,statement::json) THEN

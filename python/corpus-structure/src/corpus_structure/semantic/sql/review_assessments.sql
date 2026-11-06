@@ -160,10 +160,10 @@ BEGIN
   WHERE release_id=p_release AND artifact_name='json_schema/StructuralInput';
  IF shape IS NULL OR NOT public.json_matches_schema(shape,(p_frame->'inputs')::json) THEN
   RAISE EXCEPTION 'group frame inputs differ from released structural shape' USING ERRCODE='23514'; END IF;
- IF COALESCE(p_frame->>'protocol','') NOT IN ('structural-evaluation-frame-1','structural-evaluation-frame-2')
+ IF p_frame->>'protocol' IS DISTINCT FROM 'structural-evaluation-frame-3'
   OR p_frame-ARRAY['protocol','inputs','operation','direction','rubric_version','rubric_text','product_ids','partition','source_groups','opportunities','inspected_scope','exposure_history']<>'{}'
   OR COALESCE(p_frame->>'partition','') NOT IN ('development','feature_fit','final_event_calibration','final_assessment')
-  OR COALESCE(p_frame->>'operation','') NOT IN ('definition_applicability','qualified_comparison','dossier')
+  OR COALESCE(p_frame->>'operation','') NOT IN ('definition_components','definition_applicability','scoped_relationship','qualified_comparison','dossier')
   OR COALESCE(p_frame->>'direction','') NOT IN ('source_first','output_first')
   OR btrim(COALESCE(p_frame->>'rubric_version',''))='' OR btrim(COALESCE(p_frame->>'rubric_text',''))=''
   OR jsonb_typeof(p_frame->'product_ids') IS DISTINCT FROM 'array'
@@ -172,10 +172,6 @@ BEGIN
   OR (p_frame->>'direction'='source_first' AND jsonb_array_length(p_frame->'product_ids')<>0)
   OR (p_frame->>'direction'='output_first' AND jsonb_array_length(p_frame->'product_ids')=0) THEN
   RAISE EXCEPTION 'invalid independent structural frame' USING ERRCODE='23514'; END IF;
- IF p_frame->>'protocol'='structural-evaluation-frame-1' THEN
-  IF p_frame->>'partition'<>'development' OR p_frame ?| ARRAY['source_groups','opportunities','inspected_scope','exposure_history'] THEN
-   RAISE EXCEPTION 'legacy structural frame is development-only' USING ERRCODE='23514'; END IF;
- ELSE
   IF jsonb_typeof(p_frame->'source_groups') IS DISTINCT FROM 'array'
    OR jsonb_array_length(p_frame->'source_groups')<>jsonb_array_length(p_frame->'inputs'->'sources')
    OR jsonb_typeof(p_frame->'opportunities') IS DISTINCT FROM 'array' OR jsonb_array_length(p_frame->'opportunities')=0
@@ -195,7 +191,6 @@ BEGIN
     OR COALESCE(o->>'source_state','') NOT IN ('stated','unstated','inapplicable','unresolved','uninspected')
     OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'inputs'->'passages') p WHERE p->>'passage_id'=o->>'passage_id')) THEN
    RAISE EXCEPTION 'invalid structural source opportunity/group/partition' USING ERRCODE='23514'; END IF;
- END IF;
  PERFORM ops.validate_structural_input(p_frame->'inputs');
  INSERT INTO eval.structural_reference_set(project_id,release_id,frame,frame_digest)
  VALUES(p_project,p_release,p_frame,encode(sha256(convert_to(data.canonical_json(p_frame),'UTF8')),'hex')) RETURNING id INTO result;
@@ -212,7 +207,7 @@ BEGIN
  SELECT * INTO STRICT selected FROM eval.structural_reference_set WHERE id=p_set;
  payload:=convert_from(p_authored,'UTF8')::jsonb;
  IF p_kind NOT IN ('A','B','C') OR btrim(COALESCE(p_actor,''))=''
-  OR payload->>'protocol' IS DISTINCT FROM (CASE selected.frame->>'protocol' WHEN 'structural-evaluation-frame-2' THEN 'structural-reference-2' ELSE 'structural-reference-1' END)
+  OR payload->>'protocol' IS DISTINCT FROM 'structural-reference-3'
   OR payload-ARRAY['protocol','frame_digest','cases']<>'{}'
   OR payload->>'frame_digest' IS DISTINCT FROM selected.frame_digest
   OR jsonb_typeof(payload->'cases') IS DISTINCT FROM 'array' OR jsonb_array_length(payload->'cases')=0
@@ -224,7 +219,7 @@ BEGIN
  FOR item IN SELECT value FROM jsonb_array_elements(payload->'cases') LOOP
   IF item-ARRAY['case_id','facet','path','expected','source_passages','judgment','explanation']<>'{}'
    OR btrim(COALESCE(item->>'case_id',''))='' OR btrim(COALESCE(item->>'explanation',''))=''
-   OR COALESCE(item->>'facet','') NOT IN ('applicability','scope','difference','membership','source_support','completeness','public_statement')
+   OR COALESCE(item->>'facet','') NOT IN ('location','role','attachment','relationship','applicability','scope','difference','membership','source_support','completeness','public_statement')
    OR COALESCE(item->>'judgment','') NOT IN ('supported','unsupported','ambiguous','unassessed')
    OR NOT (item ? 'expected') OR jsonb_typeof(item->'path') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'path')=0
    OR EXISTS(SELECT FROM jsonb_array_elements(item->'path') v WHERE NOT (

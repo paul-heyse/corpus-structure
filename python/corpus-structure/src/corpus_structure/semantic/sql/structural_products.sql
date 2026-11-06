@@ -76,6 +76,56 @@ END $$;
 REVOKE ALL ON FUNCTION ops.validate_structural_input(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.validate_structural_input(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
+-- Resolve a component through its actual selected completed producer, never an alias.
+CREATE OR REPLACE FUNCTION ops.resolve_retained_component(ref jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected record; component jsonb;
+BEGIN
+ SELECT origin.id, result.body->'structural_product' report, method.name, method.version,
+  batch.data_revision, job.runtime_id INTO STRICT selected
+ FROM ops.run job JOIN ops.completed_result completed ON completed.run_id=job.id
+ JOIN data.batch batch ON batch.release_id=completed.release_id AND batch.realization_id=completed.output_realization_id AND batch.batch_id=completed.batch_id
+ JOIN ops.cut_task member ON member.cut_id=completed.cut_id
+ JOIN ops.task task ON task.id=member.task_id
+ JOIN ops.task origin ON origin.id=COALESCE(task.reused_task_id,task.id)
+ JOIN ops.task_result result ON result.task_id=origin.id
+ JOIN ops.method_config config ON config.id=origin.method_config_id JOIN ops.method method ON method.id=config.method_id
+ WHERE job.id=(ref->>'run_id')::bigint AND job.project_id=ref->>'project_id'
+ AND job.release_id=ref->>'release_id' AND job.sealed AND job.status='finished'
+ AND completed.cut_id=(ref->>'cut_id')::bigint AND task.id=(ref->>'selected_task_id')::bigint
+ AND origin.id=(ref->>'origin_task_id')::bigint AND task.status IN ('done','reused');
+ IF selected.report->>'version' IS DISTINCT FROM 'structural-product-2'
+ OR selected.report->>'kind' IS DISTINCT FROM 'definition_components'
+ OR 'structural:'||encode(sha256(convert_to(data.canonical_json(selected.report-'retrieval_report'),'UTF8')),'hex') IS DISTINCT FROM ref->>'product_id'
+ OR selected.name IS DISTINCT FROM ref->>'operation_id' OR selected.version IS DISTINCT FROM ref->>'operation_version'
+ OR selected.data_revision IS DISTINCT FROM (ref->>'result_revision')::bigint
+ OR selected.runtime_id IS DISTINCT FROM ref->>'runtime_fingerprint'
+ OR selected.report->'inputs'->'dependencies' IS DISTINCT FROM ref->'dependencies' THEN
+  RAISE EXCEPTION 'retained component differs from original producer custody' USING ERRCODE='23514'; END IF;
+ SELECT value INTO STRICT component FROM jsonb_array_elements(selected.report->'definition_components'->'components') WHERE value->>'component_id'=ref->>'component_id';
+ RETURN jsonb_build_object('component',component,'report',selected.report);
+EXCEPTION WHEN no_data_found OR too_many_rows OR numeric_value_out_of_range THEN
+ RAISE EXCEPTION 'retained component cannot resolve exact selected origin' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.resolve_retained_component(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.resolve_retained_component(jsonb) TO corpus_sem_reader,corpus_sem_writer;
+
+CREATE OR REPLACE FUNCTION ops.validate_component_targets(targets jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE target jsonb; retained jsonb;
+BEGIN
+ IF jsonb_typeof(targets) IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'component target population requires array' USING ERRCODE='23514'; END IF;
+ FOR target IN SELECT value FROM jsonb_array_elements(targets) LOOP
+  retained:=ops.resolve_retained_component(target->'reference')->'component';
+  IF target->>'label' IS DISTINCT FROM retained->'term'->>'text' OR target->>'description' IS DISTINCT FROM retained->'content'->>'text'
+   OR target->>'scope' IS DISTINCT FROM retained->>'scope' OR target->>'effective_version' IS DISTINCT FROM retained->>'effective_version'
+   OR target->>'parent' IS NOT NULL THEN
+   RAISE EXCEPTION 'component target descriptor differs from exact retained source' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_component_targets(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.validate_component_targets(jsonb) TO corpus_sem_reader,corpus_sem_writer;
+
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text;
@@ -91,7 +141,7 @@ BEGIN
  OR p_envelope->>'invocation_key' IS DISTINCT FROM t.invocation_key
  OR p_envelope->>'input_hash' IS DISTINCT FROM t.input_hash
  OR p_envelope->>'outcome' IS DISTINCT FROM 'produced'
- OR product->>'version' IS DISTINCT FROM 'structural-product-1'
+ OR product->>'version' IS DISTINCT FROM 'structural-product-2'
  OR product->>'standing' IS DISTINCT FROM 'private_proposal'
  OR NOT EXISTS(SELECT FROM ops.method_config cfg JOIN ops.method m ON m.id=cfg.method_id
   WHERE cfg.id=t.method_config_id AND cfg.config_hash=p_envelope->>'configuration_hash'
@@ -128,18 +178,10 @@ BEGIN
       OR n.expected#>>'{}' IS DISTINCT FROM data.decimal_canonical(n.actual#>>'{}'))
     ELSE n.expected IS DISTINCT FROM n.actual END) THEN
    RAISE EXCEPTION 'supplied structural report differs from its frozen configuration' USING ERRCODE='23514'; END IF;
- ELSIF method_='structure.definitions' THEN
-  SELECT array_agg(value ORDER BY value) INTO actual FROM jsonb_array_elements_text(product->'definition'->'eligible_targets');
-  SELECT array_agg(value ORDER BY value) INTO expected FROM jsonb_array_elements_text(config_->'target_ids');
+ ELSIF method_ IN ('structure.definitions','structure.definition_components') THEN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
-    OR product->>'kind' IS DISTINCT FROM 'definition_applicability'
-    OR config_->>'usage_id' IS DISTINCT FROM product->'definition'->>'usage_id'
-    OR actual IS DISTINCT FROM expected
-    OR jsonb_array_length(product->'definition'->'candidate_targets')>(config_->>'unique_target_budget')::integer
-    OR p_envelope->'parse_detail'->>'kind' IS DISTINCT FROM 'object'
-    OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'parse_detail'->'fields') f
-      WHERE f->>'name'='version' AND f->'value'=jsonb_build_object('kind','text','text','automatic-definition-applicability-1')) THEN
-   RAISE EXCEPTION 'automatic definition report differs from its frozen source/question/inventory' USING ERRCODE='23514'; END IF;
+    OR product->>'kind' NOT IN ('definition_components','definition_applicability') THEN
+   RAISE EXCEPTION 'definition report differs from frozen source/question input' USING ERRCODE='23514'; END IF;
  ELSE
   RAISE EXCEPTION 'method does not declare a structural report producer' USING ERRCODE='23514';
  END IF;
@@ -149,9 +191,27 @@ BEGIN
  SELECT jsonb_object_agg(p->>'passage_id',p) INTO passage_map FROM jsonb_array_elements(inputs->'passages') p;
  IF (CASE WHEN nullif(product->'definition','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
   +CASE WHEN nullif(product->'comparison','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
-  +CASE WHEN nullif(product->'dossier','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END)<>1 THEN
+  +CASE WHEN nullif(product->'dossier','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
+  +CASE WHEN nullif(product->'definition_components','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END)<>1 THEN
   RAISE EXCEPTION 'structural report must contain exactly one product variant' USING ERRCODE='23514'; END IF;
  CASE product->>'kind'
+ WHEN 'definition_components' THEN
+  item:=product->'definition_components';
+  IF (SELECT count(*)<>count(DISTINCT c->>'component_id') FROM jsonb_array_elements(item->'components') c) THEN
+   RAISE EXCEPTION 'duplicate definition component identity' USING ERRCODE='23514'; END IF;
+  FOR dimension IN SELECT value FROM jsonb_array_elements(item->'components') LOOP
+   IF dimension->>'component_id' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(dimension-'component_id'),'UTF8')),'hex') THEN
+    RAISE EXCEPTION 'definition component identity differs from complete meaning' USING ERRCODE='23514'; END IF;
+   FOR ref IN SELECT dimension->'term' UNION ALL SELECT dimension->'content' LOOP
+    passage:=passage_map->(ref->>'passage_id');
+    IF passage IS NULL OR (ref->>'start')::bigint<(passage->>'start')::bigint OR (ref->>'end')::bigint>(passage->>'end')::bigint
+     OR (ref->>'end')::bigint<=(ref->>'start')::bigint OR ref->>'text' IS DISTINCT FROM substring(passage->>'text' FROM (ref->>'start')::integer-(passage->>'start')::integer+1 FOR (ref->>'end')::integer-(ref->>'start')::integer)
+     OR dimension->>'scope' IS DISTINCT FROM passage->>'scope' OR dimension->>'effective_version' IS DISTINCT FROM passage->>'effective_version' THEN
+     RAISE EXCEPTION 'definition span or scope differs from exact source' USING ERRCODE='23514'; END IF;
+   END LOOP;
+   IF EXISTS(SELECT FROM jsonb_array_elements_text(dimension->'evidence') e WHERE NOT passage_map ? e) THEN
+    RAISE EXCEPTION 'definition evidence outside selected source' USING ERRCODE='23514'; END IF;
+  END LOOP;
  WHEN 'definition_applicability' THEN
   item:=product->'definition';
   IF item IS NULL OR NOT passage_map ? (item->>'usage_id') OR item->>'retrieval_diagnosis' IS DISTINCT FROM 'not_independently_assessed' THEN
@@ -162,6 +222,13 @@ BEGIN
   IF EXISTS(SELECT FROM jsonb_array_elements_text(item->'candidate_targets') c WHERE NOT item->'eligible_targets' ? c)
    OR EXISTS(SELECT FROM jsonb_array_elements(item->'readings') r WHERE NOT item->'candidate_targets' ? (r->>'target_id')) THEN
    RAISE EXCEPTION 'definition reading differs from fixed eligible candidate population' USING ERRCODE='23514'; END IF;
+  FOR dimension IN SELECT value FROM jsonb_array_elements(item->'readings') LOOP
+   ref:=ops.resolve_retained_component(dimension->'component_ref');
+   IF NOT inputs->'dependencies' ? (dimension->'component_ref'->>'product_id') THEN
+    RAISE EXCEPTION 'applicability lacks frozen component dependency' USING ERRCODE='23514'; END IF;
+   IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'state' IN ('unknown','incompatible')) THEN
+    RAISE EXCEPTION 'applicability requires resolved compatible premises' USING ERRCODE='23514'; END IF;
+  END LOOP;
  WHEN 'qualified_comparison' THEN
   item:=product->'comparison';
   IF item IS NULL OR item->>'left_id'=item->>'right_id' OR NOT passage_map ? (item->>'left_id') OR NOT passage_map ? (item->>'right_id')
