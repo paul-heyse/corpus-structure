@@ -135,7 +135,7 @@ def test_native_contextual_refusal_is_atomic(private_source, corruption):
             for t in inv["targets"]
         ]
         meaning["semantic_groups"] = inv["semantic_groups"]
-    meaning["policy"] = "eligible-concepts-2"
+        meaning["policy"] = "eligible-concepts-2"
         inv["inventory_id"] = identity("concept-inventory", meaning)
     if corruption in {
         "wrong_occurrence",
