@@ -247,16 +247,54 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.structural_threshold_field(jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.structural_clause_fields(passage jsonb)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE raw text:=passage->>'text'; patterns text[]:=ARRAY['(?:^|[,;]\s*|\ythen\s+)(.+?)\s+(must|shall|should|may|can)\s+be\s+([A-Za-z]+)\s+by\s+([A-Za-z][A-Za-z0-9_-]*(?:\s+(?!(?:if|when|unless|except|before|after)\y)[A-Za-z][A-Za-z0-9_-]*){0,7})(?=\s+(?:if|when|unless|except|before|after)\y|\.(?=\s|$)|[;\n]|$)','(?:^|[,;]\s*|\ythen\s+)([A-Za-z][A-Za-z0-9_-]*(?:\s+(?!(?:if|when|unless|except|before|after)\y)[A-Za-z][A-Za-z0-9_-]*){0,7})\s+(must|shall|should|may|can)\s+((?!be\y)[A-Za-z]+)\s+((?:(?!\s+(?:if|when|unless|except|before|after)\y|\.(?=\s|$)|[;\n]).)+)(?=\s+(?:if|when|unless|except|before|after)\y|\.(?=\s|$)|[;\n]|$)'];
+ pattern_ text; roles text[]; item record; n integer;g integer;a integer;b integer;d text;value_ jsonb;found jsonb:='{}';result jsonb:='{}';key_ text;threshold_ jsonb;
+BEGIN
+ FOR n IN 1..2 LOOP
+  pattern_:=patterns[n];roles:=CASE n WHEN 1 THEN ARRAY['object','modality','action','actor'] ELSE ARRAY['actor','modality','action','object'] END;
+  FOR item IN SELECT x.m,x.n::integer ordinal FROM regexp_matches(raw,pattern_,'gi') WITH ORDINALITY x(m,n) LOOP
+   FOR g IN 1..4 LOOP
+    d:=roles[g];a:=regexp_instr(raw,pattern_,1,item.ordinal,0,'i',g)-1;b:=regexp_instr(raw,pattern_,1,item.ordinal,1,'i',g)-1;
+    WHILE a<b AND substring(raw FROM a+1 FOR 1)~'\s' LOOP a:=a+1;END LOOP;
+    WHILE a<b AND substring(raw FROM b FOR 1)~'\s' LOOP b:=b-1;END LOOP;
+    value_:=jsonb_build_object('dimension',d,'lexical_value',substring(raw FROM a+1 FOR b-a),'evidence',jsonb_build_array(passage->>'passage_id'),'span',jsonb_build_object('passage_id',passage->>'passage_id','start',(passage->>'start')::integer+a,'end',(passage->>'start')::integer+b,'text',substring(raw FROM a+1 FOR b-a)));
+    found:=jsonb_set(found,ARRAY[d],COALESCE(found->d,'[]')||jsonb_build_array(value_));
+   END LOOP;
+  END LOOP;
+ END LOOP;
+ pattern_:='\y(if|when|provided(?:\s+that)?|unless|except(?:\s+(?:when|if))?|before|after)\s+((?:(?!,|\s+(?:unless|except|before|after)\y|\.(?=\s|$)|[;\n]).)+)';
+ FOR item IN SELECT x.m,x.n::integer ordinal FROM regexp_matches(raw,pattern_,'gi') WITH ORDINALITY x(m,n) LOOP
+  d:=CASE WHEN lower(item.m[1])~'^(unless|except)' THEN 'exception' WHEN lower(item.m[1]) IN ('before','after') THEN 'order_dependency' ELSE 'condition' END;
+  a:=regexp_instr(raw,pattern_,1,item.ordinal,0,'i')-1;b:=regexp_instr(raw,pattern_,1,item.ordinal,1,'i')-1;
+  WHILE a<b AND substring(raw FROM b FOR 1)~'\s' LOOP b:=b-1;END LOOP;
+  value_:=jsonb_build_object('dimension',d,'lexical_value',substring(raw FROM a+1 FOR b-a),'evidence',jsonb_build_array(passage->>'passage_id'),'span',jsonb_build_object('passage_id',passage->>'passage_id','start',(passage->>'start')::integer+a,'end',(passage->>'start')::integer+b,'text',substring(raw FROM a+1 FOR b-a)));
+  found:=jsonb_set(found,ARRAY[d],COALESCE(found->d,'[]')||jsonb_build_array(value_));
+ END LOOP;
+ FOR key_,value_ IN SELECT key,value FROM jsonb_each(found) LOOP IF jsonb_array_length(value_)=1 THEN result:=result||jsonb_build_object(key_,value_->0);END IF;END LOOP;
+ FOREACH d IN ARRAY ARRAY['parent','version'] LOOP
+  key_:=CASE d WHEN 'parent' THEN passage->>'parent' ELSE passage->>'effective_version' END;
+  IF key_ IS NOT NULL AND key_<>'' THEN result:=result||jsonb_build_object(d,jsonb_build_object('dimension',d,'lexical_value',key_,'evidence',jsonb_build_array(passage->>'passage_id')));END IF;
+ END LOOP;
+ threshold_:=ops.structural_threshold_field(passage);IF threshold_ IS NOT NULL THEN result:=result||jsonb_build_object('threshold_unit',threshold_);END IF;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION ops.structural_clause_fields(jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.structural_comparison(inputs jsonb,left_id text,right_id text)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE a jsonb;b jsonb;x jsonb;y jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;
+DECLARE a jsonb;b jsonb;x jsonb;y jsonb;xf jsonb;yf jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;
 BEGIN
  SELECT v INTO STRICT a FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=left_id;
  SELECT v INTO STRICT b FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=right_id;
  IF left_id=right_id THEN RAISE EXCEPTION 'comparison requires distinct passages' USING ERRCODE='23514';END IF;
- x:=ops.structural_threshold_field(a);y:=ops.structural_threshold_field(b);
+ xf:=ops.structural_clause_fields(a);yf:=ops.structural_clause_fields(b);
  FOREACH d IN ARRAY ARRAY['actor','action','object','modality','condition','threshold_unit','exception','order_dependency','parent','version'] LOOP
   entry:=jsonb_build_object('dimension',d,'outcome','unknown','typed_outcome','unknown','assumptions','[]'::jsonb,'reason','No complete source-qualified typed premises.');
+  x:=xf->d;y:=yf->d;
+  IF x IS NOT NULL THEN entry:=entry||jsonb_build_object('left',x);END IF;IF y IS NOT NULL THEN entry:=entry||jsonb_build_object('right',y);END IF;
+  IF x IS NOT NULL AND y IS NOT NULL THEN entry:=entry||jsonb_build_object('outcome',CASE WHEN x->>'lexical_value'=y->>'lexical_value' THEN 'same_lexical_value' ELSE 'different_lexical_value' END);END IF;
   IF d='threshold_unit' THEN
    IF x IS NOT NULL THEN entry:=entry||jsonb_build_object('left',x);END IF;IF y IS NOT NULL THEN entry:=entry||jsonb_build_object('right',y);END IF;
    IF x IS NOT NULL AND y IS NOT NULL THEN
@@ -288,6 +326,7 @@ BEGIN
  IF a->>'scope' IS DISTINCT FROM b->>'scope' THEN applicability:='differently_scoped';why:='Original source scopes differ.';
  ELSIF a->>'effective_version' IS NULL OR b->>'effective_version' IS NULL THEN applicability:='unestablished';why:='Effective versions are not established.';
  ELSIF a->>'effective_version'<>b->>'effective_version' THEN applicability:='unestablished';why:='Different version labels do not establish succession or authority.';
+ ELSIF NOT EXISTS(SELECT FROM unnest(ARRAY['actor','action','object','modality','condition','exception','order_dependency','parent','version']) dimension WHERE xf->dimension IS NULL OR yf->dimension IS NULL OR xf->dimension->>'lexical_value' IS DISTINCT FROM yf->dimension->>'lexical_value') THEN applicability:='co_applicable';why:='All non-threshold dimensions match under explicit scope/version.';
  ELSE applicability:='unestablished';why:='Missing or changed applicability dimensions remain material.';END IF;
  RETURN jsonb_build_object('left_id',left_id,'right_id',right_id,'dimensions',dimensions,'equivalence','not_asserted','identity_standing','not_asserted','applicability',applicability,'applicability_reason',why);
 END $$;
@@ -315,7 +354,7 @@ BEGIN
    FOR r IN SELECT value FROM jsonb_array_elements(report->'definition'->'readings') LOOP roles:=roles||jsonb_build_array(jsonb_build_object('role','definition','span',r->'component'->'content'));END LOOP;
   ELSIF report->>'kind'='qualified_comparison' THEN
    FOR d IN SELECT value FROM jsonb_array_elements(report->'comparison'->'dimensions') LOOP
-    FOR side IN SELECT d->'left' UNION ALL SELECT d->'right' LOOP IF side->'typed'->'span' IS NOT NULL AND side->'typed'->'span'<>'null' THEN roles:=roles||jsonb_build_array(jsonb_build_object('role','variant','span',side->'typed'->'span'));END IF;END LOOP;
+    FOR side IN SELECT d->'left' UNION ALL SELECT d->'right' LOOP span_:=COALESCE(nullif(side->'span','null'),side->'typed'->'span');IF span_ IS NOT NULL AND span_<>'null' THEN roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN d->>'dimension'='exception' THEN 'exception' ELSE 'variant' END,'span',span_));END IF;END LOOP;
    END LOOP;
   ELSE RAISE EXCEPTION 'dossier predecessors require finite current semantic products' USING ERRCODE='23514';END IF;
   FOR role_ IN SELECT value FROM jsonb_array_elements(roles) LOOP

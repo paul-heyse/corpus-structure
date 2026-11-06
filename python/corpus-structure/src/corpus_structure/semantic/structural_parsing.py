@@ -127,3 +127,58 @@ def threshold_fields(text: str) -> tuple[LocatedThreshold, ...]:
         if parsed is not None:
             result.append(LocatedThreshold(start=start, end=end, text=text[start:end], **parsed))
     return tuple(result)
+
+
+# Cued English clause fields are deliberately separate from the numerical grammar.
+# Exact source strings are retained; absent/competing fields remain unknown.
+CLAUSE_NOUN = (
+    r"[A-Za-z][A-Za-z0-9_-]*"
+    r"(?:\s+(?!(?:if|when|unless|except|before|after)\b)[A-Za-z][A-Za-z0-9_-]*){0,7}"
+)
+CLAUSE_END = r"(?=\s+(?:if|when|unless|except|before|after)\b|\.(?=\s|$)|[;\n]|$)"
+CLAUSE_BODY = r"(?:(?!\s+(?:if|when|unless|except|before|after)\b|\.(?=\s|$)|[;\n]).)+"
+CLAUSE_ACTIVE = (
+    r"(?:^|[,;]\s*|\bthen\s+)(" + CLAUSE_NOUN + r")\s+"
+    r"(must|shall|should|may|can)\s+((?!be\b)[A-Za-z]+)\s+(" + CLAUSE_BODY + r")" + CLAUSE_END
+)
+CLAUSE_PASSIVE = (
+    r"(?:^|[,;]\s*|\bthen\s+)(.+?)\s+(must|shall|should|may|can)\s+"
+    r"be\s+([A-Za-z]+)\s+by\s+(" + CLAUSE_NOUN + r")" + CLAUSE_END
+)
+CLAUSE_QUALIFIER = (
+    r"\b(if|when|provided(?:\s+that)?|unless|except(?:\s+(?:when|if))?|before|after)\s+"
+    r"((?:(?!,|\s+(?:unless|except|before|after)\b|\.(?=\s|$)|[;\n]).)+)"
+)
+
+
+def clause_fields(text):
+    import re
+
+    found = {}
+
+    def add(dimension, start, end):
+        while start < end and text[start].isspace():
+            start += 1
+        while start < end and text[end - 1].isspace():
+            end -= 1
+        if start < end:
+            found.setdefault(dimension, []).append(dict(start=start, end=end, text=text[start:end]))
+
+    for pattern, roles in (
+        (CLAUSE_PASSIVE, ("object", "modality", "action", "actor")),
+        (CLAUSE_ACTIVE, ("actor", "modality", "action", "object")),
+    ):
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            for group, role in enumerate(roles, 1):
+                add(role, *match.span(group))
+    for match in re.finditer(CLAUSE_QUALIFIER, text, re.IGNORECASE):
+        cue = match[1].casefold()
+        dimension = (
+            "exception"
+            if cue.startswith(("unless", "except"))
+            else "order_dependency"
+            if cue in {"before", "after"}
+            else "condition"
+        )
+        add(dimension, match.start(), match.end())
+    return {dimension: values[0] for dimension, values in found.items() if len(values) == 1}

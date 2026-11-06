@@ -8,6 +8,7 @@ from pydantic import Field
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.source_preparation import native_table_geometry
 from corpus_structure.semantic.artifact_identity import SourceArtifactOccurrence
 from corpus_structure.semantic.contributions import (
@@ -36,6 +37,9 @@ class SourceWorkBinding(StructuralValue):
 class ScopedRelationsConfig(StructuralValue):
     work_bindings: tuple[SourceWorkBinding, ...] = ()
     interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
+    sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
+    formula_seconds: float = Field(default=0.5, gt=0)
+    max_formula_chars: int = Field(default=2048, gt=0, strict=True)
 
 
 def artifact_spans(text):
@@ -52,7 +56,15 @@ def artifact_spans(text):
         )
 
 
-def discover_relations(frame, *, source_work=None):
+def discover_relations(
+    frame,
+    *,
+    source_work=None,
+    annotations=(),
+    annotation_errors=(),
+    formula_seconds=0.5,
+    max_formula_chars=2048,
+):
     """Return participants and relation candidates against actual detached source pieces.
 
     Geometry determines candidates/containment, never independent semantic support. No
@@ -80,10 +92,14 @@ def discover_relations(frame, *, source_work=None):
     )
     op = operation_identity("structure.scoped_relations", "1", pin)
     products, coordinates, participants = [], {}, {}
+    formula_diagnostics = []
+    annotation_dependencies = tuple("annotation:" + a.dependency_digest for a in annotations)
     items = {item["self_ref"]: item for item in native["items"]}
 
-    def participant(start, end, *, role, pointer, region, extra=None):
-        key = (start, end, role, pointer)
+    def participant(
+        start, end, *, role, pointer, region, extra=None, dependencies=(), operation=op
+    ):
+        key = (start, end, role, pointer, operation)
         if key in participants:
             return participants[key]
         if not 0 <= start < end <= len(frame.text):
@@ -101,7 +117,7 @@ def discover_relations(frame, *, source_work=None):
             contract="RetainedContributionSemantics",
             kind="occurrence",
             semantic_type="structural.located_participant",
-            operation_key=op,
+            operation_key=operation,
             item_key=f"{pointer}:{role}:{start}:{end}",
             pin=pin,
             anchors=tuple(anchors),
@@ -109,7 +125,7 @@ def discover_relations(frame, *, source_work=None):
             standing="retained_private",
             score_state="missing",
             disposition="located_proposal",
-            computation_dependencies=(dependency,),
+            computation_dependencies=tuple(dict.fromkeys((dependency, *dependencies))),
             value=source_value(
                 dict(
                     role=role,
@@ -127,13 +143,25 @@ def discover_relations(frame, *, source_work=None):
         participants[key] = row
         return row
 
-    def relation(subject, target, kind, region, basis="native_geometry", state="unassessed"):
-        deps = (subject["contribution_id"], target["contribution_id"], dependency)
+    def relation(
+        subject, target, kind, region, basis="native_geometry", state="unassessed", operation=op
+    ):
+        deps = tuple(
+            dict.fromkeys(
+                (
+                    subject["contribution_id"],
+                    target["contribution_id"],
+                    dependency,
+                    *subject["computation_dependencies"],
+                    *target["computation_dependencies"],
+                )
+            )
+        )
         row = dict(
             contract="RetainedContributionSemantics",
             kind="relation",
             semantic_type="structural.scoped_attachment",
-            operation_key=op,
+            operation_key=operation,
             item_key=f"{kind}:{deps[0]}:{deps[1]}",
             pin=pin,
             anchors=(),
@@ -149,11 +177,25 @@ def discover_relations(frame, *, source_work=None):
             component=dict(
                 protocol="witnessed-component-1",
                 kind="scoped_attachment",
-                question="source_structural_relations",
+                question="source_structural_relations"
+                if operation == op
+                else "source_procedure_roles",
                 question_version="1",
                 scope=region,
                 interpretation=state,
-                bases=(dict(kind=basis, dependencies=(dependency,)),),
+                bases=(
+                    dict(
+                        kind=basis,
+                        dependencies=tuple(
+                            dict.fromkeys(
+                                (
+                                    *subject["computation_dependencies"],
+                                    *target["computation_dependencies"],
+                                )
+                            )
+                        ),
+                    ),
+                ),
                 dependencies=deps,
                 attachment_contribution_id=deps[0],
                 target_contribution_id=deps[1],
@@ -326,75 +368,249 @@ def discover_relations(frame, *, source_work=None):
                     and formula_node.get("parent") == node.get("parent")
                     and node.get("parent") is not None
                 ):
-                    for occurrence in re.finditer(
-                        r"\b" + re.escape(match[1]) + r"\b", formula_text
-                    ):
+                    from .structural_roles import captured_formula_symbols
+
+                    if len(formula_text) > max_formula_chars:
+                        formula_diagnostics.append(
+                            dict(
+                                pointer=previous["item_ref"],
+                                outcome="limited",
+                                reason="captured formula exceeds selected character limit",
+                            )
+                        )
+                        continue
+                    parsed, status = captured_formula_symbols(formula_text, seconds=formula_seconds)
+                    formula_diagnostics.append(
+                        dict(
+                            pointer=previous["item_ref"],
+                            outcome=status,
+                            input_policy="captured_native_text",
+                            mapping="unchanged_native_field",
+                        )
+                    )
+                    for occurrence in parsed:
+                        if occurrence["name"] != match[1]:
+                            continue
                         used = participant(
-                            previous["start"] + occurrence.start(),
-                            previous["start"] + occurrence.end(),
+                            previous["start"] + occurrence["start"],
+                            previous["start"] + occurrence["end"],
                             role="formula_symbol",
                             pointer=previous["item_ref"],
                             region=pointer,
+                            extra=dict(
+                                syntax_parent=occurrence["syntax_parent"],
+                                syntax_standing="syntax_only",
+                                input_policy="captured_native_text",
+                                mapping="exact_native_field",
+                            ),
                         )
                         relation(used, declaration, "declares", pointer, "matched_cue")
-        for match in re.finditer(
-            r"\bif\s+([^.;\n]+?),\s*(?:then\s+)([^.;\n]+)", text, re.IGNORECASE
+        # Explicit Let declarations also scope an immediately following same-parent
+        # formula; no search over another example/section is performed.
+        if node.get("label") != "formula" and text_index + 1 < len(text_rows):
+            following, formula_node, formula_text = text_rows[text_index + 1]
+            declarations = tuple(
+                re.finditer(
+                    r"\blet\s+([A-Za-z][A-Za-z0-9_]*)\s+(?:denotes|is|be|represents)\s+([^.;\n]+)",
+                    text,
+                    re.IGNORECASE,
+                )
+            )
+            if (
+                declarations
+                and formula_node.get("label") == "formula"
+                and node.get("parent") is not None
+                and node.get("parent") == formula_node.get("parent")
+            ):
+                from .structural_roles import captured_formula_symbols
+
+                if len(formula_text) <= max_formula_chars:
+                    parsed, status = captured_formula_symbols(formula_text, seconds=formula_seconds)
+                    formula_diagnostics.append(
+                        dict(
+                            pointer=following["item_ref"],
+                            outcome=status,
+                            input_policy="captured_native_text",
+                            mapping="unchanged_native_field",
+                        )
+                    )
+                    for declaration_match in declarations:
+                        declaration = participant(
+                            piece["start"] + declaration_match.start(2),
+                            piece["start"] + declaration_match.end(2),
+                            role="declaration",
+                            pointer=pointer,
+                            region=pointer,
+                        )
+                        for occurrence in parsed:
+                            if occurrence["name"] != declaration_match[1]:
+                                continue
+                            used = participant(
+                                following["start"] + occurrence["start"],
+                                following["start"] + occurrence["end"],
+                                role="formula_symbol",
+                                pointer=following["item_ref"],
+                                region=pointer,
+                                extra=dict(
+                                    syntax_parent=occurrence["syntax_parent"],
+                                    syntax_standing="syntax_only",
+                                    input_policy="captured_native_text",
+                                    mapping="exact_native_field",
+                                ),
+                            )
+                            relation(used, declaration, "declares", pointer, "matched_cue")
+    from .structural_roles import procedure_frames
+
+    procedure_op = operation_identity("source_procedure_roles", "1", pin)
+    readings = procedure_frames(frame.text, annotations)
+    by_action = {r["action"]: r for r in readings}
+    for reading in readings:
+
+        def located(extent, role, reading=reading):
+            start, end = extent
+            original = next(
+                (
+                    p
+                    for p in source_pieces
+                    if p.get("kind") == "native_text" and p["start"] <= start < end <= p["end"]
+                ),
+                None,
+            )
+            if original is None:
+                return None
+            action_reading = by_action.get((start, end), reading)
+            extra = {}
+            if role == "procedure_action":
+                extra = dict(
+                    voice=action_reading["voice"],
+                    polarity=action_reading["polarity"],
+                    behavior=action_reading["behavior"],
+                    clause_role=action_reading["clause_role"],
+                    role_states={
+                        name: "located_linguistic_proposal"
+                        if action_reading[name]
+                        else "not_located"
+                        for name in (
+                            "actor",
+                            "object",
+                            "modality",
+                            "conditions",
+                            "exceptions",
+                            "orders",
+                        )
+                    },
+                )
+            return participant(
+                start,
+                end,
+                role=role,
+                pointer=original["item_ref"],
+                region=original["item_ref"],
+                extra=extra,
+                dependencies=("annotation:" + action_reading["dependency"],),
+                operation=procedure_op,
+            )
+
+        action = located(reading["action"], "procedure_action")
+        if action is None:
+            continue
+        for role in ("actor", "object", "modality"):
+            for extent in reading[role]:
+                target = located(extent, "procedure_" + role)
+                if target is not None:
+                    relation(
+                        action,
+                        target,
+                        role,
+                        action["item_key"].split(":")[0],
+                        "model_reading",
+                        operation=procedure_op,
+                    )
+                    if role == "object":
+                        for (a, b, r, _pointer, _operation), artifact in tuple(
+                            participants.items()
+                        ):
+                            if r == "artifact_reference" and extent[0] <= a < b <= extent[1]:
+                                relation(
+                                    action,
+                                    artifact,
+                                    "uses_artifact",
+                                    _pointer,
+                                    "model_reading",
+                                    operation=procedure_op,
+                                )
+        for field, kind, role in (
+            ("conditions", "prerequisite", "precondition"),
+            ("exceptions", "exception", "exception"),
         ):
-            condition = participant(
-                piece["start"] + match.start(1),
-                piece["start"] + match.end(1),
-                role="precondition",
-                pointer=pointer,
-                region=pointer,
-            )
-            action = participant(
-                piece["start"] + match.start(2),
-                piece["start"] + match.end(2),
-                role="procedure_action",
-                pointer=pointer,
-                region=pointer,
-            )
-            relation(action, condition, "prerequisite", pointer, "matched_cue")
-        # Explicit before/after statements supply the ordering cue and exact
-        # endpoint role spans; this does not infer order from document position.
-        for match in re.finditer(
-            r"\b([A-Za-z][A-Za-z ]{0,60}?)\s+(before|after)\s+"
-            r"([A-Za-z][A-Za-z ]{0,60})(?=[.;\n]|$)",
-            text,
-            re.IGNORECASE,
-        ):
-            a = participant(
-                piece["start"] + match.start(1),
-                piece["start"] + match.end(1),
-                role="procedure_step",
-                pointer=pointer,
-                region=pointer,
-            )
-            b = participant(
-                piece["start"] + match.start(3),
-                piece["start"] + match.end(3),
-                role="procedure_step",
-                pointer=pointer,
-                region=pointer,
-            )
-            relation(
-                a if match[2].lower() == "before" else b,
-                b if match[2].lower() == "before" else a,
-                "order",
-                pointer,
-                "matched_cue",
-            )
+            for extent in reading[field]:
+                target = located(extent, role)
+                if target is not None:
+                    relation(
+                        action,
+                        target,
+                        kind,
+                        target["item_key"].split(":")[0],
+                        "model_reading",
+                        operation=procedure_op,
+                    )
+        for earlier, later in reading["orders"]:
+            first = located(earlier, "procedure_action")
+            second = located(later, "procedure_action")
+            if first is not None and second is not None:
+                relation(
+                    first,
+                    second,
+                    "order",
+                    first["item_key"].split(":")[0],
+                    "model_reading",
+                    operation=procedure_op,
+                )
+    # Diagnostics are retained independently of contribution count or solver success.
+    available = any(
+        {"DEP", "POS"} <= {x.attribute for x in a.availability if x.status == "complete"}
+        for a in annotations
+    )
+    emitted = sum(p["operation_key"] == procedure_op for p in products)
+    extra_operations = (
+        dict(
+            operation_key=procedure_op,
+            question="source_procedure_roles",
+            operation_version="1",
+            outcome=("limited" if emitted else "failed")
+            if annotation_errors
+            else (
+                ("succeeded" if emitted else "empty")
+                if available
+                else ("unsupported" if annotations else "not_run")
+            ),
+            reason=(
+                "Some retained annotation blocks failed; independently assess emitted roles."
+                if annotation_errors
+                else (
+                    "Located linguistic role proposals remain independently unassessed."
+                    if available
+                    else "No complete retained DEP/POS product; no absence is inferred."
+                )
+            ),
+            inspected_count=sum(len(a.tokens) for a in annotations),
+            emitted_count=emitted,
+            computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
+        ),
+    )
     return dict(
         contributions=tuple(products),
         coordinates=tuple(coordinates.values()),
+        extra_operations=extra_operations,
+        formula_diagnostics=tuple(formula_diagnostics),
         operation=dict(
             operation_key=op,
             question="source_structural_relations",
             operation_version="1",
             outcome="succeeded" if products else "empty",
             inspected_count=len(source_pieces),
-            emitted_count=len(products),
-            computation_dependencies=(dependency,),
+            emitted_count=sum(p["operation_key"] == op for p in products),
+            computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
         ),
     )
 
@@ -430,8 +646,25 @@ class ScopedRelationsMethod:
             ]
             if len(bindings) > 1:
                 raise ValueError("source has ambiguous parent-work assignment")
+            from corpus_structure.ingest.annotations import AnnotationProfile
+            from corpus_structure.methods.m1_annotations import consume_annotations
+
+            try:
+                annotations, annotation_errors, _ = consume_annotations(
+                    ctx.reader, view, AnnotationProfile(cfg.sentences)
+                )
+            except ValueError as error:
+                if str(error) != "required upstream M1 annotation operation has no source result":
+                    raise
+                annotations = ()
+                annotation_errors = ()
             output = discover_relations(
-                frame, source_work=bindings[0].source_work if bindings else None
+                frame,
+                source_work=bindings[0].source_work if bindings else None,
+                annotations=annotations,
+                annotation_errors=annotation_errors,
+                formula_seconds=cfg.formula_seconds,
+                max_formula_chars=cfg.max_formula_chars,
             )
             from corpus_structure.methods.table_interpretation import table_policy_operations
 
@@ -455,7 +688,15 @@ class ScopedRelationsMethod:
                     ref=unit.ref,
                     outcome=ObservationOutcome.PRODUCED,
                     contributions=output["contributions"],
-                    contribution_operations=(output["operation"], *interpretation),
+                    contribution_operations=(
+                        output["operation"],
+                        *output["extra_operations"],
+                        *interpretation,
+                    ),
+                    parse_detail=dict(
+                        formula_syntax=list(output["formula_diagnostics"]),
+                        annotation_errors=list(annotation_errors),
+                    ),
                     contribution_coordinate_texts=output["coordinates"],
                 )
             )

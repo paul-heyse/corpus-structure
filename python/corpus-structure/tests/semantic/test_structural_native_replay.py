@@ -22,6 +22,19 @@ from .test_typed_structural_composition import threshold_inputs
         ("x > 2 kg and y > 3 kg", "x > 5 kg"),
         ("prefix. x ≥ +2.00e2 kg", "x >= 200 kg"),
         ("x > 2. kg", "x > 2 kg"),
+        (
+            "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed.",
+            "Manager must approve Table 5.1 if revenue > 50000 USD unless account is closed.",
+        ),
+        (
+            "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
+            "Table 5.1 must be approved by Analyst if revenue > 25000 USD.",
+        ),
+        (
+            "If revenue > 25000 USD, Manager must approve Table 5.1 before signing.",
+            "Nothing is prescribed.",
+        ),
+        ("Manager must approve Table; Analyst may reject Form.", "Manager may review Table."),
     ],
 )
 def test_native_comparison_replays_same_source_route(semantic_db_engine, left, right):

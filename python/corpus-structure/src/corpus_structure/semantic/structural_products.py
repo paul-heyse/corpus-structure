@@ -11,10 +11,10 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, model_validator
 
+from .artifact_identity import ArtifactIdentityProduct
 from .contextual_links import RetainedRelationshipDecisionRef
 from .identity import canonical_bytes
 from .structural_base import StructuralValue
-from .artifact_identity import ArtifactIdentityProduct
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -353,6 +353,7 @@ class ClauseField(StructuralValue):
     lexical_value: Nonempty
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
     typed: TypedPremise | None = None
+    span: LocatedDefinitionSpan | None = None
 
 
 class ClauseReading(StructuralValue):
@@ -517,7 +518,11 @@ class DossierProduct(StructuralValue):
 class StructuralProductReport(StructuralValue):
     version: Literal["structural-product-3"] = "structural-product-3"
     kind: Literal[
-        "definition_components", "definition_applicability", "qualified_comparison", "dossier", "artifact_identity"
+        "definition_components",
+        "definition_applicability",
+        "qualified_comparison",
+        "dossier",
+        "artifact_identity",
     ]
     inputs: StructuralInput
     standing: Literal["private_proposal"] = "private_proposal"
@@ -583,6 +588,29 @@ class StructuralProductReport(StructuralValue):
                 for side in (dimension.left, dimension.right):
                     if side:
                         cited.update(side.evidence)
+                        if side.span is not None:
+                            span = side.span
+                            selected = next(
+                                (
+                                    p
+                                    for p in self.inputs.passages
+                                    if p.passage_id == span.passage_id
+                                ),
+                                None,
+                            )
+                            if (
+                                selected is None
+                                or not selected.start <= span.start < span.end <= selected.end
+                                or selected.text[
+                                    span.start - selected.start : span.end - selected.start
+                                ]
+                                != span.text
+                                or side.lexical_value != span.text
+                            ):
+                                raise ValueError(
+                                    "clause field differs from its exact original source"
+                                )
+                            cited.add(span.passage_id)
                         if side.typed is not None:
                             span = side.typed.span
                             selected = next(
@@ -621,11 +649,19 @@ class StructuralProductReport(StructuralValue):
                 ):
                     raise ValueError("dossier member citation differs from original source")
         if self.artifact_identity:
-            by_id = {p.passage_id:p for p in self.inputs.passages}
+            by_id = {p.passage_id: p for p in self.inputs.passages}
             for record in self.artifact_identity.records:
                 for citation in record.citations:
-                    passage=by_id.get(citation.passage_id)
-                    if passage is None or citation.source_ref != passage.source_ref or not passage.start <= citation.start < citation.end <= passage.end or passage.text[citation.start-passage.start:citation.end-passage.start] != citation.text:
+                    passage = by_id.get(citation.passage_id)
+                    if (
+                        passage is None
+                        or citation.source_ref != passage.source_ref
+                        or not passage.start <= citation.start < citation.end <= passage.end
+                        or passage.text[
+                            citation.start - passage.start : citation.end - passage.start
+                        ]
+                        != citation.text
+                    ):
                         raise ValueError("artifact citation differs from its exact original source")
                     cited.add(citation.passage_id)
         if not cited <= passages:

@@ -191,3 +191,47 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
         derive_dossier_members(
             closure, ((reference.model_copy(update=dict(product_id="another")), payload),)
         )
+
+
+def test_cued_clause_dimensions_keep_original_roles_conditions_and_exceptions():
+    text = "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed."
+    value = threshold_inputs(text, text.replace("25000", "50000"))
+    fields = {f.dimension: f for f in read_clause(value.passages[0]).fields}
+    assert {k: f.lexical_value for k, f in fields.items() if k != "threshold_unit"} == {
+        "actor": "Manager",
+        "action": "approve",
+        "object": "Table 5.1",
+        "modality": "must",
+        "condition": "if revenue > 25000 USD",
+        "exception": "unless account is closed",
+    }
+    assert fields["actor"].span is not None
+    assert fields["actor"].span.text == "Manager"
+    assert fields["object"].span is not None
+    assert fields["object"].span.text == "Table 5.1"
+    comparison = compare_clauses(
+        value, left=read_clause(value.passages[0]), right=read_clause(value.passages[1])
+    ).comparison
+    assert comparison is not None
+    assert comparison.dimensions[0].outcome == "same_lexical_value"
+    assert comparison.dimensions[4].outcome == "different_lexical_value"
+    assert comparison.dimensions[5].removed_interval is not None
+    assert comparison.dimensions[5].removed_interval.upper == "50000"
+    assert comparison.applicability == "unestablished"
+
+
+def test_passive_clause_retains_agent_patient_direction_and_ambiguous_clauses_unknown():
+    value = threshold_inputs(
+        "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
+        "Nothing is prescribed here.",
+    )
+    fields = {f.dimension: f for f in read_clause(value.passages[0]).fields}
+    assert fields["actor"].lexical_value == "Manager"
+    assert fields["object"].lexical_value == "Table 5.1"
+    assert fields["action"].lexical_value == "approved"
+    assert read_clause(value.passages[1]).fields == ()
+    text = "Manager must approve Table; Analyst may reject Form."
+    value = threshold_inputs(text, "unknown")
+    assert not {"actor", "action", "object", "modality"} & {
+        f.dimension for f in read_clause(value.passages[0]).fields
+    }

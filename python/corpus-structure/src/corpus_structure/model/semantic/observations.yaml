@@ -1035,6 +1035,7 @@ classes:
   ClauseField:
     is_a: SourceRecordProduct
     attributes:
+      span: {range: LocatedDefinitionSpan, inlined: true}
       typed: {range: TypedPremise, inlined: true}
       dimension:
         required: true
@@ -1460,6 +1461,7 @@ classes:
       readings: {range: StructuralPublicDefinitionReading, multivalued: true, inlined: true, inlined_as_list: true}
   StructuralPublicClauseField:
     attributes:
+      span: {range: StructuralPublicCitation, inlined: true}
       typed: {range: StructuralPublicTypedPremise, inlined: true}
       dimension:
         range: StructuralClauseFieldDimensionValue

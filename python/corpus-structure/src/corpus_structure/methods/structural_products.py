@@ -153,20 +153,40 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
 
 
 def read_clause(passage):
-    from corpus_structure.semantic.structural_parsing import threshold_fields
+    from corpus_structure.semantic.structural_parsing import clause_fields, threshold_fields
     from corpus_structure.semantic.structural_products import (
         ClauseField,
         LocatedDefinitionSpan,
         TypedPremise,
     )
 
+    readings = []
+    for dimension, field in clause_fields(passage.text).items():
+        readings.append(
+            ClauseField(
+                dimension=dimension,
+                lexical_value=field["text"],
+                evidence=(passage.passage_id,),
+                span=LocatedDefinitionSpan(
+                    passage_id=passage.passage_id,
+                    start=passage.start + field["start"],
+                    end=passage.start + field["end"],
+                    text=field["text"],
+                ),
+            )
+        )
+    # These are the authenticated input context, not textually observed version/parent claims.
+    for dimension, value in (("parent", passage.parent), ("version", passage.effective_version)):
+        if value:
+            readings.append(
+                ClauseField(
+                    dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
+                )
+            )
     fields = threshold_fields(passage.text)
-    if len(fields) != 1:
-        return ClauseReading(passage_id=passage.passage_id, fields=())
-    f = fields[0]
-    return ClauseReading(
-        passage_id=passage.passage_id,
-        fields=(
+    if len(fields) == 1:
+        f = fields[0]
+        readings.append(
             ClauseField(
                 dimension="threshold_unit",
                 lexical_value=f["text"],
@@ -185,9 +205,9 @@ def read_clause(passage):
                     quantity=f["quantity"],
                     unit=f["unit"],
                 ),
-            ),
-        ),
-    )
+            )
+        )
+    return ClauseReading(passage_id=passage.passage_id, fields=tuple(readings))
 
 
 def select_dossier(
@@ -334,8 +354,16 @@ def derive_dossier_members(inputs, retained):
         if report.comparison:
             for d in report.comparison.dimensions:
                 for side in (d.left, d.right):
-                    if side and side.typed:
-                        roles.append(("variant", side.typed.span, None))
+                    if side:
+                        span = side.span or (side.typed.span if side.typed else None)
+                        if span is not None:
+                            roles.append(
+                                (
+                                    "exception" if d.dimension == "exception" else "variant",
+                                    span,
+                                    None,
+                                )
+                            )
         for role, span, component_id in roles:
             p = passages[span.passage_id]
             key = sha256(

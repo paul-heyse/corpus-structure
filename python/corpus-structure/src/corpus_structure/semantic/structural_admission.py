@@ -142,10 +142,13 @@ def structural_statement(
         dimensions = []
         for dimension in value.dimensions:
             item: dict[str, Any] = {"dimension": dimension.dimension, "outcome": dimension.outcome}
-            item.update(typed_outcome=dimension.typed_outcome, assumptions=list(dimension.assumptions))
+            item.update(
+                typed_outcome=dimension.typed_outcome, assumptions=list(dimension.assumptions)
+            )
             for interval_name in ("removed_interval", "added_interval"):
-                interval=getattr(dimension,interval_name)
-                if interval is not None:item[interval_name]=interval.model_dump(mode="json",exclude_none=True)
+                interval = getattr(dimension, interval_name)
+                if interval is not None:
+                    item[interval_name] = interval.model_dump(mode="json", exclude_none=True)
             for name in ("left", "right"):
                 side = getattr(dimension, name)
                 if side is not None:
@@ -154,8 +157,15 @@ def structural_statement(
                         "lexical_value": side.lexical_value,
                         "evidence": citations(side.evidence),
                     }
+                    if side.span is not None:
+                        item[name]["span"] = span_citation(side.span)
                     if side.typed is not None:
-                        item[name]["typed"]={**side.typed.model_dump(mode="json",exclude_none=True,exclude={"span"}),"span":span_citation(side.typed.span)}
+                        item[name]["typed"] = {
+                            **side.typed.model_dump(
+                                mode="json", exclude_none=True, exclude={"span"}
+                            ),
+                            "span": span_citation(side.typed.span),
+                        }
             dimensions.append(item)
         statement["comparison"] = {
             "left": citation(value.left_id),

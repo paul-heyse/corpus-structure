@@ -72,6 +72,7 @@ BEGIN
     IF item->side IS NOT NULL AND item->side<>'null' THEN
      entry:=entry||jsonb_build_object(side,jsonb_build_object('dimension',item->side->>'dimension',
       'lexical_value',item->side->>'lexical_value','evidence',data.structural_citations(report,item->side->'evidence')));
+     IF nullif(item->side->'span','null') IS NOT NULL THEN entry:=jsonb_set(entry,ARRAY[side,'span'],data.structural_citation(report,item->side->'span'->>'passage_id')||((item->side->'span')-'passage_id'));END IF;
      IF nullif(item->side->'typed','null') IS NOT NULL THEN
       entry:=jsonb_set(entry,ARRAY[side,'typed'],((item->side->'typed')-'span')||jsonb_build_object('span',data.structural_citation(report,item->side->'typed'->'span'->>'passage_id')||((item->side->'typed'->'span')-'passage_id')));
      END IF;
