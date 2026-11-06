@@ -734,7 +734,7 @@ classes:
     attributes:
       term: {required: true, range: StructuralPublicCitation, inlined: true}
       content: {required: true, range: StructuralPublicCitation, inlined: true}
-      interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
+      interpretation: {required: true, range: StructuralDefinitionInterpretationValue}
       basis: {required: true}
       scope: {required: true}
       effective_version: {}
@@ -1138,14 +1138,14 @@ classes:
         inlined: true
   StructuralPublicApplicabilityPremise:
     attributes:
-      dimension: {required: true, pattern: '^(scope|parent|parameterization|convention|version|sense)$'}
-      state: {required: true, pattern: '^(compatible|incompatible|unknown|inapplicable)$'}
+      dimension: {required: true, range: StructuralApplicabilityDimensionValue}
+      state: {required: true, range: StructuralApplicabilityStateValue}
       evidence: {range: StructuralPublicCitation, multivalued: true, inlined: true}
   StructuralPublicApplicableComponent:
     attributes:
       term: {required: true, range: StructuralPublicCitation, inlined: true}
       content: {required: true, range: StructuralPublicCitation, inlined: true}
-      interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
+      interpretation: {required: true, range: StructuralDefinitionInterpretationValue}
       scope: {required: true}
       effective_version: {}
       alternatives: {multivalued: true}
@@ -1328,6 +1328,12 @@ classes:
         inlined: true
 
 enums:
+  StructuralDefinitionInterpretationValue:
+    permissible_values: {definition: {}, explanation: {}, unresolved: {}}
+  StructuralApplicabilityDimensionValue:
+    permissible_values: {scope: {}, parent: {}, parameterization: {}, convention: {}, version: {}, sense: {}}
+  StructuralApplicabilityStateValue:
+    permissible_values: {compatible: {}, incompatible: {}, unknown: {}, inapplicable: {}}
   ContributionAnchorRole:
     permissible_values:
       evidence: {}
