@@ -94,21 +94,33 @@ class SemanticTargetGroup:
     meaning: dict[str, Any]
 
 
-def _meaning(value):
+type _MeaningValue = str | int | float | bool | None | list[_MeaningValue] | dict[str, _MeaningValue]
+
+
+def _meaning_value(value: object) -> _MeaningValue:
     if isinstance(value, dict):
-        return {key: _meaning(item) for key, item in value.items() if item is not None}
+        return _meaning(value)
     if isinstance(value, (tuple, list)):
-        return tuple(_meaning(item) for item in value)
-    return value
+        return [_meaning_value(item) for item in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    raise TypeError("semantic target meaning requires JSON values")
 
 
-def semantic_target_groups(targets, semantic_targets):
-    groups = {}
+def _meaning(value: Mapping[str, Any]) -> dict[str, _MeaningValue]:
+    return {key: _meaning_value(item) for key, item in value.items() if item is not None}
+
+
+def semantic_target_groups(
+    targets: Sequence[TargetRepresentation],
+    semantic_targets: Mapping[str, Mapping[str, Any]],
+) -> tuple[SemanticTargetGroup, ...]:
+    groups: dict[str, tuple[dict[str, _MeaningValue], list[str]]] = {}
     for target in targets:
         if target.source_binding.startswith("definition-component:"):
             if target.target_id not in semantic_targets:
                 raise ValueError("component inventory requires authenticated semantic target meaning")
-            meaning = _meaning(dict(semantic_targets[target.target_id]))
+            meaning = _meaning(semantic_targets[target.target_id])
             if not {"term", "content", "interpretation", "scope"} <= meaning.keys() or meaning.keys() - {"term", "content", "interpretation", "scope", "effective_version"}:
                 raise ValueError("component target meaning requires its exclusive source-resolved variant")
         else:

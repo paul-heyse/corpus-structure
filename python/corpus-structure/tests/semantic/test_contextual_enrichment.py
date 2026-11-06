@@ -502,4 +502,5 @@ def test_different_versions_keep_distinct_groups_and_unknown_version_withholds_s
     result = select_definition_origins(inv, (witness("first", "a"), witness("second", "b")))
     assert result.outcome == "insufficient_evidence"
     assert not result.selected_edges
+    assert result.reason is not None
     assert "version is unestablished" in result.reason
