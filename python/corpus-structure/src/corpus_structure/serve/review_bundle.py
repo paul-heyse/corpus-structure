@@ -178,6 +178,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     task.c.status.label("task_status"),
                     task.c.error.label("task_error"),
                     run.c.project_id,
+                    run.c.runtime_id.label("runtime_fingerprint"),
                     method.c.name.label("method"),
                 )
                 .select_from(task)
@@ -254,6 +255,21 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         tasks.c.id == task_id
                     )
                 )
+                if selection.completeness == "selected_source_closure" and report.dossier:
+                    # The detached reader must carry the same exact original source
+                    # custody as native dossier replay, never a projected semantic bridge.
+                    from corpus_structure.semantic.operations import BoundReader
+
+                    for reference in report.dossier.contribution_predecessors:
+                        original = bind_completed_result(conn, reference.run_id)
+                        reader = BoundReader(
+                            conn,
+                            reference.run_id,
+                            original.prepared,
+                            cut_id=reference.cut_id,
+                            analysis=False,
+                        )
+                        budget.value(reader.retained_source_contribution(reference))
                 yield (
                     "structural_products",
                     {
@@ -699,6 +715,107 @@ def _member(root: Path, name: str) -> Path:
     return path
 
 
+def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory):
+    """Replay source membership from exact detached selected raw producer custody."""
+    from corpus_structure.methods.dossier_contributions import derive_contribution_members
+
+    def relation(name):
+        spec = manifest["relations"].get(name)
+        if spec is None:
+            return
+        with _member(root, spec["files"]["jsonl"]["path"]).open("rb") as stream:
+            for line in stream:
+                yield json.loads(json.loads(line)["payload_json"])
+
+    origin_ids = {member.contribution_ref.origin_task_id for _, member in members}
+    reports = {
+        row["origin_task_id"]: row
+        for row in relation("reports")
+        if row["origin_task_id"] in origin_ids
+    }
+    source_ids = {
+        source.source_view_id for report, _ in members for source in report.inputs.sources
+    }
+    sources = {}
+    for row in relation("sources"):
+        if row["source_view_id"] not in source_ids:
+            continue
+        ref = row["ref"]
+        sources[row["source_view_id"]] = dict(
+            source_view_id=row["source_view_id"],
+            pin=dict(
+                source=ref["key"],
+                native_product_task_id=ref["native_product"]["task_id"],
+                product_key=ref["native_product"]["product_key"],
+                product_digest=ref["native_product"]["content_digest"],
+                projection_digest=ref["projection_digest"],
+                recipe_digest=ref["recipe_digest"],
+                source_view_id=row["source_view_id"],
+            ),
+            projection=dict(text=row["text"], pieces=row["context"]["pieces"]),
+        )
+    for report, member in members:
+        reference = member.contribution_ref
+        if reference not in report.dossier.contribution_predecessors:
+            raise ValueError("dossier source member lacks its declared contribution predecessor")
+        candidates = [
+            index
+            for index, scope in scopes.items()
+            if scope["run_id"] == reference.run_id
+            and scope["cut_id"] == reference.cut_id
+            and scope.get("binding", {}).get("release_id") == reference.release_id
+            and scope.get("binding", {}).get("data_revision") == reference.result_revision
+        ]
+        raw = reports.get(reference.origin_task_id)
+        if (
+            not candidates
+            or raw is None
+            or raw.get("project_id") != reference.project_id
+            or raw.get("runtime_fingerprint") != reference.runtime_fingerprint
+            or raw.get("unit_type") != "source_view"
+            or raw.get("body", {}).get("release_id") != reference.release_id
+        ):
+            raise ValueError(
+                "dossier contribution differs from exact selected raw producer custody"
+            )
+        available = {row["contribution_id"]: row for row in raw["body"].get("contributions", ())}
+        closure, pending = {}, [reference.contribution_id]
+        while pending:
+            key = pending.pop()
+            if key in closure:
+                continue
+            row = available.get(key)
+            if row is None:
+                raise ValueError("dossier contribution raw endpoint closure missing")
+            if not any(
+                (index, reference.selected_task_id, reference.origin_task_id, key) in inventory
+                for index in candidates
+            ):
+                raise ValueError("dossier contribution selected endpoint inventory missing")
+            closure[key] = row
+            pending.extend(e["contribution_id"] for e in row.get("endpoints", ()))
+            pending.extend(row.get("members", ()))
+        source_ids = {
+            anchor["pin"]["source_view_id"]
+            for row in closure.values()
+            for anchor in row.get("anchors", ())
+        }
+        if not source_ids <= sources.keys():
+            raise ValueError("dossier contribution original endpoint source missing")
+        derived = derive_contribution_members(
+            report.inputs,
+            reference,
+            dict(
+                contributions=list(closure.values()),
+                sources=[sources[key] for key in sorted(source_ids)],
+            ),
+        )
+        if derived != (member,):
+            raise ValueError(
+                "dossier source membership differs from original contribution evidence"
+            )
+
+
 def verify_review_bundle(root: Path) -> dict[str, Any]:
     """Offline integrity and JSONL/Parquet equivalence; no database or model access."""
     manifest = json.loads(_member(root, "manifest.json").read_bytes())
@@ -732,6 +849,9 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     structural_scopes: dict[int, tuple[int, int]] = {}
     structural_dependencies: set[tuple[int, str]] = set()
     structural_members: set[tuple[int, str]] = set()
+    dossier_source_members = []
+    contribution_scopes = {}
+    contribution_inventory = set()
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
     for name, spec in manifest["relations"].items():
@@ -774,6 +894,7 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                             ):
                                 raise ValueError("review selected run/cut differs")
                             bound_selections.add(index)
+                            contribution_scopes[index] = payload
                         if name == "structural_selections":
                             index = payload["selection_index"]
                             if (
@@ -840,6 +961,12 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                                 structural_dependencies.update(
                                     (payload["selection_index"], member.relation_product_id)
                                     for member in report.dossier.members
+                                    if member.contribution_ref is None
+                                )
+                                dossier_source_members.extend(
+                                    (report, member)
+                                    for member in report.dossier.members
+                                    if member.contribution_ref is not None
                                 )
                             needed_sources.update(
                                 ref.source_view_id for ref in report.inputs.sources
@@ -879,6 +1006,15 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                             if type(item.get("source_view_id")) is int:
                                 needed_sources.add(item["source_view_id"])
                             needed_sources.update(_item_source_ids(item))
+                            if payload.get("population") == "contribution":
+                                contribution_inventory.add(
+                                    (
+                                        payload.get("selection_index"),
+                                        item.get("selected_task_id"),
+                                        item.get("origin_task_id"),
+                                        item.get("contribution_id"),
+                                    )
+                                )
                             if payload.get("population") == "report":
                                 needed_reports.add(item["origin_task_id"])
                                 index = payload.get("selection_index")
@@ -921,6 +1057,14 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
         if not required_structural <= present_structural:
             raise ValueError(
                 "dossier predecessor closure missing; include its selected-cut structural products"
+            )
+        if dossier_source_members:
+            _verify_dossier_contribution_closure(
+                root,
+                manifest,
+                dossier_source_members,
+                contribution_scopes,
+                contribution_inventory,
             )
         for run_id, unit_id in graded_units:
             if unit_id not in assessment_units or not _covers_assessment_unit(

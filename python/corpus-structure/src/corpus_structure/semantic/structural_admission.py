@@ -84,6 +84,21 @@ def structural_statement(
         value.update(start=span.start, end=span.end, text=span.text)
         return value
 
+    def dossier_source_evidence(member):
+        # Native task/contribution aliases belong to private custody. Public assembly
+        # meaning retains the physical endpoints and their source-qualified region.
+        endpoints = {
+            canonical_bytes(value): value
+            for c in (member.contribution_citations or ())
+            for value in [dict(source_pointer=c.source_pointer, passage=span_citation(c.span))]
+        }
+        ordered = [endpoints[key] for key in sorted(endpoints)]
+        physical_sources = {
+            sha256(canonical_bytes(value["passage"]["source"])).hexdigest() for value in ordered
+        }
+        region = member.scope.split(":", 1)[-1]
+        return ",".join(sorted(physical_sources)) + ":" + region, ordered
+
     if report.definition_components is not None:
         if component_id is None:
             raise ValueError("definition publication requires one exact component selector")
@@ -188,7 +203,7 @@ def structural_statement(
                         "passage": span_citation(m.citation),
                         "role": m.role,
                         "sense": m.sense,
-                        "scope": m.scope,
+                        "scope": dossier_source_evidence(m)[0] if m.contribution_ref else m.scope,
                         **(
                             {"effective_version": m.effective_version}
                             if m.effective_version is not None
@@ -197,16 +212,7 @@ def structural_statement(
                         "qualification": m.qualification,
                         **(
                             dict(
-                                contribution_ref=m.contribution_ref.model_dump(mode="json"),
-                                endpoint_citations=[
-                                    dict(
-                                        contribution_id=c.contribution_id,
-                                        source_pointer=c.source_pointer,
-                                        passage=span_citation(c.span),
-                                    )
-                                    for c in (m.contribution_citations or ())
-                                ],
-                                computation_dependencies=list(m.computation_dependencies or ()),
+                                endpoint_citations=dossier_source_evidence(m)[1],
                             )
                             if m.contribution_ref is not None
                             else {}

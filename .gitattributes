@@ -99,3 +99,9 @@ docs/design_review/evidence/2026-11-06_wce-definition-linking/capture-account.js
 docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/**/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/**/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/**/review-bundle/** filter=lfs diff=lfs merge=lfs -text
+# Frozen GS120 task bodies, exports and native authoring products.
+docs/design_review/evidence/2026-11-06_wce-gs120/baseline*/**/*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-gs120/baseline*-export*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-gs120/assessment/run*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-gs120/native-current*-candidate*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-gs120/native-baseline-repair/** filter=lfs diff=lfs merge=lfs -text

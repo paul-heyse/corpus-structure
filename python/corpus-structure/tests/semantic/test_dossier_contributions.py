@@ -178,6 +178,98 @@ def test_source_membership_rejects_forged_closure(corruption):
         derive_contribution_members(inputs, ref, payload)
 
 
+def replay_aliases(inputs, reference, member):
+    """Same physical evidence through a different execution and detached naming."""
+    source = inputs.sources[0].model_copy(
+        update=dict(
+            run_id=901,
+            cut_id=902,
+            release_id="replay-release",
+            result_revision=903,
+            source_view_id=904,
+            native_task_id=905,
+        )
+    )
+    passage = inputs.passages[0].model_copy(
+        update=dict(
+            passage_id="replay-passage",
+            source_ref=source.identity,
+        )
+    )
+    changed_inputs = inputs.model_copy(update=dict(sources=(source,), passages=(passage,)))
+    changed_ref = reference.model_copy(
+        update=dict(
+            contribution_id="source-contribution:" + "f" * 64,
+            run_id=906,
+            cut_id=907,
+            release_id="replay-release",
+            result_revision=908,
+            selected_task_id=909,
+            origin_task_id=910,
+            runtime_fingerprint="replay-runtime",
+        )
+    )
+    citations = tuple(
+        c.model_copy(
+            update=dict(
+                source_ref=source.identity,
+                contribution_id="source-contribution:" + str(i) * 64,
+                span=c.span.model_copy(update=dict(passage_id=passage.passage_id)),
+            )
+        )
+        for i, c in enumerate(member.contribution_citations)
+    )
+    changed_member = type(member).model_validate(
+        {
+            **member.model_dump(),
+            "member_id": "replay-member",
+            "contribution_ref": changed_ref,
+            "relation_product_id": changed_ref.contribution_id,
+            "citation": citations[0].span,
+            "passage_id": passage.passage_id,
+            "contribution_citations": citations,
+            "computation_dependencies": (
+                changed_ref.contribution_id,
+                *(c.contribution_id for c in citations),
+            ),
+            "scope": source.identity + ":" + member.scope.split(":", 1)[-1],
+        }
+    )
+    return changed_inputs, changed_ref, changed_member
+
+
+def test_public_source_membership_identity_excludes_execution_custody_aliases():
+    from corpus_structure.semantic.structural_admission import (
+        structural_claim_id,
+        structural_statement,
+    )
+
+    inputs, reference, payload = source_fixture()
+    member = derive_contribution_members(inputs, reference, payload)[0]
+    original = select_dossier(
+        inputs, root_id="corpus", members=(member,), contribution_predecessors=(reference,)
+    )
+    changed_inputs, changed_ref, changed_member = replay_aliases(inputs, reference, member)
+    changed = select_dossier(
+        changed_inputs,
+        root_id="corpus",
+        members=(changed_member,),
+        contribution_predecessors=(changed_ref,),
+    )
+    before, after = structural_statement(original), structural_statement(changed)
+    assert original.product_id != changed.product_id
+    assert before == after and structural_claim_id(before) == structural_claim_id(after)
+    public_member = before["dossier"]["members"][0]
+    assert not {"contribution_ref", "computation_dependencies"} & public_member.keys()
+    assert all(set(c) == {"source_pointer", "passage"} for c in public_member["endpoint_citations"])
+    # Physical/source scope remains material after execution aliases are removed.
+    moved = changed_member.model_copy(update=dict(scope=changed_member.scope + "/other-region"))
+    different = select_dossier(
+        changed_inputs, root_id="corpus", members=(moved,), contribution_predecessors=(changed_ref,)
+    )
+    assert structural_claim_id(structural_statement(different)) != structural_claim_id(before)
+
+
 def test_native_source_member_replay_preserves_all_endpoint_citations(semantic_db_engine):
     """Composition parity after owned-reader boundary; no claim of custody qualification."""
     inputs, ref, payload = source_fixture()
@@ -239,6 +331,18 @@ def test_native_source_member_replay_preserves_all_endpoint_citations(semantic_d
             dict(r=report.model_dump_json(exclude_none=True)),
         )
         assert public == structural_statement(report)
+        replay_inputs, replay_ref, replay_member = replay_aliases(inputs, ref, expected)
+        replay = select_dossier(
+            replay_inputs,
+            root_id="corpus",
+            members=(replay_member,),
+            contribution_predecessors=(replay_ref,),
+        )
+        replay_public = conn.scalar(
+            text("SELECT data.structural_public_statement(CAST(:r AS jsonb),NULL)"),
+            dict(r=replay.model_dump_json(exclude_none=True)),
+        )
+        assert replay_public == public == structural_statement(replay)
         assert len(public["dossier"]["members"][0]["endpoint_citations"]) == 2
         assert public["dossier"]["admission_scope"] == "membership_assembly_not_member_truth"
         from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
@@ -253,3 +357,155 @@ def test_native_source_member_replay_preserves_all_endpoint_citations(semantic_d
         )
         assert len(page["citations"]) == 2
         assert {c["citation"]["text"] for c in page["citations"]} == {"50", "Probability %"}
+
+
+def detached_source_dossier_rows():
+    from dataclasses import asdict
+
+    from corpus_structure.serve.contributions import ContributionRequest
+    from corpus_structure.serve.review_bundle import ReviewSelection
+    from corpus_structure.serve.structural_products import StructuralRequest
+
+    inputs, reference, payload = source_fixture()
+    member = derive_contribution_members(inputs, reference, payload)[0]
+    report = select_dossier(
+        inputs, root_id="corpus", members=(member,), contribution_predecessors=(reference,)
+    )
+    view = complete_native_fields(
+        native_table_source(
+            (
+                table_cell("Probability %", 0, 1, column_header=True),
+                table_cell("50", 1, 1),
+            )
+        )
+    )
+    selection = ReviewSelection(
+        selections=(ContributionRequest(run_id=reference.run_id),),
+        structural_selections=(StructuralRequest(run_id=2, kind="dossier"),),
+    )
+    rows = [
+        (
+            "selections",
+            dict(
+                selection_index=0,
+                run_id=reference.run_id,
+                cut_id=reference.cut_id,
+                binding=dict(
+                    release_id=reference.release_id, data_revision=reference.result_revision
+                ),
+            ),
+        ),
+        (
+            "structural_selections",
+            dict(selection_index=0, run_id=2, cut_id=3, release_id=reference.release_id),
+        ),
+        (
+            "structural_products",
+            dict(
+                selection_index=0,
+                selected_task_id=100,
+                origin_task_id=100,
+                product_id=report.product_id,
+                report=report.model_dump(mode="json"),
+            ),
+        ),
+        (
+            "reports",
+            dict(origin_task_id=100, body=dict(structural_product=report.model_dump(mode="json"))),
+        ),
+        (
+            "reports",
+            dict(
+                origin_task_id=reference.origin_task_id,
+                origin_run_id=reference.run_id,
+                unit_type="source_view",
+                origin_unit_id=view.ref.id,
+                project_id=reference.project_id,
+                runtime_fingerprint=reference.runtime_fingerprint,
+                body=dict(release_id=reference.release_id, contributions=payload["contributions"]),
+            ),
+        ),
+        (
+            "sources",
+            dict(
+                source_view_id=view.ref.id,
+                ref=asdict(view.ref),
+                text=view.text,
+                context=view.context(),
+            ),
+        ),
+        ("contracts", dict(release_id=reference.release_id, definitions=[], registry_rows=[])),
+    ]
+    rows.extend(
+        (
+            "inventory",
+            dict(
+                selection_index=0,
+                population="contribution",
+                row=dict(
+                    contribution_id=row["contribution_id"],
+                    source_view_id=view.ref.id,
+                    selected_task_id=reference.selected_task_id,
+                    origin_task_id=reference.origin_task_id,
+                ),
+            ),
+        )
+        for row in payload["contributions"]
+    )
+    return selection, rows
+
+
+def test_detached_dossier_replays_selected_raw_contribution_and_endpoint_custody(tmp_path):
+    from corpus_structure.serve.review_bundle import verify_review_bundle, write_review_bundle
+
+    selection, rows = detached_source_dossier_rows()
+    manifest = write_review_bundle(selection, tmp_path / "complete", iter(rows))
+    assert verify_review_bundle(tmp_path / "complete") == manifest
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "runtime",
+        "cut",
+        "selected_task",
+        "endpoint_inventory",
+        "raw_endpoint",
+        "source_pin",
+        "member",
+    ],
+)
+def test_detached_dossier_refuses_missing_or_forged_contribution_closure(tmp_path, corruption):
+    from corpus_structure.serve.review_bundle import write_review_bundle
+
+    selection, rows = detached_source_dossier_rows()
+    rows = copy.deepcopy(rows)
+    if corruption == "runtime":
+        rows[4][1]["runtime_fingerprint"] = "forged"
+    elif corruption == "cut":
+        rows[0][1]["cut_id"] += 1
+    elif corruption == "selected_task":
+        for name, value in rows:
+            if name == "inventory":
+                value["row"]["selected_task_id"] += 1
+    elif corruption == "endpoint_inventory":
+        rows.pop()
+    elif corruption == "raw_endpoint":
+        rows[4][1]["body"]["contributions"] = rows[4][1]["body"]["contributions"][:1]
+    elif corruption == "source_pin":
+        rows[5][1]["ref"]["native_product"]["task_id"] += 1
+    else:
+        value = rows[2][1]["report"]
+        value["dossier"]["members"][0]["role"] = "definition"
+        from corpus_structure.semantic.structural_products import DossierMember
+
+        forged = DossierMember.model_validate(value["dossier"]["members"][0])
+        inputs, reference, _ = source_fixture()
+        report = select_dossier(
+            inputs, root_id="corpus", members=(forged,), contribution_predecessors=(reference,)
+        )
+        rows[2][1]["report"] = report.model_dump(mode="json")
+        rows[2][1]["product_id"] = report.product_id
+        rows[3][1]["body"]["structural_product"] = report.model_dump(mode="json")
+    with pytest.raises(ValueError):
+        write_review_bundle(selection, tmp_path / "forged", iter(rows))

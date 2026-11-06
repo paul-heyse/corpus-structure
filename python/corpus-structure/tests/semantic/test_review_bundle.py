@@ -308,12 +308,11 @@ def test_complete_scope_requires_bound_snapshot_and_report(tmp_path):
 
 
 def structural_rows():
+    from corpus_structure.methods.structural_products import select_dossier
     from corpus_structure.semantic.structural_products import (
-        DossierProduct,
         ExternalSourceRef,
         StructuralInput,
         StructuralPassage,
-        StructuralProductReport,
     )
 
     source = source_row()
@@ -349,13 +348,7 @@ def structural_rows():
         ),
         dependencies=("source-view:1",),
     )
-    report = StructuralProductReport(
-        kind="dossier",
-        inputs=inputs,
-        dossier=DossierProduct(
-            root_id="sense:1", members=(), representatives=(), missing_sections=("definition",)
-        ),
-    )
+    report = select_dossier(inputs, root_id="sense:1", members=())
     return [
         (
             "structural_selections",
@@ -420,18 +413,26 @@ def test_full_dossier_bundle_refuses_missing_selected_predecessor(tmp_path):
     request = ReviewSelection(structural_selections=(StructuralRequest(run_id=2, kind="dossier"),))
     rows = structural_rows()
     value = rows[1][1]["report"]
-    value["dossier"]["members"] = [
-        dict(
-            member_id="m1",
-            passage_id="p1",
-            role="usage",
-            sense="sense:1",
-            scope="statistics",
-            relation_product_id="structural:missing",
-            qualification="proposed",
-        )
-    ]
-    rows[1][1]["product_id"] = StructuralProductReport.model_validate(value).product_id
+    from corpus_structure.methods.structural_products import select_dossier
+    from corpus_structure.semantic.structural_products import DossierMember, LocatedDefinitionSpan
+
+    original = StructuralProductReport.model_validate(value)
+    passage = original.inputs.passages[0]
+    member = DossierMember(
+        member_id="m1",
+        passage_id=passage.passage_id,
+        citation=LocatedDefinitionSpan(
+            passage_id=passage.passage_id, start=passage.start, end=passage.end, text=passage.text
+        ),
+        role="usage",
+        sense="sense:1",
+        scope="statistics",
+        relation_product_id="structural:missing",
+        qualification="proposed",
+    )
+    changed = select_dossier(original.inputs, root_id="sense:1", members=(member,))
+    rows[1][1]["report"] = changed.model_dump(mode="json")
+    rows[1][1]["product_id"] = changed.product_id
     with pytest.raises(ValueError, match="dossier predecessor closure missing"):
         write_review_bundle(request, tmp_path / "missing-predecessor", iter(rows))
     assert not (tmp_path / "missing-predecessor").exists()

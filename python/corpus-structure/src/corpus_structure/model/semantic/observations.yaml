@@ -1543,14 +1543,11 @@ classes:
         equals_string: not_asserted
   StructuralPublicContributionCitation:
     attributes:
-      contribution_id: {required: true}
       source_pointer: {required: true}
       passage: {range: StructuralPublicCitation, required: true, inlined: true}
   StructuralPublicDossierMember:
     attributes:
-      contribution_ref: {range: RetainedContributionRef, inlined: true}
       endpoint_citations: {range: StructuralPublicContributionCitation, multivalued: true, inlined: true}
-      computation_dependencies: {multivalued: true}
       passage:
         range: StructuralPublicCitation
         required: true

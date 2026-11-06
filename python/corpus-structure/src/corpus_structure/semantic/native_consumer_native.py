@@ -27,6 +27,7 @@ def native_task_completion_sql(context=None) -> str:
         + sql.joinpath("source_record_coordinates.sql").read_text()
         + sql.joinpath("source_contributions.sql").read_text()
         + sql.joinpath("source_record_report.sql").read_text()
+        + sql.joinpath("dossier_contributions.sql").read_text()
         + sql.joinpath("structural_products.sql").read_text()
         + completion
     )

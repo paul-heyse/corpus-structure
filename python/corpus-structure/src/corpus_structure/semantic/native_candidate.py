@@ -716,9 +716,11 @@ def series_native_definitions(connection, *, include_selected=True):
     from corpus_structure.evaluate.operation_fitting import operation_event_fitting_native_sql
 
     for name, roles in {
-        "operation_event_fit_frame": ("corpus_sem_evaluator",),
-        "record_operation_event_fit": ("corpus_sem_evaluator",),
-        "read_operation_event_fit": ("corpus_sem_evaluator", "corpus_sem_fitter"),
+        "operation_event_fit_frame": ("corpus_sem_evaluator", "corpus_sem_fitter"),
+        "record_operation_event_fit": ("corpus_sem_evaluator", "corpus_sem_fitter"),
+        "read_operation_event_fit": (
+            "corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_fitter"
+        ),
     }.items():
         definitions.extend(
             _task_call_definitions(
@@ -764,6 +766,22 @@ def series_native_definitions(connection, *, include_selected=True):
             schema="ops",
         )
     )
+    dossier_sql = Path(__file__).with_name("sql").joinpath("dossier_contributions.sql").read_text()
+    for name in ("resolve_retained_source_contribution", "dossier_contribution_member"):
+        definitions.extend(
+            _task_call_definitions(
+                connection,
+                dossier_sql,
+                name=name,
+                source="dossier source contributions:forward",
+                schema="ops",
+                grants=tuple(
+                    (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
+                )
+                if name == "resolve_retained_source_contribution"
+                else (),
+            )
+        )
     structural_sql = Path(__file__).with_name("sql").joinpath("structural_products.sql").read_text()
     for name in (
         "validate_structural_source",
@@ -1501,20 +1519,17 @@ def prepare_series_candidate(
         previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
         previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
         for relation in new_tables:
-            # Existing public data FKs belong to the migration principal; eval's
-            # schema and existing table authority belong to the publisher.
-            connection.exec_driver_sql(
-                "SET LOCAL ROLE corpus_sem_publisher" if relation.schema == "eval" else previous_sql
-            )
+            # Migration authority creates cross-owner foreign keys, including
+            # evaluator tables referencing ops cuts; runtime roles need no DDL ACLs.
+            connection.exec_driver_sql(previous_sql)
             target_metadata.create_all(connection, tables=[relation], checkfirst=False)
         connection.exec_driver_sql(previous_sql)
         for relation in new_tables:
-            if relation.schema != "eval":
-                connection.exec_driver_sql(
-                    "ALTER TABLE "
-                    + connection.dialect.identifier_preparer.format_table(relation)
-                    + " OWNER TO corpus_sem_publisher"
-                )
+            connection.exec_driver_sql(
+                "ALTER TABLE "
+                + connection.dialect.identifier_preparer.format_table(relation)
+                + " OWNER TO corpus_sem_publisher"
+            )
         # The runtime reuse kernel binds the expanded existing run row type. Like
         # new tables above, this prerequisite is rolled back before Alembic's diff.
         run = target_metadata.tables.get("ops.run")
@@ -1617,19 +1632,16 @@ def prepare_series_candidate(
                     else:
                         group = ModifyTableOps(item.table_name, [change], schema=item.schema)
                         ordered.extend((ExecuteSQLOp(publisher), group, ExecuteSQLOp(restore)))
-            elif isinstance(item, CreateTableOp) and item.schema == "eval":
-                ordered.extend((ExecuteSQLOp(publisher), item, ExecuteSQLOp(restore)))
             else:
                 ordered.append(item)
         # Keep migration-owned FK creation intact before transferring new data
         # tables. No runtime principal receives direct mutation or reference ACLs.
         for item in created:
             relation = item.to_table()
-            if relation.schema != "eval":
-                name = connection.dialect.identifier_preparer.format_table(relation)
-                ordered.append(
-                    ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher")
-                )
+            name = connection.dialect.identifier_preparer.format_table(relation)
+            ordered.append(
+                ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher")
+            )
         publisher_work: list[MigrateOperation] = []
         if physical_contract is not None:
             publisher_work.append(ExecuteSQLOp(physical_contract))
