@@ -8,7 +8,16 @@ reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
-## Broad refresh — 2026-11-05
+## Current refresh — 2026-11-06
+
+The [assembled WCE account](witnessed-enrichment.md) refreshes changed production boundaries and
+affected consumers at `91feb413bf2e9b2d91de37c80ec0303355774397`, including its explicitly named
+dirty corrections. DA-055–057 establish table multiplicity, numerical-result validity and dossier
+interpretation defects. The WCE coordinator owns their scheduled disposition. This is source
+inspection, not product qualification. The prior broader footprint below retains its original
+date and applicability; it was not re-certified wholesale by this focused intervening-change refresh.
+
+## Inherited broad baseline — 2026-11-05
 
 **Implemented source inspected.** Audited source:
 `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`, initially clean. The publishing commit is distinct.
@@ -26,7 +35,11 @@ including progressive enrichment, local admission and cross-source structural cu
 Completed plan claims guided investigation; they did not establish alignment. A proposed or
 unselected capability is not treated as a defect in a narrower supported contract.
 
-## Current diagnostic synthesis
+## Broader diagnostic synthesis and current additions
+
+Current WCE additions are diagnosed in DA-055–057 above. The following broader reconciliation
+describes the inherited November5 inspection; its no-new-violation conclusion excludes those later
+changed boundaries.
 
 The old broad account materially understates the current model's authority. Current source
 represents and consumes qualified relationships, operation contracts, finite lifecycle
