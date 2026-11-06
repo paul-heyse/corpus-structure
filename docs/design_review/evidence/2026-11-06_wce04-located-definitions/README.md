@@ -7,3 +7,13 @@ Execution, 2026-11-06. These checks use the pinned GLiNER2 package/checkpoint an
 - Independent semantic A/B/C assessment and native completion/publication of this new component: **not_run** by these scripts. The owning WCE plan records their integrated execution separately.
 
 The scripts preserve original raw outputs and source/runtime identities. Source-only receipts referenced by the annotation script live in the sibling `2026-11-06_wce-definition-linking` evidence folder. Direct main-environment Python with this worktree's source on `PYTHONPATH` was used to avoid editable-install races; integrated checks use the repository's normal uv route after merge.
+
+## Registered corpus production and portable read — 2026-11-06
+
+`native_production_journey.py 003`: **passed** actual registered `DefinitionComponentsMethod` v2 on persistent development PostgreSQL, run118/cut151/task307. The producer reads source53 and annotation task285 from their authenticated original run113/cut141 through the owned original-source annotation operation, then settles the read snapshot before linguistic/model computation. It performs no PDF intake or whole-book reread.
+
+One native component `cd98966cf00d2aa2410e5ded6750a69ad39febd95761614e58c73e64907204bb` attaches source-projected term743–770 (“The normal density function”) to formula818–927. All five bounded original-coordinate GLiNER windows executed and decoded with zero attachment outputs; the independently produced linguistic/geometry component survives. Raw model spans and attributes are retained, including their wrong-role proposals. This establishes production/custody, not independent semantic correctness or corpus recall.
+
+`native_read_export.py 003`: **passed** exact native component-reference resolution and ordinary portable review export/verification. The bundle retains the original source/document/producer, two contract populations, raw report, located component and inspection selection. Protected labels were not captured. `native003/component-reference.json` is the exact reusable retained target binding.
+
+The attempts are preserved: native001/run116 retained the same component while its whole-passage model request failed the word bound; native002 stopped on an immutable method-configuration-schema collision after bounded windows were added. The configured operation contract was advanced for native003. These receipts do not replace root-owned independent assessment, public admission or final integrated qualification.
