@@ -211,7 +211,9 @@ BEGIN
    RAISE EXCEPTION 'operation outcome or cardinality differs from actual contribution population' USING ERRCODE='23514'; END IF;
  END LOOP;
  -- Projected definition terms retain exactly their authenticated component role/location.
- FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions') WHERE value->>'semantic_type'='definition.term' LOOP
+ FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions')
+  WHERE value->>'semantic_type'='definition.term' AND (p_envelope->>'method'='locate.definition_terms'
+   OR data.record_source_json(value->'value') ? 'component_reference') LOOP
   DECLARE meaning jsonb:=data.record_source_json(contribution->'value'); original jsonb; component jsonb; passage jsonb; expected_anchors jsonb; observed_anchors jsonb;
   BEGIN
    binding:=meaning->'component_reference'; original:=ops.resolve_retained_component(binding); component:=original->'component';
