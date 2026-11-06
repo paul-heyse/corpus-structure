@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "id": "tr15.native-assertion-comparison",
+  "title": "Partial native Python and pgTAP assertion comparison",
+  "group": "test-audit-resolution",
+  "package": "TR-15A",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can equivalent independently authored component publication, stronger applicability refusal, located component custody, invalid basis and multiplicity expectations be executed through Python and pgTAP under the actual purpose-role posture without changing grants?",
+  "answers": [
+    "TR-15",
+    "TR-15A",
+    "I05"
+  ],
+  "method": "Use existing PgAdmin ownership, sealed native156 migration and policy replay to acquire isolated clones, check the normal four required extensions, then install test-only pgTAP1.3.4 in those clones. Existing authenticated writer/evaluator drivers observe their own identities; maintenance supplies the clone revision by acquired database OID. Author literal expected statements independently of production projectors, exercise direct native Python queries/refusals and attempt the equivalent fixed-plan pgTAP assertions. Preserve initialization refusal, earlier failed attempts, exact SQL, raw acquisition context and an independent read-only audit that every named owned database is absent.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_test-resolution-tooling/compare_native.py --attempt 001",
+    "uv run python docs/design_review/evidence/2026-11-06_test-resolution-tooling/compare_native.py --attempt 002",
+    "uv run python docs/design_review/evidence/2026-11-06_test-resolution-tooling/compare_native.py --attempt 003",
+    "uv run python docs/design_review/evidence/2026-11-06_test-resolution-tooling/compare_native.py --attempt 004",
+    "uv run python -"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "compare_native.py",
+      "role": "Bounded probe source; each attempt also preserves the exact probe bytes it executed",
+      "sha256": "48679ce97d082aa435fabc49a71d6482ebca5ae73451398d4e9ba8c528407016"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/attempt-001",
+      "role": "Retained initial missing-fixture-directory failure and source context",
+      "sha256": "75ad090c3ebeea73af1a97f29a76d48a38c5954e79092afe3daa403e75b794eb"
+    },
+    {
+      "path": "raw/attempt-002",
+      "role": "Retained protected migration-table read refusal and source context",
+      "sha256": "0e94755dcf78b2327ec43e6bc7454cb5efd9fbd31bb9a790f0213eef9b8675b9"
+    },
+    {
+      "path": "raw/attempt-003",
+      "role": "Actual writer invalid-basis refusal and pgTAP plan temporary-table privilege refusal",
+      "sha256": "c5903786c4d1129157bb20a9da435eff14e528e2135f26cbb26bae632d5eca7e"
+    },
+    {
+      "path": "raw/attempt-004",
+      "role": "Independent Python/native controls, actual purpose identities, exact authored SQL, blocked pgTAP initialization, empty TAP and explicit subsequent not_run cases",
+      "sha256": "98f201a87377350b7c226ea3d7323e582a2a17f758b6331550f005e1ebeab08b"
+    },
+    {
+      "path": "raw/cleanup-audit.json",
+      "role": "Read-only PgAdmin audit of all nine named owned databases and unchanged normal-template extension inventory",
+      "sha256": "1e5de1a5d492d60d485d48e0e6489f17d629a1abb7dbce2b3fc64538cbd78cb7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "exact single component publication policy and literal statement",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Attempt004 actual writer query; no production projector supplies the independently authored expectation."
+    },
+    {
+      "name": "duplicate and missing publication row discrimination",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Attempt004 independent Python Counter expectations reject duplicate and missing native query rows."
+    },
+    {
+      "name": "valid located component custody and invalid source dependency basis",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Actual writer preserves the literal value role; invalid basis raises SQLSTATE23514 with the expected component-basis diagnostic."
+    },
+    {
+      "name": "stronger applicability refusal",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Actual application finalization and direct writer invocation of data.structural_publication_candidates refuse with SQLSTATE23514 and structural publication policy is not released."
+    },
+    {
+      "name": "pgTAP fixed-plan assertion initialization under actual writer",
+      "value": "blocked",
+      "of": null,
+      "unit": null,
+      "note": "public.plan(2) raises SQLSTATE42501 before emitting TAP because corpus_sem_writer lacks database TEMP. No grants changed. Equivalent bag/refusal assertions remain not_run."
+    },
+    {
+      "name": "named owned databases remaining after all attempts",
+      "value": 0,
+      "of": 9,
+      "unit": "owned databases",
+      "note": "Independent cleanup audit confirms all absent; normal cs_template has no pgTAP."
+    },
+    {
+      "name": "pg_prove adoption, psql identity bridge and integrated qualification",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "Required authenticated-purpose comparison is incomplete; no adoption branch was entered."
+    },
+    {
+      "name": "TR-15B and TR-15C execution triggers",
+      "value": "inactive",
+      "of": null,
+      "unit": null,
+      "note": "No required workload obstruction or concrete server lifecycle/configuration subject emerged."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The independent Python/native component publication, multiplicity, custody/basis and stronger applicability controls passed on actual authenticated purpose connections over owned native156 clones. The equivalent pgTAP comparison is blocked at plan initialization by the actual writer's missing database TEMP privilege (SQLSTATE42501), before any TAP assertion executes. Keep TR-15A open: this accepted partial evidence makes no retain/adopt decision, pg_prove qualification, psql provenance claim, performance claim, corpus semantic-efficacy claim or full-plan qualification claim. No grants or persistent application/template/server state were changed. Failed attempts and blocked outputs remain retained; every named owned database is absent. Any different comparison scope awaits the operator's pending choice.",
+  "consumed_by": [
+    "TR-15",
+    "TR-15A",
+    "I05",
+    "test-audit-resolution plan"
+  ]
+}

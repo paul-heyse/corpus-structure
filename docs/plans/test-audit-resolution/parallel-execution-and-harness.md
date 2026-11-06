@@ -1,6 +1,6 @@
 # Parallel execution and distributed harness
 
-**Proposed,2026-11-06.** The [coordinator](../test-audit-resolution_2026-11-05.md) owns TR-11/12
+**Implemented; final required-union Tested,2026-11-06.** The [coordinator](../test-audit-resolution_2026-11-05.md) owns TR-11/12
 state and review I01/I02/I04/I08 disposition. Consume the [tooling review](../../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md)
 at23d677be. This companion defines scheduling/collection/report integration, not native identity
 meaning, test semantic answers or an independent qualification register.
@@ -14,6 +14,8 @@ Execution mechanisms selected2026-11-06 from the full library references and rev
 | Exact collection identity | pytest.hookimpl(wrapper=True,tryfirst=True), pytest.StashKey and item.stash; capture before xdist mutation, journal exact aliases, reject collisions |
 | Worker lifecycle | xdist setup/ready/collection/down hooks, worker_id and PYTEST_XDIST_WORKER_COUNT plus actual PID-tagged call intervals; created is not working or overlapping |
 | Isolated conformance | Explicit child -n0/-n2 and isolated config/plugin loading; pytester scaffolding only if simpler, retaining run_python/run_process receipt and settlement ownership |
+| Fresh child session | Remove inherited PYTEST_XDIST_WORKER/WORKER_COUNT/TESTRUNUID from the child environment; actual nested workers establish their own identity, preserving parent environment and configured auto policy |
+| Safe selection collection | Preserve configured importlib/strict collection semantics; explicit -n0/--collect-only/-m override scheduling and lane without clearing all addopts |
 | Preparation | Public collected fixturenames and xdist_group, existing scoped fixture DAG/yield cleanup; no private fixture-manager or new cache service |
 | Diagnostics | Rewritten asserts, register_assert_rewrite before imports, narrow assertrepr hook, Item.add_report_section, phase user_properties; no protected-label dump |
 | Failures | Existing faulthandler bounds and supervisor settlement, warning/exception-group controls where relevant; worker replacement is not semantic retry |
@@ -23,7 +25,7 @@ memory or crash-proof evidence. Ordinary serializable report properties/sections
 report serialization hooks are conditional on a concrete gap. No pytest9.2-only configuration,
 types or plugin loading, xdist development-only options, automatic retries or custom scheduler.
 
-Root `conftest.py` wraps collection, marks the entire package math directory with
+Root `conftest.py` wraps collection, marks actual staged math-fixture dependency closures with
 `xdist_group('math_preparation')`, and rejects mixed/parallel shared-cluster faults after
 deselection. `pyproject.toml` pins pytest9.1.1/xdist3.8.0 and defaults to auto/loadgroup;
 `just test-all` inherits that configuration. Keep this compatible pair and builtin scheduler.
@@ -66,11 +68,10 @@ Raw artifacts stay unchanged. Never strip arbitrary `@` suffixes or silently ove
 entry. Conflicting/colliding selected identities refuse classification; no node can absorb another
 node's pass. Ordinary parameter IDs and composite group names remain distinguishable.
 
-Preferred amendment: capture original item.nodeid in item.stash using a public collection wrapper
-before xdist's mutation, then emit the exact before/after map after collection. Verify actual hook
-ordering for the pinned pair before selecting it; if this does not provide a simpler sound map,
-retain collection-derived suffix reconstruction with explicit injectivity checks. Stash is local
-state, not worker communication. Serialize the map through existing worker events. Keep the active
+Selected amendment: capture original item.nodeid in item.stash using a public collection wrapper
+before xdist's mutation, then emit the exact before/after map after collection. Actual ordering
+works with the pinned pair; suffix reconstruction is retired. Stash is local state, not worker
+communication. Serialize the map through existing worker events. Keep the active
 native observer bridge; replacing `_stream` or `_current_nodeid` wholesale would add routing
 machinery without an established benefit.
 
@@ -153,3 +154,13 @@ staged-preparation consumers and164 independent items. Controlled coarse/narrow 
 read once and content-only reads zero; warm/cold and spawned worker controls remain. These are
 structural work/affinity observations, not measured elapsed benefit. Current receipt/context and
 final union are owned by the coordinator; focused counts overlap and do not qualify the full run.
+
+Qualification exposed and corrected two conformance-premise defects. Bare clones now use the
+existing `cs_sem_bare_PID_12hex` family, whose sweep and lifetime leases both use the full name;
+the introduced `ci_test_PID_uuid` names had incorrectly entered the legacy PID-prefix sweep
+contract. No production lifecycle or janitor changes were needed. Native subprocess controls
+alone use180-second command/60-second per-item watchdogs after an observed20.521-second forced
+checkpoint and20.556-second DROP exceeded the former15-second bound. Collection/setup/teardown/
+loss controls retain40/15. These bounds preserve finite settlement without retrying assertions or
+changing server configuration. Exact server-log excerpts and all current attempts are retained
+by the [qualification evidence](../../design_review/evidence/2026-11-06_test-resolution-tooling/README.md).

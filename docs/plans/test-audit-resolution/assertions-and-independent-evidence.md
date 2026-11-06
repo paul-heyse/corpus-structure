@@ -1,6 +1,6 @@
 # Assertions and independent evidence
 
-**Status:** Original TR-03–05 Implemented; TR-13 amendments Proposed; full qualification stopped. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md)
+**Status:** TR-03–05/13 Implemented; final required-union Tested2026-11-06. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md)
 owns TR-03/04/05 and DTA disposition. Paths below are package-relative unless marked root.
 
 ## Target and invariants
@@ -136,8 +136,8 @@ remaining1390-node scope and the operator stop. No full qualification claim foll
 
 ## TR-13 — Independent question matrices and diagnostics
 
-**Proposed,2026-11-06; review I07/I08.** Extend current independent operation-assessment controls
-and native component custody tests with the scenario inputs from the preparation companion.
+**Implemented,2026-11-06; review I07/I08.** Current independent operation-assessment controls
+and native component custody tests use the scenario inputs from the preparation companion.
 The assurance owner authors expected endpoints, roles, multiplicity, state and numeric boundaries;
 production validators may enforce setup but do not compute both actual and expected meaning.
 Stable pytest.param IDs identify question/facet and distinction. Required outcomes remain separate

@@ -1,6 +1,6 @@
 # Qualification and preservation
 
-**Status:** Original campaign stopped; TR-14 amendments and updated TR-09/10 acceptance Proposed,2026-11-06. Final qualification unfinished.
+**Status:** TR-09/10/14 complete on the final required union; Tested2026-11-06. The original stopped campaign remains historical.
 The [coordinator](../test-audit-resolution_2026-11-05.md) owns TR-09/10, all DTA dispositions
 and combined acceptance. Historical TA/PCE/UM receipts keep their original dates and limits.
 
@@ -153,11 +153,11 @@ not complete16worker application-template capacity or full-series qualification.
 
 ## Current amendment acceptance — TR-09/10/14
 
-**Proposed revision,2026-11-06; review I09/I10/I11.** The stopped checkpoint above describes the
-original campaign and its no-replay boundary. Future selected infrastructure implementation uses
+**Implemented amendment,2026-11-06; review I09/I10/I11.** The stopped checkpoint above describes the
+original campaign and its no-replay boundary. The separately authorized infrastructure implementation uses
 fresh qualification after functional scope and migrated consumers, as explicitly requested by the
-operator during review preparation. This document publication neither resumes the old1390-node
-selection nor runs a baseline campaign. Successful old receipts remain bounded evidence, not an
+operator during review preparation. Current collected identities replace the old1390-node
+selection as the required scope. Successful old receipts remain bounded evidence, not an
 automatic substitute for changed harness/native/source context.
 
 At execution establish the required union from actual current collection and selected conditional
@@ -174,7 +174,7 @@ records322 passing tests over25 files on product source cd7a57a5, plus scoped hy
 results. Carry those receipts with their source/selection; do not add counts to old TR passes,
 call them TR-10 completion or subtract322 from the historical1390pending selection. At future
 infrastructure qualification use current collected identities and explicit applicability. No
-successful WCE tests/providers are rerun for this plan update. Provider reruns during implementation
+separate provider campaign is selected by this execution. Provider reruns during implementation
 need a changed provider contract or genuinely missing required obligation, not fixture reorganization.
 
 TR-09's affected inventory now includes delivered definition/linguistic-only, contextual actual-target
@@ -245,3 +245,51 @@ Unused mechanisms retain their source-review triggers, not implicit plan-complet
 Compare retaining current behavior for each entered investigation. A suitable retain decision closes
 that investigation; an adopted implementation needs its own actual acceptance. Publication checks
 are docs-check/turn-end, not product/provider/native results.
+
+## Final required scope and applicability — 2026-11-06
+
+The [coordinator's final closure](../test-audit-resolution_2026-11-05.md#final-required-union)
+owns disposition. The [final record](../../design_review/evidence/2026-11-06_test-resolution-tooling/records/tr10.final-required-union.json),
+[exact preservation map](../../design_review/evidence/2026-11-06_test-resolution-tooling/raw/qualification/preservation.json)
+and [owner applicability summary](../../design_review/evidence/2026-11-06_test-resolution-tooling/raw/qualification/summary.json)
+retain current node identities, all23 DTA obligations/TR10-F01/F02, original failures and limits.
+Required current scope is4874 ordinary plus8 exclusive fault nodes, including854 native-required
+nodes. Seven fault controls require acquired native context; stale guardian generation is
+filesystem-only. No required native node is supplied by a contextless pass.
+
+The initial full attempt on552fefb7 used auto/loadgroup with16 created/ready/executing workers and
+observed peak16, passing4828 and failing45. A64-node failed/affected/new selection onfa1956a4
+passed61, failed2 and encountered1 setup error. Final69b9524c four-node repair passed4; the
+exclusive fault lane then passed8. The union is covered with zero unresolved current obligations.
+The classifier's aggregate history/CLI remain failed/1, source_contexts_differ remains true, and
+all attempts retain their actual outcome. No overlapping recipe counts establish coverage by
+addition. Rust release nextest listed0 tests and remains not_run/empty-selection.
+
+The18 old admission negatives had invalid premises; their prior success is excluded. Current
+fixtures establish native acceptance before each rejection. Version mutation2→3 changes one
+canonical parameter ID naturally; no synthetic alias or obsolete decoder keeps it alive. The
+parallel native conformance sibling is also requalified after correcting its clone lease family
+and native deadline. All other successful outcomes remain applicable after the bounded changes
+were independently reviewed. WCE's322-case prior scope and the original1390-node stopped queue
+are not inputs to this current required union.
+
+Safe export now preserves configured importlib/strict collection semantics, rather than clearing
+addopts wholesale. Explicit -n0/--collect-only/-m still determine serial, body-free lane validation.
+The real package import failure was retained; repaired export validated the entire4874-node
+manifest before producing47 then3 unresolved nodes. A new regression uses duplicate test basenames
+and a contrary configured worker/lane to establish both preserved imports and explicit overrides.
+No missing/empty @file, stale history or failed collection falls back to full execution.
+
+Full applicable hygiene passed before the bounded repairs. Changed Python source/types/lint were
+checked at repair endpoints; unaffected Rust/dependency/process/rule results retain applicability.
+Read-only final native auditing found no receipt-observed transient database remaining; resources
+outside these receipts were preserved. Actual server/configuration and cleanup facts are in the
+final evidence. Initial stderr retains an unattributed SQLAlchemy weakref KeyboardInterrupt
+warning; reporting/owned process cleanup completed, and attribution is not invented. Earlier
+focused temporary child receipts aged out; their147/1 and20-pass tool summaries are not presented
+as independently retained raw evidence. All current full/repair/fault and child controls are retained.
+
+TR-15A's operator-selected Retain Python disposition is complete on demonstrated incompatibility,
+while the actual pgTAP probe remains partial and its assertions not_run. TR-15B/C remain inactive.
+No new live-provider/full-book campaign or WCE12 efficacy claim is selected. Final documentation
+publication is checked separately and does not change the qualified functional source69b9524c.

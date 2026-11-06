@@ -1,6 +1,6 @@
 # Test audit resolution
 
-**Status:** Incomplete; original campaign retained; TR-11–15 execution In progress under operator authorization. **Revised:** 2026-11-06. **Created:** 2026-11-05.
+**Status:** Complete for the authorized remaining scope; original failed/interrupted campaigns retained. **Revised:** 2026-11-06. **Created:** 2026-11-05.
 This coordinator owns the new series' packages, scheduled remaining DTA scope and combined
 acceptance. Companion plans own detailed designs; architecture and accepted ADRs remain authority.
 
@@ -76,9 +76,8 @@ The operator authorized execution of the entire remaining scope on2026-11-06, in
 unresolved-node export. Original campaign receipts stay immutable; this is a new implementation
 and final-source qualification engagement. Fresh qualification follows integrated functionality.
 
-The operator selected2026-11-05: include necessary bounded production/infrastructure corrections
-and fresh integrated qualification. This publication authorizes neither repair execution nor new
-provider campaigns. PCE/UM/PDF adoption, scientific quality and broader phase0 X2-01 remain at
+The operator selected2026-11-05 and authorized execution2026-11-06: include necessary bounded
+production/infrastructure corrections and fresh integrated qualification. No new live-provider campaign is selected. PCE/UM/PDF adoption, scientific quality and broader phase0 X2-01 remain at
 their owners; a genuine dependency must name the required product, not silently transfer its scope.
 
 ## Target and foundation assessment
@@ -90,7 +89,7 @@ consumer setup, independent semantic expectations, pytest lifetimes and the exis
 ADR-0032/0048 preserve committed clone isolation and the named serving seed; ADR-0056 permits
 ordinary persistent development without turning disposable test databases into a workflow rule.
 
-**Implemented; final qualification pending:** tests depend on explicit scenario/preparation inputs rather than private globals in
+**Implemented and Tested,2026-11-06:** tests depend on explicit scenario/preparation inputs rather than private globals in
 another test host. Pure assertions consume pure preparation. Mathematical readings are reused
 through explicitly requested later stages, with real spawned deadlines retained. Each fixture
 control owns its full premise. Optional observation runs only for an active consumer, while native
@@ -106,7 +105,7 @@ A new record family changes its meaningful scenario inputs and independent answe
 upgrade changes one thin integration owner; a collection-only run activates no compilation;
 concurrent native sessions retain separate effects. These scenarios justify boundaries without a
 new registry, cache service, instrumentation framework or numerical cost model. Benefits are
-structural hypotheses until implemented; no speedup is claimed.
+supported by the implemented controlled work/affinity observations; no elapsed speedup is claimed.
 
 ## Reading route and shared contracts
 
@@ -152,7 +151,7 @@ any actual rule change follows the operator's existing decision route.
 
 ## Package queue
 
-**TR-00 accepted; TR-01–08 Implemented; TR-09 static reconciliation complete; TR-10 qualification incomplete/stopped.** The table is the execution-state owner; listed order is
+**TR-00–14 complete; TR-15A disposed Retain Python by explicit operator amendment; TR-15B/C triggers inactive.** The table is the execution-state owner; listed order is
 one useful route, not a barrier between independent work.
 
 | Package | Required working input | Delivered behavior and acceptance |
@@ -174,7 +173,7 @@ independent. TR-07/08 share files and need one coordinated owner; TR-01/03 share
 The root owns integration and acceptance. Workers receive coherent outcomes and explicit write
 scope; a package is not automatically a separate worker. No broken consumer waits for TR-09.
 
-### Proposed tooling packages and useful execution order
+### Delivered tooling packages and execution dependencies
 
 Original package state above is retained; the following work is not yet implemented.
 
@@ -201,17 +200,17 @@ of mutable progress. Review references below use the tooling review, not WCE's s
 
 | Source recommendation | Component/package | Disposition and settling evidence |
 |---|---|---|
-| [review#I01](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I01) | Parallel harness/TR-11; TR-10 | Open/Proposed: requested/effective/working concurrency, selected envelope and final receipts agree |
-| [review#I02](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I02) | Preparation/TR-12 | Open/Proposed: compare affinity alternatives, preserve tier/warm/cold semantics, migrate actual consumers |
+| [review#I01](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I01) | Parallel harness/TR-11; TR-10 | Closed/Tested: auto created, readied and executed16 distinct workers; observed peak16; current required union covered |
+| [review#I02](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I02) | Preparation/TR-12 | Closed/Tested: dependency-shaped affinity selects8 of172 math nodes; controlled reuse/content-only and cold/staged guarantees preserved |
 | [review#I03](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I03) | Native/TR-15 | Deferred, trigger: repeated bootstrap materially obstructs a required workload; retain worker-local templates until then |
-| [review#I04](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I04) | Harness/TR-11 | Open/Proposed: real serial/two-worker grouping/alias/phase/loss controls, including ambiguity rejection |
-| [review#I05](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I05) | Native/assertions/TR-15 | Open/Proposed comparison; adopt only for useful simplification/additional assurance with actual psql identity and faithful TAP integration |
+| [review#I04](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I04) | Harness/TR-11 | Closed/Tested: real serial/two-worker identities, grouping, phases, loss and configured native acquisition; fresh child identities and lease/deadline premises corrected |
+| [review#I05](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I05) | Native/assertions/TR-15 | Closed by operator amendment: Retain Python on demonstrated writer TEMP incompatibility; independent Python/native controls passed, equivalent TAP assertions not_run |
 | [review#I06](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I06) | Native/TR-15 | Deferred, trigger: actual server lifecycle/configuration variation needed; private environment cannot replace dedicated-cluster claims |
-| [review#I07](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I07) | Scenarios/assertions/TR-13 | Open/Proposed: current WCE04/05 controls and gap-directed matrices; remaining producer/efficacy obligations stay with WCE02/06–12 |
-| [review#I08](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I08) | Assertion/native/harness/TR-11/13 | Open/Proposed: useful phase/source diagnostics without label leakage or loss of durable acquisition events |
-| [review#I09](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I09) | Qualification/TR-14 | Open/Proposed: failed-only selection cannot silently broaden or lose unfinished obligations; no automatic retries |
-| [review#I10](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I10) | Qualification/TR-10 | Open: fresh parallel ordinary plus exclusive fault/native/applicable hygiene union after selected functionality |
-| [review#I11](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I11) | Native report contract/TR-14 | Open/Proposed: additive coverage distinct from history/applicability/full qualification, independently discriminating artifact controls |
+| [review#I07](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I07) | Scenarios/assertions/TR-13 | Closed/Tested: current WCE controls and independent matrices integrated; remaining producer/efficacy scope stays with WCE02/06–12 |
+| [review#I08](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I08) | Assertion/native/harness/TR-11/13 | Closed/Tested: rewritten support assertions and identifier-only report sections retain durable acquisition/phase events |
+| [review#I09](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I09) | Qualification/TR-14 | Closed/Tested: explicit nonempty canonical unresolved export preserves import semantics, overrides worker/lane selection and refuses stale/empty/unsafe scope |
+| [review#I10](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I10) | Qualification/TR-10 | Closed/Tested: fresh ordinary/repair/exclusive fault union plus applicable final-source hygiene; see final qualification below |
+| [review#I11](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I11) | Native report contract/TR-14 | Closed/Tested: additive coverage covered with retained failed historical status/CLI1; native identity and owner applicability remain independent |
 
 The review's capability appendix remains the detailed source. [Qualification](test-audit-resolution/qualification-and-preservation.md#capability-appendix-disposition)
 groups its remaining capabilities by concrete trigger and owner; availability alone adds no required
@@ -219,42 +218,46 @@ work. No new DTA identity or audit refresh follows from these improvements.
 
 ## Finding disposition
 
-Current repair rows remain **open for final qualification**; implementation and focused evidence are recorded above. No full-series closure is yet asserted.
-Preserved dispositions below refer to prior scoped corrections, not freshly passed tests.
+Repair and preservation obligations below are discharged on the final required union. Withdrawn and
+superseded diagnoses keep those meanings. Exact current nodes and static-preservation limits are in
+the [preservation map](../design_review/evidence/2026-11-06_test-resolution-tooling/raw/qualification/preservation.json);
+the final qualification section supplies source applicability and closure evidence.
+Prior receipts keep their original dates/scope; current closure uses the final required union and
+explicit static-preservation limits, without relabelling earlier evidence.
 
 | Finding | Responsible package | Disposition and completion obligation |
 |---|---|---|
-| [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) | TR-03/04/05 | Open: all native guard-reach, privilege, identity, lint and local numerical manifestations; independent results, not generic exception matching |
-| [DTA-002](../design_review/test-audit/execution-and-qualification.md#dta-002) | TR-09/10 | Preserve scoped auth recovery; required actual crash controls enter fresh qualification |
-| [DTA-003](../design_review/test-audit/execution-and-qualification.md#dta-003) | TR-08 | Open question/correction: identity completeness versus claimed deployment evidence, with actual consumers and compatibility |
-| [DTA-004](../design_review/test-audit/retirement-transfer.md#dta-004) | TR-09 | Preserve selected current counterparts and explicit unsupported Notice/T3-D1 limits; no historical-reference rewrite |
-| [DTA-005](../design_review/test-audit/support-structure.md#dta-005) | TR-01/09 | Preserve production composition for assembled claims, synthetic kernel isolation elsewhere |
-| [DTA-006](../design_review/test-audit/evidence-and-discrimination.md#dta-006) | TR-04 | Open: exact composed support/evidence/report preservation |
-| [DTA-007](../design_review/test-audit/evidence-and-discrimination.md#dta-007) | TR-02/09 | Preserve independent fresh-interpreter compiler evidence alongside warm reuse |
-| [DTA-008](../design_review/test-audit/support-structure.md#dta-008) | TR-01/09 | Preserve explicit method Config/unit_type contracts through builder migration |
-| [DTA-009](../design_review/test-audit/support-structure.md#dta-009) | TR-01 | Open: private-global specialization and import-time preparation; migrate all affected callers |
-| [DTA-010](../design_review/test-audit/evidence-and-discrimination.md#dta-010) | TR-03/09 | Preserve stable mutation subjects and independent diagnostics |
-| [DTA-011](../design_review/test-audit/evidence-and-discrimination.md#dta-011) | TR-04/09 | Preserve independent full-key vectors and native/read identities |
-| [DTA-012](../design_review/test-audit/support-structure.md#dta-012) | TR-02/09 | Preserve frozen historical macro ownership |
-| [DTA-013](../design_review/test-audit/evidence-and-discrimination.md#dta-013) | TR-04/09 | Preserve positive work populations and restricted generated-property meaning; no invented parser floor |
+| [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) | TR-03/04/05 | Closed/Tested: intended native forgery/privilege/publication guards, exact refusal diagnostics, independent local numerical outcomes and lint behavior reached with valid premises |
+| [DTA-002](../design_review/test-audit/execution-and-qualification.md#dta-002) | TR-09/10 | Preserved/Tested: current actual authentication recovery and exclusive crash controls passed; filesystem-only guardian remains a separate non-native assertion |
+| [DTA-003](../design_review/test-audit/execution-and-qualification.md#dta-003) | TR-08 | Closed/Tested: public claim is item-bound acquired identity completeness, not full deployment reproducibility; actual consumers and old-receipt limits agree |
+| [DTA-004](../design_review/test-audit/retirement-transfer.md#dta-004) | TR-09 | Preserved/Tested: current independent reference/trace counterparts retain provenance and unknown/ambiguous meaning; unsupported Notice/T3-D1 limits remain explicit |
+| [DTA-005](../design_review/test-audit/support-structure.md#dta-005) | TR-01/09 | Preserved/Tested: assembled claims use production composition; synthetic kernels retain isolated meaning |
+| [DTA-006](../design_review/test-audit/evidence-and-discrimination.md#dta-006) | TR-04 | Closed/Tested: exact independent composed/native support members, evidence and report content preserved |
+| [DTA-007](../design_review/test-audit/evidence-and-discrimination.md#dta-007) | TR-02/09 | Preserved/Tested: independent fresh-interpreter cold compilation remains alongside bounded warm reuse/invalidation |
+| [DTA-008](../design_review/test-audit/support-structure.md#dta-008) | TR-01/09 | Preserved/Tested: explicit method Config/unit_type contracts survive builder migration and real boundary consumers |
+| [DTA-009](../design_review/test-audit/support-structure.md#dta-009) | TR-01 | Closed/Tested: explicit scenario/support inputs replace test-host private globals and import-time preparation; all discovered callers migrated |
+| [DTA-010](../design_review/test-audit/evidence-and-discrimination.md#dta-010) | TR-03/09 | Preserved/Tested: invalid mutations retain stable subjects and independent diagnostics |
+| [DTA-011](../design_review/test-audit/evidence-and-discrimination.md#dta-011) | TR-04/09 | Preserved/Tested: hand-authored full-key identity vectors and native/read identities retained |
+| [DTA-012](../design_review/test-audit/support-structure.md#dta-012) | TR-02/09 | Preserved: frozen historical macro/configuration ownership is unchanged; current scope controls passed without claiming new source truth |
+| [DTA-013](../design_review/test-audit/evidence-and-discrimination.md#dta-013) | TR-04/09 | Preserved/Tested: positive work populations and restricted generated-property meanings retained; no invented parser floor |
 | [DTA-014](../design_review/test-audit/retirement-transfer.md#dta-014) | TR-09 | Withdrawn broad dormancy diagnosis stays withdrawn; independent contract/reference tests retained |
-| [DTA-015](../design_review/test-audit/evidence-and-discrimination.md#dta-015) | TR-01/09 | Preserve released full-IRI alias controls; wider phase0 X2-01 is external |
-| [DTA-016](../design_review/test-audit/support-structure.md#dta-016) | TR-07/09/10 | Preserve actual SDK stdio, production serializer bound and real child/cursor settlement |
-| [DTA-017](../design_review/test-audit/execution-and-qualification.md#dta-017) | TR-06/07/09 | Preserve refused defaults and explicit original-purpose clone coordinates |
-| [DTA-018](../design_review/test-audit/execution-and-qualification.md#dta-018) | TR-01/02 | Open: math capability tiers and prepared-only semantic assertions; serving seed correction retained |
-| [DTA-019](../design_review/test-audit/evidence-and-discrimination.md#dta-019) | TR-09 | Preserve independent reference adjudication/evolution and original witnesses |
+| [DTA-015](../design_review/test-audit/evidence-and-discrimination.md#dta-015) | TR-01/09 | Preserved/Tested: released full-IRI alias controls and current serving behavior retained; wider phase0 X2-01 remains external |
+| [DTA-016](../design_review/test-audit/support-structure.md#dta-016) | TR-07/09/10 | Preserved/Tested: four real SDK stdio modes, actual principals, production serialization/chunk reconstruction and cursor/child settlement passed |
+| [DTA-017](../design_review/test-audit/execution-and-qualification.md#dta-017) | TR-06/07/09 | Preserved/Tested: refused defaults, original-purpose clone coordinates and actual exclusive authentication controls retained |
+| [DTA-018](../design_review/test-audit/execution-and-qualification.md#dta-018) | TR-01/02 | Closed/Tested: demand-shaped math capability tiers and prepared-only semantic assertions; named serving seed/clone isolation preserved |
+| [DTA-019](../design_review/test-audit/evidence-and-discrimination.md#dta-019) | TR-09 | Preserved/Tested: independent reference adjudication/evolution and original witnesses remain statically retained; current runtime counterparts passed without a new source-truth claim |
 | [DTA-020](../design_review/test-audit/evidence-and-discrimination.md#dta-020) | TR-09 | Superseded relabelling diagnosis stays superseded; supported compiler14/15 archives keep their meanings |
-| [DTA-021](../design_review/test-audit/execution-and-qualification.md#dta-021) | TR-06 | Open: each selectable fixture control owns its entire premise and observation |
-| [DTA-022](../design_review/test-audit/execution-and-qualification.md#dta-022) | TR-07 | Open: eliminate all observation-only inactive work without weakening active evidence |
-| [DTA-023](../design_review/test-audit/evidence-and-discrimination.md#dta-023) | TR-05 | Open: independent source-pixel/location oracle, actual renderer and artifact journey |
+| [DTA-021](../design_review/test-audit/execution-and-qualification.md#dta-021) | TR-06 | Closed/Tested: each selectable rollback/committed-clone/disposal control owns its complete premise and observation |
+| [DTA-022](../design_review/test-audit/execution-and-qualification.md#dta-022) | TR-07 | Closed/Tested: inactive observation performs no optional-only work; active metadata, acquisition and lifecycle remain real |
+| [DTA-023](../design_review/test-audit/evidence-and-discrimination.md#dta-023) | TR-05 | Closed/Tested: independent asymmetric source-pixel/location oracle, actual renderer and published artifact journey discriminate incorrect behavior |
 
-TR10-F01 (related DTA-018), owner TR-02, **Implemented / focused Tested; assembled review pending**: staged Lark Token serialization loses
+TR10-F01 (related DTA-018), owner TR-02, **Implemented / final-union Tested2026-11-06; assembled review accepted**: staged Lark Token serialization loses
 terminal end coordinates. Independent assembled review accepted a native multiprocessing reducer
 preserving all eight constructor fields, registered at work time in parent/workers; ordinary pickle
 stays unchanged. Registration is process-wide/idempotent for multiprocessing. Closure requires
 explicit positional/nested/bidirectional transport and original independent relation/scope evidence.
 
-TR10-F02 (related DTA-001), owner TR-03, **Implemented / focused Tested; final qualification pending**: reached native publication can retain a
+TR10-F02 (related DTA-001), owner TR-03, **Implemented / final-union Tested2026-11-06**: reached native publication can retain a
 cached temporary composite type across savepoint rollback/recreated staging and raise XX000.
 Repair the semantic owner with scalar staged columns/stable JSON projection and append-only
 migration; preserve exact typed joins/multiplicity/source/identity guards. Closure requires
@@ -274,10 +277,10 @@ Missing required evidence prevents Complete. A design decision is not implementa
 pass is not full-series acceptance. Broad product/provider/adoption claims remain outside this
 series. Quantitative benefits require separate measurements if later claimed.
 
-**Next after separate execution authorization:** implement TR-11 and ready TR-13/TR-14 work;
-settle TR-12's grouping and TR-15's bounded SQL comparison before adopting replacements. Complete
-TR-09 and fresh TR-10 qualification after selected functionality. Document publication does not
-resume the stopped campaign or run its pending1390nodes. Its exact historical selection remains below.
+**Next:** no required work remains in this selected series. TR-15B/C retain their inactive
+triggers. WCE02/06–12 product/efficacy scope stays with its owner. Writer TEMP remains restricted;
+its conditional follow-up requires the separately described protected-staging correction. Original
+stopped selections and receipt history below are preserved, not current work queues.
 
 ## Execution checkpoint — 2026-11-05
 
@@ -425,7 +428,9 @@ revision. Product tests, probes, provider/native execution, installation and qua
 not_run for this document-only task. Publication uses just turn-end, just docs-check and scoped
 git diff --check; actual outcomes are reported in the publication commit and final handoff.
 
-## Implementation and qualification checkpoint — 2026-11-06
+## Pre-qualification implementation checkpoint — 2026-11-06
+
+This retained checkpoint predates the final closure below; its pending states are superseded.
 
 TR-11–14 are Implemented with focused Tests; TR-09 source/caller reconciliation is complete for
 these changes, while final functional preservation and TR-10 remain pending. TR-15A is blocked
@@ -457,7 +462,10 @@ failure, repaired; affected reruns20,12 and2 association controls passed. Retent
 controls passed2 after independent review found a colliding artifact path. TR-13 pure63 passed
 serial and two-worker; initial native11 passed/1 wrong-kind boundary failed, then repaired/changed
 consumer selection6 passed. Logs build/tr13-{pure-final,pure-distributed,native,native-final}.log,
-build/test-resolution-retention-fix.log and build/tmp/pytest/pytest-of-paul retain actual outcomes.
+build/test-resolution-retention-fix.log retain available outcomes. The earlier147/1 and20-pass
+focused child directories subsequently aged out under pytest retention; their summaries survive
+only in conversation/tool output, not independently retained raw files. Current full/repair/fault
+and child-control receipts are durably retained in the final evidence folder.
 Types, ready and dependency checks passed at their recorded source; initial Ruff style errors
 were corrected. Full final-source qualification/hygiene are not yet claimed.
 
@@ -472,3 +480,75 @@ Next: fresh full current ordinary qualification, exclusive native fault lane, ap
 and final required-union accounting. Original1390 pending identities and WCE322 counts do not
 define the new union. No full-series completion follows until required evidence and TR-15A
 disposition are settled.
+
+<a id="final-required-union"></a>
+
+## Final qualification and closure — 2026-11-06
+
+**Tested; complete authorized scope.** [Final required-union record](../design_review/evidence/2026-11-06_test-resolution-tooling/records/tr10.final-required-union.json)
+and [summary](../design_review/evidence/2026-11-06_test-resolution-tooling/raw/qualification/summary.json)
+cover4882 current required Python nodes:4874 ordinary plus8 exclusive fault controls. All854
+currently native-required nodes have item-bound acquisition evidence; the stale-guardian fault
+control is filesystem-only. Required-node coverage is covered with zero unresolved obligations.
+The existing aggregate classifier status remains failed and its CLI exits1 because failed attempts
+are immutable history. This is accepted source/context-reconciled union qualification, not an
+all-green original attempt or an automatic hash-equality judgment.
+
+Functional source is69b9524c. The initial552fefb7 full attempt passed4828/failed45 over4873 nodes
+in920.07s. It created/readied/executed16 distinct workers with observed peak16 under auto/loadgroup;
+the math nested cap remains8. Failed-only/affected repair onfa1956a4 passed61, failed2 and had1
+setup error across64 nodes. The final four-node selection on69b9524c passed4, including the
+changed parallel native conformance sibling. The subsequent exclusive just test-native-faults
+passed8 in27.99s with -n0; seven require native evidence. Counts overlap and are not summed.
+
+Fresh zero-body collection declares current scope. The operation-version negative naturally
+moves from parameter2 to3; the old node is retired, without a forged alias. Eighteen earlier
+admission negative successes used an invalid baseline and are inapplicable; their current19-case
+module now proves accepted premises before rejection. The earlier successful parallel native
+conformance also used the changed lease/deadline premise and is explicitly requalified. Other
+successful outcomes remain applicable to the bounded reviewed corrections. The current source
+adds one real configured-import regression. Safe export first refused a lost-import-mode
+collection without running bodies; after repair it exported47 then3 unresolved current nodes.
+Required manifests, export validations, four attempts, raw child controls and server-log excerpts
+remain in the evidence folder.
+
+| Qualification discovery | Owner and final disposition |
+|---|---|
+| TR10-F03 — inherited outer xdist identity in a fresh serial child | TR-11; Closed/Tested: clear only the three session identity variables, preserve parent/configuration, observe controller/0 in the actual child |
+| TR10-F04 — delivered definition catalog entries absent from M1 registry | TR-13; Closed/Tested: register both existing methods; exact seven-method/empty-input/no-worker control, graph unchanged |
+| TR10-F05 — Python local report uses retired question_id field | TR-13; Closed/Tested: emit/read current constraint_id with independent key assertions, native sealing/refusal consumers passed |
+| TR10-F06 — invalid legacy admission premise makes negatives vacuous | TR-13; Closed/Tested: independent current relationship target/frame/facet, accepted premise before mutation, current version3 negative |
+| TR10-F07 — unresolved exporter clears required importlib configuration | TR-14; Closed/Tested: preserve configured collection semantics, explicit serial/lane overrides; real duplicate-basename/import-mode/no-body regression |
+| TR10-F08 — recipe assertion expects obsolete four-rule set | TR-13; Closed/Tested: exact seven delivered rule/variant pairs and duplicate-sensitive length; producer/YAML unchanged |
+| TR10-F09 — conformance clone names enter legacy sweep with a different lease key | TR-11; Closed/Tested: existing full-name semantic-bare namespace, both serial/parallel controls and setup-error victim passed |
+| TR10-F10 — native child watchdog shorter than observed checkpoint/DROP | TR-11; Closed/Tested: native-only180/60 bounds; other failure/loss controls retain40/15; no retry or host tuning |
+
+Independent assembled review accepted TR-11–14 after its association/configured-endpoint/artifact
+retention corrections; focused independent reviews accepted the qualification repairs and affected
+selection. TR-09 maps all23 DTA IDs and TR10-F01/F02 to exact current required outcomes. Frozen
+macro/reference provenance remains statically preserved, not newly established source truth.
+Withdrawn DTA-014 and superseded DTA-020 are not relabelled repaired defects. Genuine supported
+compiler14/15 archives/current reference counterparts remain distinct from ADR-0067's retired
+WCE semantic paths. No obsolete decoder or temporary156–162 migration was restored.
+
+TR-15A is complete by explicit operator disposition: Retain Python on demonstrated pgTAP TEMP
+incompatibility and actual Python/native comparison controls. The [probe record](../design_review/evidence/2026-11-06_test-resolution-tooling/records/tr15.native-assertion-comparison.json)
+remains partial; equivalent TAP assertions and pg_prove qualification are not_run. The conditional
+TEMP inquiry found a privileged pre-verification read surface, so grants and native policy remain
+unchanged. TR-15B/C have no active trigger or missing required result.
+
+Full just hygiene passed on552fefb7; subsequent source typing/Ruff and maintenance passed on the
+repair boundaries. Rust/dependency/rule/process configuration was unchanged and those successful
+checks remain applicable. Release nextest listed zero cases: Rust functional coverage is not_run,
+with rustc1.101.0-nightly(2d20b42b8,2026-11-04) retained. Read-only final native auditing found no
+receipt-observed transient database remaining, including the failed outer/child targets; two
+outside-receipt resources were preserved. PostgreSQL18.6/5434,256connections/1024locks and native156
+remain context, not a general capacity claim.
+
+One unattributed SQLAlchemy weakref KeyboardInterrupt warning remains in the initial stderr;
+no node/PID/timestamp proves its cause. Reporting and owned process cleanup completed, and no
+invented lifecycle defect or silent warning suppression follows. Earlier focused temporary raw
+artifacts have the retention limit recorded above; current qualification artifacts are retained.
+No wider WCE12 scientific efficacy, new corpus acquisition, full-book rerun or unselected live
+provider claim follows. Final documentation publication and evidence validation are recorded in
+the handoff; later documentation-only changes do not alter the qualified functional source.

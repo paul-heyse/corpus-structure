@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "id": "tr10.final-required-union",
+  "title": "Final test-audit-resolution required functional and native union",
+  "group": "test-audit-resolution",
+  "package": "TR-09/10",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the authorized remaining test-resolution scope satisfy its current required functional/native union with preserved guarantees and applicable nonfunctional results after bounded repairs?",
+  "answers": [
+    "TR-09",
+    "TR-10",
+    "TR-11",
+    "TR-12",
+    "TR-13",
+    "TR-14",
+    "DTA-001",
+    "DTA-002",
+    "DTA-003",
+    "DTA-004",
+    "DTA-005",
+    "DTA-006",
+    "DTA-007",
+    "DTA-008",
+    "DTA-009",
+    "DTA-010",
+    "DTA-011",
+    "DTA-012",
+    "DTA-013",
+    "DTA-014",
+    "DTA-015",
+    "DTA-016",
+    "DTA-017",
+    "DTA-018",
+    "DTA-019",
+    "DTA-020",
+    "DTA-021",
+    "DTA-022",
+    "DTA-023",
+    "TR10-F01",
+    "TR10-F02"
+  ],
+  "method": "Fresh full parallel ordinary qualification on552fefb7, current body-free manifest/export validation, independently reviewed failed/affected/new-only repairs onfa1956a4 and69b9524c, then exclusive serial authentication fault lane. The owner explicitly excludes initial admission negatives with invalid premises and a changed native-conformance premise, carries other successful outcomes with source applicability, checks all23 preservation obligations/current counterparts, and consumes read-only actual context/cleanup auditing. Existing aggregate attempt history remains failed while required-node coverage is covered. Full hygiene and affected Python endpoint checks supply nonfunctional applicability; documentation publication is separately recorded.",
+  "commands": [
+    "just test-all -n auto",
+    "just hygiene",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/test-resolution-repair-fa1956a4 -- -n auto @build/test-receipts/qualification/test-resolution-repair-fa1956a4.txt",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/test-resolution-final-four-69b9524c -- -n auto @build/test-receipts/qualification/test-resolution-final-four.txt",
+    "just test-native-faults",
+    "just types",
+    "uv run ruff check",
+    "just ready",
+    "uv run python docs/design_review/evidence/2026-11-06_test-resolution-tooling/raw/qualification/final-native-context-audit.py"
+  ],
+  "agents": [
+    {
+      "role": "independent assembled and focused repair design/correctness reviewer",
+      "model": "gpt-6.1-sol",
+      "brief": null,
+      "separation": "Read-only identified implementation/repair baselines; no implementation or tests by reviewer. Reviews accepted corrections and bounded affected selections, preserving pending results until execution."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "raw/qualification/test-resolution-required-ordinary-69b9524c.json",
+      "role": "4874 current ordinary identities with native applicability",
+      "sha256": "256be7f6a42cb01d84a69878d4067a074090e89ce6e4fe6988e955bfd47fec92"
+    },
+    {
+      "path": "raw/qualification/required-faults-69b9524c.json",
+      "role": "8 exclusive fault identities,7 native-required",
+      "sha256": "16cf28ea4303e07219251793fa48b9920aae9276b44d7bf9e1d66dd1165c7fbf"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/qualification/summary.json",
+      "role": "Owner eligibility, outcomes, explicit source exclusions and evidence limits",
+      "sha256": "4399a8f90649a7764e081862bc6d53ea0c3ce48bfc211e166066439637d34502"
+    },
+    {
+      "path": "raw/qualification/preservation.json",
+      "role": "Exact current required witnesses for23 DTA IDs andTR10-F01/F02",
+      "sha256": "6e288926217ad95f3c6a3d5b1cbe286597ce61944433c0d11955f490072f4255"
+    },
+    {
+      "path": "raw/qualification/final-union.json",
+      "role": "Original classifier JSON with covered required nodes and retained failed history",
+      "sha256": "984c25638c336d9f689c5095bd5183f53839a98b6f3bb105d8c2f7acf57d5baf"
+    },
+    {
+      "path": "raw/qualification/ordinary-552fefb7",
+      "role": "Unchanged full ordinary failed attempt",
+      "sha256": "59343f2d66b110ab993f79f3174eb773fb2e714446e0c97e2c78800064ae7aef"
+    },
+    {
+      "path": "raw/qualification/ordinary-child-controls",
+      "role": "Retained full-attempt real child controls",
+      "sha256": "3d443ab8995ff797f9c6faaf3da456cd95ba03dca807a4850f1744b5b95dbbad"
+    },
+    {
+      "path": "raw/qualification/repair-fa1956a4",
+      "role": "Unchanged64-node attempt with61passes2failures1setup error",
+      "sha256": "43fa84ba6f496bc568be2dd6b56655bdadeed8528021f5071c63477ba1db6010"
+    },
+    {
+      "path": "raw/qualification/repair-fa1956a4-child-controls",
+      "role": "Retained failed native child and original deadline/identity observations",
+      "sha256": "11229358859a90e6b8cc7902c17cf0f0b6974c11cd08d2b0c634099fdbc4e059"
+    },
+    {
+      "path": "raw/qualification/final-four-69b9524c",
+      "role": "Four passing final affected outcomes",
+      "sha256": "31043ce8579071dc703077a15759994060326a9e055ab53d5a15de989832b4e3"
+    },
+    {
+      "path": "raw/qualification/final-four-child-controls",
+      "role": "Actual final serial/two-worker native conformance",
+      "sha256": "febd499cb25b1233fa429279c5a3e7463185de5c597a868c66818fd78cfbc4a9"
+    },
+    {
+      "path": "raw/qualification/faults-69b9524c",
+      "role": "Eight passing exclusive serial controls",
+      "sha256": "93c5bd73223cdbf5f55238880b7cab523b10387f986f3951a739f2af038b79b8"
+    },
+    {
+      "path": "raw/qualification/collection-w8yk20ns",
+      "role": "Retained fail-closed import-mode selection validation",
+      "sha256": "1d131871fec11432aef82b36dd5e7636eb2e31ba500b92f8fb7ad01cf8319a9b"
+    },
+    {
+      "path": "raw/qualification/current-selection-validation-fa1956a4",
+      "role": "Actual body-free47-node unresolved export validation",
+      "sha256": "f96e7420a070779625805730d57d966ce023662acd5ead8e305b6379abed86ac"
+    },
+    {
+      "path": "raw/qualification/current-selection-validation-69b9524c",
+      "role": "Actual body-free3-node unresolved export validation",
+      "sha256": "14689cf135b3322e2af224160409427f66da04f7a1fd417e14fc9f7828cd6bac"
+    },
+    {
+      "path": "raw/qualification/native-deadline-and-sweep.log",
+      "role": "Exact relevant PostgreSQL checkpoint/DROP/lease-race excerpts",
+      "sha256": "f0c080752dcea2d177ff0bba87b0975ec954c0d9c4fce6db00fb09875d7c18fe"
+    },
+    {
+      "path": "raw/qualification/final-native-context-audit.py",
+      "role": "Read-only context/catalog audit source",
+      "sha256": "98ff577f986bc2c71f4dace9da245be7cf4de27789b2c0ff1f9075db5efb5ae8"
+    },
+    {
+      "path": "raw/qualification/final-native-context-audit.json",
+      "role": "Actual server/catalog observations and receipt-mentioned name inventory",
+      "sha256": "9dedd11adc78e7add94d014ffb501ce2937834206730cd264946c7b2ea60bc8b"
+    },
+    {
+      "path": "raw/qualification/final-native-context-audit-notes.md",
+      "role": "Native/synthetic/persistent/transient distinctions and preserved unrelated resources",
+      "sha256": "6383de8065027d383ef8decfca605ab123e87a03e1d6a5615519eff2f4ab13de"
+    },
+    {
+      "path": "raw/qualification/logs",
+      "role": "Available focused failures plus final hygiene/typing/lint/readiness/maintenance logs",
+      "sha256": "50aa1fe4c74c2f0ef142b099fcf15292f8db6ee0037dc33b8126988b18b5063c"
+    }
+  ],
+  "depends_on": [
+    "tr15.native-assertion-comparison"
+  ],
+  "results": [
+    {
+      "name": "current required Python union",
+      "value": 4882,
+      "of": null,
+      "unit": "nodes",
+      "note": "4874 ordinary plus8 exclusive fault controls; no unresolved node."
+    },
+    {
+      "name": "currently native-required union",
+      "value": 854,
+      "of": null,
+      "unit": "nodes",
+      "note": "847 ordinary plus7 fault controls; actual item-bound acquisition, not synthetic reporter fixtures."
+    },
+    {
+      "name": "actual full-run working workers",
+      "value": 16,
+      "of": null,
+      "unit": "processes",
+      "note": "Created/readied/executed16; observed peak16; auto/loadgroup and nested math cap8."
+    },
+    {
+      "name": "initial full ordinary outcome",
+      "value": "4828 passed;45 failed",
+      "of": null,
+      "unit": null,
+      "note": "4873 selected on552fefb7; failed history retained."
+    },
+    {
+      "name": "first repair outcome",
+      "value": "61 passed;2 failed;1 setup error",
+      "of": null,
+      "unit": null,
+      "note": "64 selected onfa1956a4; retained actual new-premise failures."
+    },
+    {
+      "name": "final affected repair",
+      "value": 4,
+      "of": null,
+      "unit": "passed nodes",
+      "note": "Recipe, serial/parallel conformance and setup-error victim on69b9524c."
+    },
+    {
+      "name": "exclusive fault controls",
+      "value": 8,
+      "of": null,
+      "unit": "passed nodes",
+      "note": "Serial after all ordinary/native consumers ended; stale-guardian case is filesystem-only."
+    },
+    {
+      "name": "required unresolved",
+      "value": 0,
+      "of": null,
+      "unit": "nodes",
+      "note": "Owner source/context eligibility reconciled; additive coverage covered."
+    },
+    {
+      "name": "historical aggregate status",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": "CLI remains1; unsuccessful attempts were not rewritten."
+    },
+    {
+      "name": "Rust functional outcome",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "Release nextest lists0 cases; compiler/version artifacts retained."
+    },
+    {
+      "name": "receipt-observed transient databases remaining",
+      "value": 0,
+      "of": null,
+      "unit": "names",
+      "note": "Read-only audit after lanes; outside resources preserved, synthetic/unavailable contexts distinguished."
+    },
+    {
+      "name": "applicable nonfunctional checks",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Full hygiene on initial source; affected final typing/Ruff/readiness/maintenance passed; unchanged Rust/dependency/rule/process results remain applicable."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Tested2026-11-06: the source/context-reconciled current required union covers4882 Python nodes, including854 native-required nodes, on final functional source69b9524c. Initial and repair failures remain immutable with failed aggregate status/CLI1. Invalid-premise successes and the changed native conformance premise are explicitly requalified; other successful results are carried without broad replay. All23 DTA obligations andTR10-F01/F02 have current witnesses and static limits. Applicable hygiene and changed-source endpoint checks passed; final native audit leaves no receipt-observed transient names. Rust is not_run/empty-selection. The separate pgTAP probe remains partial, with operator-selected Retain Python and no TAP assertion pass. Unattributed initial interruption diagnostic and earlier focused temporary-artifact loss remain explicit limits. This does not qualify WCE12 scientific efficacy, an unselected live provider/full-book campaign, universal database capacity or writer TEMP policy relaxation.",
+  "consumed_by": [
+    "TR-09",
+    "TR-10",
+    "test-audit-resolution plan"
+  ]
+}

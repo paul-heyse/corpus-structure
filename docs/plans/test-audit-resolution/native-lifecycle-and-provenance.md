@@ -1,6 +1,6 @@
 # Native lifecycle and provenance
 
-**Status:** Original TR-06–08 Implemented; TR-14/15 amendments Proposed; full qualification stopped. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
+**Status:** TR-06–08/14 Implemented; TR-15A Retain Python by operator disposition; final required-union Tested2026-11-06. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
 and DTA disposition. Reuse native_test_support, qualification_plugin and test_receipts; no
 second janitor, observation subsystem or qualification register is selected.
 
@@ -148,7 +148,7 @@ native template/connection capacity. Pending original cases remain1390; the oper
 successful-case replay and a stop after configuration/plan handoff.
 
 
-## Proposed native amendments — TR-14/15
+## Native amendments — TR-14/15
 
 This section extends the original tooling disposition for new opportunities; original TR-06–08
 implementation and stopped receipts above remain historical. Consume tooling review I03/I05/I06/
@@ -205,6 +205,22 @@ parser/runner or psql provenance bridge is needed just to decide retain/adopt. R
 test's current equivalent after any subsequent contract changes, preserving independent literal
 statement expectations and the domain/assessment distinction; do not resurrect legacy fixtures. If extension availability or purpose rights prevent the comparison,
 report the prerequisite and keep TR-15A open; do not broaden grants or claim an executed retain result.
+
+**Operator amendment and disposition,2026-11-06: Retain Python.** The actual writer's
+pgTAP1.3.4 `plan()` raises42501 because TEMP is denied. The operator explicitly accepted this
+demonstrated incompatibility and the independent Python/native controls as sufficient comparison
+disposition, superseding the keep-open condition for this case. TR-15A requires no SQL adoption:
+equivalent TAP assertions remain not_run, the probe remains partial, and no pg_prove/psql identity
+bridge is claimed. The [accepted probe and current disposition](../../design_review/evidence/2026-11-06_test-resolution-tooling/README.md)
+retain exact SQL, actual identities, failed attempts and owned-resource cleanup.
+
+The operator's subsequent conditional question about enabling writer TEMP was assessed read-only.
+Besides the explicit ADR-0031/0032 and admission/startup restrictions, the writer-callable derived
+publication route reads temporary staging relations with publisher privileges before reaching
+shared custody verification. This static ordering gap prevents a no-blocker conclusion; it is
+not an executed exploit. Keep the restriction. A future change needs verification before those
+reads, adjacent-path assessment, coherent forward deployment/policy changes and hostile-object
+controls; that conditional inquiry did not authorize bypassing a demonstrated blocker.
 
 If adopted, PgAdmin owns an isolated migrated clone. Maintenance installs pgtap only after checking
 the application's normal four-extension deployment; do not add pgtap to production prerequisites.
@@ -267,4 +283,5 @@ Sources: [PostgreSQL testing reference](<../../libraries/postgresql/pgTAP, pg_pr
 §2–5 and addendum §1–5, [pgTAP1.3.4](https://pgxn.org/dist/pgtap/1.3.4/),
 [pg_prove](https://metacpan.org/dist/TAP-Parser-SourceHandler-pgTAP/view/bin/pg_prove), installed
 /usr/bin/pg_virtualenv and /usr/share/perl5/TAP/Parser/SourceHandler/pgTAP.pm. The review checked
-these interfaces; new routes remain Proposed, not implemented or tested by plan publication.
+these interfaces. TR-14 is implemented; the operator retained Python for TR-15A. SQL-adoption and
+private/shared-cluster branches remain unentered conditional designs, not qualified routes.

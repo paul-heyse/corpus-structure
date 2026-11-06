@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-06; selected WCE04–05 implementation complete and Tested._
+_Updated 2026-11-06; selected WCE04–05 and test-resolution scope complete and Tested._
 
 ## Authority and boundary
 
@@ -8,9 +8,9 @@ _Updated 2026-11-06; selected WCE04–05 implementation complete and Tested._
 - [ADR-0067](docs/adr/0067-witnessed-current-only-cutover.md) selects full migration and legacy removal.
   Domain objects/relationships/conditions govern knowledge; assessment questions are separate.
 - Statistics remains qualification scope; no enterprise acquisition or full-book reread was performed.
-- [Test-resolution](docs/plans/test-audit-resolution_2026-11-05.md) TR-11–15 execution is in progress
-  under operator authorization. The historical campaign remains retained; new final-source
-  qualification follows integrated functionality. WCE product scope remains separately owned.
+- [Test-resolution](docs/plans/test-audit-resolution_2026-11-05.md#final-required-union) is complete:
+  final source69b9524c, required4882-node union covered, including854 native-required outcomes.
+  Original failures/interruption stay retained; broader WCE product scope remains separately owned.
 
 ## Delivered — 2026-11-06
 
@@ -46,4 +46,14 @@ _Updated 2026-11-06; selected WCE04–05 implementation complete and Tested._
   failed/interrupted attempts retained, earlier overlapping counts not summed.
   `just evidence` reports0 errors and40 warnings in older records/citations outside this increment.
 - Remaining WCE02/06–12 scope, fresh source/parameter/header coverage, independent benefit and
-  assembled qualification stay with the coordinator. Full WCE12 and separate test-resolution are not_run.
+  assembled qualification stay with the WCE coordinator. Full WCE12 remains not_run.
+- Test-resolution: full ordinary4828 passed/45 failed; affected64 rerun61 passed/2 failed/1 setup
+  error, final4 passed; exclusive `just test-native-faults` passed8. Actual16 workers/peak16.
+  `just hygiene` passed; changed-source typing/Ruff and final publication/maintenance passed.
+  Rust nextest not_run(empty selection). All23 DTA/TR10-F01/F02 current counterparts accounted for.
+- TR-15A Retain Python by operator choice; pgTAP probe partial/TEMP42501, TAP assertions not_run.
+  Writer TEMP remains restricted: privileged pre-verification staging reads block a simple grant.
+  TR-15B/C inactive. No receipt-observed transient DB remains; outside resources preserved.
+- [Final evidence](docs/design_review/evidence/2026-11-06_test-resolution-tooling/records/tr10.final-required-union.json)
+  retains failed history, explicit affected-success exclusions and the unattributed stderr warning.
+  Earlier focused temporary child raws aged out; current qualification raws are retained.

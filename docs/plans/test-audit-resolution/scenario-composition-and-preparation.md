@@ -1,6 +1,6 @@
 # Scenario composition and preparation
 
-**Status:** Original TR-01/02 Implemented; TR-12/13 amendments Proposed; full qualification stopped. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-01/02
+**Status:** TR-01/02/12/13 Implemented; final required-union Tested2026-11-06. Revised2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-01/02
 and finding disposition. Package-relative paths below designate test support unless stated.
 
 ## TR-01 — Explicit pure/native/reference composition
@@ -175,7 +175,7 @@ New parallel configuration evidence is separate from the earlier28case math tran
 The qualification companion owns remaining1390 original nodes and the explicit stop.
 
 
-## Proposed preparation and WCE composition amendments — TR-12/13
+## Preparation and WCE composition amendments — TR-12/13
 
 Consume tooling review I02/I07 through the coordinator. TR-12's collected affinity and actual
 consumer migration are owned by [parallel harness](parallel-execution-and-harness.md#tr-12--preparation-shaped-affinity).
@@ -216,4 +216,5 @@ its semantic alternatives are complete. Per-case expectations and diagnostics ar
 Acceptance: pure cases require no native prerequisites, native cases use actual purpose connections,
 source-first opportunities survive candidate filtering, output IDs stay exact, and mutations receive
 owned state. Any shared helper replacement migrates its actual callers in the same slice. These
-amendments are Proposed; old TR-01/02 passes do not establish their execution.
+amendments are Implemented; current qualification is owned by the coordinator. Old TR-01/02
+passes retain their original source and do not establish the new scope's qualification.
