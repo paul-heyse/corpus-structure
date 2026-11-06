@@ -1,0 +1,25 @@
+{
+  "protocol": "gs120-definition-refinement-summary-1",
+  "scope": "same original40sources/physical191-310, exposed development replay; no model inference/PDF read/DB write",
+  "before": {
+    "named_components": 1,
+    "model_components": 8,
+    "model_failed_windows": 10
+  },
+  "after": {
+    "named_components": 32,
+    "named_interpretations": {
+      "explanation": 19,
+      "definition": 13
+    },
+    "model_components": 9,
+    "model_failed_windows": 10,
+    "candidate_errors_by_channel": {
+      "attachment": 13
+    }
+  },
+  "semantic_quality": "unassessed; recovered model attachment binomial distribution\u2192Chapter3 is explicitly unsuitable; no claim of32correct/complete definitions",
+  "final_replay": "raw/after004/result.json",
+  "candidate_review_input": "raw/after004/components.json",
+  "baseline_replay": "raw/before001/result.json"
+}

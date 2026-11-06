@@ -416,6 +416,175 @@ def test_located_span_success_survives_empty_or_failed_attachment():
         decode_definition_components(returned, passage, DefinitionComponentsConfig())
 
 
+def test_independent_valid_attachment_survives_other_candidates_role_failure():
+    passage = inputs().passages[0]
+    returned = raw(passage.text)
+    relation = returned["relation_extraction"]["term is defined or explained by"][0]
+    returned["relation_extraction"]["term is defined or explained by"].insert(
+        0, {"head": relation["tail"], "tail": relation["head"]}
+    )
+    errors = []
+    (found,) = decode_definition_components(
+        returned, passage, DefinitionComponentsConfig(), candidate_errors=errors
+    )
+    assert found.term.text == "variance" and found.content.text == "expected squared deviation"
+    assert errors == [
+        dict(
+            channel="attachment",
+            index=0,
+            type="GlinerRefused",
+            reason="attachment endpoints lack the declared decoded roles",
+        )
+    ]
+    # Strict callers retain the original refusal contract; production records both grains.
+    with pytest.raises(GlinerRefused, match="declared decoded roles"):
+        decode_definition_components(returned, passage, DefinitionComponentsConfig())
+
+
+def test_invalid_term_interpretation_does_not_relabel_or_erase_another_valid_attachment():
+    passage = inputs().passages[0]
+    returned = raw(passage.text)
+    returned["entities"]["defined term or expression"].append(
+        {"start": 0, "end": 2, "text": "We", "interpretation": "invented"}
+    )
+    errors = []
+    (found,) = decode_definition_components(
+        returned, passage, DefinitionComponentsConfig(), candidate_errors=errors
+    )
+    assert found.term.text == "variance"
+    assert len(errors) == 1 and errors[0]["channel"] == "term" and errors[0]["index"] == 1
+
+
+def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_error(monkeypatch):
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, GlinerReport
+
+    value = inputs()
+    returned = raw(value.passages[0].text)
+    relation = returned["relation_extraction"]["term is defined or explained by"][0]
+    returned["relation_extraction"]["term is defined or explained by"].append(
+        {"head": relation["tail"], "tail": relation["head"]}
+    )
+    profile = GlinerProfile(
+        Path("/controlled-model"),
+        "checkpoint",
+        "revision",
+        tuple(
+            (name, "a" * 64)
+            for name in (
+                "config.json",
+                "encoder_config/config.json",
+                "model.safetensors",
+                "tokenizer.json",
+                "tokenizer_config.json",
+            )
+        ),
+    )
+    cfg = DefinitionComponentsConfig(
+        inputs=value,
+        structural_input_digest=value.identity,
+        target_ids=("target",),
+        profile=profile,
+        use_named_candidates=False,
+    )
+
+    class ControlledWorker:
+        def __init__(self):
+            self.profile = profile
+
+        def extract(self, pack, requests, **kwargs):
+            (request,) = requests
+            return (
+                GlinerReport(
+                    request.context_id,
+                    request.context_digest,
+                    "controlled",
+                    "controlled",
+                    pack.fingerprint,
+                    GlinerPreparation(request.text, "", 0, 0, len(request.text)),
+                    json.dumps(returned),
+                    "{}",
+                    0.0,
+                    False,
+                ),
+            )
+
+    method = DefinitionComponentsMethod()
+    monkeypatch.setattr(method, "_worker", ControlledWorker())
+    ctx = SimpleNamespace(
+        check_active=lambda: None,
+        reader=SimpleNamespace(
+            validate_structural_inputs=lambda _: None, prepared=SimpleNamespace(release_id="r")
+        ),
+    )
+    (result,) = method.run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="control")),), cfg, ctx
+    )
+    report = StructuralProductReport.model_validate(result.structural_product)
+    assert report.definition_components is not None
+    assert len(report.definition_components.components) == 1
+    assert (
+        next(s for s in report.definition_components.stages if s.operation == "attachment").outcome
+        == "failed"
+    )
+    assert result.parse_detail is not None
+    retained = result.parse_detail["raw_reports"]
+    assert isinstance(retained, list) and isinstance(retained[0], dict)
+    assert retained[0]["raw_json"] == json.dumps(returned)
+    assert retained[0]["decoded_attachment_count"] == 1
+    assert retained[0]["candidate_errors"] == [
+        dict(
+            channel="attachment",
+            index=1,
+            type="GlinerRefused",
+            reason="attachment endpoints lack the declared decoded roles",
+        )
+    ]
+
+
+def test_labelled_copula_display_requires_same_block_explicit_definition_label():
+    from corpus_structure.methods.definition_applicability import components_from_following_display
+
+    passage = inputs("Definition 1. Variance is\nf(x)=x.").passages[0]
+    term = LocatedRole("nominal_subject", "term", 3, "noun_chunk", (3,), ((24, 32),), "complete")
+    cue = LocatedRole("copular_cue", "cue", 4, "exact", (4,), ((33, 35),), "complete")
+    requirement = replace(cue, role="definition_label_required")
+    match = AnnotationRuleMatch(
+        "definition_context",
+        "labelled_copula_display",
+        "dependency",
+        (3, 4),
+        (),
+        (),
+        (),
+        "d",
+        (term, cue, requirement),
+    )
+    label = replace(term, role="definition_label", extents=((10, 22),), nodes=(0, 1))
+    label_match = replace(match, rule="definition_context", roles=(label,))
+    assert (
+        components_from_following_display(passage, (match,), ((36, 43),), term_role="defined_term")
+        == ()
+    )
+    (found,) = components_from_following_display(
+        passage, (label_match, match), ((36, 43),), term_role="defined_term"
+    )
+    assert found.term.text == "Variance" and found.content.text == "f(x)=x."
+    # An intervening reference is source content, not punctuation or a formula.
+    reference_passage = inputs("Definition 1. Variance is Equation 2\nf(x)=x.").passages[0]
+    assert (
+        components_from_following_display(
+            reference_passage, (label_match, match), ((47, 54),), term_role="defined_term"
+        )
+        == ()
+    )
+
+
 def test_parent_context_is_a_required_applicability_distinction():
     value = inputs()
     candidate = ApplicabilityCandidate(

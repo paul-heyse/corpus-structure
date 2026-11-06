@@ -57,16 +57,104 @@ configs:
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
           defining_content: {node: content, expansion: subtree, max_tokens: 64}
       - rule: defining
-        variant: call_reversed
+        variant: active_to_be
         mechanism: dependency
         pattern:
-        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: call}}
-        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}}}
-        - {LEFT_ID: term, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: compound}}
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}, POS: {IN: [NOUN, PROPN]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: be, RIGHT_ATTRS: {LEMMA: be, DEP: {IN: [xcomp, advcl]}}}
+        - {LEFT_ID: be, REL_OP: '>', RIGHT_ID: to, RIGHT_ATTRS: {LOWER: to, DEP: aux}}
+        - {LEFT_ID: be, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: {IN: [attr, acomp]}}}
         bindings:
           defining_cue: {node: cue}
-          defined_term: {node: term}
+          definition_scope_guard: {node: cue, expansion: subtree, max_tokens: 128}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
           defining_content: {node: content, expansion: subtree, max_tokens: 64}
+      - rule: defining
+        variant: passive_to_be
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: nsubjpass, POS: {IN: [NOUN, PROPN]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: be, RIGHT_ATTRS: {LEMMA: be, DEP: {IN: [xcomp, advcl]}}}
+        - {LEFT_ID: be, REL_OP: '>', RIGHT_ID: to, RIGHT_ATTRS: {LOWER: to, DEP: aux}}
+        - {LEFT_ID: be, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: {IN: [attr, acomp]}}}
+        bindings:
+          defining_cue: {node: cue}
+          definition_scope_guard: {node: cue, expansion: subtree, max_tokens: 128}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+      - rule: naming
+        variant: active_called_term
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: call, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}, POS: {IN: [NOUN, PROPN, NUM, SYM]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: oprd, POS: {IN: [NOUN, PROPN]}}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+      - rule: naming
+        variant: passive_called_term
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: call, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: nsubjpass, POS: {IN: [NOUN, PROPN, NUM, SYM]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: oprd, POS: {IN: [NOUN, PROPN]}}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+      - rule: defining
+        variant: passive_following_display
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: nsubjpass, POS: {IN: [NOUN, PROPN]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: by, RIGHT_ATTRS: {LOWER: {IN: [by, as]}, DEP: {IN: [agent, prep]}}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          following_content_cue: {node: by}
+      - rule: defining
+        variant: active_following_display
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}, POS: {IN: [NOUN, PROPN]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: by, RIGHT_ATTRS: {LOWER: {IN: [by, as]}, DEP: {IN: [agent, prep]}}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          following_content_cue: {node: by}
+      - rule: explanation
+        variant: given_following_display
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: give, POS: VERB}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: nsubjpass, POS: {IN: [NOUN, PROPN]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: by, RIGHT_ATTRS: {LOWER: by, DEP: {IN: [agent, prep]}}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          following_content_cue: {node: by}
+      - rule: definition_context
+        variant: numbered_label
+        mechanism: token
+        pattern: [{LOWER: definition}, {LIKE_NUM: true}]
+        bindings:
+          definition_label: {node: match}
+      - rule: definition_context
+        variant: labelled_copula_display
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: be, POS: AUX}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: nsubj, POS: {IN: [NOUN, PROPN]}}}
+        bindings:
+          nominal_subject: {node: term, expansion: noun_chunk, max_tokens: 32}
+          copular_cue: {node: cue}
+          definition_label_required: {node: cue}
       - rule: defining
         variant: nominal_follows
         mechanism: dependency

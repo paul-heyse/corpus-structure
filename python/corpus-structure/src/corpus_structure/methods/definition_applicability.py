@@ -119,7 +119,11 @@ def _located(passage: StructuralPassage, raw: Any) -> LocatedDefinitionSpan:
 
 
 def decode_definition_components(
-    raw: Any, passage: StructuralPassage, cfg: DefinitionComponentsConfig
+    raw: Any,
+    passage: StructuralPassage,
+    cfg: DefinitionComponentsConfig,
+    *,
+    candidate_errors: list[dict[str, JsonValue]] | None = None,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Require both independently located endpoint roles and a returned attachment.
 
@@ -132,30 +136,48 @@ def decode_definition_components(
         or not isinstance(raw.get("relation_extraction"), dict)
     ):
         raise GlinerRefused("located extraction did not return declared entity/relation channels")
+
+    def rejected(channel: str, index: int, error: ValueError) -> None:
+        if candidate_errors is None:
+            raise error
+        candidate_errors.append(
+            dict(channel=channel, index=index, type=type(error).__name__, reason=str(error))
+        )
+
     entities = raw["entities"]
     term_spans = {}
-    for term in entities.get(cfg.term_entity, ()):
-        span = _located(passage, term)
-        interpretation = term.get("interpretation")
-        if isinstance(interpretation, dict):
-            interpretation = interpretation.get("label")
-        if interpretation not in {"definition", "explanation", "unresolved"}:
-            raise GlinerRefused("decoded term has no supported span-conditioned interpretation")
-        term_spans[span.identity] = (span, interpretation)
-    content_spans = {
-        _located(passage, c).identity: _located(passage, c)
-        for c in entities.get(cfg.content_entity, ())
-    }
+    for index, term in enumerate(entities.get(cfg.term_entity, ())):
+        try:
+            span = _located(passage, term)
+            interpretation = term.get("interpretation")
+            if isinstance(interpretation, dict):
+                interpretation = interpretation.get("label")
+            if interpretation not in {"definition", "explanation", "unresolved"}:
+                raise GlinerRefused("decoded term has no supported span-conditioned interpretation")
+            term_spans[span.identity] = (span, interpretation)
+        except ValueError as error:
+            rejected("term", index, error)
+    content_spans = {}
+    for index, content in enumerate(entities.get(cfg.content_entity, ())):
+        try:
+            span = _located(passage, content)
+            content_spans[span.identity] = span
+        except ValueError as error:
+            rejected("content", index, error)
     components = {}
-    for relation in raw["relation_extraction"].get(cfg.attachment_relation, ()):
-        if not isinstance(relation, dict):
-            raise GlinerRefused("attachment has no located endpoints")
-        term, content = (
-            _located(passage, relation.get("head")),
-            _located(passage, relation.get("tail")),
-        )
-        if term.identity not in term_spans or content.identity not in content_spans:
-            raise GlinerRefused("attachment endpoints lack the declared decoded roles")
+    for index, relation in enumerate(raw["relation_extraction"].get(cfg.attachment_relation, ())):
+        try:
+            if not isinstance(relation, dict):
+                raise GlinerRefused("attachment has no located endpoints")
+            term, content = (
+                _located(passage, relation.get("head")),
+                _located(passage, relation.get("tail")),
+            )
+            if term.identity not in term_spans or content.identity not in content_spans:
+                raise GlinerRefused("attachment endpoints lack the declared decoded roles")
+        except ValueError as error:
+            rejected("attachment", index, error)
+            continue
         component = definition_component(
             term=term,
             content=content,
@@ -195,10 +217,29 @@ def components_from_named_matches(
     alternatives and discontinuous roles remain retained in their source producer.
     """
     components = {}
+    readings = {}
+    for match in matches:
+        roles = {role.role: role for role in match.roles}
+        cue, term, content = (
+            roles.get("defining_cue"),
+            roles.get(term_role),
+            roles.get(content_role),
+        )
+        if cue is not None and term is not None and content is not None:
+            key = (match.rule, match.variant, cue.extents)
+            readings.setdefault(key, set()).add((term.extents, content.extents))
     for match in matches:
         if match.negation_extents:
             continue
         roles = {role.role: role for role in match.roles}
+        cue = roles.get("defining_cue")
+        if cue is not None and len(readings.get((match.rule, match.variant, cue.extents), ())) > 1:
+            # A competing retained binding is not resolved by surface order.
+            continue
+        guard = roles.get("definition_scope_guard")
+        if guard is not None and guard.status != "complete":
+            # A head value alone cannot stand in for a conditional definition.
+            continue
         selected = []
         for name in (term_role, content_role):
             role = roles.get(name)
@@ -225,7 +266,9 @@ def components_from_named_matches(
         component = definition_component(
             term=selected[0],
             content=selected[1],
-            interpretation="definition",
+            interpretation="explanation"
+            if match.rule in {"naming", "explanation"}
+            else "definition",
             basis="matched_cue",
             scope=passage.scope,
             effective_version=passage.effective_version,
@@ -247,12 +290,20 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
     Only punctuation/whitespace may separate the cue from that exact element.
     """
     found = []
+    labels = [
+        role
+        for match in matches
+        if not match.negation_extents
+        for role in match.roles
+        if role.role == "definition_label" and role.status == "complete" and role.extents
+    ]
     for match in matches:
         if match.negation_extents:
             continue
         roles = {role.role: role for role in match.roles}
-        term = roles.get(term_role)
-        cue = roles.get("following_content_cue")
+        labelled = "definition_label_required" in roles
+        term = roles.get("nominal_subject" if labelled else term_role)
+        cue = roles.get("copular_cue" if labelled else "following_content_cue")
         if (
             term is None
             or cue is None
@@ -267,6 +318,13 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
         term_start, term_end = term.extents[0][0], term.extents[-1][1]
         cue_end = cue.extents[-1][1]
         if not passage.start <= term_start < term_end <= cue_end <= passage.end:
+            continue
+        if labelled and not any(
+            passage.start <= label.extents[0][0] < label.extents[-1][1] <= term_start
+            for label in labels
+        ):
+            # Labels and cue matches are supplied from this one retained native block.
+            # A bare copula in another block does not inherit definition standing.
             continue
         for start, end in sorted(set(display_spans)):
             if not cue_end <= start < end <= passage.end:
@@ -287,7 +345,7 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
                 definition_component(
                     term=span(term_start, term_end),
                     content=span(start, end),
-                    interpretation="definition",
+                    interpretation="explanation" if match.rule == "explanation" else "definition",
                     basis="native_geometry",
                     scope=passage.scope,
                     effective_version=passage.effective_version,
@@ -496,7 +554,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "4"
+    version = "5"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -661,7 +719,10 @@ class DefinitionComponentsMethod:
                     )
                 )
                 try:
-                    decoded = decode_definition_components(reply.raw, window, cfg)
+                    candidate_errors: list[dict[str, JsonValue]] = []
+                    decoded = decode_definition_components(
+                        reply.raw, window, cfg, candidate_errors=candidate_errors
+                    )
                 except (GlinerRefused, ValueError) as error:
                     stages.append(
                         DefinitionStage(
@@ -676,14 +737,22 @@ class DefinitionComponentsMethod:
                     )
                     continue
                 components.extend(decoded)
+                raw_reports[-1]["decoded_attachment_count"] = len(decoded)
+                raw_reports[-1]["candidate_errors"] = candidate_errors
                 stages.append(
                     DefinitionStage(
                         passage_id=passage_id,
                         operation="attachment",
-                        outcome="succeeded" if decoded else "empty",
+                        outcome="failed"
+                        if candidate_errors
+                        else "succeeded"
+                        if decoded
+                        else "empty",
                         reason=(
                             f"Window {window.start}:{window.end}: {len(decoded)} "
-                            "decoded role-and-attachment components; "
+                            "individually decoded role-and-attachment components retained; "
+                            f"{len(candidate_errors)} rejected candidates retained "
+                            "with indexed reasons; "
                             "no absence or semantic correctness claim."
                         ),
                     )
