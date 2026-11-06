@@ -698,6 +698,7 @@ dependencies = [
     { name = "scipy" },
     { name = "sentence-transformers" },
     { name = "spacy" },
+    { name = "splink" },
     { name = "sqlalchemy" },
     { name = "sqlglot" },
     { name = "sympy" },
@@ -746,6 +747,7 @@ requires-dist = [
     { name = "scipy", specifier = "==1.18.1" },
     { name = "sentence-transformers", specifier = "==6.2.0" },
     { name = "spacy", specifier = "==3.8.18" },
+    { name = "splink", specifier = "==5.0.0" },
     { name = "sqlalchemy", specifier = "==2.1.6" },
     { name = "sqlglot", specifier = "==30.27.0" },
     { name = "sympy", specifier = "==1.14.0" },
@@ -5612,6 +5614,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3b/44/6716b257b0aa6bfd51a1b31665d1c205fb12cb5ad56de752dfa15657de2f/sphinxcontrib_serializinghtml-2.0.0.tar.gz", hash = "sha256:e9d912827f872c029017a53f0ef2180b327c3f7fd23c87229f7a8e8b70031d4d", size = 16080, upload-time = "2024-07-29T01:10:09.332Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/a7/d2782e4e3f77c8450f727ba74a8f12756d5ba823d81b941f1b04da9d033a/sphinxcontrib_serializinghtml-2.0.0-py3-none-any.whl", hash = "sha256:6e2cb0eef194e10c27ec0023bfeb25badbbb5868244cf5bc5bdc04e4464bf331", size = 92072, upload-time = "2024-07-29T01:10:08.203Z" },
+]
+
+[[package]]
+name = "splink"
+version = "5.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "duckdb" },
+    { name = "pyarrow" },
+    { name = "sqlglot" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/06/2d08a2091a559ff31d0ec36e194fbbeb84cadc934e3b35a3bf27ef2186d2/splink-5.0.0.tar.gz", hash = "sha256:389dfc2669b08889324571d5ef19a068bc8901e3a6ea1cc5c23af95fbe021177", size = 2102971, upload-time = "2026-09-28T14:24:19.446Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bb/a3/65b2a7aeec049a4b5657c238d7e8e29e11e3803bb8ffae4a5ae538e6aa3e/splink-5.0.0-py3-none-any.whl", hash = "sha256:4b4b99a9d9d59f313a6bee766832d5632d33ff39083d153f5e9a5ab505325a1c", size = 2192907, upload-time = "2026-09-28T14:24:17.751Z" },
 ]
 
 [[package]]

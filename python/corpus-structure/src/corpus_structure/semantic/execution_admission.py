@@ -201,9 +201,9 @@ def require_archive_fence(connection: Connection) -> None:
     raise ExecutionAdmissionError("native execution archive fence differs from trusted enforcement")
 
 
-# Exact current native body hashes frozen by witnessed interpretation migration0156.
+# Exact current native body hashes frozen by witnessed baseline migration0157.
 # Deployment checks retain ownership, privilege, configuration and body enforcement.
-_DESCRIPTOR_SHA256 = "d62773a9524571e59e8a93a750888e12bbcffa3dfa15c116b5e353e68f1b9262"
+_DESCRIPTOR_SHA256 = "3697c86a891157595e004bdc00c6955b3b804e2a4895ac3f7e50bc8ccb956460"
 _REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"
