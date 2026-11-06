@@ -109,6 +109,36 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             )
 
         check(product)
+        # Existing pair-only anchor/exclusion semantics are independently enforced natively.
+        guarded_cfg = {**cfg, "known_anchor_ids": ["b", "a"], "exclusions": [["a", "c"]]}
+        guarded_pairs = score_pairs(
+            records,
+            pair_candidates(
+                records,
+                external_pairs=(("a", "d"),),
+                title_threshold=ratio("abc", "abd"),
+                exclusions=(("a", "c"),),
+                known_anchor_ids=("a", "b"),
+            ),
+            policy,
+        )
+        guarded = ArtifactIdentityProduct(
+            records=records, pairs=guarded_pairs, policy=policy, known_anchor_ids=("a", "b")
+        ).model_dump(mode="json", exclude_none=True)
+        check(guarded, guarded_cfg)
+        for invalid in (["missing"], ["a", "a"]):
+            bad_cfg = {**cfg, "known_anchor_ids": invalid}
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                check(product, bad_cfg)
+        bad = deepcopy(guarded)
+        bad["known_anchor_ids"] = []
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            check(bad, guarded_cfg)
+        bad = deepcopy(guarded)
+        ab = next(p for p in bad["pairs"] if (p["left"], p["right"]) == ("a", "b"))
+        ab["scope_state"] = "compatible"
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            check(bad, guarded_cfg)
         mutations = []
         bad = deepcopy(product)
         bad["identity_grain"] = "immutable_version"

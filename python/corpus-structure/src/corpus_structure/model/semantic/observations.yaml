@@ -202,6 +202,10 @@ classes:
       source_mapping_provenance:
         multivalued: true
         range: string
+      known_anchor_ids:
+        multivalued: true
+        range: string
+        description: Explicit selected immutable input anchors; pair-local resolver guards confer no merge authority.
       unbound_source_ids:
         multivalued: true
         range: integer

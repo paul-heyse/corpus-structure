@@ -467,7 +467,7 @@ DECLARE expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; exp
  code_a text; code_b text; title_a text; title_b text; compatible boolean; excluded boolean;
  lexical double precision; log_odds double precision; probability double precision; external_ boolean; policy jsonb;
  code_gamma integer; title_gamma integer; code_mw double precision; title_mw double precision;
- field_ jsonb; expected_value double precision; model_id text; expected_provenance jsonb; unbound jsonb;
+ field_ jsonb; expected_value double precision; model_id text; expected_provenance jsonb; unbound jsonb; anchors jsonb;
  python_space text:=chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(28)||chr(29)||chr(30)||chr(31)||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288);
 BEGIN
  policy:=product->'policy';
@@ -495,6 +495,13 @@ BEGIN
   OR COALESCE(product->'unbound_source_ids','[]') IS DISTINCT FROM unbound
   OR COALESCE(product->'native_alias_pairs','[]')<>'[]'::jsonb THEN
   RAISE EXCEPTION 'artifact source mapping/unavailable/alias population differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(id ORDER BY id),'[]') INTO anchors
+ FROM jsonb_array_elements_text(COALESCE(config->'known_anchor_ids','[]')) selected(id);
+ IF (SELECT count(*)<>count(DISTINCT id) FROM jsonb_array_elements_text(anchors) selected(id))
+  OR COALESCE(product->'known_anchor_ids','[]') IS DISTINCT FROM anchors
+  OR EXISTS(SELECT FROM jsonb_array_elements_text(anchors) selected(id)
+   WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(expected_records) r WHERE r->>'contribution_id'=id)) THEN
+  RAISE EXCEPTION 'artifact known anchors differ from exact selected immutable cohort inputs' USING ERRCODE='23514'; END IF;
  model_id:=encode(sha256(convert_to(data.canonical_json(policy),'UTF8')),'hex');
  IF (SELECT count(*)<>count(DISTINCT (p->>'left',p->>'right')) FROM jsonb_array_elements(product->'pairs') p) THEN
   RAISE EXCEPTION 'artifact pair population repeats' USING ERRCODE='23514'; END IF;
@@ -512,7 +519,7 @@ BEGIN
   IF routes='[]'::jsonb THEN CONTINUE; END IF;
   expected_pairs:=expected_pairs||jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id'));
   SELECT p INTO STRICT pair_ FROM jsonb_array_elements(product->'pairs') p WHERE p->>'left'=a->>'contribution_id' AND p->>'right'=b->>'contribution_id';
-  excluded:=NOT compatible OR COALESCE(config->'exclusions','[]') @> jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')) OR COALESCE(config->'exclusions','[]') @> jsonb_build_array(jsonb_build_array(b->>'contribution_id',a->>'contribution_id'));
+  excluded:=NOT compatible OR (anchors ? (a->>'contribution_id') AND anchors ? (b->>'contribution_id')) OR COALESCE(config->'exclusions','[]') @> jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')) OR COALESCE(config->'exclusions','[]') @> jsonb_build_array(jsonb_build_array(b->>'contribution_id',a->>'contribution_id'));
   IF pair_->'candidate_routes' IS DISTINCT FROM routes OR pair_->>'standing'<>'candidate_relative_private'
    OR pair_->>'revision_relation'<>'unknown' OR pair_->>'scope_state' IS DISTINCT FROM (CASE WHEN excluded THEN 'excluded' ELSE 'compatible' END)
    OR abs((pair_->>'lexical_score')::double precision-lexical)>1e-12

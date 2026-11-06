@@ -95,7 +95,12 @@ def normalized_code(code: str | None) -> str | None:
 
 
 def pair_candidates(
-    records: tuple[ArtifactRecord, ...], *, external_pairs=(), title_threshold=70.0, exclusions=()
+    records: tuple[ArtifactRecord, ...],
+    *,
+    external_pairs=(),
+    title_threshold=70.0,
+    exclusions=(),
+    known_anchor_ids=(),
 ) -> tuple[ArtifactPair, ...]:
     """Retain generator provenance once per pair; never partition a whole component."""
     if not 0 <= title_threshold <= 100:
@@ -107,6 +112,11 @@ def pair_candidates(
     forbidden = {tuple(sorted(p)) for p in exclusions}
     if any(len(p) != 2 or p[0] == p[1] or not set(p) <= by_id.keys() for p in external | forbidden):
         raise ValueError("pair endpoints must be distinct selected artifact records")
+    anchors = frozenset(known_anchor_ids)
+    if len(anchors) != len(known_anchor_ids) or not anchors <= by_id.keys():
+        raise ValueError("known anchors must be distinct exact selected artifact records")
+    from .identity_resolution import constrained_label_groups
+
     result = []
     for left, right in combinations(sorted(by_id), 2):
         a, b = by_id[left], by_id[right]
@@ -134,14 +144,24 @@ def pair_candidates(
             if av.revision == bv.revision
             else "different_observed"
         )
+        # This is one pair proposal, not an equivalence or connected-component universe.
+        # Reusing the existing guard cannot authorize an unexamined transitive bridge.
+        permitted = (
+            len(
+                constrained_label_groups(
+                    (left, right),
+                    ((left, right),) if (left, right) in forbidden else (),
+                    anchors.intersection((left, right)),
+                )
+            )
+            == 1
+        )
         result.append(
             ArtifactPair(
                 left=left,
                 right=right,
                 candidate_routes=tuple(routes),
-                scope_state="compatible"
-                if compatible and (left, right) not in forbidden
-                else "excluded",
+                scope_state="compatible" if compatible and permitted else "excluded",
                 revision_relation=revision,
                 lexical_score=lexical,
                 dependencies=tuple(sorted(set((left, right, *av.dependencies, *bv.dependencies)))),
@@ -285,6 +305,7 @@ class ArtifactIdentityProduct(StructuralValue):
     native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
     policy: ArtifactScoringPolicy
     source_mapping_provenance: tuple[str, ...] = ()
+    known_anchor_ids: tuple[str, ...] = ()
     unbound_source_ids: tuple[int, ...] = ()
     standing: Literal["candidate_relative_private"] = "candidate_relative_private"
 
@@ -293,6 +314,9 @@ class ArtifactIdentityProduct(StructuralValue):
         by_id = {r.contribution_id: r for r in self.records}
         if len(by_id) != len(self.records):
             raise ValueError("identity record identifiers repeat")
+        anchors = frozenset(self.known_anchor_ids)
+        if len(anchors) != len(self.known_anchor_ids) or not anchors <= by_id.keys():
+            raise ValueError("known anchors must be distinct selected artifact records")
         keys = {(p.left, p.right) for p in self.pairs}
         if len(keys) != len(self.pairs):
             raise ValueError("identity pairs repeat")
@@ -305,6 +329,8 @@ class ArtifactIdentityProduct(StructuralValue):
                 a.artifact.artifact_kind,
             ) != (b.artifact.source_work, b.artifact.artifact_kind):
                 raise ValueError("identity pair crosses source-work or artifact kind")
+            if pair.scope_state == "compatible" and pair.left in anchors and pair.right in anchors:
+                raise ValueError("distinct known artifact anchors cannot form a compatible pair")
             if pair.model_probability is not None and (
                 pair.scope_state != "compatible" or pair.model_id != self.policy.identity
             ):

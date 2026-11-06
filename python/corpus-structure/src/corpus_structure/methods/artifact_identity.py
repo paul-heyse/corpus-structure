@@ -38,6 +38,7 @@ class ArtifactIdentityConfig(StructuralValue):
     title_threshold: float = Field(default=70, ge=0, le=100)
     external_pairs: tuple[tuple[str, str], ...] = ()
     exclusions: tuple[tuple[str, str], ...] = ()
+    known_anchor_ids: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def closure(self):
@@ -48,10 +49,13 @@ class ArtifactIdentityConfig(StructuralValue):
                 or self.work_bindings
                 or self.external_pairs
                 or self.exclusions
+                or self.known_anchor_ids
             ):
                 raise ValueError("partial artifact identity config")
         elif self.structural_input_digest != self.inputs.identity or self.policy is None:
             raise ValueError("artifact identity requires exact sources and declared model policy")
+        if len(set(self.known_anchor_ids)) != len(self.known_anchor_ids):
+            raise ValueError("known artifact anchors repeat")
         if len({b.native_content_digest for b in self.work_bindings}) != len(self.work_bindings):
             raise ValueError("source-work mappings repeat")
         return self
@@ -154,6 +158,7 @@ class ArtifactIdentityMethod:
             external_pairs=cfg.external_pairs,
             title_threshold=cfg.title_threshold,
             exclusions=cfg.exclusions,
+            known_anchor_ids=cfg.known_anchor_ids,
         )
         alias = native_alias_candidates(selected)
         # Native array blocking is an independently retained generator arm.
@@ -161,7 +166,10 @@ class ArtifactIdentityMethod:
         for endpoints in alias:
             if endpoints not in selected_pairs:
                 extra = pair_candidates(
-                    selected, external_pairs=(endpoints,), exclusions=cfg.exclusions
+                    selected,
+                    external_pairs=(endpoints,),
+                    exclusions=cfg.exclusions,
+                    known_anchor_ids=cfg.known_anchor_ids,
                 )
                 selected_pairs[endpoints] = next(p for p in extra if (p.left, p.right) == endpoints)
             p = selected_pairs[endpoints]
@@ -185,6 +193,7 @@ class ArtifactIdentityMethod:
                 policy=cfg.policy,
                 source_mapping_provenance=tuple(sorted(set(provenance))),
                 unbound_source_ids=tuple(unbound),
+                known_anchor_ids=tuple(sorted(cfg.known_anchor_ids)),
             ),
         )
         return tuple(

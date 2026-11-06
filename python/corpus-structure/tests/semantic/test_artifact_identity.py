@@ -270,3 +270,46 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         assert product["pairs"] == []
         assert len(product["records"]) == (1 if bind and raw.startswith("Table") else 0)
         assert product["unbound_source_ids"] == ([] if bind else [frame.source_view_id])
+
+
+def test_pair_guard_uses_existing_resolver_without_transitive_bridges(monkeypatch):
+    from corpus_structure.semantic import identity_resolution
+
+    original = identity_resolution.constrained_label_groups
+    calls = []
+
+    def observed(members, exclusions, anchors):
+        calls.append((tuple(members), tuple(exclusions), frozenset(anchors)))
+        return original(members, exclusions, anchors)
+
+    monkeypatch.setattr(identity_resolution, "constrained_label_groups", observed)
+    records = tuple(record(identity) for identity in "abc")
+    pairs = pair_candidates(records, exclusions=(("a", "c"),), known_anchor_ids=("c", "a"))
+    actual = {(p.left, p.right): p.scope_state for p in pairs}
+    assert actual == {("a", "b"): "compatible", ("a", "c"): "excluded", ("b", "c"): "compatible"}
+    # A-B and B-C are individual proposals; neither expands the guard's universe to A-C.
+    assert {members for members, _, _ in calls} == {("a", "b"), ("a", "c"), ("b", "c")}
+    assert all(
+        len(members) == 2
+        and set(anchors) <= set(members)
+        and all(set(edge) <= set(members) for edge in exclusions)
+        for members, exclusions, anchors in calls
+    )
+    assert (
+        pair_candidates(
+            tuple(reversed(records)), exclusions=(("c", "a"),), known_anchor_ids=("a", "c")
+        )
+        == pairs
+    )
+    guarded = pair_candidates((record("a"), record("b")), known_anchor_ids=("a", "b"))
+    assert len(guarded) == 1 and guarded[0].scope_state == "excluded"
+    assert guarded[0].model_probability is None
+    external = pair_candidates(
+        (record("a"), record("b", work="foreign")),
+        external_pairs=(("a", "b"),),
+        known_anchor_ids=("a", "b"),
+    )
+    assert external[0].scope_state == "excluded"
+    for invalid in (("absent",), ("a", "a")):
+        with pytest.raises(ValueError, match="known anchors"):
+            pair_candidates(records, known_anchor_ids=invalid)
