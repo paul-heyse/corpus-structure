@@ -1153,9 +1153,6 @@ classes:
     attributes:
       component: {required: true, range: StructuralPublicApplicableComponent, inlined: true}
       premises: {required: true, range: StructuralPublicApplicabilityPremise, multivalued: true, inlined: true}
-      target:
-        range: string
-        required: true
       outcome:
         range: StructuralDefinitionReadingOutcomeValue
         required: true
