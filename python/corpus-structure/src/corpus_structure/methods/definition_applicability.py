@@ -50,14 +50,9 @@ class DefinitionComponentsConfig(StructuralValue):
     content_role: str = Field(default="defining_content", min_length=1)
     use_named_candidates: bool = True
     annotation_rules: tuple[AnnotationRule, ...] = ()
-    max_window_chars: int = Field(default=1536, ge=256, le=8192)
-    window_overlap_chars: int = Field(default=256, ge=0)
-    max_windows_per_passage: int = Field(default=64, ge=1, le=256)
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
-        if self.window_overlap_chars >= self.max_window_chars:
-            raise ValueError("definition window overlap must be smaller than its bound")
         if self.inputs is None:
             if self.target_ids or self.profile or self.structural_input_digest:
                 raise ValueError("absent definition extraction cannot carry partial inputs")
@@ -373,14 +368,23 @@ def retained_named_components(
     ), "Consumed selected source-authenticated named candidates."
 
 
+_DEFINITION_WINDOW_CHARS = 1536
+_DEFINITION_WINDOW_OVERLAP = 256
+_DEFINITION_MAX_WINDOWS = 64
+
+
 def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConfig):
     """Bound model contexts while preserving original offsets and overlap provenance."""
+    # Operational resource choices belong to the archived runtime, not the semantic
+    # configuration ABI. Tuning these bounds does not redefine the output data model.
+    max_chars = min(_DEFINITION_WINDOW_CHARS, max(1,cfg.profile.max_input_bytes//4)) if cfg.profile is not None else _DEFINITION_WINDOW_CHARS
+    overlap = min(_DEFINITION_WINDOW_OVERLAP, max_chars//4)
     start = 0
     windows = []
-    while start < len(passage.text) and len(windows) < cfg.max_windows_per_passage:
-        end = min(len(passage.text), start + cfg.max_window_chars)
+    while start < len(passage.text) and len(windows) < _DEFINITION_MAX_WINDOWS:
+        end = min(len(passage.text), start + max_chars)
         if end < len(passage.text):
-            boundary = passage.text.rfind(" ", start + cfg.max_window_chars // 2, end)
+            boundary = passage.text.rfind(" ", start + max_chars // 2, end)
             if boundary > start:
                 end = boundary
         windows.append(StructuralPassage(passage_id=passage.passage_id, source_ref=passage.source_ref,
@@ -388,7 +392,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
             scope=passage.scope,effective_version=passage.effective_version,parent=passage.parent))
         if end == len(passage.text):
             break
-        start = max(start+1,end-cfg.window_overlap_chars)
+        start = max(start+1,end-overlap)
         while start < end and not passage.text[start-1].isspace():
             start += 1
     return tuple(windows)

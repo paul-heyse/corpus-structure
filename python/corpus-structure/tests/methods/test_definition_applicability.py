@@ -352,16 +352,23 @@ def test_definition_introduction_scope_requires_the_domain_policy():
         )
 
 
-def test_definition_windows_bound_model_work_and_preserve_original_coordinates():
+def test_definition_windows_bound_model_work_and_preserve_original_coordinates(monkeypatch):
     from corpus_structure.methods.definition_applicability import definition_windows
     text=' '.join('concept'+str(i) for i in range(120))
     passage=inputs(text).passages[0]
-    cfg=DefinitionComponentsConfig(max_window_chars=300,window_overlap_chars=64)
+    from pathlib import Path
+    from corpus_structure.methods.gliner import GlinerProfile
+    from corpus_structure.methods import definition_applicability as owner
+    profile=GlinerProfile(Path('/model'),'checkpoint','revision',tuple((name,'a'*64) for name in ('config.json','encoder_config/config.json','model.safetensors','tokenizer.json','tokenizer_config.json')),max_input_bytes=1200)
+    value=inputs(text)
+    cfg=DefinitionComponentsConfig(inputs=value,structural_input_digest=value.identity,target_ids=('target',),profile=profile)
     windows=definition_windows(passage,cfg)
     assert len(windows)>1 and windows[0].start==passage.start and windows[-1].end==passage.end
     for window in windows:
         assert window.text==text[window.start-passage.start:window.end-passage.start]
         assert len(window.text)<=300
     assert all(left.end >= right.start for left,right in zip(windows,windows[1:]))
-    limited=definition_windows(passage,cfg.model_copy(update={'max_windows_per_passage':1}))
+    monkeypatch.setattr(owner,'_DEFINITION_MAX_WINDOWS',1)
+    limited=definition_windows(passage,cfg)
+    assert 'max_window_chars' not in DefinitionComponentsConfig.model_json_schema()['properties']
     assert len(limited)==1 and limited[-1].end < passage.end

@@ -172,7 +172,7 @@ def load_structural_annotations(conn, inputs, source_ref, profile, *, read_budge
     source = next((source for source in inputs.sources if source.identity == source_ref), None)
     if source is None:
         raise ValueError("structural annotation source lies outside authenticated inputs")
-    budget = read_budget or PublishedReadBudget(100_000, 64 * 1024 * 1024)
+    budget = read_budget if read_budget is not None else PublishedReadBudget(100_000, 64 * 1024 * 1024)
     view = load_source_view(conn, source.source_view_id, analysis=False, read_budget=budget)
     frame = native_source_frame(view, ())
     task, origin, result, membership, config, method = (
@@ -192,7 +192,7 @@ def load_structural_annotations(conn, inputs, source_ref, profile, *, read_budge
         .join(method, method.c.id == config.c.method_id)
         .where(membership.c.cut_id == source.cut_id, task.c.run_id == source.run_id,
                task.c.unit_type == "source_view", task.c.unit_id == source.source_view_id,
-               task.c.status.in_(("done", "reused")), method.c.name == "extract.m1_annotations")
+               task.c.status.in_(("done", "reused")), membership.c.origin_task_id == origin.c.id, method.c.name == "extract.m1_annotations")
     )
     budget.preflight(conn, query)
     rows = tuple(conn.execute(query).mappings())
