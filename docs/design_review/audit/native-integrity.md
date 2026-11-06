@@ -34,7 +34,7 @@ and verifies the purpose principal. Protected archive/activation and caller fenc
 (`semantic/sql/closure.sql:20–94,133–158,444–460`); admission checks prohibited role membership,
 TEMP and direct writes (`semantic/sql/admission.sql:149–152`). The explicit owner maintenance path
 is not application impersonation. Source correction does not qualify actual provisioned roles;
-forward101 fitting enforcement remains separately under M1 qualification.
+M1 qualification receipts retain their own source, dates and scope.
 
 <a id="da-031"></a>
 
@@ -71,3 +71,19 @@ batch identity. Commit uncertainty uses receipt lookup; cancellation suppresses 
 sealed/source-revision fences. `current_operation_guards.sql:19–30` enforces atomic completed-result
 visibility. These bound any general claim of incoherent publication. Repeated assurance scope is
 examined separately at [DA-033](execution-fit.md#da-033).
+
+## Current runtime and progressive publication custody
+
+**Source-inspected 2026-11-05.** `semantic/sql/runtime_bindings.sql:2–100` authenticates
+canonical runtime/archive bytes, semantic inputs and same-release run binding; registration
+refuses conflicting bytes. `semantic/runtime_binding_store.py:34–79` reads the producing runtime,
+using explicit historical archive fallback. This preserves the distinction between logical model
+identity and exact executable provenance without backfilling current runtime over old results.
+
+Local semantic eligibility binds protected grade/digest, selected origins, contribution operation
+and actual source (`semantic/sql/record_publication.sql:965–1041`). Structural publication
+revalidates selected final-cut origin, original source custody, independent passes, policy and
+semantic participant citations (`semantic/sql/structural_publication.sql:77–176`), then requires
+staged assertions to equal the exact native eligible set (`:192–207`). Dossier input membership
+alone cannot establish predecessor-output support. No current integrity violation was established
+in these inspected paths. This does not attest actual deployed ACLs, catalogs or execution.

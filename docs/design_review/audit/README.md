@@ -3,247 +3,118 @@
 The living diagnostic account maintained by the
 [audit skill](../../../.claude/skills/design-principle-audit/SKILL.md). The
 [repository binding](../design_principles/binding/corpus-structure.md#design-principle-audit)
-owns freshness and disposition. This account diagnoses; it does not choose remedies, amend
-accepted scope, certify alignment or qualify the product.
+owns freshness and disposition. This account diagnoses current design; reviews own solution
+reasoning, and implementation plans own scheduled work and closure evidence.
 
 <a id="baseline"></a>
 
-## Progressive contribution boundary refresh — 2026-11-05
+## Broad refresh — 2026-11-05
 
-**Source-inspected; scoped refresh for the PCE-00 target review.** Baseline cd9bd586;
-preparation inputs include operator-accepted RC01–08 and pending ADR-0062/architectural-owner
-edits. Existing broad and M1 baselines below retain their dates and coverage limits. This refresh
-covers the changed contribution/reference boundary, not a new whole-repository census. Standards
-remain core3.3, heuristics1.0, code-intelligence1.4 and relevant test-assessment1.2.
-
-Inspection followed core.method UnitResult, observations.yaml, observation binding and preparation,
-record projection/query roots, native task completion, source-coordinate ownership, m1_source,
-record_readings, record_assembly, record_references, record_alignment and record_gaps. The current
-baseline retains raw native outputs but typed projected structure requires an assembled record;
-score diagnostics intentionally skip unsupported confidence shapes. `_assemble` discards an
-unlocated record group although some field spans can be valid. Record-aligned grading and
-WholeReadingLabel do not establish independent local correctness or source-first denominators.
-These are the inspected gaps relative to the newly accepted target, already scheduled as review
-O01/O02/O08/O09/O10 in the PCE coordinator; this account does not create duplicate dispositions.
-
-Existing source-product exclusion, authenticated native coordinates, immutable passes, actual
-principal separation and owned selected readers are preservation strengths. An ordinary-reader
-attempt to access eval tables refused during this execution; evaluator source-only packet capture
-succeeded with explicit project selection. New local products must retain those boundaries.
-One operation-owned selected source closure can serve several facets; per-field full reconstruction
-would repeat source validation/hydration without establishing another independent semantic claim.
-No performance benefit is measured. Former DA dispositions and other subsystem baselines are not
-closed or refreshed by these observations.
-
-The initial implementation proposal is isolated contribution commit19ed7989 in its worktree,
-with adapter and operation-assessment drafts still under integration. The forthcoming review
-must inspect that proposal independently; this refresh certifies neither its correctness nor
-native deployment. No new provider/PDF/OCR run or product qualification follows from the audit.
-
-## M1 admission engagement refresh — 2026-11-04
-
-<a id="m1-admission-refresh"></a>
-
-**Source-inspected, revision M1-20261104-r4.** Source `5675ac9d9d64429a5bb03c4b2f6192d8f0259318`;
-this publication revision is distinct. Reconciles the preceding broad baseline and M1-r3 against
-intervening AC changes for the next M1 admission target review. Core3.3, heuristics1.0,
-code-intelligence1.4 and applicable test-assessment1.2 are unchanged. This is a scoped refresh of
-the existing broad account, not a fresh whole-repository census or separate test-audit refresh.
-
-An independent contributor inspected producer/assembly/interpretation, finite projection/native
-reconstruction/reference evaluation, policy consolidation/inference and adjacent reads/exports.
-Changed AC reader authority, policy applicability, establishment/attribute support and ordinary
-acceptance were re-read. The owned Reader replaces DA-045's exposed raw-connection premise;
-policy applicability now refuses unrealized context (DA-016); released source-establishment and
-attribute-specific support correct the inspected DA-040/DA-002 boundary; indexes/delta preparation
-change DA-043's repeated reconstruction premise. These source corrections do not broaden an
-old performance or whole-inference claim. The topics retain precise limits and dates.
-
-[DA-054](execution-fit.md#da-054) is a new scoped dependency-granularity diagnosis: annotation
-work remains keyed to unrelated downstream run settings at the orchestration hash, Python twin
-selection and native reuse gate. In-progress upstream annotation separation alone does not settle it.
-Remaining private-only candidates, candidate-only publication, pure interpreter, absent record cap
-and absent fitted-instance/calibration admission are unfinished M1 target, not new defects in
-closed AC behavior. No remedy or quality result follows from this diagnostic refresh.
-
-Included dirty context is the ongoing M1 annotation/context/Reader work plus proposed ADR-0055
-and source-only guideline. Inspected decisive snapshot hashes (paths relative to the Python
-package) were `orchestrate/semantic.py` 605ffde3522a9b599a4dd937402f66a96c4b397a6f9165b1d3cf3350c0b18440,
-`semantic/operations.py` 2f0ae5dc12cdbe033e6a1b71735a45c3c38cea5be60c322d0f118b3b98a92140,
-`methods/m1_source.py` 9bb203551dd3d42d087adb07c6014cf28f84c7d701ea3a9d590509f38a445714,
-`semantic/source_contexts.py` b0321599eebb17ea3a402c2f0033e891e6c612b7a3109b78be7203929f32f1f5,
-and `methods/source_preparation.py` eee68eea326d62ef657f0727ee452cf2ea5fa694b3bc14169845c910f480edb3.
-These identify inspected in-progress bytes, not a stable qualified tree; later changes require
-review reconciliation. Unexamined broad diagnoses retain their original dates and limits.
-
-**Checks: not_run** by the diagnostic contributor: product tests, provider/database execution,
-benchmarks and integrated qualification. The separately owned AC acceptance receipts retain their
-actual source/scope. This refresh establishes neither M1 calibration nor CPU/resource/release fit.
-
-## Preceding broad baseline — 2026-11-03
-
-**Source-inspected.** Source commit `fe67cc8c5b67de5f99b8fd2c148a13c6febb2ac8` plus the identified
-uncommitted M1 work below. The commit publishing this refresh is distinct from the inspected
-source. The source HEAD remained unchanged through contributor inspection; dirty publication SQL
-changed and was re-read. Subsequent changes require affected conclusions to be reconciled.
+**Implemented source inspected.** Audited source:
+`bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`, initially clean. The publishing commit is distinct.
+Concurrent changes subsequently appeared under the separate `docs/design_review/test-audit/`
+account; they are excluded from this production source baseline and preserved. Audit/status
+publication changes are the only task-owned tracked edits. Earlier November 3 broad and
+November 4/5 scoped accounts are recoverable from Git at the audited source revision.
 
 Applied standard: core3.3, efficient-architecture heuristics1.0, code-intelligence1.4,
-test-assessment1.2 where tests/support inform a claim, and the repository binding selected by
-standard.toml. No incoming library preference or principle subset constrained diagnosis.
+relevant test-assessment1.2, and the repository binding. All seven foundations inform this
+refresh; additional depth addresses FP-04/05 and A2 model adequacy and authority.
 
-The previous broad source baseline was ad4593f (2026-10-29). Subsequent UM and M1 scoped refreshes
-were leads with their own dates/exclusions, not whole-system verification. Current inspection
-replaces stale broad diagnoses rather than carrying their summaries forward. Earlier accounts
-remain recoverable with `git show fe67cc8c:docs/design_review/audit/README.md` and adjacent pages.
+Functional intent came from DESIGN §1, current D-document owners and accepted decisions,
+including progressive enrichment, local admission and cross-source structural custody.
+Completed plan claims guided investigation; they did not establish alignment. A proposed or
+unselected capability is not treated as a defect in a narrower supported contract.
 
-### Included working-tree context
+## Current diagnostic synthesis
 
-The inspected tree included changes to DESIGN/D7, the M1 coordinator/evaluation companion,
-ADR-0053, STATUS and .gitattributes, plus the current M1 qualification evidence folder. These
-supply functional/maturity context; their existing test receipts are not fresh audit runs.
-Dirty source includes cli/schema, physical declarations, native authoring/admission/source-view
-builders, publication/reference SQL and forward101 artifacts. Relevant tests were context only.
-No product behavior, plan, ADR, dependency, database, service or persistent default was changed
-by this audit. Required turn-end maintenance reformatted one existing call in
-ingest/pdf_recognition_methods.py; its diff was read as formatting-only and remains unstaged
-outside the audit commit.
+The old broad account materially understates the current model's authority. Current source
+represents and consumes qualified relationships, operation contracts, finite lifecycle
+transitions, applicability, effects, outcome domains and implementation compatibility.
+Released behavior subsets, rule-value projections, display bindings, provisional identity
+decisions, structured semantic reasons and bounded runtime identity qualification correct
+previously cited gaps. The [model map](domain-model-map.md#current-model) explains these contexts
+and their execution boundaries.
 
-The following hashes identify decisive dirty source bytes. Paths beginning semantic/, model/ or
-cli/ are relative to `python/corpus-structure/src/corpus_structure/`; rev/ means
-`python/corpus-structure/semantic_alembic/versions/`.
+Progressive products can retain useful structure without a complete record. Source-operation
+population survives zero output; source-first omissions and output-first errors have separate
+frames. Local source quotation, independently judged denotation, structural interpretations,
+public assertions, complete records and scientific truth have distinct claims and authority.
+Native publication checks actual origin, policy and source custody, plus independent judgment
+where the admission policy requires it.
 
-| Decisive dirty path | SHA-256 |
-|---|---|
-| `ingest/pdf_recognition_methods.py` (maintenance formatting only) | `66eab5a14b05b9e0a4cf2365338bfbc41d003a79db9c621e0cc0ead9723c7506` |
-| `cli/schema.py` | `b9096b06fd2dbf1d07818893f0b51973cdf94732acc1a3d2114886d3359c4418` |
-| `model/semantic/physical.yaml` | `357b9c727914c4924c825435fec2111220cdcf7953673ecf638c2ce49a3171dc` |
-| `semantic/execution_admission.py` | `60df17c61b58313a222019b757a8c9f68b0e8ccdaff021495cf3e16b576bf5c1` |
-| `semantic/native_candidate.py` | `9affd5b1143cc14306eaeda87212a4d296b7600373d6873a4d005dfc3d2bba44` |
-| `semantic/source_view_native.py` | `9ad86f2805d7c8ca65d93b4ae8eba36f9e77df3cd327f21250faec93c844ad65` |
-| `semantic/sql/closure.sql` | `f0d5e79103c500b59eaab5d61084861665dbd99d4e767f0e11c193e6b864ad57` |
-| `semantic/sql/record_publication.sql` | `1347b30bf4ed752a24eb4e0d8c8a18721fe6fc3ddc3fbc1ca1f5c4875ecc1dde` |
-| `semantic/sql/record_references.sql` | `a81f89c362fb7426f410af41b013d0154d347a0c10af99957d6ca1680d87be2f` |
-| `rev/0101_m1_records.py` | `ea5459791eda52af0172bd0a9617aa9727e3a1fb53a5467000698565538ce747` |
-| `rev/semantic_m1_records_20261103_admission.sql` | `fa90598f6771816d4753bdc460bedddcb31fb5f3d64b1a875663ac07163b7c37` |
-| `rev/semantic_m1_records_20261103_native.json` | `c924b22f3b1f030015f3567fe477ae3b18775622f924ba791ca0fed8e8aabad1` |
+Fresh source inspection corrects the cited premises of DA-002/003/005/007/009/011/013/035/036/
+037/039/044/047/051/052/053/054. Their stable anchors retain the correction and decisive sources;
+Git retains the removed diagnoses. This is diagnostic reconciliation, not a completion audit or
+an amendment to owning plans. No new established principle violation was found in the inspected
+representative paths. That conclusion is bounded by the scope below.
 
-During inspection record_publication.sql changed from
-`236f2955025c8cc3924cd88e7cb461874e56c857ae8f23546e5dba913596dd8d` to the recorded later bytes.
-The native contributor re-read the JSON-expression repairs; no diagnosis relies on the transient
-forward101 bugs. That migration remains under separate M1 qualification. Hashes identify inspected
-bytes, not a claim that every line in each artifact was audited.
-
-## Inspection and limits
-
-Three independent read-only contributors inspected semantic authority, native persistence and
-production execution. The coordinator inspected serving, CLI/MCP, exports, reference evaluation
-and supporting command/environment/qualification code, read decisive cross-boundary sources,
-and reconciled inherited findings. A fresh reviewer challenged consequential diagnoses and
-omissions, including the trust premises behind native immutability and repeated assurance.
-
-The functional target came from DESIGN §1 and current D-document/ADR owners. Current M1 work is
-an extension with its own unqualified boundary; unfinished proposed capability is not automatically
-a defect in prior supported scope. Reachable core/schema algorithms were followed as current
-dependencies; their older legacy label is not a diagnosis. Retired HTML/M19 internals were not
-re-audited and do not establish current supported-path defects.
-
-All foundations informed the inspection: owner/change locality and narrow contracts (FP-01/02/06),
-composable production/effect lifetimes (FP-03/05), explicit model adequacy and semantic authority
-(FP-04), and qualitative necessary work, preparation, materialization, contention and recovery
-(FP-07/A4). Relevant DP/core gates and CI fidelity/coverage/evidence/evaluation criteria constrain
-findings independently. This is neither an exhaustive principle matrix nor an acceptance verdict.
-
-<a id="scenarios"></a>
-
-Representative challenges were a new identity qualifier/behavioral role, another pack,
-compiler/provider change and archive read, interruption/retry and publication, changing selection
-across query/follow-up/export, empty/missing/undecided reference units, larger source batches and
-dense relation/witness expansion. Source contracts sufficed for the published diagnoses; there
-was no uncertainty that warranted a new executable probe for this account.
-
-**Coverage limits:** selected SQL bodies rather than every kernel; no exhaustive invariant-body
-correspondence, complete provider/library conformance matrix, independent numerical verification,
-whole test-architecture refresh, actual reference/fitting journey, migration-chain replay,
-deployed ACL/mutation qualification, actual CLI/MCP transport journeys, performance/RSS or M1
-release qualification. The separate [test account](../test-audit/README.md) retains its own baseline.
-No blanket absence claim rests on an empty search or an unexamined component.
-
-**Checks:** tests, native/provider execution, benchmarks, `just test-all` and full `just hygiene`
-were **not_run**: this was a static diagnostic refresh, not a product change or qualification.
-**failed, 2026-11-03:** `just docs-check` built the site but reported unresolved targets in
-architecture/plans/library/evidence pages outside this audit. No diagnostic listed an audit page.
-These unrelated links were not repaired. Publication maintenance is reported separately in the
-handoff and commit; a failed full docs check is not relabelled as passed.
-Failed/interrupted historical receipts remain with their original owners and evidence strength.
+Remaining questions concern concrete representation conversion (DA-004), full invariant-body
+correspondence (DA-027), operational declaration correspondence (DA-012), cumulative assurance
+scope (DA-033), and per-result deployment attribution (DA-032). These are unresolved premises,
+not demonstrated violations. A later inquiry should identify a particular lost distinction,
+conflicting accepted value, unmet consumer need or safely avoidable work before promoting one
+to an established diagnosis. DA-046/048 retain their explicit target-scope qualifications.
 
 <a id="deviations"></a>
 
-## Current synthesis
+## Inspection footprint and limits
 
-Material corrections since the older broad account include compiled qualifier projections,
-released operation/implementation products, invariant diagnostics, shared scientific evidence,
-archived query compatibility and follow-up pins, public read hydration, explicit purpose principals,
-body-level physical attestation, forward-native evolution, cached archive opening, propagated
-analytics settings and inclusion of empty producer units in reference sampling.
+Three read-only contributors examined domain definitions/compilation/consumers, native integrity/
+lifecycle/execution fit, and producers/assessment/serving. The coordinator read decisive sources,
+reviewed library mechanisms and relevant independent test expectations, and reconciled findings.
+A fresh independent contributor challenged the model-adequacy conclusion, including generic
+contribution roles and dispositions; the resulting limit is recorded in the model map.
 
-Remaining concrete diagnoses concern independently authored vocabulary subsets and literal roles,
-rule-value translation, unresolved identity presentation, stale architecture
-guidance, late source-establishment refusal, unrealized accepted policy inputs, representative
-selection, candidate-inclusive row standing, coverage/explanation/path amplification, legacy split
-provenance, reader effect authority, advertised operational behavior, provider attribution,
-literal agent production and repeated candidate scans. DA-053 adds outstanding-claim renewal scope.
-Topic pages bound these claims and give contrary evidence; none selects an implementation priority.
-
-Questions about repeated representation conversion, Unicode identity parity, exhaustive invariant correspondence, simultaneous
-multi-pack support and result-level deployment attribution remain explicitly unresolved.
-Cumulative native checks protect declared trust/consistency obligations; their avoidability is
-unresolved, rather than presumed from repetition. Missing extra immutability triggers inside the
-trusted publisher do not establish a current restricted-runtime violation.
-
-## Finding navigation
-
-| Topic | Finding identities and their current diagnosis/correction |
+| Facet | Representative inspection and boundary |
 |---|---|
-| [semantic model and authority](semantic-model-and-authority.md) | [DA-001](semantic-model-and-authority.md#da-001), [DA-002](semantic-model-and-authority.md#da-002), [DA-003](semantic-model-and-authority.md#da-003), [DA-004](semantic-model-and-authority.md#da-004), [DA-005](semantic-model-and-authority.md#da-005), [DA-006](semantic-model-and-authority.md#da-006), [DA-007](semantic-model-and-authority.md#da-007), [DA-008](semantic-model-and-authority.md#da-008), [DA-009](semantic-model-and-authority.md#da-009), [DA-010](semantic-model-and-authority.md#da-010), [DA-011](semantic-model-and-authority.md#da-011), [DA-026](semantic-model-and-authority.md#da-026), [DA-027](semantic-model-and-authority.md#da-027), [DA-028](semantic-model-and-authority.md#da-028), [DA-034](semantic-model-and-authority.md#da-034), [DA-046](semantic-model-and-authority.md#da-046), [DA-048](semantic-model-and-authority.md#da-048), [DA-049](semantic-model-and-authority.md#da-049) |
-| [native integrity](native-integrity.md) | [DA-029](native-integrity.md#da-029), [DA-030](native-integrity.md#da-030), [DA-031](native-integrity.md#da-031), [DA-032](native-integrity.md#da-032) |
-| [structure and invariants](structure-and-invariants.md) | [DA-012](structure-and-invariants.md#da-012), [DA-013](structure-and-invariants.md#da-013), [DA-014](structure-and-invariants.md#da-014), [DA-015](structure-and-invariants.md#da-015), [DA-016](structure-and-invariants.md#da-016), [DA-017](structure-and-invariants.md#da-017), [DA-040](structure-and-invariants.md#da-040), [DA-041](structure-and-invariants.md#da-041), [DA-044](structure-and-invariants.md#da-044), [DA-053](structure-and-invariants.md#da-053) |
-| [served claims](served-claims.md) | [DA-035](served-claims.md#da-035), [DA-036](served-claims.md#da-036), [DA-037](served-claims.md#da-037), [DA-038](served-claims.md#da-038), [DA-039](served-claims.md#da-039), [DA-050](served-claims.md#da-050), [DA-051](served-claims.md#da-051) |
-| [boundaries and composition](boundaries-and-composition.md) | [DA-018](boundaries-and-composition.md#da-018), [DA-019](boundaries-and-composition.md#da-019), [DA-020](boundaries-and-composition.md#da-020), [DA-045](boundaries-and-composition.md#da-045), [DA-047](boundaries-and-composition.md#da-047), [DA-052](boundaries-and-composition.md#da-052) |
-| [execution fit](execution-fit.md) | [DA-024](execution-fit.md#da-024), [DA-025](execution-fit.md#da-025), [DA-033](execution-fit.md#da-033), [DA-042](execution-fit.md#da-042), [DA-043](execution-fit.md#da-043) |
-| [local reasoning and assurance](local-reasoning-and-assurance.md) | [DA-021](local-reasoning-and-assurance.md#da-021), [DA-022](local-reasoning-and-assurance.md#da-022), [DA-023](local-reasoning-and-assurance.md#da-023) |
+| Ownership and composition; FP-01/03/06 | Released vocabularies/display/rule behavior, shared proposal producer binding, owned Reader, source operations and consumer boundaries. No exhaustive import graph or every-command survey. |
+| Contracts and library fidelity; FP-02 | Effective LinkML inputs, typed/generated boundaries, bounded conditional rules, conformance-only SHACL, provider assurance and current runtime compatibility. No fresh provider execution. |
+| Model and structure; FP-04/05 | Entities, attributed relations, identity decisions, operations, applicability, transitions, effects, outcomes, invariants and progressive states. No universal ontology or requirement to encode ordinary algorithms as data. |
+| Effects and lifecycle; FP-03/05 | Claim custody through settlement, attempt fences, exact replay, SERIALIZABLE publication, restricted-purpose principals and native admission. Actual deployed catalogs/ACLs and fault behavior were not requalified. |
+| Execution fit; FP-07/A4 | Shared task dependency scope, cached archives, prepared publication eligibility, bounded standing/coverage/explanations/walks and cumulative native checks. No measured speed/capacity claim. |
+| Truthful claims and assurance; CI-01–13 | Source/runtime attribution, preserved uncertainty, source-first/output-first frames, independent literal role/missing-output controls, private reports versus public witnesses, declared population limits. No new scientific or full-corpus quality claim. |
 
-## Ownership and use
+Source paths are representative rather than a file census. Unchanged dependencies were followed
+where relevant. Rust has no newly inspected functional domain implementation; no Rust alignment
+or qualification claim is inferred. Legacy HTML/M19 internals, every invariant body, every
+adapter/export field, managed service startup/artifact custody and unseen-domain transfer remain
+outside fresh verification. Historical corrections retain their explicit dates in topic pages.
+The separate test account retains its own baseline; this engagement does not refresh it.
 
-Each structural cause has one primary home. IDs and surviving anchors remain stable; Git before
-this refresh preserves removed diagnosis bodies and their dated evidence. Retired identities are
-not reused. A removed diagnostic claim is not automatic closure of a scheduled plan obligation.
+**Checks:** source/document inspection completed. Product tests, live database/provider checks,
+fresh PDF/OCR/GLiNER/embedding work, benchmarks and integrated qualification **not_run**; they
+were unnecessary for the bounded static diagnoses and are not implied by earlier PCE receipts.
+Publication maintenance/check outcomes are recorded in STATUS and the publishing commit.
 
-Architectural owners/ADRs retain accepted meaning; reviews retain solution reasoning; active
-plans retain scheduled disposition and closure evidence. The phase0 exception owns DA-001–025
-alignment-review disposition; current series own their scheduled scope. Follow the
-[plan directory](../../plans/README.md) rather than copying their progress here. New unscheduled
-observations remain diagnostic until a later review/planning engagement selects work.
+## Reading routes
 
-A consuming review cites this account's publication revision and stable finding anchors, then
-reconciles intervening source/standard changes. Inherited dated evidence is not newly tested by
-being linked from this account. Ordinary implementation does not initiate a new broad audit.
+| Topic | Current use |
+|---|---|
+| [Domain model map](domain-model-map.md) | Concepts, relationships, actions/states, realizations, library inquiry and limits |
+| [Semantic model and authority](semantic-model-and-authority.md) | Corrected semantic authority diagnoses and remaining representation/assurance questions |
+| [Structure and invariants](structure-and-invariants.md) | Operational domains, typed reasons, applicability, attribution and claim ownership |
+| [Native integrity](native-integrity.md) | Trust boundaries, physical parity, publication, runtime custody and evolution |
+| [Served claims](served-claims.md) | Standing, bounded coverage/explanations/walks, split provenance and provider assurance |
+| [Boundaries and composition](boundaries-and-composition.md) | Reader ownership, executable producer binding and truthful operational surfaces |
+| [Execution fit](execution-fit.md) | Dependency granularity, preparation and cumulative assurance questions |
+| [Local reasoning and assurance](local-reasoning-and-assurance.md) | Source versus execution evidence and separate test-account boundaries |
 
-## Prior engagement anchors
+## Ownership and reuse
 
-These anchors preserve current consumers' reading routes. Their original dated observations are
-recoverable at the pre-refresh revision above; this current baseline does not retroactively expand
-their coverage or requalify their source.
+Each cause has one primary home. IDs are never reused. Removal of a diagnosis does not close a
+scheduled plan obligation. Follow the [plan directory](../../plans/README.md) for disposition;
+this account creates no implementation queue and selects no library adoption. Consuming reviews
+cite the publication revision and stable anchors, reconciling intervening source/standard changes.
 
+## Earlier engagement anchors
+
+These preserve existing links. The original engagement text and its dates remain in Git before
+this refresh; current source observations above do not retroactively broaden those engagements.
+
+<a id="m1-admission-refresh"></a>
 <a id="m1-public-reference-refresh"></a>
 <a id="m1-source-evidence-refresh"></a>
 <a id="m1-initial-target-refresh"></a>
-
-M1-20261103-r1/r2/r3 consumed distinct initial-target, source-evidence and public/reference slices.
-Current strengths and limits are reflected above; the corresponding M1 reviews retain their own
-source dates and execution exclusions.
-
 <a id="unified-model-refresh"></a>
 <a id="sql-authoring-refresh"></a>
-
-UM-20261101-r2/r3 inspected narrower model/SQL-authoring subjects. They are historical input to
-this refresh, not a second current broad baseline.

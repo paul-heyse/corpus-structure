@@ -1,48 +1,97 @@
 # Current domain model map
 
-**Implemented source inspected, 2026-11-03.** [Baseline and limits](README.md#baseline).
-This maps the model found in current source; it is not a second architectural authority.
+**Implemented source inspected, 2026-11-05.** [Baseline and limits](README.md#baseline).
+This diagnostic map describes the model found in source; architectural owners retain authority.
+Paths below omit `python/corpus-structure/src/corpus_structure/` unless stated otherwise.
 
 <a id="current-model"></a>
 
-## Contexts and translations
+## Meaning, behavior and realization
 
-| Context | Owned meaning and execution route | Material limits |
+| Context | Authoritative distinctions and executing realization | Limit |
 |---|---|---|
-| Effective semantic release | LinkML definitions → effective bindings/reference positions/property roles → typed boundaries and compiled operation products | Some closed subsets and behavioral roles remain separately interpreted (DA-002/003) |
-| Identity and comparison | Fact/occurrence identity, comparison projection and scientific decision policies have distinct owned contracts | Unsettled identity state and cross-runtime parity limits (DA-007/009) |
-| Source execution | Native SourceViews/frames bind product/projection/recipe; observations remain distinct from admitted knowledge | Claim renewal lifetime, provider establishment, reader effect contract (DA-053/051/045) |
-| Consolidation and inference | Candidate inputs, released rules, scientific comparison and finite witness products | Translation/representative policy and repeated candidate scans (DA-005/044/043) |
-| Native custody | Shared physical metadata, frozen forward migration descriptors, purpose principals and protected publication | Static inspection does not attest live roles/catalogs or every invariant body |
-| Consumer journey | Public ReadSession selection/hydration, archived query source/runtime compatibility, pinned continuations/follow-ups | Ordinary per-fact standing and explanation/path work bounds (DA-036/039) |
-| Evaluation | Frozen completed source frames include empty producers; references remain separated from extraction | Older split assignment loses provenance (DA-037); actual M1 reference/fitting qualification is separate |
-| M1 source records | Private records and admitted graph claims are distinct; finite projection preserves field states, lexical values, ordered evidence and admission | Candidate publication is not accepted scientific truth, source coverage or qualified M1 accuracy |
+| Semantic definitions | LinkML definitions and induced slots feed prepared types, property roles, vocabulary subsets and reference positions; `semantic/prepare.py:585–814`, `types.py:313–385` | Multiple representations remain legitimate; complete translation fidelity is not inferred from matching shapes. |
+| Qualified relationships | `model/semantic/contracts.yaml:355–416,878–979` declares endpoints, roles, direction, cardinality/identity scope, qualifications and references; `semantic/contracts.py:1279–1542` validates composition | Not every graph projection or invariant body was independently matched. |
+| Actions | OperationContract (`contracts.yaml:648–720`) binds inputs, results, applicability, dependencies, effects, outcomes and transitions; compiled implementation and generated/native call bindings consume these | Application domain functions legitimately realize algorithms. No general model interpreter is required. |
+| States and transitions | Lifecycle/transition declarations (`contracts.yaml:417–535`) and populated execution-model inputs govern finite transitions; native guards enforce task/attempt/holder and terminal publication | A state name alone is insufficient evidence; actual guards were inspected, not executed. |
+| Policy and invariants | Compiled failure bindings plus actual native guard identities; typed SemanticReason (`semantic/refusals.py:26–83`); executable policy applicability | DA-027 remains bounded assurance scope, not evidence that declarations are decorative. |
+| Identity and representation | Layered occurrence/fact identities, explicit provisional identity decisions and qualified runtime folding (`domain_operations.py:1219–1313`; `unicode_identity.py:99–160`) | No universal historical-runtime support promise; ordinary visibility of every decision was not exhaustively examined. |
+| Progressive contribution | `observations.yaml:173–260` separates operation population, contribution semantics, endpoints, field/score state and private standing; `contributions.py:47–189` governs bindings, source pieces, identity and endpoint closure | Generic retained roles are not automatically admitted knowledge semantics; see the question below. |
+| Local interpretation and admission | Source quotation/occurrence and independently adjudicated contextual denotation have separate policy owners (`local_admission.py`, `local_semantic_admission.py`) | Source location, meaning, canonical identity and scientific support remain separate claims. |
+| Structural products | Definition applicability, comparison and dossier contracts retain original source custody, participant roles and declared selection; `sql/structural_publication.sql:77–207` revalidates actual eligible effects | Lexical agreement is not equivalence; dossier membership is not full-source completeness. |
+| Publication and recovery | Shared immutable batches, SERIALIZABLE settlement, exact receipt recovery, attempt fencing and runtime bindings (`publication.py:755–941`; `sql/runtime_bindings.sql:2–100`) | Source inspection does not attest current deployed roles or replay behavior. |
+| Serving and assessment | QueryRow standing, bounded evidence/coverage/explanation/walks, source-first/output-first frozen cases and explicit population completeness | The inspected test expectations are independent examples, not executed qualification or a universal oracle. |
 
-Paths are under `python/corpus-structure/src/corpus_structure/`. Decisive model realizations:
-`semantic/comparison_projection.py:103–259`, `semantic/reference_positions.py:104–147`,
-`semantic/contracts.py:794–875,1274–1295`, `semantic/prepare.py:804–860`,
-`semantic/analytics.py:546–586,820–941,1054–1145`, `semantic/query_compatibility.py:307–447`,
-`semantic/record_projection.py`, `semantic/record_queries.py` and `evaluate/record_references.py:556–659`.
-Topic findings explain their evidence and counterevidence at the needed depth.
+The model therefore covers consequential relationships, possible actions and states as well as
+objects. Its authority is distributed among released declarations, compilation, coherent domain
+functions and native enforcement. An assessment must follow the applicable contract and scope;
+rich schemas alone do not establish model adequacy.
 
-## Change and workload reasoning
+## Representative journeys and credible changes
 
-An ordinary field/reference can reuse effective products and generated bindings. A new behavioral
-role still reaches literal consumer interpretation. Pack preparation coalesces equal policies
-and refuses conflicts; simultaneous multi-pack production was not established as a supported
-requirement. Compiler/provider changes are constrained by captured determinants and implementation
-compatibility. ADR-0047's current-only boundary must not be replaced with an invented universal
-historical-support promise.
+Source → contribution → local interpretation → optional admission was traced independently of
+complete record assembly. Operation inventory includes empty/failed questions, and a local
+contribution can survive later failure. Serving and evaluation keep retrieval population,
+assessment population, source coverage and scientific quality distinct.
 
-Prepared release indexes, cached adapters, scoped scientific comparison, batched Core reads and
-bounded Arrow/DuckDB capture are concrete strengths. Explicit projection universes and omissions
-separate required input from output selection. Ordinary graph explanations and recursive relation
-paths retain amplification that source-record budgets do not cover. Dense comparison slots and
-inference witnesses require their actual semantic universe; quadratic-looking code alone does
-not prove unnecessary work. No quantitative improvement is inferred from this map.
+Operation → admitted execution → claim custody → terminal settlement was traced through native
+projection and Python execution. Only the current method's batch is claimed; renewal includes
+preparation and settlement. Task identity, twin selection and native reuse share one dependency
+projection. These correct DA-053/054 without establishing optimal execution fit.
 
-## Historical reading
+A renamed display property or released role now reaches consumers through effective bindings
+rather than the cited name sets. A runtime/budget repair can retain semantic release identity
+while carrying an exact executable runtime binding. Archived reads retain producing provenance;
+current operational repair does not retag old results.
 
-Earlier model maps and their dated absences are recoverable from Git before this refresh.
-The earlier picture of missing operation products, missing pack root inputs and globally
-unowned scientific equivalence no longer describes the inspected runtime.
+### Generic contribution roles: bounded adequacy question
+
+`ContributionEndpoint.role` and contribution disposition are open strings; `contributions.py`
+checks identity, local endpoint closure and minimal relation/composite structure. This is a
+weaker generic contract than a domain-specific relationship definition. Whether a particular
+new role requires stronger declarations depends on the semantic claim its consumers make.
+Free strings alone do not establish a violation. Existing semantic consumers and their guards
+must be examined before treating this as merely opaque transport or as ungoverned meaning.
+The independent challenge inspected current consumers: `methods/contribution_adapter.py:725–915`
+owns table/definition attachment vocabulary, eligible grouping, anchored primary, allowed roles
+and source/geometry constraints; `evaluate/operation_assessment.py:230–292` compares frozen roles
+and anchors without repairing misspellings. `semantic/sql/source_contributions.sql:450–492`
+binds contextual denotation to an actual retained selected decision, statement and dependencies;
+`semantic/sql/record_publication.sql:891–940` additionally requires the exact question/version,
+rubric/context and independent supported case. `serve/contributions.py:68–100` distinguishes
+private interpretation from admitted witnesses. The generic envelope is sufficient for private
+retention under these inspected narrower owners. Complete semantics for arbitrary future
+contribution vocabularies were not established; no new DA identity is assigned to that limit.
+
+## Library inquiry and capability boundaries
+
+All 15 guides under [data_model](../../libraries/data_model) were oriented by capability and
+semantic limits, followed by targeted source inspection. Dependency presence is distinct from
+feature adoption. The pinned product manifest is `python/corpus-structure/pyproject.toml`.
+
+| Guides | Current relevance and bounded conclusion |
+|---|---|
+| LinkML; extension libraries | Direct LinkML/runtime1.12.1 and term-validator0.4.5. Effective induced definitions and generated boundaries are used. Actual operation/lifecycle enforcement is application/native realization, not implicit LinkML behavior. |
+| Pydantic; JSON Schema | Direct2.14.1/4.26.0. Typed boundaries use strict/frozen/extra-forbid construction (`semantic/boundary.py:244–269`). Conditional rules use native JSON Schema fragments with explicit unsupported-field refusal (`conditional_rules.py:56–126,168–220`); native lowering separately owns persisted enforcement. |
+| pydantic-settings | Direct2.16.1. Configuration source/default semantics are a boundary; they do not supply independent domain-policy authority. No new settings defect established. |
+| RDFLib; pySHACL | Direct7.6.0/0.40.1. `ontology.py:723–742` explicitly selects conformance-only behavior: no inference, advanced rules, imports or mutation, and separates invalid shapes from runtime failure. Conformance is not external truth. |
+| PyOxigraph; Oxrdflib | PyOxigraph0.5.13 is transitive; Oxrdflib absent. Backend capability does not establish application adoption, relationship preservation or transactional substitution. No new store selected. |
+| valuesets; OAK | Direct0.4.2/0.7.4. `ontology.py` acquires explicit local snapshots and prepares vocabulary membership/meaning. Lexical matching, ontology entailment and equivalence remain different judgments. |
+| linkml-map; linkml-datalog | Absent dependencies. Useful lenses for preservation versus derivation, asserted versus inferred facts and rule provenance; absence alone is not a diagnosis or adoption obligation. |
+| schema-automator | Absent. Inferred keys, enums, cardinalities and relationships are hypotheses about observed data, not complete permitted-domain authority. |
+| msgspec/attrs/cattrs | cattrs26.2.1 direct, attrs26.1.0 transitive, msgspec absent. Conversion/structuring is distinct from semantic interpretation and invariant enforcement; no concrete new loss established. |
+
+Context7 lookup on 2026-11-05 used official LinkML SchemaView/generator documentation and
+pySHACL validation/rules documentation. Current online generator examples include behavior
+beyond the pinned version; no such feature was assumed available or required. Local addenda
+also include newer pySHACL/Pydantic material. Exact source and actual settings govern conclusions.
+Primary references: [LinkML SchemaView](https://linkml.io/linkml/developers/schemaview.html),
+[LinkML conditional rules](https://linkml.io/linkml/howtos/skip-logic.html),
+[pySHACL](https://github.com/RDFLib/pySHACL).
+
+## Workload and assurance limits
+
+Prepared indexes, cached adapters/archives, shared owned reads and bounded result inventories are
+preservation strengths. Cumulative native assurance protects real trust and consistency premises;
+DA-033 retains the unresolved avoidability question. No benchmark, numerical improvement,
+complete non-statistics transfer result or whole-corpus semantic quality is inferred.

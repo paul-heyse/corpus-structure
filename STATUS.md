@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-05; selected PCE-00–11 scope Complete; qualified nondefault._
+_Updated 2026-11-05; broad production audit refreshed; selected PCE scope remains qualified nondefault._
 
 ## Current scope and authority
 
@@ -8,12 +8,18 @@ _Updated 2026-11-05; selected PCE-00–11 scope Complete; qualified nondefault._
 - ADR-0062/0063 preserve progressive products and semantic/runtime separation; ADR-0064 owns
   local admission and [ADR-0065](docs/adr/0065-cross-source-structural-products.md) cross-source
   structural custody. Complete records remain stronger products; no default is activated.
-- Original source projects stay isolated. Registered automatic definition nomination/classification,
-  supplied qualified comparisons/dossiers, independent group judgments and finite common-batch
-  publication share owned source/task/assessment/read/export lifetimes.
-- CLI, named queries and fresh external stdio MCP expose private reports and separately admitted
-  public assertions. Portable review includes raw outputs/configurations, source context/pieces,
-  original contracts, independent passes, grades and granular gap/change/capability accounts.
+- Original source projects stay isolated; registered nomination/classification and supplied structural
+  products share owned source/task/assessment/read/export lifetimes and independent judgments.
+- CLI/named queries/MCP expose private reports and public assertions; portable review retains
+  raw outputs, configurations, source context, contracts, passes, grades and granular gaps.
+
+## Current audit — 2026-11-05
+
+- [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/relations/actions/
+  states, native custody, consumers and library boundaries refreshed; stale diagnoses corrected.
+  No new established violation in inspected paths; unresolved questions and limits remain explicit.
+- `just docs-check`, `git diff --check`, `just turn-end`: passed. Product checks: not_run for audit.
+  Separate test-audit edits retain their own ownership; prior PCE receipts below keep their scope.
 
 ## Last verified — 2026-11-05
 
@@ -32,7 +38,6 @@ _Updated 2026-11-05; selected PCE-00–11 scope Complete; qualified nondefault._
   accepts the corrected bounded architecture after F01–F03 and final-source reconciliation.
 
 ## Selected results and limits
-
 - Public98/cut132 reuses exact234–237 as238–241 and admits four independently reviewed supplied
   statements under three policies.13 native fault refusals and the exact staged baseline pass.
 - Logical releasebf5e216e…/native151 is unchanged. Producer98 keeps archived runtimed86238…;
@@ -53,4 +58,3 @@ _Updated 2026-11-05; selected PCE-00–11 scope Complete; qualified nondefault._
 - No required execution remains in the selected scope. F37 targeted applicability refinement and
   F39 broader source/reference authoring retain explicit triggers; conditional inference/training/
   ANN/transfer work remains unselected. Adoption requires its own operator selection.
-- Plans/evidence/raw bytes/migrations remain preserved. Work is on main, with no auxiliary worktrees.

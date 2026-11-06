@@ -39,28 +39,19 @@ an ownership correction, not Python sandboxing or a claim about arbitrary reflec
 
 <a id="da-047"></a>
 
-## DA-047 — Advertised operational surfaces overstate their current behavior
+## DA-047 — Cited advertised operational surfaces corrected
 
-**FP-06, DP-15/22/24; implemented, narrowed.** Orphan status is always empty
-(`orchestrate/commands.py:399,441`); CLI advertises by_unit (`cli/orchestrate.py:141`) while
-semantic execution refuses it (`orchestrate/semantic.py:91–95`). These surfaces can imply
-functionality they do not establish. Omitted proposal schema hash being replaced by the server
-value (`intervene/semantic_server.py:575`) is an interface-policy fact, not automatically a defect.
-PreparedRelease.queries remains descriptor state, not proof of a missing execution consumer.
-The old empty-fusion claim is removed: fusion consumes admitted-cut candidates
-(`domain_operations.py:2080–2091`). Native SQL/generators now have authoring consumers;
-no blanket dead-code diagnosis remains.
+**Source-inspected 2026-11-05.** Orphan availability is explicit (`orchestrate/commands.py:48,414,456`, `orphaned=None`), and
+CLI exposes only implemented complete/full scope (`cli/orchestrate.py:140–146`). The earlier
+empty-orphan and advertised-by_unit examples no longer sustain a current surface defect. This is
+source inspection of those examples, not qualification of every advertised command.
 
 <a id="da-052"></a>
 
-## DA-052 — Knowledge-claim agent production is bound to a literal method identity
+## DA-052 — Proposal production now shares an executable producer binding
 
-**FP-02/03/04, DP-06/08/16; implemented.** Scheduling builds agent.opus explicitly
-(`orchestrate/semantic.py:885–899`), routing requires that name (`:1024–1031`), and snapshots select
-only its configurations (`:151–173`). MCP and automation do the same
-(`intervene/semantic_server.py:142–159`; automated.py:88–97,307–314`). Another agent identity needs
-coordinated policy, queue and provider edits rather than one producer binding.
-M1 source-record candidates now pass through source completion records
-(`semantic/observations.py:260–272`), which corrects the old claim that other producers cannot
-contribute anything. That route does not establish a general knowledge-claim proposal contract.
-Actual attribution limits have one home at [DA-051](served-claims.md#da-051).
+**Source-inspected 2026-11-05.** `methods/llm/producer.py:10–57` owns the finite supported producer contract, including
+agent.opus and agent.general, protocol/version, unit, execution kind, mode and model. Queue,
+snapshot, lease and automation paths consume that owner. The literal agent.opus remains an
+explicit default (`orchestrate/semantic.py:986`), not the former exclusive routing authority.
+The finite implemented support set is honest; arbitrary new providers still require qualification.

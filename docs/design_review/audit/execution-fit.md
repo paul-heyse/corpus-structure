@@ -67,20 +67,22 @@ these owners rather than restoring whole-candidate rescans.
 
 <a id="da-054"></a>
 
-## DA-054 — Annotation identity includes unrelated downstream run settings
+## DA-054 — Annotation dependency-granularity manifestation corrected
 
-**FP-07/A4, DP-09/10, H12/13; source-inspected 2026-11-04, M1-20261104-r4.**
-`orchestrate/semantic.py:335–355` hashes the complete run dependency digest for every task;
-its manifest includes all operation configurations, GLiNER libraries, extraction policy and
-guideline. `semantic/operations.py:create_task` independently requires origin/current run
-dependency-digest equality. Native `ops.valid_reuse` in frozen
-`semantic_alembic/versions/semantic_0012_observation_inputs.sql:62–78` requires complete
-recorded dependencies; `semantic/sql/execution_guards.sql` applies that gate.
+**Source-inspected 2026-11-05.** Orchestration task identity (`orchestrate/semantic.py:386–405`), Python twin selection
+(`semantic/operations.py:314–320`) and native reuse
+(`semantic/sql/task_dependency_scope.sql:22–38`) consume the shared operation projection.
+That projection separates annotation/extraction determinants and keeps unknown keys significant
+(`:3–17`); release/runtime/source equality remains required. The cited unrelated downstream
+invalidation cause is removed. This establishes neither optimal granularity nor a measured speedup.
 
-Consequently a downstream GLiNER schema/configuration change repeats unchanged source/profile
-annotation work, even after introducing a separate upstream annotation method. This is a concrete
-dependency-granularity/amplification cause, not a speed measurement or allegation of unsound reuse.
-Necessary source, profile, release, configuration and relevant library changes must still invalidate.
-A different source or release is not reusable merely because its words look equal. This differs
-from retired DA-025's rendition issue and DA-042's corrected packet preparation. The scheduled
-M1 preparation owner retains disposition; this account supplies diagnosis only.
+## Current cumulative-work boundary
+
+**Source-inspected 2026-11-05.** DA-033 remains an unresolved premise, not a demonstrated
+avoidable-work defect. Current publication checks facts/cardinalities (`semantic/sql/publication.sql:25–45`),
+closure validates memberships/derivations/values (`semantic/sql/closure.sql:627–688`), and
+activation checks actual native catalogs (`semantic/sql/admission.sql:5–152`). Narrower checking
+was not shown to preserve their trust/consistency obligations. New PCE eligibility is prepared
+through shared materialized grade/origin/case collections (`semantic/sql/record_publication.sql:979–1037`),
+while routine archived reading retains cached opening (`semantic/archive_reader.py:243–276,391–409`).
+No fresh measurement or universal execution-fit conclusion follows.

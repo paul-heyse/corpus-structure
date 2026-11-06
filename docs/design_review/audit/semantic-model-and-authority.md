@@ -16,29 +16,24 @@ are legitimate when their contracts are explicit; the earlier opposite-default d
 
 <a id="da-002"></a>
 
-## DA-002 — Closed vocabularies retain independently authored subsets
+## DA-002 — Cited independent-subset manifestations corrected
 
-**FP-04/05, DP-01/03/06; implemented.** Establishment is authored in core.yaml:595–599,
-assembly's accepted subset in `semantic/consolidation.py:242–246`, and a physical CHECK in
-physical.yaml:1596 (model paths are under model/semantic). Agent statement/evidence roles
-are separately authored in agent.yaml:149–170. ReferenceSplit includes reserved
-(reference.yaml:180–184) while the reference-set physical constraint excludes it
-(physical.yaml:2030). Changes require independent semantic edits or can be admitted upstream
-and rejected downstream. This is not a claim that every closed set is duplicated: effective
-statement kinds and reference products now derive from released declarations. DA-040 owns the
-concrete late-rejection consequence; these manifestations share the independently authored subset.
+**Source-inspected 2026-11-05.** Consolidation consumes released source admissibility (`semantic/consolidation.py:225–228`);
+proposal roles and evidence/source domains derive from released vocabularies
+(`semantic/proposals.py:88–100`). Executable reference splits come from the exact companion
+(`semantic/contracts.py:1734`; `semantic/types.py:326–343`). A remaining finite physical CHECK
+alone does not demonstrate competing meaning or late rejection. The previous cited diagnosis
+is removed; this is not exhaustive vocabulary-to-native correspondence qualification.
 
 <a id="da-003"></a>
 
-## DA-003 — Behavioral roles are reconstructed in consumers
+## DA-003 — Cited behavioral-role reconstruction corrected
 
-**FP-04/A2, DP-01/06/08; implemented.** `semantic/domain_operations.py:3020–3026,3260` recognizes
-literal premise/example_value/formula/assumption roles. `serve/read.py:151–158` finds display
-labels through the name set label/aliases/name/canonical_name, despite explicit display roles
-in `semantic/property_roles.py:13–35`. A differently named display property can affect identity
-or reference handling yet disappear from label lookup. Adding that category therefore reaches
-consumers outside its declared owner. Effective statement bindings and qualifier projections
-correct several older manifestations; metadata alone does not automatically promise executable policy.
+**Source-inspected 2026-11-05.** Statement behavior consumes released subsets (`semantic/domain_operations.py:200–211`);
+expression behavior does likewise (`semantic/rule_views.py:320–337`). Display lookup consumes
+`prepared.display_properties()` (`serve/read.py:157–175`), whose ordered bindings are owned by
+`semantic/types.py:352–385`. The earlier differently named display-property omission no longer
+follows. This does not establish extension locality for every possible new behavioral role.
 
 <a id="da-004"></a>
 
@@ -53,39 +48,37 @@ transformations (`:1438–1506,1594–1623`). Proposal location validates/dumps/
 This is substantial counterevidence to independent semantic reconstruction. No cited distinction
 was shown to be lost, and no redundant validation was established under unchanged premises.
 The earlier established diagnosis is withdrawn; the locality/execution tradeoff remains a question
-for a concrete consumer scenario. DA-005 owns the demonstrated translation omissions separately.
+for a concrete consumer scenario. DA-005 records the subsequent correction of the previously demonstrated translation omissions.
 
 <a id="da-005"></a>
 
-## DA-005 — Rule-value translations omit consequential meaning
+## DA-005 — Rule-value and address translation omissions corrected
 
-**FP-04/A2, DP-02/07/08; implemented.** The rule schema now has an archived owner and public
-accessors (`semantic/rule_views.py:207–231`), correcting the old private-schema claim.
-The actual projection still assigns enum=None and slot kind=value kind (`:189–204`), while
-ValueView.defined_symbol recognizes only literal formula (`:129–131`). Core ExpressionValue
-therefore has different rule-visible meaning. This is a translation-contract gap, not the absence
-of a rule schema. The older Agent evaluator also rebuilds claims/N addresses (`evaluate/semantic.py:695`)
-independently of production (`semantic/domain_operations.py:1499`); current prediction reads do
-filter to admitted occurrences. M1 record evaluation has a separate explicit address contract.
+**Source-inspected 2026-11-05.** `semantic/rule_views.py:250–337` preserves declared range, enum identity, expression form and
+language, missing reason, unavailable reading state and released symbol/binding behavior;
+`:160–165` consumes the resulting behavior. The older evaluator now imports the shared address
+owner (`evaluate/semantic.py:696,718`; `semantic/identity.py:34`). The prior demonstrated loss and
+independent address-authoring premises are removed. Arbitrary future translations remain subject
+to their own fidelity contract.
 
 <a id="da-006"></a>
 
 ## DA-006 — Reference-kind diagnosis remains corrected
 
 `semantic/reference_positions.py:24–29,104–147` distinguishes reference kinds/ranges;
-`semantic/proposals.py:777–797` checks nested memberships. Remaining outcome uncertainty is DA-007.
+`semantic/proposals.py:777–797` checks nested memberships. DA-007 records the later explicit identity-decision representation.
 
 <a id="da-007"></a>
 
-## DA-007 — Unsettled identity state is not consistently exposed
+## DA-007 — Identity-decision state premise corrected
 
-**FP-04/05, DP-02/21, CI-04; implemented.** Ambiguous anchored labels become singleton
-partitions (`semantic/domain_operations.py:923–953`), and ungrounded cycles exit with
-source-qualified identities (`:1037–1042`), without a typed ambiguity result for those decisions.
-Bare local/known identifiers still share fallback mapping (`semantic/reference_positions.py:125–131`).
-ClaimCandidate.unresolved_references, recursive reference positions, membership checks and partial
-coverage are material counterevidence. The surviving concern is discoverability of unresolved
-identity meaning; no collision or false absence result was demonstrated.
+**Source-inspected 2026-11-05.** `semantic/domain_operations.py:1219–1251,1275–1313` retains resolved, ambiguous_anchor,
+incomplete_key and ungrounded_cycle decisions, with candidates, dependencies and policy.
+Publication carries EntityResolutionRow (`semantic/publication.py:79–90,381`;
+`semantic/domain_operations.py:2215`); native closure requires the producing operation/version
+and prevents provisional outcomes from claiming globally resolved identity
+(`semantic/sql/closure.sql:774–795`). Ordinary discoverability of every identity decision was not
+exhaustively examined; that limit is not a replacement established defect.
 
 <a id="da-008"></a>
 
@@ -95,14 +88,13 @@ identity meaning; no collision or false absence result was demonstrated.
 
 <a id="da-009"></a>
 
-## DA-009 — Cross-runtime identity parity remains an unresolved question
+## DA-009 — Unicode parity has a bounded qualification owner
 
-**DP-04/09/24; unresolved, no demonstrated divergence.** Scientific/Python determinants now
-have one owner (`semantic/determinants.py:24–45,79–91`); identity uses value_codec. Remove the
-old missing-library-list/unversioned-recipe diagnosis. Python casefold (`types.py:379–381`) and
-PostgreSQL casefold (`semantic/sql/identity.sql:61–62`) remain distinct runtime realizations;
-this inspection did not establish their complete Unicode parity contract. Mirrors alone do not
-establish a defect, and native recomputation has a real trust-boundary purpose.
+**Source-inspected 2026-11-05.** `semantic/unicode_identity.py:99–160,233–246` compares the PostgreSQL-supported scalar folding
+mapping and fences exact Python/PostgreSQL determinants and archived recipe. Activation invokes
+that boundary (`semantic/execution_admission.py:75–79`); keys use its folding owner
+(`semantic/types.py:409–412`). The earlier unowned-parity premise is corrected for the supported
+pair. No universal runtime parity or fresh native execution is claimed.
 
 <a id="da-010"></a>
 
@@ -113,14 +105,13 @@ operation/query dependencies. DA-028 reassesses execution custody.
 
 <a id="da-011"></a>
 
-## DA-011 — Present-tense architecture guidance conflicts across compiler generations
+## DA-011 — Current compiler guidance supersedes dated descriptions
 
-**FP-06, DP-21/22/24; design text.** D2 describes compiler12, compiler7/semantic-1 support,
-and compiler6 at `docs/design/D2-schema-and-guidelines.md:72,109,156`; current source declares
-compiler15/boundary12 (`semantic/types.py:17–19`) and execution compiler23 (`contracts.py:28`).
-An extension author cannot tell which present-tense contract governs from those descriptions.
-Honest Proposed or explicitly historical detail is not the defect. The architecture map itself
-is a route to owners, not a conformance certificate. Current-only ADR-0047 controls compatibility.
+**Source-inspected 2026-11-05.** D2's current opening names compiler17/execution27 and routes current/readable authority to
+source (`docs/design/D2-schema-and-guidelines.md:15–34`). Constants agree
+(`semantic/types.py:17–19`; `semantic/contracts.py:28`). Earlier implementation paragraphs have
+explicit dates; those historical numbers alone do not sustain the earlier present-tense conflict.
+No whole architectural-document consistency certificate follows.
 
 <a id="da-026"></a>
 
@@ -164,7 +155,7 @@ Different purposes need not use identical equivalence. Representative choice bel
 
 Core mathematical vocabulary alone does not prove statistics coupling. The toy pack binds its
 own statement enum (`domains/toy/semantic.yaml:36–40`) and proposal generation uses effective
-kinds. Concrete generic formula/role interpretations remain under DA-003; whether reusable
+kinds. The cited formula/role manifestations were corrected under DA-003; whether reusable
 mathematical core types exceed the intended boundary remains unresolved, not a second diagnosis.
 
 <a id="da-048"></a>

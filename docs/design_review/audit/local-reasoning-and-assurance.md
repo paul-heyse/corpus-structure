@@ -38,3 +38,12 @@ surface during this refresh found no reason to reinstate the former narrow-manif
 
 The current repository binding maps binding decisions to principles; the earlier empty-map
 premise no longer applies. This is source inspection, not a whole-binding correctness claim.
+
+## Current representative assurance inspection
+
+**Source-inspected 2026-11-05.** `python/corpus-structure/tests/evaluate/test_operation_assessment.py:64–156`
+uses literal role/value/location expectations and missing-output cases; source-first and output-first
+frames retain different populations. These examples challenge production semantics rather than
+merely accepting production validation. They were read, not executed. No inference about every
+fixture, oracle or test follows. The separately edited test account keeps independent ownership
+and freshness; the dated historical statements above were not renewed by this production audit.
