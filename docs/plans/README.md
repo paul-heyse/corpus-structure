@@ -19,6 +19,12 @@ semantic pivot series was added on 2026-10-29:
 | [First production milestone](first-production-milestone_2026-11-03.md) | Superseded for remaining scope by progressive enrichment; historical M1 package state, five-family targets and receipts retained without claiming completion |
 | [Progressive corpus enrichment](progressive-corpus-enrichment_2026-11-04.md) | Planned PCE-00–PCE-11: independent structural contributions, operation assessment, local qualification, parsing/mathematics, contextual embeddings/linking, cross-document products and review export; progressive-review O01–O10/RC01–08 and transferred M1 obligations; execution stopped |
 
+
+[Witnessed corpus enrichment](witnessed-corpus-enrichment_2026-11-05.md) is the new Proposed series
+for the audited enrichment target: WCE00–12, F01–F07/RC01–RC06, concrete library realization,
+source/reference expansion and conditional interpretation/identity challengers. It preserves the
+selected PCE completion and the separate test-resolution execution owner.
+
 The [phases 1–5 roadmap](roadmap-phases-1-5_2026-10-28.md) is not an execution plan: it says what
 each later phase adds and what decides it, until its detailed plan is written. Cross-references
 between plans cite package ids and evidence record ids, never copied status. An active plan owns
