@@ -742,6 +742,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "resolve_retained_component",
         "resolve_retained_relationship_decision",
         "validate_component_targets",
+        "component_semantic_target",
         "validate_structural_product_report",
     ):
         definitions.extend(
@@ -754,7 +755,7 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple(
                     (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
                 )
-                if name in {"validate_structural_input", "resolve_retained_component", "resolve_retained_relationship_decision", "validate_component_targets"}
+                if name in {"validate_structural_input", "resolve_retained_component", "resolve_retained_relationship_decision", "validate_component_targets", "component_semantic_target"}
                 else (),
             )
         )

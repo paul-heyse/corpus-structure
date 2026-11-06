@@ -524,9 +524,8 @@ BEGIN
     OR contribution->>'occurrence_id' IS DISTINCT FROM source_cue->>'occurrence_id'
     OR NOT EXISTS(SELECT FROM jsonb_array_elements(selected_edge->'witnesses') w WHERE w->'evidence_ids' ? (source_cue->>'contribution_id'))
     OR statement IS DISTINCT FROM jsonb_build_object(
-      'target_id',denotation_target->'target_id',
-      'target_source_binding',denotation_target->'source_binding','relation',selected_edge->>'relation',
-      'scope',denotation->'scope','effective_version',denotation->'effective_version','edge_id',selected_edge->'edge_id','constraint_id',selected_edge->'constraint_id')
+      'target',ops.component_semantic_target((SELECT ct->'reference' FROM jsonb_array_elements(denotation_report->'component_targets') ct WHERE ct->'reference'->>'component_id'=selected_edge->>'target_id')),
+      'relation',selected_edge->>'relation','scope',denotation->'scope','effective_version',denotation->'effective_version')
     OR contribution->'computation_dependencies' IS DISTINCT FROM jsonb_build_array(
       source_cue->>'contribution_id',denotation->>'candidate_list_id',denotation->>'decision_id',
       (SELECT ii->>'source_selection' FROM jsonb_array_elements(denotation_report->'inventories') ii WHERE ii->>'inventory_id'=denotation_list->>'inventory_id'),selected_edge->>'edge_id')

@@ -23,8 +23,7 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT jsonb_strip_nulls(jsonb_build_object(
   'term',data.structural_citation(report,component->'term'->>'passage_id')||((component->'term')-'passage_id'),
   'content',data.structural_citation(report,component->'content'->>'passage_id')||((component->'content')-'passage_id'),
-  'interpretation',component->'interpretation','scope',component->'scope','effective_version',component->'effective_version',
-  'alternatives',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(component->'alternatives') v),'[]')))
+  'interpretation',component->'interpretation','scope',component->'scope','effective_version',component->'effective_version'))
 $$;
 REVOKE ALL ON FUNCTION data.structural_definition_component(jsonb,jsonb) FROM PUBLIC;
 
@@ -42,11 +41,7 @@ BEGIN
  IF report->>'kind'='definition_components' THEN
   SELECT v INTO STRICT value FROM jsonb_array_elements(report->'definition_components'->'components') v WHERE v->>'component_id'=component_id;
   IF value->>'interpretation'='unresolved' THEN RAISE EXCEPTION 'unresolved attachment is not a supported public component' USING ERRCODE='23514'; END IF;
-  result:=result||jsonb_build_object('definition_component',jsonb_strip_nulls(jsonb_build_object(
-   'term',data.structural_citation(report,value->'term'->>'passage_id')||((value->'term')-'passage_id'),
-   'content',data.structural_citation(report,value->'content'->>'passage_id')||((value->'content')-'passage_id'),
-   'interpretation',value->'interpretation','basis',value->'basis','scope',value->'scope','effective_version',value->'effective_version',
-   'alternatives',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'alternatives') v),'[]'))));
+  result:=(result-'inventory_id'-'input_policy_id')||jsonb_build_object('definition_component',data.structural_definition_component(report,value));
  ELSIF component_id IS NOT NULL THEN RAISE EXCEPTION 'component selector requires component report' USING ERRCODE='23514';
  ELSIF report->>'kind'='definition_applicability' THEN
   value:=report->'definition';

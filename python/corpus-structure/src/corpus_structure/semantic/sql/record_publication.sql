@@ -905,8 +905,8 @@ BEGIN
      OR NOT(anchor ?& ARRAY['start','end','source_piece']) OR (anchor->>'start')::bigint<0
      OR (anchor->>'end')::bigint<=(anchor->>'start')::bigint
      OR length(anchor->>'source_piece')<>(anchor->>'end')::bigint-(anchor->>'start')::bigint)
-   OR statement-ARRAY['target_id','target_source_binding','relation','scope','effective_version','edge_id','question_id']<>'{}'
-   OR NOT(statement ?& ARRAY['target_id','target_source_binding','relation','scope','effective_version','edge_id','question_id'])
+   OR statement-ARRAY['target','relation','scope','effective_version']<>'{}'
+   OR NOT(statement ?& ARRAY['target','relation','scope','effective_version'])
    OR statement->>'relation' NOT IN ('denotes','alias-of','defined-by','specializes','compared-with','participates-in')
    OR operation->>'outcome' IS DISTINCT FROM 'succeeded'
    OR operation->>'question' IS DISTINCT FROM 'contextual relationship selection for located occurrence'

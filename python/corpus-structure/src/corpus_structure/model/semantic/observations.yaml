@@ -735,10 +735,8 @@ classes:
       term: {required: true, range: StructuralPublicCitation, inlined: true}
       content: {required: true, range: StructuralPublicCitation, inlined: true}
       interpretation: {required: true, range: StructuralDefinitionInterpretationValue}
-      basis: {required: true}
       scope: {required: true}
       effective_version: {}
-      alternatives: {multivalued: true}
   ContextualEnrichmentReport:
     is_a: SourceRecordProduct
     attributes:
@@ -1148,7 +1146,6 @@ classes:
       interpretation: {required: true, range: StructuralDefinitionInterpretationValue}
       scope: {required: true}
       effective_version: {}
-      alternatives: {multivalued: true}
   StructuralPublicDefinitionReading:
     attributes:
       component: {required: true, range: StructuralPublicApplicableComponent, inlined: true}
@@ -1300,10 +1297,8 @@ classes:
         required: true
       inventory_id:
         range: string
-        required: true
       input_policy_id:
         range: string
-        required: true
       coverage_limits:
         range: string
         multivalued: true

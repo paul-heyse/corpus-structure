@@ -38,9 +38,9 @@ def test_exact_component_admits_without_whole_applicability(private_source, sema
         native_content_digest=source.native_content_digest, projection_digest=source.projection_digest,
         recipe_digest=source.recipe_digest, coordinate_version=2), start=0, end=2, text="12", scope="controlled-source")
     expected = dict(version="structural-public-statement-2", kind="definition_components",
-        scope="controlled-source", inventory_id="controlled-original-source", input_policy_id="controlled-component-1",
+        scope="controlled-source",
         coverage_limits=[], exclusions=[], definition_component=dict(term=citation, content=citation,
-        interpretation="definition", basis="native_geometry", scope="controlled-source", alternatives=[]))
+        interpretation="definition", scope="controlled-source"))
     frozen = StructuralEvaluationFrame(inputs=completed.inputs, operation="definition_components",
         direction="source_first", rubric_version="independent-definition-component-1",
         rubric_text="Controlled exact located attachment only, no usage applicability or semantic-quality claim.",

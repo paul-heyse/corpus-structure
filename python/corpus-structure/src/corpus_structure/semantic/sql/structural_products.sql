@@ -111,6 +111,16 @@ END $$;
 REVOKE ALL ON FUNCTION ops.resolve_retained_component(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.resolve_retained_component(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
+CREATE OR REPLACE FUNCTION ops.component_semantic_target(ref jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE retained jsonb;
+BEGIN
+ retained:=ops.resolve_retained_component(ref);
+ RETURN data.structural_definition_component(retained->'report',retained->'component');
+END $$;
+REVOKE ALL ON FUNCTION ops.component_semantic_target(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.component_semantic_target(jsonb) TO corpus_sem_reader,corpus_sem_writer;
+
 CREATE OR REPLACE FUNCTION ops.validate_component_targets(targets jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE target jsonb; retained jsonb;
