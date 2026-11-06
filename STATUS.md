@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-05; test audit resolution series Proposed; selected PCE scope remains qualified nondefault._
+_Updated 2026-11-05; enrichment target review Proposed; PCE remains qualified nondefault._
 
 ## Current scope and authority
 
@@ -8,18 +8,17 @@ _Updated 2026-11-05; test audit resolution series Proposed; selected PCE scope r
 - ADR-0062/0063 preserve progressive products and semantic/runtime separation; ADR-0064 owns
   local admission and [ADR-0065](docs/adr/0065-cross-source-structural-products.md) cross-source
   structural custody. Complete records remain stronger products; no default is activated.
-- Original source projects stay isolated; registered nomination/classification and supplied structural
-  products share owned source/task/assessment/read/export lifetimes and independent judgments.
-- CLI/named queries/MCP expose private reports and public assertions; portable review retains
-  raw outputs, configurations, source context, contracts, passes, grades and granular gaps.
+- Source projects stay isolated; structural products share owned lifetimes and independent judgments.
+- CLI/MCP and portable review retain raw outputs, source context, contracts, passes and granular gaps.
 
-## Current audits — 2026-11-05
+## Current reviews and audits — 2026-11-05
 
-- [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/relations/actions/states,
-  native custody, consumers and library boundaries refreshed; unresolved questions remain explicit.
-- [Test audit](docs/design_review/test-audit/README.md) feeds the new [resolution series](docs/plans/test-audit-resolution_2026-11-05.md):
-  Proposed TR-00–10; all23 finding dispositions, explicit repairs/preservation and fresh qualification target.
-- `just docs-check`, `git diff --check`, `just turn-end`: passed for audit publication; product tests not_run. Neither alignment certification nor fresh product qualification follows.
+- [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/native/consumer boundaries refreshed; unresolved questions explicit.
+- [Test audit](docs/design_review/test-audit/README.md) feeds the [resolution series](docs/plans/test-audit-resolution_2026-11-05.md): Proposed TR-00–10; all23 dispositions and qualification target.
+- [Enrichment target review](docs/design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md)
+  proposes witnessed components/composition, seven target findings and six rule impacts. Separate test
+  plan assumed done for target; actual plan status remains Proposed. Product qualification not_run.
+- Review: `just docs-check` and task-scoped diff check passed; `just turn-end` recipe passed but reported concurrent test E402 lint errors, excluded from review.
 
 ## Last verified — 2026-11-05
 
@@ -55,6 +54,7 @@ _Updated 2026-11-05; test audit resolution series Proposed; selected PCE scope r
 
 ## Next
 
-- Next test work: TR-00 target review when repair execution is authorized; current writing scope is complete.
+- Next enrichment step: plan creation from the integrated review, including explicit rule dispositions.
+- Separate test work remains at its own resolution series; its execution is not part of this review.
 - Selected PCE has no required execution remaining. F37/F39 retain their triggers; inference/training/ANN/
   transfer and adoption remain unselected. New test plans do not close broader product obligations.
