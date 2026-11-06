@@ -14,7 +14,7 @@ REVOKE ALL ON FUNCTION data.structural_citation(jsonb,text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION data.structural_citations(report jsonb,identifiers jsonb)
 RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
  SELECT COALESCE(jsonb_agg(c ORDER BY data.canonical_json(c)),'[]'::jsonb) FROM (
- SELECT data.structural_citation(report,value) c FROM jsonb_array_elements_text(identifiers)) selected
+ SELECT DISTINCT data.structural_citation(report,value) c FROM jsonb_array_elements_text(identifiers)) selected
 $$;
 REVOKE ALL ON FUNCTION data.structural_citations(jsonb,jsonb) FROM PUBLIC;
 
