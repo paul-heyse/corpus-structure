@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
@@ -217,6 +218,7 @@ def select_dossier(
     members,
     supported_facets=(),
     predecessors=(),
+    contribution_predecessors=(),
     member_budget=12,
     policy="supported-facet-greedy-1",
     cancelled=lambda: False,
@@ -297,6 +299,7 @@ def select_dossier(
             root_id=root_id,
             members=ordered,
             predecessors=tuple(predecessors),
+            contribution_predecessors=tuple(contribution_predecessors),
             representatives=chosen,
             missing_sections=tuple(r for r in sections if r not in roles),
             supported_facets=facets,
@@ -479,6 +482,7 @@ class StructuralDossierConfig(StructuralValue):
     structural_input_digest: str | None = None
     root_id: str | None = None
     predecessors: tuple[RetainedStructuralRef, ...] = ()
+    contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
     member_budget: int = Field(default=12, gt=0, strict=True)
     policy: Literal["supported-facet-greedy-1", "source-order-control-1"] = (
         "supported-facet-greedy-1"
@@ -487,16 +491,25 @@ class StructuralDossierConfig(StructuralValue):
     @model_validator(mode="after")
     def bound_input(self):
         if self.inputs is None:
-            if self.structural_input_digest or self.root_id or self.predecessors:
+            if (
+                self.structural_input_digest
+                or self.root_id
+                or self.predecessors
+                or self.contribution_predecessors
+            ):
                 raise ValueError("partial dossier config")
         elif (
             self.structural_input_digest != self.inputs.identity
             or not self.root_id
-            or not self.predecessors
+            or not (self.predecessors or self.contribution_predecessors)
         ):
             raise ValueError("dossier requires original inputs and retained predecessors")
         if len({p.product_id for p in self.predecessors}) != len(self.predecessors):
             raise ValueError("duplicate dossier predecessor")
+        if len({p.contribution_id for p in self.contribution_predecessors}) != len(
+            self.contribution_predecessors
+        ):
+            raise ValueError("duplicate dossier contribution predecessor")
         return self
 
 
@@ -526,12 +539,21 @@ class StructuralDossierMethod:
             ctx.check_active()
             retained.append((reference, ctx.reader.retained_structural_report(reference)))
         members, facets = derive_dossier_members(cfg.inputs, retained)
+        from .dossier_contributions import derive_contribution_members
+
+        source_members = []
+        for reference in cfg.contribution_predecessors:
+            ctx.check_active()
+            payload = ctx.reader.retained_source_contribution(reference)
+            source_members.extend(derive_contribution_members(cfg.inputs, reference, payload))
+        members = (*members, *source_members)
         report = select_dossier(
             cfg.inputs,
             root_id=cfg.root_id,
             members=members,
             supported_facets=facets,
             predecessors=cfg.predecessors,
+            contribution_predecessors=cfg.contribution_predecessors,
             member_budget=cfg.member_budget,
             policy=cfg.policy,
         )

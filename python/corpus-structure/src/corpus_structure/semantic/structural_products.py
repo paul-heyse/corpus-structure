@@ -14,6 +14,7 @@ from pydantic import Field, model_validator
 from .artifact_identity import ArtifactIdentityProduct
 from .contextual_links import RetainedRelationshipDecisionRef
 from .identity import canonical_bytes
+from .retained_contributions import RetainedContributionRef
 from .structural_base import StructuralValue
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
@@ -410,6 +411,13 @@ MemberRole = Literal[
 MANDATORY_ROLES = frozenset({"exception", "revision", "conflict"})
 
 
+class DossierContributionCitation(StructuralValue):
+    contribution_id: Nonempty
+    source_ref: Nonempty
+    source_pointer: Nonempty
+    span: LocatedDefinitionSpan
+
+
 class DossierMember(StructuralValue):
     member_id: Nonempty
     passage_id: Nonempty
@@ -419,6 +427,9 @@ class DossierMember(StructuralValue):
     scope: Nonempty
     effective_version: str | None = None
     relation_product_id: Nonempty
+    contribution_ref: RetainedContributionRef | None = None
+    contribution_citations: tuple[DossierContributionCitation, ...] | None = None
+    computation_dependencies: tuple[Nonempty, ...] | None = None
     qualification: Literal[
         "proposed", "independently_supported", "ambiguous", "rejected", "unsupported"
     ] = "proposed"
@@ -428,6 +439,29 @@ class DossierMember(StructuralValue):
     def assessment(self) -> Self:
         if self.qualification == "independently_supported" and not self.assessment_id:
             raise ValueError("supported member requires its independent assessment reference")
+        if self.contribution_ref is not None:
+            if (
+                not self.contribution_citations
+                or not self.computation_dependencies
+                or self.relation_product_id != self.contribution_ref.contribution_id
+                or self.citation != self.contribution_citations[0].span
+                or self.passage_id != self.citation.passage_id
+                or any(
+                    c.contribution_id not in self.computation_dependencies
+                    for c in self.contribution_citations
+                )
+            ):
+                raise ValueError(
+                    "source member requires its exact contribution and endpoint citation closure"
+                )
+            if self.qualification != "proposed" or self.assessment_id is not None:
+                raise ValueError(
+                    "source contribution membership does not establish independent semantic support"
+                )
+        elif self.contribution_citations is not None or self.computation_dependencies is not None:
+            raise ValueError(
+                "source citation closure requires an exact retained contribution reference"
+            )
         return self
 
 
@@ -456,6 +490,7 @@ class DossierProduct(StructuralValue):
     root_id: Nonempty
     members: tuple[DossierMember, ...]
     predecessors: tuple[RetainedStructuralRef, ...] = ()
+    contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
     representatives: tuple[Nonempty, ...]
     missing_sections: tuple[MemberRole, ...]
     supported_facets: tuple[DossierFacet, ...] = ()

@@ -67,7 +67,11 @@ class StructuralRequest(BaseModel):
     cut_id: int | None = Field(default=None, strict=True, gt=0)
     kind: (
         Literal[
-            "definition_components", "definition_applicability", "qualified_comparison", "dossier", "artifact_identity"
+            "definition_components",
+            "definition_applicability",
+            "qualified_comparison",
+            "dossier",
+            "artifact_identity",
         ]
         | None
     ) = None
@@ -216,10 +220,14 @@ WITH source AS (
  WHERE m->'member_id'=chosen.id
 ), selected_citations AS (
  SELECT DISTINCT jsonb_build_object('member_id',m->'member_id','source',s,
- 'citation',m->'citation','scope',m->'scope','effective_version',m->'effective_version') c
+ 'citation',citation_->'span','scope',m->'scope','effective_version',m->'effective_version',
+ 'contribution_id',citation_->'contribution_id','source_pointer',citation_->'source_pointer') c
  FROM source,selected_members,jsonb_array_elements(report#>'{inputs,passages}') p,
- jsonb_array_elements(report#>'{inputs,sources}') s
- WHERE p->'passage_id'=m->'passage_id'
+ jsonb_array_elements(report#>'{inputs,sources}') s,
+ LATERAL jsonb_array_elements(COALESCE(
+ nullif(m->'contribution_citations','null'::jsonb),jsonb_build_array(
+ jsonb_build_object('span',m->'citation')))) citation_
+ WHERE p->'passage_id'=citation_->'span'->'passage_id'
  AND p->>'source_ref'=encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')
 ), payload AS (
  SELECT jsonb_build_object(

@@ -1093,9 +1093,22 @@ class BoundReader:
         ).scalar_one()
         return result["component"]
 
+    def retained_source_contribution(self, reference):
+        """Resolve immutable selected producer output and all endpoint source evidence."""
+        import json
+
+        from .retained_contributions import RetainedContributionRef
+
+        ref = RetainedContributionRef.model_validate(reference)
+        return self.conn.execute(
+            text("SELECT ops.resolve_retained_source_contribution(CAST(:reference AS jsonb))"),
+            {"reference": json.dumps(ref.model_dump(mode="json"))},
+        ).scalar_one()
+
     def retained_structural_report(self, reference):
         """Authenticate one completed original report and its separately published support."""
         import json
+
         return self.conn.execute(
             text("SELECT ops.resolve_retained_structural_report(CAST(:reference AS jsonb))"),
             {"reference": json.dumps(reference.model_dump(mode="json"))},
@@ -1181,12 +1194,17 @@ class BoundReader:
     def structural_source_frame(self, inputs, source_ref):
         from .proposals import native_source_frame
         from .source_views import load_source_view
+
         self.validate_structural_inputs(inputs)
-        source=next((s for s in inputs.sources if s.identity == source_ref), None)
+        source = next((s for s in inputs.sources if s.identity == source_ref), None)
         if source is None:
             raise ValueError("structural source lies outside authenticated inputs")
-        return native_source_frame(load_source_view(self.conn, source.source_view_id,
-            analysis=False, read_budget=self._read_budget), ())
+        return native_source_frame(
+            load_source_view(
+                self.conn, source.source_view_id, analysis=False, read_budget=self._read_budget
+            ),
+            (),
+        )
 
     def structural_source_annotations(self, inputs, source_ref, profile):
         from .structural_sources import load_structural_annotations

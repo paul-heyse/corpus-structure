@@ -195,6 +195,22 @@ def structural_statement(
                             else {}
                         ),
                         "qualification": m.qualification,
+                        **(
+                            dict(
+                                contribution_ref=m.contribution_ref.model_dump(mode="json"),
+                                endpoint_citations=[
+                                    dict(
+                                        contribution_id=c.contribution_id,
+                                        source_pointer=c.source_pointer,
+                                        passage=span_citation(c.span),
+                                    )
+                                    for c in (m.contribution_citations or ())
+                                ],
+                                computation_dependencies=list(m.computation_dependencies or ()),
+                            )
+                            if m.contribution_ref is not None
+                            else {}
+                        ),
                     }
                     for m in value.members
                 ),

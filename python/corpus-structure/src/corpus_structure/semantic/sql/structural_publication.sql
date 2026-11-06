@@ -87,7 +87,12 @@ BEGIN
   value:=report->'dossier';
   SELECT COALESCE(jsonb_agg(v ORDER BY data.canonical_json(v)),'[]') INTO items FROM (
    SELECT jsonb_strip_nulls(jsonb_build_object('passage',data.structural_citation(report,m->>'passage_id')||((m->'citation')-'passage_id'),'role',m->>'role',
-    'sense',m->>'sense','scope',m->>'scope','effective_version',m->'effective_version','qualification',m->>'qualification')) v
+    'sense',m->>'sense','scope',m->>'scope','effective_version',m->'effective_version','qualification',m->>'qualification',
+    'contribution_ref',m->'contribution_ref','computation_dependencies',m->'computation_dependencies',
+    'endpoint_citations',CASE WHEN nullif(m->'contribution_ref','null') IS NOT NULL THEN
+      (SELECT jsonb_agg(jsonb_build_object('contribution_id',c->'contribution_id','source_pointer',c->'source_pointer',
+       'passage',data.structural_citation(report,c->'span'->>'passage_id')||((c->'span')-'passage_id')) ORDER BY n)
+       FROM jsonb_array_elements(m->'contribution_citations') WITH ORDINALITY endpoint(c,n)) END)) v
    FROM jsonb_array_elements(value->'members') m) x;
   result:=result||jsonb_build_object('dossier',jsonb_build_object('root',value->>'root_id','members',items,
    'missing_sections',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'missing_sections') v),'[]'),

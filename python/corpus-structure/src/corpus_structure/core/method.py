@@ -430,6 +430,10 @@ class SourcePreparationReader(Protocol):
         """Detach authenticated retained component and original source manifest."""
         ...
 
+    def retained_source_contribution(self, reference: Any) -> Mapping[str, Any]:
+        """Resolve original retained contribution, endpoint closure and source projections."""
+        ...
+
     def retained_structural_report(self, reference: Any) -> Mapping[str, Any]:
         """Authenticate an exact predecessor and its protected public assertions."""
         ...

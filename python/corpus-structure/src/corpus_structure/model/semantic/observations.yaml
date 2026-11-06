@@ -984,6 +984,18 @@ classes:
       selected_task_id: {required: true, range: integer, minimum_value: 1}
       origin_task_id: {required: true, range: integer, minimum_value: 1}
       runtime_fingerprint: {required: true}
+  RetainedContributionRef:
+    is_a: SourceRecordProduct
+    attributes:
+      contribution_id: {required: true, pattern: "^source-contribution:[0-9a-f]{64}$"}
+      project_id: {required: true}
+      run_id: {required: true, range: integer, minimum_value: 1}
+      cut_id: {required: true, range: integer, minimum_value: 1}
+      release_id: {required: true}
+      result_revision: {required: true, range: integer, minimum_value: 0}
+      selected_task_id: {required: true, range: integer, minimum_value: 1}
+      origin_task_id: {required: true, range: integer, minimum_value: 1}
+      runtime_fingerprint: {required: true}
   TypedPremise:
     is_a: SourceRecordProduct
     attributes:
@@ -1190,9 +1202,19 @@ classes:
       right:
         range: ClauseField
         inlined: true
+  DossierContributionCitation:
+    is_a: SourceRecordProduct
+    attributes:
+      contribution_id: {required: true}
+      source_ref: {required: true}
+      source_pointer: {required: true}
+      span: {required: true, range: LocatedDefinitionSpan, inlined: true}
   DossierMember:
     is_a: SourceRecordProduct
     attributes:
+      contribution_ref: {range: RetainedContributionRef, inlined: true}
+      contribution_citations: {range: DossierContributionCitation, multivalued: true, inlined: true}
+      computation_dependencies: {multivalued: true}
       citation: {required: true, range: LocatedDefinitionSpan, inlined: true}
       member_id:
         required: true
@@ -1214,6 +1236,7 @@ classes:
   DossierProduct:
     is_a: SourceRecordProduct
     attributes:
+      contribution_predecessors: {range: RetainedContributionRef, multivalued: true, inlined: true}
       predecessors: {range: RetainedStructuralRef, multivalued: true, inlined: true}
       supported_facets: {range: DossierFacet, multivalued: true, inlined: true}
       representation: {range: DossierRepresentation, required: true, inlined: true}
@@ -1518,8 +1541,16 @@ classes:
         range: string
         required: true
         equals_string: not_asserted
+  StructuralPublicContributionCitation:
+    attributes:
+      contribution_id: {required: true}
+      source_pointer: {required: true}
+      passage: {range: StructuralPublicCitation, required: true, inlined: true}
   StructuralPublicDossierMember:
     attributes:
+      contribution_ref: {range: RetainedContributionRef, inlined: true}
+      endpoint_citations: {range: StructuralPublicContributionCitation, multivalued: true, inlined: true}
+      computation_dependencies: {multivalued: true}
       passage:
         range: StructuralPublicCitation
         required: true
