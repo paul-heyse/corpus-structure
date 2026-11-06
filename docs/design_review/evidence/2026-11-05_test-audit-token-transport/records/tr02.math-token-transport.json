@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "tr02.math-token-transport",
+  "title": "Demand-shaped math stages with complete native token transport",
+  "group": "test-audit-resolution",
+  "package": "TR-02",
+  "finalized": "2026-11-05",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can session-scoped demand-shaped math stages share parsing and retain the independent historical extraction/scope meanings through actual spawned transport?",
+  "answers": [
+    "TR-02",
+    "TR10-F01",
+    "DTA-018"
+  ],
+  "method": "Use explicit retained-content/readings/extraction/scoped session products and parent views reusing their inputs. Real spawn checks inspect all eight Token fields at every nested leaf in both directions, independent x=1 source bounds, complete direct/staged Normal extraction, unchanged frozen scope/printer expectations, omitted work, reuse and exception settlement. A native multiprocessing-only reducer repairs Lark token end-position loss; a lightweight initializer preserves lifecycle budgets.",
+  "commands": [
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/tr02-math-tier-consumers-final -- python/corpus-structure/tests/math/test_workers.py python/corpus-structure/tests/math/test_spans.py python/corpus-structure/tests/math/test_scope.py python/corpus-structure/tests/math/test_property.py::test_corpus_layer_on_the_spike_pages",
+    "PYTHONPATH=python/corpus-structure/tests uv run python - <<'PYDIAGNOSTIC' > build/test-receipts/tr02-math-token-transport-diagnostic.log 2>&1\nimport pickle\nfrom math_support import read_page, extract_readings, scope_extraction\nfrom corpus_structure.methods.math.context import standing_context\npage=read_page('special/Normal.html')\nvalues,extraction=extract_readings(page.readings)\ndirect=scope_extraction((page,values,extraction))\ntransported=pickle.loads(pickle.dumps(page.readings))\nvalues_after,extraction_after=extract_readings(transported)\nscoped_after=scope_extraction((page,values_after,extraction_after))\nparts=[s for s in page.content.document.walk() if s.start==11565 and s.end==11826]\nprint('DIRECT', [(s.segment.start,s.segment.end) for s in standing_context(page.content,page.page,direct,parts)])\nprint('TRANSPORTED', [(s.segment.start,s.segment.end) for s in standing_context(page.content,page.page,scoped_after,parts)])\nprint('RELATIONS',len(extraction.relations),len(extraction_after.relations))\nprint('VALUES_SAME',values==values_after)\nprint('MENTIONS_SAME',extraction.mentions==extraction_after.mentions)\nprint('RELATION_DIFFERENCES',set(extraction.relations)-set(extraction_after.relations))\nPYDIAGNOSTIC",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/tr02-math-token-adapter-full -- python/corpus-structure/tests/math/test_workers.py python/corpus-structure/tests/math/test_spans.py python/corpus-structure/tests/math/test_scope.py python/corpus-structure/tests/math/test_property.py::test_corpus_layer_on_the_spike_pages",
+    "kill -INT 2137413",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/tr02-math-lightweight-adapter-final -- python/corpus-structure/tests/math/test_workers.py python/corpus-structure/tests/math/test_spans.py python/corpus-structure/tests/math/test_scope.py python/corpus-structure/tests/math/test_property.py::test_corpus_layer_on_the_spike_pages",
+    "git diff --check -- python/corpus-structure/tests/math_support.py python/corpus-structure/tests/math_worker_cases.py python/corpus-structure/tests/math_worker_transport.py python/corpus-structure/tests/math"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/final-invocation.json",
+      "role": "Actual command, interpreter/dependency versions and initial source context",
+      "sha256": "ad67ef9c36db41389e4f7d0f2d70ea541d2a610afe65534ed6af3cdc44252dac"
+    },
+    {
+      "path": "raw/owned-source-context.json",
+      "role": "Exact affected source and unchanged historical input hashes",
+      "sha256": "4f1d77e235ad1f82b10a57a30b6f1dd9a95f4fe94f76fc6db0854968aa34ed9c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/final-classification.json",
+      "role": "Passed bounded functional classification and process settlement",
+      "sha256": "a448d2e01b066d50e7e6285aa4d1750ae02a6a02044420e4d3dbbade5b6c835a"
+    },
+    {
+      "path": "raw/final-pytest.stdout",
+      "role": "Actual 28-case output with original expectations and warnings",
+      "sha256": "64c2e7e7455d34995f318b6df21ca5a98bac6f6fc0e95caabc6f0dca7e9a1417"
+    },
+    {
+      "path": "raw/initial-frozen-failures.json",
+      "role": "Retained initial three frozen scope failures before token adaptation",
+      "sha256": "5f128335622728a4a9bc092ccaa0ccf232156a081ea31c0d12510e732f19825b"
+    },
+    {
+      "path": "raw/direct-vs-transported.log",
+      "role": "Failed diagnostic retaining completed direct/transported comparisons before optional unhashable-set print",
+      "sha256": "2e949ac9217113469c5c135d7212a9fcff203ee05fc15bb15894a65cdfec03d1"
+    },
+    {
+      "path": "raw/initializer-interrupted.json",
+      "role": "Retained failed startup-budget case and intentional interruption with settled process group",
+      "sha256": "4be7cca47939e7166ad98ea5a5d0a3f801f475bf106642ee596c1e8b050817d8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Focused math functional controls passed",
+      "value": 28,
+      "of": 28,
+      "unit": "tests",
+      "note": "Includes vendored spike and available held-out S0R2 controls, original frozen expectations unchanged."
+    },
+    {
+      "name": "Native Token constructor fields retained",
+      "value": 8,
+      "of": null,
+      "unit": "fields",
+      "note": "All nested leaves inspected in both spawn directions; ordinary pickle behavior remains unchanged."
+    },
+    {
+      "name": "Initial unadapted scope regressions retained",
+      "value": 3,
+      "of": null,
+      "unit": "failed tests",
+      "note": "These failures motivated the accepted adapter; all three original controls pass in the final bounded receipt."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Tested 2026-11-05: 28 bounded controls passed. Session products reuse reading work and parent content; spawned workers return only new stage products. Complete native token position transport preserves direct Normal relations and all original frozen scope/printer meanings. Existing bounded submission, per-active-job deadlines, page diagnostics, spawn/main-thread execution, interruption and child settlement remain. Direct analyse_all still composes the same stages inside one whole-page job. Earlier failures and the interrupted initializer attempt are retained; the diagnostic itself failed at an optional unhashable-set print after completing the decisive comparisons. This record establishes focused functional behavior, not full-plan qualification or a speed/capacity claim.",
+  "consumed_by": [
+    "TR-02",
+    "TR10-F01",
+    "DTA-018"
+  ]
+}

@@ -1,6 +1,6 @@
 # Scenario composition and preparation
 
-**Status:** Proposed. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-01/02
+**Status:** In progress; TR-02 focused Tested, TR-01 integration ongoing. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-01/02
 and finding disposition. Package-relative paths below designate test support unless stated.
 
 ## TR-01 — Explicit pure/native/reference composition
@@ -84,7 +84,14 @@ Feasibility is **Interface-checked by source inspection,2026-11-05**: production
 __getstate__ (spans.py:70–78) transports span/result and drops process-owned preparation;
 MathResult.__getstate__ (grammar.py:422–431) handles immutable macro mappings. formula_values
 and extract use finished results/trees/occurrences; resolve_scopes uses content/values/extraction/
-macros and obtains its process-local NLP resources. No new serialization protocol is proposed.
+macros and obtains its process-local NLP resources. Execution correction2026-11-05: installed Lark Token.__reduce__ drops end_pos/end_line/end_column.
+Real staged Normal results lost terminal relations and T2 reopening while values/mentions remained
+equal. Existing SpanReading/MathResult transport is therefore necessary but insufficient.
+Use multiprocessing's reducer registration for Token to carry all eight native constructor fields,
+in the parent before submission and each spawned worker initializer. Keep ordinary pickle unchanged,
+register at execution rather than import, and preserve existing worker bounds/lifecycle. Independent
+nested-token and original frozen scope checks establish full positional fidelity. No new wire object
+or parser reconstruction is selected; the enclosing review assesses this bounded target amendment.
 Actual worker behavior must still be tested during implementation; source inspection is not a pass.
 
 Migrate the current consumer set:
@@ -122,3 +129,37 @@ Sources: current math_support.py; production methods/math/{spans,grammar,scope}.
 Hypothesis state machines are unnecessary for these deterministic preparation/lifecycle changes.
 TR-01 supplies pure preparation to TR-02's prepared-only semantic case; math staging can proceed
 independently. Changed callers migrate with their producer. TR-09/10 owns preservation/integration.
+
+## Execution amendment — lossless parsed-token transport
+
+**Implemented / focused Tested,2026-11-05.** TR10-F01 identified
+that Lark1.3.1 Token reduction drops terminal end coordinates. Token equality is string-oriented
+and cannot establish positional fidelity. Use a lightweight worker initializer/adapter, independent
+of heavy math/NLP imports, and explicit eight-field nested-token comparisons in both directions.
+Retain independent terminal-relation bounds and frozen corpus scope answers. A process initializer
+that imports all math support consumed the existing lifecycle probe's short deadline; narrowing
+imports preserves that deadline instead of increasing it.
+
+The [Lark overview](../../libraries/parsing/lark.md) §6.2/6.3 describes token/tree source metadata;
+§10.3's save/load is for compiled parsers and does not solve parsed-token transport. The
+[concurrency overview](../../libraries/analytical_infrastructure/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md)
+§4.4 covers worker initialization/termination and §11 compares alternative executors. Apply its
+version-sensitive guidance to installed Python3.14.10, not later-version-only capabilities.
+
+Independent review compared installed Joblib1.6.0's Loky implementation: per-executor
+job_reducers/result_reducers and shutdown(wait=True,kill_workers=True) can implement the full target
+with narrower reducer policy scope. That is a valid alternative, not an absent capability.
+Select the existing stdlib executor with multiprocessing.reduction.register because this policy
+is one deterministic lossless reduction for all multiprocessing transfers of the same Token value,
+with no scenario/source/expected-answer state or competing reducer found in current repository
+scope. Ordinary pickle is unchanged. Loky would add an executor/serialization provider, direct
+pin/ownership, cloudpickle selection and a changed shutdown route without a currently required
+separate transport policy. Revisit if competing Token policies or executor-local isolation become
+requirements. Do not mutate Token methods, use global copyreg, or restore private dispatch tables.
+
+**passed:** final28-case native worker/tier selection in
+build/test-receipts/tr02-math-lightweight-adapter-final; original scope/printer answers unchanged.
+[Finalized record](../../design_review/evidence/2026-11-05_test-audit-token-transport/records/tr02.math-token-transport.json)
+retains exact commands/source, all-eight-field bidirectional tests, relation bounds and earlier
+failed/interrupted attempts. Root evidence finalization and `just evidence` passed (0 errors;
+40 existing repository warnings). This component result does not establish full-series qualification.

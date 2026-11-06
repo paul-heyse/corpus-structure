@@ -71,16 +71,16 @@ def check_contexts(env: Any, pages: dict[str, Any], units: dict[str, Any]) -> li
     return differ
 
 
-def test_core_standing_contexts(env: Any, spike_pages: dict[str, Any]) -> None:
+def test_core_standing_contexts(env: Any, spike_scoped: dict[str, Any]) -> None:
     units = {u: v for u, v in load(env, "s0r2_contexts")["units"].items() if v["set"] == "core"}
     assert len(units) == 12
-    assert check_contexts(env, spike_pages, units) == []
+    assert check_contexts(env, spike_scoped, units) == []
 
 
-def test_suppose_again_yields_both_context_sentences(env: Any, spike_pages: dict[str, Any]) -> None:
+def test_suppose_again_yields_both_context_sentences(env: Any, spike_scoped: dict[str, Any]) -> None:
     """T2 ("Suppose again ..."): its site's sentence and the sentence it reopens."""
     unit = load(env, "s0r2_contexts")["units"]["T2"]
-    page = spike_pages[unit["page"]]
+    page = spike_scoped[unit["page"]]
     got = standing_context(page.content, unit["page"], page.scopes, parts_of(page, unit["parts"]))
     assert [c.text[:24] for c in got] == [
         "Suppose that \\( X \\) has",
@@ -95,18 +95,18 @@ def test_suppose_again_yields_both_context_sentences(env: Any, spike_pages: dict
 
 
 @pytest.mark.corpus
-def test_held_out_and_example_standing_contexts(env: Any, s0r2_pages: dict[str, Any]) -> None:
+def test_held_out_and_example_standing_contexts(env: Any, s0r2_scoped: dict[str, Any]) -> None:
     units = {u: v for u, v in load(env, "s0r2_contexts")["units"].items() if v["set"] != "core"}
     assert len(units) == 9
-    assert check_contexts(env, s0r2_pages, units) == []
+    assert check_contexts(env, s0r2_scoped, units) == []
 
 
-def test_annotated_scopes_reported(env: Any, spike_pages: dict[str, Any]) -> None:
+def test_annotated_scopes_reported(env: Any, spike_scoped: dict[str, Any]) -> None:
     rows = load(env, "s0_scopes")["scopes"]
     assert len(rows) == 20
     report = []
     for row in rows:
-        page = spike_pages[row["page"]]
+        page = spike_scoped[row["page"]]
         ranges = [(p["start"], p["end"]) for p in row["parts"]]
         symbol = symbol_form(row["symbol"], page.macros)
         inside = sorted(
@@ -129,8 +129,8 @@ def test_annotated_scopes_reported(env: Any, spike_pages: dict[str, Any]) -> Non
     assert {(u, s) for u, s, a, g, _ in report if a != g} == {("U6", "X"), ("U6", "Z")}
 
 
-def test_scopes_are_typed_and_inside_their_extent(spike_pages: dict[str, Any]) -> None:
-    for page in spike_pages.values():
+def test_scopes_are_typed_and_inside_their_extent(spike_scoped: dict[str, Any]) -> None:
+    for page in spike_scoped.values():
         for scope in page.scopes:
             assert not scope.mention.constant
             site = scope.site
@@ -200,11 +200,11 @@ def test_a_list_binds_every_symbol(env: Any) -> None:
         assert site.rules == ("initial",)
 
 
-def test_m13_rebuilds_the_block_m03_split(spike_pages: dict[str, Any]) -> None:
+def test_m13_rebuilds_the_block_m03_split(spike_content: dict[str, Any]) -> None:
     """M13's block (`segment_block`, M03's `block_of` over the stored segment) splits into exactly
     the stored sentences: the two Docs are the same by construction."""
     checked = 0
-    for page in spike_pages.values():
+    for page in spike_content.values():
         content = page.content
         blocks, stored = [], []
         for segment in content.document.walk():

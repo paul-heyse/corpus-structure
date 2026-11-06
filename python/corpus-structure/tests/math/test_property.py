@@ -89,10 +89,10 @@ def test_opaque_text_mode_keeps_source_gaps_without_invented_separators(
     assert print_tree(result.tree, result.latex, result.macros, result.tail) == expected
 
 
-def test_corpus_layer_on_the_spike_pages(spike_pages: dict[str, Any]) -> None:
+def test_corpus_layer_on_the_spike_pages(spike_readings: dict[str, Any]) -> None:
     read = 0
     disagreements = []
-    for page in spike_pages.values():
+    for page in spike_readings.values():
         for reading in page.readings:
             if reading.result.tree is None:
                 continue

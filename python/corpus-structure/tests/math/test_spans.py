@@ -155,9 +155,9 @@ def test_m09_relations() -> None:
     assert relations_of("x \\notin A") == []
 
 
-def test_m09_on_the_spike_pages(spike_pages: dict[str, Any]) -> None:
+def test_m09_on_the_spike_pages(spike_extraction: dict[str, Any]) -> None:
     checked = 0
-    for page in spike_pages.values():
+    for page in spike_extraction.values():
         text = page.content.canonical_text
         mentions = page.extraction.mentions
         by_span = {(r.span.segment.start, r.span.segment.end): r for r in page.readings}

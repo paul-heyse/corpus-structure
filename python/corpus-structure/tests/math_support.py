@@ -5,7 +5,7 @@ The retired HTML writer is not part of current fixture setup. The four
 spike pages are vendored under `fixtures/trace/corpus/` (P0-F-3), so their checks never skip; the
 three S0-R2 pages and the 78-page run read the gitignored corpus and are `corpus`-marked.
 
-Pages are analysed in spawned single-threaded worker processes, one page per task: the grammar's
+Math stages run in spawned single-threaded worker processes, one page per task: the grammar's
 deadline runs only on a process's main thread, and a page's spans take tens of seconds of CPU.
 
 The pack constants below retain the independent historical oracle configuration; they are not
@@ -20,11 +20,14 @@ import json
 import multiprocessing
 import os
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import overload
+
+from math_worker_transport import configure_worker_transport
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent
@@ -85,21 +88,25 @@ BINDERS = Binders(
 
 
 @dataclass(frozen=True)
-class PageReadings:
+class PageContent:
     page: str
     content: RenditionContent
     macros: dict[str, MacroDef]
+
+
+@dataclass(frozen=True)
+class PageReadings(PageContent):
     readings: list[SpanReading]
 
 
 @dataclass(frozen=True)
-class PageMath:
-    page: str
-    content: RenditionContent
-    macros: dict[str, MacroDef]  # the effective table
-    readings: list[SpanReading]
+class PageExtraction(PageReadings):
     values: list[SpanValue]
     extraction: MathExtraction
+
+
+@dataclass(frozen=True)
+class PageMath(PageExtraction):
     scopes: list[Scope]
 
 
@@ -116,45 +123,84 @@ def corpus_of(page: str) -> Path:
     return VENDORED if (VENDORED / ROOT / page).exists() else CORPUS
 
 
-def read_page(page: str) -> PageReadings:
-    """Read a retained typed input and its spans, without source ingestion."""
+def load_page(page: str) -> PageContent:
+    """Load validated retained content and frozen effective macros, without parsing."""
     if page not in _retained_inputs():
         raise ValueError("no retained historical mathematical input for " + page)
     content = RenditionContent.model_validate(_retained_inputs()[page]["content"])
     macros = tex.effective_macros(content.macros, PACK_MACROS)
-    readings = read_spans(content, macros, CONSTANTS)
-    return PageReadings(page, content, macros, readings)
+    return PageContent(page, content, macros)
+
+
+def read_content(page: PageContent) -> list[SpanReading]:
+    """Worker stage: transport finished readings, never process-owned preparation."""
+    return read_spans(page.content, page.macros, CONSTANTS)
+
+
+def extract_readings(readings: list[SpanReading]) -> tuple[list[SpanValue], MathExtraction]:
+    """Worker stage: use finished readings without parsing again or resolving scopes."""
+    return formula_values(readings), extract(readings)
+
+
+def scope_extraction(
+    inputs: tuple[PageContent, list[SpanValue], MathExtraction],
+) -> list[Scope]:
+    """Worker stage: only content, macros and extracted results cross this boundary."""
+    page, values, extraction = inputs
+    return resolve_scopes(
+        page.content,
+        values,
+        extraction.mentions,
+        extraction.relations,
+        page.macros,
+        BINDERS,
+        SentenceConfig(),
+    )
+
+
+def read_page(page: str) -> PageReadings:
+    """Direct reading path, also used by the narrow coverage worker."""
+    retained = load_page(page)
+    return PageReadings(page, retained.content, retained.macros, read_content(retained))
 
 
 def analyse(page: str, scopes: bool = True) -> PageMath:
-    """A page's readings, values, extraction and optional scopes."""
+    """Direct whole-page job: the same stages under one submission deadline."""
     parsed = read_page(page)
-    content, macros, readings = parsed.content, parsed.macros, parsed.readings
-    values = formula_values(readings)
-    extraction = extract(readings)
-    found = (
-        resolve_scopes(
-            content,
-            values,
-            extraction.mentions,
-            extraction.relations,
-            macros,
-            BINDERS,
-            SentenceConfig(),
-        )
-        if scopes
-        else []
+    values, extraction = extract_readings(parsed.readings)
+    found = scope_extraction((parsed, values, extraction)) if scopes else []
+    return PageMath(
+        page, parsed.content, parsed.macros, parsed.readings, values, extraction, found
     )
-    return PageMath(page, content, macros, readings, values, extraction, found)
 
 
 class PageWorkError(RuntimeError):
     """The page oracle is incomplete; no missing page has an invented result."""
 
 
+@overload
+def _run_pages[Payload, Result](
+    work: Callable[[Payload], Result],
+    pages: Mapping[str, Payload],
+    *,
+    timeout: float = 300,
+    workers: int | None = None,
+) -> dict[str, Result]: ...
+
+
+@overload
 def _run_pages[Result](
     work: Callable[[str], Result],
     pages: Iterable[str],
+    *,
+    timeout: float = 300,
+    workers: int | None = None,
+) -> dict[str, Result]: ...
+
+
+def _run_pages[Result](
+    work: Callable[..., Result],
+    pages: Mapping[str, object] | Iterable[str],
     *,
     timeout: float = 300,
     workers: int | None = None,
@@ -164,6 +210,7 @@ def _run_pages[Result](
     The deadline starts at submission, including spawn/startup time. Never use the
     executor context manager here: its normal shutdown would wait for a stuck job.
     """
+    payloads = pages if isinstance(pages, Mapping) else None
     pages = tuple(pages)
     if timeout <= 0 or (workers is not None and workers <= 0):
         raise ValueError("page timeout and worker count must be positive")
@@ -172,7 +219,12 @@ def _run_pages[Result](
     if not pages:
         return {}
     count = min(8, len(pages), workers or os.process_cpu_count() or 1)
-    pool = ProcessPoolExecutor(max_workers=count, mp_context=multiprocessing.get_context("spawn"))
+    configure_worker_transport()
+    pool = ProcessPoolExecutor(
+        max_workers=count,
+        mp_context=multiprocessing.get_context("spawn"),
+        initializer=configure_worker_transport,
+    )
     active: dict[Future[Result], tuple[str, float]] = {}
     completed: dict[str, Result] = {}
     remaining = iter(pages)
@@ -184,7 +236,8 @@ def _run_pages[Result](
             if page is None:
                 return
             submitted = time.monotonic()
-            active[pool.submit(work, page)] = (page, submitted + timeout)
+            payload = payloads[page] if payloads is not None else page
+            active[pool.submit(work, payload)] = (page, submitted + timeout)
             submitted_pages.add(page)
 
     try:
@@ -214,6 +267,43 @@ def _run_pages[Result](
         pool.kill_workers()
         raise
     return completed
+
+
+def retained_pages(pages: Iterable[str]) -> dict[str, PageContent]:
+    return {page: load_page(page) for page in pages}
+
+
+def reading_pages(pages: Mapping[str, PageContent]) -> dict[str, PageReadings]:
+    readings = _run_pages(read_content, pages)
+    return {
+        key: PageReadings(key, page.content, page.macros, readings[key])
+        for key, page in pages.items()
+    }
+
+
+def extraction_pages(pages: Mapping[str, PageReadings]) -> dict[str, PageExtraction]:
+    extracted = _run_pages(extract_readings, {key: page.readings for key, page in pages.items()})
+    return {
+        key: PageExtraction(key, page.content, page.macros, page.readings, *extracted[key])
+        for key, page in pages.items()
+    }
+
+
+def scoped_pages(pages: Mapping[str, PageExtraction]) -> dict[str, PageMath]:
+    # Do not send the complete extraction view: scopes do not consume its readings.
+    scopes = _run_pages(
+        scope_extraction,
+        {
+            key: (PageContent(key, page.content, page.macros), page.values, page.extraction)
+            for key, page in pages.items()
+        },
+    )
+    return {
+        key: PageMath(
+            key, page.content, page.macros, page.readings, page.values, page.extraction, scopes[key]
+        )
+        for key, page in pages.items()
+    }
 
 
 def _without_scopes(page: str) -> PageMath:
