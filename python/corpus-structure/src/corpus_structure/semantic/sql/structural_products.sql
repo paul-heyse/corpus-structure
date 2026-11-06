@@ -148,9 +148,9 @@ BEGIN
   RAISE EXCEPTION 'retained relationship requires current contextual product' USING ERRCODE='23514'; END IF;
  SELECT value INTO STRICT decision FROM jsonb_array_elements(operation->'contextual_enrichment'->'relationship_decisions') WHERE value->>'decision_id'=ref->>'decision_id';
  SELECT value INTO STRICT edge FROM jsonb_array_elements(decision->'selected_edges') WHERE value->>'edge_id'=ref->>'edge_id';
- SELECT value INTO STRICT occurrence FROM jsonb_array_elements(selected.body->'contributions') WHERE value->>'contribution_id'=ref->>'occurrence_contribution_id'
- AND value->>'semantic_type'='contextual.located_mention' AND value->>'occurrence_id'=decision->>'occurrence_id'
- AND EXISTS(SELECT FROM jsonb_array_elements(edge->'witnesses') w WHERE w->'evidence_ids' ? (value->>'contribution_id'));
+ SELECT cc INTO STRICT occurrence FROM jsonb_array_elements(selected.body->'contributions') cc WHERE cc->>'contribution_id'=ref->>'occurrence_contribution_id'
+ AND cc->>'semantic_type'='contextual.located_mention' AND cc->>'occurrence_id'=decision->>'occurrence_id'
+ AND EXISTS(SELECT FROM jsonb_array_elements(edge->'witnesses') w WHERE w->'evidence_ids' ? (cc->>'contribution_id'));
  SELECT value INTO STRICT target FROM jsonb_array_elements(operation->'contextual_enrichment'->'component_targets') WHERE value->'reference'->>'component_id'=edge->>'target_id';
  PERFORM ops.resolve_retained_component(target->'reference');
  RETURN jsonb_build_object('decision',decision,'edge',edge,'occurrence',occurrence,'component_target',target,'source_view_id',selected.unit_id);
@@ -277,7 +277,7 @@ BEGIN
      RAISE EXCEPTION 'usage differs from exact linked occurrence original source pieces' USING ERRCODE='23514'; END IF;
    ref:=ops.resolve_retained_component(dimension->'component_ref');
    IF dimension->'component' IS DISTINCT FROM ref->'component' THEN RAISE EXCEPTION 'applicability component differs from authenticated origin' USING ERRCODE='23514'; END IF;
-   IF EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'dimension' IN ('parameterization','convention') AND premise->>'state'='inapplicable') THEN
+   IF inputs->>'policy_id'='definition-introduction-1' OR EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'dimension' IN ('parameterization','convention') AND premise->>'state'='inapplicable') THEN
     IF inputs->>'policy_id' IS DISTINCT FROM 'definition-introduction-1'
      OR source_->'edge'->>'relation' IS DISTINCT FROM 'defined-by'
      OR passage->>'start' IS DISTINCT FROM ref->'component'->'term'->>'start'
