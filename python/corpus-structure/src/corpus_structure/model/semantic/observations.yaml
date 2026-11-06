@@ -586,8 +586,25 @@ classes:
       scope: {required: true}
       effective_version: {}
       targets: {range: ContextualTarget, inlined: true, multivalued: true}
+      semantic_groups: {range: ContextualSemanticTargetGroup, inlined: true, multivalued: true, required: true}
       reliable_type: {}
       parent: {}
+  ContextualTargetMeaning:
+    is_a: SourceRecordProduct
+    description: Exactly source-resolved component meaning or an explicitly curator-owned singleton descriptor; native and pure binding enforce the disjoint variants.
+    attributes:
+      term: {range: StructuralPublicCitation, inlined: true}
+      content: {range: StructuralPublicCitation, inlined: true}
+      interpretation: {range: StructuralDefinitionInterpretationValue}
+      scope: {}
+      effective_version: {}
+      curated_target: {range: ContextualTarget, inlined: true}
+  ContextualSemanticTargetGroup:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id: {required: true}
+      member_target_ids: {required: true, multivalued: true, minimum_cardinality: 1}
+      meaning: {required: true, range: ContextualTargetMeaning, inlined: true}
   ContextualChannelEvidence:
     is_a: SourceRecordProduct
     attributes:
@@ -697,6 +714,7 @@ classes:
       constraint_id: {required: true}
       occurrence_id: {required: true}
       target_id: {required: true}
+      member_target_ids: {required: true, multivalued: true, minimum_cardinality: 1}
       relation: {required: true}
       witnesses: {range: ContextualRelationshipWitness, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
       selection: {required: true, pattern: '^(forced|preferred)$'}

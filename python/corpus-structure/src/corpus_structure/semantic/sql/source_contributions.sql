@@ -41,16 +41,16 @@ BEGIN
   RAISE EXCEPTION 'relationship question ownership or witness population invalid' USING ERRCODE='23514'; END IF;
  FOR question IN SELECT value FROM jsonb_array_elements(d->'constraints') ORDER BY value->>'constraint_id' LOOP
   WITH eligible AS (
-   SELECT w FROM jsonb_array_elements(d->'witnesses') w WHERE question->'relation_kinds' ? (w->>'relation')
+   SELECT w,g->>'target_id' semantic_target FROM jsonb_array_elements(d->'witnesses') w JOIN LATERAL jsonb_array_elements(inventory->'semantic_groups') g ON g->'member_target_ids' ? (w->>'target_id') WHERE question->'relation_kinds' ? (w->>'relation')
    AND w->>'support_state' NOT IN ('unsupported','ambiguous') AND w->>'occurrence_id'<>w->>'target_id'
    AND NOT (w->>'relation' IN ('denotes','alias-of') AND EXISTS(SELECT FROM jsonb_array_elements(d->'exclusions') ex WHERE
     (ex->>'left'=w->>'occurrence_id' AND ex->>'right'=w->>'target_id') OR (ex->>'right'=w->>'occurrence_id' AND ex->>'left'=w->>'target_id')))
    AND NOT (d->>'effective_version' IS NULL AND EXISTS(SELECT FROM jsonb_array_elements(inventory->'targets') target WHERE target->>'target_id'=w->>'target_id' AND target->>'effective_version' IS NOT NULL))
   ), pair AS (
-   SELECT w->>'target_id' target_id,w->>'relation' relation,jsonb_agg(w ORDER BY w->>'witness_id') witnesses FROM eligible GROUP BY w->>'target_id',w->>'relation'
+   SELECT semantic_target target_id,w->>'relation' relation,jsonb_agg(w ORDER BY w->>'witness_id') witnesses,jsonb_agg(DISTINCT w->>'target_id' ORDER BY w->>'target_id') members FROM eligible GROUP BY semantic_target,w->>'relation'
   ), meanings AS (
-   SELECT target_id,relation,jsonb_build_object('constraint_id',question->>'constraint_id','occurrence_id',d->>'occurrence_id','target_id',target_id,'relation',relation,'witnesses',witnesses,'selection',CASE WHEN (question->>'exhaustive')::boolean THEN 'forced' ELSE 'preferred' END) meaning FROM pair
-  ) SELECT COALESCE(jsonb_agg(meaning||jsonb_build_object('edge_id','scoped-edge:'||encode(sha256(convert_to(data.canonical_json(ops.contextual_nullable_value(meaning)),'UTF8')),'hex')) ORDER BY target_id,relation),'[]') INTO edges FROM meanings;
+   SELECT target_id,relation,jsonb_build_object('constraint_id',question->>'constraint_id','occurrence_id',d->>'occurrence_id','target_id',target_id,'relation',relation,'selection',CASE WHEN (question->>'exhaustive')::boolean THEN 'forced' ELSE 'preferred' END) meaning,witnesses,members FROM pair
+  ) SELECT COALESCE(jsonb_agg(meaning||jsonb_build_object('witnesses',witnesses,'member_target_ids',members,'edge_id','scoped-edge:'||encode(sha256(convert_to(data.canonical_json(ops.contextual_nullable_value(meaning)),'UTF8')),'hex')) ORDER BY target_id,relation),'[]') INTO edges FROM meanings;
   IF jsonb_array_length(edges)=0 OR (question->>'multiplicity'='one' AND jsonb_array_length(edges)>1) THEN unresolved:=unresolved||jsonb_build_array(question->>'constraint_id'); END IF;
   IF question->>'multiplicity'='one' AND jsonb_array_length(edges)>1 THEN
    groups:=groups||jsonb_build_array(jsonb_build_object('constraint_id',question->>'constraint_id','edges',edges,'reason','competing senses under declared exclusive constraint'));
@@ -247,11 +247,17 @@ BEGIN
   DECLARE report jsonb:=op->'contextual_enrichment'; profile jsonb; vec jsonb; inv jsonb;
    candidate_list jsonb; candidate jsonb; decision jsonb; witness jsonb; target_product jsonb;
    profile_map jsonb; vector_map jsonb; inventory_map jsonb; list_map jsonb; expected text; expected_candidates jsonb; normalized_target jsonb; channel_report jsonb; expected_hits jsonb; registry_id text; registry_targets jsonb; reuse_row jsonb; reuse_task ops.task; reuse_run ops.run; current_runtime text;
-   reuse_digests jsonb:='{}'; reuse_values jsonb:='{}'; origin_body jsonb; origin_vectors jsonb;
+   reuse_digests jsonb:='{}'; reuse_values jsonb:='{}'; origin_body jsonb; origin_vectors jsonb; meaning_group jsonb; member_id text; expected_meaning jsonb;
   BEGIN
    IF EXISTS(SELECT FROM jsonb_each(report->'product_counts') product_count
       WHERE (product_count.value#>>'{}')::integer<>jsonb_array_length(report->product_count.key)) THEN
     RAISE EXCEPTION 'contextual product counts differ from actual typed populations' USING ERRCODE='23514'; END IF;
+   IF jsonb_array_length(COALESCE(report->'component_targets','[]'))>0 THEN
+    PERFORM ops.validate_component_targets(report->'component_targets');
+   END IF;
+   IF p_envelope->>'method'='retrieve.contextual' AND jsonb_strip_nulls(report->'component_targets') IS DISTINCT FROM
+    (SELECT jsonb_strip_nulls(params->'target_components') FROM ops.method_config WHERE id=t.method_config_id) THEN
+    RAISE EXCEPTION 'contextual source targets differ from complete frozen input population' USING ERRCODE='23514'; END IF;
    registry_id:=NULL; registry_targets:='[]'::jsonb;
    IF (EXISTS(SELECT FROM ops.method_config cfg JOIN ops.method m ON m.id=cfg.method_id
         WHERE cfg.id=t.method_config_id AND (cfg.params ? 'registry_targets' OR m.name='retrieve.contextual'))
@@ -333,7 +339,7 @@ BEGIN
     expected:='concept-inventory:'||encode(sha256(convert_to(data.canonical_json(
      jsonb_build_object('source_selection',inv->'source_selection','scope',inv->'scope',
       'effective_version',inv->'effective_version','reliable_type',inv->'reliable_type','parent',inv->'parent',
-      'policy','eligible-concepts-1','targets',COALESCE((SELECT jsonb_agg(target ||
+      'policy','eligible-concepts-2','semantic_groups',COALESCE((SELECT jsonb_agg(g ORDER BY g->>'target_id') FROM jsonb_array_elements(inv->'semantic_groups') g),'[]'),'targets',COALESCE((SELECT jsonb_agg(target ||
        jsonb_build_object('type_name',target->'type_name','parent',target->'parent',
         'effective_version',target->'effective_version','aliases',COALESCE(target->'aliases','[]'))
         ORDER BY target->>'target_id') FROM jsonb_array_elements(inv->'targets') target),'[]'))),'UTF8')),'hex');
@@ -373,6 +379,25 @@ BEGIN
       OR (inv->>'parent' IS NOT NULL AND target_product->>'parent' IS NOT NULL
        AND target_product->>'parent' IS DISTINCT FROM inv->>'parent') THEN
       RAISE EXCEPTION 'contextual target source or eligibility differs' USING ERRCODE='23514'; END IF;
+    END LOOP;
+    IF (SELECT count(*)<>count(DISTINCT g->>'target_id') FROM jsonb_array_elements(inv->'semantic_groups') g)
+     OR (SELECT count(*)<>count(DISTINCT m) FROM jsonb_array_elements(inv->'semantic_groups') g,LATERAL jsonb_array_elements_text(g->'member_target_ids') m)
+     OR (SELECT count(*) FROM jsonb_array_elements(inv->'semantic_groups') g,LATERAL jsonb_array_elements_text(g->'member_target_ids') m)<>jsonb_array_length(inv->'targets') THEN
+     RAISE EXCEPTION 'semantic target groups must partition the exact eligible population' USING ERRCODE='23514'; END IF;
+    FOR meaning_group IN SELECT value FROM jsonb_array_elements(inv->'semantic_groups') LOOP
+     IF meaning_group->>'target_id' IS DISTINCT FROM 'semantic-target:'||encode(sha256(convert_to(data.canonical_json(meaning_group->'meaning'),'UTF8')),'hex')
+      OR jsonb_array_length(meaning_group->'member_target_ids')=0
+      OR meaning_group->'member_target_ids' IS DISTINCT FROM (SELECT jsonb_agg(m ORDER BY m) FROM jsonb_array_elements(meaning_group->'member_target_ids') m) THEN
+      RAISE EXCEPTION 'semantic group identity or ordered membership differs' USING ERRCODE='23514'; END IF;
+     FOR member_id IN SELECT jsonb_array_elements_text(meaning_group->'member_target_ids') LOOP
+      SELECT target INTO STRICT target_product FROM jsonb_array_elements(inv->'targets') target WHERE target->>'target_id'=member_id;
+      IF starts_with(target_product->>'source_binding','definition-component:') THEN
+       SELECT ct INTO STRICT witness FROM jsonb_array_elements(report->'component_targets') ct WHERE ct->'reference'->>'component_id'=member_id;
+       expected_meaning:=ops.component_semantic_target(witness->'reference');
+      ELSE expected_meaning:=jsonb_build_object('curated_target',jsonb_strip_nulls(target_product)); END IF;
+      IF meaning_group->'meaning' IS DISTINCT FROM expected_meaning THEN
+       RAISE EXCEPTION 'semantic target member differs from authenticated source meaning' USING ERRCODE='23514'; END IF;
+     END LOOP;
     END LOOP;
    END LOOP;
    FOR candidate_list IN SELECT value FROM jsonb_array_elements(report->'candidate_lists') LOOP
@@ -515,7 +540,7 @@ BEGIN
  FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions')
    WHERE value->>'semantic_type'='contextual.relationship' LOOP
   DECLARE statement jsonb:=data.record_source_json(contribution->'value');
-   denotation jsonb; selected_edge jsonb; denotation_report jsonb; denotation_list jsonb; denotation_target jsonb;
+   denotation jsonb; selected_edge jsonb; denotation_report jsonb; denotation_list jsonb;
    source_cue jsonb; denotation_operation jsonb; matches bigint;
   BEGIN
    SELECT count(*) INTO matches FROM jsonb_array_elements(p_envelope->'contribution_operations') oo,
@@ -530,10 +555,6 @@ BEGIN
     WHERE edge->>'edge_id'=contribution->'computation_dependencies'->>4 ;
    SELECT ll INTO denotation_list FROM jsonb_array_elements(denotation_report->'candidate_lists') ll
     WHERE ll->>'list_id'=denotation->>'candidate_list_id';
-   SELECT tt INTO denotation_target FROM jsonb_array_elements(denotation_report->'inventories') ii,
-    LATERAL jsonb_array_elements(ii->'targets') tt
-    WHERE ii->>'inventory_id'=denotation_list->>'inventory_id'
-     AND tt->>'target_id'=selected_edge->>'target_id';
    SELECT cc INTO source_cue FROM jsonb_array_elements(p_envelope->'contributions') cc
     WHERE cc->>'contribution_id'=contribution->'members'->>0;
    denotation_operation:=operation_map->(contribution->>'operation_key');
@@ -547,7 +568,7 @@ BEGIN
     OR contribution->>'occurrence_id' IS DISTINCT FROM source_cue->>'occurrence_id'
     OR NOT EXISTS(SELECT FROM jsonb_array_elements(selected_edge->'witnesses') w WHERE w->'evidence_ids' ? (source_cue->>'contribution_id'))
     OR statement IS DISTINCT FROM jsonb_build_object(
-      'target',ops.component_semantic_target((SELECT ct->'reference' FROM jsonb_array_elements(denotation_report->'component_targets') ct WHERE ct->'reference'->>'component_id'=selected_edge->>'target_id')),
+      'target',(SELECT sg->'meaning' FROM jsonb_array_elements(denotation_report->'inventories') ii,LATERAL jsonb_array_elements(ii->'semantic_groups') sg WHERE ii->>'inventory_id'=denotation_list->>'inventory_id' AND sg->>'target_id'=selected_edge->>'target_id'),
       'relation',selected_edge->>'relation','scope',denotation->'scope','effective_version',denotation->'effective_version')
     OR contribution->'computation_dependencies' IS DISTINCT FROM jsonb_build_array(
       source_cue->>'contribution_id',denotation->>'candidate_list_id',denotation->>'decision_id',

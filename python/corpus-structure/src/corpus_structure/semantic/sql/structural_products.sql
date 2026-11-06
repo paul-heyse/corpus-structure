@@ -139,7 +139,7 @@ GRANT EXECUTE ON FUNCTION ops.validate_component_targets(jsonb) TO corpus_sem_re
 
 CREATE OR REPLACE FUNCTION ops.resolve_retained_relationship_decision(ref jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE selected record; operation jsonb; decision jsonb; edge jsonb; occurrence jsonb; target jsonb;
+DECLARE selected record; operation jsonb; decision jsonb; edge jsonb; occurrence jsonb; target jsonb; semantic_group jsonb; targets jsonb; member jsonb;
 BEGIN
  SELECT result.body, task.unit_id, batch.data_revision, origin_job.runtime_id INTO STRICT selected
  FROM ops.run job JOIN ops.completed_result completed ON completed.run_id=job.id
@@ -161,9 +161,18 @@ BEGIN
  SELECT cc INTO STRICT occurrence FROM jsonb_array_elements(selected.body->'contributions') cc WHERE cc->>'contribution_id'=ref->>'occurrence_contribution_id'
  AND cc->>'semantic_type'='contextual.located_mention' AND cc->>'occurrence_id'=decision->>'occurrence_id'
  AND EXISTS(SELECT FROM jsonb_array_elements(edge->'witnesses') w WHERE w->'evidence_ids' ? (cc->>'contribution_id'));
- SELECT value INTO STRICT target FROM jsonb_array_elements(operation->'contextual_enrichment'->'component_targets') WHERE value->'reference'->>'component_id'=edge->>'target_id';
- PERFORM ops.resolve_retained_component(target->'reference');
- RETURN jsonb_build_object('decision',decision,'edge',edge,'occurrence',occurrence,'component_target',target,'source_view_id',selected.unit_id);
+ SELECT sg INTO STRICT semantic_group FROM jsonb_array_elements(operation->'contextual_enrichment'->'candidate_lists') cl
+ JOIN LATERAL jsonb_array_elements(operation->'contextual_enrichment'->'inventories') inv ON inv->>'inventory_id'=cl->>'inventory_id'
+ CROSS JOIN LATERAL jsonb_array_elements(inv->'semantic_groups') sg
+ WHERE cl->>'list_id'=decision->>'candidate_list_id' AND sg->>'target_id'=edge->>'target_id';
+ SELECT jsonb_agg(ct ORDER BY data.canonical_json(ct->'reference')) INTO targets
+ FROM jsonb_array_elements(operation->'contextual_enrichment'->'component_targets') ct WHERE semantic_group->'member_target_ids' ? (ct->'reference'->>'component_id');
+ IF targets IS NULL OR jsonb_array_length(targets)<>jsonb_array_length(semantic_group->'member_target_ids') THEN RAISE EXCEPTION 'relationship group lacks every original component proof' USING ERRCODE='23514'; END IF;
+ FOR member IN SELECT value FROM jsonb_array_elements(targets) LOOP
+  IF ops.component_semantic_target(member->'reference') IS DISTINCT FROM semantic_group->'meaning' THEN RAISE EXCEPTION 'relationship group member changes source meaning' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ SELECT ct INTO STRICT target FROM jsonb_array_elements(targets) ct WHERE edge->'member_target_ids' ? (ct->'reference'->>'component_id') ORDER BY data.canonical_json(ct->'reference') LIMIT 1;
+ RETURN jsonb_build_object('decision',decision,'edge',edge,'occurrence',occurrence,'component_target',target,'component_targets',targets,'semantic_target',semantic_group->'meaning','source_view_id',selected.unit_id);
 EXCEPTION WHEN no_data_found OR too_many_rows OR numeric_value_out_of_range THEN
  RAISE EXCEPTION 'retained relationship cannot resolve exact original edge/source' USING ERRCODE='23514';
 END $$;
@@ -288,6 +297,7 @@ BEGIN
       FROM jsonb_array_elements(source_->'occurrence'->'anchors') WITH ORDINALITY anchor(a,n)) THEN
      RAISE EXCEPTION 'usage differs from exact linked occurrence original source pieces' USING ERRCODE='23514'; END IF;
    ref:=ops.resolve_retained_component(dimension->'component_ref');
+   IF data.structural_definition_component(ref->'report',ref->'component') IS DISTINCT FROM source_->'semantic_target' THEN RAISE EXCEPTION 'applicability component changes semantic target group meaning' USING ERRCODE='23514'; END IF;
    IF dimension->'component' IS DISTINCT FROM ref->'component' THEN RAISE EXCEPTION 'applicability component differs from authenticated origin' USING ERRCODE='23514'; END IF;
    IF source_->'edge'->>'relation' NOT IN ('denotes','defined-by')
     OR source_->'decision'->>'scope' IS DISTINCT FROM passage->>'scope'
