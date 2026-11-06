@@ -348,6 +348,207 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.structural_dossier(jsonb,jsonb) FROM PUBLIC;
 
+-- Reconstruct the source cohort rather than trusting duplicated fields or caller IDs.
+-- A named source container and exact current projection remain the source authority.
+CREATE OR REPLACE FUNCTION ops.artifact_source_records(inputs jsonb,config jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE source_ jsonb; binding jsonb; view_ kb.source_view; piece jsonb; node jsonb;
+ pin jsonb; anchor_ jsonb; artifact jsonb; value_ jsonb; contribution jsonb; citations jsonb;
+ candidates jsonb:='[]'; match_ record; raw text; quote_ text; pointer_ text; source_ref text;
+ local_start integer; local_end integer; global_start integer; global_end integer; caption boolean;
+ pattern text:=E'(?i)\\m(Table|Figure|Theorem|Section)\\s+([A-Z]?\\d+(?:\\.\\d+)*[A-Za-z]?)';
+BEGIN
+ IF (SELECT count(*)<>count(DISTINCT wb->>'native_content_digest') FROM jsonb_array_elements(config->'work_bindings') wb) THEN
+  RAISE EXCEPTION 'artifact source-work bindings repeat' USING ERRCODE='23514'; END IF;
+ FOR source_ IN SELECT value FROM jsonb_array_elements(inputs->'sources') LOOP
+  SELECT wb INTO binding FROM jsonb_array_elements(config->'work_bindings') wb
+   WHERE wb->>'native_content_digest'=source_->>'native_content_digest';
+  IF binding IS NULL THEN CONTINUE; END IF;
+  SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+  source_ref:=encode(sha256(convert_to(data.canonical_json(source_),'UTF8')),'hex');
+  pin:=jsonb_build_object('source',view_.key,'native_product_task_id',view_.native_task_id,
+   'product_key',view_.native_product_key,'product_digest',view_.native_content_digest,
+   'projection_digest',view_.projection_digest,'recipe_digest',view_.recipe_digest,'source_view_id',view_.id);
+  FOR piece IN SELECT p FROM jsonb_array_elements(view_.projection->'pieces') p
+   WHERE p->>'kind'='native_text' AND p->>'cell_index' IS NULL LOOP
+   raw:=substring(view_.projection->>'text' FROM (piece->>'start')::integer+1
+    FOR (piece->>'end')::integer-(piece->>'start')::integer);
+   IF raw COLLATE pg_catalog.pg_unicode_fast !~ pattern THEN CONTINUE; END IF;
+   pointer_:=piece->>'item_ref';
+   SELECT native_json INTO STRICT node FROM ops.read_pdf_published_items(view_.native_task_id,
+    view_.native_product_key,view_.native_content_digest,ARRAY[pointer_]);
+   IF node->>'text' IS DISTINCT FROM raw THEN
+    RAISE EXCEPTION 'artifact native field bridge differs from source projection' USING ERRCODE='23514'; END IF;
+   caption:=node->>'label'='caption';
+   FOR match_ IN SELECT parts,n::integer FROM regexp_matches(raw COLLATE pg_catalog.pg_unicode_fast,pattern,'g') WITH ORDINALITY m(parts,n) LOOP
+    local_start:=regexp_instr(raw COLLATE pg_catalog.pg_unicode_fast,pattern,1,match_.n)-1;
+    local_end:=regexp_instr(raw COLLATE pg_catalog.pg_unicode_fast,pattern,1,match_.n,1)-1;
+    global_start:=(piece->>'start')::integer+local_start;
+    global_end:=(piece->>'start')::integer+local_end;
+    quote_:=substring(raw FROM local_start+1 FOR local_end-local_start);
+    SELECT COALESCE(jsonb_agg(jsonb_build_object('source_ref',source_ref,
+     'passage_id',p->>'passage_id','source_pointer',pointer_,'start',global_start,
+     'end',global_end,'text',quote_) ORDER BY ordinal),'[]') INTO citations
+    FROM jsonb_array_elements(inputs->'passages') WITH ORDINALITY selected(p,ordinal)
+    WHERE p->>'source_ref'=source_ref AND (p->>'start')::integer<=global_start
+     AND (p->>'end')::integer>=global_end;
+    IF jsonb_array_length(citations)=0 THEN CONTINUE; END IF;
+    artifact:=jsonb_strip_nulls(jsonb_build_object('protocol','source-artifact-occurrence-1',
+     'artifact_kind',lower(match_.parts[1]),'source_work',binding->>'source_work',
+     'controlled_code',match_.parts[2],
+     'title',CASE WHEN caption THEN nullif(btrim(substring(raw FROM local_end+1),E' .:\n'),'') END,
+     'aliases','[]'::jsonb,'revision_state','unknown',
+     'occurrence_role',CASE WHEN caption THEN 'caption' ELSE 'reference' END,
+     'scope',pointer_,'source_pointer',pointer_,
+     'dependencies',jsonb_build_array('native:'||view_.native_task_id::text)));
+    -- SourceValue retains the producer's declared field ordering, independently of JSONB order.
+    SELECT jsonb_build_object('kind','object','fields',jsonb_agg(jsonb_build_object(
+     'name',key,'position',position,'value',CASE WHEN jsonb_typeof(artifact->key)='array'
+      THEN jsonb_build_object('kind','array','items',COALESCE((SELECT jsonb_agg(
+       jsonb_build_object('kind','text','text',x) ORDER BY n)
+       FROM jsonb_array_elements_text(artifact->key) WITH ORDINALITY a(x,n)),'[]'))
+      ELSE jsonb_build_object('kind','text','text',artifact->key) END) ORDER BY position)) INTO value_
+    FROM (SELECT key,(row_number() OVER(ORDER BY n)-1)::integer position FROM unnest(ARRAY[
+     'protocol','artifact_kind','source_work','controlled_code','title','aliases','revision',
+     'revision_state','occurrence_role','scope','source_pointer','dependencies']) WITH ORDINALITY f(key,n)
+     WHERE artifact ? key) fields;
+    anchor_:=jsonb_build_object('pin',pin,'space','native','pointer',pointer_,
+     'precision','exact','start',local_start,'end',local_end,'source_piece',quote_);
+    anchor_:=anchor_||jsonb_build_object('anchor_id','record-anchor:'||encode(sha256(convert_to(
+     data.canonical_json(anchor_||jsonb_build_object('pin',pin-'source_view_id')),'UTF8')),'hex'));
+    contribution:=jsonb_build_object('contract','RetainedContributionSemantics','kind','occurrence',
+     'semantic_type','structural.artifact','operation_key','contribution-operation:'||encode(sha256(convert_to(
+      data.canonical_json(jsonb_build_array(jsonb_build_array('structure.scoped_relations','1',pin),'{}'::jsonb)),'UTF8')),'hex'),
+     'item_key',pointer_||':artifact_reference:'||global_start::text||':'||global_end::text,
+     'pin',pin,'anchors',jsonb_build_array(anchor_),
+     'occurrence_id',ops.source_contribution_occurrence(jsonb_build_array(anchor_)),
+     'standing','retained_private','score_state','missing','disposition','located_proposal',
+     'computation_dependencies',jsonb_build_array('native:'||view_.native_task_id::text),'value',value_);
+    contribution:=contribution||jsonb_build_object('contribution_id','source-contribution:'||encode(sha256(
+     convert_to(data.canonical_json(contribution),'UTF8')),'hex'));
+    candidates:=candidates||jsonb_build_array(jsonb_build_object(
+     'contribution_id',contribution->>'contribution_id','occurrence_id',contribution->>'occurrence_id',
+     'artifact',artifact,'source_contribution',contribution,'citations',citations));
+   END LOOP;
+  END LOOP;
+ END LOOP;
+ RETURN (SELECT COALESCE(jsonb_agg(r ORDER BY r->>'contribution_id'),'[]') FROM (
+  SELECT DISTINCT ON (r->>'occurrence_id',r->'artifact'->>'source_work',r->'artifact'->>'artifact_kind') r
+  FROM jsonb_array_elements(candidates) r ORDER BY r->>'occurrence_id',r->'artifact'->>'source_work',
+   r->'artifact'->>'artifact_kind',r->>'contribution_id') selected);
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_source_records(jsonb,jsonb) FROM PUBLIC;
+
+-- RapidFuzz's normalized Indel similarity is twice the longest common subsequence
+-- divided by the two codepoint lengths. This independent admission replay does not
+-- replace the production RapidFuzz candidate generator.
+CREATE OR REPLACE FUNCTION ops.artifact_lexical_score(a text,b text)
+RETURNS double precision LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE previous integer[]; current_ integer[]; i integer; j integer; n integer; m integer;
+BEGIN
+ IF a IS NULL OR b IS NULL OR a='' OR b='' THEN RETURN 0; END IF;
+ n:=char_length(a);m:=char_length(b);previous:=array_fill(0,ARRAY[m+1],ARRAY[0]);
+ FOR i IN 1..n LOOP
+  current_:=array_fill(0,ARRAY[m+1],ARRAY[0]);
+  FOR j IN 1..m LOOP
+   current_[j]:=CASE WHEN substring(a FROM i FOR 1)=substring(b FROM j FOR 1)
+    THEN previous[j-1]+1 ELSE greatest(previous[j],current_[j-1]) END;
+  END LOOP;
+  previous:=current_;
+ END LOOP;
+ -- Match the library arithmetic as well as the mathematical ratio at exact thresholds.
+ RETURN ((1.0-(n+m-2*previous[m])::double precision/(n+m)::double precision)*100.0)/100.0;
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_lexical_score(text,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_artifact_identity(inputs jsonb,config jsonb,product jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; expected_pairs jsonb:='[]';
+ code_a text; code_b text; title_a text; title_b text; compatible boolean; excluded boolean;
+ lexical double precision; log_odds double precision; probability double precision; external_ boolean; policy jsonb;
+ code_gamma integer; title_gamma integer; code_mw double precision; title_mw double precision;
+ field_ jsonb; expected_value double precision; model_id text; expected_provenance jsonb; unbound jsonb;
+ python_space text:=chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(28)||chr(29)||chr(30)||chr(31)||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288);
+BEGIN
+ policy:=product->'policy';
+ IF product->>'identity_grain' IS DISTINCT FROM 'source_work_artifact_lineage'
+  OR jsonb_typeof(config->'title_threshold') IS DISTINCT FROM 'number'
+  OR (config->>'title_threshold')::double precision<0 OR (config->>'title_threshold')::double precision>100
+  OR jsonb_typeof(config->'work_bindings') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(config->'external_pairs') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(config->'exclusions') IS DISTINCT FROM 'array'
+  OR NOT policy ?& ARRAY['prior','code_m','code_u','title_m','title_u'] OR product->>'protocol'<>'artifact-identity-1' OR product->>'standing'<>'candidate_relative_private'
+  OR policy IS DISTINCT FROM config->'policy' OR EXISTS(SELECT FROM jsonb_each(policy) p
+   WHERE (p.value#>>'{}')::double precision<=0 OR (p.value#>>'{}')::double precision>=1)
+  OR (SELECT count(*) FROM jsonb_each(policy))<>5 THEN
+  RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
+ expected_records:=ops.artifact_source_records(inputs,config);
+ IF jsonb_strip_nulls(product->'records') IS DISTINCT FROM expected_records THEN
+  RAISE EXCEPTION 'artifact cohort/fields/content identities differ from exact source replay' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(DISTINCT wb->>'provenance' ORDER BY wb->>'provenance'),'[]') INTO expected_provenance
+ FROM jsonb_array_elements(inputs->'sources') src JOIN LATERAL jsonb_array_elements(config->'work_bindings') wb
+  ON wb->>'native_content_digest'=src->>'native_content_digest';
+ SELECT COALESCE(jsonb_agg(src->'source_view_id' ORDER BY n),'[]') INTO unbound
+ FROM jsonb_array_elements(inputs->'sources') WITH ORDINALITY s(src,n)
+ WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(config->'work_bindings') wb WHERE wb->>'native_content_digest'=src->>'native_content_digest');
+ IF COALESCE(product->'source_mapping_provenance','[]') IS DISTINCT FROM expected_provenance
+  OR COALESCE(product->'unbound_source_ids','[]') IS DISTINCT FROM unbound
+  OR COALESCE(product->'native_alias_pairs','[]')<>'[]'::jsonb THEN
+  RAISE EXCEPTION 'artifact source mapping/unavailable/alias population differs' USING ERRCODE='23514'; END IF;
+ model_id:=encode(sha256(convert_to(data.canonical_json(policy),'UTF8')),'hex');
+ IF (SELECT count(*)<>count(DISTINCT (p->>'left',p->>'right')) FROM jsonb_array_elements(product->'pairs') p) THEN
+  RAISE EXCEPTION 'artifact pair population repeats' USING ERRCODE='23514'; END IF;
+ FOR a,b IN SELECT left_,right_ FROM jsonb_array_elements(expected_records) left_,jsonb_array_elements(expected_records) right_
+  WHERE left_->>'contribution_id'<right_->>'contribution_id' AND left_->>'occurrence_id'<>right_->>'occurrence_id' LOOP
+  compatible:=(a->'artifact'->>'source_work'=b->'artifact'->>'source_work' AND a->'artifact'->>'artifact_kind'=b->'artifact'->>'artifact_kind');
+  external_:=COALESCE(config->'external_pairs','[]') @> jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')) OR COALESCE(config->'external_pairs','[]') @> jsonb_build_array(jsonb_build_array(b->>'contribution_id',a->>'contribution_id'));
+  IF NOT compatible AND NOT external_ THEN CONTINUE; END IF;
+  code_a:=CASE WHEN btrim(a->'artifact'->>'controlled_code') COLLATE pg_catalog.pg_unicode_fast ~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$' THEN lower(btrim(a->'artifact'->>'controlled_code')) END;
+  code_b:=CASE WHEN btrim(b->'artifact'->>'controlled_code') COLLATE pg_catalog.pg_unicode_fast ~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$' THEN lower(btrim(b->'artifact'->>'controlled_code')) END;
+  lexical:=ops.artifact_lexical_score(a->'artifact'->>'title',b->'artifact'->>'title');routes:='[]';
+  IF compatible AND code_a IS NOT NULL AND code_a=code_b THEN routes:=routes||'"exact_code"'::jsonb; END IF;
+  IF compatible AND COALESCE(a->'artifact'->>'title','')<>'' AND COALESCE(b->'artifact'->>'title','')<>'' AND lexical*100 >=(config->>'title_threshold')::double precision THEN routes:=routes||'"lexical_title"'::jsonb; END IF;
+  IF external_ THEN routes:=routes||'"external_pairs"'::jsonb; END IF;
+  IF routes='[]'::jsonb THEN CONTINUE; END IF;
+  expected_pairs:=expected_pairs||jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id'));
+  SELECT p INTO STRICT pair_ FROM jsonb_array_elements(product->'pairs') p WHERE p->>'left'=a->>'contribution_id' AND p->>'right'=b->>'contribution_id';
+  excluded:=NOT compatible OR COALESCE(config->'exclusions','[]') @> jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')) OR COALESCE(config->'exclusions','[]') @> jsonb_build_array(jsonb_build_array(b->>'contribution_id',a->>'contribution_id'));
+  IF pair_->'candidate_routes' IS DISTINCT FROM routes OR pair_->>'standing'<>'candidate_relative_private'
+   OR pair_->>'revision_relation'<>'unknown' OR pair_->>'scope_state' IS DISTINCT FROM (CASE WHEN excluded THEN 'excluded' ELSE 'compatible' END)
+   OR abs((pair_->>'lexical_score')::double precision-lexical)>1e-12
+   OR pair_->'dependencies' IS DISTINCT FROM (SELECT jsonb_agg(value ORDER BY value) FROM (SELECT DISTINCT value FROM jsonb_array_elements_text(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')||(a->'artifact'->'dependencies')||(b->'artifact'->'dependencies'))) d) THEN
+   RAISE EXCEPTION 'artifact candidate route/scope/dependencies differ from exact frozen cohort' USING ERRCODE='23514'; END IF;
+  IF excluded THEN
+   IF pair_->>'model_probability' IS NOT NULL OR pair_->>'model_id' IS NOT NULL OR COALESCE(pair_->'model_evidence','[]')<>'[]'::jsonb THEN RAISE EXCEPTION 'excluded artifact pair carries a model score' USING ERRCODE='23514'; END IF;
+   CONTINUE;
+  END IF;
+  code_gamma:=CASE WHEN code_a IS NULL OR code_b IS NULL THEN -1 WHEN code_a=code_b THEN 1 ELSE 0 END;
+  title_a:=casefold(btrim(a->'artifact'->>'title',python_space) COLLATE pg_catalog.pg_unicode_fast);
+  title_b:=casefold(btrim(b->'artifact'->>'title',python_space) COLLATE pg_catalog.pg_unicode_fast);
+  title_gamma:=CASE WHEN title_a IS NULL OR title_b IS NULL THEN -1 WHEN title_a=title_b THEN 1 ELSE 0 END;
+  code_mw:=CASE code_gamma WHEN -1 THEN 0 WHEN 1 THEN log(2::numeric,((policy->>'code_m')::numeric/(policy->>'code_u')::numeric))::double precision ELSE log(2::numeric,((1-(policy->>'code_m')::numeric)/(1-(policy->>'code_u')::numeric)))::double precision END;
+  title_mw:=CASE title_gamma WHEN -1 THEN 0 WHEN 1 THEN log(2::numeric,((policy->>'title_m')::numeric/(policy->>'title_u')::numeric))::double precision ELSE log(2::numeric,((1-(policy->>'title_m')::numeric)/(1-(policy->>'title_u')::numeric)))::double precision END;
+  log_odds:=ln((policy->>'prior')::double precision)-ln(1-(policy->>'prior')::double precision)+(code_mw+title_mw)*ln(2::double precision);
+  probability:=CASE WHEN log_odds>745 THEN 1 WHEN log_odds < -745 THEN 0 WHEN log_odds>=0 THEN 1/(1+exp(-log_odds)) ELSE exp(log_odds)/(1+exp(log_odds)) END;
+  IF pair_->>'model_id' IS DISTINCT FROM model_id OR pair_->>'model_probability' IS NULL OR abs((pair_->>'model_probability')::double precision-probability)>1e-10
+   OR (SELECT count(*)<>4 OR count(DISTINCT f->>'name')<>4 FROM jsonb_array_elements(pair_->'model_evidence') f) THEN
+   RAISE EXCEPTION 'artifact probability/model evidence differs from frozen exact-comparison likelihood' USING ERRCODE='23514'; END IF;
+  FOR field_ IN SELECT value FROM jsonb_array_elements(pair_->'model_evidence') LOOP
+   expected_value:=CASE field_->>'name' WHEN 'gamma_controlled_code' THEN code_gamma WHEN 'gamma_title' THEN title_gamma WHEN 'mw_controlled_code' THEN code_mw WHEN 'mw_title' THEN title_mw END;
+   IF expected_value IS NULL OR field_->>'value' IS NULL OR abs((field_->>'value')::double precision-expected_value)>1e-10 THEN
+    RAISE EXCEPTION 'artifact model comparison evidence differs from declared likelihood' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END LOOP;
+ IF jsonb_array_length(product->'pairs')<>jsonb_array_length(expected_pairs) THEN
+  RAISE EXCEPTION 'artifact candidate population is incomplete or has extra pairs' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(config->'external_pairs','[]')||COALESCE(config->'exclusions','[]')) ep
+  WHERE jsonb_array_length(ep)<>2 OR ep->>0=ep->>1 OR EXISTS(SELECT FROM jsonb_array_elements_text(ep) endpoint WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(expected_records) r WHERE r->>'contribution_id'=endpoint))) THEN
+  RAISE EXCEPTION 'artifact configured pair endpoint lies outside source cohort' USING ERRCODE='23514'; END IF;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'artifact candidate or source custody cannot resolve exact population' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_artifact_identity(jsonb,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; target_passage jsonb; premise jsonb; expected_state text; expected_outcome text; states text[];
@@ -380,6 +581,9 @@ BEGIN
   IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs)
     OR product->>'kind' IS DISTINCT FROM (CASE method_ WHEN 'structure.definition_components' THEN 'definition_components' ELSE 'definition_applicability' END) THEN
    RAISE EXCEPTION 'definition report differs from frozen source/question input' USING ERRCODE='23514'; END IF;
+ ELSIF method_='structure.artifact_identity' THEN
+  IF jsonb_strip_nulls(config_->'inputs') IS DISTINCT FROM jsonb_strip_nulls(inputs) OR product->>'kind'<>'artifact_identity' THEN
+   RAISE EXCEPTION 'artifact identity differs from exact selected source inputs' USING ERRCODE='23514'; END IF;
  ELSE
   RAISE EXCEPTION 'method does not declare a structural report producer' USING ERRCODE='23514';
  END IF;
@@ -390,7 +594,8 @@ BEGIN
  IF (CASE WHEN nullif(product->'definition','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
   +CASE WHEN nullif(product->'comparison','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
   +CASE WHEN nullif(product->'dossier','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
-  +CASE WHEN nullif(product->'definition_components','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END)<>1 THEN
+  +CASE WHEN nullif(product->'definition_components','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END
+  +CASE WHEN nullif(product->'artifact_identity','null'::jsonb) IS NOT NULL THEN 1 ELSE 0 END)<>1 THEN
   RAISE EXCEPTION 'structural report must contain exactly one product variant' USING ERRCODE='23514'; END IF;
  CASE product->>'kind'
  WHEN 'definition_components' THEN
@@ -482,6 +687,9 @@ BEGIN
    IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') AS declared_premise(value) WHERE declared_premise.value->>'state' IN ('unknown','incompatible')) THEN
     RAISE EXCEPTION 'applicability requires resolved compatible premises' USING ERRCODE='23514'; END IF;
   END LOOP;
+ WHEN 'artifact_identity' THEN
+  IF method_<>'structure.artifact_identity' THEN RAISE EXCEPTION 'artifact identity producer mismatch' USING ERRCODE='23514'; END IF;
+  PERFORM ops.validate_artifact_identity(inputs,config_,product->'artifact_identity');
  WHEN 'qualified_comparison' THEN
   IF method_ IS DISTINCT FROM 'structure.compare' OR jsonb_strip_nulls(product->'comparison') IS DISTINCT FROM
     ops.structural_comparison(inputs,config_->>'left_id',config_->>'right_id') THEN

@@ -7,7 +7,7 @@ from hashlib import sha256
 from itertools import combinations
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 from rapidfuzz.fuzz import ratio
 
 from .identity import canonical_bytes
@@ -56,6 +56,7 @@ class ArtifactRecord(StructuralValue):
     contribution_id: str = Field(min_length=1)
     occurrence_id: str = Field(min_length=1)
     artifact: SourceArtifactOccurrence
+    source_contribution: dict[str, JsonValue]
     citations: tuple[ArtifactCitation, ...] = Field(min_length=1)
 
 
@@ -278,11 +279,12 @@ class ArtifactIdentityProduct(StructuralValue):
     """One selected source-work cohort, candidate routes and frozen model results."""
 
     protocol: Literal["artifact-identity-1"] = "artifact-identity-1"
-    records: tuple[ArtifactRecord, ...]
-    pairs: tuple[ArtifactPair, ...]
+    identity_grain: Literal["source_work_artifact_lineage"] = "source_work_artifact_lineage"
+    records: tuple[ArtifactRecord, ...] = ()
+    pairs: tuple[ArtifactPair, ...] = ()
     native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
     policy: ArtifactScoringPolicy
-    source_mapping_provenance: tuple[str, ...]
+    source_mapping_provenance: tuple[str, ...] = ()
     unbound_source_ids: tuple[int, ...] = ()
     standing: Literal["candidate_relative_private"] = "candidate_relative_private"
 

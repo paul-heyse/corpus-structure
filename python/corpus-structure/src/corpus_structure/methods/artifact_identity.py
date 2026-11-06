@@ -100,6 +100,7 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
                 contribution_id=row["contribution_id"],
                 occurrence_id=row["occurrence_id"],
                 artifact=SourceArtifactOccurrence.model_validate(source_python(row["value"])),
+                source_contribution=json.loads(canonical_bytes(row)),
                 citations=tuple(citations),
             )
         )

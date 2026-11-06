@@ -16,6 +16,7 @@ def record(identity, *, work="book", code="5.1", title=None, aliases=(), revisio
     return ArtifactRecord(
         contribution_id=identity,
         occurrence_id="occurrence:" + identity,
+        source_contribution={},
         citations=(
             dict(
                 source_ref="source:" + identity,
@@ -132,3 +133,140 @@ def test_identity_product_rejects_cross_work_scores_and_missing_citations():
         )
     with pytest.raises(ValueError):
         ArtifactRecord.model_validate({**records[0].model_dump(), "citations": []})
+
+
+def test_strict_policy_probabilities_refuse_boundaries_and_nonfinite_values():
+    for invalid in (0, 1, -0.1, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            ArtifactScoringPolicy(prior=invalid, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
+
+
+def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics():
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from methods.test_m1_source_preparation import source
+    from methods.test_scoped_relations import complete_native_fields
+
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.methods.artifact_identity import (
+        ArtifactIdentityConfig,
+        ArtifactIdentityMethod,
+    )
+    from corpus_structure.methods.scoped_relations import SourceWorkBinding
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.observations import observation_inputs
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.structural_products import (
+        ExternalSourceRef,
+        StructuralInput,
+        StructuralPassage,
+    )
+
+    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    prepared = prepare_release(
+        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
+    )
+    policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
+    for raw, bind in [
+        ("No numbered artifact is stated.", True),
+        ("Table 5.1 Moments", True),
+        ("Table 5.1 Moments", False),
+    ]:
+        frame = native_source_frame(complete_native_fields(source(raw, labels=("caption",))), ())
+        native = frame.native_product
+        reference = ExternalSourceRef(
+            project_id="p",
+            run_id=1,
+            cut_id=1,
+            release_id="r",
+            result_revision=1,
+            source_view_id=frame.source_view_id,
+            native_task_id=native.task_id,
+            native_product_key=native.product_key,
+            native_content_digest=native.content_digest,
+            projection_digest=frame.projection_digest,
+            recipe_digest=frame.recipe_digest,
+            coordinate_version=2,
+        )
+        inputs = StructuralInput(
+            question="Artifact source development",
+            scope="fixture",
+            inventory_id="literal",
+            policy_id="artifact-candidate-1",
+            sources=(reference,),
+            passages=(
+                StructuralPassage(
+                    passage_id="literal",
+                    source_ref=reference.identity,
+                    start=0,
+                    end=len(raw),
+                    text=raw,
+                    scope="fixture",
+                ),
+            ),
+            dependencies=("native:" + str(native.task_id),),
+        )
+
+        class Reader:
+            def __init__(self, bound_inputs, selected_ref, source_frame, bound):
+                self.inputs = bound_inputs
+                self.source_ref = selected_ref
+                self.frame = source_frame
+                self.bound = bound
+
+            def structural_source_frame(self, observed, selected):
+                assert self.bound and observed == self.inputs and selected == self.source_ref
+                return self.frame
+
+        cfg = ArtifactIdentityConfig(
+            inputs=inputs,
+            structural_input_digest=inputs.identity,
+            policy=policy,
+            work_bindings=(
+                SourceWorkBinding(
+                    native_content_digest=native.content_digest,
+                    source_work="parent",
+                    provenance="literal-source",
+                ),
+            )
+            if bind
+            else (),
+        )
+        ctx = SimpleNamespace(
+            reader=Reader(inputs, reference.identity, frame, bind), check_active=lambda: None
+        )
+        (result,) = ArtifactIdentityMethod().run(
+            (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),), cfg, ctx
+        )
+        assert result.structural_product is not None
+        from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
+
+        product = ArtifactIdentityProduct.model_validate(
+            result.structural_product["artifact_identity"]
+        ).model_dump(mode="json", exclude_none=True)
+        from corpus_structure.semantic.identity import canonical_bytes
+
+        prepared.validate_json("ArtifactIdentityProduct", canonical_bytes(product))
+        from corpus_structure.semantic.observations import bind_result
+
+        bound = bind_result(
+            prepared,
+            source="run",
+            method="structure.artifact_identity",
+            operation_version="1",
+            configuration_hash="config",
+            input_hash="input",
+            invocation_key="invocation",
+            result=result,
+        )
+        assert (
+            bound.model_dump(mode="json", exclude_none=True)["structural_product"][
+                "artifact_identity"
+            ]["records"]
+            == product["records"]
+        )
+        assert product["pairs"] == []
+        assert len(product["records"]) == (1 if bind and raw.startswith("Table") else 0)
+        assert product["unbound_source_ids"] == ([] if bind else [frame.source_view_id])

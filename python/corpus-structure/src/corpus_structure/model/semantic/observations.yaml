@@ -102,6 +102,10 @@ classes:
         range: SourceArtifactOccurrence
         inlined: true
         required: true
+      source_contribution:
+        range: SourceContribution
+        inlined: true
+        required: true
       citations:
         multivalued: true
         minimum_cardinality: 1
@@ -113,18 +117,28 @@ classes:
     attributes:
       prior:
         range: contextual_float
+        minimum_value: 0
+        maximum_value: 1
         required: true
       code_m:
         range: contextual_float
+        minimum_value: 0
+        maximum_value: 1
         required: true
       code_u:
         range: contextual_float
+        minimum_value: 0
+        maximum_value: 1
         required: true
       title_m:
         range: contextual_float
+        minimum_value: 0
+        maximum_value: 1
         required: true
       title_u:
         range: contextual_float
+        minimum_value: 0
+        maximum_value: 1
         required: true
   SourceArtifactOccurrence:
     is_a: SourceRecordProduct
@@ -167,16 +181,16 @@ classes:
     attributes:
       protocol:
         equals_string: artifact-identity-1
+      identity_grain:
+        equals_string: source_work_artifact_lineage
       records:
         multivalued: true
         range: ArtifactRecord
         inlined: true
-        required: true
       pairs:
         multivalued: true
         range: ArtifactPair
         inlined: true
-        required: true
       native_alias_pairs:
         multivalued: true
         range: ArtifactPairKey
@@ -188,7 +202,6 @@ classes:
       source_mapping_provenance:
         multivalued: true
         range: string
-        required: true
       unbound_source_ids:
         multivalued: true
         range: integer
