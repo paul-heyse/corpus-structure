@@ -24,6 +24,7 @@ from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.structural_products import ExternalSourceRef, StructuralInput
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions, export_contribution_selection
 from corpus_structure.serve.structural_products import StructuralRequest, serve_structural_products
+from corpus_structure.serve.review_bundle import ReviewSelection, export_review_bundle, verify_review_bundle
 from corpus_structure.settings import Settings
 
 HERE = Path(__file__).resolve().parent
@@ -96,7 +97,12 @@ def main():
         with open_runtime_engine(settings, 'wce05-resume-app-read', purpose='read') as engine, read_snapshot(engine) as conn:
             app_page = serve_structural_products(conn, StructuralRequest(run_id=app.run_id))
             save(output, 'applicability-inspection.json', app_page.model_dump(mode='json'))
-        summary.update(applicability_run=app.run_id, applicability_outcomes=[reading.outcome for report in app_page.reports for reading in report.definition.readings],
+            app_completed, _, _ = metadata(conn, app.run_id)
+        exported = export_review_bundle(ReviewSelection(structural_selections=(StructuralRequest(run_id=app.run_id, kind='definition_applicability'),)), output / 'applicability-bundle', settings)
+        verified = verify_review_bundle(output / 'applicability-bundle')
+        save(output, 'applicability-export.json', exported)
+        save(output, 'applicability-export-verification.json', verified)
+        summary.update(applicability_run=app.run_id, applicability_cut=app_completed['cut_id'], applicability_outcomes=[reading.outcome for report in app_page.reports for reading in report.definition.readings],
             scope='actual source-role projection, real E5, native current relationship and applicability retention, completed ordinary read/export; independent assessment/publication separate')
         save(output, 'result.json', summary)
         print(canonical_bytes(summary).decode())

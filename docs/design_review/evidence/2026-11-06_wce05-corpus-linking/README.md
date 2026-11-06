@@ -39,7 +39,18 @@ consumes the actual completed relationship reference.
 - `actual004`: resumed127 using main25c4b345 after native161; Reader/export passed again.
   Applicability129/task318 passed the repaired selection-reference aggregation and failed at a
   second ambiguous alias (`premise`) in the native applicable-outcome guard. This is retained
-  as a separate failed attempt; the managed guard repair is required before native success.
+  as a separate failed attempt; native162 supplies the managed guard repair.
+
+- `actual005`: native applicability130 completed successfully after native162. Finalization
+  initially failed because the existing release had no deployment admission receipt for the new
+  managed native deployment. The writer correctly could not create a restricted admission receipt.
+- `actual006`: **passed** normal restricted admission refresh of the same release identity,
+  finalization of the already completed applicability130/cut164, ordinary structural read,
+  portable review export and bundle verification. No source, encoder, linker or applicability
+  computation was repeated. The private outcome is `applicable_definition` for the exact defining
+  occurrence: sense/scope/version are compatible; parameterization/convention/parent are
+  inapplicable under the source-local introduction policy. Transfer applicability and independent
+  semantic support are not asserted.
 
 ## Interpretation and limits
 
@@ -76,3 +87,23 @@ PYTHONPATH=python/corpus-structure/src:tools/evidence/src /home/paul/corpus-stru
 Attempt names are immutable output folders; choose a new name on every run. This command
 creates a new registered applicability run on persistent development PostgreSQL. It does not
 rewrite or delete the earlier completed relationship or any failed attempt.
+
+The post-repair app-only attempt uses integrated main production source (main fca4e0e2,
+native database head `semantic_wce_premise_20261106`), while retaining the same completed
+relationship127:
+
+```bash
+PYTHONPATH=/home/paul/corpus-structure/python/corpus-structure/src:/home/paul/corpus-structure/tools/evidence/src /home/paul/corpus-structure/.venv/bin/python docs/design_review/evidence/2026-11-06_wce05-corpus-linking/resume_corpus_application.py actual005 --run 127
+```
+
+To finish the existing native task after refreshing normal deployment admission:
+
+```bash
+PYTHONPATH=/home/paul/corpus-structure/python/corpus-structure/src:/home/paul/corpus-structure/tools/evidence/src /home/paul/corpus-structure/.venv/bin/python docs/design_review/evidence/2026-11-06_wce05-corpus-linking/finish_corpus_application.py actual006 --run 130
+```
+
+This last command passed on main fca4e0e2/native162. `actual006/result.json` owns the exact
+completed run/cut/runtime, premise states and bounded outcome. The portable bundle and
+verification retain selected original source closure, both contract populations, producer
+provenance, private report and selection; protected cohorts are excluded and scientific truth
+remains unestablished.
