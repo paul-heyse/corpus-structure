@@ -7,7 +7,7 @@ from alembic import op
 
 from corpus_structure.semantic.native_objects import NativeObject, admit_native
 
-revision = "semantic_witnessed_interpretation_20261106"
+revision = "semantic_wce_meanings_20261106"
 down_revision = "semantic_wce_roles_20261106"
 branch_labels = None
 depends_on = None
