@@ -372,3 +372,15 @@ def test_definition_windows_bound_model_work_and_preserve_original_coordinates(m
     limited=definition_windows(passage,cfg)
     assert 'max_window_chars' not in DefinitionComponentsConfig.model_json_schema()['properties']
     assert len(limited)==1 and limited[-1].end < passage.end
+
+
+def test_located_span_success_survives_empty_or_failed_attachment():
+    from corpus_structure.methods.definition_applicability import located_entity_count
+    value=inputs();passage=value.passages[0];returned=raw(passage.text)
+    returned['relation_extraction']={}
+    assert located_entity_count(returned,passage,DefinitionComponentsConfig())==2
+    assert decode_definition_components(returned,passage,DefinitionComponentsConfig())==()
+    del returned['entities']['defined term or expression'][0]['interpretation']
+    assert located_entity_count(returned,passage,DefinitionComponentsConfig())==2
+    with pytest.raises(GlinerRefused,match='interpretation'):
+        decode_definition_components(returned,passage,DefinitionComponentsConfig())

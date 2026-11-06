@@ -164,6 +164,19 @@ def decode_definition_components(
     return tuple(components[key] for key in sorted(components))
 
 
+def located_entity_count(raw, passage, cfg):
+    """Count actual source-validated entity proposals independently of attachments."""
+    if not isinstance(raw,dict) or not isinstance(raw.get("entities"),dict):
+        raise GlinerRefused("located extraction returned no declared entity channel")
+    located=set()
+    for role,values in raw["entities"].items():
+        if role not in {cfg.term_entity,cfg.content_entity} or not isinstance(values,list):
+            raise GlinerRefused("located extraction returned an undeclared entity population")
+        for value in values:
+            located.add((role,_located(passage,value).identity))
+    return len(located)
+
+
 def components_from_named_matches(
     passage: StructuralPassage, matches, *, term_role: str, content_role: str
 ) -> tuple[LocatedDefinitionComponent, ...]:
@@ -481,12 +494,20 @@ class DefinitionComponentsMethod:
                 try:
                     reply, = self._worker.extract(pack,(request,),threshold=cfg.threshold,overlap_policy="flat",check_active=ctx.check_active)
                     raw_reports.append(dict(passage_id=passage_id,window_start=window.start,window_end=window.end,**asdict(reply)))
-                    decoded = decode_definition_components(reply.raw,window,cfg)
+                    locations=located_entity_count(reply.raw,window,cfg)
                 except (GlinerRefused,GlinerWorkerError,ValueError,TimeoutError,OSError) as error:
                     stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="failed",reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}"))
+                    stages.append(DefinitionStage(passage_id=passage_id,operation="attachment",outcome="not_run",reason=f"Window {window.start}:{window.end}: located extraction unavailable."))
+                    continue
+                raw_reports[-1]["located_proposal_count"]=locations
+                stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="succeeded" if locations else "empty",reason=f"Window {window.start}:{window.end}: {locations} source-validated entity proposals retained; role/support remains unassessed."))
+                try:
+                    decoded=decode_definition_components(reply.raw,window,cfg)
+                except (GlinerRefused,ValueError) as error:
+                    stages.append(DefinitionStage(passage_id=passage_id,operation="attachment",outcome="failed",reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}; located proposals retained."))
                     continue
                 components.extend(decoded)
-                stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="succeeded" if decoded else "empty",reason=f"Window {window.start}:{window.end}: retained exact target-local output; no absence or semantic correctness claim."))
+                stages.append(DefinitionStage(passage_id=passage_id,operation="attachment",outcome="succeeded" if decoded else "empty",reason=f"Window {window.start}:{window.end}: {len(decoded)} decoded role-and-attachment components; no absence or semantic correctness claim."))
             if windows and windows[-1].end < passage.end:
                 stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="not_run",reason=f"Model window bound reached; original source tail {windows[-1].end}:{passage.end} uninspected by this producer."))
         components=list({component.component_id:component for component in components}.values())
