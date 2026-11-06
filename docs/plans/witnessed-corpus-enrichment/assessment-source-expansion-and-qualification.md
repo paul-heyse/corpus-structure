@@ -133,6 +133,8 @@ implementation completion from unestablished broad quality. No calibrated truth 
 follows. Performance claims require measurements; qualitative execution fit alone makes no speedup claim.
 
 Complete retirement only after caller/reader inventory, replacement consumers and valid controls.
-Never delete plans/evidence/raw bytes/migrations. Update architectural owners, link results to the
+Preserve plans, evidence and authenticated raw source bytes. ADR-0067 replaces legacy execution
+retention for WCE04–WCE05: remove superseded schema/validator assets and migrate installation paths
+to current contracts, regenerating insufficient derived data without invented evidence. Update architectural owners, link results to the
 single coordinator and original PCE F37/F39 owner where their obligations are informed, and leave
 precise future source/learning/backend triggers. No automatic promotion/default activation is planned.
