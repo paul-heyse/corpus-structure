@@ -1,10 +1,25 @@
 """Physical participant roles and native joins remain separate from semantic support."""
 
 from dataclasses import replace
+from types import SimpleNamespace
 
-from corpus_structure.methods.scoped_relations import discover_relations
+import pytest
+
+from corpus_structure.core.method import UnitRef
+from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.methods.scoped_relations import (
+    ScopedRelationsConfig,
+    ScopedRelationsMethod,
+    SourceWorkBinding,
+    discover_relations,
+)
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.structural_products import (
+    ExternalSourceRef,
+    StructuralInput,
+    StructuralPassage,
+)
 
 from .test_m1_source_preparation import native_table_source, source, table_cell
 
@@ -164,3 +179,209 @@ def test_annotation_failure_keeps_independent_native_contributions_and_failed_st
     assert output["operation"]["outcome"] == "succeeded"
     assert output["extra_operations"][0]["outcome"] == "failed"
     assert output["extra_operations"][0]["emitted_count"] == 0
+
+
+def original_inputs(view):
+    ref = view.ref
+    original = ExternalSourceRef(
+        project_id="original",
+        run_id=10,
+        cut_id=11,
+        release_id="r",
+        result_revision=1,
+        source_view_id=ref.id,
+        native_task_id=ref.native_product.task_id,
+        native_product_key=ref.native_product.product_key,
+        native_content_digest=ref.native_product.content_digest,
+        projection_digest=ref.projection_digest,
+        recipe_digest=ref.recipe_digest,
+        coordinate_version=3,
+    )
+    return StructuralInput(
+        question="Retain original annotations",
+        scope="s",
+        inventory_id="i",
+        policy_id="p",
+        sources=(original,),
+        passages=(
+            StructuralPassage(
+                passage_id="original",
+                source_ref=original.identity,
+                start=0,
+                end=len(view.text),
+                text=view.text,
+                scope="s",
+            ),
+        ),
+        dependencies=("annotation:original",),
+    )
+
+
+def run_scoped(view, cfg, reader):
+    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, view.ref.key))
+    return ScopedRelationsMethod().run(
+        (unit,), cfg, SimpleNamespace(reader=reader, check_active=lambda: None)
+    )[0]
+
+
+@pytest.mark.parametrize("errors", ((), ("retained block failed",)))
+def test_original_annotation_port_keeps_roles_when_new_run_has_no_annotation_task(errors):
+    from corpus_structure.ingest.annotations import AnnotationProfile
+
+    from .test_structural_roles import annotation
+
+    text = "Manager reviews Table 5.1."
+    view = complete_native_fields(source(text, labels=("text",)))
+    inputs = original_inputs(view)
+    cfg = ScopedRelationsConfig(
+        inputs=inputs,
+        structural_input_digest=inputs.identity,
+        work_bindings=(
+            SourceWorkBinding(
+                native_content_digest=view.ref.native_product.content_digest,
+                source_work="controlled-parent",
+                provenance="explicit functional control binding",
+            ),
+        ),
+    )
+    product = annotation(
+        text,
+        [
+            ("Manager", "NOUN", "nsubj", 1, "NN"),
+            ("reviews", "VERB", "ROOT", 1, "VBZ"),
+            ("Table", "NOUN", "dobj", 1, "NN"),
+            ("5.1", "NUM", "nummod", 2, "CD"),
+        ],
+    )
+    calls = []
+
+    class Reader:
+        def source_view(self, identity):
+            assert identity == view.ref.id
+            return view
+
+        def source_result(self, *_):
+            raise AssertionError("must use original-source annotations, not the new run")
+
+        def structural_source_annotations(self, actual, source_ref, profile):
+            calls.append((actual, source_ref, profile))
+            return SimpleNamespace(
+                source=native_source_frame(view, ()),
+                annotations=(product,),
+                errors=errors,
+            )
+
+    result = run_scoped(view, cfg, Reader())
+    assert calls == [(inputs, inputs.sources[0].identity, AnnotationProfile(cfg.sentences))]
+    assert result.contributions is not None and result.contribution_operations is not None
+    assert {source_python(r["value"]).get("relation") for r in result.contributions} >= {
+        "actor",
+        "object",
+        "uses_artifact",
+    }
+    assert next(
+        o for o in result.contribution_operations if o["question"] == "source_procedure_roles"
+    )["outcome"] == ("limited" if errors else "succeeded")
+    assert result.parse_detail is not None and result.parse_detail["annotation_errors"] == list(
+        errors
+    )
+
+
+def test_original_annotation_inputs_require_exact_digest_and_complete_pair():
+    view = complete_native_fields(source("Let x be count.", labels=("text",)))
+    inputs = original_inputs(view)
+    for partial in (
+        dict(inputs=inputs),
+        dict(structural_input_digest=inputs.identity),
+        dict(inputs=inputs, structural_input_digest="f" * 64),
+    ):
+        with pytest.raises(ValueError, match="digest"):
+            ScopedRelationsConfig.model_validate(partial)
+    assert ScopedRelationsConfig().inputs is None
+
+
+@pytest.mark.parametrize("mismatch", ("absent", "ambiguous", "native", "projection"))
+def test_original_annotation_reference_must_select_exactly_current_source_before_read(mismatch):
+    view = complete_native_fields(source("Let x be count.", labels=("text",)))
+    inputs = original_inputs(view)
+    original = inputs.sources[0]
+    if mismatch == "absent":
+        sources = (original.model_copy(update=dict(source_view_id=view.ref.id + 1)),)
+    elif mismatch == "ambiguous":
+        sources = (original, original.model_copy(update=dict(run_id=12, cut_id=13)))
+    else:
+        key = "native_content_digest" if mismatch == "native" else "projection_digest"
+        sources = (original.model_copy(update={key: "f" * 64}),)
+    inputs = StructuralInput.model_validate(
+        {
+            **inputs.model_dump(mode="json"),
+            "sources": [s.model_dump(mode="json") for s in sources],
+            "passages": [
+                inputs.passages[0]
+                .model_copy(update=dict(source_ref=sources[0].identity))
+                .model_dump(mode="json")
+            ],
+        }
+    )
+
+    class Reader:
+        def source_view(self, _):
+            return view
+
+        def structural_source_annotations(self, *_):
+            raise AssertionError("wrong current source must refuse before original annotation read")
+
+    with pytest.raises(ValueError, match=r"selected source reference|current native source"):
+        run_scoped(
+            view,
+            ScopedRelationsConfig(inputs=inputs, structural_input_digest=inputs.identity),
+            Reader(),
+        )
+
+
+@pytest.mark.parametrize("field,value", (("projection_digest", "f" * 64), ("text", "wrong source")))
+def test_original_annotation_port_cannot_substitute_detached_projection(field, value):
+    view = complete_native_fields(source("Let x be count.", labels=("text",)))
+    inputs = original_inputs(view)
+    frame = native_source_frame(view, ())
+    returned = SimpleNamespace(**{**frame.__dict__, field: value})
+
+    class Reader:
+        def source_view(self, _):
+            return view
+
+        def structural_source_annotations(self, *_):
+            return SimpleNamespace(source=returned, annotations=(), errors=())
+
+    with pytest.raises(ValueError, match="current native projection"):
+        run_scoped(
+            view,
+            ScopedRelationsConfig(inputs=inputs, structural_input_digest=inputs.identity),
+            Reader(),
+        )
+
+
+def test_same_run_annotation_route_still_preserves_unavailable_upstream_without_reparse():
+    view = complete_native_fields(source("Let x be count.", labels=("text",)))
+    calls = []
+
+    class Reader:
+        def source_view(self, _):
+            return view
+
+        def source_result(self, identity, method):
+            calls.append((identity, method))
+            return None
+
+        def structural_source_annotations(self, *_):
+            raise AssertionError("unconfigured original-source path must not run")
+
+    result = run_scoped(view, ScopedRelationsConfig(), Reader())
+    assert calls == [(view.ref.id, "extract.m1_annotations")]
+    assert result.contribution_operations is not None
+    assert (
+        next(
+            o for o in result.contribution_operations if o["question"] == "source_procedure_roles"
+        )["outcome"]
+        == "not_run"
+    )

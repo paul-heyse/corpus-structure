@@ -2,9 +2,9 @@
 
 import json
 import re
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
@@ -21,11 +21,12 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
+    NativeSourcePin,
     SourceSlice,
     evidence_anchor,
     record_source_pin,
 )
-from corpus_structure.semantic.structural_products import StructuralValue
+from corpus_structure.semantic.structural_products import StructuralInput, StructuralValue
 
 
 class SourceWorkBinding(StructuralValue):
@@ -35,11 +36,24 @@ class SourceWorkBinding(StructuralValue):
 
 
 class ScopedRelationsConfig(StructuralValue):
+    inputs: StructuralInput | None = None
+    structural_input_digest: str | None = None
     work_bindings: tuple[SourceWorkBinding, ...] = ()
     interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     formula_seconds: float = Field(default=0.5, gt=0)
     max_formula_chars: int = Field(default=2048, gt=0, strict=True)
+
+    @model_validator(mode="after")
+    def bound_inputs(self) -> Self:
+        if self.inputs is None:
+            if self.structural_input_digest is not None:
+                raise ValueError("original annotation inputs and digest must be supplied together")
+        elif self.structural_input_digest != self.inputs.identity:
+            raise ValueError(
+                "original annotation inputs require their exact structural input digest"
+            )
+        return self
 
 
 def artifact_spans(text):
@@ -649,15 +663,56 @@ class ScopedRelationsMethod:
             from corpus_structure.ingest.annotations import AnnotationProfile
             from corpus_structure.methods.m1_annotations import consume_annotations
 
-            try:
-                annotations, annotation_errors, _ = consume_annotations(
-                    ctx.reader, view, AnnotationProfile(cfg.sentences)
+            if cfg.inputs is not None:
+                sources = [
+                    source for source in cfg.inputs.sources if source.source_view_id == view.ref.id
+                ]
+                if len(sources) != 1:
+                    raise ValueError(
+                        "original annotations require exactly one selected source reference"
+                    )
+                original = sources[0]
+                if (
+                    original.native_task_id,
+                    original.native_product_key,
+                    original.native_content_digest,
+                    original.projection_digest,
+                    original.recipe_digest,
+                ) != (
+                    frame.native_product.task_id,
+                    frame.native_product.product_key,
+                    frame.native_product.content_digest,
+                    frame.projection_digest,
+                    frame.recipe_digest,
+                ):
+                    raise ValueError(
+                        "original annotation reference differs from current native source"
+                    )
+                # This owned port authenticates the manifest and original source cut;
+                # it detaches retained columns without running a linguistic pipeline.
+                retained = ctx.reader.structural_source_annotations(
+                    cfg.inputs, original.identity, AnnotationProfile(cfg.sentences)
                 )
-            except ValueError as error:
-                if str(error) != "required upstream M1 annotation operation has no source result":
-                    raise
-                annotations = ()
-                annotation_errors = ()
+                if (
+                    NativeSourcePin.from_source(retained.source)
+                    != NativeSourcePin.from_source(frame)
+                    or retained.source.text != frame.text
+                ):
+                    raise ValueError("retained annotations differ from current native projection")
+                annotations, annotation_errors = retained.annotations, retained.errors
+            else:
+                try:
+                    annotations, annotation_errors, _ = consume_annotations(
+                        ctx.reader, view, AnnotationProfile(cfg.sentences)
+                    )
+                except ValueError as error:
+                    if (
+                        str(error)
+                        != "required upstream M1 annotation operation has no source result"
+                    ):
+                        raise
+                    annotations = ()
+                    annotation_errors = ()
             output = discover_relations(
                 frame,
                 source_work=bindings[0].source_work if bindings else None,
