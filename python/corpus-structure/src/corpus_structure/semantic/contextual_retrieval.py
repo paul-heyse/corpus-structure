@@ -109,6 +109,8 @@ def semantic_target_groups(targets, semantic_targets):
             if target.target_id not in semantic_targets:
                 raise ValueError("component inventory requires authenticated semantic target meaning")
             meaning = _meaning(dict(semantic_targets[target.target_id]))
+            if not {"term", "content", "interpretation", "scope"} <= meaning.keys() or meaning.keys() - {"term", "content", "interpretation", "scope", "effective_version"}:
+                raise ValueError("component target meaning requires its exclusive source-resolved variant")
         else:
             meaning = _meaning(dict(curated_target=asdict(target)))
         target_id = identity("semantic-target", meaning)
