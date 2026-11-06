@@ -58,10 +58,16 @@ class DefinitionComponentsConfig(StructuralValue):
             if self.target_ids or self.profile or self.structural_input_digest:
                 raise ValueError("absent definition extraction cannot carry partial inputs")
             return self
-        if (self.use_model and self.profile is None) or self.structural_input_digest != self.inputs.identity:
-            raise ValueError("definition extraction requires selected producer inputs and exact input digest")
+        if (
+            self.use_model and self.profile is None
+        ) or self.structural_input_digest != self.inputs.identity:
+            raise ValueError(
+                "definition extraction requires selected producer inputs and exact input digest"
+            )
         if not self.use_model and (self.profile is not None or not self.use_named_candidates):
-            raise ValueError("linguistic-only extraction requires named candidates and no model profile")
+            raise ValueError(
+                "linguistic-only extraction requires named candidates and no model profile"
+            )
         passages = {p.passage_id for p in self.inputs.passages}
         if (
             not self.target_ids
@@ -348,7 +354,9 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                     variant=variant,
                     availability=state,
                     matched_count=len(selected),
-                    negation_extents=[extent for match in selected for extent in match.negation_extents],
+                    negation_extents=[
+                        extent for match in selected for extent in match.negation_extents
+                    ],
                     role_outcomes=[
                         dict(role=role.role, outcome=role.status)
                         for match in selected
@@ -379,8 +387,10 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
         tuple(operations),
         "Current named rules executed on authenticated retained annotation columns."
         if available
-        else ("No selected retained linguistic rule operation is executable; "
-              "no source absence is established."),
+        else (
+            "No selected retained linguistic rule operation is executable; "
+            "no source absence is established."
+        ),
     )
 
 
@@ -411,7 +421,9 @@ def retained_named_components(
             raise ValueError("named candidate differs from original source custody")
         match = source_python(row["value"])
         if "negation_extents" not in match:
-            return NamedDefinitionResult((), False, (), "Selected named candidates lack current polarity evidence.")
+            return NamedDefinitionResult(
+                (), False, (), "Selected named candidates lack current polarity evidence."
+            )
         if match.get("protocol") != "named-annotation-match-2":
             raise ValueError("named candidate requires current role contract")
         roles = tuple(
@@ -566,7 +578,18 @@ class DefinitionComponentsMethod:
                     )
                 )
         if not cfg.use_model:
-            stages.extend(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="not_run",reason="Explicit registered linguistic-only composition; no model extraction requested.") for passage_id in cfg.target_ids)
+            stages.extend(
+                DefinitionStage(
+                    passage_id=passage_id,
+                    operation="located_extraction",
+                    outcome="not_run",
+                    reason=(
+                        "Explicit registered linguistic-only composition; "
+                        "no model extraction requested."
+                    ),
+                )
+                for passage_id in cfg.target_ids
+            )
         for passage_id in cfg.target_ids if cfg.use_model else ():
             if self._worker is None or pack is None:
                 raise GlinerRefused("model execution owner is unavailable")

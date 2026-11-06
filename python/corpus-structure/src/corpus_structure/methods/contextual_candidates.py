@@ -88,9 +88,12 @@ def relationship_contributions(decision, source_products, inventory, operation_k
     for edge in decision.selected_edges:
         evidence = {identifier for witness in edge.witnesses for identifier in witness.evidence_ids}
         carriers = sorted(
-            (product for product in source_products
-             if product["occurrence_id"] == decision.occurrence_id
-             and product["contribution_id"] in evidence),
+            (
+                product
+                for product in source_products
+                if product["occurrence_id"] == decision.occurrence_id
+                and product["contribution_id"] in evidence
+            ),
             key=lambda product: product["contribution_id"],
         )
         if not carriers:

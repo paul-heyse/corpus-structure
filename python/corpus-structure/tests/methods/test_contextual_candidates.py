@@ -123,7 +123,15 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
         channels={"dense": (ChannelHit("concept", 1.0),)},
     )
     original = RelationshipWitness(
-        "d", occurrence, "concept", "denotes", "source", "chapter", None, (source["contribution_id"],), "producer_group"
+        "d",
+        occurrence,
+        "concept",
+        "denotes",
+        "source",
+        "chapter",
+        None,
+        (source["contribution_id"],),
+        "producer_group",
     )
     decision = select_relationships(
         candidates=candidates,
@@ -383,40 +391,75 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
     subject, object_ = located("subject"), located("object", 8, 15)
     for row, role in ((subject, "subject"), (object_, "object")):
         row["item_key"] = "actual-group/role/" + role
-        row["component"] = dict(kind="located_role", rule="typed-specialization",
-                                roles=(dict(role=role, outcome="complete"),))
+        row["component"] = dict(
+            kind="located_role",
+            rule="typed-specialization",
+            roles=(dict(role=role, outcome="complete"),),
+        )
         row["contribution_id"] = contribution_identity(row)
     unrelated["contribution_id"] = contribution_identity(unrelated)
     inventory = freeze_inventory(
         (target_representation("average", "definition", "average", "an average", scope="chapter"),),
-        source_selection="components", scope="chapter",
+        source_selection="components",
+        scope="chapter",
     )
     observations = []
     for originals in ((unrelated, subject, object_), (subject, unrelated, object_)):
         upstream = dict(contributions=originals)
         products, contexts, _ = retained_occurrences(
-            upstream, {"#/texts/1": {"text": "Mean is average."}}, PIN, "current",
+            upstream,
+            {"#/texts/1": {"text": "Mean is average."}},
+            PIN,
+            "current",
         )
         assert len(products) == 3 and len(contexts) == 2
         by_role = {source_python(p["value"])["producer_semantic_type"]: p for p in products}
-        subject_product, unrelated_product = by_role["source_rule.subject"], by_role["source_rule.unrelated"]
+        subject_product, unrelated_product = (
+            by_role["source_rule.subject"],
+            by_role["source_rule.unrelated"],
+        )
         occurrence = subject_product["occurrence_id"]
         assert occurrence == unrelated_product["occurrence_id"]
         witnesses = producer_relationship_witnesses(
-            upstream, products, occurrence, inventory, {"average"},
-            (ProducerRelationshipRecipe(rule="typed-specialization", occurrence_role="subject", target_role="object", relation="specializes"),),
-            "source", "chapter", None,
+            upstream,
+            products,
+            occurrence,
+            inventory,
+            {"average"},
+            (
+                ProducerRelationshipRecipe(
+                    rule="typed-specialization",
+                    occurrence_role="subject",
+                    target_role="object",
+                    relation="specializes",
+                ),
+            ),
+            "source",
+            "chapter",
+            None,
         )
         (witness,) = witnesses
-        assert witness.evidence_ids == (subject_product["contribution_id"], by_role["source_rule.object"]["contribution_id"])
+        assert witness.evidence_ids == (
+            subject_product["contribution_id"],
+            by_role["source_rule.object"]["contribution_id"],
+        )
         candidates = fuse_candidates(
             occurrence_id=occurrence,
-            query=EncodedVector("query", occurrence, "source", "profile", "digest", (1., 0.)),
-            inventory=inventory, channels={"dense": (ChannelHit("average", 1.),)},
+            query=EncodedVector("query", occurrence, "source", "profile", "digest", (1.0, 0.0)),
+            inventory=inventory,
+            channels={"dense": (ChannelHit("average", 1.0),)},
         )
         decision = select_relationships(
-            candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
-            constraints=(RelationshipConstraint("specialization", ("specializes",), "subject", "object", "one"),),
+            candidates=candidates,
+            inventory=inventory,
+            source_binding="source",
+            scope="chapter",
+            effective_version=None,
+            constraints=(
+                RelationshipConstraint(
+                    "specialization", ("specializes",), "subject", "object", "one"
+                ),
+            ),
             witnesses=witnesses,
         )
         (proposal,) = relationship_contributions(decision, products, inventory, "edge-operation")
@@ -428,14 +471,36 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
         # The object-side evidence is real but belongs to another physical occurrence;
         # the unrelated same-span role is not a witness for this selected edge.
         with pytest.raises(ValueError, match="lacks a cited source occurrence"):
-            relationship_contributions(decision, tuple(p for p in products if p is not subject_product), inventory, "edge-operation")
-        comparison = replace(witness, witness_id="separate-comparison", relation="compared-with", evidence_ids=(unrelated_product["contribution_id"],))
+            relationship_contributions(
+                decision,
+                tuple(p for p in products if p is not subject_product),
+                inventory,
+                "edge-operation",
+            )
+        comparison = replace(
+            witness,
+            witness_id="separate-comparison",
+            relation="compared-with",
+            evidence_ids=(unrelated_product["contribution_id"],),
+        )
         multi = select_relationships(
-            candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
-            constraints=(*decision.constraints, RelationshipConstraint("comparison", ("compared-with",), "usage", "comparator", "many")),
+            candidates=candidates,
+            inventory=inventory,
+            source_binding="source",
+            scope="chapter",
+            effective_version=None,
+            constraints=(
+                *decision.constraints,
+                RelationshipConstraint(
+                    "comparison", ("compared-with",), "usage", "comparator", "many"
+                ),
+            ),
             witnesses=(*witnesses, comparison),
         )
-        projected = {source_python(p["value"])["relation"]: p for p in relationship_contributions(multi, products, inventory, "edge-operation")}
+        projected = {
+            source_python(p["value"])["relation"]: p
+            for p in relationship_contributions(multi, products, inventory, "edge-operation")
+        }
         assert projected["specializes"]["members"] == (subject_product["contribution_id"],)
         assert projected["compared-with"]["members"] == (unrelated_product["contribution_id"],)
     assert observations[0] == observations[1]

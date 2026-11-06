@@ -266,8 +266,12 @@ class PreparedAnnotationRules:
                     )
             rows = [product.tokens[index] for index in nodes]
             selected_role_nodes = {index for role in roles for index in role.nodes}
-            negation_extents = tuple((token.start, token.end) for index,token in enumerate(product.tokens)
-                if token.dependency == "neg" and (index in selected_role_nodes or token.head in nodes))
+            negation_extents = tuple(
+                (token.start, token.end)
+                for index, token in enumerate(product.tokens)
+                if token.dependency == "neg"
+                and (index in selected_role_nodes or token.head in nodes)
+            )
             results.append(
                 AnnotationRuleMatch(
                     rule.rule,

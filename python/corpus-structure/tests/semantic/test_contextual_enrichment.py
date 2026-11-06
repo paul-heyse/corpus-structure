@@ -566,7 +566,9 @@ def test_same_source_meaning_different_producer_bases_corroborate_one_edge():
         anchors=(),
         occurrence_id="occ",
     )
-    (single_observation,) = relationship_contributions(single, (source,), inv, "selection-operation")
+    (single_observation,) = relationship_contributions(
+        single, (source,), inv, "selection-operation"
+    )
     (corroborated_observation,) = relationship_contributions(
         result, (source,), inv, "selection-operation"
     )
