@@ -40,8 +40,8 @@ from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
 from semantic.reference_scenarios import expected_reading
 
-from .test_contextual_workflow_native import completed_relationship_case
 from .native_record_fixtures import private_source as private_source
+from .test_contextual_workflow_native import completed_relationship_case
 
 
 @pytest.fixture
@@ -56,20 +56,50 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
     original_case = private_source
     linked = completed_relationship_case(original_case, monkeypatch, tmp_path)
     from types import SimpleNamespace
+
     from corpus_structure.orchestrate.commands import finalize_bound_run
+
     finalize_bound_run(original_case.writer, linked.outcome.run_id, "semantic-source-private")
-    case=SimpleNamespace(**vars(original_case))
-    case.run=linked.outcome.run_id
+    case = SimpleNamespace(**vars(original_case))
+    case.run = linked.outcome.run_id
     with case.writer.connect() as conn:
-        tasks,configs,methods=(table(n) for n in ("ops.task","ops.method_config","ops.method"))
-        case.task_row=dict(conn.execute(select(tasks).join(configs,configs.c.id==tasks.c.method_config_id).join(methods,methods.c.id==configs.c.method_id).where(tasks.c.run_id==case.run,methods.c.name=="retrieve.contextual")).mappings().one())
-        case.task=case.task_row["id"]
-        cut=conn.scalar(select(table("ops.completed_result").c.cut_id).where(table("ops.completed_result").c.run_id==case.run))
-    source=linked.completed.source
-    citation=dict(source=dict(project_id="private-records",native_product_key=source.native_product_key,
-        native_content_digest=source.native_content_digest,projection_digest=source.projection_digest,
-        recipe_digest=source.recipe_digest,coordinate_version=2),start=0,end=2,text="12",scope="controlled-source")
-    target_meaning=dict(term=citation,content=citation,interpretation="definition",scope="controlled-source")
+        tasks, configs, methods = (
+            table(n) for n in ("ops.task", "ops.method_config", "ops.method")
+        )
+        case.task_row = dict(
+            conn.execute(
+                select(tasks)
+                .join(configs, configs.c.id == tasks.c.method_config_id)
+                .join(methods, methods.c.id == configs.c.method_id)
+                .where(tasks.c.run_id == case.run, methods.c.name == "retrieve.contextual")
+            )
+            .mappings()
+            .one()
+        )
+        case.task = case.task_row["id"]
+        cut = conn.scalar(
+            select(table("ops.completed_result").c.cut_id).where(
+                table("ops.completed_result").c.run_id == case.run
+            )
+        )
+    source = linked.completed.source
+    citation = dict(
+        source=dict(
+            project_id="private-records",
+            native_product_key=source.native_product_key,
+            native_content_digest=source.native_content_digest,
+            projection_digest=source.projection_digest,
+            recipe_digest=source.recipe_digest,
+            coordinate_version=2,
+        ),
+        start=0,
+        end=2,
+        text="12",
+        scope="controlled-source",
+    )
+    target_meaning = dict(
+        term=citation, content=citation, interpretation="definition", scope="controlled-source"
+    )
     with semantic_evaluator_engine.begin() as conn:
         uri = conn.scalar(
             select(table("kb.document").c.source_uri).where(
@@ -96,8 +126,14 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
         reading, old_frame = expected_reading(case, logical)
         anchor = reading["anchors"][0]
         frame = OperationEvaluationFrameV2(
-            source_group="relationship-control", partition=partition, inspected_scope=case.table+"/data/table_cells/0",
-            opportunities=(OperationSourceOpportunity("relationship",case.view,0,2,"relationship","stated"),),
+            source_group="relationship-control",
+            partition=partition,
+            inspected_scope=case.table + "/data/table_cells/0",
+            opportunities=(
+                OperationSourceOpportunity(
+                    "relationship", case.view, 0, 2, "relationship", "stated"
+                ),
+            ),
             unit=old_frame.unit,
             release_id=case.prepared.release_id,
             guideline_version="relationship-control-2",
@@ -145,16 +181,32 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
             alternatives=(
                 dict(
                     semantic_type="contextual.relationship",
-                    value=source_value(json.loads(canonical_bytes(dict(relation="denotes",scope="controlled-source",effective_version=None,target=target_meaning)))),
+                    value=source_value(
+                        json.loads(
+                            canonical_bytes(
+                                dict(
+                                    relation="denotes",
+                                    scope="controlled-source",
+                                    effective_version=None,
+                                    target=target_meaning,
+                                )
+                            )
+                        )
+                    ),
                 ),
             ),
-            explanation="Controlled source cell12 denotes the independently specified source-backed numeral attachment.",
+            explanation=(
+                "Controlled source cell12 denotes the independently "
+                "specified source-backed numeral attachment."
+            ),
             assessor_provenance={"assistance": "none; independent fixed expectation"},
         )
         if "judgment" in selected:
             expected = replace(expected, judgment=selected["judgment"])
         if selected.get("partial"):
-            expected = replace(expected, alternatives=({"semantic_type": "contextual.relationship"},))
+            expected = replace(
+                expected, alternatives=({"semantic_type": "contextual.relationship"},)
+            )
         payload = dict(
             protocol=PROTOCOL,
             release_id=frame.release_id,
@@ -222,7 +274,11 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
             )
             case.semantic_grades.append((additional.id, additional_digest))
     with case.writer.begin() as conn:
-        origin_run = conn.execute(select(table("ops.run")).where(table("ops.run").c.id == case.run)).mappings().one()
+        origin_run = (
+            conn.execute(select(table("ops.run")).where(table("ops.run").c.id == case.run))
+            .mappings()
+            .one()
+        )
         manifest = json.loads(bytes(origin_run["dependencies"])) | {
             "local_semantic_admission": [
                 dict(evaluation_id=identity, evaluation_digest=content)
@@ -233,7 +289,10 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
             conn,
             project_id="private-records",
             binding=OperationBinding(
-                case.prepared.release_id, origin_run["input_realization_id"], origin_run["input_revision"], canonical_bytes(manifest)
+                case.prepared.release_id,
+                origin_run["input_realization_id"],
+                origin_run["input_revision"],
+                canonical_bytes(manifest),
             ),
             kind="full",
             options={},
@@ -431,7 +490,11 @@ def test_independent_denotation_uses_common_publication(judged_source):
         assert isinstance(semantic[0], dict)
         assert isinstance(semantic[0]["statement"], dict)
         assert semantic[0]["assessment"] == "independently_adjudicated_exact_case"
-        assert semantic[0]["statement"]["target"]["term"]["text"] == "12"
+        target = semantic[0]["statement"]["target"]
+        assert isinstance(target, dict)
+        term = target["term"]
+        assert isinstance(term, dict)
+        assert term["text"] == "12"
         assert semantic[0]["canonical_identity"] == "not_established"
 
 

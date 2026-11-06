@@ -244,10 +244,17 @@ def select_relationships(
     retained = []
     version_unestablished = False
     targets = {target.target_id: target for target in inventory.targets}
-    target_groups = {member: group for group in inventory.semantic_groups for member in group.member_target_ids}
-    if set(target_groups) != set(targets) or sum(len(group.member_target_ids) for group in inventory.semantic_groups) != len(targets):
+    target_groups = {
+        member: group for group in inventory.semantic_groups for member in group.member_target_ids
+    }
+    if set(target_groups) != set(targets) or sum(
+        len(group.member_target_ids) for group in inventory.semantic_groups
+    ) != len(targets):
         raise ValueError("inventory semantic groups must partition exact private target membership")
-    if any(group.target_id != identity("semantic-target", group.meaning) for group in inventory.semantic_groups):
+    if any(
+        group.target_id != identity("semantic-target", group.meaning)
+        for group in inventory.semantic_groups
+    ):
         raise ValueError("semantic target identity differs from authenticated meaning")
     seen = set()
     for witness in witnesses:
@@ -279,13 +286,22 @@ def select_relationships(
     selected, groups, unresolved = [], [], []
     for constraint in ordered_constraints:
         pairs = sorted(
-            {(target_groups[w.target_id].target_id, w.relation) for w in retained if w.relation in constraint.relation_kinds}
+            {
+                (target_groups[w.target_id].target_id, w.relation)
+                for w in retained
+                if w.relation in constraint.relation_kinds
+            }
         )
         edges = []
         for target_id, relation in pairs:
             evidence = tuple(
                 sorted(
-                    (w for w in retained if target_groups[w.target_id].target_id == target_id and w.relation == relation),
+                    (
+                        w
+                        for w in retained
+                        if target_groups[w.target_id].target_id == target_id
+                        and w.relation == relation
+                    ),
                     key=lambda w: w.witness_id,
                 )
             )

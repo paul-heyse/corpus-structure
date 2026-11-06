@@ -1,6 +1,7 @@
 """Independent endpoint, role and compatibility controls; no mocked efficacy claims."""
 
 from dataclasses import replace
+from itertools import pairwise
 from typing import Literal
 
 import pytest
@@ -361,8 +362,9 @@ def test_definition_windows_bound_model_work_and_preserve_original_coordinates(m
     text = " ".join("concept" + str(i) for i in range(120))
     passage = inputs(text).passages[0]
     from pathlib import Path
-    from corpus_structure.methods.gliner import GlinerProfile
+
     from corpus_structure.methods import definition_applicability as owner
+    from corpus_structure.methods.gliner import GlinerProfile
 
     profile = GlinerProfile(
         Path("/model"),
@@ -392,7 +394,7 @@ def test_definition_windows_bound_model_work_and_preserve_original_coordinates(m
     for window in windows:
         assert window.text == text[window.start - passage.start : window.end - passage.start]
         assert len(window.text) <= 300
-    assert all(left.end >= right.start for left, right in zip(windows, windows[1:]))
+    assert all(left.end >= right.start for left, right in pairwise(windows))
     monkeypatch.setattr(owner, "_DEFINITION_MAX_WINDOWS", 1)
     limited = definition_windows(passage, cfg)
     assert "max_window_chars" not in DefinitionComponentsConfig.model_json_schema()["properties"]
@@ -444,12 +446,24 @@ def test_introduction_policy_label_is_not_an_actual_introduction_binding():
     value = inputs()
     defined = component()
     target = value.passages[0].model_copy(update={"parent": None})
-    usage = StructuralPassage(passage_id="usage", source_ref=target.source_ref,
-        start=defined.term.start, end=defined.term.end, text=defined.term.text,
-        scope=defined.scope)
-    value = value.model_copy(update={"policy_id": "definition-introduction-1", "passages": (target, usage)})
-    candidate = ApplicabilityCandidate(target_id=defined.component_id, reference=reference(),
-        link_ref=link_reference(), component=defined, premises=premises("unknown"))
+    usage = StructuralPassage(
+        passage_id="usage",
+        source_ref=target.source_ref,
+        start=defined.term.start,
+        end=defined.term.end,
+        text=defined.term.text,
+        scope=defined.scope,
+    )
+    value = value.model_copy(
+        update={"policy_id": "definition-introduction-1", "passages": (target, usage)}
+    )
+    candidate = ApplicabilityCandidate(
+        target_id=defined.component_id,
+        reference=reference(),
+        link_ref=link_reference(),
+        component=defined,
+        premises=premises("unknown"),
+    )
     contextual = assess_applicability(value, "usage", candidate)
     assert next(p.state for p in contextual.premises if p.dimension == "parent") == "unknown"
     introduction = assess_applicability(value, "usage", candidate, defining_occurrence=True)

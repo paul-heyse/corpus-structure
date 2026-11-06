@@ -35,7 +35,11 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
+from corpus_structure.semantic.contextual_links import (
+    RelationshipConstraint,
+    RelationshipWitness,
+    select_relationships,
+)
 from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
 from corpus_structure.semantic.contextual_retrieval import (
     ChannelHit,
@@ -891,7 +895,12 @@ def contextual_result(case, *, cached=(), effective_version=None, competing=Fals
         source_binding="private-unit",
         scope="chapter5",
         effective_version=effective_version,
-        witnesses=(witness, replace(witness,witness_id="competing-sense",target_id=inv.targets[1].target_id)) if competing else (witness,),
+        witnesses=(
+            witness,
+            replace(witness, witness_id="competing-sense", target_id=inv.targets[1].target_id),
+        )
+        if competing
+        else (witness,),
         constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "concept", "one"),),
     )
     report = enrichment_report(

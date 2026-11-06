@@ -1112,9 +1112,11 @@ class BoundReader:
             {"targets": payload},
         ).scalar_one()
         rows = self.conn.execute(
-            text("SELECT target->'reference'->>'component_id', "
-                 "ops.component_semantic_target(target->'reference') "
-                 "FROM jsonb_array_elements(CAST(:targets AS jsonb)) target"),
+            text(
+                "SELECT target->'reference'->>'component_id', "
+                "ops.component_semantic_target(target->'reference') "
+                "FROM jsonb_array_elements(CAST(:targets AS jsonb)) target"
+            ),
             {"targets": payload},
         )
         return {row[0]: row[1] for row in rows}
@@ -1172,7 +1174,9 @@ class BoundReader:
         from .structural_sources import load_structural_annotations
 
         self.validate_structural_inputs(inputs)
-        return load_structural_annotations(self.conn, inputs, source_ref, profile, read_budget=self._read_budget)
+        return load_structural_annotations(
+            self.conn, inputs, source_ref, profile, read_budget=self._read_budget
+        )
 
     def source_context_membership(self, source_view_id):
         from .source_views import context_membership_digest

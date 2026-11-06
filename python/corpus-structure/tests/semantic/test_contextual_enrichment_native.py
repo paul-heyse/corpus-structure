@@ -245,15 +245,26 @@ def test_native_known_version_excludes_conflicting_target_version(private_source
         bypass(case, conn, raw)
 
 
-@pytest.mark.parametrize("private_source", [{"additional_methods": ("private.contextual",)}], indirect=True)
+@pytest.mark.parametrize(
+    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
+)
 def test_genuine_competing_senses_are_retained_natively(private_source):
     case = curated_case(private_source)
     result, _, _ = contextual_result(case, competing=True)
-    decision=envelope(case,result)["contribution_operations"][0]["contextual_enrichment"]["relationship_decisions"][0]
+    decision = envelope(case, result)["contribution_operations"][0]["contextual_enrichment"][
+        "relationship_decisions"
+    ][0]
     assert decision["outcome"] == "ambiguous"
     assert not decision["selected_edges"]
     assert len(decision["alternative_groups"][0]["edges"]) == 2
     with case.writer.begin() as conn:
-        complete(case,conn,result)
-        body=conn.scalar(select(table("ops.task_result").c.body).where(table("ops.task_result").c.task_id==case.task))
-    assert body["contribution_operations"][0]["contextual_enrichment"]["relationship_decisions"][0] == decision
+        complete(case, conn, result)
+        body = conn.scalar(
+            select(table("ops.task_result").c.body).where(
+                table("ops.task_result").c.task_id == case.task
+            )
+        )
+    assert (
+        body["contribution_operations"][0]["contextual_enrichment"]["relationship_decisions"][0]
+        == decision
+    )

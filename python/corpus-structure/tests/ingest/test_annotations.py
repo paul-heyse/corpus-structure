@@ -606,7 +606,9 @@ def test_base_noun_chunk_excludes_parameter_scope_from_defined_subject(controlle
     from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
 
     request = item(
-        controlled, "The normal density function with parameters µ and \u03c3 is defined .", start=100
+        controlled,
+        "The normal density function with parameters µ and \u03c3 is defined .",
+        start=100,
     )
     (product,) = annotate((request,))
     # Literal independent syntax fixture reproduces the observed parser structure:

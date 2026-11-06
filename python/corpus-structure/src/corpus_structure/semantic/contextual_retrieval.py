@@ -94,7 +94,9 @@ class SemanticTargetGroup:
     meaning: dict[str, Any]
 
 
-type _MeaningValue = str | int | float | bool | None | list[_MeaningValue] | dict[str, _MeaningValue]
+type _MeaningValue = (
+    str | int | float | bool | list[_MeaningValue] | dict[str, _MeaningValue] | None
+)
 
 
 def _meaning_value(value: object) -> _MeaningValue:
@@ -119,18 +121,35 @@ def semantic_target_groups(
     for target in targets:
         if target.source_binding.startswith("definition-component:"):
             if target.target_id not in semantic_targets:
-                raise ValueError("component inventory requires authenticated semantic target meaning")
+                raise ValueError(
+                    "component inventory requires authenticated semantic target meaning"
+                )
             meaning = _meaning(semantic_targets[target.target_id])
-            if not {"term", "content", "interpretation", "scope"} <= meaning.keys() or meaning.keys() - {"term", "content", "interpretation", "scope", "effective_version"}:
-                raise ValueError("component target meaning requires its exclusive source-resolved variant")
+            if not {
+                "term",
+                "content",
+                "interpretation",
+                "scope",
+            } <= meaning.keys() or meaning.keys() - {
+                "term",
+                "content",
+                "interpretation",
+                "scope",
+                "effective_version",
+            }:
+                raise ValueError(
+                    "component target meaning requires its exclusive source-resolved variant"
+                )
         else:
             meaning = _meaning(dict(curated_target=asdict(target)))
         target_id = identity("semantic-target", meaning)
         if target_id not in groups:
             groups[target_id] = (meaning, [])
         groups[target_id][1].append(target.target_id)
-    return tuple(SemanticTargetGroup(target_id, tuple(sorted(members)), meaning)
-                 for target_id, (meaning, members) in sorted(groups.items()))
+    return tuple(
+        SemanticTargetGroup(target_id, tuple(sorted(members)), meaning)
+        for target_id, (meaning, members) in sorted(groups.items())
+    )
 
 
 @dataclass(frozen=True)

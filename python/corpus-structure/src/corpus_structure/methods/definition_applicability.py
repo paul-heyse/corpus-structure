@@ -541,7 +541,10 @@ class DefinitionComponentsMethod:
                             passage_id=passage_id,
                             operation="located_extraction",
                             outcome="failed",
-                            reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}",
+                            reason=(
+                                f"Window {window.start}:{window.end}: "
+                                f"{type(error).__name__}: {error}"
+                            ),
                         )
                     )
                     stages.append(
@@ -549,7 +552,10 @@ class DefinitionComponentsMethod:
                             passage_id=passage_id,
                             operation="attachment",
                             outcome="not_run",
-                            reason=f"Window {window.start}:{window.end}: located extraction unavailable.",
+                            reason=(
+                                f"Window {window.start}:{window.end}: "
+                                "located extraction unavailable."
+                            ),
                         )
                     )
                     continue
@@ -559,7 +565,11 @@ class DefinitionComponentsMethod:
                         passage_id=passage_id,
                         operation="located_extraction",
                         outcome="succeeded" if locations else "empty",
-                        reason=f"Window {window.start}:{window.end}: {locations} source-validated entity proposals retained; role/support remains unassessed.",
+                        reason=(
+                            f"Window {window.start}:{window.end}: {locations} "
+                            "source-validated entity proposals retained; "
+                            "role/support remains unassessed."
+                        ),
                     )
                 )
                 try:
@@ -570,7 +580,10 @@ class DefinitionComponentsMethod:
                             passage_id=passage_id,
                             operation="attachment",
                             outcome="failed",
-                            reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}; located proposals retained.",
+                            reason=(
+                                f"Window {window.start}:{window.end}: "
+                                f"{type(error).__name__}: {error}; located proposals retained."
+                            ),
                         )
                     )
                     continue
@@ -580,7 +593,11 @@ class DefinitionComponentsMethod:
                         passage_id=passage_id,
                         operation="attachment",
                         outcome="succeeded" if decoded else "empty",
-                        reason=f"Window {window.start}:{window.end}: {len(decoded)} decoded role-and-attachment components; no absence or semantic correctness claim.",
+                        reason=(
+                            f"Window {window.start}:{window.end}: {len(decoded)} "
+                            "decoded role-and-attachment components; "
+                            "no absence or semantic correctness claim."
+                        ),
                     )
                 )
             if windows and windows[-1].end < passage.end:
@@ -589,7 +606,10 @@ class DefinitionComponentsMethod:
                         passage_id=passage_id,
                         operation="located_extraction",
                         outcome="not_run",
-                        reason=f"Model window bound reached; original source tail {windows[-1].end}:{passage.end} uninspected by this producer.",
+                        reason=(
+                            "Model window bound reached; original source tail "
+                            f"{windows[-1].end}:{passage.end} uninspected by this producer."
+                        ),
                     )
                 )
         components = list({component.component_id: component for component in components}.values())
@@ -693,8 +713,11 @@ def is_defining_occurrence(inputs, usage, component, relation):
 
 
 def assess_applicability(
-    inputs: StructuralInput, usage_id: str, candidate: ApplicabilityCandidate,
-    *, defining_occurrence: bool = False,
+    inputs: StructuralInput,
+    usage_id: str,
+    candidate: ApplicabilityCandidate,
+    *,
+    defining_occurrence: bool = False,
 ) -> StructuralDefinitionReading:
     usage = next(p for p in inputs.passages if p.passage_id == usage_id)
     component = candidate.component
@@ -826,8 +849,12 @@ class DefinitionApplicabilityMethod:
             )
             from corpus_structure.methods.contextual_embeddings import identity
 
-            if component_ref.component_id not in edge["member_target_ids"] or edge["target_id"] != identity("semantic-target", selected["semantic_target"]):
-                raise ValueError("selected relationship substitutes its semantic target or proof carrier")
+            if component_ref.component_id not in edge["member_target_ids"] or edge[
+                "target_id"
+            ] != identity("semantic-target", selected["semantic_target"]):
+                raise ValueError(
+                    "selected relationship substitutes its semantic target or proof carrier"
+                )
             introduction = (
                 cfg.applicability_scope == "defining_occurrence"
                 and is_defining_occurrence(cfg.inputs, usage, component, edge["relation"])
@@ -853,7 +880,8 @@ class DefinitionApplicabilityMethod:
                         state="inapplicable" if introduction else "unknown",
                         evidence=(usage.passage_id, component.term.passage_id),
                         reason=(
-                            "Same defining occurrence under the introduction policy; no parameter transfer is asserted."
+                            "Same defining occurrence under the introduction policy; "
+                            "no parameter transfer is asserted."
                             if introduction
                             else "No authenticated parameter correspondence has been established."
                         ),
@@ -863,14 +891,19 @@ class DefinitionApplicabilityMethod:
                         state="inapplicable" if introduction else "unknown",
                         evidence=(usage.passage_id, component.term.passage_id),
                         reason=(
-                            "Same defining occurrence under the introduction policy; no convention transfer is asserted."
+                            "Same defining occurrence under the introduction policy; "
+                            "no convention transfer is asserted."
                             if introduction
                             else "No authenticated convention correspondence has been established."
                         ),
                     ),
                 ),
             )
-            readings.append(assess_applicability(cfg.inputs, cfg.usage_id, candidate, defining_occurrence=introduction))
+            readings.append(
+                assess_applicability(
+                    cfg.inputs, cfg.usage_id, candidate, defining_occurrence=introduction
+                )
+            )
         if len(candidate_lists) != 1:
             raise ValueError(
                 "applicability bindings must share the exact usage candidate population"
