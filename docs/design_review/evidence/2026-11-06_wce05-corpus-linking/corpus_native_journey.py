@@ -30,6 +30,7 @@ from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.publication import admit_release
 from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs
 from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.structural_products import ExternalSourceRef, RetainedComponentRef, StructuralInput
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
@@ -56,6 +57,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('attempt')
     parser.add_argument('--component-reference', type=Path, required=True)
+    parser.add_argument('--link-only', action='store_true')
     args = parser.parse_args()
     output = HERE / args.attempt
     output.mkdir(exist_ok=False)
@@ -108,7 +110,7 @@ def main():
                 guideline='Project actual retained definition-term roles; real E5 nomination; no independent semantic support claim.')
             save(output, 'run.json', result.model_dump(mode='json'))
             finalize_bound_run(engine, result.run_id, 'wce05-normal-result:' + str(result.run_id))
-        with open_runtime_engine(settings, 'wce05-inspection', purpose='read') as engine, engine.connect() as conn:
+        with open_runtime_engine(settings, 'wce05-inspection', purpose='read') as engine, read_snapshot(engine) as conn:
             page = serve_contributions(conn, ContributionRequest(run_id=result.run_id, method=linker.name, include_details=True))
             save(output, 'inspection.json', page.model_dump(mode='json'))
             export_contribution_selection(conn, ContributionRequest(run_id=result.run_id, method=linker.name), output / 'contributions')
@@ -124,10 +126,17 @@ def main():
         summary = dict(outcome='passed' if selected else 'partial', run_id=result.run_id, cut_id=completed['cut_id'], release_id=prepared.release_id, physical_source=source.model_dump(mode='json'), profile='real E5', query_population='actual retained definition-term occurrences', counts=report['product_counts'], private_target_representations=sum(len(inv['targets']) for inv in report['inventories']), semantic_target_meanings=sum(len(inv['semantic_groups']) for inv in report['inventories']), nomination_budget_unit='distinct private target representations; equivalent origins can consume separate vector/candidate budget', selected_defined_by=len(selected), independent_assessment='not_run', public_admission='not_run')
         save(output, 'result.json', summary)
         if selected:
-            decision, edge = selected[0]
+            if len(selected) != 1:
+                raise ValueError('This source-local journey requires one unambiguous defining relationship')
+            (decision, edge), = selected
             occurrence = next(c for c in body['contributions'] if c['semantic_type'] == 'contextual.located_mention' and c['occurrence_id'] == decision['occurrence_id'])
             link_ref = RetainedRelationshipDecisionRef(project_id=source.project_id, run_id=result.run_id, cut_id=completed['cut_id'], release_id=prepared.release_id, result_revision=linked_revision, selected_task_id=row['id'], origin_task_id=row['id'], runtime_fingerprint=runtime, operation_key=operation['operation_key'], decision_id=decision['decision_id'], edge_id=edge['edge_id'], occurrence_contribution_id=occurrence['contribution_id'])
             save(output, 'relationship-reference.json', link_ref.model_dump(mode='json'))
+            if args.link_only:
+                summary.update(applicability='not_run: separately retained relationship is ready for applicability')
+                save(output, 'result.json', summary)
+                print(json.dumps(summary))
+                return
             passage = dict(term_passage, passage_id='actual-defined-term', start=component['term']['start'], end=component['term']['end'], text=component['term']['text'])
             inputs = StructuralInput(question='Assess scope of actual retained defining occurrence', scope=component['scope'], inventory_id='actual-normal-definition-terms', policy_id='definition-introduction-1', sources=(source,), passages=(term_passage, passage), dependencies=(reference.product_id, decision['decision_id']))
             app = DefinitionApplicabilityMethod()
@@ -137,7 +146,7 @@ def main():
                 app_run = run_source_methods(engine, project_id=source.project_id, prepared=prepared, binding=OperationBinding(prepared.release_id, 'wce05-normal-result:' + str(result.run_id), linked_revision, b'{}'), registry=MethodRegistry((app,), MethodsFile(configs={app.name: {'default': app_cfg}})), graph=Graph(((Stage.ASSEMBLE, (Step(app.name + '/default'),)),), policy_propose=False), method_settings=method_settings, selected_sources=(source,))
                 save(output, 'applicability-run.json', app_run.model_dump(mode='json'))
                 finalize_bound_run(engine, app_run.run_id, 'wce05-applicability-result:' + str(app_run.run_id))
-            with open_runtime_engine(settings, 'wce05-applicability-read', purpose='read') as engine, engine.connect() as conn:
+            with open_runtime_engine(settings, 'wce05-applicability-read', purpose='read') as engine, read_snapshot(engine) as conn:
                 app_page = serve_structural_products(conn, StructuralRequest(run_id=app_run.run_id))
                 save(output, 'applicability-inspection.json', app_page.model_dump(mode='json'))
             summary.update(applicability_run=app_run.run_id, applicability_outcomes=[reading.outcome for report in app_page.reports for reading in report.definition.readings], quality_claim='not_established; source-only independent reference work separate')
