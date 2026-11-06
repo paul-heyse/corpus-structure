@@ -1,0 +1,2 @@
+{"plpgsql_function_count" : 243}
+{"signature":"ops.guard_source_selection()","functionid":"ops.guard_source_selection","lineno":11,"statement":"assignment","sqlstate":"42703","message":"record \"new\" has no field \"document_id\"","detail":null,"hint":null,"level":"error","position":null,"query":null,"context":"PL/pgSQL assignment \"document:=NEW.document_id\""}
