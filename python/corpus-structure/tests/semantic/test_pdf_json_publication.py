@@ -3,6 +3,7 @@
 from copy import deepcopy
 from dataclasses import replace
 
+import psycopg
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -24,10 +25,16 @@ def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13
     # arguments. Their closed preparation boundary remains independently assessed.
     envelope_cases = []
     record_cases = []
-    for collection in ("inputs", "occurrences", "relations", "coverage", "mapping_reports"):
+    for collection, shape in (
+        ("inputs", "PdfProductInput"),
+        ("occurrences", "PdfProductOccurrence"),
+        ("relations", "PdfProductRelation"),
+        ("coverage", "PdfProductCoverage"),
+        ("mapping_reports", "PdfMappingDisposition"),
+    ):
         invalid = deepcopy(value)
         invalid[collection][-1]["unmodeled"] = True
-        record_cases.append(invalid)
+        record_cases.append((invalid, shape))
         invalid = deepcopy(value)
         invalid[collection] = None
         envelope_cases.append(invalid)
@@ -43,18 +50,23 @@ def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13
             invalid["coverage"] = []
         elif change == "nested_enum":
             invalid["relations"][-1]["endpoints"][-1]["role"] = "unmodeled"
-            record_cases.append(invalid)
+            record_cases.append((invalid, "PdfProductRelation"))
         else:
             invalid["inputs"][-1]["task_id"] = str(invalid["inputs"][-1]["task_id"])
-            record_cases.append(invalid)
+            record_cases.append((invalid, "PdfProductInput"))
         envelope_cases.append(invalid)
     for invalid in envelope_cases:
         with pytest.raises(ValueError):
             fixtures.prepare(invalid, db.source)
-    for index, invalid in enumerate(record_cases):
+    for index, (invalid, shape) in enumerate(record_cases):
         invalid["product_key"] = f"invalid-json-{index}"
-        with pytest.raises(DBAPIError):
+        with pytest.raises(DBAPIError) as caught:
             fixtures._publish_record_values(db, invalid)
+        assert isinstance(caught.value.orig, psycopg.Error)
+        assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
+            "23514",
+            "parsing record shape differs: " + shape,
+        )
     digest = fixtures.publish(db, product)
     assert fixtures.publish(db, product) == digest
     from corpus_structure.semantic.pdf_record_reader import published_record_reader

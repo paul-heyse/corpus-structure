@@ -1,6 +1,6 @@
 # Qualification and preservation
 
-**Status:** Proposed; no checks in this document have been executed for repair acceptance.
+**Status:** In progress; static preservation reconciliation complete, final-source qualification pending.
 The [coordinator](../test-audit-resolution_2026-11-05.md) owns TR-09/10, all DTA dispositions
 and combined acceptance. Historical TA/PCE/UM receipts keep their original dates and limits.
 

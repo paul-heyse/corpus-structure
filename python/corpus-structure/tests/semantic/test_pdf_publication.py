@@ -64,7 +64,7 @@ def stage_complete_native(engine, build, directory):
 
 
 def test_freeze_prepare_validate_seal_and_replay(
-    private_build, semantic_writer_engine, semantic_reader_engine, tmp_path
+    private_build, semantic_writer_engine, semantic_reader_engine, semantic_db_engine, tmp_path
 ):
     build = private_build
     stage_complete_native(semantic_writer_engine, build, tmp_path)
@@ -105,20 +105,72 @@ def test_freeze_prepare_validate_seal_and_replay(
             ),
             dict(task=build.task_id),
         ).scalars().all() == ["independent expected text"]
-    with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
-        adopt_pdf_companion_batch(conn, build, "health", [{"conversion_status": "failed"}], "late")
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM ops.pdf_build_validation WHERE build_id=:b"),
+                dict(b=build.build_id),
+            )
+            == 1
+        )
+    with pytest.raises(DBAPIError) as caught, semantic_writer_engine.begin() as conn:
+        adopt_pdf_companion_batch(
+            conn,
+            build,
+            "health",
+            [
+                {
+                    "conversion": "success",
+                    "display_coverage": "unknown",
+                    "inline_coverage": "unknown",
+                    "cell_coverage": "unknown",
+                    "source_scope": "whole_document",
+                }
+            ],
+            "late",
+        )
+    assert isinstance(caught.value.orig, psycopg.Error)
+    assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
+        "P0004",
+        "private PDF build is not owned/open",
+    )
+    with semantic_reader_engine.connect() as conn:
+        assert (
+            published_pdf_revision(conn, build.task_id, "native", published.logical_digest)
+            == published
+        )
 
 
 def test_seal_requires_validation_and_preserves_private_progress(
-    private_build, semantic_writer_engine, tmp_path
+    private_build, semantic_writer_engine, semantic_db_engine, tmp_path
 ):
     build = private_build
     stage_complete_native(semantic_writer_engine, build, tmp_path)
     with semantic_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
-    with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM ops.pdf_build_validation WHERE build_id=:b"),
+                dict(b=build.build_id),
+            )
+            == 0
+        )
+        assert (
+            conn.scalar(
+                text("SELECT state FROM ops.pdf_stage_build WHERE build_id=:b"),
+                dict(b=build.build_id),
+            )
+            == "frozen"
+        )
+    with pytest.raises(DBAPIError) as caught, semantic_writer_engine.begin() as conn:
         seal_pdf_build(conn, frozen, "native")
+    assert isinstance(caught.value.orig, psycopg.Error)
+    assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
+        "P0002",
+        "query returned no rows",
+    )
     with semantic_writer_engine.connect() as conn:
         assert published_pdf_revision(conn, build.task_id, "native", "0" * 64) is None
 

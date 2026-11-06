@@ -261,7 +261,7 @@ def test_regenerated_current_release_activates_and_writes(
     from corpus_structure.semantic.publication import publish_batch
     from corpus_structure.semantic.releases import activate_release
 
-    from .test_publication import batch, seed
+    from .domain_scenarios import batch, seed
 
     prepared = seed(semantic_db_engine, composed=True)
     model = bound_execution_model(prepared)

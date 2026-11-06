@@ -531,6 +531,7 @@ def mutate_selected(value, change):
     elif change == "opaque_region":
         first_text["region"] = {"box": [10, 10, 60, 20]}
     elif change == "out_of_bounds_region":
+        first_text["page_no"] = 1
         first_text["region"] = {
             "address_space": "pdf_points",
             "precision": "item",

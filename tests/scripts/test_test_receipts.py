@@ -685,8 +685,13 @@ def test_active_native_observation_keeps_actual_identity_and_item_binding(monkey
         def fetchone(self):
             if "current_database()" in self.connection.queries[-1]:
                 return (
-                    self.connection.database, self.connection.oid, "actual_reader", "actual_login",
-                    "18.1", "5434", datetime(2026, 11, 5, tzinfo=UTC),
+                    self.connection.database,
+                    self.connection.oid,
+                    "actual_reader",
+                    "actual_login",
+                    "18.1",
+                    "5434",
+                    datetime(2026, 11, 5, tzinfo=UTC),
                 )
             return (None,)  # A bare acquisition has no semantic revision.
 

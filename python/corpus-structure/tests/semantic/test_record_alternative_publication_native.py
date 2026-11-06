@@ -12,9 +12,10 @@ from corpus_structure.semantic.record_contracts import (
     interpretation_identity,
 )
 from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, reconstruct_record
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .test_private_records import candidate, complete
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import candidate, complete
+from .native_record_fixtures import private_source as private_source
 
 
 def test_unresolved_value_alternative_keeps_own_evidence_through_publication(private_source):

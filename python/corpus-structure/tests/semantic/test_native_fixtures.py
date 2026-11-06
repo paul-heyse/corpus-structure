@@ -161,14 +161,17 @@ def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(req
         "admit": "semantic_admitter_engine",
     }
     principals = {
-        "write": "corpus_sem_writer", "read": "corpus_sem_reader",
-        "evaluate": "corpus_sem_evaluator", "admit": "corpus_sem_admitter",
+        "write": "corpus_sem_writer",
+        "read": "corpus_sem_reader",
+        "evaluate": "corpus_sem_evaluator",
+        "admit": "corpus_sem_admitter",
     }
     engine = request.getfixturevalue(engines[purpose])
     with engine.begin() as conn:
-        assert conn.exec_driver_sql("SELECT current_user,session_user").one() == (
-            principals[purpose],
-        ) * 2
+        assert (
+            conn.exec_driver_sql("SELECT current_user,session_user").one()
+            == (principals[purpose],) * 2
+        )
         conn.execute(text("SELECT data.require_runtime_principal(:p)"), {"p": purpose})
         assert not conn.exec_driver_sql(
             "SELECT has_database_privilege(current_user,current_database(),'TEMP')"
@@ -191,7 +194,8 @@ def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(req
             with pytest.raises(DBAPIError) as failure, conn.begin_nested():
                 conn.exec_driver_sql(sql)
             assert getattr(failure.value.orig, "sqlstate", None) == "42501", (
-                sql, str(failure.value.orig)
+                sql,
+                str(failure.value.orig),
             )
         assert conn.exec_driver_sql("SELECT 1").scalar_one() == 1
 
@@ -574,11 +578,13 @@ def test_receipt_observes_clone_deployment_and_authenticated_reader(
             "SELECT oid FROM pg_database WHERE datname=current_database()"
         ).scalar_one()
     actual = next(
-        event for event, _ in native_context_capture
+        event
+        for event, _ in native_context_capture
         if event.get("requested", {}).get("purpose") == "read"
     )
     maintenance = next(
-        event for event, _ in native_context_capture
+        event
+        for event, _ in native_context_capture
         if event.get("requested", {}).get("purpose") == "maintenance"
         and event["acquired"]["database"] == engine.url.database
     )
@@ -628,9 +634,12 @@ def test_inactive_native_clone_preserves_real_policy_lifecycle_without_eager_che
                 conn.exec_driver_sql("CREATE TABLE public.inactive_observer_probe(value int)")
                 conn.exec_driver_sql("INSERT INTO public.inactive_observer_probe VALUES(91)")
             with engine.connect() as conn:
-                assert conn.exec_driver_sql(
-                    "SELECT value FROM public.inactive_observer_probe"
-                ).scalar_one() == 91
+                assert (
+                    conn.exec_driver_sql(
+                        "SELECT value FROM public.inactive_observer_probe"
+                    ).scalar_one()
+                    == 91
+                )
             assert len(checkouts) == 2
         assert not native_server.exists(database)
         assert deployments == native_test_support._DEPLOYMENTS
@@ -657,7 +666,8 @@ def test_late_capture_cannot_fabricate_unobserved_deployment_policy(
                         == "corpus_sem_reader"
                     )
                     acquired = next(
-                        context["acquired"] for context, _ in observed
+                        context["acquired"]
+                        for context, _ in observed
                         if context.get("requested", {}).get("purpose") == "read"
                     )
                     assert acquired["revision"] is None and acquired["policy_ref"] is None

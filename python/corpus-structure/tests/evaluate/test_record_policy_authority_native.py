@@ -13,13 +13,14 @@ from typing import Any
 
 import pytest
 import yaml
-from pydantic import BaseModel
-from semantic import test_private_records as source_fixture
+from pydantic import BaseModel, create_model
+from semantic import native_record_fixtures as source_fixture
+from semantic import reference_scenarios as references
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
 from semantic.conftest import semantic_reader_engine as semantic_reader_engine
 from semantic.conftest import semantic_writer_engine as semantic_writer_engine
-from semantic.test_private_records import private_source as private_source
+from semantic.native_record_fixtures import private_source as private_source
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -49,8 +50,6 @@ from corpus_structure.semantic.record_policy import (
     RecordAlgorithm,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
-
-from . import test_record_references_native as references
 
 ALGORITHM = RecordAlgorithm(features=(FEATURES[0],), minimum_origin_groups=1)
 
@@ -132,9 +131,7 @@ def _four_candidates(case, source="private-unit"):
 
 
 @pytest.fixture
-def policy_source(monkeypatch, request):
-    original_inputs = source_fixture.observation_inputs
-
+def private_source_options():
     def inputs(bundle):
         # Alignment owns a five-family contract. Reuse its actual other four families,
         # preserving the deliberately small two-cell table fixture as the fifth.
@@ -156,20 +153,23 @@ def policy_source(monkeypatch, request):
             ),
         )
         complete = SourceBundle(root.name, (*bundle.sources, module, root))
-        return reference_inputs(source_reading_inputs(original_inputs(complete)))
+        return reference_inputs(source_reading_inputs(complete))
 
-    monkeypatch.setattr(source_fixture, "observation_inputs", inputs)
-    original_namespace = source_fixture.SimpleNamespace
+    method = SimpleNamespace(
+        name="extract.m1_candidates",
+        version="3",
+        family="extract",
+        tier="encoder",
+        confidence_source=None,
+        unit_type=TaskUnitType.SOURCE_VIEW,
+        Config=create_model("PrivatePolicyConfig"),
+    )
+    return dict(bundle_transform=inputs, record_method=method)
 
-    def namespace(**values):
-        if values.get("name") == "private.records":
-            values.update(
-                name="extract.m1_candidates", version="3", family="extract", tier="encoder"
-            )
-        return original_namespace(**values)
 
-    monkeypatch.setattr(source_fixture, "SimpleNamespace", namespace)
-    case = request.getfixturevalue("private_source")
+@pytest.fixture
+def policy_source(private_source):
+    case = private_source
     records = _four_candidates(case)
     with case.writer.begin() as conn:
         complete_unit_result(
@@ -190,42 +190,43 @@ def policy_source(monkeypatch, request):
         )
         case.cut = seal_cut(conn, case.run, "policy-feature-frame", final=True)
     consolidate_cut(case.writer, case.cut, "policy-feature-result")
-    original_expected = references.expected_reading
-
-    def expected(case_, logical):
-        row, frame = original_expected(case_, logical)
-        other = _second_reference(case_, row)
-        scope = tuple(
-            {
-                k: v
-                for k, v in anchor.items()
-                if k in {"pin", "space", "pointer", "precision", "start", "end"}
-            }
-            for anchor in other["anchors"]
-        )
-        return row, replace(
-            frame,
-            prediction_policy_version=ALGORITHM.version,
-            anchor_scopes=frame.anchor_scopes + scope,
-        )
-
-    monkeypatch.setattr(references, "expected_reading", expected)
-    original_origin = references.assign_origin
-
-    def origin(conn, **values):
-        if "heldout.pdf" in values["source_uris"]:
-            values["origin_group"] = "controlled-heldout-original"
-        return original_origin(conn, **values)
-
-    monkeypatch.setattr(references, "assign_origin", origin)
-    original_reference_set = references.create_reference_set
-
-    def reference_set(conn, **values):
-        values["label"] += ":" + values["partition"]
-        return original_reference_set(conn, **values)
-
-    monkeypatch.setattr(references, "create_reference_set", reference_set)
     return case
+
+
+def policy_reading(case, logical):
+    row, frame = references.expected_reading(case, logical)
+    other = _second_reference(case, row)
+    scopes = tuple(
+        {
+            k: v
+            for k, v in anchor.items()
+            if k in {"pin", "space", "pointer", "precision", "start", "end"}
+        }
+        for anchor in other["anchors"]
+    )
+    return row, replace(
+        frame,
+        prediction_policy_version=ALGORITHM.version,
+        anchor_scopes=frame.anchor_scopes + scopes,
+    )
+
+
+def create_policy_case(conn, case, partition):
+    uri = conn.scalar(
+        select(table("kb.document").c.source_uri).where(
+            table("kb.document").c.id == case.view_row["document_id"]
+        )
+    )
+    return references.create_case(
+        conn,
+        case,
+        partition,
+        reading=policy_reading,
+        origin_group=(
+            "controlled-heldout-original" if uri == "heldout.pdf" else "one-original-fixture"
+        ),
+        label="independent-cell-reference:" + partition,
+    )
 
 
 def test_feature_fit_is_protected_complete_frame_and_preserves_exact_parameters(
@@ -233,7 +234,7 @@ def test_feature_fit_is_protected_complete_frame_and_preserves_exact_parameters(
 ):
     case = policy_source
     with semantic_evaluator_engine.begin() as conn:
-        created, unit, row, frame = references.create_case(conn, case, "feature_fit")
+        created, unit, row, frame = create_policy_case(conn, case, "feature_fit")
         refs = [row, _second_reference(case, row)]
         a = _pass(conn, unit, refs, frame, "A")
         b = _pass(conn, unit, refs, frame, "B")
@@ -605,7 +606,7 @@ def _resolved_cut(case, feature, *, binding=None, forged_score=False):
 
 
 def _adjudicated_case(conn, case, partition):
-    created, unit, row, frame = references.create_case(conn, case, partition)
+    created, unit, row, frame = create_policy_case(conn, case, partition)
     records = [row, _second_reference(case, row)]
     a = _pass(conn, unit, records, frame, "A")
     b = _pass(conn, unit, records, frame, "B")
@@ -823,7 +824,7 @@ def test_native_gap_and_complete_fit_frame_refuse_actual_different_prediction_po
             for record in sealed["records"]
         )
     with semantic_evaluator_engine.begin() as conn:
-        created, unit, row, frame = references.create_case(conn, case, "feature_fit")
+        created, unit, row, frame = create_policy_case(conn, case, "feature_fit")
         refs = [row, _second_reference(case, row)]
         a = _pass(conn, unit, refs, frame, "A")
         b = _pass(conn, unit, refs, frame, "B")

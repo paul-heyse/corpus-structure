@@ -1,6 +1,6 @@
 # Native lifecycle and provenance
 
-**Status:** Proposed. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
+**Status:** Implemented; final-source integrated qualification pending. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
 and DTA disposition. Reuse native_test_support, qualification_plugin and test_receipts; no
 second janitor, observation subsystem or qualification register is selected.
 

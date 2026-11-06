@@ -1,202 +1,38 @@
 """Real protected report completion and exact pgvector retrieval on controlled source inputs."""
 
-from dataclasses import replace
-from math import sqrt
-from types import SimpleNamespace
-
 import pytest
-from pydantic import create_model
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.methods.contextual_candidates import _phase_operation, denotation_contribution
 from corpus_structure.methods.contextual_embeddings import (
-    EncodedVector,
-    EncoderProfile,
     identity,
     numeric_identity,
 )
-from corpus_structure.semantic.contextual_links import RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
 from corpus_structure.semantic.contextual_retrieval import (
-    ChannelHit,
-    freeze_inventory,
-    fuse_candidates,
     retrieve_candidates,
 )
 from corpus_structure.semantic.contextual_storage import (
     cached_target_vectors,
     eligible_vector_relation,
-    enrichment_report,
 )
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import claim_tasks, create_task, record_method
-from semantic.test_contributions_native import bypass, complete, drafts, envelope
-from semantic.test_private_records import private_source as private_source
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-
-def curated_case(original, *, extra_targets=(), config_hash="private-config", target_version=None):
-    targets = (
-        RegistryTarget(
-            target_id="t1",
-            label="12",
-            description="The numeral twelve printed in the supplied cell.",
-            type_name="numeral",
-            parent="numbers",
-        ),
-        RegistryTarget(
-            target_id="t2",
-            label="7",
-            description="The numeral seven as a different source-reported number.",
-            type_name="numeral",
-            parent="numbers",
-        ),
-    )
-    if target_version is not None:
-        targets = tuple(t.model_copy(update={"effective_version": target_version}) for t in targets)
-    targets = (*targets, *extra_targets)
-    method = SimpleNamespace(**vars(original.method))
-    method.name = "private.contextual"
-    method.Config = create_model(
-        "PrivateContextualConfig", registry_targets=(tuple[RegistryTarget, ...], ...)
-    )
-    params = dict(registry_targets=[t.model_dump(mode="json") for t in targets])
-    with original.writer.begin() as conn:
-        config = record_method(
-            conn, method, "default", params, config_hash, prepared=original.prepared
-        )
-        task = create_task(
-            conn,
-            run_id=original.run,
-            config_id=config,
-            stage="record",
-            unit_type="source_view",
-            unit_id=original.view,
-            unit_key="private-unit",
-            input_hash="private-input-hash",
-        )
-        held = claim_tasks(conn, run_id=original.run, config_id=config, holder="records")[0]
-        task_row = dict(
-            conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
-            .mappings()
-            .one()
-        )
-    return SimpleNamespace(
-        **(
-            vars(original)
-            | dict(
-                method=method,
-                task=task,
-                held=held,
-                task_row=task_row,
-                registry_targets=targets,
-                configuration_hash=config_hash,
-            )
-        )
-    )
-
-
-def contextual_result(case, *, cached=(), effective_version=None, denotation=False):
-    result = drafts(case)
-    assert result.contributions is not None
-    assert result.contribution_operations is not None
-    occurrence_id = result.contributions[0]["occurrence_id"]
-    evidence = result.contributions[0]["contribution_id"]
-    profile = EncoderProfile(
-        "constructed/native-contract", "a" * 40, 2, "query: ", "passage: ", "mean"
-    )
-
-    registry_id, targets = registry_input(case.registry_targets)
-
-    def vector(object_id, values, representation_digest="", source_binding="private-unit"):
-        digest = "b" * 64
-        vector_id = identity(
-            "context-vector",
-            [object_id, source_binding, profile.profile_id, digest, representation_digest],
-        )
-        return EncodedVector(
-            vector_id,
-            object_id,
-            source_binding,
-            profile.profile_id,
-            digest,
-            values,
-            representation_digest,
-        )
-
-    query = vector(occurrence_id, (1.0, 0.0))
-    inv = freeze_inventory(
-        targets, source_selection=registry_id, scope="chapter5", effective_version=effective_version
-    )
-    target_vectors = {item.vector.object_id: item.vector for item in cached}
-    for index, target in enumerate(targets):
-        if target.target_id not in target_vectors:
-            values = (
-                (1.0, 0.0) if index == 0 else ((0.0, 1.0) if index == 1 else (sqrt(0.5), sqrt(0.5)))
-            )
-            target_vectors[target.target_id] = vector(
-                target.target_id, values, target.representation_digest, target.source_binding
-            )
-    ranked = sorted(target_vectors.values(), key=lambda v: (-v.values[0], v.object_id))
-    lists = fuse_candidates(
-        occurrence_id=occurrence_id,
-        query=query,
-        inventory=inv,
-        channels={"dense": tuple(ChannelHit(v.object_id, v.values[0]) for v in ranked)},
-    )
-    witness = RelationshipWitness(
-        "w",
-        occurrence_id,
-        "t1",
-        "denotes",
-        "private-unit",
-        "chapter5",
-        effective_version,
-        (evidence,),
-        "explicit_source_cue",
-    )
-    decision = select_relationships(
-        candidates=lists,
-        inventory=inv,
-        source_binding="private-unit",
-        scope="chapter5",
-        effective_version=effective_version,
-        witnesses=(witness,),
-    )
-    report = enrichment_report(
-        curated_registry_id=registry_id,
-        profiles=(profile,),
-        vectors=(query, *target_vectors.values()),
-        vector_reuse=tuple(item.reuse for item in cached),
-        inventories=(inv,),
-        candidate_lists=(lists,),
-        relationship_decisions=(decision,),
-    )
-    operations = tuple(
-        dict(op, **({"contextual_enrichment": report} if i == 0 else {}))
-        for i, op in enumerate(result.contribution_operations)
-    )
-    contributions = result.contributions
-    if denotation:
-        phase = _phase_operation(
-            "relationship selection",
-            occurrence_id,
-            (lists.list_id,),
-            result_id=decision.decision_id,
-        )
-        proposal = denotation_contribution(
-            decision, contributions[0], registry_id, inv, phase["operation_key"]
-        )
-        assert proposal is not None
-        phase["emitted_count"] = 1
-        phase["computation_dependencies"] = proposal["computation_dependencies"]
-        operations = (*operations, phase)
-        contributions = (*contributions, proposal)
-    return (
-        replace(result, contribution_operations=operations, contributions=contributions),
-        query,
-        inv,
-    )
+from .native_record_fixtures import (
+    bypass_contributions as bypass,
+)
+from .native_record_fixtures import (
+    complete_contributions as complete,
+)
+from .native_record_fixtures import (
+    contextual_result,
+    curated_case,
+)
+from .native_record_fixtures import (
+    contribution_envelope as envelope,
+)
 
 
 @pytest.mark.parametrize(

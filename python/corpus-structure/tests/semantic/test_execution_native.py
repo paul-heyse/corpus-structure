@@ -9,7 +9,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import PublicationBatch, RoleRow, ValueRow, publish_batch
 
-from .test_publication import C, Z, batch, seed
+from .domain_scenarios import C, Z, batch, seed
 
 
 class NativeTestConfig(BaseModel):

@@ -33,7 +33,7 @@ consumer setup, independent semantic expectations, pytest lifetimes and the exis
 ADR-0032/0048 preserve committed clone isolation and the named serving seed; ADR-0056 permits
 ordinary persistent development without turning disposable test databases into a workflow rule.
 
-**Proposed:** tests depend on explicit scenario/preparation inputs rather than private globals in
+**Implemented; final qualification pending:** tests depend on explicit scenario/preparation inputs rather than private globals in
 another test host. Pure assertions consume pure preparation. Mathematical readings are reused
 through explicitly requested later stages, with real spawned deadlines retained. Each fixture
 control owns its full premise. Optional observation runs only for an active consumer, while native
@@ -81,9 +81,9 @@ is claimed. Bare/bootstrap/historical contexts are not falsely required to name 
 The unnumbered Rust classifier discrepancy receives a small consistency correction and independent
 artifact controls; current empty selection still establishes no Rust functional coverage.
 
-TR-02 selects staged workers: current explicit pickle contracts support transport without a new
-protocol. Per-active-stage and direct whole-page deadlines remain distinct. Feasibility is
-Interface-checked, not runtime-tested; independent worker controls belong to execution. No
+TR-02 selects staged workers: current explicit pickle contracts plus a bounded native Token reducer preserve
+transported terminal positions without a new wire protocol. Per-active-stage and direct whole-page deadlines remain distinct. Initial source-only feasibility missed Lark end-position loss; execution exposed it and
+the scenario companion owns the correction. independent worker controls belong to execution. No
 architecturally consequential authoring choice is left to an indefinite investigation.
 Tool candidates are resolved in the companions: existing Python/native mechanisms are selected;
 pgTAP/isolationtester remain useful alternatives but add no necessary capability for this scope.
@@ -91,7 +91,7 @@ No installation or dependency change is currently scheduled.
 
 ## Package queue
 
-**TR-00 accepted; TR-01–08 in progress; TR-09/10 pending.** The table is the execution-state owner; listed order is
+**TR-00 accepted; TR-01–08 Implemented; focused evidence below; TR-09/10 open.** The table is the execution-state owner; listed order is
 one useful route, not a barrier between independent work.
 
 | Package | Required working input | Delivered behavior and acceptance |
@@ -115,7 +115,7 @@ scope; a package is not automatically a separate worker. No broken consumer wait
 
 ## Finding disposition
 
-All current repair rows are **open / proposed**; no implementation or closure is asserted.
+Current repair rows remain **open for final qualification**; implementation and focused evidence are recorded above. No full-series closure is yet asserted.
 Preserved dispositions below refer to prior scoped corrections, not freshly passed tests.
 
 | Finding | Responsible package | Disposition and completion obligation |
@@ -143,6 +143,19 @@ Preserved dispositions below refer to prior scoped corrections, not freshly pass
 | [DTA-021](../design_review/test-audit/execution-and-qualification.md#dta-021) | TR-06 | Open: each selectable fixture control owns its entire premise and observation |
 | [DTA-022](../design_review/test-audit/execution-and-qualification.md#dta-022) | TR-07 | Open: eliminate all observation-only inactive work without weakening active evidence |
 | [DTA-023](../design_review/test-audit/evidence-and-discrimination.md#dta-023) | TR-05 | Open: independent source-pixel/location oracle, actual renderer and artifact journey |
+
+TR10-F01 (related DTA-018), owner TR-02, **Implemented / focused Tested; assembled review pending**: staged Lark Token serialization loses
+terminal end coordinates. Independent assembled review accepted a native multiprocessing reducer
+preserving all eight constructor fields, registered at work time in parent/workers; ordinary pickle
+stays unchanged. Registration is process-wide/idempotent for multiprocessing. Closure requires
+explicit positional/nested/bidirectional transport and original independent relation/scope evidence.
+
+TR10-F02 (related DTA-001), owner TR-03, **Implemented / focused Tested; final qualification pending**: reached native publication can retain a
+cached temporary composite type across savepoint rollback/recreated staging and raise XX000.
+Repair the semantic owner with scalar staged columns/stable JSON projection and append-only
+migration; preserve exact typed joins/multiplicity/source/identity guards. Closure requires
+same-connection repeated publication/rollback/recreation/refusal/valid sibling evidence and
+current migration/head applicability. No reconnect, cache flush or weaker assertion is selected.
 
 The Rust consistency limit belongs to TR-08. Library and system-tool comparisons are resolved
 within the responsible companions, not left in an additional catalog. There are no unassigned
@@ -173,7 +186,14 @@ TR-05 focused **passed**: `uv run pytest tests/test_native_region_render.py pyth
 (9 cases including real warning/argument outcomes). Logs: build/test-audit-tr05{,-cli}.log.
 Actual published artifact **passed** through `uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/tr05-region-artifact-20261105 -- python/corpus-structure/tests/semantic/test_published_region_artifact.py`.
 Initial asymmetric fixture failed on unsupported page context-manager use; corrected to explicit
-close before the passing checks. Other package acceptance and integrated qualification remain open.
+close before the passing checks. TR-06–08 focused **passed**: native lifecycle39 cases with complete item-bound provenance
+(build/test-receipts/tr-native-lifecycle-final-focused), classifier24 cases
+(build/test-receipts/tr-native-receipt-classifier-final-focused), and ordinary no-qualification
+observer/capture controls (build/tr-native-noqualification-{observer,capture}-final.log).
+Initial infrastructure receipt remains blocked by its disabled opt-in guardian control;
+all86 executed cases passed. Seven direct PostgreSQL auth nodes are now native-required;
+the eighth filesystem guardian remains functionally required without a native acquisition claim.
+TR-10 independent assembled review is underway; final integrated qualification remains not_run.
 
 ## Authoring assessment and publication — 2026-11-05
 
@@ -189,3 +209,30 @@ Root publication maintenance uses `just turn-end`; the completion report gives i
 **not_run:** product tests, collection, provider/native execution, probes, installations and
 integrated qualification. No publisher/resolver code changed, so just docs-test is not_run.
 No existing plan document or plan index was changed; audit ownership and STATUS link here.
+
+### Assembled implementation checkpoint — 2026-11-05
+
+TR-01 explicit producer/reference migration and both eager publication hosts are implemented;
+TR-02 has28 focused passes and finalized token evidence. TR-03/04 controls now establish valid
+premises, exact guards, independent membership and noncancelling numerical inputs. Maintained
+PDF/local/publication equivalents are included. TR-03 additionally repairs TR10-F02 through
+prospective semantic migration152: scalar staging/stable JSON/durable row type,2 native operations
+and0 ordinary operations, preserving all prior frozen bytes. Final152 focused guards are running.
+Existing test meanings survive: three order-dependent fixture controls were intentionally replaced,
+and the integrated preparation/native-fence test was explicitly renamed; compiled/reference/macro inputs are unchanged. TR-09's static retirement and
+consumer reconciliation is complete; preservation/final applicability remains part of TR-10.
+No integrated qualification pass is yet claimed. Root maintenance precedes final qualification.
+
+### Assembled review and qualification readiness — 2026-11-05
+
+The [TR-10 independent assembled review](../design_review/reviews/design_review_test-audit-resolution-tr10_2026-11-05.md)
+accepts the resulting design and bounded native correction. TR10-F01/F02 have implemented
+corrections and focused closure evidence; all final required-union outcomes remain open.
+Final152 native selection passed18: ten judged-semantic forgery cases, direct writer status42501,
+and seven local-witness cases, with valid sibling checks inside the relevant cases. The earlier
+isolated151 eight-loop control passed; it is a diagnosis limitation, not a deterministic failing
+baseline reproduction. Original combined XX000 failure remains failed.
+Filesystem exhaustion interrupted review publication/deployment preparation; no dev migration
+ran during that failure. The operator freed space; writable capacity was verified169GB before
+resuming. No cache deletion was performed by this task. Root source maintenance/ready checks,
+normal dev152 integration and final qualification now follow.

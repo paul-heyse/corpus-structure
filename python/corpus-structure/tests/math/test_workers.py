@@ -136,7 +136,6 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
     from types import MappingProxyType
 
     from lark import Token
-
     from math_support import extract_readings, read_content, scope_extraction
 
     from corpus_structure.core.vocab import ParseOutcome, ScopeExtent
@@ -157,25 +156,29 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
         result = reading.result
         assert result.tree is not None
         printed.append(print_tree(result.tree, result.latex, result.macros))
-        positions.append([
-            (t.start_pos, t.end_pos, t.line, t.column, t.end_line, t.end_column)
-            for t in _tree.leaves(result.tree)
-        ])
+        positions.append(
+            [
+                (t.start_pos, t.end_pos, t.line, t.column, t.end_line, t.end_column)
+                for t in _tree.leaves(result.tree)
+            ]
+        )
     assert positions == [
         [(0, 1, 1, 1, 1, 2)],
         [(0, 1, 1, 1, 1, 2), (2, 3, 1, 3, 1, 4), (4, 5, 1, 5, 1, 6)],
         [(0, 1, 1, 1, 1, 2), (2, 3, 1, 3, 1, 4), (4, 5, 1, 5, 1, 6)],
     ]
     assert printed == ["x", "x+1", "x=1"]
-    assert _run_pages(
-        reading_positions, {page.page: readings}, workers=1, timeout=30
-    )[page.page] == reading_positions(readings)
-    values, extraction = _run_pages(
-        extract_readings, {page.page: readings}, workers=1, timeout=30
-    )[page.page]
+    assert _run_pages(reading_positions, {page.page: readings}, workers=1, timeout=30)[
+        page.page
+    ] == reading_positions(readings)
+    values, extraction = _run_pages(extract_readings, {page.page: readings}, workers=1, timeout=30)[
+        page.page
+    ]
     assert [v.value.latex for v in values] == ["x", "x + 1", "x = 1"]
     assert [(m.name, m.start, m.end) for m in extraction.mentions] == [
-        ("x", 6, 7), ("x", 26, 27), ("x", 48, 49)
+        ("x", 6, 7),
+        ("x", 26, 27),
+        ("x", 48, 49),
     ]
     assert [(r.label, r.head, r.tail, r.operator) for r in extraction.relations] == [
         ("equals", (48, 49), (52, 53), "=")
@@ -246,9 +249,10 @@ def test_staged_corpus_relations_preserve_direct_page_semantics(spike_readings, 
 
     direct_positions = reading_positions(direct.readings)
     assert reading_positions(staged.readings) == direct_positions
-    assert _run_pages(
-        reading_positions, {key: staged.readings}, workers=1, timeout=30
-    )[key] == direct_positions
+    assert (
+        _run_pages(reading_positions, {key: staged.readings}, workers=1, timeout=30)[key]
+        == direct_positions
+    )
     values, extraction = extract_readings(direct.readings)
     assert extraction.relations  # this control must actually exercise relational transport
     assert spike_extraction[key].values == values

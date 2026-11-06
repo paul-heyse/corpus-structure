@@ -1,6 +1,6 @@
 # Assertions and independent evidence
 
-**Status:** Proposed; no implementation. [Coordinator](../test-audit-resolution_2026-11-05.md)
+**Status:** Implemented; assembled review and final qualification pending. [Coordinator](../test-audit-resolution_2026-11-05.md)
 owns TR-03/04/05 and DTA disposition. Paths below are package-relative unless marked root.
 
 ## Target and invariants

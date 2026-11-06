@@ -27,6 +27,7 @@ def reading_positions(readings):
             for t in reading.result.tree.scan_values(lambda value: isinstance(value, Token))
             if isinstance(t, Token)
         ]
-        if reading.result.tree is not None else []
+        if reading.result.tree is not None
+        else []
         for reading in readings
     ]

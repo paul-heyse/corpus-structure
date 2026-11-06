@@ -169,9 +169,7 @@ def analyse(page: str, scopes: bool = True) -> PageMath:
     parsed = read_page(page)
     values, extraction = extract_readings(parsed.readings)
     found = scope_extraction((parsed, values, extraction)) if scopes else []
-    return PageMath(
-        page, parsed.content, parsed.macros, parsed.readings, values, extraction, found
-    )
+    return PageMath(page, parsed.content, parsed.macros, parsed.readings, values, extraction, found)
 
 
 class PageWorkError(RuntimeError):

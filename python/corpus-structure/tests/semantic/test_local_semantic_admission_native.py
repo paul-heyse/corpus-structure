@@ -4,8 +4,8 @@ import json
 from dataclasses import asdict, replace
 from typing import Any
 
+import psycopg
 import pytest
-from evaluate.test_record_references_native import expected_reading
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -37,19 +37,17 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.operations import OperationBinding, create_run, create_task, seal_cut
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
+from semantic.native_record_fixtures import complete_contributions as complete
+from semantic.reference_scenarios import expected_reading
 
-from . import test_private_records as source_fixture
-from .test_contextual_enrichment_native import contextual_result, curated_case
-from .test_contributions_native import complete
-from .test_private_records import private_source as private_source
+from . import native_record_fixtures as source_fixture
+from .native_record_fixtures import contextual_result, curated_case
+from .native_record_fixtures import private_source as private_source
 
 
-@pytest.fixture(autouse=True)
-def reference_model(monkeypatch):
-    original = source_fixture.observation_inputs
-    monkeypatch.setattr(
-        source_fixture, "observation_inputs", lambda bundle: reference_inputs(original(bundle))
-    )
+@pytest.fixture
+def private_source_options():
+    return dict(bundle_transform=reference_inputs)
 
 
 @pytest.fixture
@@ -474,35 +472,119 @@ def test_native_rejects_forged_judged_semantic_rows(judged_source, corruption):
     )
     batch = replace(clean, local_semantic_assertion=(changed, *clean.local_semantic_assertion[1:]))
     projection = compile_projection(inputs.prepared, inputs.source_binding, kind="candidate")
-    with pytest.raises(DBAPIError), case.writer.begin() as conn:
+    with (
+        case.writer.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin() as transaction,
+    ):
+        if corruption == "unit":
+            # Deterministically exercise the cached-plan path across successful
+            # publication rollback and recreated temporary staging row types.
+            conn.execute(text("SET LOCAL plan_cache_mode='force_generic_plan'"))
         conn.execute(
-            text(
-                "UPDATE ops.run SET status='consolidating',result_realization_id=:out "
-                "WHERE id=(SELECT run_id FROM ops.input_cut WHERE id=:cut)"
-            ),
-            dict(out="semantic-forged", cut=cut),
+            text("SELECT data.begin_evaluation(:cut,:out)"),
+            dict(cut=cut, out=inputs.output_realization_id),
         )
-        transport = AppendPublication.from_rows(batch)
-        stage_arrow(conn, transport)
-        conn.execute(
-            text(
-                "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,:sr,:sz,:revision,"
-                ":capture,'evaluate',:projection,'candidate',:cut,:profile)"
-            ),
-            dict(
-                r=batch.release_id,
-                z=batch.realization_id,
-                b=batch.batch_id,
-                content=transport.content,
-                sr=inputs.source_binding.release_id,
-                sz=inputs.source_binding.realization_id,
-                revision=inputs.source_binding.data_revision,
-                capture=inputs.source_binding.capture_id,
-                projection=projection.projection_id,
-                cut=cut,
-                profile=projection.profile.digest,
-            ),
+
+        # The unchanged sibling is accepted by this same publication operation. Its
+        # savepoint is rolled back so the forgery still starts from an empty workspace.
+        def publish(candidate):
+            transport = AppendPublication.from_rows(candidate)
+            stage_arrow(conn, transport)
+            conn.execute(
+                text(
+                    "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,:sr,:sz,:revision,"
+                    ":capture,'evaluate',:projection,'candidate',:cut,:profile)"
+                ),
+                dict(
+                    r=candidate.release_id,
+                    z=candidate.realization_id,
+                    b=candidate.batch_id,
+                    content=transport.content,
+                    sr=inputs.source_binding.release_id,
+                    sz=inputs.source_binding.realization_id,
+                    revision=inputs.source_binding.data_revision,
+                    capture=inputs.source_binding.capture_id,
+                    projection=projection.projection_id,
+                    cut=cut,
+                    profile=projection.profile.digest,
+                ),
+            )
+
+        with conn.begin_nested() as accepted:
+            publish(clean)
+            assert (
+                conn.scalar(
+                    text(
+                        "SELECT count(*) FROM data.local_semantic_assertion WHERE realization_id=:z"
+                    ),
+                    dict(z=clean.realization_id),
+                )
+                == 2
+            )
+            accepted.rollback()
+        unique_witness = (
+            "semantic publication requires unique exact source, grade unit, "
+            "case and operation witnesses"
         )
+        applicability = (
+            "semantic publication lacks exact independently judged "
+            "statement/source/operation applicability"
+        )
+        expected = {
+            "statement": (
+                "23514",
+                "semantic assertion differs from protected grade and exact source witness",
+            ),
+            "grade": ("23514", "semantic grade is outside immutable publication dependencies"),
+            "case": ("23514", unique_witness),
+            "rubric": ("23514", applicability),
+            "source": ("23503", "fk_local_semantic_assertion_origin_task_id_contribution_id"),
+            "unit": ("23514", unique_witness),
+            "pass": ("23514", unique_witness),
+            "frame": ("23514", unique_witness),
+            "cut": ("23503", "fk_local_semantic_assertion_cut_id"),
+            "selected": ("P0002", "query returned no rows"),
+        }[corruption]
+        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+            publish(batch)
+        assert isinstance(caught.value.orig, psycopg.Error)
+        diagnostic = caught.value.orig.diag
+        assert (
+            caught.value.orig.sqlstate,
+            diagnostic.constraint_name
+            if corruption in {"source", "cut"}
+            else diagnostic.message_primary,
+        ) == expected
+        if corruption == "selected":
+            assert diagnostic.context is not None
+            assert "validate_local_semantic_assertions" in diagnostic.context
+        if corruption == "unit":
+            for _ in range(8):
+                with conn.begin_nested() as replay:
+                    publish(clean)
+                    replay.rollback()
+                with pytest.raises(DBAPIError) as retry, conn.begin_nested():
+                    publish(batch)
+                assert isinstance(retry.value.orig, psycopg.Error)
+                assert (retry.value.orig.sqlstate, retry.value.orig.diag.message_primary) == (
+                    "23514",
+                    unique_witness,
+                )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM data.batch WHERE realization_id=:z"),
+                dict(z=clean.realization_id),
+            )
+            == 0
+        )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM data.local_semantic_assertion WHERE realization_id=:z"),
+                dict(z=clean.realization_id),
+            )
+            == 0
+        )
+        transaction.rollback()
     with case.writer.connect() as conn:
         assert (
             conn.scalar(
@@ -545,3 +627,21 @@ def test_batch_keeps_grade_witnesses_and_excludes_uncaptured_case(judged_source)
         page = serve_contributions(conn, ContributionRequest(run_id=run, include_publication=True))
         assert page.inventory_counts["admitted_semantic_claims"] == 1
         assert page.inventory_counts["local_semantic_assertion_witnesses"] == 2
+
+
+def test_writer_cannot_prepare_consolidation_by_direct_run_status_update(private_source):
+    case = private_source
+    with case.writer.begin() as conn:
+        before = conn.scalar(
+            select(table("ops.run").c.status).where(table("ops.run").c.id == case.run)
+        )
+        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+            conn.execute(
+                text("UPDATE ops.run SET status='consolidating' WHERE id=:run"), dict(run=case.run)
+            )
+        assert isinstance(caught.value.orig, psycopg.Error)
+        assert caught.value.orig.sqlstate == "42501"
+        assert (
+            conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == case.run))
+            == before
+        )

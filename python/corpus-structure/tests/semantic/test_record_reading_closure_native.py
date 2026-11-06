@@ -20,19 +20,18 @@ from corpus_structure.semantic.record_assertions import (
 )
 from corpus_structure.semantic.record_projection import project_record_reports
 
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import private_source as private_source
 from .test_record_publication_native import record_cut
 
 
 @pytest.fixture
-def reading_source(request, monkeypatch):
-    from . import test_private_records as support
+def private_source_options():
+    return dict(bundle_transform=source_reading_inputs)
 
-    original = support.observation_inputs
-    monkeypatch.setattr(
-        support, "observation_inputs", lambda bundle: source_reading_inputs(original(bundle))
-    )
-    return request.getfixturevalue("private_source")
+
+@pytest.fixture
+def reading_source(private_source):
+    return private_source
 
 
 def test_plain_graph_append_cannot_bypass_record_admission(reading_source):
@@ -183,10 +182,15 @@ def test_native_predictor_independently_uses_all_eight_structural_signals(semant
         # Independent vector: [.5, 1, .5, .5, .5, .5, 3, 2].
         assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(48.75, abs=1e-12)
         sample.feature["parameters"]["center"][0] = 0.25
+        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(48.50, abs=1e-12)
+        sample = predictor_input()
         sample.feature["parameters"]["scale"][0] = 0.5
-        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(48.75, abs=1e-12)
-        sample.feature["parameters"]["coefficients"][0] = 2.0
         assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(49.25, abs=1e-12)
+        sample.feature["parameters"]["center"][0] = 0.125
+        # First signal becomes (.5-.125)/.5=.75, adding .25 to the baseline.
+        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(49.00, abs=1e-12)
+        sample.feature["parameters"]["coefficients"][0] = 2.0
+        assert conn.scalar(score_statement(), vars(sample)) == pytest.approx(49.75, abs=1e-12)
 
 
 @pytest.mark.parametrize("kind", ["unavailable", "unknown", "misordered", "zero_scale"])

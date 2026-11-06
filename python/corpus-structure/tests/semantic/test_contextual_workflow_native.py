@@ -23,8 +23,9 @@ from corpus_structure.semantic._operation_calls import select_source_view
 from corpus_structure.semantic._operation_ids import RunId, SourceViewId
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding, record_method
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import private_source as private_source
 
 
 def test_registered_contextual_consumer_uses_selected_source_without_producer_dependency(

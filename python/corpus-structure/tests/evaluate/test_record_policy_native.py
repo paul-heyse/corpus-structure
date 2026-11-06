@@ -4,8 +4,9 @@ from copy import deepcopy
 
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_writer_engine as semantic_writer_engine
-from semantic.test_private_records import candidate
-from semantic.test_private_records import private_source as private_source
+from semantic.native_record_fixtures import candidate
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import private_source_options as private_source_options
 from sqlalchemy import text
 
 from corpus_structure.semantic.identity import canonical_bytes

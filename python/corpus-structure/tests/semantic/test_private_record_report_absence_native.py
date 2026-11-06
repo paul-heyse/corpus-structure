@@ -14,8 +14,9 @@ from corpus_structure.semantic.operations import (
     seal_cut,
 )
 from corpus_structure.semantic.records import read_private_record_reports
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import private_source as private_source
 
 
 def test_sealed_report_absence_preserves_task_custody_and_explicit_empty(private_source):

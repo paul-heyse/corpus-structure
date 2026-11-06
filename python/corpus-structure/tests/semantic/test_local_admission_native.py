@@ -3,6 +3,7 @@
 from dataclasses import asdict, replace
 from typing import Any
 
+import psycopg
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
@@ -15,9 +16,11 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
+from semantic.native_record_fixtures import complete_contributions as complete
+from semantic.native_record_fixtures import contribution_drafts as drafts
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .test_contributions_native import complete, drafts
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import private_source as private_source
 
 
 def local_cut(case):
@@ -99,48 +102,98 @@ def test_native_local_witness_refusals_rollback_receipt_and_all_rows(private_sou
         ),
     )
     batch = replace(clean, local_assertion=(changed, *rest))
+    if corruption == "append":
+        from corpus_structure.semantic.record_projection import project_record_reports
+
+        # Exercise the local append guard without unrelated record-report transport
+        # satisfying the earlier source-record append refusal.
+        batch = replace(batch, **project_record_reports(case.prepared, ()))
     compiled = compile_projection(case.prepared, inputs.source_binding, kind="candidate")
     with (
-        pytest.raises(DBAPIError),
         case.writer.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
+        conn.begin() as transaction,
     ):
         conn.execute(
             text("SELECT data.begin_evaluation(:cut,:out)"),
-            {"cut": cut, "out": inputs.output_realization_id},
+            dict(cut=cut, out=inputs.output_realization_id),
         )
-        transport = AppendPublication.from_rows(batch)
-        stage_arrow(conn, transport)
-        if corruption == "append":
-            conn.execute(
-                text("SELECT data.publish_batch(:r,:z,:b,:content)"),
-                dict(
-                    r=batch.release_id,
-                    z=batch.realization_id,
-                    b=batch.batch_id,
-                    content=transport.content,
-                ),
+
+        def publish(candidate, *, append=False):
+            transport = AppendPublication.from_rows(candidate)
+            stage_arrow(conn, transport)
+            if append:
+                conn.execute(
+                    text("SELECT data.publish_batch(:r,:z,:b,:content)"),
+                    dict(
+                        r=candidate.release_id,
+                        z=candidate.realization_id,
+                        b=candidate.batch_id,
+                        content=transport.content,
+                    ),
+                )
+            else:
+                conn.execute(
+                    text(
+                        "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,:sr,:sz,:revision,"
+                        ":capture,'evaluate',:projection,'candidate',:cut,:profile)"
+                    ),
+                    dict(
+                        r=candidate.release_id,
+                        z=candidate.realization_id,
+                        b=candidate.batch_id,
+                        content=transport.content,
+                        sr=inputs.source_binding.release_id,
+                        sz=inputs.source_binding.realization_id,
+                        revision=inputs.source_binding.data_revision,
+                        capture=inputs.source_binding.capture_id,
+                        projection=compiled.projection_id,
+                        cut=cut,
+                        profile=compiled.profile.digest,
+                    ),
+                )
+
+        with conn.begin_nested() as positive:
+            publish(clean)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.local_assertion WHERE realization_id=:z"),
+                    dict(z=clean.realization_id),
+                )
+                == 2
+            )
+            positive.rollback()
+        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+            publish(batch, append=corruption == "append")
+        assert isinstance(caught.value.orig, psycopg.Error)
+        diagnostic = caught.value.orig.diag
+        if corruption in {"cut", "contribution"}:
+            expected_constraint = {
+                "cut": "fk_local_assertion_cut_id",
+                "contribution": "fk_local_assertion_origin_task_id_contribution_id",
+            }[corruption]
+            assert (caught.value.orig.sqlstate, diagnostic.constraint_name) == (
+                "23503",
+                expected_constraint,
             )
         else:
-            conn.execute(
-                text(
-                    "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,:sr,:sz,:revision,"
-                    ":capture,'evaluate',:projection,'candidate',:cut,:profile)"
+            message = {
+                "event": "local assertion policy or event is inapplicable",
+                "basis": "local assertion policy or event is inapplicable",
+                "event_swap": "source witness does not authorize this local event",
+                "literal": (
+                    "local assertion content or intrinsic identity differs from its exact witness"
                 ),
-                dict(
-                    r=batch.release_id,
-                    z=batch.realization_id,
-                    b=batch.batch_id,
-                    content=transport.content,
-                    sr=inputs.source_binding.release_id,
-                    sz=inputs.source_binding.realization_id,
-                    revision=inputs.source_binding.data_revision,
-                    capture=inputs.source_binding.capture_id,
-                    projection=compiled.projection_id,
-                    cut=cut,
-                    profile=compiled.profile.digest,
-                ),
+                "append": "local source assertions require sealed-cut derived publication",
+            }[corruption]
+            assert (caught.value.orig.sqlstate, diagnostic.message_primary) == ("23514", message)
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM data.batch WHERE realization_id=:z"),
+                dict(z=clean.realization_id),
             )
+            == 0
+        )
+        transaction.rollback()
     with case.writer.connect() as conn:
         assert (
             conn.scalar(

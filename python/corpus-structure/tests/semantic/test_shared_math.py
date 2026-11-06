@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from corpus_structure.methods.math.methods import ExtractMathConfig, NormalizeFormulaConfig
 from corpus_structure.orchestrate.semantic import _source_step_groups
 
-from .test_publication import fixture_model
+from .domain_scenarios import fixture_model
 
 
 def steps(*names):

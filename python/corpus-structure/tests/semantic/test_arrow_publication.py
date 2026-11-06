@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from decimal import Decimal
+from functools import partial
 from threading import Barrier
 from typing import Any, cast
 
@@ -35,10 +36,9 @@ from corpus_structure.semantic.publication import (
     ValueRow,
 )
 
-from .test_publication import fixture_model
-from .test_publication import seed as seed_publication
+from .domain_scenarios import fixture_model
+from .domain_scenarios import seed as seed_publication
 
-R = fixture_model()[1].release_id
 Z = "realization:test"
 C = "https://example/Thing"
 P = "https://example/label"
@@ -47,10 +47,11 @@ P = "https://example/label"
 def seed(engine):
     """Use the immutable archive and the current composed inference protocol."""
     prepared = seed_publication(engine)
-    assert prepared.release_id == R
+    return prepared
 
 
-def batch(identity="b", *, entity="e"):
+def make_batch(identity="b", *, entity="e", release_id):
+    R = release_id
     fact = fact_key(R, Z, entity, P, "Straße", {})
     occurrences = [occurrence_key(R, Z, "source", str(i) + identity) for i in (1, 2)]
     return PublicationBatch(
@@ -91,6 +92,8 @@ def inference_fixture(admin, writer):
 
 
 def test_exact_frozen_schema_and_content():
+    R = fixture_model()[1].release_id
+    batch = partial(make_batch, release_id=R)
     candidate = ArrowPublicationBatch.from_rows(batch())
     assert candidate.content == batch().content
     assert candidate.content is candidate.content
@@ -106,6 +109,7 @@ def test_exact_frozen_schema_and_content():
 
 
 def test_optional_numeric_projection_never_rounds_lexical():
+    R = fixture_model()[1].release_id
     original = PublicationBatch(
         R,
         Z,
@@ -182,7 +186,7 @@ def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer
 
 
 def test_native_binary_copy_invalid_null_is_atomic(semantic_db_engine, semantic_writer_engine):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
     invalid = ArrowPublicationBatch(
         R,
         Z,
@@ -204,7 +208,8 @@ def test_native_binary_copy_invalid_null_is_atomic(semantic_db_engine, semantic_
 def test_arrow_serialization_retry_replays_same_buffers(
     semantic_db_engine, semantic_writer_engine, monkeypatch
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     barrier = Barrier(2)
     original = arrow.stage_arrow
     seen = []
@@ -241,7 +246,8 @@ def test_arrow_ambiguous_commit_resolves_receipt(
 ):
     import psycopg
 
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     original = semantic_writer_engine.dialect.do_commit
     commits = []
 
@@ -263,7 +269,8 @@ def test_arrow_ambiguous_commit_resolves_receipt(
 
 
 def test_arrow_cancel_rolls_back(semantic_db_engine, semantic_writer_engine, monkeypatch):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     original = arrow.stage_arrow
 
     def cancelled(conn, candidate):
@@ -279,6 +286,7 @@ def test_arrow_cancel_rolls_back(semantic_db_engine, semantic_writer_engine, mon
 
 
 def test_owned_readonly_buffers_and_batch_replay():
+    R = fixture_model()[1].release_id
     import numpy as np
 
     source = np.array([0, 1], dtype=np.int64)
@@ -310,7 +318,7 @@ def test_owned_readonly_buffers_and_batch_replay():
 
 
 def test_native_numeric_temporal_and_null_fidelity(semantic_db_engine, semantic_writer_engine):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
     source = PublicationBatch(
         R,
         Z,
@@ -351,7 +359,8 @@ def test_native_numeric_temporal_and_null_fidelity(semantic_db_engine, semantic_
 
 
 def test_native_malformed_copy_rolls_back(semantic_db_engine, semantic_writer_engine, monkeypatch):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
 
     original = ArrowWriteProfile.new_encoder
@@ -412,6 +421,8 @@ def test_analysis_serialization_requires_recomputation(
 
 
 def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
+    R = fixture_model()[1].release_id
+    batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.arrow_publication import AppendPublication
     from corpus_structure.semantic.query import SnapshotBinding
 
@@ -488,7 +499,8 @@ def test_native_legacy_derived_abi_cannot_admit_new_intent(
     semantic_db_engine,
     semantic_writer_engine,
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     candidate = ArrowPublicationBatch.from_rows(batch())
     with (
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
@@ -506,7 +518,8 @@ def test_native_legacy_derived_abi_cannot_admit_new_intent(
 
 
 def test_native_inference_effect_refuses_assertion_rows(semantic_db_engine, semantic_writer_engine):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.query import SnapshotBinding
 
     source = SnapshotBinding(R, Z, 0, "capture")
@@ -529,6 +542,8 @@ def test_native_inference_effect_requires_staged_proof(semantic_db_engine, seman
 
 
 def test_derived_composes_actual_owned_transport_without_another_freeze(monkeypatch):
+    R = fixture_model()[1].release_id
+    batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.query import SnapshotBinding
 
     owned = arrow.AppendPublication.from_rows(batch())
@@ -556,6 +571,8 @@ def test_derived_composes_actual_owned_transport_without_another_freeze(monkeypa
 
 
 def test_derived_row_adapter_freezes_each_stage_only_once(monkeypatch):
+    R = fixture_model()[1].release_id
+    batch = partial(make_batch, release_id=R)
     from corpus_structure.semantic.query import SnapshotBinding
 
     original = arrow.AppendPublication.__init__
@@ -578,6 +595,7 @@ def test_derived_row_adapter_freezes_each_stage_only_once(monkeypatch):
 
 @pytest.mark.parametrize("lost", [False, True])
 def test_inference_retries_and_recovers_using_actual_lowered_transport(monkeypatch, lost):
+    R = fixture_model()[1].release_id
     from sqlalchemy import create_engine
 
     from corpus_structure.semantic import inference, publication
@@ -642,7 +660,8 @@ def test_encoder_failure_discards_stream_and_fresh_replay_is_atomic(
 ):
     from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
 
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     candidate = ArrowPublicationBatch.from_rows(batch("encoder-replay"))
     factory = ArrowWriteProfile.new_encoder
     finished = []

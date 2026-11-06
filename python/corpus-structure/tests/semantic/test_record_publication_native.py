@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, cast
 
+import psycopg
 import pytest
 from pydantic import JsonValue
 from sqlalchemy import bindparam, select, text
@@ -20,9 +21,10 @@ from corpus_structure.semantic.domain_operations import _cut_input, consolidate_
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import complete_unit_result, seal_cut
 from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, reconstruct_record
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .test_private_records import candidate, complete
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import candidate, complete
+from .native_record_fixtures import private_source as private_source
 
 
 def record_cut(case, *, empty=False):
@@ -184,29 +186,78 @@ def test_native_tampering_accepted_standing_and_append_refuse_atomically(private
             text("SELECT data.begin_evaluation(:cut,:out)"),
             {"cut": cut, "out": inputs.output_realization_id},
         )
-        for batch in changes:
-            with pytest.raises(DBAPIError), conn.begin_nested():
-                transport = AppendPublication.from_rows(batch)
-                stage_arrow(conn, transport)
-                conn.execute(
-                    text(
-                        "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,:sr,:sz,:revision,"
-                        ":capture,'evaluate',:projection,'candidate',:cut,:profile)"
-                    ),
-                    dict(
-                        r=case.prepared.release_id,
-                        z=inputs.output_realization_id,
-                        b=transport.batch_id,
-                        content=transport.content,
-                        sr=inputs.source_binding.release_id,
-                        sz=inputs.source_binding.realization_id,
-                        revision=inputs.source_binding.data_revision,
-                        capture=inputs.source_binding.capture_id,
-                        projection=compiled.projection_id,
-                        cut=cut,
-                        profile=compiled.profile.digest,
-                    ),
+
+        def publish(batch):
+            transport = AppendPublication.from_rows(batch)
+            stage_arrow(conn, transport)
+            conn.execute(
+                text(
+                    "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,:sr,:sz,:revision,"
+                    ":capture,'evaluate',:projection,'candidate',:cut,:profile)"
+                ),
+                dict(
+                    r=case.prepared.release_id,
+                    z=inputs.output_realization_id,
+                    b=transport.batch_id,
+                    content=transport.content,
+                    sr=inputs.source_binding.release_id,
+                    sz=inputs.source_binding.realization_id,
+                    revision=inputs.source_binding.data_revision,
+                    capture=inputs.source_binding.capture_id,
+                    projection=compiled.projection_id,
+                    cut=cut,
+                    profile=compiled.profile.digest,
+                ),
+            )
+
+        with conn.begin_nested() as positive:
+            publish(clean)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM data.source_record WHERE realization_id=:z"),
+                    dict(z=clean.realization_id),
                 )
+                > 0
+            )
+            positive.rollback()
+        observed = []
+        for batch in changes:
+            with pytest.raises(DBAPIError) as caught, conn.begin_nested():
+                publish(batch)
+            assert isinstance(caught.value.orig, psycopg.Error)
+            observed.append(
+                (
+                    caught.value.orig.sqlstate,
+                    caught.value.orig.diag.constraint_name,
+                    caught.value.orig.diag.message_primary,
+                )
+            )
+        assert len(observed) == 6
+        assert observed[:3] == [
+            (
+                "23514",
+                None,
+                "public record projection differs from immutable selected cut reports: "
+                "record_field",
+            ),
+            (
+                "23514",
+                None,
+                "public record projection differs from immutable selected cut reports: "
+                "record_anchor",
+            ),
+            ("23514", None, "unfitted source record cannot obtain evaluated admission"),
+        ]
+        assert observed[3][:2] == ("23514", None)
+        assert observed[3][2] is not None
+        assert observed[3][2].startswith(
+            "public record projection differs from immutable selected cut reports: "
+        )
+        assert observed[4] == ("23514", None, "public record lacks selected report provenance")
+        assert observed[5][:2] == (
+            "23503",
+            "fk_record_report_member_realization_id_release_id_selec_4263",
+        )
         with pytest.raises(DBAPIError, match="sealed-cut derived publication"), conn.begin_nested():
             transport = AppendPublication.from_rows(clean)
             stage_arrow(conn, transport)
@@ -244,7 +295,7 @@ def test_shared_structure_accepts_complete_reference_but_public_policy_still_ref
 
     from sqlalchemy.dialects.postgresql import JSONB
 
-    from .test_private_records import identities
+    from .native_record_fixtures import identities
 
     case = private_source
     expected = candidate(case)
@@ -321,7 +372,7 @@ def test_shared_structure_requires_each_complete_literal_set_in_source_order(
 
     from corpus_structure.semantic.record_contracts import anchor_identity, evidence_set_identity
 
-    from .test_private_records import identities
+    from .native_record_fixtures import identities
 
     case = private_source
     expected = candidate(case)

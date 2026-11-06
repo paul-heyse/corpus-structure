@@ -1,5 +1,9 @@
 """An admitted composed binding across the native source/MCP/cut/result/read boundaries."""
 
+import json
+from collections import Counter
+from hashlib import sha256
+
 import anyio
 from fastmcp import Client
 from sqlalchemy import select
@@ -21,9 +25,12 @@ def test_composed_source_submission_final_cut_and_explanation(
     )
     session = SemanticAgentSession(semantic_writer_engine, run)
 
+    packet = {}
+
     async def submit():
         async with Client(build_semantic_server(session)) as client:
             unit = await lease_and_read(client, run, task)
+            packet.update(unit)
             result = (
                 await client.call_tool(
                     "propose_claims",
@@ -76,10 +83,117 @@ def test_composed_source_submission_final_cut_and_explanation(
         facts = reader.query(QuerySpec(cls, reader.property_handle(cls, "name"), "accepted"))
         assert len(facts.rows) == 1 and facts.rows[0].object == "Alice"
         explanation = reader.explain(facts.rows[0].fact_id)
+        supports = inventory_supports(reader, explanation.fact_id)
+        evidence = inventory_evidence(reader, explanation.fact_id)
+        reports = inventory_reports(reader, explanation.fact_id)
+        # Acquire only the immutable input report identity; the semantic answers below
+        # come from this hand-authored paragraph/proposal, not the consolidator.
+        with semantic_reader_engine.connect() as conn:
+            observation = (
+                conn.execute(
+                    select(table("kb.observation")).where(
+                        table("kb.observation").c.task_id == task,
+                        table("kb.observation").c.payload_definition == "AgentStoredBatch",
+                    )
+                )
+                .mappings()
+                .one()
+            )
+        source = observation["observation_key"]
+        sentence = packet["sentences"][0]
+        located = dict(
+            sentence=sentence["id"],
+            quote="Alice is here.",
+            role="primary",
+            placement="exact_cited",
+            matches=1,
+            picked=False,
+            timeouts=[],
+            outcome="located",
+            locator=sentence["locator"],
+            start=0,
+            end=14,
+        )
+
+        def encoded(value):
+            return json.dumps(
+                value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode()
+
+        # This spells out the identity tuple independently of production key helpers.
+        occurrence = (
+            "occ:"
+            + sha256(
+                encoded([prepared.release_id, "composed-result", source, "claims/0"])
+            ).hexdigest()
+        )
+        evidence_id = "evidence:" + sha256(encoded([source, "claims", 0, 0, located])).hexdigest()
+        assert Counter(
+            (
+                row.occurrence_id,
+                row.source,
+                row.item,
+                row.evidence_ids,
+                row.context,
+                tuple((c.evidence_id, c.role) for c in row.citation_roles),
+            )
+            for row in supports
+        ) == Counter(
+            {(occurrence, source, "claims/0", (evidence_id,), None, ((evidence_id, "primary"),)): 1}
+        )
+        assert Counter(
+            (row.evidence_id, row.source_uri, row.locator, row.provider, row.operation_version)
+            for row in evidence
+        ) == Counter(
+            {
+                (
+                    evidence_id,
+                    "source.html",
+                    encoded(
+                        dict(locator=sentence["locator"], start=0, end=14, role="primary")
+                    ).decode(),
+                    "agent.opus",
+                    "semantic-7",
+                ): 1
+            }
+        )
+        assert len(evidence) == 1 and evidence[0].source is not None
+        custody = evidence[0].source
         assert (
-            inventory_supports(reader, explanation.fact_id)
-            and inventory_evidence(reader, explanation.fact_id)
-            and inventory_reports(reader, explanation.fact_id)
+            custody.observation_key,
+            custody.task_id,
+            custody.run_id,
+            custody.payload_definition,
+            custody.kind,
+        ) == (source, task, run, "AgentStoredBatch", "claim_proposal")
+        assert Counter(
+            (row.observation_key, row.observation_id, row.root_fact_id) for row in reports
+        ) == Counter({(source, observation["id"], explanation.fact_id): 1})
+        assert reports[0].payload["unit_ref"] == locator
+        assert reports[0].payload["entities"] == [
+            dict(id="person", class_iri="https://example.org/Person")
+        ]
+        claims = reports[0].payload["claims"]
+        assert len(claims) == 1
+        assert {
+            k: claims[0][k]
+            for k in (
+                "id",
+                "subject",
+                "predicate",
+                "object",
+                "qualification",
+                "establishment",
+                "evidence",
+            )
+        } == dict(
+            id="name",
+            subject="person",
+            predicate="https://example.org/name",
+            object=dict(kind="text", text="Alice"),
+            qualification=dict(modality="asserted", polarity=True),
+            establishment="stated",
+            evidence=[located],
         )
 
 

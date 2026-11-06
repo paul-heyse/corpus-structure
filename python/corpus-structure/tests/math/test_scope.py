@@ -77,7 +77,9 @@ def test_core_standing_contexts(env: Any, spike_scoped: dict[str, Any]) -> None:
     assert check_contexts(env, spike_scoped, units) == []
 
 
-def test_suppose_again_yields_both_context_sentences(env: Any, spike_scoped: dict[str, Any]) -> None:
+def test_suppose_again_yields_both_context_sentences(
+    env: Any, spike_scoped: dict[str, Any]
+) -> None:
     """T2 ("Suppose again ..."): its site's sentence and the sentence it reopens."""
     unit = load(env, "s0r2_contexts")["units"]["T2"]
     page = spike_scoped[unit["page"]]

@@ -11,10 +11,11 @@ from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.record_queries import RecordReadLimit
 from corpus_structure.serve.record_results import RecordRequest
 from corpus_structure.serve.record_support import serve_record_support
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
 from .conftest import semantic_reader_engine as semantic_reader_engine
-from .test_private_records import candidate, unit
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import candidate, unit
+from .native_record_fixtures import private_source as private_source
 
 
 def test_native_candidate_support_omits_large_diagnostics_but_retains_available_task_locator(

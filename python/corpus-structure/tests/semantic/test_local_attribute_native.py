@@ -13,9 +13,10 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import BoundReader
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+from semantic.native_record_fixtures import complete_contributions as complete
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-from .test_contributions_native import complete
-from .test_private_records import private_source as private_source
+from .native_record_fixtures import private_source as private_source
 
 
 def test_label_only_attribute_score_and_version_survive_actual_native_custody(private_source):

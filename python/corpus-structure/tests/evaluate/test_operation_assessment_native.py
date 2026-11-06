@@ -6,13 +6,14 @@ from dataclasses import asdict
 from typing import Any
 
 import pytest
-from evaluate.test_record_references_native import expected_reading
-from evaluate.test_record_references_native import reference_source as reference_source
 from semantic.conftest import semantic_db_engine as semantic_db_engine
 from semantic.conftest import semantic_evaluator_engine as semantic_evaluator_engine
 from semantic.conftest import semantic_writer_engine as semantic_writer_engine
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.reference_scenarios import expected_reading
+from semantic.reference_scenarios import private_source_options as private_source_options
+from semantic.reference_scenarios import reference_source as reference_source
 from semantic.test_method_dimensions_native import current_guarded_database
-from semantic.test_private_records import private_source as private_source
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 

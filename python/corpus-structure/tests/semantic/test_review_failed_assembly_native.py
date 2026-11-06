@@ -42,10 +42,11 @@ from corpus_structure.serve.review_bundle import (
     export_review_bundle,
     verify_review_bundle,
 )
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
+from .native_record_fixtures import candidate
+from .native_record_fixtures import private_source as private_source
 from .test_companion_export_native import read_settings
-from .test_private_records import candidate
-from .test_private_records import private_source as private_source
 
 
 def detached_rows(root, name):

@@ -9,6 +9,7 @@ from hashlib import sha256
 from types import SimpleNamespace
 from typing import Any
 
+import psycopg
 import pytest
 from sqlalchemy import event, insert, select, text
 from sqlalchemy.exc import DBAPIError
@@ -425,36 +426,58 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
         } == ITEM_IDS | CELL_IDS
 
 
-def test_direct_publication_cannot_bypass_meaning_or_task_fence(pdf13_db):
+def test_integrated_preparation_and_native_task_fences_are_explicit(pdf13_db):
     db = pdf13_db
     value = integrated(db.source, db.inputs)
     product = prepare(value, db.source)
-    for index, change in enumerate(
-        (
-            "empty_companions",
-            "missing_coverage",
-            "missing_decision",
-            "wrong_kind",
-            "exact_glyph",
-            "opaque_region",
-            "out_of_bounds_region",
-            "wrong_region_page",
-            "missing_region_page",
-            "forged_text",
-            "missing_local_endpoint",
-            "duplicate_occurrence",
-            "duplicate_endpoint",
-        )
-    ):
+    sibling = deepcopy(value)
+    sibling["product_key"] = "valid-integration-premise"
+    assert publish(db, prepare(sibling, db.source))
+    python_refusals = {
+        "empty_companions": "selected content occurrence inventory is incomplete or ambiguous",
+        "missing_coverage": (
+            "coverage requires independently identified scope/family/policy/results"
+        ),
+        "missing_decision": "every selected occurrence requires a governing integration decision",
+        "wrong_kind": "selected occurrence kind differs from native label",
+        "exact_glyph": "selected item address/precision differs from native custody",
+        "out_of_bounds_region": "selected region differs from retained native page/geometry",
+        "wrong_region_page": "selected region differs from retained native page/geometry",
+        "missing_region_page": "PDF region requires its physical page",
+        "forged_text": "selected occurrence text differs from Docling content",
+        "missing_local_endpoint": "local endpoint is not an existing output occurrence",
+        "duplicate_endpoint": "duplicate relationship endpoint",
+    }
+    for index, (change, message) in enumerate(python_refusals.items()):
         invalid = deepcopy(value)
         invalid["product_key"] = f"invalid-{index}"
         mutate_selected(invalid, change)
-        with pytest.raises((ValueError, DBAPIError)):
+        # The DB-free frozen-union validator owns these semantic refusals. This
+        # does not claim they reached the later native publication guard.
+        with pytest.raises(ValueError, match=message):
             _publish_record_values(db, invalid)
-    with pytest.raises(DBAPIError):
-        publish(db, product, attempt=db.job.attempt + 1)
-    with pytest.raises(DBAPIError):
-        publish(db, product, holder="another-holder")
+    for change, message in (
+        ("opaque_region", "parsing record shape differs: PdfProductOccurrence"),
+        ("duplicate_occurrence", "changed companion duplicate"),
+    ):
+        invalid = deepcopy(value)
+        invalid["product_key"] = "invalid-" + change
+        mutate_selected(invalid, change)
+        with pytest.raises(DBAPIError) as caught:
+            _publish_record_values(db, invalid)
+        assert isinstance(caught.value.orig, psycopg.Error)
+        assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
+            "23514",
+            message,
+        )
+    for attempt, holder in ((db.job.attempt + 1, HOLDER), (db.job.attempt, "another-holder")):
+        with pytest.raises(DBAPIError) as caught:
+            publish(db, product, attempt=attempt, holder=holder)
+        assert isinstance(caught.value.orig, psycopg.Error)
+        assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
+            "P0004",
+            "stale private PDF build owner",
+        )
     forged = replace(product, payload=canonical_bytes({**value, "product_key": "forged"}))
     with pytest.raises(ValueError, match="immutable prepared"):
         publish(db, forged)

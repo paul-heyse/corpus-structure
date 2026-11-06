@@ -31,12 +31,13 @@ from corpus_structure.semantic.records import (
     authenticated_source_record_coordinates,
     read_private_record_reports,
 )
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
+from .native_record_fixtures import bypass, candidate, complete, identities
+from .native_record_fixtures import private_source as private_source
 from .pdf_integration_support import CELL, integrated, prepare, publish
 from .pdf_integration_support import native_source as native_source
 from .pdf_integration_support import pdf13_db as pdf13_db
-from .test_private_records import bypass, candidate, complete, identities
-from .test_private_records import private_source as private_source
 
 ROOT = Path(__file__).resolve().parents[4]
 CANDIDATE = (
@@ -401,12 +402,12 @@ def test_bulk_reports_preserve_order_origin_and_reuse_one_product_hydration(
 
 
 def test_bulk_report_absence_and_explicit_empty_remain_distinct(private_source):
-    from .test_private_records import (
-        test_predecessor_absence_and_explicit_empty_private_report_remain_distinct,
+    from .native_record_fixtures import (
+        complete_absent_and_empty_reports,
     )
 
     case = private_source
-    test_predecessor_absence_and_explicit_empty_private_report_remain_distinct(case)
+    complete_absent_and_empty_reports(case)
     with case.writer.connect() as conn:
         tasks = table("ops.task")
         selected = tuple(

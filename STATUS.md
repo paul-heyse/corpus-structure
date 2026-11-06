@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-05; enrichment target review Proposed; PCE remains qualified nondefault._
+_Updated 2026-11-05; test resolution executing; enrichment target Proposed; PCE qualified nondefault._
 
 ## Current scope and authority
 
@@ -14,10 +14,10 @@ _Updated 2026-11-05; enrichment target review Proposed; PCE remains qualified no
 ## Current reviews and audits — 2026-11-05
 
 - [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/native/consumer boundaries refreshed; unresolved questions explicit.
-- [Test audit](docs/design_review/test-audit/README.md) feeds the [resolution series](docs/plans/test-audit-resolution_2026-11-05.md): Proposed TR-00–10; all23 dispositions and qualification target.
+- [Test audit](docs/design_review/test-audit/README.md) feeds the [resolution series](docs/plans/test-audit-resolution_2026-11-05.md): TR-00 target accepted; TR-01–08 implemented; focused CLI/native/math passes; assembled review/final qualification open.
 - [Enrichment target review](docs/design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md)
   proposes witnessed components/composition, seven target findings and six rule impacts. Separate test
-  plan assumed done for target; actual plan status remains Proposed. Product qualification not_run.
+  plan completion assumed for target; actual test execution remains in progress. Product qualification not_run.
 - Review: `just docs-check` and task-scoped diff check passed; `just turn-end` recipe passed but reported concurrent test E402 lint errors, excluded from review.
 
 ## Last verified — 2026-11-05
@@ -55,6 +55,6 @@ _Updated 2026-11-05; enrichment target review Proposed; PCE remains qualified no
 ## Next
 
 - Next enrichment step: plan creation from the integrated review, including explicit rule dispositions.
-- Separate test work remains at its own resolution series; its execution is not part of this review.
+- Test execution: integrate scenario/math/native changes, review assembled scope, then fresh required-union qualification; earlier product receipts do not qualify these changes.
 - Selected PCE has no required execution remaining. F37/F39 retain their triggers; inference/training/ANN/
   transfer and adoption remain unselected. New test plans do not close broader product obligations.

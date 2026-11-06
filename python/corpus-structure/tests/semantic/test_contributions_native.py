@@ -12,108 +12,23 @@ from corpus_structure.semantic.contribution_queries import read_source_contribut
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
 from corpus_structure.semantic.invariant_failures import InvariantViolation
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.observations import bind_result
-from corpus_structure.semantic.operations import complete_task, complete_unit_result, seal_cut
+from corpus_structure.semantic.operations import seal_cut
 from corpus_structure.semantic.record_contracts import anchor_identity
-from semantic.test_private_records import candidate
-from semantic.test_private_records import private_source as private_source
+from semantic.native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import private_source_options as private_source_options
 
-
-def drafts(case):
-    record = candidate(case)
-    anchor = record["anchors"][0]
-    # This fixture's independently authored native cell spells exactly 12 at [0,2).
-    assert anchor["pointer"] == case.table + "/data/table_cells/0"
-    assert anchor["start"] == 0 and anchor["end"] == 2 and anchor["source_piece"] == "12"
-    occurrence = dict(
-        contract="RetainedContributionSemantics",
-        kind="occurrence",
-        semantic_type="table.cell_value",
-        operation_key="locate-cell-1",
-        item_key="cell/0",
-        pin=record["pin"],
-        anchors=(anchor,),
-        occurrence_id=occurrence_identity((anchor,)),
-        disposition="unassessed",
-        standing="retained_private",
-        score_state="missing",
-    )
-    occurrence["contribution_id"] = contribution_identity(occurrence)
-    proposal = dict(
-        occurrence,
-        kind="proposal",
-        semantic_type="unresolved.unit",
-        item_key="unit/0",
-        disposition="unresolved",
-    )
-    proposal["contribution_id"] = contribution_identity(proposal)
-    operations = (
-        dict(
-            operation_key="locate-cell-1",
-            question="inspect_cell",
-            operation_version="1",
-            outcome="succeeded",
-            inspected_count=1,
-            emitted_count=2,
-        ),
-        dict(
-            operation_key="absent-1",
-            question="inspect_caption",
-            operation_version="1",
-            outcome="empty",
-            inspected_count=1,
-            emitted_count=0,
-        ),
-    )
-    coordinates = (dict(pin=record["pin"], space="native", pointer=anchor["pointer"], text="12"),)
-    result = UnitResult(
-        ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-        outcome=ObservationOutcome.PRODUCED,
-        contribution_operations=operations,
-        contributions=(occurrence, proposal),
-        contribution_coordinate_texts=coordinates,
-    )
-    return result
-
-
-def complete(case, conn, result):
-    return complete_unit_result(
-        conn,
-        task_id=case.task,
-        attempt=case.held.attempt,
-        holder="records",
-        prepared=case.prepared,
-        method=case.method,
-        configuration_hash="private-config",
-        source="private-unit",
-        result=result,
-    )
-
-
-def envelope(case, result):
-    return bind_result(
-        case.prepared,
-        source="private-unit",
-        method=case.method.name,
-        operation_version="1",
-        configuration_hash="private-config",
-        input_hash="private-input-hash",
-        invocation_key=case.task_row["invocation_key"],
-        result=result,
-    ).model_dump(mode="json", exclude={"observations"})
-
-
-def bypass(case, conn, raw):
-    return complete_task(
-        conn,
-        task_id=case.task,
-        attempt=case.held.attempt,
-        holder="records",
-        prepared=case.prepared,
-        observations=(),
-        outcome="done",
-        envelope=raw,
-    )
+from .native_record_fixtures import (
+    bypass_contributions as bypass,
+)
+from .native_record_fixtures import (
+    complete_contributions as complete,
+)
+from .native_record_fixtures import (
+    contribution_drafts as drafts,
+)
+from .native_record_fixtures import (
+    contribution_envelope as envelope,
+)
 
 
 def test_native_recordless_completion_reopen_and_zero_output_operations(private_source):
