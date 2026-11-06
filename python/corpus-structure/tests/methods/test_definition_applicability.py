@@ -468,3 +468,11 @@ def test_introduction_policy_label_is_not_an_actual_introduction_binding():
     assert next(p.state for p in contextual.premises if p.dimension == "parent") == "unknown"
     introduction = assess_applicability(value, "usage", candidate, defining_occurrence=True)
     assert next(p.state for p in introduction.premises if p.dimension == "parent") == "inapplicable"
+
+
+def test_explicit_linguistic_only_mode_has_no_provider_profile():
+    value=inputs()
+    cfg=DefinitionComponentsConfig(inputs=value,structural_input_digest=value.identity,target_ids=("target",),use_model=False)
+    assert cfg.profile is None and not cfg.use_model
+    with pytest.raises(ValueError,match="named candidates"):
+        DefinitionComponentsConfig(inputs=value,structural_input_digest=value.identity,target_ids=("target",),use_model=False,use_named_candidates=False)

@@ -78,6 +78,18 @@ configs:
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
           defining_cue: {node: cue}
           following_content_cue: {node: follows}
+      - rule: defining
+        variant: constructive_copula
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: be, POS: AUX}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: nsubj, POS: {IN: [NOUN, PROPN]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: attr, POS: NOUN, LEMMA: {IN: [sum, ratio, quotient, product, difference, integral, derivative, limit]}}}
+        - {LEFT_ID: content, REL_OP: '>>', RIGHT_ID: operation, RIGHT_ATTRS: {LEMMA: {IN: [divide, multiply, subtract, add]}}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
       - rule: symbol_declaration
         variant: denotes
         mechanism: dependency

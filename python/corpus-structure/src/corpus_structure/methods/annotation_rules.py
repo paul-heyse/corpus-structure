@@ -88,6 +88,7 @@ class AnnotationRuleMatch:
     dependency_digest: str
     roles: tuple[LocatedRole, ...]
     protocol: str = "named-annotation-match-2"
+    negation_extents: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -264,6 +265,9 @@ class PreparedAnnotationRules:
                         )
                     )
             rows = [product.tokens[index] for index in nodes]
+            selected_role_nodes = {index for role in roles for index in role.nodes}
+            negation_extents = tuple((token.start, token.end) for index,token in enumerate(product.tokens)
+                if token.dependency == "neg" and (index in selected_role_nodes or token.head in nodes))
             results.append(
                 AnnotationRuleMatch(
                     rule.rule,
@@ -275,6 +279,7 @@ class PreparedAnnotationRules:
                     tuple(r.sentence for r in rows),
                     product.dependency_digest,
                     tuple(roles),
+                    negation_extents=negation_extents,
                 )
             )
 

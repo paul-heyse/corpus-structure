@@ -49,6 +49,7 @@ class DefinitionComponentsConfig(StructuralValue):
     term_role: str = Field(default="defined_term", min_length=1)
     content_role: str = Field(default="defining_content", min_length=1)
     use_named_candidates: bool = True
+    use_model: bool = True
     annotation_rules: tuple[AnnotationRule, ...] = ()
 
     @model_validator(mode="after")
@@ -57,8 +58,10 @@ class DefinitionComponentsConfig(StructuralValue):
             if self.target_ids or self.profile or self.structural_input_digest:
                 raise ValueError("absent definition extraction cannot carry partial inputs")
             return self
-        if self.profile is None or self.structural_input_digest != self.inputs.identity:
-            raise ValueError("definition extraction requires provider and exact input digest")
+        if (self.use_model and self.profile is None) or self.structural_input_digest != self.inputs.identity:
+            raise ValueError("definition extraction requires selected producer inputs and exact input digest")
+        if not self.use_model and (self.profile is not None or not self.use_named_candidates):
+            raise ValueError("linguistic-only extraction requires named candidates and no model profile")
         passages = {p.passage_id for p in self.inputs.passages}
         if (
             not self.target_ids
@@ -187,6 +190,8 @@ def components_from_named_matches(
     """
     components = {}
     for match in matches:
+        if match.negation_extents:
+            continue
         roles = {role.role: role for role in match.roles}
         selected = []
         for name in (term_role, content_role):
@@ -237,6 +242,8 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
     """
     found = []
     for match in matches:
+        if match.negation_extents:
+            continue
         roles = {role.role: role for role in match.roles}
         term = roles.get(term_role)
         cue = roles.get("following_content_cue")
@@ -341,6 +348,7 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                     variant=variant,
                     availability=state,
                     matched_count=len(selected),
+                    negation_extents=[extent for match in selected for extent in match.negation_extents],
                     role_outcomes=[
                         dict(role=role.role, outcome=role.status)
                         for match in selected
@@ -402,6 +410,8 @@ def retained_named_components(
         if any(pin.get(key) != value for key, value in expected.items()):
             raise ValueError("named candidate differs from original source custody")
         match = source_python(row["value"])
+        if "negation_extents" not in match:
+            return NamedDefinitionResult((), False, (), "Selected named candidates lack current polarity evidence.")
         if match.get("protocol") != "named-annotation-match-2":
             raise ValueError("named candidate requires current role contract")
         roles = tuple(
@@ -474,7 +484,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "3"
+    version = "4"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -501,15 +511,18 @@ class DefinitionComponentsMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
 
     def run(self, units, cfg, ctx):
-        if cfg.inputs is None or cfg.profile is None:
+        if cfg.inputs is None or (cfg.use_model and cfg.profile is None):
             raise ValueError("definition extraction needs complete configured inputs")
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
-        pack = definition_pack(ctx.reader.prepared.release_id, cfg)
-        if self._worker is None:
-            self._worker = GlinerWorker(cfg.profile)
-        elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
-            raise GlinerRefused("definition worker cannot switch model profile")
+        pack = definition_pack(ctx.reader.prepared.release_id, cfg) if cfg.use_model else None
+        if cfg.use_model:
+            if cfg.profile is None:
+                raise GlinerRefused("model execution requires its exact declared profile")
+            if self._worker is None:
+                self._worker = GlinerWorker(cfg.profile)
+            elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
+                raise GlinerRefused("definition worker cannot switch model profile")
         passages = {p.passage_id: p for p in cfg.inputs.passages}
         components, stages, raw_reports = [], [], []
         named_rule_operations = []
@@ -552,7 +565,11 @@ class DefinitionComponentsMethod:
                         reason=named.reason,
                     )
                 )
-        for passage_id in cfg.target_ids:
+        if not cfg.use_model:
+            stages.extend(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="not_run",reason="Explicit registered linguistic-only composition; no model extraction requested.") for passage_id in cfg.target_ids)
+        for passage_id in cfg.target_ids if cfg.use_model else ():
+            if self._worker is None or pack is None:
+                raise GlinerRefused("model execution owner is unavailable")
             passage = passages[passage_id]
             windows = definition_windows(passage, cfg)
             for window in windows:
@@ -686,9 +703,9 @@ class DefinitionComponentsMethod:
                             )
                             for source_ref, retained in annotation_sources.items()
                         ],
-                        pack_fingerprint=pack.fingerprint,
-                        schema_declaration=pack.declaration_json,
-                        profile_fingerprint=cfg.profile.fingerprint,
+                        pack_fingerprint=pack.fingerprint if pack else None,
+                        schema_declaration=pack.declaration_json if pack else None,
+                        profile_fingerprint=cfg.profile.fingerprint if cfg.profile else None,
                         profile=cfg.model_dump(mode="json")["profile"],
                     )
                 )

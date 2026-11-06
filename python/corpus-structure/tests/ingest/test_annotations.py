@@ -661,3 +661,85 @@ def test_base_noun_chunk_excludes_parameter_scope_from_defined_subject(controlle
         request.block.text[role.extents[0][0] - 100 : role.extents[-1][1] - 100]
         == "The normal density function"
     )
+
+
+@pytest.mark.parametrize(
+    ('quantity', 'content', 'operation', 'negated', 'expected'),
+    (
+        ('flux', 'sum', 'divided', False, True),
+        ('score', 'product', 'multiplied', False, True),
+        ('flux', 'concept', 'discussed', False, False),
+        ('sum', 'flux', 'divided', False, False),
+        ('flux', 'sum', 'divided', True, False),
+    ),
+)
+def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
+    controlled, quantity, content, operation, negated, expected
+):
+    import yaml
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+    from corpus_structure.methods.definition_applicability import components_from_named_matches
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    text = f"The {quantity} is {'not ' if negated else ''}the {content} of values {operation} by count ."
+    request = item(controlled, text)
+    (product,) = annotate((request,))
+    positions = {text[token.start-100:token.end-100]: i for i, token in enumerate(product.tokens)}
+    labels = {
+        'The': (quantity, 'det', 'DET', 'the'),
+        quantity: ('is', 'nsubj', 'NOUN', quantity),
+        'is': ('is', 'ROOT', 'AUX', 'be'),
+        'not': ('is', 'neg', 'PART', 'not'),
+        'the': (content, 'det', 'DET', 'the'),
+        content: ('is', 'attr', 'NOUN', content),
+        'of': (content, 'prep', 'ADP', 'of'),
+        'values': ('of', 'pobj', 'NOUN', 'value'),
+        operation: ('values', 'acl', 'VERB', {'divided':'divide','multiplied':'multiply','discussed':'discuss'}[operation]),
+        'by': (operation, 'agent', 'ADP', 'by'),
+        'count': ('by', 'pobj', 'NOUN', 'count'),
+        '.': ('is', 'punct', 'PUNCT', '.'),
+    }
+    tokens = []
+    for token in product.tokens:
+        head, dependency, pos, lemma = labels[text[token.start-100:token.end-100]]
+        tokens.append(replace(token, head=positions[head], dependency=dependency, pos=pos, lemma=lemma))
+    view = annotation_view(replace(product,tokens=tuple(tokens)),text,controlled.vocab)
+    raw = yaml.safe_load((DOMAINS/'statistics/m1-methods.yaml').read_text())['configs']['extract.m1_candidates']['witnessed']['annotation_rules']
+    rule = AnnotationRule.model_validate(next(row for row in raw if row['variant']=='constructive_copula'))
+    matches = PreparedAnnotationRules(controlled.vocab,rules=(rule,)).match(view).matches
+    passage = StructuralPassage(passage_id='target',source_ref='source',start=100,end=100+len(text),text=text,scope='test')
+    components = components_from_named_matches(passage,matches,term_role="defined_term",content_role="defining_content")
+    assert bool(components) is expected
+    if expected:
+        assert components[0].term.text == 'The '+quantity
+        assert components[0].content.text == f'the {content} of values {operation} by count'
+    if negated:
+        assert len(matches)==1
+        assert matches[0].negation_extents == ((112,115),)
+
+
+def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled):
+    import yaml
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+    from corpus_structure.methods.definition_applicability import components_from_named_matches
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    text = 'mean - the mean is the sum of the data points divided by the number of data points.'
+    request = item(controlled,text,start=364)
+    (product,) = annotate((request,))
+    heads = (4,4,3,4,4,6,4,6,10,10,7,10,11,14,12,14,17,15,4)
+    deps = ('advcl','punct','det','nsubj','ROOT','det','attr','prep','det','compound','pobj','acl','agent','det','pobj','prep','compound','pobj','punct')
+    pos = ('VERB','PUNCT','DET','NOUN','AUX','DET','NOUN','ADP','DET','NOUN','NOUN','VERB','ADP','DET','NOUN','ADP','NOUN','NOUN','PUNCT')
+    tokens=tuple(replace(t,head=h,dependency=d,pos=p,lemma='be' if i==4 else 'divide' if i==11 else text[t.start-364:t.end-364].lower()) for i,(t,h,d,p) in enumerate(zip(product.tokens,heads,deps,pos,strict=True)))
+    view=annotation_view(replace(product,tokens=tokens),text,controlled.vocab)
+    recipe=yaml.safe_load((DOMAINS/'statistics/m1-methods.yaml').read_text())['configs']['extract.m1_candidates']['witnessed']['annotation_rules']
+    rules=tuple(AnnotationRule.model_validate(r) for r in recipe)
+    matches=PreparedAnnotationRules(controlled.vocab,rules=rules).match(view).matches
+    passage=StructuralPassage(passage_id='nist-mean-definition',source_ref='source',start=364,end=447,text=text,scope='test')
+    (component,)=components_from_named_matches(passage,matches,term_role='defined_term',content_role='defining_content')
+    assert (component.term.start,component.term.end,component.term.text)==(371,379,'the mean')
+    assert (component.content.start,component.content.end,component.content.text)==(383,446,'the sum of the data points divided by the number of data points')
