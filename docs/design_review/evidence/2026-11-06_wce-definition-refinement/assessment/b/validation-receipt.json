@@ -1,0 +1,31 @@
+{
+  "protocol": "independent-wce-definition-replay-assessment-b-receipt-1",
+  "timestamp_utc": "2026-11-06T18:06:22.481848+00:00",
+  "command": "python docs/design_review/evidence/2026-11-06_wce-definition-refinement/assessment/b/validate.py",
+  "outcome": "passed",
+  "read_only": true,
+  "assessment_sha256": "a2c91dab64102c42637847373014f0e2c15f0fd28255f688e6a8545e64262d3d",
+  "validator_sha256": "12699df3faee757963540b0a621cfb69f2fb48ce521cfcfa91a0a245e1b3cb3b",
+  "frozen_input_files": 17,
+  "component_count": 41,
+  "emitted_endpoint_spans": 82,
+  "source_context_quotes": 43,
+  "native_piece_overlaps": 498,
+  "checks": 4450,
+  "original_replay_hash_references": [
+    {
+      "path": "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-06_wce-gs120/assessment/run139-final001/task-544.json",
+      "reported_sha256": "c75642b74d26f82ef28b459d0b0b72f8adef22deae85edf19132ce66ac8ca3c3",
+      "actual_sha256": "c75642b74d26f82ef28b459d0b0b72f8adef22deae85edf19132ce66ac8ca3c3",
+      "outcome": "passed"
+    },
+    {
+      "path": "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-06_wce-gs120/baseline003/gs120-all120-pages/configuration.json",
+      "reported_sha256": "28efaa3a65bf19e61f448b3f86ce1374586311f19cb21a4169f0889780f423f9",
+      "actual_sha256": "28efaa3a65bf19e61f448b3f86ce1374586311f19cb21a4169f0889780f423f9",
+      "outcome": "passed"
+    }
+  ],
+  "failures": [],
+  "limits": "Literal validator output. Checks exact identity, spans and native mappings; no semantic truth, completeness, held-out, provider-execution or qualification claim. Implementation/rule hashes are retained as replay-reported, not revalidated against current code."
+}
