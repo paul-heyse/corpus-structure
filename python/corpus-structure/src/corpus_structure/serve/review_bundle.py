@@ -116,12 +116,23 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
     seen_documents: set[int] = set()
     seen_producers: set[int] = set()
     validated_external: set[str] = set()
+    predecessor_readers = {}
+    origin_metadata = {}
     budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
     for index, original in enumerate(selection.selections):
         cancellation.check_active()
         request = original.model_copy(update={"include_details": True})
         page = _contributions(conn, request, paginate=False)
-        yield "selections", {"selection_index": index, **page.model_dump(exclude={"items"})}
+        run = table("ops.run")
+        project_id = conn.scalar(select(run.c.project_id).where(run.c.id == original.run_id))
+        yield (
+            "selections",
+            {
+                "selection_index": index,
+                "project_id": project_id,
+                **page.model_dump(exclude={"items"}),
+            },
+        )
         session = bind_completed_result(conn, original.run_id)
         if session.binding.release_id not in seen_releases:
             seen_releases.add(session.binding.release_id)
@@ -129,10 +140,28 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
         source_ids: set[int] = set()
         report_ids: set[int] = set()
         for item in page.items:
-            yield "inventory", {"selection_index": index, **item}
             row = item["row"]
             if not isinstance(row, dict):
                 raise SemanticRefusal("review inventory row must be an object")
+            origin_id = row.get("origin_task_id")
+            if type(origin_id) is int and selection.completeness == "selected_source_closure":
+                if origin_id not in origin_metadata:
+                    tasks, producer = table("ops.task"), table("ops.run")
+                    origin_metadata[origin_id] = dict(
+                        conn.execute(
+                            select(
+                                tasks.c.run_id.label("origin_run_id"),
+                                producer.c.project_id.label("origin_project_id"),
+                                producer.c.runtime_id.label("runtime_fingerprint"),
+                            )
+                            .join(producer, producer.c.id == tasks.c.run_id)
+                            .where(tasks.c.id == origin_id)
+                        )
+                        .mappings()
+                        .one()
+                    )
+                row = {**row, **origin_metadata[origin_id]}
+            yield "inventory", {"selection_index": index, **item, "row": row}
             if isinstance(row.get("source_view_id"), int):
                 source_ids.add(row["source_view_id"])
             if item["population"] == "report" and isinstance(row.get("origin_task_id"), int):
@@ -159,7 +188,6 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
         reports = table("ops.task_result")
         task, cfg = table("ops.task"), table("ops.method_config")
         run, method = table("ops.run"), table("ops.method")
-        project_id = conn.scalar(select(run.c.project_id).where(run.c.id == original.run_id))
         pending_reports = set(report_ids)
         while pending_reports:
             report_id = min(pending_reports)
@@ -208,7 +236,9 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     },
                 )
             budget.value(dict(report))
-            if report["project_id"] != project_id:
+            if report["project_id"] != project_id and report["project_id"] != origin_metadata.get(
+                report_id, {}
+            ).get("origin_project_id"):
                 raise SemanticRefusal("retained producer dependency belongs to another project")
             if report["unit_type"] == "source_view":
                 source_ids.add(report["origin_unit_id"])
@@ -229,10 +259,12 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             coordinate_versions=coordinate_versions,
         )
     for index, original in enumerate(selection.structural_selections):
-        session = bind_completed_result(conn, original.run_id)
-        if session.binding.release_id not in seen_releases:
-            seen_releases.add(session.binding.release_id)
-            yield "contracts", _contract_row(session.prepared)
+        selected_session = bind_completed_result(conn, original.run_id)
+        run = table("ops.run")
+        project_id = conn.scalar(select(run.c.project_id).where(run.c.id == original.run_id))
+        if selected_session.binding.release_id not in seen_releases:
+            seen_releases.add(selected_session.binding.release_id)
+            yield "contracts", _contract_row(selected_session.prepared)
         after = 0
         while True:
             cancellation.check_active()
@@ -250,41 +282,119 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     "structural_selections",
                     {
                         "selection_index": index,
+                        "project_id": project_id,
+                        "binding": {
+                            "release_id": selected_session.binding.release_id,
+                            "data_revision": selected_session.binding.data_revision,
+                        },
                         **page.model_dump(
                             mode="json", exclude={"reports", "task_ids", "public_assertions"}
                         ),
                     },
                 )
-            for assertion in page.public_assertions:
-                yield "structural_public_assertions", {"selection_index": index, **assertion}
+            enriched_assertions = {}
             for task_id, report in zip(page.task_ids, page.reports, strict=True):
                 tasks = table("ops.task")
-                origin_id = conn.scalar(
-                    select(func.coalesce(tasks.c.reused_task_id, tasks.c.id)).where(
-                        tasks.c.id == task_id
+                origin = tasks.alias("structural_origin")
+                producer = table("ops.run")
+                custody = dict(
+                    conn.execute(
+                        select(
+                            origin.c.id.label("origin_task_id"),
+                            origin.c.run_id.label("origin_run_id"),
+                            producer.c.project_id.label("origin_project_id"),
+                            producer.c.runtime_id.label("runtime_fingerprint"),
+                        )
+                        .select_from(tasks)
+                        .join(
+                            origin, origin.c.id == func.coalesce(tasks.c.reused_task_id, tasks.c.id)
+                        )
+                        .join(producer, producer.c.id == origin.c.run_id)
+                        .where(tasks.c.id == task_id)
                     )
+                    .mappings()
+                    .one()
                 )
+                origin_id = custody["origin_task_id"]
+                published = [
+                    assertion
+                    for assertion in page.public_assertions
+                    if assertion["selected_task_id"] == task_id
+                    and assertion["origin_task_id"] == origin_id
+                    and assertion["product_id"] == report.product_id
+                    and assertion["cut_id"] == page.cut_id
+                ]
+                if published:
+                    from corpus_structure.semantic.operations import BoundReader
+                    from corpus_structure.semantic.structural_admission import structural_claim_id
+                    from corpus_structure.semantic.structural_products import RetainedStructuralRef
+
+                    reference = RetainedStructuralRef(
+                        product_id=report.product_id,
+                        project_id=project_id,
+                        run_id=original.run_id,
+                        cut_id=page.cut_id,
+                        release_id=page.release_id,
+                        result_revision=selected_session.binding.data_revision,
+                        selected_task_id=task_id,
+                        origin_task_id=origin_id,
+                        runtime_fingerprint=custody["runtime_fingerprint"],
+                    )
+                    retained = BoundReader(
+                        conn,
+                        original.run_id,
+                        selected_session.prepared,
+                        cut_id=page.cut_id,
+                        analysis=False,
+                    ).retained_structural_report(reference)
+                    statements = {
+                        a["assessment_id"]: a["statement"] for a in retained["public_assertions"]
+                    }
+                    for assertion in published:
+                        statement = statements.get(assertion["assertion_id"])
+                        if (
+                            statement is None
+                            or structural_claim_id(statement) != assertion["claim_id"]
+                        ):
+                            raise SemanticRefusal(
+                                "published structural witness differs from exact retained statement"
+                            )
+                        enriched_assertions[canonical_bytes(assertion)] = dict(
+                            assessment_id=assertion["assertion_id"], statement=statement
+                        )
                 if selection.completeness == "selected_source_closure" and report.dossier:
                     # The detached reader must carry the same exact original source
                     # custody as native dossier replay, never a projected semantic bridge.
                     from corpus_structure.semantic.operations import BoundReader
+                    from corpus_structure.semantic.retained_contributions import (
+                        RetainedContributionRef,
+                    )
 
-                    for reference in report.dossier.contribution_predecessors:
-                        predecessor = bind_completed_result(conn, reference.run_id)
-                        reader = BoundReader(
-                            conn,
-                            reference.run_id,
-                            predecessor.prepared,
-                            cut_id=reference.cut_id,
-                            analysis=False,
-                        )
-                        budget.value(reader.retained_source_contribution(reference))
+                    for reference in (
+                        *report.dossier.predecessors,
+                        *report.dossier.contribution_predecessors,
+                    ):
+                        key = (reference.run_id, reference.cut_id)
+                        if key not in predecessor_readers:
+                            predecessor = bind_completed_result(conn, reference.run_id)
+                            predecessor_readers[key] = BoundReader(
+                                conn,
+                                reference.run_id,
+                                predecessor.prepared,
+                                cut_id=reference.cut_id,
+                                analysis=False,
+                            )
+                        reader = predecessor_readers[key]
+                        if isinstance(reference, RetainedContributionRef):
+                            budget.value(reader.retained_source_contribution(reference))
+                        else:
+                            budget.value(reader.retained_structural_report(reference))
                 yield (
                     "structural_products",
                     {
                         "selection_index": index,
                         "selected_task_id": task_id,
-                        "origin_task_id": origin_id,
+                        **custody,
                         "product_id": report.product_id,
                         "report": report.model_dump(mode="json"),
                     },
@@ -294,16 +404,16 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                 for ref in report.inputs.sources:
                     if ref.identity in validated_external:
                         continue
-                    session = bind_completed_result(conn, ref.run_id)
+                    source_session = bind_completed_result(conn, ref.run_id)
                     if (
-                        session.binding.release_id != ref.release_id
-                        or session.binding.data_revision != ref.result_revision
-                        or session.completed_cut_id != ref.cut_id
+                        source_session.binding.release_id != ref.release_id
+                        or source_session.binding.data_revision != ref.result_revision
+                        or source_session.completed_cut_id != ref.cut_id
                     ):
                         raise SemanticRefusal("structural original run/cut/revision differs")
                     if ref.release_id not in seen_releases:
                         seen_releases.add(ref.release_id)
-                        yield "contracts", _contract_row(session.prepared)
+                        yield "contracts", _contract_row(source_session.prepared)
                     run = table("ops.run")
                     if (
                         conn.scalar(select(run.c.project_id).where(run.c.id == ref.run_id))
@@ -336,16 +446,20 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         raise SemanticRefusal("structural source coordinate version differs")
                 if origin_id not in seen_reports:
                     result, cfg = table("ops.task_result"), table("ops.method_config")
+                    producer = table("ops.run")
                     statement = (
                         select(
                             result.c.body,
                             tasks.c.input_hash,
                             tasks.c.run_id.label("origin_run_id"),
+                            producer.c.project_id,
+                            producer.c.runtime_id.label("runtime_fingerprint"),
                             cfg.c.params.label("configuration"),
                             cfg.c.config_hash,
                         )
                         .join(tasks, tasks.c.id == result.c.task_id)
                         .join(cfg, cfg.c.id == tasks.c.method_config_id)
+                        .join(producer, producer.c.id == tasks.c.run_id)
                         .where(result.c.task_id == origin_id)
                     )
                     budget.preflight(conn, statement)
@@ -353,6 +467,15 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     budget.value(raw)
                     seen_reports.add(origin_id)
                     yield "reports", {"origin_task_id": origin_id, **raw}
+            for assertion in page.public_assertions:
+                yield (
+                    "structural_public_assertions",
+                    {
+                        "selection_index": index,
+                        **assertion,
+                        **enriched_assertions.get(canonical_bytes(assertion), {}),
+                    },
+                )
             if page.next_after_task_id is None:
                 break
             after = page.next_after_task_id
@@ -724,6 +847,111 @@ def _member(root: Path, name: str) -> Path:
     return path
 
 
+def _verify_dossier_structural_closure(root, manifest, dossiers, products, scopes, assertions):
+    """Replay declared structural predecessors across their exact selected snapshots."""
+    from corpus_structure.methods.structural_products import derive_dossier_members
+    from corpus_structure.semantic.structural_admission import structural_claim_id
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    origin_ids = {ref.origin_task_id for report in dossiers for ref in report.dossier.predecessors}
+    raw_reports = {}
+    spec = manifest["relations"].get("reports")
+    if spec is not None:
+        with _member(root, spec["files"]["jsonl"]["path"]).open("rb") as stream:
+            for line in stream:
+                raw = json.loads(json.loads(line)["payload_json"])
+                if raw["origin_task_id"] in origin_ids:
+                    raw_reports[raw["origin_task_id"]] = raw
+    for report in dossiers:
+        references = report.dossier.predecessors
+        reference_ids = {ref.product_id for ref in references}
+        actual = {
+            member.member_id: member
+            for member in report.dossier.members
+            if member.contribution_ref is None
+        }
+        if any(member.relation_product_id not in reference_ids for member in actual.values()):
+            raise ValueError(
+                "dossier predecessor closure missing; member has no declared reference"
+            )
+        retained = []
+        for reference in references:
+            expected = reference.model_dump(mode="json")
+            candidates = []
+            for (
+                index,
+                selected_id,
+                origin_id,
+                origin_run_id,
+                origin_project,
+                runtime,
+                predecessor,
+            ) in products:
+                scope = scopes[index]
+                binding = scope.get("binding", {})
+                custody = dict(
+                    product_id=predecessor.product_id,
+                    project_id=scope.get("project_id"),
+                    run_id=scope["run_id"],
+                    cut_id=scope["cut_id"],
+                    release_id=scope["release_id"],
+                    result_revision=binding.get("data_revision"),
+                    selected_task_id=selected_id,
+                    origin_task_id=origin_id,
+                    runtime_fingerprint=runtime,
+                )
+                if binding.get("release_id") == reference.release_id and canonical_bytes(
+                    custody
+                ) == canonical_bytes(expected):
+                    candidates.append((index, origin_run_id, origin_project, predecessor))
+            if not candidates:
+                raise ValueError(
+                    "dossier predecessor closure missing; exact selected custody differs"
+                )
+            raw = raw_reports.get(reference.origin_task_id)
+            if (
+                raw is None
+                or raw.get("project_id") != candidates[0][2]
+                or raw.get("runtime_fingerprint") != reference.runtime_fingerprint
+                or raw.get("body", {}).get("release_id") != reference.release_id
+                or raw.get("origin_run_id") != candidates[0][1]
+                or StructuralProductReport.model_validate(raw["body"].get("structural_product"))
+                != candidates[0][3]
+            ):
+                raise ValueError("dossier predecessor differs from original producer custody")
+            indices = {index for index, _, _, _ in candidates}
+            retained.append(
+                (
+                    reference,
+                    dict(
+                        report=candidates[0][3].model_dump(mode="json"),
+                        public_assertions=[
+                            assertion
+                            for assertion in assertions
+                            if assertion["selection_index"] in indices
+                            and assertion["product_id"] == reference.product_id
+                            and assertion.get("cut_id") == reference.cut_id
+                            and assertion.get("selected_task_id") == reference.selected_task_id
+                            and assertion.get("origin_task_id") == reference.origin_task_id
+                            and assertion.get("assessment_id") == assertion.get("assertion_id")
+                            and assertion.get("statement") is not None
+                            and assertion.get("claim_id")
+                            == structural_claim_id(assertion["statement"])
+                        ],
+                    ),
+                )
+            )
+        expected_members, expected_facets = derive_dossier_members(report.inputs, retained)
+        if actual != {member.member_id: member for member in expected_members}:
+            raise ValueError(
+                "dossier structural membership differs from declared predecessor evidence"
+            )
+        if {facet.facet_id: facet for facet in report.dossier.supported_facets} != {
+            facet.facet_id: facet for facet in expected_facets
+        }:
+            raise ValueError("dossier supported facets differ from declared predecessor assertions")
+
+
 def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory):
     """Replay source membership from exact detached selected raw producer custody."""
     from corpus_structure.methods.dossier_contributions import derive_contribution_members
@@ -772,6 +1000,7 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
             for index, scope in scopes.items()
             if scope["run_id"] == reference.run_id
             and scope["cut_id"] == reference.cut_id
+            and scope.get("project_id") == reference.project_id
             and scope.get("binding", {}).get("release_id") == reference.release_id
             and scope.get("binding", {}).get("data_revision") == reference.result_revision
         ]
@@ -779,7 +1008,6 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
         if (
             not candidates
             or raw is None
-            or raw.get("project_id") != reference.project_id
             or raw.get("runtime_fingerprint") != reference.runtime_fingerprint
             or raw.get("unit_type") != "source_view"
             or raw.get("body", {}).get("release_id") != reference.release_id
@@ -797,7 +1025,15 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
             if row is None:
                 raise ValueError("dossier contribution raw endpoint closure missing")
             if not any(
-                (index, reference.selected_task_id, reference.origin_task_id, key) in inventory
+                (
+                    captured := inventory.get(
+                        (index, reference.selected_task_id, reference.origin_task_id, key)
+                    )
+                )
+                is not None
+                and captured.get("origin_project_id") == raw.get("project_id")
+                and captured.get("origin_run_id") == raw.get("origin_run_id")
+                and captured.get("runtime_fingerprint") == reference.runtime_fingerprint
                 for index in candidates
             ):
                 raise ValueError("dossier contribution selected endpoint inventory missing")
@@ -855,12 +1091,14 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     assessed_product_ids: set[str] = set()
     declared_grade_reports: set[tuple[int, int, int]] = set()
     captured_report_scopes: set[tuple[int, int, int]] = set()
-    structural_scopes: dict[int, tuple[int, int]] = {}
-    structural_dependencies: set[tuple[int, str]] = set()
+    structural_scopes: dict[int, dict[str, Any]] = {}
     structural_members: set[tuple[int, str]] = set()
+    structural_products = []
+    structural_assertions = []
+    dossier_reports = []
     dossier_source_members = []
     contribution_scopes = {}
-    contribution_inventory = set()
+    contribution_inventory = {}
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
     for name, spec in manifest["relations"].items():
@@ -915,12 +1153,13 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                             ):
                                 raise ValueError("structural selected run/cut differs")
                             bound_structural.add(index)
-                            structural_scopes[index] = (payload["run_id"], payload["cut_id"])
+                            structural_scopes[index] = payload
                             required_contracts.add(payload["release_id"])
                         if name == "contracts":
                             captured_contracts.add(payload["release_id"])
                         if name == "structural_public_assertions":
                             public_product_ids.add(payload["product_id"])
+                            structural_assertions.append(payload)
                         if name == "assessment_history":
                             value = payload["value"]
                             if payload["kind"] == "unit":
@@ -966,12 +1205,19 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                                 raise ValueError("structural product identity differs")
                             structural_product_ids.add(report.product_id)
                             structural_members.add((payload["selection_index"], report.product_id))
-                            if report.dossier is not None:
-                                structural_dependencies.update(
-                                    (payload["selection_index"], member.relation_product_id)
-                                    for member in report.dossier.members
-                                    if member.contribution_ref is None
+                            structural_products.append(
+                                (
+                                    payload["selection_index"],
+                                    payload["selected_task_id"],
+                                    payload["origin_task_id"],
+                                    payload.get("origin_run_id"),
+                                    payload.get("origin_project_id"),
+                                    payload.get("runtime_fingerprint"),
+                                    report,
                                 )
+                            )
+                            if report.dossier is not None:
+                                dossier_reports.append(report)
                                 dossier_source_members.extend(
                                     (report, member)
                                     for member in report.dossier.members
@@ -1016,14 +1262,14 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                                 needed_sources.add(item["source_view_id"])
                             needed_sources.update(_item_source_ids(item))
                             if payload.get("population") == "contribution":
-                                contribution_inventory.add(
+                                contribution_inventory[
                                     (
                                         payload.get("selection_index"),
                                         item.get("selected_task_id"),
                                         item.get("origin_task_id"),
                                         item.get("contribution_id"),
                                     )
-                                )
+                                ] = item
                             if payload.get("population") == "report":
                                 needed_reports.add(item["origin_task_id"])
                                 index = payload.get("selection_index")
@@ -1057,15 +1303,14 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
             raise ValueError("structural release contracts are missing")
         if any(index not in structural_scopes for index, _ in structural_members):
             raise ValueError("structural product has no selected snapshot")
-        present_structural = {
-            (*structural_scopes[index], product_id) for index, product_id in structural_members
-        }
-        required_structural = {
-            (*structural_scopes[index], product_id) for index, product_id in structural_dependencies
-        }
-        if not required_structural <= present_structural:
-            raise ValueError(
-                "dossier predecessor closure missing; include its selected-cut structural products"
+        if dossier_reports:
+            _verify_dossier_structural_closure(
+                root,
+                manifest,
+                dossier_reports,
+                structural_products,
+                structural_scopes,
+                structural_assertions,
             )
         if dossier_source_members:
             _verify_dossier_contribution_closure(

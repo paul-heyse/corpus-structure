@@ -158,14 +158,14 @@ def test_invalid_relation_path_is_refused(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-def source_row():
+def source_row(text="qq"):
     from hashlib import sha256
 
     from corpus_structure.semantic.identity import canonical_bytes
 
     projection = {
-        "text": "qq",
-        "pieces": [{"start": 0, "end": 2, "item_ref": "#/texts/0"}],
+        "text": text,
+        "pieces": [{"start": 0, "end": len(text), "item_ref": "#/texts/0"}],
         "items": ["#/texts/0"],
         "ancestors": [],
         "health": {"state": "unknown"},
@@ -184,7 +184,7 @@ def source_row():
             "analysis_eligible": True,
         },
         "text": projection["text"],
-        "context": {**projection, "items": [{"self_ref": "#/texts/0", "text": "qq"}]},
+        "context": {**projection, "items": [{"self_ref": "#/texts/0", "text": text}]},
     }
 
 
@@ -307,7 +307,7 @@ def test_complete_scope_requires_bound_snapshot_and_report(tmp_path):
         )
 
 
-def structural_rows():
+def structural_rows(text="qq"):
     from corpus_structure.methods.structural_products import select_dossier
     from corpus_structure.semantic.structural_products import (
         ExternalSourceRef,
@@ -315,7 +315,7 @@ def structural_rows():
         StructuralPassage,
     )
 
-    source = source_row()
+    source = source_row(text)
     ref = ExternalSourceRef(
         project_id="original",
         run_id=1,
@@ -341,8 +341,8 @@ def structural_rows():
                 passage_id="p1",
                 source_ref=ref.identity,
                 start=0,
-                end=2,
-                text="qq",
+                end=len(text),
+                text=text,
                 scope="statistics",
             ),
         ),
@@ -471,3 +471,406 @@ def test_nested_assessment_iterator_settles_when_export_budget_refuses(tmp_path)
         )
     assert settled == [True]
     assert not (tmp_path / "review").exists()
+
+
+def cross_cut_dossier_rows():
+    """Detached/native-contract custody control; not an ordinary cross-project reuse journey."""
+    from corpus_structure.methods.structural_products import derive_dossier_members, select_dossier
+    from corpus_structure.semantic.structural_admission import (
+        structural_claim_id,
+        structural_statement,
+    )
+    from corpus_structure.semantic.structural_products import (
+        DefinitionComponentsProduct,
+        LocatedDefinitionSpan,
+        RetainedStructuralRef,
+        StructuralProductReport,
+        definition_component,
+    )
+    from corpus_structure.serve.structural_products import StructuralRequest
+
+    rows = structural_rows("X is a value.")
+    inputs = StructuralProductReport.model_validate(rows[1][1]["report"]).inputs
+    component = definition_component(
+        term=LocatedDefinitionSpan(passage_id="p1", start=0, end=1, text="X"),
+        content=LocatedDefinitionSpan(passage_id="p1", start=5, end=12, text="a value"),
+        interpretation="definition",
+        basis="matched_cue",
+        scope="statistics",
+        evidence=("p1",),
+        reason="Literal is-a definition in the retained source.",
+    )
+    predecessor = StructuralProductReport(
+        kind="definition_components",
+        inputs=inputs,
+        definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
+    )
+    reference = RetainedStructuralRef(
+        product_id=predecessor.product_id,
+        project_id="current-project",
+        run_id=11,
+        cut_id=21,
+        release_id="release:structural",
+        result_revision=7,
+        selected_task_id=310,
+        origin_task_id=300,
+        runtime_fingerprint="runtime:original",
+    )
+    assertion = dict(
+        selection_index=0,
+        product_id=predecessor.product_id,
+        assessment_id="protected-meaning",
+        assertion_id="protected-meaning",
+        cut_id=21,
+        selected_task_id=310,
+        origin_task_id=300,
+        statement=structural_statement(predecessor, component.component_id),
+    )
+    assertion["claim_id"] = structural_claim_id(assertion["statement"])
+    inputs = inputs.model_copy(
+        update=dict(dependencies=(*inputs.dependencies, predecessor.product_id))
+    )
+    members, facets = derive_dossier_members(
+        inputs,
+        (
+            (
+                reference,
+                dict(report=predecessor.model_dump(mode="json"), public_assertions=[assertion]),
+            ),
+        ),
+    )
+    dossier = select_dossier(
+        inputs,
+        root_id="corpus",
+        members=members,
+        supported_facets=facets,
+        predecessors=(reference,),
+        member_budget=1,
+    )
+    result = []
+    for index, run, cut, revision, selected, origin, origin_run, runtime, report in (
+        (0, 11, 21, 7, 310, 300, 10, "runtime:original", predecessor),
+        (1, 12, 22, 8, 400, 400, 12, "runtime:dossier", dossier),
+    ):
+        result.extend(
+            [
+                (
+                    "structural_selections",
+                    dict(
+                        selection_index=index,
+                        project_id="current-project",
+                        run_id=run,
+                        cut_id=cut,
+                        release_id="release:structural",
+                        binding=dict(release_id="release:structural", data_revision=revision),
+                    ),
+                ),
+                (
+                    "structural_products",
+                    dict(
+                        selection_index=index,
+                        selected_task_id=selected,
+                        origin_task_id=origin,
+                        origin_run_id=origin_run,
+                        origin_project_id="producer-project" if index == 0 else "current-project",
+                        runtime_fingerprint=runtime,
+                        product_id=report.product_id,
+                        report=report.model_dump(mode="json"),
+                    ),
+                ),
+                (
+                    "reports",
+                    dict(
+                        origin_task_id=origin,
+                        origin_run_id=origin_run,
+                        project_id="producer-project" if index == 0 else "current-project",
+                        runtime_fingerprint=runtime,
+                        body=dict(
+                            release_id="release:structural",
+                            structural_product=report.model_dump(mode="json"),
+                        ),
+                    ),
+                ),
+            ]
+        )
+    result.extend([("structural_public_assertions", assertion), *rows[3:]])
+    selection = ReviewSelection(
+        structural_selections=(
+            StructuralRequest(run_id=11, include_publication=True),
+            StructuralRequest(run_id=12, kind="dossier"),
+        )
+    )
+    return selection, result
+
+
+def test_cross_cut_dossier_authenticates_declared_reused_predecessor(tmp_path):
+    selection, rows = cross_cut_dossier_rows()
+    dossier = next(
+        v["report"]["dossier"]
+        for name, v in rows
+        if name == "structural_products" and v["selection_index"] == 1
+    )
+    assert {(m["role"], m["citation"]["text"]) for m in dossier["members"]} == {
+        ("terminology", "X"),
+        ("definition", "a value"),
+    }
+    assert len(dossier["supported_facets"]) == 2
+    assert {m["assessment_id"] for m in dossier["members"]} == {"protected-meaning"}
+    assert len(dossier["representation"]["omitted"]) == 1
+    manifest = write_review_bundle(selection, tmp_path / "cross-cut", iter(rows))
+    assert verify_review_bundle(tmp_path / "cross-cut") == manifest
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "project",
+        "run",
+        "cut",
+        "release",
+        "revision",
+        "selected_task",
+        "origin_task",
+        "runtime",
+        "producer_run",
+        "producer_project",
+        "producer_runtime",
+        "raw_report",
+        "missing_predecessor",
+        "same_product_wrong_cut",
+        "member_role",
+        "borrowed_support",
+    ],
+)
+def test_cross_cut_dossier_refuses_substituted_custody_or_meaning(tmp_path, corruption):
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    selection, rows = cross_cut_dossier_rows()
+    scope = next(
+        v for name, v in rows if name == "structural_selections" and v["selection_index"] == 0
+    )
+    product = next(
+        v for name, v in rows if name == "structural_products" and v["selection_index"] == 0
+    )
+    raw = next(v for name, v in rows if name == "reports" and v["origin_task_id"] == 300)
+    if corruption == "project":
+        scope["project_id"] = "another-project"
+    elif corruption == "run":
+        scope["run_id"] = 99
+        selection = selection.model_copy(
+            update=dict(
+                structural_selections=(
+                    selection.structural_selections[0].model_copy(update=dict(run_id=99)),
+                    selection.structural_selections[1],
+                )
+            )
+        )
+    elif corruption == "cut":
+        scope["cut_id"] = 99
+    elif corruption == "release":
+        scope["release_id"] = "release:old"
+    elif corruption == "revision":
+        scope["binding"]["data_revision"] = 99
+    elif corruption == "selected_task":
+        product["selected_task_id"] = 99
+    elif corruption == "origin_task":
+        product["origin_task_id"] = 99
+    elif corruption == "runtime":
+        product["runtime_fingerprint"] = "runtime:other"
+    elif corruption == "producer_run":
+        raw["origin_run_id"] = 99
+    elif corruption == "producer_project":
+        raw["project_id"] = "another-project"
+    elif corruption == "producer_runtime":
+        raw["runtime_fingerprint"] = "runtime:other"
+    elif corruption == "raw_report":
+        raw["body"]["structural_product"] = rows[1][1]["report"].copy()
+        raw["body"]["structural_product"]["inputs"] = {}
+    elif corruption == "missing_predecessor":
+        rows.remove(("structural_products", product))
+    elif corruption == "same_product_wrong_cut":
+        product["selection_index"] = 1
+    elif corruption == "borrowed_support":
+        next(v for name, v in rows if name == "structural_public_assertions")["assessment_id"] = (
+            "other-assessment"
+        )
+    else:
+        from corpus_structure.methods.structural_products import select_dossier
+
+        selected = next(
+            v for name, v in rows if name == "structural_products" and v["selection_index"] == 1
+        )
+        original = StructuralProductReport.model_validate(selected["report"])
+        assert original.dossier is not None
+        members = list(original.dossier.members)
+        members[0] = members[0].model_copy(update=dict(role="usage"))
+        changed = select_dossier(
+            original.inputs,
+            root_id=original.dossier.root_id,
+            members=members,
+            supported_facets=original.dossier.supported_facets,
+            predecessors=original.dossier.predecessors,
+            member_budget=1,
+        )
+        selected["report"] = changed.model_dump(mode="json")
+        selected["product_id"] = changed.product_id
+        next(v for name, v in rows if name == "reports" and v["origin_task_id"] == 400)["body"][
+            "structural_product"
+        ] = changed.model_dump(mode="json")
+    with pytest.raises(ValueError):
+        write_review_bundle(selection, tmp_path / corruption, iter(rows))
+    assert not (tmp_path / corruption).exists()
+
+
+@pytest.mark.parametrize("publication_scope", ["selected", "other_cut", "unrelated_extra"])
+def test_published_capture_keeps_selected_revision_after_reading_original_sources(
+    monkeypatch, publication_scope
+):
+    """Control-flow regression only: original source context cannot replace selected custody."""
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+    from corpus_structure.serve import review_bundle as module
+    from corpus_structure.serve.structural_products import StructuralRequest
+
+    _, fixture = cross_cut_dossier_rows()
+    predecessor = StructuralProductReport.model_validate(
+        next(
+            v["report"]
+            for name, v in fixture
+            if name == "structural_products" and v["selection_index"] == 0
+        )
+    )
+    assertion = next(v for name, v in fixture if name == "structural_public_assertions").copy()
+    statement = assertion.pop("statement")
+    assertion.pop("assessment_id")
+    assertion.pop("selection_index")
+    assertion.update(selected_task_id=311, origin_task_id=301)
+    if publication_scope == "other_cut":
+        assertion["cut_id"] = 99
+    assertions = [assertion]
+    if publication_scope == "unrelated_extra":
+        assertions.append(
+            {
+                **assertion,
+                "assertion_id": "unrelated-protected",
+                "cut_id": 99,
+                "selected_task_id": 999,
+                "origin_task_id": 998,
+            }
+        )
+    selected = SimpleNamespace(
+        binding=SimpleNamespace(release_id="release:structural", data_revision=7),
+        prepared="selected-prepared",
+        completed_cut_id=21,
+    )
+    source = SimpleNamespace(
+        binding=SimpleNamespace(release_id="release:old", data_revision=0),
+        prepared="original-source-prepared",
+        completed_cut_id=2,
+    )
+    monkeypatch.setattr(
+        module, "bind_completed_result", lambda conn, run: selected if run == 11 else source
+    )
+    monkeypatch.setattr(module, "_contract_row", lambda prepared: dict(release_id=prepared))
+    page = SimpleNamespace(
+        reports=(predecessor, predecessor),
+        task_ids=(310, 311),
+        public_assertions=tuple(assertions),
+        next_after_task_id=None,
+        cut_id=21,
+        release_id="release:structural",
+        model_dump=lambda **kw: dict(run_id=11, cut_id=21, release_id="release:structural"),
+    )
+    monkeypatch.setattr(module, "read_structural_export_page", lambda *args: page)
+    original = predecessor.inputs.sources[0]
+    view = SimpleNamespace(
+        id=original.source_view_id,
+        native_product=SimpleNamespace(
+            task_id=original.native_task_id,
+            product_key=original.native_product_key,
+            content_digest=original.native_content_digest,
+        ),
+        projection_digest=original.projection_digest,
+        recipe_digest=original.recipe_digest,
+    )
+    monkeypatch.setattr(module, "selected_source_views", lambda *args: (view,))
+
+    def capture_sources(*args, coordinate_versions, **kwargs):
+        coordinate_versions[original.source_view_id] = original.coordinate_version
+        return iter(())
+
+    monkeypatch.setattr(module, "_capture_sources", capture_sources)
+    monkeypatch.setattr(
+        module,
+        "PublishedReadBudget",
+        lambda *args: SimpleNamespace(preflight=lambda *args: None, value=lambda *args: None),
+    )
+    captured = []
+
+    class Reader:
+        def __init__(self, conn, run, prepared, **kwargs):
+            self.prepared = prepared
+
+        def retained_structural_report(self, reference):
+            assert self.prepared == "selected-prepared"
+            assert reference.result_revision == 7
+            assert (reference.selected_task_id, reference.origin_task_id) == (311, 301)
+            captured.append(reference)
+            return dict(
+                report=predecessor.model_dump(mode="json"),
+                public_assertions=[
+                    dict(assessment_id=assertion["assertion_id"], statement=statement)
+                ],
+            )
+
+    monkeypatch.setattr("corpus_structure.semantic.operations.BoundReader", Reader)
+
+    class Connection:
+        def scalar(self, statement):
+            return "current-project" if statement.compile().params["id_1"] == 11 else "original"
+
+        def execute(self, statement):
+            params = statement.compile().params
+            task = params.get("id_1", params.get("task_id_1"))
+            origin = task - 10 if task in (310, 311) else task
+            values = dict(
+                origin_task_id=origin,
+                origin_run_id=10,
+                origin_project_id="producer-project",
+                runtime_fingerprint="runtime:original",
+                project_id="producer-project",
+                input_hash="input",
+                configuration={},
+                config_hash="config",
+                body=dict(
+                    release_id="release:structural",
+                    structural_product=predecessor.model_dump(mode="json"),
+                ),
+            )
+            row = {column.key: values[column.key] for column in statement.selected_columns}
+            return SimpleNamespace(mappings=lambda: SimpleNamespace(one=lambda: row))
+
+    selection = ReviewSelection(
+        structural_selections=(StructuralRequest(run_id=11, include_publication=True),)
+    )
+    result = list(module.capture_review_relations(Connection(), selection, OperationCancellation()))
+    if publication_scope == "other_cut":
+        assert captured == []
+        witnesses = [v for name, v in result if name == "structural_public_assertions"]
+        assert witnesses == [dict(selection_index=0, **assertion)]
+        assert "statement" not in witnesses[0] and "assessment_id" not in witnesses[0]
+        return
+    assert len(captured) == 1
+    assert sum(name == "structural_public_assertions" for name, _ in result) == len(assertions)
+    witness = next(v for name, v in result if name == "structural_public_assertions")
+    assert witness["statement"] == statement
+    if publication_scope == "unrelated_extra":
+        unrelated = next(
+            v
+            for name, v in result
+            if name == "structural_public_assertions" and v["assertion_id"] == "unrelated-protected"
+        )
+        assert unrelated == dict(selection_index=0, **assertions[1])
+        assert "statement" not in unrelated and "assessment_id" not in unrelated
+    assert witness["assessment_id"] == "protected-meaning"

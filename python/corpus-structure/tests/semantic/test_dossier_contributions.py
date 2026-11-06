@@ -395,6 +395,7 @@ def detached_source_dossier_rows():
             "selections",
             dict(
                 selection_index=0,
+                project_id=reference.project_id,
                 run_id=reference.run_id,
                 cut_id=reference.cut_id,
                 binding=dict(
@@ -454,6 +455,9 @@ def detached_source_dossier_rows():
                     source_view_id=view.ref.id,
                     selected_task_id=reference.selected_task_id,
                     origin_task_id=reference.origin_task_id,
+                    origin_run_id=reference.run_id,
+                    origin_project_id=reference.project_id,
+                    runtime_fingerprint=reference.runtime_fingerprint,
                 ),
             ),
         )
@@ -596,3 +600,48 @@ def test_batch_projection_keeps_endpoint_meaning_and_private_authority(semantic_
         assert actual == derive_contribution_members(inputs, reference, payload)[0].model_dump(
             mode="json", exclude_none=True
         )
+
+
+def test_detached_source_dossier_preserves_cross_project_original_producer(tmp_path):
+    """Detached/native-contract control; ordinary valid_reuse currently stays within a project."""
+    from corpus_structure.serve.review_bundle import verify_review_bundle, write_review_bundle
+
+    selection, rows = detached_source_dossier_rows()
+    raw = next(v for name, v in rows if name == "reports" and v["origin_task_id"] == 1)
+    raw["project_id"] = "original-producer-project"
+    raw["origin_run_id"] = 99
+    for name, value in rows:
+        if name == "inventory":
+            value["row"]["origin_project_id"] = "original-producer-project"
+            value["row"]["origin_run_id"] = 99
+    # The selected completed run still belongs to p; original execution is distinct.
+    assert next(v for name, v in rows if name == "selections")["project_id"] == "p"
+    manifest = write_review_bundle(selection, tmp_path / "cross-project", iter(rows))
+    assert verify_review_bundle(tmp_path / "cross-project") == manifest
+
+
+@pytest.mark.parametrize(
+    "corruption", ["selected_project", "origin_project", "origin_run", "inventory_runtime"]
+)
+def test_detached_source_dossier_refuses_selected_or_original_custody_substitution(
+    tmp_path, corruption
+):
+    from corpus_structure.serve.review_bundle import write_review_bundle
+
+    selection, rows = detached_source_dossier_rows()
+    if corruption == "selected_project":
+        next(v for name, v in rows if name == "selections")["project_id"] = "other-project"
+    elif corruption == "origin_project":
+        next(v for name, v in rows if name == "reports" and v["origin_task_id"] == 1)[
+            "project_id"
+        ] = "other-project"
+    elif corruption == "origin_run":
+        next(v for name, v in rows if name == "reports" and v["origin_task_id"] == 1)[
+            "origin_run_id"
+        ] = 99
+    else:
+        for name, value in rows:
+            if name == "inventory":
+                value["row"]["runtime_fingerprint"] = "another-runtime"
+    with pytest.raises(ValueError):
+        write_review_bundle(selection, tmp_path / corruption, iter(rows))
