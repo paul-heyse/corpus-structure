@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from corpus_structure.ingest.sentences import SentenceConfig, TextLayout
     from corpus_structure.methods.math.native_topology import NativeTopology
 
+    from .types import PreparedRelease
+
 
 @dataclass(frozen=True)
 class PreparedSourceView:
@@ -148,9 +150,14 @@ def selected_source_views(
 
 
 def load_source_view(
-    conn: Connection, source_view_id: int, *, analysis: bool = True, read_budget: Any = None
+    conn: Connection,
+    source_view_id: int,
+    *,
+    analysis: bool = True,
+    analysis_context: PreparedRelease | None = None,
+    read_budget: Any = None,
 ) -> PreparedSourceView:
-    """Hydrate retained fields; analytical mode additionally binds the archived text policy."""
+    """Keep original source custody and bind new analysis to its consuming release."""
     views = table("kb.source_view")
     statement = select(views).where(views.c.id == source_view_id)
     if read_budget is not None:
@@ -177,7 +184,7 @@ def load_source_view(
     native = reader.selected_native_items(pointers)
     from .analysis_contracts import prepare_text_policy
 
-    policy = prepare_text_policy(projection_context) if analysis else None
+    policy = prepare_text_policy(analysis_context or projection_context) if analysis else None
     from .pdf_storage import integrated_source_context
 
     integrated = integrated_source_context(
@@ -293,7 +300,9 @@ def source_formula_metadata(
     }
 
 
-def read_context_sources(conn, run_id, source, request, *, limit, read_budget):
+def read_context_sources(
+    conn, run_id, source, request, *, limit, read_budget, analysis_context=None
+):
     """Select compact same-product relation metadata, then admit owned bodies.
 
     Run selection and source projections define the candidate universe. Native sibling
@@ -498,7 +507,12 @@ def read_context_sources(conn, run_id, source, request, *, limit, read_budget):
             "multiple selected projections cover an explicit target",
         )
     try:
-        sources = tuple(load_source_view(conn, ref.id, read_budget=read_budget) for ref in refs)
+        sources = tuple(
+            load_source_view(
+                conn, ref.id, analysis_context=analysis_context, read_budget=read_budget
+            )
+            for ref in refs
+        )
     except ReadLimit:
         return SourceContextRead(
             (),
@@ -682,7 +696,7 @@ def load_native_source_frames(conn: Connection, task_ids):
             continue
         view_id = row["source_view_id"]
         if view_id not in views:
-            views[view_id] = load_source_view(conn, view_id)
+            views[view_id] = load_source_view(conn, view_id, analysis=False)
         view = views[view_id]
         sentences = conn.execute(
             text(

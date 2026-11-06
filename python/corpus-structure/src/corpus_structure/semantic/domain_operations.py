@@ -883,6 +883,7 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
                     frame.source_view_id
                     if isinstance(frame, NativeProposalFrame)
                     else source["source_view_id"],
+                    analysis=False,
                 )
                 document = (
                     conn.execute(select(d).where(d.c.id == view.ref.document_id)).mappings().one()

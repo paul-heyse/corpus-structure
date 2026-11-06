@@ -122,7 +122,7 @@ def _native_source_units(conn, run_id):
     for frame in frames.values():
         if not isinstance(frame, NativeProposalFrame):
             raise ReferenceError("native source cut contains an incompatible source frame")
-        view = load_source_view(conn, frame.source_view_id)
+        view = load_source_view(conn, frame.source_view_id, analysis=False)
         source = (
             conn.execute(select(document).where(document.c.id == view.ref.document_id))
             .mappings()
@@ -332,7 +332,7 @@ def record_pass(
     if frame.unit_ref != unit["unit_key"] or frame.source_view_id != unit["source_view_id"]:
         raise ReferenceError("reference primary source differs from its bound native unit")
     for source in (frame, *frame.context_sources):
-        view = load_source_view(conn, source.source_view_id)
+        view = load_source_view(conn, source.source_view_id, analysis=False)
         if (
             source.unit_ref != view.ref.key
             or source.text != view.text
@@ -847,7 +847,7 @@ def reference_evaluate(
 
         if reference.source_view_id is None:
             raise ReferenceError("native reference frame has no source view")
-        view = load_source_view(conn, reference.source_view_id)
+        view = load_source_view(conn, reference.source_view_id, analysis=False)
         if view.ref.projection_digest != reference.projection_digest:
             raise ReferenceError("native reference citation frame is stale")
         identity = reference.source_view_id

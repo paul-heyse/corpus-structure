@@ -1043,6 +1043,7 @@ class BoundReader:
                 self.conn,
                 source_view_id,
                 analysis=self._analysis_enabled,
+                analysis_context=self.prepared,
                 read_budget=self._read_budget,
             )
         return cache[source_view_id]
@@ -1072,6 +1073,7 @@ class BoundReader:
             request,
             limit=limit,
             read_budget=self._read_budget or read_budget,
+            analysis_context=self.prepared,
         )
 
     def retained_definition_component(self, reference):
