@@ -374,7 +374,11 @@ def _node_status(reports: list[dict[str, Any]], started: bool, finished: bool) -
 
 
 def _complete_native_context(event: dict[str, Any]) -> bool:
-    """Whether an event contains an explicit, item-bound, acquired database identity."""
+    """Complete item-bound acquisition identity, not deployment/policy reproducibility.
+
+    Revision, policy and scenario metadata are optional observations. A bare bootstrap or
+    historical migration acquisition can legitimately have none of them.
+    """
     if event.get("scope") != "test" or not isinstance(event.get("nodeid"), str):
         return False
     context = event.get("context")
@@ -418,6 +422,19 @@ def _complete_native_context(event: dict[str, Any]) -> bool:
         and isinstance(database, str)
         and bool(database.strip())
     )
+
+
+def _group_cleanup_errors(process: dict[str, Any]) -> list[str]:
+    """Shared owned-group settlement requirements for Python and Rust process artifacts."""
+    cleanup = process.get("owned_group_cleanup", {})
+    errors = []
+    if process.get("cleanup_error"):
+        errors.append("owned process group cleanup failed")
+    if cleanup.get("descendants_after_leader_exit"):
+        errors.append("owned descendants survived the process leader exit")
+    if cleanup.get("group_present_after_cleanup"):
+        errors.append("owned process group still present after bounded cleanup")
+    return errors
 
 
 def classify_receipt(directory: Path) -> dict[str, Any]:
@@ -523,17 +540,11 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         errors.append("session exitstatus disagrees with process returncode")
     if process.get("interruption") or process.get("launch_error"):
         errors.append("process interrupted or failed to launch")
-    cleanup = process.get("owned_group_cleanup", {})
     runner_path = directory / "runner.process.json"
     runner = read_json(runner_path) if runner_path.exists() else {}
     if runner.get("interruption"):
         errors.append("supervising runner interrupted")
-    if process.get("cleanup_error"):
-        errors.append("owned process group cleanup failed")
-    if cleanup.get("descendants_after_leader_exit"):
-        errors.append("owned descendants survived the process leader exit")
-    if cleanup.get("group_present_after_cleanup"):
-        errors.append("owned process group still present after bounded cleanup")
+    errors.extend(_group_cleanup_errors(process))
     statuses = [value["status"] for value in nodes.values()]
     process_failed = process.get("returncode") not in (None, 0)
     if collection_errors or "failed" in statuses:
@@ -621,6 +632,12 @@ def classify_rust(directory: Path) -> dict[str, Any]:
                 result["functional_coverage"] = True
     except (OSError, ValueError, KeyError, ET.ParseError) as error:
         result["reason"] = str(error)
+    cleanup_errors = _group_cleanup_errors(process)
+    if cleanup_errors:
+        result["cleanup_errors"] = cleanup_errors
+        result["functional_coverage"] = False
+        if result["status"] != "failed":
+            result["status"] = "incomplete"
     return result
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
@@ -572,6 +573,165 @@ def test_rust_zero_tests_and_missing_junit_are_not_coverage(tmp_path: Path) -> N
         '<testsuites><testsuite><testcase name="native"/></testsuite></testsuites>'
     )
     assert classify_rust(tmp_path)["status"] == "passed"
+
+
+@pytest.mark.parametrize(
+    ("process", "count", "cases", "expected", "coverage"),
+    [
+        ({"returncode": 0}, 1, "<testcase name='one'/>", "passed", True),
+        ({"returncode": 1}, 1, "<testcase name='one'/>", "failed", False),
+        ({"returncode": 1, "cleanup_error": "drain failed"}, 1, "", "failed", False),
+        ({"returncode": 0, "interruption": "SIGTERM"}, 1, "", "incomplete", False),
+        ({"returncode": 0}, 2, "<testcase name='one'/>", "incomplete", False),
+        ({"returncode": 0}, 1, "<testcase name='one'><skipped/></testcase>", "blocked", False),
+        ({"returncode": 0}, 1, "<testcase name='one'><failure/></testcase>", "failed", False),
+        ({"returncode": 0}, 0, "", "not_run", False),
+    ],
+)
+def test_rust_artifact_outcomes_are_conservative(
+    tmp_path, process, count, cases, expected, coverage
+):
+    (tmp_path / "nextest.process.json").write_text(json.dumps(process))
+    (tmp_path / "nextest-list.stdout").write_text(json.dumps({"test-count": count}))
+    (tmp_path / "nextest.junit.xml").write_text(
+        f"<testsuites><testsuite>{cases}</testsuite></testsuites>"
+    )
+    result = classify_rust(tmp_path)
+    assert result["status"] == expected
+    assert result["functional_coverage"] is coverage
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        {"cleanup_error": "drain failed"},
+        {"owned_group_cleanup": {"descendants_after_leader_exit": True}},
+        {"owned_group_cleanup": {"group_present_after_cleanup": True}},
+    ],
+)
+@pytest.mark.parametrize("count", [0, 1])
+def test_rust_cleanup_defects_remain_incomplete_in_assembled_results(tmp_path, defect, count):
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    (tmp_path / "nextest.process.json").write_text(json.dumps({"returncode": 0, **defect}))
+    (tmp_path / "nextest-list.stdout").write_text(json.dumps({"test-count": count}))
+    (tmp_path / "nextest.junit.xml").write_text(
+        "<testsuites><testsuite><testcase name='one'/></testsuite></testsuites>"
+    )
+    local = classify_rust(tmp_path)
+    assert local["status"] == "incomplete"
+    assert not local["functional_coverage"]
+    assert classify([tmp_path])["status"] == "incomplete"
+
+
+def test_native_observation_requires_a_live_sink_before_any_optional_work(monkeypatch):
+    import hashlib
+    from types import SimpleNamespace
+
+    from sqlalchemy.engine import make_url
+
+    import native_test_support
+    import qualification_plugin
+    from corpus_structure.settings import Settings
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("inactive observation must not acquire, hash, or roll back")
+
+    # Neither import availability nor an environment setting is an active consumer.
+    monkeypatch.setenv("QUALIFICATION_RECEIPT_DIR", "/unused-receipt-directory")
+    monkeypatch.setattr(qualification_plugin, "_stream", None)
+    monkeypatch.setattr(hashlib, "sha256", forbidden)
+    previous = dict(native_test_support._DEPLOYMENTS)
+    connection = SimpleNamespace(cursor=forbidden, rollback=forbidden)
+    server = native_test_support.PgAdmin("postgresql://admin@db/postgres", "template", {})
+    monkeypatch.setattr(server, "connect", forbidden)
+    settings = Settings()
+    assert not qualification_plugin.native_context_active()
+    native_test_support.observe_connection(connection, make_url("postgresql://db"), purpose="read")
+    native_test_support.record_server_context(settings, server)
+    assert previous == native_test_support._DEPLOYMENTS
+
+    sink = io.StringIO()
+    monkeypatch.setattr(qualification_plugin, "_stream", sink)
+    assert qualification_plugin.native_context_active()
+    sink.close()
+    assert not qualification_plugin.native_context_active()
+    native_test_support.observe_connection(connection, make_url("postgresql://db"), purpose="read")
+    native_test_support.record_server_context(settings, server)
+    assert previous == native_test_support._DEPLOYMENTS
+
+
+def test_active_native_observation_keeps_actual_identity_and_item_binding(monkeypatch):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from sqlalchemy import create_engine
+
+    import native_test_support
+    import qualification_plugin
+
+    class Cursor:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def execute(self, sql):
+            self.connection.queries.append(sql)
+
+        def fetchone(self):
+            if "current_database()" in self.connection.queries[-1]:
+                return (
+                    self.connection.database, self.connection.oid, "actual_reader", "actual_login",
+                    "18.1", "5434", datetime(2026, 11, 5, tzinfo=UTC),
+                )
+            return (None,)  # A bare acquisition has no semantic revision.
+
+    class Connection:
+        autocommit = False
+        info = SimpleNamespace(host="/actual/socket")
+
+        def __init__(self, database, oid):
+            self.database, self.oid = database, oid
+            self.queries = []
+            self.rollbacks = 0
+
+        def cursor(self):
+            return Cursor(self)
+
+        def rollback(self):
+            self.rollbacks += 1
+
+    monkeypatch.delenv("QUALIFICATION_RECEIPT_DIR", raising=False)
+    with io.StringIO() as sink:
+        monkeypatch.setattr(qualification_plugin, "_stream", sink)
+        monkeypatch.setattr(qualification_plugin, "_current_nodeid", "first-item")
+        engine = create_engine("postgresql+psycopg://requested_user@requested_host/requested_db")
+        first, second = Connection("first_clone", 1001), Connection("second_clone", 1002)
+        native_test_support.observe_connection(first, engine.url, purpose="read")
+        native_test_support.observe_connection(
+            second, engine.url, purpose="read", nodeid="second-item"
+        )
+        events = [json.loads(line) for line in sink.getvalue().splitlines()]
+        assert [event["nodeid"] for event in events] == ["first-item", "second-item"]
+        assert [event["context"]["acquired"]["database_oid"] for event in events] == [1001, 1002]
+        assert all(event["context"]["requested"]["database"] == "requested_db" for event in events)
+        assert all(
+            event["context"]["acquired"]["current_user"] == "actual_reader" for event in events
+        )
+        assert all(_complete_native_context(event) for event in events)
+        for event in events:
+            acquired = event["context"]["acquired"]
+            assert acquired["deployment_status"] == "unavailable"
+            assert acquired["revision"] is None and acquired["policy_ref"] is None
+        assert first.rollbacks == second.rollbacks == 1
+        sink.close()
+        native_test_support.observe_connection(first, engine.url, purpose="read")
+        assert len(first.queries) == 2 and first.rollbacks == 1
+        engine.dispose()
 
 
 def test_run_refuses_existing_invocation(tmp_path: Path) -> None:

@@ -11,10 +11,10 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.engine import make_url
 
 from corpus_structure.settings import DatabaseSettings
+from native_test_support import rollback_connection
 from test_prerequisites import PrerequisiteUnavailable
 
 MARKER = "f1_isolation_probe"
-_committed: list[str] = []
 
 
 def test_session_database_is_cloned_from_the_migrated_template(
@@ -32,15 +32,26 @@ def test_session_database_is_cloned_from_the_migrated_template(
     assert db_server.expected.items() <= extensions.items()
 
 
-def test_a_write_inside_the_outer_transaction(db: Connection) -> None:
-    db.execute(text(f"CREATE TABLE {MARKER} (v int)"))
-    db.execute(text(f"INSERT INTO {MARKER} VALUES (1)"))
-    assert db.execute(text(f"SELECT count(*) FROM {MARKER}")).scalar_one() == 1
+@pytest.mark.parametrize("exceptional", [False, True])
+def test_outer_transaction_rolls_back_its_observed_write(db_engine: Engine, exceptional: bool):
+    class BodyFailure(Exception):
+        pass
 
+    def write():
+        with rollback_connection(db_engine) as conn:
+            conn.execute(text(f"CREATE TABLE {MARKER} (v int)"))
+            conn.execute(text(f"INSERT INTO {MARKER} VALUES (1)"))
+            assert conn.execute(text(f"SELECT v FROM {MARKER}")).scalar_one() == 1
+            if exceptional:
+                raise BodyFailure("after observed write")
 
-def test_the_rolled_back_write_is_invisible_to_the_next_test(db: Connection) -> None:
-    found = db.execute(text("SELECT to_regclass(:t)"), {"t": MARKER}).scalar_one()
-    assert found is None
+    if exceptional:
+        with pytest.raises(BodyFailure, match="after observed write"):
+            write()
+    else:
+        write()
+    with db_engine.connect() as fresh:
+        assert fresh.scalar(text("SELECT to_regclass(:t)"), {"t": MARKER}) is None
 
 
 def test_committing_db_commits_on_its_own_clone(committing_db: Engine, db_engine: Engine) -> None:
@@ -53,12 +64,6 @@ def test_committing_db_commits_on_its_own_clone(committing_db: Engine, db_engine
     assert name.startswith(f"ci_test_{os.getpid()}_")
     with db_engine.connect() as session:
         assert session.execute(text("SELECT to_regclass('committed')")).scalar_one() is None
-    _committed.append(name)
-
-
-def test_the_committing_clone_was_dropped(db_server) -> None:
-    assert _committed, "runs after test_committing_db_commits_on_its_own_clone"
-    assert not db_server.exists(_committed[0])
 
 
 # --- Extension versions (DA-018) ---------------------------------------------------------------

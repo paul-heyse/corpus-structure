@@ -17,8 +17,14 @@ _identity: dict[str, object] = {}
 _current_nodeid: str | None = None
 
 
+def native_context_active() -> bool:
+    """Whether an actual receipt sink can currently consume optional native observations."""
+    return _stream is not None and not _stream.closed
+
+
 def _emit(event: str, **values: object) -> None:
-    if _stream is not None:
+    if native_context_active():
+        assert _stream is not None
         _stream.write(
             json.dumps({"event": event, "time": time.time(), **_identity, **values}) + "\n"
         )
@@ -30,6 +36,7 @@ def record_native_context(
 ) -> None:
     """Record requested and acquired native context in the current pytest event stream.
 
+    Completeness denotes item-bound acquired identity; deployment/policy metadata is optional.
     Test-scoped records default to the item whose fixture/setup is currently running. Session
     records are explicitly unbound to an item; they describe a resource that may serve many
     tests, and cannot by themselves attest any one test's exercise.

@@ -50,6 +50,17 @@ STAMP = re.compile(r"corpus-structure test template, last used (\S+)")
 _DEPLOYMENTS: dict[tuple[str, str, str, int], dict[str, object]] = {}
 
 
+@contextmanager
+def rollback_connection(engine: Engine) -> Generator[Connection]:
+    """Lend one connection whose outer transaction rolls back on every exit."""
+    with engine.connect() as conn:
+        outer = conn.begin()
+        try:
+            yield conn
+        finally:
+            outer.rollback()
+
+
 def server_url(settings: Settings | None = None) -> str:
     """The admin URL (database `postgres`) of the server `Settings()` names, as SQLAlchemy's."""
     settings = Settings() if settings is None else settings
@@ -450,9 +461,11 @@ class PgAdmin:
                 if policy is not None:
                     self.replay_policy(name, policy)
                 observe_engine(engine, purpose="maintenance", policy=policy)
-                # Observe deployment once through its maintenance connection before lending it.
-                with engine.connect():
-                    pass
+                # A real consumer needs deployment observations before restricted acquisitions.
+                # Ordinary fixture use has no reason to perform this otherwise-unused checkout.
+                if native_context_active():
+                    with engine.connect():
+                        pass
                 yield engine
             except BaseException as exc:
                 failure = exc
@@ -652,6 +665,15 @@ def observe_engine(
         )
 
 
+def native_context_active() -> bool:
+    """Ask the plugin at observation time, including for already-created engines."""
+    try:
+        from qualification_plugin import native_context_active as active
+    except ImportError:
+        return False
+    return active()
+
+
 def observe_connection(
     connection,
     url: URL,
@@ -662,14 +684,14 @@ def observe_connection(
     nodeid: str | None = None,
 ) -> None:
     """Observe an actual acquisition; callers retain the native resource lifetime."""
+    if not native_context_active():
+        return
     import hashlib
     import json
     from dataclasses import asdict
 
-    try:
-        from qualification_plugin import record_native_context
-    except ImportError:
-        return
+    from qualification_plugin import record_native_context
+
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT current_database(), (SELECT oid FROM pg_database "
@@ -722,6 +744,7 @@ def observe_connection(
                 "revision": revision or deployment.get("revision"),
                 "policy_ref": policy_ref or deployment.get("policy_ref"),
                 "scenario_seed": dict(scenario_seed) if scenario_seed is not None else None,
+                # This reports revision availability, not complete policy reproducibility.
                 "deployment_status": "observed"
                 if revision or deployment.get("revision")
                 else "unavailable",
@@ -734,6 +757,8 @@ def observe_connection(
 
 def record_server_context(settings: Settings, server: PgAdmin) -> None:
     """Report an already-acquired server for either native fixture family."""
+    if not native_context_active():
+        return
     import os
 
     import psycopg
@@ -744,10 +769,8 @@ def record_server_context(settings: Settings, server: PgAdmin) -> None:
         server_version, principal = conn.exec_driver_sql(
             "SELECT current_setting('server_version'),current_user"
         ).one()
-    try:
-        from qualification_plugin import record_native_context
-    except ImportError:
-        return
+    from qualification_plugin import record_native_context
+
     record_native_context(
         {
             "settings": settings_report(settings, os.environ).model_dump(mode="json"),

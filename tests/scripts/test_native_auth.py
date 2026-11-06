@@ -561,6 +561,7 @@ def test_preexisting_owned_row_is_never_claimed_or_removed(
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in shared-cluster SIGKILL recovery control",
 )
+@pytest.mark.db
 def test_sigkill_owner_is_recovered_by_the_next_pgadmin_context() -> None:
     """Opt-in control against the explicitly configured 18/corpus auth adapter."""
     if os.name != "posix":
@@ -678,6 +679,7 @@ with server.alternate_reader(settings.database.template) as role:
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in shared-cluster delayed-backend SIGKILL recovery control",
 )
+@pytest.mark.db
 def test_killed_owner_waits_for_tagged_postgres_backend_before_recovery() -> None:
     """A dead client cannot let recovery race SQL still executing on its tagged backend."""
     if os.name != "posix":
@@ -814,6 +816,7 @@ with server.alternate_reader(database) as owned_role:
         ("reload", "injected after reload"),
     ],
 )
+@pytest.mark.db
 def test_actual_partial_auth_effects_are_recovered(stage: str, expected: str) -> None:
     """Each injected failure follows a committed native effect and must unwind its exact owner."""
     if os.name != "posix":
@@ -932,6 +935,7 @@ print('RECOVERED',flush=True)
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in root-helper SIGTERM recovery control",
 )
+@pytest.mark.db
 def test_killed_owner_waits_for_privileged_file_helper_then_removes_late_row(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

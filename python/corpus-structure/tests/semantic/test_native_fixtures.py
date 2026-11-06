@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import threading
+from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 
 from native_test_support import principal_engine
@@ -158,8 +160,15 @@ def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(req
         "evaluate": "semantic_evaluator_engine",
         "admit": "semantic_admitter_engine",
     }
+    principals = {
+        "write": "corpus_sem_writer", "read": "corpus_sem_reader",
+        "evaluate": "corpus_sem_evaluator", "admit": "corpus_sem_admitter",
+    }
     engine = request.getfixturevalue(engines[purpose])
     with engine.begin() as conn:
+        assert conn.exec_driver_sql("SELECT current_user,session_user").one() == (
+            principals[purpose],
+        ) * 2
         conn.execute(text("SELECT data.require_runtime_principal(:p)"), {"p": purpose})
         assert not conn.exec_driver_sql(
             "SELECT has_database_privilege(current_user,current_database(),'TEMP')"
@@ -179,8 +188,12 @@ def test_actual_restricted_principals_deny_temp_dml_reference_and_escalation(req
         if purpose != "evaluate":
             denied.append("SELECT * FROM eval.reference_set")
         for sql in denied:
-            with pytest.raises(DBAPIError), conn.begin_nested():
+            with pytest.raises(DBAPIError) as failure, conn.begin_nested():
                 conn.exec_driver_sql(sql)
+            assert getattr(failure.value.orig, "sqlstate", None) == "42501", (
+                sql, str(failure.value.orig)
+            )
+        assert conn.exec_driver_sql("SELECT 1").scalar_one() == 1
 
 
 def test_owned_lease_blocks_sweep_and_untagged_residue_survives(native_server):
@@ -466,26 +479,112 @@ def test_clone_replays_and_removes_actual_restricted_reader_default(native_serve
             reader.dispose()
 
 
+@contextmanager
+def capture_native_context():
+    """Activate a real sink before dependent preparation; preserve an existing receipt sink."""
+    import qualification_plugin
+
+    observed = []
+    original = qualification_plugin.record_native_context
+
+    def capture(context, **kwargs):
+        observed.append((context, kwargs))
+        original(context, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch, io.StringIO() as sink:
+        if not qualification_plugin.native_context_active():
+            patch.setattr(qualification_plugin, "_stream", sink)
+        patch.setattr(qualification_plugin, "record_native_context", capture)
+        yield observed
+
+
+@pytest.fixture
+def native_context_capture():
+    with capture_native_context() as observed:
+        yield observed
+
+
+@pytest.mark.parametrize("failure_stage", ["preparation", "body"])
+def test_native_capture_restores_existing_consumer_after_failure(monkeypatch, failure_stage):
+    import qualification_plugin
+
+    class Failure(Exception):
+        pass
+
+    @contextmanager
+    def preparation():
+        with capture_native_context() as observed:
+            qualification_plugin.record_native_context({"stage": failure_stage})
+            assert observed == [({"stage": failure_stage}, {})]
+            if failure_stage == "preparation":
+                raise Failure(failure_stage)
+            yield observed
+
+    with io.StringIO() as existing:
+        monkeypatch.setattr(qualification_plugin, "_stream", existing)
+        recorder = qualification_plugin.record_native_context
+        with pytest.raises(Failure, match=failure_stage), preparation():
+            raise Failure(failure_stage)
+        assert failure_stage in existing.getvalue()
+        assert qualification_plugin._stream is existing
+        assert qualification_plugin.native_context_active()
+        assert qualification_plugin.record_native_context is recorder
+
+
+def test_native_capture_restores_inactive_consumer_after_failure(monkeypatch):
+    import qualification_plugin
+
+    monkeypatch.setattr(qualification_plugin, "_stream", None)
+    recorder = qualification_plugin.record_native_context
+    with pytest.raises(RuntimeError, match="preparation failed"), capture_native_context():
+        assert qualification_plugin.native_context_active()
+        raise RuntimeError("preparation failed")
+    assert not qualification_plugin.native_context_active()
+    assert qualification_plugin.record_native_context is recorder
+
+
+@pytest.fixture
+def captured_semantic_engines(native_context_capture, request):
+    # Dynamic requests deliberately happen after capture activation, including cold preparation.
+    server = request.getfixturevalue("native_server")
+    template = request.getfixturevalue("semantic_head_template")
+    settings = request.getfixturevalue("native_settings")
+    with server.database(name(), template.name, policy=template.policy) as engine:
+        reader = principal_engine(settings, "read", engine.url.database)
+        try:
+            yield engine, reader
+        finally:
+            reader.dispose()
+    import qualification_plugin
+
+    assert qualification_plugin.native_context_active(), "capture must outlive clone teardown"
+
+
+@pytest.mark.db
 def test_receipt_observes_clone_deployment_and_authenticated_reader(
-    semantic_db_engine, semantic_reader_engine, native_settings, monkeypatch
+    captured_semantic_engines, native_context_capture, native_settings
 ):
     from sqlalchemy.engine import make_url
 
-    import qualification_plugin
     from corpus_structure.semantic.migrations import head_revision
 
-    observed = []
-    monkeypatch.setattr(
-        qualification_plugin,
-        "record_native_context",
-        lambda context, **kwargs: observed.append(context),
-    )
-    with semantic_reader_engine.connect() as conn:
+    engine, reader = captured_semantic_engines
+    with reader.connect() as conn:
         oid = conn.exec_driver_sql(
             "SELECT oid FROM pg_database WHERE datname=current_database()"
         ).scalar_one()
-    actual = next(event for event in observed if event["requested"]["purpose"] == "read")
-    assert actual["acquired"]["database"] == semantic_db_engine.url.database
+    actual = next(
+        event for event, _ in native_context_capture
+        if event.get("requested", {}).get("purpose") == "read"
+    )
+    maintenance = next(
+        event for event, _ in native_context_capture
+        if event.get("requested", {}).get("purpose") == "maintenance"
+        and event["acquired"]["database"] == engine.url.database
+    )
+    assert maintenance["acquired"]["revision"] == head_revision()
+    assert maintenance["acquired"]["policy_ref"] == actual["acquired"]["policy_ref"]
+    assert actual["acquired"]["database"] == engine.url.database
     assert actual["acquired"]["database"] != make_url(native_settings.database.url).database
     assert actual["acquired"]["database_oid"] == oid
     assert actual["acquired"]["current_user"] == "corpus_sem_reader"
@@ -494,3 +593,80 @@ def test_receipt_observes_clone_deployment_and_authenticated_reader(
     assert actual["acquired"]["policy_ref"]
     assert actual["provenance"] == {"complete": True, "missing": []}
     assert set(actual["requested"]) == {"database", "host", "port", "principal", "purpose"}
+
+
+def test_inactive_native_clone_preserves_real_policy_lifecycle_without_eager_checkout(
+    native_server, semantic_head_template, monkeypatch
+):
+    import native_test_support
+    import qualification_plugin
+    from corpus_structure.semantic.migrations import current_revision, head_revision
+
+    database = name()
+    checkouts = []
+    original = native_test_support.observe_engine
+    with native_server.connect() as conn:
+        assert conn.exec_driver_sql("SELECT 1").scalar_one() == 1
+
+    def counted(engine, **kwargs):
+        original(engine, **kwargs)
+        if engine.url.database == database:
+            event.listen(engine, "checkout", lambda *_: checkouts.append(database))
+
+    # Consumer absence is explicit even when this test itself runs inside qualification.
+    with monkeypatch.context() as patch:
+        patch.setattr(qualification_plugin, "_stream", None)
+        patch.setattr(native_test_support, "observe_engine", counted)
+        deployments = dict(native_test_support._DEPLOYMENTS)
+        with native_server.database(
+            database, semantic_head_template.name, policy=semantic_head_template.policy
+        ) as engine:
+            assert checkouts == [], "inactive observation must not check out the clone"
+            assert native_server.policy(database) == semantic_head_template.policy
+            with engine.begin() as conn:
+                assert current_revision(conn) == head_revision()
+                conn.exec_driver_sql("CREATE TABLE public.inactive_observer_probe(value int)")
+                conn.exec_driver_sql("INSERT INTO public.inactive_observer_probe VALUES(91)")
+            with engine.connect() as conn:
+                assert conn.exec_driver_sql(
+                    "SELECT value FROM public.inactive_observer_probe"
+                ).scalar_one() == 91
+            assert len(checkouts) == 2
+        assert not native_server.exists(database)
+        assert deployments == native_test_support._DEPLOYMENTS
+
+
+def test_late_capture_cannot_fabricate_unobserved_deployment_policy(
+    native_server, semantic_head_template, native_settings, monkeypatch
+):
+    import qualification_plugin
+
+    database = name()
+    with native_server.connect() as conn:
+        assert conn.exec_driver_sql("SELECT 1").scalar_one() == 1
+    with monkeypatch.context() as patch:
+        patch.setattr(qualification_plugin, "_stream", None)
+        with native_server.database(
+            database, semantic_head_template.name, policy=semantic_head_template.policy
+        ):
+            reader = principal_engine(native_settings, "read", database)
+            try:
+                with capture_native_context() as observed, reader.connect() as conn:
+                    assert (
+                        conn.exec_driver_sql("SELECT current_user").scalar_one()
+                        == "corpus_sem_reader"
+                    )
+                    acquired = next(
+                        context["acquired"] for context, _ in observed
+                        if context.get("requested", {}).get("purpose") == "read"
+                    )
+                    assert acquired["revision"] is None and acquired["policy_ref"] is None
+                    assert acquired["deployment_status"] == "unavailable"
+                # The listener was registered before capture and remains safe after closure.
+                with reader.connect() as conn:
+                    assert (
+                        conn.exec_driver_sql("SELECT current_user").scalar_one()
+                        == "corpus_sem_reader"
+                    )
+            finally:
+                reader.dispose()

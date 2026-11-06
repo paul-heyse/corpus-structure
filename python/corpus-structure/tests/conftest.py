@@ -48,6 +48,7 @@ from native_test_support import (
     SemanticTemplate,
     expected_extensions,
     record_server_context,
+    rollback_connection,
     semantic_principals,
     server_url,
 )
@@ -267,12 +268,8 @@ def db_engine(db_server: PgAdmin, semantic_head_template: SemanticTemplate) -> I
 @pytest.fixture
 def db(db_engine: Engine) -> Iterator[Connection]:
     """A connection inside an outer transaction that is rolled back after the test."""
-    with db_engine.connect() as conn:
-        outer = conn.begin()
-        try:
-            yield conn
-        finally:
-            outer.rollback()
+    with rollback_connection(db_engine) as conn:
+        yield conn
 
 
 @pytest.fixture
