@@ -513,19 +513,30 @@ def adapt_annotation_matches(source, product, matches, *, rules, availability):
     if product.source != NativeSourcePin.from_source(source):
         raise ValueError("retained annotation belongs to another source")
     context = NativeSourceContext(
-        source, (), (SourceSlice(source.source_view_id, product.block_start, product.block_end),),
-        "retained named annotation proposals", "retained-annotation-rules-2",
-        "whole retained block", max_chars=product.block_end - product.block_start,
+        source,
+        (),
+        (SourceSlice(source.source_view_id, product.block_start, product.block_end),),
+        "retained named annotation proposals",
+        "retained-annotation-rules-2",
+        "whole retained block",
+        max_chars=product.block_end - product.block_start,
+        max_pieces=max(1, len(product.native_pieces)),
     )
     states = {(rule, variant): state for rule, variant, state in availability}
     batches = []
     for rule in rules:
         variant_key = _digest((rule["rule"], rule["variant"]))
         state = states[rule["rule"], rule["variant"]]
-        selected = [match for match in matches if (match.rule, match.variant) == (rule["rule"], rule["variant"])]
+        selected = [
+            match
+            for match in matches
+            if (match.rule, match.variant) == (rule["rule"], rule["variant"])
+        ]
         builder = _Builder(
-            context, report_digest=_digest([asdict(match) for match in selected]),
-            computation=product.dependency_digest, producer="retained_annotation_rules",
+            context,
+            report_digest=_digest([asdict(match) for match in selected]),
+            computation=product.dependency_digest,
+            producer="retained_annotation_rules",
             item_key=product.block_id + "/" + variant_key,
             dependencies=("annotation:" + product.dependency_digest, "rules:" + _digest(rule)),
             question="propose_named_source_roles_from_retained_annotations",
@@ -536,38 +547,81 @@ def adapt_annotation_matches(source, product, matches, *, rules, availability):
         def anchors_for(extents, builder=builder):
             anchors = []
             for start, end in extents:
-                for piece in context.map_span(start-product.block_start, end-product.block_start,
-                        literal=source.text[start:end], allow_multiple=True):
+                for piece in context.map_span(
+                    start - product.block_start,
+                    end - product.block_start,
+                    literal=source.text[start:end],
+                    allow_multiple=True,
+                ):
                     anchor, coordinate = evidence_anchor(context, piece, native=True)
                     anchors.append(anchor)
-                    builder.coordinates[canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})] = coordinate
+                    builder.coordinates[
+                        canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})
+                    ] = coordinate
             return anchors
 
         for index, match in enumerate(selected):
             key = product.block_id + f"/{variant_key}/match/{index}"
-            builder.add(kind="proposal", semantic_type="source_rule." + match.rule,
-                item_key=key, anchors=anchors_for(match.extents), value=source_value(asdict(match)),
-                reason="named source-located pattern proposal; no attachment or semantic admission")
+            builder.add(
+                kind="proposal",
+                semantic_type="source_rule." + match.rule,
+                item_key=key,
+                anchors=anchors_for(match.extents),
+                value=source_value(asdict(match)),
+                reason="named source-located pattern proposal; no attachment or semantic admission",
+            )
             for role in match.roles:
                 role_anchors = anchors_for(role.extents)
                 dependencies = builder.operation["computation_dependencies"]
                 component = dict(
-                    protocol="witnessed-component-1", kind="located_role",
-                    question=builder.operation["question"], question_version=builder.operation["operation_version"],
-                    scope=f"source_view:{source.source_view_id}/block:{product.block_id}", interpretation="unassessed",
-                    bases=[dict(kind="matched_cue", dependencies=dependencies, anchor_ids=[a["anchor_id"] for a in role_anchors])],
-                    dependencies=dependencies, rule=match.rule, variant=match.variant,
-                    roles=[dict(role=role.role, anchor_ids=[a["anchor_id"] for a in role_anchors],
-                        head_token=role.head, expansion="sentence_subtree" if role.expansion == "subtree" else role.expansion,
-                        outcome="unresolved" if role.status == "unavailable" else role.status)],
+                    protocol="witnessed-component-1",
+                    kind="located_role",
+                    question=builder.operation["question"],
+                    question_version=builder.operation["operation_version"],
+                    scope=f"source_view:{source.source_view_id}/block:{product.block_id}",
+                    interpretation="unassessed",
+                    bases=(
+                        dict(
+                            kind="matched_cue",
+                            dependencies=dependencies,
+                            anchor_ids=tuple(a["anchor_id"] for a in role_anchors),
+                        ),
+                    ),
+                    dependencies=dependencies,
+                    rule=match.rule,
+                    variant=match.variant,
+                    roles=(
+                        dict(
+                            role=role.role,
+                            anchor_ids=tuple(a["anchor_id"] for a in role_anchors),
+                            head_token=role.head,
+                            expansion="sentence_subtree"
+                            if role.expansion == "subtree"
+                            else role.expansion,
+                            outcome="unresolved" if role.status == "unavailable" else role.status,
+                        ),
+                    ),
                 )
-                builder.add(kind="proposal", semantic_type="source_role." + role.role,
-                    item_key=key + "/role/" + role.role, anchors=role_anchors, component=component,
-                    value=source_value(dict(protocol="named-annotation-role-2", rule=match.rule,
-                        variant=match.variant, mechanism=match.mechanism,
-                        annotation_digest=product.dependency_digest, **asdict(role))),
+                builder.add(
+                    kind="proposal",
+                    semantic_type="source_role." + role.role,
+                    item_key=key + "/role/" + role.role,
+                    anchors=role_anchors,
+                    component=component,
+                    value=source_value(
+                        dict(
+                            protocol="named-annotation-role-2",
+                            rule=match.rule,
+                            variant=match.variant,
+                            mechanism=match.mechanism,
+                            annotation_digest=product.dependency_digest,
+                            **asdict(role),
+                        )
+                    ),
                     disposition="unresolved" if role.status != "complete" else "candidate",
-                    reason=role.reason or "located syntactic role proposal; not semantic attachment proof")
+                    reason=role.reason
+                    or "located syntactic role proposal; not semantic attachment proof",
+                )
         batch = builder.finish()
         if state != "available":
             builder.operation["outcome"] = "unsupported"

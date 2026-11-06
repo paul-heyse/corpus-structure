@@ -479,3 +479,54 @@ def test_native_local_question_refuses_omitted_consumed_dependencies(private_sou
             )
             == "running"
         )
+
+
+def test_native_located_component_custody_and_basis_refusal(private_source):
+    from copy import deepcopy
+    from dataclasses import replace
+
+    case = private_source
+    result = drafts(case)
+    assert result.contributions is not None
+    row = dict(deepcopy(result.contributions[1]))
+    aid = row["anchors"][0]["anchor_id"]
+    row["computation_dependencies"] = ("retained-annotation",)
+    row["component"] = dict(
+        protocol="witnessed-component-1",
+        kind="located_role",
+        question="inspect_cell",
+        question_version="1",
+        scope="native-cell",
+        interpretation="unassessed",
+        dependencies=("retained-annotation",),
+        bases=(dict(kind="matched_cue", dependencies=("retained-annotation",), anchor_ids=(aid,)),),
+        rule="native-cell-control",
+        variant="named",
+        roles=(
+            dict(
+                role="value", anchor_ids=(aid,), head_token=0, expansion="exact", outcome="complete"
+            ),
+        ),
+    )
+    row["contribution_id"] = contribution_identity(row)
+    result = replace(result, contributions=(result.contributions[0], row))
+    raw = envelope(case, result)
+    invalid = deepcopy(raw)
+    invalid["contributions"][1]["component"]["bases"][0]["dependencies"] = ["unavailable-premise"]
+    invalid["contributions"][1]["contribution_id"] = contribution_identity(
+        invalid["contributions"][1]
+    )
+    with case.writer.begin() as conn:
+        with pytest.raises(DBAPIError, match="component basis"), conn.begin_nested():
+            bypass(case, conn, invalid)
+        complete(case, conn, result)
+    with case.writer.connect() as conn:
+        actual = read_source_contributions(
+            conn,
+            prepared=case.prepared,
+            run_id=case.run,
+            source_view_id=case.view,
+            include_details=True,
+        )
+    components = [c["component"] for c in actual.contributions if "component" in c]
+    assert len(components) == 1 and components[0]["roles"][0]["role"] == "value"

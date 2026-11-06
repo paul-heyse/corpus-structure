@@ -2,6 +2,7 @@
 
 Pattern matches and their roles remain proposals, never semantic admission.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ class RoleBinding(BaseModel):
 
 class AnnotationRule(BaseModel):
     """One stable authored variant; role vocabulary belongs to its domain recipe."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
     rule: str = Field(min_length=1)
     variant: str = Field(min_length=1)
@@ -96,6 +98,7 @@ class AnnotationRuleResult:
 
 class PreparedAnnotationRules:
     """Prepare once; keep each variant's node ordering and explicit role bindings."""
+
     def __init__(self, vocab: Vocab, *, rules: tuple[AnnotationRule, ...]) -> None:
         self.vocab = vocab
         self.rules = rules
@@ -111,25 +114,35 @@ class PreparedAnnotationRules:
                 matcher.add(label, [[part for part in rule.pattern if isinstance(part, dict)]])
             elif rule.mechanism == "phrase":
                 matcher = PhraseMatcher(vocab, attr="LOWER", validate=True)
-                matcher.add(label, [Doc(vocab, words=[word for word in rule.pattern if isinstance(word, str)])])
+                matcher.add(
+                    label,
+                    [Doc(vocab, words=[word for word in rule.pattern if isinstance(word, str)])],
+                )
             else:
                 matcher = DependencyMatcher(vocab, validate=True)
                 matcher.add(label, [[part for part in rule.pattern if isinstance(part, dict)]])
             self.matchers[vocab.strings[label]] = matcher
         self.collector = SpanRuler(
-            Language(vocab=vocab), spans_key=RAW_GROUP, spans_filter=None,
-            annotate_ents=False, overwrite=True, validate=True,
+            Language(vocab=vocab),
+            spans_key=RAW_GROUP,
+            spans_filter=None,
+            annotate_ents=False,
+            overwrite=True,
+            validate=True,
         )
         self.candidate_suggester = build_preset_spans_suggester(RAW_GROUP)
 
     @staticmethod
     def _requirements(rule: AnnotationRule) -> set[str]:
-        attributes = {"LEMMA", "POS", "TAG", "MORPH", "DEP", "SENT_START"}
+        attributes = {key: key for key in ("LEMMA", "POS", "TAG", "MORPH", "DEP", "SENT_START")}
+        attributes.update({"IS_SENT_START": "SENT_START", "IS_SENT_END": "SENT_START"})
+        # NER columns are not synthesized from the default values of a restored Doc.
+        attributes.update({key: key for key in ("ENT_TYPE", "ENT_IOB", "ENT_ID", "ENT_KB_ID")})
         required = {"DEP"} if rule.mechanism == "dependency" else set()
         for part in rule.pattern:
             if isinstance(part, dict):
                 predicates = part.get("RIGHT_ATTRS", part)
-                required.update(key for key in predicates if key in attributes)
+                required.update(attributes[key] for key in predicates if key in attributes)
         return required
 
     def match(self, view: AnnotationView) -> AnnotationRuleResult:
@@ -138,47 +151,112 @@ class PreparedAnnotationRules:
             raise ValueError("prepared rules and native view require the same vocabulary")
         product, doc = view.product, view.doc
         columns = {c.attribute for c in product.availability if c.status == "complete"}
-        available = {key for key, rule in self.variants.items() if self._requirements(rule) <= columns}
-        statuses = tuple((rule.rule, rule.variant, "available" if key in available else "unavailable")
-                         for key, rule in self.variants.items())
+        available = {
+            key for key, rule in self.variants.items() if self._requirements(rule) <= columns
+        }
+        statuses = tuple(
+            (rule.rule, rule.variant, "available" if key in available else "unavailable")
+            for key, rule in self.variants.items()
+        )
         results, spans = [], []
 
         def add(label: int, nodes: tuple[int, ...]) -> None:
             if label not in available:
                 return
             rule = self.variants[label]
-            node_map = ({part["RIGHT_ID"]: (index,) for part, index in zip(rule.pattern, nodes, strict=True) if isinstance(part, dict)}
-                        if rule.mechanism == "dependency" else {"match": nodes, **{str(i): (n,) for i, n in enumerate(nodes)}})
+            node_map = (
+                {
+                    part["RIGHT_ID"]: (index,)
+                    for part, index in zip(rule.pattern, nodes, strict=True)
+                    if isinstance(part, dict)
+                }
+                if rule.mechanism == "dependency"
+                else {"match": nodes, **{str(i): (n,) for i, n in enumerate(nodes)}}
+            )
             roles = []
             for name, binding in rule.bindings.items():
                 selected = node_map[binding.node]
-                head = selected[0] if len(selected) == 1 else doc[min(selected):max(selected)+1].root.i
+                head = (
+                    selected[0]
+                    if len(selected) == 1
+                    else doc[min(selected) : max(selected) + 1].root.i
+                )
                 expanded, status, reason = set(selected), "complete", None
                 if binding.expansion != "exact":
                     if "DEP" not in columns or product.tokens[head].sentence is None:
-                        expanded, status, reason = {head}, "unavailable", "expansion requires retained DEP and sentence ownership"
+                        expanded, status, reason = (
+                            {head},
+                            "unavailable",
+                            "expansion requires retained DEP and sentence ownership",
+                        )
                     else:
-                        expanded = ({t.i for t in doc[head].subtree} if binding.expansion == "subtree"
-                                    else {head, *(t.i for t in doc[head].conjuncts)})
-                        scoped = {i for i in expanded if product.tokens[i].sentence == product.tokens[head].sentence}
-                        boundaries = [i for i in scoped if i != head and doc[i].lower_ in binding.stop_words]
+                        expanded = (
+                            {t.i for t in doc[head].subtree}
+                            if binding.expansion == "subtree"
+                            else {head, *(t.i for t in doc[head].conjuncts)}
+                        )
+                        scoped = {
+                            i
+                            for i in expanded
+                            if product.tokens[i].sentence == product.tokens[head].sentence
+                        }
+                        boundaries = [
+                            i for i in scoped if i != head and doc[i].lower_ in binding.stop_words
+                        ]
                         if boundaries:
                             scoped = {i for i in scoped if i < min(boundaries)}
                         if scoped != expanded:
-                            status, reason = "partial", "expansion stopped at sentence or declared scope boundary"
+                            status, reason = (
+                                "partial",
+                                "expansion stopped at sentence or declared scope boundary",
+                            )
                         expanded = scoped | {head}
                 if len(expanded) > binding.max_tokens:
-                    expanded, status, reason = {head}, "partial", "expansion exceeds declared token limit; head retained"
+                    expanded, status, reason = (
+                        {head},
+                        "partial",
+                        "expansion exceeds declared token limit; head retained",
+                    )
                 role_nodes = tuple(sorted(expanded))
-                extents = tuple((product.tokens[i].start, product.tokens[i].end) for i in role_nodes)
-                roles.append(LocatedRole(name, binding.node, head, binding.expansion, role_nodes, extents, status, reason))
-                if role_nodes and role_nodes == tuple(range(role_nodes[0], role_nodes[-1]+1)):
-                    spans.append(Span(doc, role_nodes[0], role_nodes[-1]+1, label=name, span_id=repr((rule.rule, rule.variant, name))))
+                extents = tuple(
+                    (product.tokens[i].start, product.tokens[i].end) for i in role_nodes
+                )
+                roles.append(
+                    LocatedRole(
+                        name,
+                        binding.node,
+                        head,
+                        binding.expansion,
+                        role_nodes,
+                        extents,
+                        status,
+                        reason,
+                    )
+                )
+                if role_nodes and role_nodes == tuple(range(role_nodes[0], role_nodes[-1] + 1)):
+                    spans.append(
+                        Span(
+                            doc,
+                            role_nodes[0],
+                            role_nodes[-1] + 1,
+                            label=name,
+                            span_id=repr((rule.rule, rule.variant, name)),
+                        )
+                    )
             rows = [product.tokens[index] for index in nodes]
-            results.append(AnnotationRuleMatch(rule.rule, rule.variant, rule.mechanism, nodes,
-                tuple(sorted({(r.start, r.end) for r in rows})),
-                tuple(sorted({i for r in rows for i in r.piece_indices})),
-                tuple(r.sentence for r in rows), product.dependency_digest, tuple(roles)))
+            results.append(
+                AnnotationRuleMatch(
+                    rule.rule,
+                    rule.variant,
+                    rule.mechanism,
+                    nodes,
+                    tuple(sorted({(r.start, r.end) for r in rows})),
+                    tuple(sorted({i for r in rows for i in r.piece_indices})),
+                    tuple(r.sentence for r in rows),
+                    product.dependency_digest,
+                    tuple(roles),
+                )
+            )
 
         # Each variant is prepared once and runs only when its own columns are available.
         for key, matcher in self.matchers.items():

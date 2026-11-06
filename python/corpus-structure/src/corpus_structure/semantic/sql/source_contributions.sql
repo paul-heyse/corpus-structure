@@ -550,6 +550,51 @@ BEGIN
   IF (contribution->>'kind'='relation' AND jsonb_array_length(COALESCE(contribution->'endpoints','[]'))<2)
    OR (contribution->>'kind'='composite' AND jsonb_array_length(COALESCE(contribution->'members','[]'))=0) THEN
    RAISE EXCEPTION 'relation/composite contribution lacks endpoints/members' USING ERRCODE='23514'; END IF;
+  IF contribution ? 'component' THEN
+   DECLARE component jsonb:=contribution->'component'; basis jsonb; role_ jsonb; participant jsonb;
+    endpoint_roles jsonb; expected_endpoints jsonb; actual_endpoints jsonb; available_anchors jsonb;
+   BEGIN
+    op:=operation_map->(contribution->>'operation_key');
+    IF component->>'question' IS DISTINCT FROM op->>'question'
+     OR component->>'question_version' IS DISTINCT FROM op->>'operation_version'
+     OR NOT(COALESCE(contribution->'computation_dependencies','[]') @> (component->'dependencies'))
+     OR EXISTS(SELECT FROM jsonb_array_elements(component->'dependencies') d GROUP BY d HAVING count(*)>1) THEN
+     RAISE EXCEPTION 'component differs from operation question/version/dependencies' USING ERRCODE='23514'; END IF;
+    SELECT COALESCE(jsonb_agg(a->'anchor_id'),'[]') INTO available_anchors FROM (
+     SELECT a FROM jsonb_array_elements(COALESCE(contribution->'anchors','[]')) a
+     UNION ALL SELECT a FROM jsonb_array_elements(COALESCE(contribution->'endpoints','[]')) e
+      JOIN LATERAL (SELECT c FROM jsonb_array_elements(p_envelope->'contributions') c WHERE c->>'contribution_id'=e->>'contribution_id') c ON true
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.c->'anchors','[]')) a
+    ) source_anchors;
+    FOR basis IN SELECT value FROM jsonb_array_elements(component->'bases') LOOP
+     IF NOT(component->'dependencies' @> (basis->'dependencies'))
+      OR EXISTS(SELECT FROM jsonb_array_elements(basis->'dependencies') d GROUP BY d HAVING count(*)>1)
+      OR NOT(available_anchors @> COALESCE(basis->'anchor_ids','[]')) THEN
+      RAISE EXCEPTION 'component basis has unavailable dependency or source anchor' USING ERRCODE='23514'; END IF;
+    END LOOP;
+    IF component->>'kind'='located_role' THEN
+     IF NOT contribution ? 'occurrence_id'
+      OR EXISTS(SELECT FROM jsonb_array_elements(component->'roles') role_entry GROUP BY role_entry->>'role' HAVING count(*)>1) THEN
+      RAISE EXCEPTION 'located component requires physical occurrence and distinct roles' USING ERRCODE='23514'; END IF;
+     FOR role_ IN SELECT value FROM jsonb_array_elements(component->'roles') LOOP
+      IF EXISTS(SELECT FROM jsonb_array_elements_text(role_->'anchor_ids') aid WHERE NOT EXISTS(
+       SELECT FROM jsonb_array_elements(contribution->'anchors') a WHERE a->>'anchor_id'=aid)) THEN
+       RAISE EXCEPTION 'located component role has unavailable source anchor' USING ERRCODE='23514'; END IF;
+     END LOOP;
+    ELSE
+     SELECT convert_from(content,'UTF8')::jsonb->'component_endpoints'->(component->>'kind') INTO endpoint_roles
+      FROM sem.artifact WHERE release_id=t.release_id AND artifact_name='contribution_projection.json';
+     SELECT jsonb_object_agg(role,component->(role||'_contribution_id')) INTO expected_endpoints
+      FROM jsonb_array_elements_text(COALESCE(endpoint_roles,'[]')) role;
+     SELECT jsonb_object_agg(e->>'role',e->'contribution_id') INTO actual_endpoints
+      FROM jsonb_array_elements(COALESCE(contribution->'endpoints','[]')) e;
+     IF contribution->>'kind'<>'relation' OR endpoint_roles IS NULL OR jsonb_array_length(endpoint_roles)=0
+      OR actual_endpoints IS DISTINCT FROM expected_endpoints
+      OR jsonb_array_length(contribution->'endpoints')<>jsonb_array_length(endpoint_roles) THEN
+      RAISE EXCEPTION 'component endpoints differ from released role signature' USING ERRCODE='23514'; END IF;
+    END IF;
+   END;
+  END IF;
  END LOOP;
  SELECT COALESCE(jsonb_agg(a),'[]') INTO anchors FROM (SELECT DISTINCT a
   FROM jsonb_array_elements(p_envelope->'contributions') c

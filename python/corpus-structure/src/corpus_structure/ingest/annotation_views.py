@@ -84,7 +84,9 @@ def annotation_view(
         morphs=["|".join(row.morphology) for row in rows],
         heads=[row.head for row in rows] if complete_dep else None,
         deps=[row.dependency for row in rows] if complete_dep else None,
-        sent_starts=None if complete_dep else [row.start in {s.start for s in product.sentences} for row in rows],
+        sent_starts=None
+        if complete_dep
+        else [row.start in {s.start for s in product.sentences} for row in rows],
     )
     view = AnnotationView(product, doc)
     view.check_layout()
@@ -100,7 +102,9 @@ def annotation_view(
             )
     for native, retained in zip(doc, rows, strict=True):
         if (
-            native.lemma_, native.pos_, native.tag_,
+            native.lemma_,
+            native.pos_,
+            native.tag_,
             tuple(str(native.morph).split("|")) if str(native.morph) else (),
         ) != (retained.lemma, retained.pos, retained.tag, retained.morphology):
             raise ValueError("native view changed retained linguistic columns")

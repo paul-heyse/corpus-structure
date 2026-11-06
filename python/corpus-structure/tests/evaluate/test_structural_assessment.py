@@ -139,3 +139,41 @@ def test_source_first_frame_cannot_select_outputs():
         StructuralEvaluationFrame.model_validate(
             dict(frame().model_dump(), product_ids=["produced"])
         )
+
+
+def test_v2_structural_source_population_and_v1_boundary():
+    from corpus_structure.evaluate.structural_assessment import (
+        StructuralEvaluationFrameV2,
+        decode_structural_frame,
+    )
+
+    original = frame()
+    values = original.model_dump(mode="json")
+    values.update(
+        protocol="structural-evaluation-frame-2",
+        partition="final_assessment",
+        source_groups=[
+            dict(source_ref=original.inputs.sources[0].identity, origin_group="source-family")
+        ],
+        opportunities=[
+            dict(
+                opportunity_id="unalignable-source-opportunity",
+                passage_id="p1",
+                facet="role",
+                source_state="stated",
+            )
+        ],
+        inspected_scope="original-source-passage",
+        exposure_history=[],
+    )
+    frozen = decode_structural_frame(values)
+    assert isinstance(frozen, StructuralEvaluationFrameV2)
+    assert frozen.product_ids == ()
+    with pytest.raises(ValueError, match="exposed sources"):
+        decode_structural_frame(dict(values, exposure_history=["development-feedback"]))
+    with pytest.raises(ValueError, match="Extra inputs"):
+        StructuralEvaluationFrame.model_validate(values)
+    with pytest.raises(ValueError, match="development-only"):
+        StructuralEvaluationFrame.model_validate(
+            dict(original.model_dump(mode="json"), partition="final_assessment")
+        )

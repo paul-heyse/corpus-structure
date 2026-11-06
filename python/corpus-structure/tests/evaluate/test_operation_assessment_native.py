@@ -37,7 +37,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import seal_cut
 
 
-def freeze(conn, case, partition="development", label="operation-source-only"):
+def freeze(conn, case, partition="development", label="operation-source-only", *, frame_version=1):
     uri = conn.scalar(
         select(table("kb.document").c.source_uri).where(
             table("kb.document").c.id == case.view_row["document_id"]
@@ -93,6 +93,23 @@ def freeze(conn, case, partition="development", label="operation-source-only"):
         anchor_ids=tuple(anchor["anchor_id"] for anchor in reading["anchors"]),
         anchor_scopes=old_frame.anchor_scopes,
     )
+    if frame_version == 2:
+        from corpus_structure.evaluate.operation_assessment import (
+            OperationEvaluationFrameV2,
+            OperationSourceOpportunity,
+        )
+
+        frame = OperationEvaluationFrameV2(
+            **asdict(frame),
+            source_group="operation-fixture-origin",
+            partition=partition,
+            inspected_scope="two-cell native source control",
+            opportunities=(
+                OperationSourceOpportunity(
+                    "cell-opportunity-without-output", case.view, 0, 2, "location", "stated"
+                ),
+            ),
+        )
     created = create_reference_set(
         conn,
         project_id="private-records",
@@ -410,3 +427,54 @@ def test_sealed_access_control_fixture_history_has_no_labels(
                 )
             )
         assert getattr(refused.value.orig, "sqlstate", None) == "42501"
+
+
+def test_native_v2_source_opportunities_require_origin_group_and_partition(
+    reference_source, semantic_evaluator_engine
+):
+    from dataclasses import replace
+
+    source = reference_source
+    with semantic_evaluator_engine.begin() as conn:
+        created, unit, frame, _payload = freeze(conn, source, frame_version=2)
+        assert created["sampling"]["source_frame_abi"] == "source-operation-frame-2"
+        packet = author_packet(conn, unit)
+        assert packet["source_frame"]["protocol"] == "source-operation-frame-2"
+        assert (
+            packet["source_frame"]["evaluation_frame"]["opportunities"][0]["opportunity_id"]
+            == "cell-opportunity-without-output"
+        )
+        # The new source population is independent of emission IDs.
+        assert not frame.contribution_ids
+        with pytest.raises(ValueError, match="partition differs"):
+            create_reference_set(
+                conn,
+                project_id="private-records",
+                source_run_id=source.run,
+                source_cut_id=source.cut,
+                label="wrong-partition",
+                legacy_split="dev",
+                guideline=frame.guideline_version,
+                guideline_text="Frozen independent source rubric",
+                partition="feature_fit",
+                sampling=created["sampling"],
+                frames={frame.unit: frame},
+            )
+        from corpus_structure.evaluate.operation_assessment import OperationEvaluationFrameV2
+
+        assert isinstance(frame, OperationEvaluationFrameV2)
+        wrong = replace(frame, source_group="invented-origin")
+        with pytest.raises(DBAPIError, match="source opportunities differ"), conn.begin_nested():
+            create_reference_set(
+                conn,
+                project_id="private-records",
+                source_run_id=source.run,
+                source_cut_id=source.cut,
+                label="wrong-origin",
+                legacy_split="dev",
+                guideline=frame.guideline_version,
+                guideline_text="Frozen independent source rubric",
+                partition="development",
+                sampling=created["sampling"],
+                frames={wrong.unit: wrong},
+            )

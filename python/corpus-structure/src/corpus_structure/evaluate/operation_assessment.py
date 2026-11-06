@@ -73,9 +73,76 @@ class OperationEvaluationFrame:
             raise ReferenceError("operation frame requires explicit versioned question and context")
 
 
+@dataclass(frozen=True)
+class OperationSourceOpportunity:
+    """Independent native source scope, retained even when token alignment fails."""
+
+    opportunity_id: str
+    source_view_id: int
+    start: int
+    end: int
+    facet: str
+    source_state: str
+
+    def __post_init__(self):
+        if (
+            not self.opportunity_id.strip()
+            or not self.facet.strip()
+            or any(type(v) is not int for v in (self.source_view_id, self.start, self.end))
+            or self.source_view_id <= 0
+            or not 0 <= self.start < self.end
+        ):
+            raise ReferenceError("opportunity requires a named exact native source scope")
+        if self.source_state not in {
+            "stated",
+            "unstated",
+            "inapplicable",
+            "unresolved",
+            "uninspected",
+        }:
+            raise ReferenceError("unsupported source opportunity state")
+
+
+@dataclass(frozen=True, kw_only=True)
+class OperationEvaluationFrameV2(OperationEvaluationFrame):
+    source_group: str
+    partition: str
+    inspected_scope: str
+    opportunities: tuple[OperationSourceOpportunity, ...]
+    exposure_history: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        super().__post_init__()
+        if (
+            not self.source_group.strip()
+            or not self.inspected_scope.strip()
+            or self.partition not in PARTITIONS
+        ):
+            raise ReferenceError(
+                "operation frame requires source group, inspected scope and partition"
+            )
+        if not self.opportunities or len({v.opportunity_id for v in self.opportunities}) != len(
+            self.opportunities
+        ):
+            raise ReferenceError("operation frame requires distinct source opportunities")
+        views = {
+            self.pin.get("source_view_id"),
+            *(p.get("source_view_id") for p in self.related_pins),
+        }
+        if any(v.source_view_id not in views for v in self.opportunities):
+            raise ReferenceError("source opportunity is outside frozen source pins")
+        if self.exposure_history and self.partition in {
+            "final_event_calibration",
+            "final_assessment",
+        }:
+            raise ReferenceError("exposed source cannot supply a fresh held-out frame")
+
+
 def encode_frame(frame: OperationEvaluationFrame, *, captured_coordinates=()) -> dict[str, Any]:
     return dict(
-        protocol=FRAME_PROTOCOL,
+        protocol="source-operation-frame-2"
+        if isinstance(frame, OperationEvaluationFrameV2)
+        else FRAME_PROTOCOL,
         evaluation_frame=asdict(frame),
         captured_coordinates=list(captured_coordinates),
         context_dependency_digest=None,
@@ -83,7 +150,7 @@ def encode_frame(frame: OperationEvaluationFrame, *, captured_coordinates=()) ->
 
 
 def decode_frame(value: Mapping[str, Any]) -> OperationEvaluationFrame:
-    if value.get("protocol") != FRAME_PROTOCOL or set(value) - {
+    if value.get("protocol") not in {FRAME_PROTOCOL, "source-operation-frame-2"} or set(value) - {
         "protocol",
         "evaluation_frame",
         "captured_coordinates",
@@ -95,6 +162,12 @@ def decode_frame(value: Mapping[str, Any]) -> OperationEvaluationFrame:
         raw = dict(value["evaluation_frame"])
         for field in ("anchor_ids", "related_pins", "anchor_scopes", "contribution_ids"):
             raw[field] = tuple(raw.get(field, ()))
+        if value["protocol"] == "source-operation-frame-2":
+            raw["opportunities"] = tuple(
+                OperationSourceOpportunity(**v) for v in raw.get("opportunities", ())
+            )
+            raw["exposure_history"] = tuple(raw.get("exposure_history", ()))
+            return OperationEvaluationFrameV2(**raw)
         return OperationEvaluationFrame(**raw)
     except (KeyError, TypeError, ValueError) as error:
         raise ReferenceError("invalid immutable operation frame") from error
@@ -419,7 +492,7 @@ def score_cases(
                     if value["contribution_id"] in ids
                     and any(_matches(value, option) for option in case.alternatives)
                 )
-    results = []
+    results: list[dict[str, Any]] = []
     for case in sorted(cases, key=lambda value: value.case_id):
         candidates = candidates_by_case[case.case_id]
         matches = [
@@ -491,7 +564,49 @@ def score_cases(
         }
         for facet in facets
     }
+    source_coverage = None
+    if isinstance(frame, OperationEvaluationFrameV2):
+        # IDs join independently frozen opportunities to cases, never to a
+        # surviving token/candidate population. Missing references stay visible.
+        by_case = {value["case_id"]: value for value in results}
+        opportunities = []
+        for opportunity in frame.opportunities:
+            assessed = by_case.get(opportunity.opportunity_id)
+            if assessed is not None and assessed["facet"] != opportunity.facet:
+                raise ReferenceError("reference facet differs from frozen source opportunity")
+            status = (
+                "not_assessed_by_output_frame"
+                if frame.direction == "output_first"
+                else "reference_missing"
+                if assessed is None
+                else "unassessed"
+                if assessed["judgment"] == "unassessed"
+                else "permissible_alternative"
+                if assessed["error_category"] == "permissible_alternatives"
+                else "unresolved"
+                if assessed["judgment"] == "ambiguous"
+                else assessed["capture_outcome"]
+            )
+            opportunities.append(
+                dict(
+                    **asdict(opportunity),
+                    assessment_status=status,
+                    case_id=assessed["case_id"] if assessed is not None else None,
+                    judgment=assessed["judgment"] if assessed is not None else "unassessed",
+                    error_category=assessed["error_category"] if assessed is not None else None,
+                )
+            )
+        source_coverage = dict(
+            grain="frozen_source_opportunity",
+            opportunities=opportunities,
+            opportunity_count=len(opportunities),
+            status_counts=dict(Counter(v["assessment_status"] for v in opportunities)),
+            unmatched_reference_case_ids=sorted(
+                set(by_case) - {o.opportunity_id for o in frame.opportunities}
+            ),
+        )
     return dict(
+        **({"source_coverage": source_coverage} if source_coverage is not None else {}),
         direction=frame.direction,
         grain="operation_case_facet",
         facets=facets,
@@ -579,7 +694,7 @@ def create_reference_set(
     by_key = {unit["unit_key"]: unit for unit in source_units(conn, source_run_id)}
     if not frames or set(frames) - by_key.keys():
         raise ReferenceError("operation frame is outside selected source population")
-    selected = []
+    selected: list[dict[str, Any]] = []
     for key, frame in frames.items():
         if (frame.unit, frame.release_id, frame.guideline_version) != (key, release_id, guideline):
             raise ReferenceError("operation frame differs from source/guideline/release")
@@ -590,11 +705,19 @@ def create_reference_set(
                 frame=encode_frame(frame),
             )
         )
+    abis = {unit["frame"]["protocol"] for unit in selected}
+    if len(abis) != 1:
+        raise ReferenceError("one reference set requires one source frame ABI")
+    if any(
+        isinstance(frame, OperationEvaluationFrameV2) and frame.partition != partition
+        for frame in frames.values()
+    ):
+        raise ReferenceError("frame partition differs from reference set")
     metadata = dict(
         sampling,
         operation_protocol=PROTOCOL,
         partition=partition,
-        source_frame_abi=FRAME_PROTOCOL,
+        source_frame_abi=next(iter(abis)),
         source_cut_id=source_cut_id,
         guideline_text=guideline_text,
         guideline_digest=sha256(guideline_text.encode()).hexdigest(),

@@ -279,3 +279,103 @@ def test_local_question_forged_input_closure_refuses(prepared):
             contributions=(row,),
             coordinate_texts=(coordinate,),
         )
+
+
+def test_released_located_component_retains_independent_roles_and_basis(prepared):
+    row, coordinate = contribution(kind="proposal", role="statistics.term")
+    anchor = row["anchors"][0]["anchor_id"]
+    row["computation_dependencies"] = ("retained-annotation", "rule-variant")
+    row["component"] = dict(
+        protocol="witnessed-component-1",
+        kind="located_role",
+        question="locate_mentions",
+        question_version="1",
+        scope="selected-source",
+        interpretation="unassessed",
+        dependencies=("retained-annotation", "rule-variant"),
+        bases=(dict(kind="matched_cue", dependencies=("rule-variant",), anchor_ids=(anchor,)),),
+        rule="calling",
+        variant="passive",
+        roles=(
+            dict(
+                role="term",
+                anchor_ids=(anchor,),
+                head_token=0,
+                expansion="exact",
+                outcome="complete",
+            ),
+        ),
+    )
+    row["contribution_id"] = contribution_identity(row)
+    _, bound = bind_contributions(
+        prepared,
+        source="source",
+        operations=(operation(1),),
+        contributions=(row,),
+        coordinate_texts=(coordinate,),
+    )
+    assert bound[0]["component"]["roles"][0]["role"] == "term"
+    assert bound[0]["standing"] == "retained_private"
+    from corpus_structure.semantic.contributions import component_statement
+
+    assert (
+        component_statement(bound[0], {bound[0]["contribution_id"]: bound[0]})[
+            "publication_authority"
+        ]
+        is False
+    )
+    bad = dict(row, component=dict(row["component"], question="different-question"))
+    bad["contribution_id"] = contribution_identity(bad)
+    with pytest.raises(ValueError, match="operation question"):
+        bind_contributions(
+            prepared,
+            source="source",
+            operations=(operation(1),),
+            contributions=(bad,),
+            coordinate_texts=(coordinate,),
+        )
+
+
+def test_component_endpoint_signature_is_released_and_not_generic_cardinality(prepared):
+    term, coordinate = contribution(item="term")
+    content, _ = contribution(start=3, item="content")
+    row, _ = contribution(kind="relation", item="attachment")
+    row["computation_dependencies"] = ("source-premise",)
+    row["endpoints"] = (
+        dict(role="term", contribution_id=term["contribution_id"]),
+        dict(role="content", contribution_id=content["contribution_id"]),
+    )
+    row["component"] = dict(
+        protocol="witnessed-component-1",
+        kind="definition_attachment",
+        question="locate_mentions",
+        question_version="1",
+        scope="source",
+        interpretation="unresolved",
+        dependencies=("source-premise",),
+        bases=(dict(kind="matched_cue", dependencies=("source-premise",)),),
+        term_contribution_id=term["contribution_id"],
+        content_contribution_id=content["contribution_id"],
+    )
+    row["contribution_id"] = contribution_identity(row)
+    _, bound = bind_contributions(
+        prepared,
+        source="source",
+        operations=(operation(3),),
+        contributions=(term, content, row),
+        coordinate_texts=(coordinate,),
+    )
+    assert bound[-1]["component"]["kind"] == "definition_attachment"
+    row["endpoints"] = (
+        dict(role="actor", contribution_id=term["contribution_id"]),
+        dict(role="object", contribution_id=content["contribution_id"]),
+    )
+    row["contribution_id"] = contribution_identity(row)
+    with pytest.raises(ValueError, match="released role signature"):
+        bind_contributions(
+            prepared,
+            source="source",
+            operations=(operation(3),),
+            contributions=(term, content, row),
+            coordinate_texts=(coordinate,),
+        )

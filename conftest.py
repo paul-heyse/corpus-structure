@@ -24,7 +24,7 @@ def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> Generator[None]:
     # A session fixture is local to a worker. Keep the expensive corpus preparation and
-    # its own bounded page pool together instead of rebuilding both on sixteen workers.
+    # its own bounded page pool together instead of rebuilding both on every auto-selected worker.
     math_tests = Path(__file__).parent / "python" / "corpus-structure" / "tests" / "math"
     for item in items:
         if item.path.is_relative_to(math_tests):

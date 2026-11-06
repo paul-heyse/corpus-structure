@@ -12,7 +12,7 @@ BEGIN
   OR jsonb_typeof(p_units) IS DISTINCT FROM 'array' OR jsonb_array_length(p_units)=0
   OR jsonb_typeof(p_sampling) IS DISTINCT FROM 'object'
   OR p_sampling->>'operation_protocol' IS DISTINCT FROM 'source-operation-reference-1'
-  OR p_sampling->>'source_frame_abi' IS DISTINCT FROM 'source-operation-frame-1'
+  OR COALESCE(p_sampling->>'source_frame_abi','') NOT IN ('source-operation-frame-1','source-operation-frame-2')
   OR p_sampling->>'partition' NOT IN ('development','feature_fit','final_event_calibration','final_assessment')
   OR btrim(COALESCE(p_sampling->>'guideline_text',''))=''
   OR p_sampling->>'guideline_digest' IS DISTINCT FROM encode(sha256(convert_to(p_sampling->>'guideline_text','UTF8')),'hex')
@@ -64,7 +64,7 @@ BEGIN
    'protocol','source-operation-reference-1','release_id',source_release,'unit_ref',unit->>'unit_key',
    'guideline',p_guideline,'rubric_version',frozen_frame->'evaluation_frame'->>'rubric_version',
    'context_policy',frozen_frame->'evaluation_frame'->>'context_policy','reason','source-only frame freeze','cases','[]'::jsonb)||
-   ((frozen_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids']),frozen_frame);
+   ((frozen_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history']),frozen_frame);
  END LOOP;
  RETURN result;
 END $$;
@@ -82,9 +82,9 @@ BEGIN
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=unit.source_view_id;
  bound:=p_frame->'evaluation_frame';
  IF unit.context IS DISTINCT FROM jsonb_build_array(p_frame)
-  OR p_frame->>'protocol' IS DISTINCT FROM 'source-operation-frame-1' OR p_frame-ARRAY['protocol','evaluation_frame','source_views','captured_coordinates','context_dependency_digest']<>'{}'
+  OR COALESCE(p_frame->>'protocol','') NOT IN ('source-operation-frame-1','source-operation-frame-2') OR p_frame-ARRAY['protocol','evaluation_frame','source_views','captured_coordinates','context_dependency_digest']<>'{}'
   OR jsonb_typeof(bound) IS DISTINCT FROM 'object'
-  OR bound-ARRAY['unit','release_id','guideline_version','rubric_version','context_policy','pin','anchor_ids','related_pins','anchor_scopes','operation_question','operation_version','domain','direction','contribution_ids']<>'{}'
+  OR bound-ARRAY['unit','release_id','guideline_version','rubric_version','context_policy','pin','anchor_ids','related_pins','anchor_scopes','operation_question','operation_version','domain','direction','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history']<>'{}'
   OR p_payload->>'protocol' IS DISTINCT FROM 'source-operation-reference-1'
   OR p_payload-ARRAY['protocol','release_id','unit_ref','guideline','rubric_version','context_policy',
     'operation_question','operation_version','domain','direction','reason','cases','adjudication_passes']<>'{}'
@@ -129,6 +129,34 @@ BEGIN
  expected:=eval.validate_reference_source_scope(p_unit,p_frame);
  IF jsonb_typeof(p_payload->'cases') IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION 'operation cases must be an array' USING ERRCODE='23514'; END IF;
+ IF p_frame->>'protocol' IS DISTINCT FROM reference_set.sampling->>'source_frame_abi' THEN
+  RAISE EXCEPTION 'operation frame ABI differs from frozen set' USING ERRCODE='23514'; END IF;
+ IF p_frame->>'protocol'='source-operation-frame-1' THEN
+  IF bound ?| ARRAY['source_group','partition','inspected_scope','opportunities','exposure_history'] THEN
+   RAISE EXCEPTION 'legacy frame cannot contain version two fields' USING ERRCODE='23514'; END IF;
+ ELSE
+  IF bound->>'partition' IS DISTINCT FROM reference_set.sampling->>'partition'
+   OR btrim(COALESCE(bound->>'source_group',''))='' OR btrim(COALESCE(bound->>'inspected_scope',''))=''
+   OR jsonb_typeof(bound->'opportunities') IS DISTINCT FROM 'array' OR jsonb_array_length(bound->'opportunities')=0
+   OR jsonb_typeof(bound->'exposure_history') IS DISTINCT FROM 'array'
+   OR (bound->>'partition' IN ('final_event_calibration','final_assessment') AND bound->'exposure_history'<>'[]')
+   OR NOT EXISTS(SELECT FROM jsonb_array_elements(reference_set.sampling->'eligible_units') u
+    WHERE u->>'unit_key'=unit.unit_key AND u->>'origin_group'=bound->>'source_group')
+   OR EXISTS(SELECT FROM jsonb_array_elements(bound->'opportunities') o GROUP BY o->>'opportunity_id' HAVING count(*)>1) THEN
+   RAISE EXCEPTION 'operation source opportunities differ from frozen group/partition' USING ERRCODE='23514'; END IF;
+  FOR source_record IN SELECT value FROM jsonb_array_elements(bound->'opportunities') LOOP
+   IF source_record-ARRAY['opportunity_id','source_view_id','start','end','facet','source_state']<>'{}'
+    OR jsonb_typeof(source_record->'source_view_id') IS DISTINCT FROM 'number'
+    OR jsonb_typeof(source_record->'start') IS DISTINCT FROM 'number' OR jsonb_typeof(source_record->'end') IS DISTINCT FROM 'number'
+    OR btrim(COALESCE(source_record->>'opportunity_id',''))='' OR btrim(COALESCE(source_record->>'facet',''))=''
+    OR COALESCE(source_record->>'source_state','') NOT IN ('stated','unstated','inapplicable','unresolved','uninspected')
+    OR COALESCE(source_record->>'start','') !~ '^[0-9]+$' OR COALESCE(source_record->>'end','') !~ '^[0-9]+$'
+    OR (source_record->>'end')::bigint <= (source_record->>'start')::bigint
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'source_views') v WHERE v->>'id'=source_record->>'source_view_id'
+     AND (source_record->>'end')::bigint<=length(v->'projection'->>'text')) THEN
+    RAISE EXCEPTION 'invalid independent source opportunity' USING ERRCODE='23514'; END IF;
+  END LOOP;
+ END IF;
  FOR source_record IN SELECT value FROM jsonb_array_elements(p_payload->'cases') LOOP
   IF source_record-ARRAY['case_id','facet','anchor_ids','inspected_scope','source_state','judgment','alternatives','explanation',
     'assessor_provenance','contribution_kind','contribution_id','error_category','candidate_selector','permissible_anchor_sets','expectation_mode','anchor_endpoint_role']<>'{}'
@@ -223,7 +251,7 @@ BEGIN
   'guideline',reference_set.guideline,'rubric_version',source_frame->'evaluation_frame'->>'rubric_version',
   'context_policy',source_frame->'evaluation_frame'->>'context_policy',
   'reason','source-only author packet','cases','[]'::jsonb)||
-   ((source_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids']),source_frame);
+   ((source_frame->'evaluation_frame')-ARRAY['unit','release_id','guideline_version','pin','anchor_ids','related_pins','anchor_scopes','contribution_ids','source_group','partition','inspected_scope','opportunities','exposure_history']),source_frame);
  FOR selected IN SELECT v.* FROM jsonb_array_elements(source_frame->'source_views') frozen
   JOIN kb.source_view v ON v.id=(frozen->>'id')::bigint ORDER BY v.id LOOP
   SELECT COALESCE(jsonb_object_agg(pointer,native_json),'{}') INTO context FROM ops.read_pdf_published_items(

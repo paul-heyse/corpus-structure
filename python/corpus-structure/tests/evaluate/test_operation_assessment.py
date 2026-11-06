@@ -530,3 +530,83 @@ def test_endpoint_anchored_case_refuses_other_contribution_kinds(kind):
 def test_endpoint_anchored_case_requires_declared_role(role):
     with pytest.raises(ReferenceError, match="declared role"):
         replace(conditional_role_case(), anchor_endpoint_role=role)
+
+
+def test_v2_frame_preserves_unalignable_opportunities_and_exposure_partition(frame):
+    from corpus_structure.evaluate.operation_assessment import (
+        OperationEvaluationFrameV2,
+        OperationSourceOpportunity,
+    )
+
+    opportunity = OperationSourceOpportunity(
+        "source-span-without-tokens", 23, 0, 4, "role", "stated"
+    )
+    frozen = OperationEvaluationFrameV2(
+        **asdict(frame),
+        source_group="book-origin",
+        partition="development",
+        inspected_scope="original-native-passage",
+        opportunities=(opportunity,),
+        exposure_history=("development-feedback",),
+    )
+    encoded = encode_frame(frozen)
+    assert encoded["protocol"] == "source-operation-frame-2"
+    assert decode_frame(encoded) == frozen
+    assert not frozen.contribution_ids
+    with pytest.raises(ReferenceError, match="exposed source"):
+        replace(frozen, partition="final_assessment")
+    with pytest.raises(ReferenceError, match="distinct source opportunities"):
+        replace(frozen, opportunities=(opportunity, opportunity))
+    with pytest.raises(ReferenceError, match="outside frozen"):
+        replace(frozen, opportunities=(replace(opportunity, source_view_id=24),))
+
+
+def test_v2_coverage_preserves_missing_reference_and_missing_prediction(frame):
+    from corpus_structure.evaluate.operation_assessment import (
+        OperationEvaluationFrameV2,
+        OperationSourceOpportunity,
+    )
+
+    frozen = OperationEvaluationFrameV2(
+        **asdict(frame),
+        source_group="book",
+        partition="development",
+        inspected_scope="source scope",
+        opportunities=(
+            OperationSourceOpportunity("case-1", 23, 0, 2, "value", "stated"),
+            OperationSourceOpportunity("not-authored", 23, 2, 4, "role", "uninspected"),
+        ),
+    )
+    result = score_cases(frozen, (case(),), ())
+    assert result["source_coverage"]["opportunity_count"] == 2
+    assert [v["assessment_status"] for v in result["source_coverage"]["opportunities"]] == [
+        "not_captured",
+        "reference_missing",
+    ]
+    assert result["source_coverage"]["opportunities"][0]["error_category"] == "missing_output"
+    assert result["source_coverage"]["opportunities"][1]["judgment"] == "unassessed"
+
+
+def test_v2_coverage_distinguishes_permissible_alternative_from_unresolved_no_output(frame):
+    from corpus_structure.evaluate.operation_assessment import (
+        OperationEvaluationFrameV2,
+        OperationSourceOpportunity,
+    )
+
+    frozen = OperationEvaluationFrameV2(
+        **asdict(frame),
+        source_group="book",
+        partition="development",
+        inspected_scope="source",
+        opportunities=(OperationSourceOpportunity("case-1", 23, 0, 2, "value", "unresolved"),),
+    )
+    ambiguous = replace(case(), judgment="ambiguous", source_state="unresolved")
+    present = score_cases(frozen, (ambiguous,), (prediction(),))
+    missing = score_cases(frozen, (ambiguous,), ())
+    assert (
+        present["source_coverage"]["opportunities"][0]["assessment_status"]
+        == "permissible_alternative"
+    )
+    assert present["source_coverage"]["opportunities"][0]["judgment"] == "ambiguous"
+    assert missing["source_coverage"]["opportunities"][0]["assessment_status"] == "unresolved"
+    assert missing["source_coverage"]["opportunities"][0]["error_category"] == "unresolved"

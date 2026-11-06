@@ -233,6 +233,81 @@ classes:
       facet: {required: true, equals_string: denotation}
       rubric_version: {required: true, equals_string: contextual-denotation-1}
       context_policy: {required: true, equals_string: declared-native-source-and-curated-targets-1}
+  ComponentBasis:
+    is_a: SourceRecordProduct
+    description: Attributed evidence for a private component; never an admission witness.
+    attributes:
+      kind: {required: true, pattern: '^(matched_cue|producer_group|native_geometry|model_reading|admitted_derivation)$'}
+      dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
+      anchor_ids: {multivalued: true}
+  LocatedComponentRole:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true}
+      anchor_ids: {multivalued: true, required: true, minimum_cardinality: 1}
+      head_token: {range: integer, required: true, minimum_value: 0}
+      expansion: {required: true, pattern: '^(exact|sentence_subtree|conjuncts)$'}
+      outcome: {required: true, pattern: '^(complete|partial|unresolved)$'}
+  WitnessedComponent:
+    is_a: SourceRecordProduct
+    abstract: true
+    description: Versioned private distinction with a declared question, basis and scope; no public effect.
+    attributes:
+      protocol: {required: true, equals_string: witnessed-component-1}
+      kind: {required: true}
+      question: {required: true}
+      question_version: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      interpretation: {required: true, pattern: '^(unassessed|supported|incompatible|unresolved)$'}
+      bases: {range: ComponentBasis, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
+      dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
+  LocatedRoleComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: located_role}
+      rule: {required: true}
+      variant: {required: true}
+      roles: {range: LocatedComponentRole, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
+  DefinitionAttachmentComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: definition_attachment}
+      term_contribution_id: {required: true}
+      content_contribution_id: {required: true}
+  UsageBindingComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: usage_binding}
+      usage_contribution_id: {required: true}
+      target_contribution_id: {required: true}
+  ApplicabilityComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: applicability}
+      usage_contribution_id: {required: true}
+      component_contribution_id: {required: true}
+  ScopedAttachmentComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: scoped_attachment}
+      attachment_contribution_id: {required: true}
+      target_contribution_id: {required: true}
+      attachment_kind: {required: true}
+  TypedComparisonComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: typed_comparison}
+      left_contribution_id: {required: true}
+      right_contribution_id: {required: true}
+      dimension: {required: true}
+  DossierMembershipComponent:
+    is_a: WitnessedComponent
+    attributes:
+      kind: {equals_string: dossier_membership}
+      root_contribution_id: {required: true}
+      member_contribution_id: {required: true}
+      member_role: {required: true}
   SourceContribution:
     is_a: SourceRecordProduct
     description: Independent private source product. No complete-record parent or knowledge authority is implied.
@@ -249,6 +324,7 @@ classes:
       occurrence_id: {}
       endpoints: {range: ContributionEndpoint, inlined: true, multivalued: true}
       members: {multivalued: true}
+      component: {range: WitnessedComponent, inlined: true}
       disposition: {required: true}
       source_field_state: {range: RecordFieldState}
       anchor_role: {range: ContributionAnchorRole}

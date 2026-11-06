@@ -169,6 +169,13 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
             raise ValueError("relation contribution requires explicit endpoint roles")
         if row["kind"] == "composite" and not members:
             raise ValueError("composite contribution requires explicit members")
+    by_identity = {row["contribution_id"]: row for row in output}
+    by_operation = {op["operation_key"]: op for op in ops}
+    endpoint_signatures = component_endpoint_signatures(prepared.index.definitions.values())
+    for row in output:
+        validate_component(
+            row, by_operation[row["operation_key"]], by_identity, endpoint_signatures
+        )
     from .local_interpretation_reports import validate_local_interpretation_report
 
     for op in ops:
@@ -209,6 +216,7 @@ def prepare_contribution_projection(definitions):
             dict(
                 abi="source-contribution-projection-1",
                 contracts=contracts,
+                component_endpoints=component_endpoint_signatures(definitions),
                 relations=[
                     "kb.source_contribution_operation",
                     "kb.source_contribution",
@@ -220,4 +228,90 @@ def prepare_contribution_projection(definitions):
                 occurrence_recipe="ordered-native-source-pieces-1",
             )
         ),
+    )
+
+
+def component_endpoint_signatures(definitions):
+    return {
+        next(p.equals_string for p in definition.properties if p.name == "kind"): tuple(
+            sorted(
+                p.name.removesuffix("_contribution_id")
+                for p in definition.properties
+                if p.name.endswith("_contribution_id")
+            )
+        )
+        for definition in definitions
+        if "WitnessedComponent" in definition.ancestors and not definition.abstract
+    }
+
+
+def validate_component(row, operation, population, endpoint_signatures):
+    """Bind released component evidence to actual operation/source participants.
+
+    Shape validation is performed by the effective release. This checks the
+    cross-row meaning that neither a JSON schema nor a matcher establishes.
+    """
+    component = row.get("component")
+    if component is None:
+        return
+    if (
+        component["question"] != operation["question"]
+        or component["question_version"] != operation["operation_version"]
+    ):
+        raise ValueError("component differs from its producing operation question/version")
+    dependencies = component["dependencies"]
+    if len(set(dependencies)) != len(dependencies) or not set(dependencies) <= set(
+        row.get("computation_dependencies", ())
+    ):
+        raise ValueError("component dependencies differ from retained computation")
+    anchors = {a["anchor_id"] for a in row.get("anchors", ())}
+    for endpoint in row.get("endpoints", ()):
+        participant = population[endpoint["contribution_id"]]
+        anchors.update(a["anchor_id"] for a in participant.get("anchors", ()))
+    for basis in component["bases"]:
+        if len(set(basis["dependencies"])) != len(basis["dependencies"]) or not set(
+            basis["dependencies"]
+        ) <= set(dependencies):
+            raise ValueError("component basis has unavailable dependency")
+        if not set(basis.get("anchor_ids", ())) <= anchors:
+            raise ValueError("component basis has unavailable source anchor")
+    if component["kind"] == "located_role":
+        roles = component["roles"]
+        if len({role["role"] for role in roles}) != len(roles):
+            raise ValueError("located component repeats a role")
+        if not row.get("occurrence_id"):
+            raise ValueError("located component requires its physical occurrence")
+        for role in roles:
+            if not set(role["anchor_ids"]) <= {a["anchor_id"] for a in row.get("anchors", ())}:
+                raise ValueError("located component role has unavailable source anchor")
+    else:
+        roles = endpoint_signatures.get(component["kind"])
+        if not roles or row["kind"] != "relation":
+            raise ValueError("unsupported relational component operation")
+        expected = {role: component[role + "_contribution_id"] for role in roles}
+        actual = {
+            endpoint["role"]: endpoint["contribution_id"] for endpoint in row.get("endpoints", ())
+        }
+        if len(row.get("endpoints", ())) != len(expected) or actual != expected:
+            raise ValueError("component endpoints differ from released role signature")
+
+
+def component_statement(row, population):
+    """Exact private assessed statement, not a public claim identity or eligibility.
+
+    Derivation identities remain intentional here: independent assessment binds
+    the exact retained component. A future public component policy must project
+    its own source-resolved semantic statement before admission.
+    """
+    if "component" not in row:
+        raise ValueError("component statement requires a retained component")
+    return dict(
+        version="private-component-assessment-statement-1",
+        component=row["component"],
+        anchors=row.get("anchors", ()),
+        endpoints=tuple(
+            dict(role=e["role"], participant=population[e["contribution_id"]])
+            for e in row.get("endpoints", ())
+        ),
+        publication_authority=False,
     )

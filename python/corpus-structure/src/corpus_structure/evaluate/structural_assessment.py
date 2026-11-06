@@ -16,22 +16,88 @@ from corpus_structure.semantic.structural_products import (
 
 
 class StructuralEvaluationFrame(StructuralValue):
-    protocol: Literal["structural-evaluation-frame-1"] = "structural-evaluation-frame-1"
+    protocol: Literal["structural-evaluation-frame-1", "structural-evaluation-frame-2"] = (
+        "structural-evaluation-frame-1"
+    )
     inputs: StructuralInput
     operation: Literal["definition_applicability", "qualified_comparison", "dossier"]
     direction: Literal["source_first", "output_first"]
     rubric_version: str = Field(min_length=1)
     rubric_text: str = Field(min_length=1)
     product_ids: tuple[str, ...] = ()
-    partition: Literal["development"] = "development"
+    partition: Literal[
+        "development", "feature_fit", "final_event_calibration", "final_assessment"
+    ] = "development"
 
     @model_validator(mode="after")
     def selection(self):
+        if self.protocol == "structural-evaluation-frame-1" and self.partition != "development":
+            raise ValueError("legacy structural frame is development-only")
+        if (
+            type(self) is StructuralEvaluationFrame
+            and self.protocol != "structural-evaluation-frame-1"
+        ):
+            raise ValueError("version two frame requires explicit source opportunity contract")
         if bool(self.product_ids) != (self.direction == "output_first"):
             raise ValueError("only output-first frames require frozen product identities")
         if len(set(self.product_ids)) != len(self.product_ids):
             raise ValueError("frame repeats a product identity")
         return self
+
+
+class StructuralSourceGroup(StructuralValue):
+    source_ref: str = Field(min_length=1)
+    origin_group: str = Field(min_length=1)
+
+
+class StructuralSourceOpportunity(StructuralValue):
+    opportunity_id: str = Field(min_length=1)
+    passage_id: str = Field(min_length=1)
+    facet: str = Field(min_length=1)
+    source_state: Literal["stated", "unstated", "inapplicable", "unresolved", "uninspected"]
+
+
+class StructuralEvaluationFrameV2(StructuralEvaluationFrame):
+    """Source-first population and exposure contract; never inferred from outputs."""
+
+    protocol: Literal["structural-evaluation-frame-1", "structural-evaluation-frame-2"] = (
+        "structural-evaluation-frame-2"
+    )
+    partition: Literal["development", "feature_fit", "final_event_calibration", "final_assessment"]
+    source_groups: tuple[StructuralSourceGroup, ...] = Field(min_length=1)
+    opportunities: tuple[StructuralSourceOpportunity, ...] = Field(min_length=1)
+    inspected_scope: str = Field(min_length=1)
+    exposure_history: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def source_population(self):
+        if self.protocol != "structural-evaluation-frame-2":
+            raise ValueError("version two fields require version two frame protocol")
+        refs = {source.identity for source in self.inputs.sources}
+        if {group.source_ref for group in self.source_groups} != refs or len(
+            self.source_groups
+        ) != len(refs):
+            raise ValueError("source group assignment must cover exact frozen source references")
+        passages = {p.passage_id for p in self.inputs.passages}
+        if len({o.opportunity_id for o in self.opportunities}) != len(self.opportunities) or any(
+            o.passage_id not in passages for o in self.opportunities
+        ):
+            raise ValueError("opportunities must be distinct and belong to frozen source passages")
+        if self.exposure_history and self.partition in {
+            "final_event_calibration",
+            "final_assessment",
+        }:
+            raise ValueError("exposed sources cannot supply a fresh held-out frame")
+        return self
+
+
+def decode_structural_frame(value: dict[str, Any]) -> StructuralEvaluationFrame:
+    cls = (
+        StructuralEvaluationFrameV2
+        if value.get("protocol") == "structural-evaluation-frame-2"
+        else StructuralEvaluationFrame
+    )
+    return cls.model_validate(value)
 
 
 class StructuralReferenceCase(StructuralValue):
@@ -61,7 +127,7 @@ class StructuralReferenceCase(StructuralValue):
 
 
 class StructuralAuthoredReference(StructuralValue):
-    protocol: Literal["structural-reference-1"] = "structural-reference-1"
+    protocol: Literal["structural-reference-1", "structural-reference-2"] = "structural-reference-1"
     frame_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     cases: tuple[StructuralReferenceCase, ...] = Field(min_length=1)
 
@@ -122,6 +188,13 @@ def score_structural_reference(
     product: dict[str, Any],
 ) -> dict[str, Any]:
     """Compare independently authored expectations; matching is not public admission."""
+    expected_protocol = (
+        "structural-reference-2"
+        if isinstance(frame, StructuralEvaluationFrameV2)
+        else "structural-reference-1"
+    )
+    if reference.protocol != expected_protocol:
+        raise ValueError("reference protocol differs from frozen group frame")
     if reference.frame_digest != frame.identity:
         raise ValueError("reference differs from frozen group frame")
     report = StructuralProductReport.model_validate(product)

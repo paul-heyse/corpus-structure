@@ -160,9 +160,9 @@ BEGIN
   WHERE release_id=p_release AND artifact_name='json_schema/StructuralInput';
  IF shape IS NULL OR NOT public.json_matches_schema(shape,(p_frame->'inputs')::json) THEN
   RAISE EXCEPTION 'group frame inputs differ from released structural shape' USING ERRCODE='23514'; END IF;
- IF p_frame->>'protocol' IS DISTINCT FROM 'structural-evaluation-frame-1'
-  OR p_frame-ARRAY['protocol','inputs','operation','direction','rubric_version','rubric_text','product_ids','partition']<>'{}'
-  OR p_frame->>'partition' IS DISTINCT FROM 'development'
+ IF COALESCE(p_frame->>'protocol','') NOT IN ('structural-evaluation-frame-1','structural-evaluation-frame-2')
+  OR p_frame-ARRAY['protocol','inputs','operation','direction','rubric_version','rubric_text','product_ids','partition','source_groups','opportunities','inspected_scope','exposure_history']<>'{}'
+  OR COALESCE(p_frame->>'partition','') NOT IN ('development','feature_fit','final_event_calibration','final_assessment')
   OR COALESCE(p_frame->>'operation','') NOT IN ('definition_applicability','qualified_comparison','dossier')
   OR COALESCE(p_frame->>'direction','') NOT IN ('source_first','output_first')
   OR btrim(COALESCE(p_frame->>'rubric_version',''))='' OR btrim(COALESCE(p_frame->>'rubric_text',''))=''
@@ -172,6 +172,30 @@ BEGIN
   OR (p_frame->>'direction'='source_first' AND jsonb_array_length(p_frame->'product_ids')<>0)
   OR (p_frame->>'direction'='output_first' AND jsonb_array_length(p_frame->'product_ids')=0) THEN
   RAISE EXCEPTION 'invalid independent structural frame' USING ERRCODE='23514'; END IF;
+ IF p_frame->>'protocol'='structural-evaluation-frame-1' THEN
+  IF p_frame->>'partition'<>'development' OR p_frame ?| ARRAY['source_groups','opportunities','inspected_scope','exposure_history'] THEN
+   RAISE EXCEPTION 'legacy structural frame is development-only' USING ERRCODE='23514'; END IF;
+ ELSE
+  IF jsonb_typeof(p_frame->'source_groups') IS DISTINCT FROM 'array'
+   OR jsonb_array_length(p_frame->'source_groups')<>jsonb_array_length(p_frame->'inputs'->'sources')
+   OR jsonb_typeof(p_frame->'opportunities') IS DISTINCT FROM 'array' OR jsonb_array_length(p_frame->'opportunities')=0
+   OR btrim(COALESCE(p_frame->>'inspected_scope',''))='' OR jsonb_typeof(p_frame->'exposure_history') IS DISTINCT FROM 'array'
+   OR (p_frame->>'partition' IN ('final_event_calibration','final_assessment') AND p_frame->'exposure_history'<>'[]')
+   OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'source_groups') g GROUP BY g->>'source_ref' HAVING count(*)>1)
+   OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'opportunities') o GROUP BY o->>'opportunity_id' HAVING count(*)>1)
+   OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'source_groups') g WHERE g-ARRAY['source_ref','origin_group']<>'{}'
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'inputs'->'sources') src
+     JOIN kb.source_view v ON v.id=(src->>'source_view_id')::bigint JOIN kb.document d ON d.id=v.document_id
+     JOIN eval.reference_origin_source member ON member.project_id=d.project_id AND member.source_uri=d.source_uri
+     JOIN eval.reference_origin_group origin ON origin.project_id=member.project_id AND origin.origin_group=member.origin_group
+     WHERE encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex')=g->>'source_ref'
+      AND g->>'origin_group'=origin.origin_group AND origin.partition=p_frame->>'partition'))
+   OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'opportunities') o WHERE o-ARRAY['opportunity_id','passage_id','facet','source_state']<>'{}'
+    OR btrim(COALESCE(o->>'opportunity_id',''))='' OR btrim(COALESCE(o->>'facet',''))=''
+    OR COALESCE(o->>'source_state','') NOT IN ('stated','unstated','inapplicable','unresolved','uninspected')
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'inputs'->'passages') p WHERE p->>'passage_id'=o->>'passage_id')) THEN
+   RAISE EXCEPTION 'invalid structural source opportunity/group/partition' USING ERRCODE='23514'; END IF;
+ END IF;
  PERFORM ops.validate_structural_input(p_frame->'inputs');
  INSERT INTO eval.structural_reference_set(project_id,release_id,frame,frame_digest)
  VALUES(p_project,p_release,p_frame,encode(sha256(convert_to(data.canonical_json(p_frame),'UTF8')),'hex')) RETURNING id INTO result;
@@ -188,7 +212,7 @@ BEGIN
  SELECT * INTO STRICT selected FROM eval.structural_reference_set WHERE id=p_set;
  payload:=convert_from(p_authored,'UTF8')::jsonb;
  IF p_kind NOT IN ('A','B','C') OR btrim(COALESCE(p_actor,''))=''
-  OR payload->>'protocol' IS DISTINCT FROM 'structural-reference-1'
+  OR payload->>'protocol' IS DISTINCT FROM (CASE selected.frame->>'protocol' WHEN 'structural-evaluation-frame-2' THEN 'structural-reference-2' ELSE 'structural-reference-1' END)
   OR payload-ARRAY['protocol','frame_digest','cases']<>'{}'
   OR payload->>'frame_digest' IS DISTINCT FROM selected.frame_digest
   OR jsonb_typeof(payload->'cases') IS DISTINCT FROM 'array' OR jsonb_array_length(payload->'cases')=0
@@ -233,6 +257,8 @@ RETURNS bigint LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_cat
 DECLARE selected eval.structural_reference_set; result bigint; passes jsonb;
 BEGIN
  SELECT * INTO STRICT selected FROM eval.structural_reference_set WHERE id=p_set AND project_id=p_project;
+ IF selected.frame->>'partition' IS DISTINCT FROM 'development' THEN
+  RAISE EXCEPTION 'protected structural partitions do not permit development exposure' USING ERRCODE='23514'; END IF;
  IF btrim(COALESCE(p_purpose,''))='' OR btrim(COALESCE(p_recipient,''))='' THEN
   RAISE EXCEPTION 'review exposure requires declared use' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('pass_id',p.id,'content_digest',p.content_digest) ORDER BY p.id),'[]')

@@ -203,7 +203,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Descriptor frozen from reviewed test-resolution152; historical wrappers stay immutable.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "aa7346daf8c59dee36ea6de0faaa76d731a94492aca9b2b81aa5bb9ead0f4cba"
+_DESCRIPTOR_SHA256 = "7612559affd3f6d66d3450a8bddf22425a09af8f5d4c691c851431401902e2c6"
 _REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

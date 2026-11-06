@@ -160,6 +160,8 @@ M1_IMPLEMENTATION_SOURCES = (
     ("records/interpreter.py", "semantic/record_interpretation.py"),
     ("records/source-preparation.py", "methods/source_preparation.py"),
     ("records/annotations.py", "ingest/annotations.py"),
+    ("records/annotation-rules.py", "methods/annotation_rules.py"),
+    ("records/annotation-views.py", "ingest/annotation_views.py"),
     ("records/gliner.py", "methods/gliner.py"),
     ("records/gliner-worker.py", "methods/gliner_worker.py"),
     ("records/source-contexts.py", "semantic/source_contexts.py"),

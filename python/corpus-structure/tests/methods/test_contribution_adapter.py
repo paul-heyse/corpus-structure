@@ -960,3 +960,40 @@ def test_actual_blank_native_cell_retains_inspection_subject_without_text_occurr
         if row["kind"] == "occurrence"
         for anchor in row["anchors"]
     )
+
+
+def test_named_empty_operation_preserves_source_blocks_with_many_native_pieces():
+    from types import SimpleNamespace
+
+    from corpus_structure.methods.contribution_adapter import adapt_annotation_matches
+    from corpus_structure.semantic.source_contexts import NativeSourcePin
+
+    text = "X" * 80
+    pieces = [
+        dict(kind="native_text", item_ref="#/texts/1", start=i, end=i + 1, source_field="text")
+        for i in range(80)
+    ]
+    src = source(text, pieces=pieces)
+    product = SimpleNamespace(
+        source=NativeSourcePin.from_source(src),
+        block_start=0,
+        block_end=80,
+        block_id="many-pieces",
+        native_pieces=pieces,
+        dependency_digest="a" * 64,
+        tokens=tuple(range(80)),
+    )
+    rule = dict(
+        rule="cue",
+        variant="no_match",
+        mechanism="token",
+        pattern=[{"TEXT": "Y"}],
+        bindings={"cue": {"node": "match"}},
+    )
+    result = adapt_annotation_matches(
+        src, product, (), rules=(rule,), availability=(("cue", "no_match", "available"),)
+    )
+    assert result.contributions == ()
+    assert len(result.operations) == 1
+    assert result.operations[0]["outcome"] == "empty"
+    assert result.operations[0]["inspected_count"] == 80

@@ -45,7 +45,7 @@ addopts = [
     "--strict-config",
     "-q",
     "--import-mode=importlib",
-    "-n", "16",
+    "-n", "auto",
     "--dist=loadgroup",
     "-m", "not shared_cluster_fault",
 ]
