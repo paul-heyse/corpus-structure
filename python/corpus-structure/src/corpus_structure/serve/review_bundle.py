@@ -33,7 +33,10 @@ from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_views import load_source_view, selected_source_views
 from corpus_structure.serve.companion_export import _publish_directory
 from corpus_structure.serve.contributions import ContributionRequest, _contributions
-from corpus_structure.serve.structural_products import StructuralRequest, serve_structural_products
+from corpus_structure.serve.structural_products import (
+    StructuralExportRequest,
+    read_structural_export_page,
+)
 from corpus_structure.settings import Settings
 
 FORMAT = "progressive-review-bundle-1"
@@ -49,7 +52,7 @@ class ReviewComparison(BaseModel):
 class ReviewSelection(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     selections: tuple[ContributionRequest, ...] = ()
-    structural_selections: tuple[StructuralRequest, ...] = ()
+    structural_selections: tuple[StructuralExportRequest, ...] = ()
     selected_evaluation_ids: tuple[int, ...] = ()
     comparisons: tuple[ReviewComparison, ...] = ()
     completeness: Literal["selected_source_closure", "inventory"] = "selected_source_closure"
@@ -233,8 +236,11 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
         after = 0
         while True:
             cancellation.check_active()
-            page = serve_structural_products(
-                conn, original.model_copy(update={"after_task_id": after})
+            page = read_structural_export_page(
+                conn, original.model_copy(update={
+                    "after_task_id": after,
+                    "max_bytes": min(original.max_bytes, selection.max_bytes),
+                })
             )
             if after == 0:
                 yield (

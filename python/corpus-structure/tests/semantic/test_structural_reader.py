@@ -39,6 +39,33 @@ def test_large_report_refuses_before_payload_hydration(monkeypatch):
     assert "cut_task.cut_id" in sql and "origin.release_id" in sql
 
 
+def test_file_export_budget_preserves_interactive_cap_and_exact_selection(monkeypatch):
+    from pydantic import ValidationError
+
+    from semantic.test_structural_admission import definition
+
+    bind(monkeypatch)
+    conn = MagicMock(spec=Connection)
+    conn.execute.return_value.mappings.return_value = [
+        {"id": 12, "origin_id": 3, "bytes": 9_000_000}
+    ]
+    with pytest.raises(ValidationError):
+        reader.StructuralRequest(run_id=1, max_bytes=16_000_000)
+    with pytest.raises(SemanticRefusal, match="byte budget"):
+        reader.serve_structural_products(
+            conn, reader.StructuralRequest(run_id=1, cut_id=9, max_bytes=8_000_000)
+        )
+    conn.scalar.assert_not_called()
+    expected = definition()
+    conn.scalar.return_value = expected.model_dump(mode="json")
+    exported = reader.read_structural_export_page(
+        conn, reader.StructuralExportRequest(run_id=1, cut_id=9, max_bytes=16_000_000)
+    )
+    assert exported.task_ids == (12,) and exported.cut_id == 9
+    assert exported.reports == (expected,)
+    assert exported.standing == "private_proposals"
+
+
 def test_empty_selected_population_is_not_source_completeness(monkeypatch):
     bind(monkeypatch)
     conn = MagicMock(spec=Connection)

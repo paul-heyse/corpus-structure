@@ -61,7 +61,12 @@ def dossier_representation_page(report, *, limit=20, continuation=None):
     )
 
 
-class StructuralRequest(BaseModel):
+class StructuralExportRequest(BaseModel):
+    """Exact completed-cut selection with a separately bounded file-export payload.
+
+    Full retained membership may exceed a transport page. Export owns its cumulative
+    file budget; interactive inspection keeps the narrower StructuralRequest policy.
+    """
     model_config = ConfigDict(extra="forbid", frozen=True)
     run_id: int = Field(strict=True, gt=0)
     cut_id: int | None = Field(default=None, strict=True, gt=0)
@@ -77,7 +82,7 @@ class StructuralRequest(BaseModel):
     ) = None
     after_task_id: int = Field(default=0, strict=True, ge=0)
     limit: int = Field(default=20, strict=True, ge=1, le=100)
-    max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
+    max_bytes: int = Field(default=134_217_728, strict=True, ge=1)
     include_publication: bool = False
     include_support: bool = False
 
@@ -86,6 +91,12 @@ class StructuralRequest(BaseModel):
         if self.include_support and not self.include_publication:
             raise ValueError("structural support requires the publication facet")
         return self
+
+
+class StructuralRequest(StructuralExportRequest):
+    """Interactive structural report delivery; large dossiers use representation pages."""
+
+    max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
 
 
 class StructuralPage(BaseModel):
@@ -106,6 +117,17 @@ class StructuralPage(BaseModel):
 
 
 def serve_structural_products(conn: Connection, request: StructuralRequest) -> StructuralPage:
+    return _read_structural_page(conn, request)
+
+
+def read_structural_export_page(
+    conn: Connection, request: StructuralExportRequest
+) -> StructuralPage:
+    """Read an exact file-export selection under its explicit payload budget."""
+    return _read_structural_page(conn, request)
+
+
+def _read_structural_page(conn: Connection, request: StructuralExportRequest) -> StructuralPage:
     from corpus_structure.semantic.metadata import table
 
     session = bind_completed_result(conn, request.run_id)
