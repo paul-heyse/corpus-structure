@@ -50,9 +50,14 @@ class DefinitionComponentsConfig(StructuralValue):
     content_role: str = Field(default="defining_content", min_length=1)
     use_named_candidates: bool = True
     annotation_rules: tuple[AnnotationRule, ...] = ()
+    max_window_chars: int = Field(default=1536, ge=256, le=8192)
+    window_overlap_chars: int = Field(default=256, ge=0)
+    max_windows_per_passage: int = Field(default=64, ge=1, le=256)
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
+        if self.window_overlap_chars >= self.max_window_chars:
+            raise ValueError("definition window overlap must be smaller than its bound")
         if self.inputs is None:
             if self.target_ids or self.profile or self.structural_input_digest:
                 raise ValueError("absent definition extraction cannot carry partial inputs")
@@ -277,27 +282,17 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
     return tuple(found)
 
 
-def retained_annotation_components(reader, inputs, passage, cfg):
+def retained_annotation_components(reader, inputs, passage, cfg, *, retained=None):
     from spacy.lang.en import English
 
     from corpus_structure.ingest.annotation_views import annotation_view
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
-    from corpus_structure.methods.m1_annotations import consume_annotations
-    from corpus_structure.semantic.proposals import native_source_frame
 
-    source = next(ref for ref in inputs.sources if ref.identity == passage.source_ref)
-    view = reader.source_view(source.source_view_id)
-    frame = native_source_frame(view, ())
-    if (
-        frame.projection_digest != source.projection_digest
-        or frame.native_product.content_digest != source.native_content_digest
-    ):
-        raise ValueError("retained annotation source differs from original target")
-    products, errors, _ = consume_annotations(
-        reader, view, AnnotationProfile(SentenceConfig(exclude=("ner",)))
-    )
+    if retained is None:
+        retained = reader.structural_source_annotations(inputs, passage.source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",))))
+    frame, products, errors = retained.source, retained.annotations, retained.errors
     if errors:
         return (), "; ".join(errors)
     rules = tuple(AnnotationRule.model_validate(rule) for rule in cfg.annotation_rules)
@@ -378,9 +373,30 @@ def retained_named_components(
     ), "Consumed selected source-authenticated named candidates."
 
 
+def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConfig):
+    """Bound model contexts while preserving original offsets and overlap provenance."""
+    start = 0
+    windows = []
+    while start < len(passage.text) and len(windows) < cfg.max_windows_per_passage:
+        end = min(len(passage.text), start + cfg.max_window_chars)
+        if end < len(passage.text):
+            boundary = passage.text.rfind(" ", start + cfg.max_window_chars // 2, end)
+            if boundary > start:
+                end = boundary
+        windows.append(StructuralPassage(passage_id=passage.passage_id, source_ref=passage.source_ref,
+            start=passage.start+start,end=passage.start+end,text=passage.text[start:end],
+            scope=passage.scope,effective_version=passage.effective_version,parent=passage.parent))
+        if end == len(passage.text):
+            break
+        start = max(start+1,end-cfg.window_overlap_chars)
+        while start < end and not passage.text[start-1].isspace():
+            start += 1
+    return tuple(windows)
+
+
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "1"
+    version = "2"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -418,12 +434,21 @@ class DefinitionComponentsMethod:
             raise GlinerRefused("definition worker cannot switch model profile")
         passages = {p.passage_id: p for p in cfg.inputs.passages}
         components, stages, raw_reports = [], [], []
+        annotation_sources = {}
+        if cfg.use_named_candidates and cfg.annotation_rules:
+            from corpus_structure.ingest.annotations import AnnotationProfile
+            from corpus_structure.ingest.sentences import SentenceConfig
+
+            for source_ref in dict.fromkeys(passages[p].source_ref for p in cfg.target_ids):
+                annotation_sources[source_ref] = ctx.reader.structural_source_annotations(
+                    cfg.inputs, source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",)))
+                )
         # Detach all selected source products before the owned encoder starts.
         if cfg.use_named_candidates:
             for passage_id in cfg.target_ids:
                 named, reason = (
                     retained_annotation_components(
-                        ctx.reader, cfg.inputs, passages[passage_id], cfg
+                        ctx.reader, cfg.inputs, passages[passage_id], cfg, retained=annotation_sources[passages[passage_id].source_ref]
                     )
                     if cfg.annotation_rules
                     else retained_named_components(
@@ -444,43 +469,23 @@ class DefinitionComponentsMethod:
                     )
                 )
         for passage_id in cfg.target_ids:
-            ctx.check_active()
             passage = passages[passage_id]
-            request = GlinerInput(
-                "definition-target:" + passage.identity, passage.identity, passage.text
-            )
-            try:
-                (reply,) = self._worker.extract(
-                    pack,
-                    (request,),
-                    threshold=cfg.threshold,
-                    overlap_policy="flat",
-                    check_active=ctx.check_active,
-                )
-                raw_reports.append(dict(passage_id=passage_id, **asdict(reply)))
-                decoded = decode_definition_components(reply.raw, passage, cfg)
-            except (GlinerRefused, GlinerWorkerError, ValueError, TimeoutError, OSError) as error:
-                stages.append(
-                    DefinitionStage(
-                        passage_id=passage_id,
-                        operation="located_extraction",
-                        outcome="failed",
-                        reason=f"{type(error).__name__}: {error}",
-                    )
-                )
-                continue
-            components.extend(decoded)
-            stages.append(
-                DefinitionStage(
-                    passage_id=passage_id,
-                    operation="located_extraction",
-                    outcome="succeeded" if decoded else "empty",
-                    reason=(
-                        "Retained exact target-local output; "
-                        "no absence or semantic correctness claim."
-                    ),
-                )
-            )
+            windows = definition_windows(passage,cfg)
+            for window in windows:
+                ctx.check_active()
+                request = GlinerInput("definition-target:"+window.identity,window.identity,window.text)
+                try:
+                    reply, = self._worker.extract(pack,(request,),threshold=cfg.threshold,overlap_policy="flat",check_active=ctx.check_active)
+                    raw_reports.append(dict(passage_id=passage_id,window_start=window.start,window_end=window.end,**asdict(reply)))
+                    decoded = decode_definition_components(reply.raw,window,cfg)
+                except (GlinerRefused,GlinerWorkerError,ValueError,TimeoutError,OSError) as error:
+                    stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="failed",reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}"))
+                    continue
+                components.extend(decoded)
+                stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="succeeded" if decoded else "empty",reason=f"Window {window.start}:{window.end}: retained exact target-local output; no absence or semantic correctness claim."))
+            if windows and windows[-1].end < passage.end:
+                stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="not_run",reason=f"Model window bound reached; original source tail {windows[-1].end}:{passage.end} uninspected by this producer."))
+        components=list({component.component_id:component for component in components}.values())
         ctx.check_active()
         report = StructuralProductReport(
             kind="definition_components",
@@ -496,6 +501,7 @@ class DefinitionComponentsMethod:
                     dict(
                         version="located-definition-extraction-1",
                         raw_reports=raw_reports,
+                    annotation_inputs=[dict(source_ref=source_ref,task_id=retained.annotation_task_id,input_hash=retained.annotation_input_hash,errors=retained.errors) for source_ref,retained in annotation_sources.items()],
                         pack_fingerprint=pack.fingerprint,
                         schema_declaration=pack.declaration_json,
                         profile_fingerprint=cfg.profile.fingerprint,

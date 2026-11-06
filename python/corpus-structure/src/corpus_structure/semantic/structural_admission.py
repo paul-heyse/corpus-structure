@@ -71,6 +71,10 @@ def structural_statement(
         ),
     }
 
+    if report.kind in {"definition_components", "definition_applicability"}:
+        statement.pop("inventory_id")
+        statement.pop("input_policy_id")
+
     def span_citation(span):
         value = citation(span.passage_id)
         value.update(start=span.start, end=span.end, text=span.text)
@@ -89,9 +93,7 @@ def structural_statement(
             "term": span_citation(component.term),
             "content": span_citation(component.content),
             "interpretation": component.interpretation,
-            "basis": component.basis,
             "scope": component.scope,
-            "alternatives": sorted(component.alternatives),
             **(
                 {"effective_version": component.effective_version}
                 if component.effective_version is not None
@@ -114,7 +116,6 @@ def structural_statement(
                             "content": span_citation(r.component.content),
                             "interpretation": r.component.interpretation,
                             "scope": r.component.scope,
-                            "alternatives": sorted(r.component.alternatives),
                             **(
                                 {"effective_version": r.component.effective_version}
                                 if r.component.effective_version is not None

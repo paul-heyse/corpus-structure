@@ -5644,12 +5644,21 @@ operations:
   - id: structure.products/result.outcome
     field: outcome
     outcome_domain: source_result_outcome
+  - id: structure.definition_components/family
+    field: family
+    outcome_domain: method_family_resolve
+  - id: structure.definition_components/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: structure.definition_components/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: structure.definitions/family
     field: family
     outcome_domain: method_family_resolve
   - id: structure.definitions/tier
     field: tier
-    outcome_domain: method_tier_encoder
+    outcome_domain: method_tier_deterministic
   - id: structure.definitions/result.outcome
     field: outcome
     outcome_domain: source_result_outcome

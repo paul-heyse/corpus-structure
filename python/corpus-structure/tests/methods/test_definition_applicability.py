@@ -350,3 +350,18 @@ def test_definition_introduction_scope_requires_the_domain_policy():
             selection_refs=(link_reference(),),
             applicability_scope="defining_occurrence",
         )
+
+
+def test_definition_windows_bound_model_work_and_preserve_original_coordinates():
+    from corpus_structure.methods.definition_applicability import definition_windows
+    text=' '.join('concept'+str(i) for i in range(120))
+    passage=inputs(text).passages[0]
+    cfg=DefinitionComponentsConfig(max_window_chars=300,window_overlap_chars=64)
+    windows=definition_windows(passage,cfg)
+    assert len(windows)>1 and windows[0].start==passage.start and windows[-1].end==passage.end
+    for window in windows:
+        assert window.text==text[window.start-passage.start:window.end-passage.start]
+        assert len(window.text)<=300
+    assert all(left.end >= right.start for left,right in zip(windows,windows[1:]))
+    limited=definition_windows(passage,cfg.model_copy(update={'max_windows_per_passage':1}))
+    assert len(limited)==1 and limited[-1].end < passage.end

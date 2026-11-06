@@ -418,6 +418,10 @@ class SourcePreparationReader(Protocol):
         """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
+    def structural_source_annotations(self, inputs: Any, source_ref: str, profile: Any) -> Any:
+        """Detach authenticated original source and unchanged retained annotation products."""
+        ...
+
     def resolve_definition_component(self, reference: Any) -> Mapping[str, Any]:
         """Read an authenticated retained definition component with original source custody."""
         ...

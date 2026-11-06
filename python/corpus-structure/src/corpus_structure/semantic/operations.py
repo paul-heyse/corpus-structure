@@ -1158,6 +1158,12 @@ class BoundReader:
             text("SELECT ops.validate_structural_input(CAST(:inputs AS jsonb))"), {"inputs": raw}
         )
 
+    def structural_source_annotations(self, inputs, source_ref, profile):
+        from .structural_sources import load_structural_annotations
+
+        self.validate_structural_inputs(inputs)
+        return load_structural_annotations(self.conn, inputs, source_ref, profile, read_budget=self._read_budget)
+
     def source_context_membership(self, source_view_id):
         from .source_views import context_membership_digest
 

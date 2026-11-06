@@ -247,7 +247,7 @@ def run_source_methods(
         from importlib.metadata import version
 
         library_names = set()
-        if "structure.definitions" in configs:
+        if "structure.definition_components" in configs:
             library_names.update(
                 (
                     "gliner2",
@@ -256,7 +256,8 @@ def run_source_methods(
                     "tokenizers",
                     "safetensors",
                     "threadpoolctl",
-                    "sentence-transformers",
+                    "spacy",
+                    "en-core-web-sm",
                 )
             )
         native_libraries = {}

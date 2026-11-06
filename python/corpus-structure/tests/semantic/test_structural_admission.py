@@ -258,3 +258,15 @@ def test_numeric_retrieval_is_raw_task_provenance_not_envelope_identity():
     assert canonical_bytes(with_scores.model_dump(mode="json")) != canonical_bytes(
         changed_scores.model_dump(mode="json")
     )
+
+
+def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_retrieval():
+    from corpus_structure.semantic.structural_products import DefinitionComponentsProduct
+    component=fixture_component()
+    report=StructuralProductReport(kind='definition_components',inputs=inputs(),definition_components=DefinitionComponentsProduct(components=(component,),stages=()))
+    meaning=component.model_dump(exclude={'component_id'})
+    meaning.update(basis='matched_cue',alternatives=('another-private-proposal',))
+    revised=definition_component(**meaning)
+    after=report.model_copy(update={'inputs':report.inputs.model_copy(update={'inventory_id':'new-inventory','policy_id':'new-nomination-policy'}),'definition_components':DefinitionComponentsProduct(components=(revised,),stages=())})
+    assert report.product_id != after.product_id
+    assert structural_statement(report,component.component_id) == structural_statement(after,revised.component_id)
