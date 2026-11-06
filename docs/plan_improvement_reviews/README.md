@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Test-resolution tooling and WCE assessment](test-audit-resolution-tooling_2026-11-06.md):
+  proposed distributed harness conformance, scoped preparation, independent WCE cases and
+  diagnostics; conditional SQL/private-cluster capabilities and post-implementation qualification.
+
 - [Unified domain model after test architecture](unified-domain-model-test-architecture_2026-11-02.md):
   selected UM amendments for query-helper custody, captured analysis runtime, alias-policy impact,
   typed scenario ports and scoped independent/observed acceptance; TA disposition stays with TA.

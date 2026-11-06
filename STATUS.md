@@ -57,3 +57,4 @@ _Updated 2026-11-06; WCE candidate foundation delivered; statistics qualificatio
   separately from usage applicability, using WCE-R01 and independent source/output judgments.
 - Continue WCE02 references with each actual later producer; preserve exposure and unavailable source facets.
 - Keep test-resolution stopped; any separately authorized resumption uses its remaining/failing-node owner.
+- [Tooling improvement review](docs/plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md) proposes test/WCE amendments; adoption pending; qualification follows implementation.
