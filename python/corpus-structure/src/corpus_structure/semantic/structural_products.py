@@ -152,7 +152,13 @@ class LocatedDefinitionComponent(StructuralValue):
     term: LocatedDefinitionSpan
     content: LocatedDefinitionSpan
     interpretation: Literal["definition", "explanation", "unresolved"]
-    basis: Literal["matched_cue", "returned_producer_group", "native_geometry", "model_reading", "admitted_derivation"]
+    basis: Literal[
+        "matched_cue",
+        "returned_producer_group",
+        "native_geometry",
+        "model_reading",
+        "admitted_derivation",
+    ]
     scope: Nonempty
     effective_version: str | None = None
     alternatives: tuple[Nonempty, ...] = ()
@@ -170,8 +176,17 @@ class LocatedDefinitionComponent(StructuralValue):
 def definition_component(**meaning) -> LocatedDefinitionComponent:
     wire = {key: value for key, value in meaning.items() if value is not None}
     wire.setdefault("alternatives", ())
-    wire = {key: (value.model_dump(mode="json", exclude_none=True) if isinstance(value, StructuralValue) else value) for key, value in wire.items()}
-    return LocatedDefinitionComponent(component_id=sha256(canonical_bytes(wire)).hexdigest(), **wire)
+    wire = {
+        key: (
+            value.model_dump(mode="json", exclude_none=True)
+            if isinstance(value, StructuralValue)
+            else value
+        )
+        for key, value in wire.items()
+    }
+    return LocatedDefinitionComponent(
+        component_id=sha256(canonical_bytes(wire)).hexdigest(), **wire
+    )
 
 
 class DefinitionStage(StructuralValue):
@@ -199,7 +214,14 @@ class ApplicabilityPremise(StructuralValue):
     reason: Nonempty
 
 
-DefinitionOutcome = Literal["applicable_definition", "applicable_explanation", "mention", "example", "incompatible", "unresolved"]
+DefinitionOutcome = Literal[
+    "applicable_definition",
+    "applicable_explanation",
+    "mention",
+    "example",
+    "incompatible",
+    "unresolved",
+]
 
 
 class StructuralDefinitionReading(StructuralValue):
@@ -215,7 +237,9 @@ class StructuralDefinitionReading(StructuralValue):
         if len({p.dimension for p in self.premises}) != len(self.premises):
             raise ValueError("duplicate applicability premise")
         states = {p.state for p in self.premises}
-        if self.outcome.startswith("applicable_") and ("unknown" in states or "incompatible" in states):
+        if self.outcome.startswith("applicable_") and (
+            "unknown" in states or "incompatible" in states
+        ):
             raise ValueError("applicable reading requires resolved compatible premises")
         if self.outcome == "incompatible" and "incompatible" not in states:
             raise ValueError("incompatibility requires an explicit incompatible premise")
@@ -233,11 +257,15 @@ class DefinitionProduct(StructuralValue):
 
     @model_validator(mode="after")
     def membership(self) -> Self:
-        if len(set(self.eligible_targets)) != len(self.eligible_targets) or len(set(self.candidate_targets)) != len(self.candidate_targets):
+        if len(set(self.eligible_targets)) != len(self.eligible_targets) or len(
+            set(self.candidate_targets)
+        ) != len(self.candidate_targets):
             raise ValueError("duplicate eligible target or candidate")
         if not set(self.candidate_targets) <= set(self.eligible_targets):
             raise ValueError("candidate is outside eligible inventory")
-        if len({(r.target_id, r.component_ref.identity) for r in self.readings}) != len(self.readings):
+        if len({(r.target_id, r.component_ref.identity) for r in self.readings}) != len(
+            self.readings
+        ):
             raise ValueError("duplicate target component reading")
         if not {r.target_id for r in self.readings} <= set(self.candidate_targets):
             raise ValueError("reading is outside fixed candidate list")
@@ -335,7 +363,9 @@ class DossierProduct(StructuralValue):
 
 class StructuralProductReport(StructuralValue):
     version: Literal["structural-product-2"] = "structural-product-2"
-    kind: Literal["definition_components", "definition_applicability", "qualified_comparison", "dossier"]
+    kind: Literal[
+        "definition_components", "definition_applicability", "qualified_comparison", "dossier"
+    ]
     inputs: StructuralInput
     standing: Literal["private_proposal"] = "private_proposal"
     definition_components: DefinitionComponentsProduct | None = None
@@ -347,7 +377,12 @@ class StructuralProductReport(StructuralValue):
 
     @model_validator(mode="after")
     def closure(self) -> Self:
-        if (self.definition_components is not None, self.definition is not None, self.comparison is not None, self.dossier is not None) != (
+        if (
+            self.definition_components is not None,
+            self.definition is not None,
+            self.comparison is not None,
+            self.dossier is not None,
+        ) != (
             self.kind == "definition_components",
             self.kind == "definition_applicability",
             self.kind == "qualified_comparison",
@@ -362,9 +397,17 @@ class StructuralProductReport(StructuralValue):
                 cited.update(component.evidence)
                 for span in (component.term, component.content):
                     passage = by_id.get(span.passage_id)
-                    if passage is None or not passage.start <= span.start < span.end <= passage.end or passage.text[span.start-passage.start:span.end-passage.start] != span.text:
+                    if (
+                        passage is None
+                        or not passage.start <= span.start < span.end <= passage.end
+                        or passage.text[span.start - passage.start : span.end - passage.start]
+                        != span.text
+                    ):
                         raise ValueError("definition span differs from original passage")
-                    if component.scope != passage.scope or component.effective_version != passage.effective_version:
+                    if (
+                        component.scope != passage.scope
+                        or component.effective_version != passage.effective_version
+                    ):
                         raise ValueError("definition component scope/version differs from passage")
                     cited.add(span.passage_id)
             cited.update(stage.passage_id for stage in self.definition_components.stages)

@@ -32,7 +32,13 @@ class StructuralEvaluationFrame(StructuralValue):
 
     protocol: Literal["structural-evaluation-frame-3"] = "structural-evaluation-frame-3"
     inputs: StructuralInput
-    operation: Literal["definition_components", "definition_applicability", "scoped_relationship", "qualified_comparison", "dossier"]
+    operation: Literal[
+        "definition_components",
+        "definition_applicability",
+        "scoped_relationship",
+        "qualified_comparison",
+        "dossier",
+    ]
     direction: Literal["source_first", "output_first"]
     rubric_version: str = Field(min_length=1)
     rubric_text: str = Field(min_length=1)
@@ -50,12 +56,19 @@ class StructuralEvaluationFrame(StructuralValue):
         if len(set(self.product_ids)) != len(self.product_ids):
             raise ValueError("frame repeats a product identity")
         refs = {source.identity for source in self.inputs.sources}
-        if {group.source_ref for group in self.source_groups} != refs or len(self.source_groups) != len(refs):
+        if {group.source_ref for group in self.source_groups} != refs or len(
+            self.source_groups
+        ) != len(refs):
             raise ValueError("source group assignment must cover exact frozen source references")
         passages = {p.passage_id for p in self.inputs.passages}
-        if len({o.opportunity_id for o in self.opportunities}) != len(self.opportunities) or any(o.passage_id not in passages for o in self.opportunities):
+        if len({o.opportunity_id for o in self.opportunities}) != len(self.opportunities) or any(
+            o.passage_id not in passages for o in self.opportunities
+        ):
             raise ValueError("opportunities must be distinct and belong to frozen source passages")
-        if self.exposure_history and self.partition in {"final_event_calibration", "final_assessment"}:
+        if self.exposure_history and self.partition in {
+            "final_event_calibration",
+            "final_assessment",
+        }:
             raise ValueError("exposed sources cannot supply a fresh held-out frame")
         return self
 
