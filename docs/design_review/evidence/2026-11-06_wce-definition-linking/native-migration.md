@@ -9,3 +9,9 @@ Earlier candidate directories retain superseded successful authoring states. Ini
 Focused Python frame controls: `PYTHONPATH=<worktree>/python/corpus-structure/src <main>/.venv/bin/python -m pytest -n auto python/corpus-structure/tests/evaluate/test_structural_assessment.py` passed5. An earlier command failed conftest import because an explicit pythonpath override removed scripts; the corrected command retains repository discovery.
 
 Native deployment, positive component/edge publication and combined source/provider journeys remain separate integration obligations.
+
+## Repair0157
+
+Tested,2026-11-06: actual native contextual tests under auto32 passed14 and failed9 because helper functions were absent from the explicit deployment inventory. The successful rollback-only0156 authoring result had not established helper closure. The deployed0156 is retained; forward0157 registers all six missing helpers, adds the exact defining-occurrence scope guard and qualifies the correlated occurrence witness lookup. New candidate-repair authoring passed8native transitions and0ordinaryoperations against semantic_wce_meanings_20261106. Its exact deployment-descriptor hash is derived from the frozen desired catalog, retaining all native privilege/owner/body checks.
+
+The initial native test attempt failed23 fixture setups because worktree bash startup returned125; using BASH_ENV=/dev/null for the authorized existing-interpreter diagnostic resolved that environment problem without lowering concurrency. Deployment and actual helper-route tests are repeated after0157.
