@@ -346,12 +346,12 @@ BEGIN
   IF EXISTS(SELECT FROM jsonb_array_elements(report->'inputs'->'passages') source_passage(value) WHERE NOT inputs->'passages' @> jsonb_build_array(source_passage.value)) THEN RAISE EXCEPTION 'dossier predecessor substitutes original passage' USING ERRCODE='23514';END IF;
   IF report->>'kind'='definition_components' THEN
    FOR c IN SELECT value FROM jsonb_array_elements(report->'definition_components'->'components') LOOP
-    roles:=roles||jsonb_build_array(jsonb_build_object('role','terminology','span',c->'term','component_id',c->>'component_id'),jsonb_build_object('role','definition','span',c->'content','component_id',c->>'component_id'));
+    roles:=roles||jsonb_build_array(jsonb_build_object('role','terminology','span',c->'term','component_id',c->>'component_id','definition_interpretation',c->>'interpretation'),jsonb_build_object('role',CASE c->>'interpretation' WHEN 'definition' THEN 'definition' WHEN 'explanation' THEN 'usage' ELSE 'unresolved_sense' END,'span',c->'content','component_id',c->>'component_id','definition_interpretation',c->>'interpretation'));
    END LOOP;
   ELSIF report->>'kind'='definition_applicability' THEN
    SELECT value INTO STRICT p FROM jsonb_array_elements(inputs->'passages') WHERE value->>'passage_id'=report->'definition'->>'usage_id';
    roles:=roles||jsonb_build_array(jsonb_build_object('role','usage','span',p-ARRAY['source_ref','scope','effective_version','parent']));
-   FOR r IN SELECT value FROM jsonb_array_elements(report->'definition'->'readings') LOOP roles:=roles||jsonb_build_array(jsonb_build_object('role','definition','span',r->'component'->'content'));END LOOP;
+   FOR r IN SELECT value FROM jsonb_array_elements(report->'definition'->'readings') LOOP roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN r->>'outcome'='incompatible' THEN 'relationship' WHEN r->>'outcome' IN ('mention','example','applicable_explanation') THEN 'usage' WHEN r->>'outcome'='unresolved' OR r->'component'->>'interpretation'='unresolved' THEN 'unresolved_sense' WHEN r->'component'->>'interpretation'='explanation' THEN 'usage' ELSE 'definition' END,'span',r->'component'->'content','definition_interpretation',r->'component'->>'interpretation','applicability_outcome',r->>'outcome'));END LOOP;
   ELSIF report->>'kind'='qualified_comparison' THEN
    FOR d IN SELECT value FROM jsonb_array_elements(report->'comparison'->'dimensions') LOOP
     FOR side IN SELECT d->'left' UNION ALL SELECT d->'right' LOOP span_:=COALESCE(nullif(side->'span','null'),side->'typed'->'span');IF span_ IS NOT NULL AND span_<>'null' THEN roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN d->>'dimension'='exception' THEN 'exception' ELSE 'variant' END,'span',span_));END IF;END LOOP;
@@ -359,15 +359,15 @@ BEGIN
   ELSE RAISE EXCEPTION 'dossier predecessors require finite current semantic products' USING ERRCODE='23514';END IF;
   FOR role_ IN SELECT value FROM jsonb_array_elements(roles) LOOP
    span_:=role_->'span';SELECT value INTO STRICT p FROM jsonb_array_elements(inputs->'passages') WHERE value->>'passage_id'=span_->>'passage_id';
-   key_:=encode(sha256(convert_to(data.canonical_json(jsonb_build_object('product',reference->>'product_id','role',role_->>'role','citation',span_)),'UTF8')),'hex');
+   key_:=encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(jsonb_build_object('product',reference->>'product_id','role',role_->>'role','citation',span_,'definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome'))),'UTF8')),'hex');
    IF seen ? key_ THEN CONTINUE;END IF;seen:=seen||jsonb_build_object(key_,true);assessment:=NULL;
-   IF jsonb_array_length(retained->'public_assertions')>0 THEN
+   IF jsonb_array_length(retained->'public_assertions')>0 AND NOT (report->>'kind'='definition_components' AND role_->>'definition_interpretation'='unresolved') THEN
     expected_statement:=data.structural_public_statement(report,role_->>'component_id');
     SELECT a->>'assessment_id' INTO assessment FROM jsonb_array_elements(retained->'public_assertions')a WHERE a->'statement'=expected_statement AND nullif(a->>'assessment_id','') IS NOT NULL LIMIT 1;
    END IF;
-   member_:=jsonb_strip_nulls(jsonb_build_object('member_id',key_,'passage_id',p->>'passage_id','citation',span_,'role',role_->>'role','sense','unresolved','scope',p->>'scope','effective_version',p->'effective_version','relation_product_id',reference->>'product_id','qualification',CASE WHEN assessment IS NULL THEN 'proposed' ELSE 'independently_supported' END,'assessment_id',assessment));
+   member_:=jsonb_strip_nulls(jsonb_build_object('member_id',key_,'passage_id',p->>'passage_id','citation',span_,'role',role_->>'role','sense','unresolved','scope',p->>'scope','effective_version',p->'effective_version','relation_product_id',reference->>'product_id','definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome','qualification',CASE WHEN assessment IS NULL THEN 'proposed' ELSE 'independently_supported' END,'assessment_id',assessment));
    members:=members||jsonb_build_array(member_);
-   IF assessment IS NOT NULL THEN facets:=facets||jsonb_build_array(jsonb_build_object('facet_id',key_||':'||(role_->>'role'),'kind',(role_->>'role')||':'||(span_->>'text'),'scope',p->>'scope','member_id',key_,'assessment_id',assessment,'evidence',jsonb_build_array(p->>'passage_id')));END IF;
+   IF assessment IS NOT NULL THEN facets:=facets||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('facet_id',key_||':'||(role_->>'role'),'kind',concat_ws(':',role_->>'role',role_->>'definition_interpretation',role_->>'applicability_outcome',span_->>'text'),'definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome','scope',p->>'scope','member_id',key_,'assessment_id',assessment,'evidence',jsonb_build_array(p->>'passage_id'))));END IF;
   END LOOP;
  END LOOP;
  IF (SELECT count(*)<>count(DISTINCT v->>'contribution_id') FROM jsonb_array_elements(COALESCE(config->'contribution_predecessors','[]'))v) THEN RAISE EXCEPTION 'duplicate dossier contribution predecessor' USING ERRCODE='23514';END IF;

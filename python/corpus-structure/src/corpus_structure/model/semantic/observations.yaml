@@ -1026,6 +1026,8 @@ classes:
   DossierFacet:
     is_a: SourceRecordProduct
     attributes:
+      definition_interpretation: {pattern: '^(definition|explanation|unresolved)$'}
+      applicability_outcome: {range: StructuralDefinitionReadingOutcomeValue}
       facet_id: {required: true}
       kind: {required: true}
       scope: {required: true}
@@ -1212,6 +1214,8 @@ classes:
   DossierMember:
     is_a: SourceRecordProduct
     attributes:
+      definition_interpretation: {pattern: '^(definition|explanation|unresolved)$'}
+      applicability_outcome: {range: StructuralDefinitionReadingOutcomeValue}
       contribution_ref: {range: RetainedContributionRef, inlined: true}
       contribution_citations: {range: DossierContributionCitation, multivalued: true, inlined: true}
       computation_dependencies: {multivalued: true}
@@ -1547,6 +1551,8 @@ classes:
       passage: {range: StructuralPublicCitation, required: true, inlined: true}
   StructuralPublicDossierMember:
     attributes:
+      definition_interpretation: {pattern: '^(definition|explanation|unresolved)$'}
+      applicability_outcome: {range: StructuralDefinitionReadingOutcomeValue}
       endpoint_citations: {range: StructuralPublicContributionCitation, multivalued: true, inlined: true}
       passage:
         range: StructuralPublicCitation

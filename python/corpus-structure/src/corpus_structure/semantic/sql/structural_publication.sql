@@ -93,6 +93,7 @@ BEGIN
        FROM jsonb_array_elements(m->'contribution_citations')c) physical_sources)
      ||':'||substring(m->>'scope' FROM strpos(m->>'scope',':')+1) END,
     'effective_version',m->'effective_version','qualification',m->>'qualification',
+    'definition_interpretation',m->'definition_interpretation','applicability_outcome',m->'applicability_outcome',
     'endpoint_citations',CASE WHEN nullif(m->'contribution_ref','null') IS NOT NULL THEN
       (SELECT jsonb_agg(endpoint ORDER BY data.canonical_json(endpoint)) FROM
        (SELECT DISTINCT jsonb_build_object('source_pointer',c->'source_pointer',

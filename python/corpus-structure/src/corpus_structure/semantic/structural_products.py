@@ -155,11 +155,14 @@ class LocatedDefinitionSpan(StructuralValue):
         return self
 
 
+DefinitionInterpretation = Literal["definition", "explanation", "unresolved"]
+
+
 class LocatedDefinitionComponent(StructuralValue):
     component_id: Digest
     term: LocatedDefinitionSpan
     content: LocatedDefinitionSpan
-    interpretation: Literal["definition", "explanation", "unresolved"]
+    interpretation: DefinitionInterpretation
     basis: Literal[
         "matched_cue",
         "returned_producer_group",
@@ -427,6 +430,8 @@ class DossierMember(StructuralValue):
     scope: Nonempty
     effective_version: str | None = None
     relation_product_id: Nonempty
+    definition_interpretation: DefinitionInterpretation | None = None
+    applicability_outcome: DefinitionOutcome | None = None
     contribution_ref: RetainedContributionRef | None = None
     contribution_citations: tuple[DossierContributionCitation, ...] | None = None
     computation_dependencies: tuple[Nonempty, ...] | None = None
@@ -466,6 +471,8 @@ class DossierMember(StructuralValue):
 
 
 class DossierFacet(StructuralValue):
+    definition_interpretation: DefinitionInterpretation | None = None
+    applicability_outcome: DefinitionOutcome | None = None
     facet_id: Nonempty
     kind: Nonempty
     scope: Nonempty

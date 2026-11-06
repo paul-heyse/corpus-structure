@@ -211,6 +211,16 @@ def structural_statement(
                         ),
                         "qualification": m.qualification,
                         **(
+                            {"definition_interpretation": m.definition_interpretation}
+                            if m.definition_interpretation is not None
+                            else {}
+                        ),
+                        **(
+                            {"applicability_outcome": m.applicability_outcome}
+                            if m.applicability_outcome is not None
+                            else {}
+                        ),
+                        **(
                             dict(
                                 endpoint_citations=dossier_source_evidence(m)[1],
                             )

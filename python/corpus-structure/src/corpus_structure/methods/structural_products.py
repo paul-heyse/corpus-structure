@@ -315,6 +315,8 @@ def derive_dossier_members(inputs, retained):
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
+        DefinitionInterpretation,
+        DefinitionOutcome,
         DossierFacet,
         LocatedDefinitionSpan,
         MemberRole,
@@ -332,13 +334,39 @@ def derive_dossier_members(inputs, retained):
         for p in report.inputs.passages:
             if p.passage_id not in passages or passages[p.passage_id] != p:
                 raise ValueError("predecessor original source passage differs from dossier closure")
-        roles: list[tuple[MemberRole, LocatedDefinitionSpan, str | None]] = []
+        roles: list[
+            tuple[
+                MemberRole,
+                LocatedDefinitionSpan,
+                str | None,
+                DefinitionInterpretation | None,
+                DefinitionOutcome | None,
+            ]
+        ] = []
+
+        def content_role(
+            interpretation: DefinitionInterpretation, outcome: DefinitionOutcome | None = None
+        ) -> MemberRole:
+            if outcome == "incompatible":
+                return "relationship"
+            if outcome in {"mention", "example", "applicable_explanation"}:
+                return "usage"
+            if outcome == "unresolved" or interpretation == "unresolved":
+                return "unresolved_sense"
+            return "usage" if interpretation == "explanation" else "definition"
+
         if report.definition_components:
             for c in report.definition_components.components:
                 roles.extend(
                     (
-                        ("terminology", c.term, c.component_id),
-                        ("definition", c.content, c.component_id),
+                        ("terminology", c.term, c.component_id, c.interpretation, None),
+                        (
+                            content_role(c.interpretation),
+                            c.content,
+                            c.component_id,
+                            c.interpretation,
+                            None,
+                        ),
                     )
                 )
         if report.definition:
@@ -350,10 +378,20 @@ def derive_dossier_members(inputs, retained):
                         passage_id=p.passage_id, start=p.start, end=p.end, text=p.text
                     ),
                     None,
+                    None,
+                    None,
                 )
             )
             for r in report.definition.readings:
-                roles.append(("definition", r.component.content, None))
+                roles.append(
+                    (
+                        content_role(r.component.interpretation, r.outcome),
+                        r.component.content,
+                        None,
+                        r.component.interpretation,
+                        r.outcome,
+                    )
+                )
         if report.comparison:
             for d in report.comparison.dimensions:
                 for side in (d.left, d.right):
@@ -365,20 +403,32 @@ def derive_dossier_members(inputs, retained):
                                     "exception" if d.dimension == "exception" else "variant",
                                     span,
                                     None,
+                                    None,
+                                    None,
                                 )
                             )
-        for role, span, component_id in roles:
+        for role, span, component_id, interpretation, outcome in roles:
             p = passages[span.passage_id]
             key = sha256(
                 canonical_bytes(
                     dict(
-                        product=report.product_id, role=role, citation=span.model_dump(mode="json")
+                        product=report.product_id,
+                        role=role,
+                        citation=span.model_dump(mode="json"),
+                        **(
+                            {"definition_interpretation": interpretation}
+                            if interpretation is not None
+                            else {}
+                        ),
+                        **({"applicability_outcome": outcome} if outcome is not None else {}),
                     )
                 )
             ).hexdigest()
             supported = None
             expected = (
-                structural_statement(report, component_id)
+                None
+                if report.definition_components and interpretation == "unresolved"
+                else structural_statement(report, component_id)
                 if report.definition_components
                 else structural_statement(report)
             )
@@ -386,7 +436,11 @@ def derive_dossier_members(inputs, retained):
             # Exact statement equality prevents borrowing an assessment of another role,
             # physical source, interpretation, or incomplete predecessor.
             for assertion in payload.get("public_assertions", ()):
-                if assertion.get("statement") == expected and assertion.get("assessment_id"):
+                if (
+                    expected is not None
+                    and assertion.get("statement") == expected
+                    and assertion.get("assessment_id")
+                ):
                     supported = assertion["assessment_id"]
                     break
             member = DossierMember(
@@ -398,6 +452,8 @@ def derive_dossier_members(inputs, retained):
                 scope=p.scope,
                 effective_version=p.effective_version,
                 relation_product_id=report.product_id,
+                definition_interpretation=interpretation,
+                applicability_outcome=outcome,
                 qualification="independently_supported" if supported else "proposed",
                 assessment_id=supported,
             )
@@ -405,11 +461,16 @@ def derive_dossier_members(inputs, retained):
                 continue
             members.append(member)
             if supported:
-                facet_kind = role + ":" + span.text
+                semantic_kind = ":".join(
+                    value for value in (role, interpretation, outcome) if value is not None
+                )
+                facet_kind = semantic_kind + ":" + span.text
                 facets.append(
                     DossierFacet(
                         facet_id=key + ":" + role,
                         kind=facet_kind,
+                        definition_interpretation=interpretation,
+                        applicability_outcome=outcome,
                         scope=p.scope,
                         member_id=key,
                         assessment_id=supported,
