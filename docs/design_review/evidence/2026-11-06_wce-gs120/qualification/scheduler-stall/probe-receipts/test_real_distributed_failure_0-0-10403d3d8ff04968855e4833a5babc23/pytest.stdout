@@ -1,0 +1,8 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.10, pytest-9.1.1, pluggy-1.7.0
+rootdir: /home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw0/test_real_distributed_failure_0/case
+configfile: pytest.ini
+plugins: anyio-4.15.1, xdist-3.8.0, hypothesis-6.170.12, Faker-40.44.0, platformdirs-4.14.0, reportlog-1.0.0
+collected 1 item
+
+test_case.py 

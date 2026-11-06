@@ -1,6 +1,6 @@
 # Source opportunities, independent assessment and qualification
 
-> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Current authority,2026-11-06: ADR-0068 selects shared-development qualification; ADR-0067 selects current-only execution.
 > Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
 > assessment. No new sources, separate calibration population or independent-origin readiness gate
 > is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
@@ -9,9 +9,9 @@
 > only on current contracts. The coordinator owns execution status and final-source qualification.
 
 
-> Execution reading route,2026-11-06: Current early source/output evidence, protected frame IDs and remaining exposure/reference gaps are linked at the coordinator. Later producer frames remain open; original source partitions are not relabelled.
+> Execution reading route,2026-11-06: The coordinator links final selected source/output/downstream assessments, protected frames and the complete applicable qualification union. Original exposure and unassessed populations remain explicit; no source partition is relabelled.
 
-**Proposed,2026-11-05.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns package
+**Implemented assessment contract; current execution reconciliation,2026-11-06.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns package
 state and combined acceptance. This companion owns WCE02/12 and cross-package new assessment
 requirements. Consume review6487c486 F07/RC05/RC06, §10 and its audited source-opportunity corrections.
 The separate test-resolution plan supplies its foundation; its repairs are not repeated here.
@@ -22,7 +22,7 @@ The separate test-resolution plan supplies its foundation; its repairs are not r
 missing predictions and declared-case quality limits. `evaluate/structural_assessment.py` currently
 supports definition/comparison/dossier questions under a development-only frame. Protected A/B/C
 passes, actual native eligibility and portable review exist. Extend their contracts for the new
-events and held-out source groups rather than treating development labels or whole-record labels
+events and exact shared-development source frames rather than treating development labels or whole-record labels
 as universal truth. Native152/explicit scenario preparation/token transport are baseline strengths;
 no complete final test qualification is inferred from their focused results.
 
@@ -40,11 +40,11 @@ before token alignment, candidate generation, score filtering or publication. Ou
 reference exact emitted IDs; source-first cases can exist without any prediction or candidate ID.
 Candidate/grammar constraints cannot delete unrepresentable source spans from the denominator.
 
-Use development, feature-fit, calibration/threshold-selection and final group-held-out roles with
-explicit exposure history. One physical source family/context defines leakage grouping even if
-many windows, crops or producers refer to it. Group assignments are authored from provenance, not
-inferred by a library splitter. Freeze final-source groups before tuning. If a final cohort is exposed,
-relabel its role and author new held-out cases rather than continuing an unseen-origin claim.
+Use the SAME120 pages as an explicitly exposed shared development population for fitting,
+debugging, regression and assessment. Preserve source-family and original exposure provenance;
+multiple windows do not add independent source facts. No new source, final held-out group,
+separate calibration population or independent-origin readiness threshold is required. Freeze
+exact questions and memberships for each comparison so changes are interpretable in sample.
 
 Questions include term/defining-content discovery, semantic role, endpoint attachment, usage sense,
 applicability, unit/note scope, symbol declaration, comparator/interval delta, dossier membership and
@@ -98,17 +98,17 @@ operations. Determine reference coverage from source inventory, not from survivi
 
 ### Library realization
 
-Use existing protected frame/grade services and pure operation scoring. sklearn1.9.1
-`cross_validate(return_estimator=True, return_indices=True)` supports native per-fold fitted models
-and held-out indices; `PrecisionRecallDisplay.from_cv_results` can render them. Underlying tables,
-fold predictions, sample/group/weight provenance and failures remain the comparison artifact.
-`DummyClassifier` supplies prior/constant baselines. GroupKFold/StratifiedGroupKFold preserve supplied
-groups but cannot establish statistical independence. Fit preprocessing inside folds and separate
-fit/calibration/threshold/final populations. FrozenEstimator preserves fitted state, not independence.
+Use existing protected frame/grade services and pure operation scoring. The selected sklearn1.9.1
+operation baseline uses `Pipeline`, `StandardScaler`, `LogisticRegression` and a same-frame
+`DummyClassifier` prior, retaining predictions, Brier/log loss, convergence and unavailable states.
+The mathematical companion owns the exact event and current-cohort prerequisite. Grouped
+`cross_validate(return_estimator=True, return_indices=True)`, `PrecisionRecallDisplay.from_cv_results`
+and `FrozenEstimator` remain optional capabilities for a future question requiring them; they impose
+no new split/readiness gate on this shared development assessment.
 Source: [sklearn addendum §5.5/§6](../../libraries/scientific_compute/Scikit-learn.md),
 [tagged validation](https://github.com/scikit-learn/scikit-learn/blob/1.9.1/doc/modules/cross_validation.rst),
 [tagged metrics change](https://github.com/scikit-learn/scikit-learn/blob/1.9.1/doc/whats_new/v1.9.rst).
-Mechanisms are Interface-checked; new event frames, reference data and outcomes remain Proposed.
+Current shared-development frames, reference evidence and bounded outcomes are implemented as detailed below. Corpus-specific operation fitting remains unavailable under its exact event contract; optional future cross-validation capabilities remain Interface-checked.
 
 Use Splink's relational error/evaluation tables for its scoped pilot, with clerical-truth and predicted
 match thresholds explicitly distinguished. Evaluate independent eligible pairs and blocking omissions
@@ -147,3 +147,27 @@ retention for WCE04–WCE05: remove superseded schema/validator assets and migra
 to current contracts, regenerating insufficient derived data without invented evidence. Update architectural owners, link results to the
 single coordinator and original PCE F37/F39 owner where their obligations are informed, and leave
 precise future source/learning/backend triggers. No automatic promotion/default activation is planned.
+
+## Current assessment realization — 2026-11-06
+
+**Implemented and independently assessed within declared scope.**
+[Final source capture](../../design_review/evidence/2026-11-06_wce-gs120/assessment/final-source-capture/)
+retains64 exact physical source cases:32 common A/B/C and32 additional C-only cases. The original
+812 selective authored records have distinct author/case grains and are not a fact census. Full
+120-page retention, all selected raw envelopes and the following semantic assessments remain
+separate evidence claims. No physical overlap is automatically a correct semantic attachment.
+
+[Benefit account](../../design_review/evidence/2026-11-06_wce-gs120/assessment/benefit-account/)
+assesses the35 named components, nine additional model components, scoped table/note roles, actual
+three-arm interpretations, contextual edges, artifact candidates and dossier representations.
+Source location, role, attachment, conditions, numerical interpretation and unknown scope retain
+separate dispositions. The full model delivery retains97 raw envelopes, including zero-output
+operations, rather than displaying only assembled components.
+
+Protected native set13/A43/B44/C45 retains original independent source-authored alternatives and
+exact adjudication parents. Publication169 admits only two narrow supported attachments. The
+other33 components and the complete report remain private; whole-report, unassessed and two
+unsupported component attempts fail natively. Literal typed controls verify custody and refusal,
+while the broader independently authored account records semantic failures and unassessed scope.
+Final qualification commands, exact source/context applicability and conditional dispositions are
+owned by the coordinator, not inferred from these bounded semantic assessments.

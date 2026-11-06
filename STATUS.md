@@ -1,59 +1,53 @@
 # Status
-_Updated 2026-11-06; selected WCE04–05 and test-resolution scope complete and Tested._
+_Updated2026-11-06; selected WCE00–12 implementation, shared120-page assessment and applicable qualification complete._
 
-## Authority and boundary
+## Current authority
 
-- [WCE coordinator](docs/plans/witnessed-corpus-enrichment_2026-11-05.md) owns package state/findings.
-  WCE00–05 selected scopes are delivered; WCE02 later assessments and WCE06–12 remain open.
-- [ADR-0067](docs/adr/0067-witnessed-current-only-cutover.md) selects full migration and legacy removal.
-  Domain objects/relationships/conditions govern knowledge; assessment questions are separate.
-- Statistics remains qualification scope; no enterprise acquisition or full-book reread was performed.
-- [Test-resolution](docs/plans/test-audit-resolution_2026-11-05.md#final-required-union) is complete:
-  final source69b9524c, required4882-node union covered, including854 native-required outcomes.
-  Original failures/interruption stay retained; broader WCE product scope remains separately owned.
+- [WCE coordinator](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#execution-checkpoint--2026-11-06)
+  owns package state, integrated findings, conditional decisions and qualification limits.
+- ADR-0068 selects the SAME120 Grinstead–Snell physical pages191–310 for development, fitting,
+  regression and assessment. ADR-0067 requires current-only migration; sources/plans/evidence remain.
+- Product3552edf69 and validation harness83d0c295d are committed. Dedicated development PostgreSQL18/
+  corpus is native163 `semantic_wce_batch_20261106`, port5434. Runtime-only repairs preserve semantic
+  release cb08727ec668…; native deployment readmission passed and original producer pins remain.
+- Concurrent operator roles/process skills/AGENTS/library-documentation edits remain separate.
 
-## Delivered — 2026-11-06
+## Actual corpus and meaning
 
-- [Definition evidence](docs/design_review/evidence/2026-11-06_wce04-located-definitions/README.md):
-  method3 run120/cut155 retains one normal-density term/formula component; five GLiNER windows retain
-  raw spans with zero model attachments. Named/native geometry supplies the actual attachment.
-  Independent A/B/C and publication121/cut156 support only that exact component, not the report.
-- Current method4 adds explicit linguistic-only production and constructive copula/negation handling.
-  [Exposed F37 comparison](docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/README.md)
-  preserves six sections/eleven targets/all20 old cells; fresh annotations have exact source equivalence.
-  Registered136/cut174 retains one private mean definition; reference/read/export passed. No PDF or
-  model repeat followed the frozen132 extraction. Ten targets and the normal explanatory gap remain.
-  New mean independent support and all20 current whole-app classifications are unassessed/not_run.
-- [Actual corpus linking](docs/design_review/evidence/2026-11-06_wce05-corpus-linking/README.md):
-  authentic occurrence → real E5(two384D vectors) → extracted component → canonical defined-by127;
-  private defining-occurrence applicability130/cut164. Transfer applicability remains unknown.
-  Reader/export and three fresh CLI/stdio MCP selections passed. Same-span role-carrier defect fixed;
-  each edge cites its own qualifying occurrence, with exact native forward/reverse controls.
-- [Granular account](docs/design_review/evidence/2026-11-06_wce-definition-linking/capture-footprint.md)
-  retains all44 source-C cases/144 quoted spans, raw model observations and gaps. Physical overlap
-  is not semantic credit; source-first full capture, held-out efficacy and scientific truth are unestablished.
-- [Native cutover](docs/design_review/evidence/2026-11-06_wce-definition-linking/records/wce.current-native-cutover.json):
-  one155→current156 migration replaces temporary156–162. Fresh/deployed218 objects agree with zero
-  native/physical differences; existing release identities/data preserved. Obsolete26 runs/81 tasks/
-  52 results and dependency closure retired without deleting authenticated sources. Legacy pair,
-  singleton/manual definition and historical semantic decoder paths removed. All task worktrees removed.
+- [Reviewer inputs](docs/design_review/evidence/2026-11-06_wce-gs120/assessment/README.md) index original
+  sources, neutral packets, every raw model output, independent judgments and consumer receipts.
+- Recovery140–151 passed:48 nonempty views/all120 projected pages/zero duplicated fields, using
+  original native products. Source coverage, recognition fidelity and semantic capture remain distinct.
+- Named160/cut210 retains35 components; actual GLiNER2.5 model161/cut245 retains44, all97 raw
+  envelopes and zero-output operations. Full bounded delivery and portable closure passed.
+- Independent64-source-case/35+9-output assessment records useful partial attachments alongside
+  wrong subjects/roles, truncated terms, lost conditions and recognition corruption. It establishes
+  no whole-corpus quality, complete knowledge, scientific truth or calibrated probability.
+- Protected set13/A43/B44/C45 supports only two narrow public attachments in169/cut225;
+  whole-report, unassessed and two unsupported component publication controls refuse natively.
+- Matched policies162/170/180, comparison163, ten E5 graphs and artifact183 completed actual journeys.
+  Dossiers184/185 share8280 members/four facets and select12 each: greedy displays all four supported
+  role facets of two existing attachments; source-ID control displays none. No new facts are claimed.
+- Actual operation fitting is unavailable:17 selected completed runs contain zero events matching
+  its exact contract and no corresponding protected grades. Controlled fitting is separate.
 
-## Last verification and remaining work
+## Verification — 2026-11-06
 
-- [Final selected union](docs/design_review/evidence/2026-11-06_wce-definition-linking/records/wce04-05.final-union.json):
-  `just test-all -n auto` with recorded25-file Python selection passed322; Rust not_run(no tests).
-  `just hygiene`, `just model check`(0.6.5), `just ready` passed. Final product source cd7a57a5;
-  failed/interrupted attempts retained, earlier overlapping counts not summed.
-  `just evidence` reports0 errors and40 warnings in older records/citations outside this increment.
-- Remaining WCE02/06–12 scope, fresh source/parameter/header coverage, independent benefit and
-  assembled qualification stay with the WCE coordinator. Full WCE12 remains not_run.
-- Test-resolution: full ordinary4828 passed/45 failed; affected64 rerun61 passed/2 failed/1 setup
-  error, final4 passed; exclusive `just test-native-faults` passed8. Actual16 workers/peak16.
-  `just hygiene` passed; changed-source typing/Ruff and final publication/maintenance passed.
-  Rust nextest not_run(empty selection). All23 DTA/TR10-F01/F02 current counterparts accounted for.
-- TR-15A Retain Python by operator choice; pgTAP probe partial/TEMP42501, TAP assertions not_run.
-  Writer TEMP remains restricted: privileged pre-verification staging reads block a simple grant.
-  TR-15B/C inactive. No receipt-observed transient DB remains; outside resources preserved.
-- [Final evidence](docs/design_review/evidence/2026-11-06_test-resolution-tooling/records/tr10.final-required-union.json)
-  retains failed history, explicit affected-success exclusions and the unattributed stderr warning.
-  Earlier focused temporary child raws aged out; current qualification raws are retained.
+- [Final qualification](docs/design_review/evidence/2026-11-06_wce-gs120/qualification/README.md):
+  passed selected applicable union of5063 required identities, zero unresolved; all25 final portable
+  bundles and fresh CLI/MCP parity/refusal controls passed. Product source remained unchanged.
+- `just test-all -n auto`: original attempt failed/interrupted (5034 passed, two assertions,
+  one worker crash,17 incomplete/unexecuted), retained. Corrected affected auto-parallel run passed289;
+  `just test-native-faults` passed8. Exact scope/applicability, not additive counts, establish coverage.
+- Fatal-worker shutdown/probe passed with auto/loadgroup retained. Native GC SIGSEGV cause remains
+  unestablished; normal/debug-allocator30-case histories passed without reproducing it. No GC fix claim.
+- `just hygiene`, `just ready`, `just model check`, archive/runtime identity and evidence checks passed.
+  Rust functional selection was empty: not_run; separate Clippy/dependency/format checks passed.
+- Canonical catalog/MCP ports integrated, replaced legacy routes removed, all three merged task
+  worktrees deleted. Sources, historical evidence and failed/interrupted receipts are retained.
+
+## Next
+
+- Review the granular benefit account and choose refinements using the coordinator's recorded triggers.
+  Native-crash recurrence, a core or allocator finding triggers further lifetime/dependency diagnosis.
+  No selected WCE implementation or qualification obligation remains; no default activation or push.

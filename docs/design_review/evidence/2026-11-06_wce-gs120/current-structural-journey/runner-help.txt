@@ -1,0 +1,17 @@
+usage: run_journey.py [-h] [--release-id RELEASE_ID] [--resume]
+                      [--source-packet SOURCE_PACKET]
+                      [--sources-attempt SOURCES_ATTEMPT]
+                      [--structural-run STRUCTURAL_RUN]
+                      {sources,dossiers} attempt
+
+positional arguments:
+  {sources,dossiers}
+  attempt
+
+options:
+  -h, --help            show this help message and exit
+  --release-id RELEASE_ID
+  --resume
+  --source-packet SOURCE_PACKET
+  --sources-attempt SOURCES_ATTEMPT
+  --structural-run STRUCTURAL_RUN

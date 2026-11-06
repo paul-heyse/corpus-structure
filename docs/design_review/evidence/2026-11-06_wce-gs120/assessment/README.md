@@ -1,0 +1,36 @@
+# GS120 reviewer reading route
+
+**Measured,2026-11-06, within each cited artifact's scope.** These are the same120 exposed
+Grinstead–Snell pages, parent physical191–310, selected for development, fitting and assessment.
+The [WCE coordinator](../../../../plans/witnessed-corpus-enrichment_2026-11-05.md) owns final
+qualification and finding disposition. This index supplies reviewer inputs; it grants no
+publication authority or general correctness claim.
+
+| Read | Inputs and exact scope |
+|---|---|
+| Original source | [Source manifest](../source-manifest.json) authenticates parent SHA256 `763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e`, page maps, raster hashes and the [twelve original ten-page cuts](../corpus/). Native products do not replace the original pages. |
+| Neutral source packets | [Original packets](../source-packets/) contain40 views and no model/reference judgments. [Recovered packets](../source-recovery/attempt001/source-packets/) contain48 views covering all120 projected pages from the same native products. [Coverage](../source-recovery/attempt001/coverage.json) explains the18 recovered pages. Recovery adds availability, not recognition or semantic correctness. |
+| Source-first expectations | [812-case normalization](source-complete001/source-inventory.md) preserves A492/B129/C191 selective, overlapping author records. These are not812 distinct facts or a common denominator. [Final source assessment](final-source-capture/README.md) retains32 common A/B/C cases plus32 additional C-only cases, exact native bridges, full expectations and separate role, attachment, condition, scope and fidelity judgments. Two captions remain native-only. |
+| Named/model outputs and raw observations | [Named transport](run160-exact-transport001.json) authenticates all35 components in160/cut210. [Model raw capture](run161-final-model001/manifest.json) pins all97 accepted task envelopes in161/cut245. [Actual checkpoint verification](../gliner25-current161-verification.json) identifies `fastino/gliner2.5-base-v1` revision `54785d51df8d86a0d8f2eb212fec15871aad2c4d` and file hashes. [Model assessment](final-source-capture/model161-assessment.json) separates unchanged35 members from9 source-read additions. Parsed raw reports and zero annotation errors do not establish source meaning. |
+| Complete retained model delivery | [Delivery index](../current-model-delivery/delivery-index.json) binds200 Reader pages,48 selected files and7 verified portable partitions:66,638 contribution rows and66,638 interpretation rows,42,781 operation rows including39,098 zero outputs,44 components and97 exact raw bodies. These counts have different grains and are not knowledge-quality scores. Portable files carry selected context/raw closure; the original PDFs remain separately available above. |
+| Independent narrow publication | [Protected reference evidence](protected-current/native160/) retains set13/A43/B44/C45, exact parents and original source-authored expectations. [Final verification](protected-current/native160/final-verification.json) covers two public normal/marginal attachments in169/cut225 and four native refusal controls. The other33 named components remain private. This does not certify formulas, source science or whole-report completeness. |
+| Table/note structure and mathematical arms | [Nine bounded table/note readings](final-source-capture/table-note-assessment.json) and [policy assessment](final-source-capture/policy-band-assessment.json) preserve useful bindings, wrong roles and missing headings/conditions. [Actual three-arm products](../current-structural-journey/sources002/result.json) use the same8210 IDs/84 cohorts. Forty-one bands complete per arm; oversized/generic not_run states stay explicit. Coupled coherence assumptions are not calibrated source probabilities. |
+| Contextual retrieval and comparison | [Contextual journey](../current-contextual-journey/contextual001/) retains14 retrievals/private own-component edges,28 fresh E5 vectors and126 reuse events. [Source judgment](final-source-capture/contextual-attachment-assessment.json) keeps their witnesses unassessed, including the transported wrong historical definition. [T>3/T>6 comparison](../current-structural-journey/comparison001/result.json) preserves unknown units and withheld typed interval consequence. |
+| Artifact identity candidates | [Artifact pilot](../current-structural-journey/sources002/artifact/inspection.json),183/task1070/cut247, retains142 records/116 private candidate pairs. [Bounded source assessment](final-source-capture/artifact-link-assessment.json) examines11 pairs touching13 selected occurrences:7 useful textual lineages and4 contrary lexical alternatives. The remaining105 pairs, graphic contents and revision identity remain unassessed. No alias publication or calibrated probability is claimed. |
+| Dossiers and consumer delivery | [Current dossiers](../current-structural-journey/dossiers002/result.json) include accepted184/cut249 and185/cut251 plus both verified repaired portable closures. The [final comparison](final-source-capture/dossier-selection-assessment.json) verifies equal8280member objects/four facet objects at budget12: greedy displays all4rolefacets from2existing assertions; source-ID-order control displays0. This is the declared8210scoped+70named-role selection, not all model/provider products. The initial portable cross-cut closure failure remains separate from its successful replay. [Consumer receipts](../consumer-transports/) retain actual CLI/fresh-process MCP parity and refusal checks. |
+| Granular conclusions and qualification | [Benefit account](benefit-account/README.md), [machine account](benefit-account/account.json) and [validation receipt](benefit-account/validation-receipt.json) bind the selected judgments and their uncertainty. The [coordinator](../../../../plans/witnessed-corpus-enrichment_2026-11-05.md) and [native control receipts](../native-current158-controls/) own final functional/provider/native/nonfunctional qualification. A passing implementation check does not resolve the semantic gaps documented here. |
+
+For an independent refinement review, start with the source and source-first expectations, then
+inspect exact output/citation identities and separate missing, wrong, ambiguous and unassessed
+dimensions. Useful partial contributions remain available even when a complete record or a
+downstream operation fails. No held-out, universal precision/recall or source-science claim is made.
+
+Earlier accounts remain available: [run139-account004](run139-account004/README.md) corrects the
+raw-provider counter and separates17,418 exact native-text anchors from2,163 item-only locations.
+The initial live capture remains `partial_live_checkpoint`. Earlier failures and superseded
+counter receipts are retained; final model capture above is a separate completed population.
+
+The evidence adapters in this directory preserve immutable source authors, raw predictions and
+old receipts. The older root-level A/B-only621-case normalization remains separate from the
+complete812-authored-record inventory. Read each artifact's frame and exposure statement before
+comparing counts or assigning credit.

@@ -1,6 +1,6 @@
 # Typed relations, revision comparison and supported dossiers
 
-> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Current authority,2026-11-06: ADR-0068 selects shared-development qualification; ADR-0067 selects current-only execution.
 > Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
 > assessment. No new sources, separate calibration population or independent-origin readiness gate
 > is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
@@ -9,7 +9,7 @@
 > only on current contracts. The coordinator owns execution status and final-source qualification.
 
 
-**Proposed target and execution design · 2026-11-05.** This companion develops WCE06–WCE07.
+**Implemented selected target; execution reconciliation,2026-11-06.** This companion develops WCE06–WCE07.
 The [WCE coordinator](../witnessed-corpus-enrichment_2026-11-05.md) solely owns package state,
 finding disposition, evidence, rule changes and completion. This page develops behavior and
 implementation dependencies; planned verification does not represent passing evidence.
@@ -39,7 +39,7 @@ all of those questions on its own.
 | [Structural methods](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py) | `compare_clauses` returns incompatible-applicability for scope/version mismatch; `assemble_dossier` selects source-order representatives per group and always retains mandatory roles. | Preserve that control meaning. Add typed comparison and greedy marginal supported-facet selection through separate versioned operations. |
 | [Scientific evidence](../../../python/corpus-structure/src/corpus_structure/semantic/scientific_evidence.py) | `canonical_operand` uses Decimal and retains unit/basis; interval closure and `canonical_restriction` comparator direction have production ownership. | Reuse/extract pure production semantics for typed comparison; do not copy protected evaluator models. |
 | [Structural admission](../../../python/corpus-structure/src/corpus_structure/semantic/structural_admission.py), native [products](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) and [publication](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql) | Common source-resolved statement/publication custody; dossier statement excludes representative display and says `membership_assembly_not_member_truth`. | Keep that admission boundary. Typed comparison needs its exact independently judged statement/policy; display cannot change admitted membership. |
-| [Serving](../../../python/corpus-structure/src/corpus_structure/serve/structural_products.py) | Completed-cut bounded reports and optional independent publication support use a common read route. | Extend new variants, typed premises and representation/omission facets while preserving historical readers and pin closure. |
+| [Serving](../../../python/corpus-structure/src/corpus_structure/serve/structural_products.py) | Completed-cut bounded reports and optional independent publication support use a common read route. | Extend new variants, typed premises and representation/omission facets while retaining exact original source/runtime pin closure under current readers. |
 
 The review's `scientific_evidence.py:845–931` reference resolves to `semantic/scientific_evidence.py`,
 not `methods/`. Implementation should follow that actual production owner. Architectural authority
@@ -54,7 +54,7 @@ kernels, native eligibility and bounded reads provide the needed homes. FP-04/05
 require making scope, unsupported conversion and inspection coverage explicit rather than allowing
 proximity or missing results to imply truth. FP-03 favors typed joins and shared pure transformations
 over another inference service. FP-02 requires versioned lexical/typed/applicability meanings and
-explicit historical readers. FP-07/A4 favors source-local indexed joins, prepared grammars, bounded
+current-only readers. FP-07/A4 favors source-local indexed joins, prepared grammars, bounded
 formula products and normalized-premise reuse; semantic substructure does not need a lifecycle per
 node. This is a focused assessment, not a new formal review or measured capacity claim.
 
@@ -380,9 +380,9 @@ ambiguity, not a fabricated factor example. Coordinated editing of shared semant
 files remains the root's responsibility.
 
 Packages include their producer, stored representation, native enforcement, affected reads and
-focused verification. WCE11 later assembles ordinary entrypoints and WCE12 final qualification/
+focused verification. WCE11 assembles ordinary entrypoints and WCE12 owns final qualification/
 retirement; neither absorbs unfinished package consumers. Preserve original PCE scope and controls,
-historical immutable reports, source versions/digests, supported readers, plans, evidence and raw
+authentic raw reports, source versions/digests, current supported readers, plans, evidence and raw
 outputs. Retire replaced production selector/comparison/representative branches only after their
 replacements and consumers are qualified, keeping useful named controls.
 
@@ -392,3 +392,28 @@ integrated qualification: **not_run**. Relevant targeted functional/native/provi
 planned above; final-source union accounting, publication checks and `just turn-end` belong to
 the coordinator/root. No quality gain, optimum, normal-workload capacity or fully released
 enterprise-corpus claim is established by these Proposed designs.
+
+## Current selected realization — 2026-11-06
+
+**Implemented; actual scoped comparison and source products Tested.** Source-local table, note,
+unit, formula/symbol and procedure contributions retain original physical anchors and outcomes.
+All three GS120 policy arms retain the same8210 source contributions. Source-role mistakes remain
+in the independent account; geometry and typed syntax alone establish neither semantic role nor
+scientific interpretation. Actual comparison163/cut212 parses literal `T > 3` and `T > 6` in one
+exercise while preserving unknown units and withholding stronger interval/applicability claims.
+Ordinary native completion, Reader/file export, portable closure and fresh CLI/MCP parity pass.
+
+The dossier producer derives members from exact retained source contributions plus structural
+predecessors, with protected publication support only on exact independently assessed facets.
+Original local interpretations, solver outcomes and unknowns enter member/facet/public identities.
+Greedy supported-facet display and source-order control use identical full membership and a
+12-member budget, preserve mandatory overflow and show omitted/missing facets explicitly.
+`source-order-control-1` sorts immutable source IDs, citation offsets and member ID; it is a
+deterministic source-ID control, not physical book-page reading order. Coverage differences
+measure display of already-supported facets, not newly established corpus meaning.
+The complete source membership remains proposed even when the representation selects it.
+Native163 validates shared custody once per backing task binding before projecting every member;
+its single-reference Reader delegates to the same validation owner. Full-workload timing and
+representation results are retained in
+[the actual structural journey](../../design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/).
+No unsupported member truncation, timeout widening or public-standing upgrade is permitted.

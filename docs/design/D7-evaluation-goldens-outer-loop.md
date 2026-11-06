@@ -12,6 +12,22 @@ generalization studies are deferred until method performance warrants them.
 
 > Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
 
+### Granular assessment and operation fitting
+
+**Implemented; corpus assessment and integrated qualification in progress,2026-11-06.**
+The operation-event evaluator composes explicit scaling/logistic and class-prior controls on the
+same declared eligible frame, with exact feature order, event/rubric/source/exposure provenance.
+Finite parameters and prediction/status invariants are enforced independently of convergence
+and efficacy. Missing actual emitted event types or independently authored labels yield an
+unavailable fit; contextual relationship proposals cannot be relabelled as `relation.defined_by`.
+
+Source coverage, source-first capture, output location, semantic role, endpoint attachment,
+conditions/scope, converted/native fidelity and scientific support remain separate dimensions.
+Independently authored narrow component attachment can earn credit while a larger record remains
+incomplete. Different selective source inventories are not repeated votes on one population.
+Reference transport requires authenticated unchanged source/meaning and explicit original and
+current pins; prose judgments are not automatically literal machine alternatives.
+
 ## Witnessed component target
 
 **Proposed target, adopted2026-11-06.** Freeze source opportunities before alignment or filtering; distinguish source-first capture from output-first correctness. Provenance groups and exposure partitions belong to existing protected reference custody. Qualification uses statistics; enterprise material is not a prerequisite.

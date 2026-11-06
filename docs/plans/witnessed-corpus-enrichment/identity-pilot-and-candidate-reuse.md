@@ -1,6 +1,6 @@
 # Controlled-artifact identity pilot and candidate reuse
 
-> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Current authority,2026-11-06: ADR-0068 selects shared-development qualification; ADR-0067 selects current-only execution.
 > Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
 > assessment. No new sources, separate calibration population or independent-origin readiness gate
 > is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
@@ -9,9 +9,9 @@
 > only on current contracts. The coordinator owns execution status and final-source qualification.
 
 
-**Proposed implementation companion · 2026-11-05.** This document develops WCE10 of the [witnessed corpus enrichment coordinator](../witnessed-corpus-enrichment_2026-11-05.md). The coordinator owns execution status, finding disposition, rule changes and conditional decisions. This document owns the selected pilot's identity question, field/candidate model, cohort entry conditions, actual integration and acceptance. It carries the integrated [production enrichment review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md) §8/F07/§10 at `6487c486075a832e50b59fcec96c88485f30c11a`; it does not promote the earlier functional review into principal authority.
+**Implemented selected pilot; execution reconciliation,2026-11-06.** Original implementation design dated2026-11-05. This document develops WCE10 of the [witnessed corpus enrichment coordinator](../witnessed-corpus-enrichment_2026-11-05.md). The coordinator owns execution status, finding disposition, rule changes and conditional decisions. This document owns the selected pilot's identity question, field/candidate model, cohort entry conditions, actual integration and acceptance. It carries the integrated [production enrichment review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md) §8/F07/§10 at `6487c486075a832e50b59fcec96c88485f30c11a`; it does not promote the earlier functional review into principal authority.
 
-RC01–RC06 were accepted for planning on 2026-11-05. WCE00 routes those changes, including RC05's November6 replacement with statistics qualification and RC06's independent group-held-out assessment, before their dependents. The separately owned test-plan foundation is assumed ready as a target; its remaining final checks are not this pilot's scope or passing evidence.
+RC01–RC06 were accepted for planning on 2026-11-05. WCE00 routes those changes, including RC05's November6 replacement with statistics qualification and RC06's exact event-specific assessment as amended by ADR-0068's shared-development decision, before their dependents. The separately owned test-plan foundation is assumed ready as a target; its remaining final checks are not this pilot's scope or passing evidence.
 
 ## 1. The selected identity question
 
@@ -35,27 +35,34 @@ The current source already supplies source-qualified occurrences, typed semantic
 
 The [D5 identity owner](../../design/D5-consolidation-identity-confidence.md#3-entity-resolution) distinguishes global/local scope and exclusions. Its M1 interpretation section separately forbids candidate probabilities from serving as identity or scientific authority. The [D7 evaluation owner](../../design/D7-evaluation-goldens-outer-loop.md) and `evaluate/operation_assessment.py` supply protected source-first/output-first judgment custody; WCE02 supplies the new exact group/partition contract needed here. The source-bound candidate path of WCE03/WCE05/WCE06 supplies actual mentions and context rather than fabricated titles from assessment labels.
 
-Splink is absent from the inspected direct project dependencies; DuckDB **2.0.0** and scikit-learn **1.9.1** are present in `python/corpus-structure/pyproject.toml`. The selected research baseline is **Splink 5.0.0**, not an existing installed or qualified provider. Adopt its exact pin only at the cohort-ready execution boundary, reconcile actual Python/DuckDB compatibility then and retain failed attempts. Software compatibility and identity efficacy are separate obligations; neither requires a second authority store. Source/read lifecycle and numerical proposals remain in existing owners.
+Current exact direct pins in `python/corpus-structure/pyproject.toml` are **Splink5.0.0**, **DuckDB2.0.0** and **scikit-learn1.9.1**. Actual183 exercises the selected library route; failed181 and admission attempts remain evidence. Software compatibility and identity efficacy are separate obligations; neither requires a second authority store. Source/read lifecycle and numerical proposals remain in existing owners.
 
 The focused foundation assessment under core 3.3, the efficient-architecture companion and code-intelligence profile 1.4 favors a frozen bounded projection into a library linkage model and typed proposals back out. A new identity engine, universal workflow or threshold-connected-components authority would increase lifecycle and semantic burden without supplying the missing source question. The current five dirty library-guide addenda were read as research inputs and are preserved outside this edit scope; the [Splink addendum](../../libraries/scientific_compute/Splink.md#splink-500--advanced-capabilities-addendum) materially informs the route below.
 
 ## 3. Frozen cohort and field model
 
-### 3.1 Independent cohort admission
+### 3.1 Authentic shared-development cohort and independent meanings
 
-WCE10's design is required now. Its numerical execution starts only after WCE02 and WCE06 supply a frozen, authentic repeated multi-attribute cohort with independently authored eligible-pair truth and enough independent source/lineage groups for the declared development/assessment split. The cohort includes genuine repeated lineages, similar distinct artifacts and unknown cases; a handful of convenient positives or the existing twenty definition pairs from two usages cannot supply this question.
+WCE10 uses the SAME120 Grinstead–Snell pages. Its actual source-work-scoped cohort consists
+of figure/table/reference occurrences with exact original passages, fields and provenance.
+Repeated caption/reference lineages, similar titles with contrary numeric codes, missing caption
+partners and unknown revision/alias fields remain distinct. Enterprise terms below describe a
+future extension scenario; no enterprise packet, held-out source or independent-group threshold
+is required for this execution.
 
-The operator replaced the enterprise packet requirement on2026-11-06. WCE10 remains future
-scope: reconcile this controlled-artifact lineage question with a statistics-compatible identity
-population before execution. Enterprise vocabulary below is an extension scenario, not a corpus
-procurement requirement. Do not silently credit extraction qualification as identity efficacy.
-WCE02's early source/question slice enables preparation; output-first labels follow actual runs.
+Freeze source membership, occurrence grain, extraction/binding revisions, field states, hard
+exclusions, candidate arms and model assumptions. Diagnostic fixed-weight numerical execution
+requires authentic bound fields, not invented truth labels. Independently authored source
+expectations and subsequent exact output/source judgments assess the resulting candidates.
+Candidate membership and score cannot serve as their own truth. Retain unresolved/unassessed
+cases and do not coerce them to nonmatches or derive population blocking recall from a selected
+pair audit. All current comparisons are exposed shared-development evidence.
 
-Before scoring, retain the selected packet's exact source membership, issuer/domain/kind coverage, occurrence IDs and source closure, extraction/binding revisions, field states, eligible-pair population, hard exclusions, independent reference origin and partition assignments. Group related revisions/mentions and shared source evidence so they do not leak across held-out groups. An entity-disjoint final group tests unseen lineages; a source-disjoint test involving known lineages answers a different linking question. Select and label the intended question before assigning groups. The initial pilot targets held-out lineage/source groups within the declared packet/domain, with no claim of broad enterprise-population coverage.
-
-Independently identify eligible positive and negative pairs before observing candidate scores, including positives missed by every candidate generator. If exhaustive labeling of the bounded eligible population is feasible, use it. Otherwise predeclare an independent sample and its inclusion mechanism; unweighted convenience labels cannot estimate population blocking recall or error rates. Preserve unresolved/unassessed judgments without coercing them into nonmatches. Development, sensitivity/threshold selection and untouched final assessment have distinct roles. Fresh source authoring follows WCE02; extraction results are observations to assess, not the source of truth labels.
-
-Entry evidence must establish that the scope/identity rubric is usable, field-state coverage includes the countercases below, both match and nonmatch distinctions have independent support and the intended held-out comparison is possible. Do not invent a universal sample-count threshold: choose the partition/comparison design from the actual independent groups and state what it can settle. If support is inadequate, finish the frozen pilot design and report the concrete cohort gap; numerical execution and efficacy remain open under the coordinator, not silently completed or failed.
+Actual183 retains142 records and116 pairs across the declared candidate arms. The selected
+independent source assessment examines11 pairs touching13 distinct selected occurrences;
+other105 pairs remain unassessed. No EM, calibrated probability, public alias identity or
+population-general error estimate follows. A future learning or broader efficacy claim requires
+its own exact independently judged event/pair population, rather than more origins by default.
 
 ### 3.2 Fields and missingness
 
@@ -144,7 +151,7 @@ Required countercases include:
 | Missing source scope or unknown revision | Unresolved applicable identity grain, not a silently asserted match/mismatch. |
 | Related revisions/duplicate source material crossing a proposed split | Group assignment catches the shared evidence; final held-out claims refuse the leaking partition. |
 
-These expectations come from independently authored source contracts/literals, not from Splink's own cluster output or the production canonicalization under test. Small constructed inputs can verify interfaces and exclusions; authentic independent held-out source groups are required for efficacy.
+These expectations come from independently authored source contracts/literals, not from Splink's own cluster output or the production canonicalization under test. Small constructed inputs can verify interfaces and exclusions; authentic independently authored source judgments over the shared120-page development corpus are required for bounded efficacy assessment; no held-out source group is required.
 
 Sources: [addendum §8](../../libraries/scientific_compute/Splink.md#8-structured-evaluation-outputs-and-clerical-label-semantics), [tagged evaluation](https://github.com/moj-analytical-services/splink/blob/v5.0.0/splink/internals/linker_components/evaluation.py). Source-based identity truth, protected reference custody and final interpretation remain repository responsibilities.
 
@@ -160,4 +167,25 @@ Implementation verification runs focused native identity/proposal/read tests and
 
 No production changes, probes, dependency changes, database/provider tests or product tests were performed during plan authoring: **not_run**. Authoring validation is static contract/source/review reconciliation, with final documentation checks owned by the coordinator. Future execution receipts must name commands, date, frozen source/runtime/model context and passed/failed/blocked/not_run outcomes. Preserve failures and interruptions and reassess affected receipts after changes. WCE12 owns the assembled final-source qualification union; this pilot supplies its scoped evidence and remaining limits, not an overall product qualification claim.
 
-After selected replacement consumers pass, retire any pilot-specific pair reconstruction, null normalization or threshold grouping branch that independently reinterprets the same meaning. Preserve exact/lexical controls, immutable reports, historical readers, plans, source/reference evidence and original raw outputs. No existing authoritative identity policy is retired merely because a challenger scores pairs successfully; any future authority change needs its own explicit design/rule decision.
+After selected replacement consumers pass, retire any pilot-specific pair reconstruction, null normalization or threshold grouping branch that independently reinterprets the same meaning. Preserve exact/lexical controls on current contracts, plans, source/reference evidence and original raw outputs. Retire replaced historical production readers; raw evidence does not activate their decoding paths. No existing authoritative identity policy is retired merely because a challenger scores pairs successfully; any future authority change needs its own explicit design/rule decision.
+
+## Current selected realization — 2026-11-06
+
+**Implemented; actual native/read/export Tested within this scope.** The statistics pilot operates
+on figure/table/reference occurrences within the single Grinstead–Snell source-work namespace,
+not enterprise document-control identity. `methods/artifact_identity.py`, `semantic/artifact_identity.py`
+and the corresponding native guards own its projection and retained candidate/model evidence.
+Actual run183/task1070/cut247 retains142 records and116 candidate pairs, with zero native alias
+pairs; all48 selected sources are bound. Exact/lexical, registered external pairs, native alias
+blocking and their union are separate candidate arms. The fixed diagnostic model uses Splink's
+registered blocked-pair route and preserves its declared assumptions; no EM/calibrated identity
+or automatic merge is claimed. Ordinary Reader and complete detached export passed.
+
+[Independent artifact account](../../design_review/evidence/2026-11-06_wce-gs120/assessment/final-source-capture/artifact-link-assessment.json)
+separates source-confirmed narrow caption/reference lineage candidates from contrary figure-code
+pairs nominated by similar titles. A low-scoring contrary pair remains useful retained negative
+evidence rather than disappearing at a display threshold. Missing projected caption partners are
+source-projection gaps. Uninspected pairs remain unassessed. Exact source occurrence grain and
+model proposal standing travel through every read/export; this pilot supplies no public identity.
+Native163 decodes canonical numeric configuration strings at validation without changing stored
+configuration hashes, emitted numeric policy values or semantic release identity.

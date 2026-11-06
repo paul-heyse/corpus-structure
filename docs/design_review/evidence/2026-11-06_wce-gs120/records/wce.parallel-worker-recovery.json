@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "id": "wce.parallel-worker-recovery",
+  "title": "Native worker-loss diagnosis and honest xdist shutdown",
+  "group": "WCE",
+  "package": "WCE12",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What does the native worker-loss evidence establish, and does the current harness terminate fatal attempts and recover required functional coverage?",
+  "answers": [
+    "WCE12",
+    "WCE-R13",
+    "WCE-R14"
+  ],
+  "method": "Preserve fatal trace and live stacks; exact last30-node normal/debug-allocator histories; documented xdist fatal policy with actual two-worker probe; healthy current parallel replacement of every failed-worker and unresolved node.",
+  "commands": [
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/crash-history001 -- -n 0 @docs/design_review/evidence/2026-11-06_wce-gs120/qualification/interpreter-crash/preceding-30-nodes.txt",
+    "PYTHONMALLOC=debug uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/crash-history-debug001 -- -n 0 @docs/design_review/evidence/2026-11-06_wce-gs120/qualification/interpreter-crash/preceding-30-nodes.txt",
+    "uv run pytest -n auto tests/scripts/test_parallel_harness.py -k \"project_policy or (real_distributed_failure_boundaries and loss)\" -q",
+    "just test-all -n auto @docs/design_review/evidence/2026-11-06_wce-gs120/qualification/affected-current.txt tests/scripts/test_parallel_harness.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "qualification/interpreter-crash/diagnosis001.json",
+      "role": null,
+      "sha256": "8ec923de502a9eff904fea466eb2ba42abaccd45c93c0516cd471eeee05c6a59"
+    },
+    {
+      "path": "qualification/interpreter-crash/pytest-stderr-snapshot.txt",
+      "role": null,
+      "sha256": "906167dd8ebe5dd8a1857b74b9223cc7d0d014fb1b9a52407e1ab3f3197dc681"
+    },
+    {
+      "path": "qualification/scheduler-stall/interruption.json",
+      "role": null,
+      "sha256": "0498cad14cf8d86defdffe9c6cb1197b860739bb4f278d4bfa81ae28714d645c"
+    },
+    {
+      "path": "qualification/affected-current-selection.json",
+      "role": null,
+      "sha256": "fe88c90d5e760e505845de41089b96888bceacfb0db96cfc41f5b896bca7ff69"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "qualification/interpreter-crash/history001-result.json",
+      "role": null,
+      "sha256": "fb3fce6cff72c0564da286f73729522101a4d5d858d8370f09ea751e3a7168c4"
+    },
+    {
+      "path": "qualification/interpreter-crash/history-debug001-result.json",
+      "role": null,
+      "sha256": "5e4b5274a7fdf8f5bbb58eb9cce4e2a6e9e40ef274965dbb4f92ccf09ef9402d"
+    },
+    {
+      "path": "qualification/interpreter-crash/history-debug001-environment.json",
+      "role": null,
+      "sha256": "ef6542f6a26b11f1a279ba27bc04fda3f19ac39da0be7acc454be7866e716cc5"
+    },
+    {
+      "path": "qualification/scheduler-stall/policy-controls003.json",
+      "role": null,
+      "sha256": "a1e1ef374ebd2c79732bb882925a207020f7d2f240100528bf89ac3c4c42f990"
+    },
+    {
+      "path": "qualification/test-receipts/affected-current004/classification.json",
+      "role": null,
+      "sha256": "a0aa70de6feff5486999949ba69ee3055d605208ef98d5c1d922e93f02ec0683"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "History diagnostics",
+      "value": 30,
+      "of": null,
+      "unit": "nodes per replay",
+      "note": "Normal and debug allocator both pass with healthy reporting/native context; causal diagnosis only."
+    },
+    {
+      "name": "Healthy current parallel recovery",
+      "value": 289,
+      "of": null,
+      "unit": "tests",
+      "note": "Includes all228 original failed-worker cases, all20 unresolved cases, whole modified files and actual fatal-policy probe."
+    },
+    {
+      "name": "Underlying native GC cause",
+      "value": "unestablished",
+      "of": null,
+      "unit": null,
+      "note": "SIGSEGV in visit_decref/dict_traverse not reproduced; allocation site is not a proven corruptor."
+    },
+    {
+      "name": "Fatal policy",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Actual project max-worker-restart0/default auto+loadgroup; controlled fatal attempt naturally fails, retains6not_run cases and leaves no process group."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The post-crash hang is addressed by documented fatal-worker shutdown rather than implicit replacement. The actual probe and current289-case auto-parallel replacement pass; every required case from the original failed worker and unfinished tail has healthy current evidence. The native interpreter GC fault itself remains unexplained and was not reproduced by either exact30-node diagnostic. No speculative dependency, GC, interpreter or backend workaround was made. Original failed/interrupted receipts and live stacks remain; recurrence/core/allocator evidence triggers broader lifetime/dependency diagnosis. This supports current functional/liveness qualification, not a native-GC causal-fix or clean-original-campaign claim.",
+  "consumed_by": [
+    "WCE12"
+  ]
+}

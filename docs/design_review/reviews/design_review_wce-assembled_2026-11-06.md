@@ -208,3 +208,33 @@ They do not reverse ADR-0068. Contract revisions use the accepted current-only e
 A4 unresolved. G2/G3/G6/CI-G1 require correction. Sound custody boundaries do not establish
 assembled conformance. Review acceptance, implemented completion, measured benefit and full
 qualification remain distinct. Subsequent scoped review is appended with its actual baseline.
+
+
+## 13. Corrected-source scoped re-review — 2026-11-06
+
+**Independent reviewer follow-up; source assessment only.** The reviewer assessed main
+`e912f6bc9` plus the identified feasibility-policy corrections in `table_interpretation.py`,
+`record_interpretation.py`, `local_interpretation_reports.py` and `source_contributions.sql`.
+The first follow-up accepted AF02 numerical enforcement and AF03 interpretation preservation,
+and accepted the separate full-file export budget. It found that the feasibility arm still lacked
+explicit unary potentials required by the existing interpreter. That failure was corrected before
+the final narrow follow-up; the initial judgment above remains preserved.
+
+AF01 now assigns one binary applicability variable to each retained physical edge. Shared factors
+are confined to the same target/relation band and explicitly described as policy assumptions.
+Feasibility uses explicit zero unary potentials and an authenticated feasibility-control flag;
+weighted reports cannot acquire that label merely by resealing. Bands above16 edges retain their
+proposals and report `not_run`, without support truncation or an invented posterior. The actual
+retained inventory has44 bands:41 within the supported limit and3 with26 edges.
+
+AF02 retains finite/normalized completed products and valid axes, support, membership and parameter
+structure; native checks do not rerun the solver or estimator. AF03 preserves definition versus
+explanation/usage/unresolved meanings and applicability outcomes through dossier identities and
+projections. Full-file exports use their own declared byte budgets while interactive responses
+retain their8M bound and membership-bound continuations.
+
+**Final scoped judgment: A1–A4 accepted for these corrected designs.** The corrections realize
+existing authority; no new rule or architectural reversal is requested. This supersedes the
+initial design objections only within the inspected correction scope. Actual native deployment,
+protected assessment, real corpus journeys and final-source qualification remain separate WCE
+obligations; the reviewer did not claim those passed.

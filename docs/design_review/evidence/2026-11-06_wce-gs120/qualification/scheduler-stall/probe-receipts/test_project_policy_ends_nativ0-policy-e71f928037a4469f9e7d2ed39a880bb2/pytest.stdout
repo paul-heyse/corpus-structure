@@ -1,0 +1,15 @@
+bringing up nodes...
+bringing up nodes...
+
+.[gw0] node down: Not properly terminated
+F                                                                        [ 25%]
+=================================== FAILURES ===================================
+_ build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw2/test_project_policy_ends_nativ0/case/test_case.py _
+[gw0] linux -- Python 3.14.10 /home/paul/corpus-structure/.venv/bin/python
+worker 'gw0' crashed while running 'build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw2/test_project_policy_ends_nativ0/case/test_case.py::test_crash@fatal_control'
+==================================== PASSES ====================================
+- generated report log file: /home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw2/test_project_policy_ends_nativ0/receipt/reportlog.jsonl -
+=========================== short test summary info ============================
+PASSED test_case.py::test_independent
+FAILED test_case.py::test_crash@fatal_control - worker 'gw0' crashed while ru...
+1 failed, 1 passed in 0.72s

@@ -1182,26 +1182,38 @@ above, not those two.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| located supplied occurrence | bounded source context, frozen curated descriptors and vectors | fixed candidate list and scoped relationship decision | deterministic + encoder |
+| authenticated retained source occurrence | actual producer contribution, exact component target inventory and vectors | fixed candidate list, compatible relationship edges and explicit competing alternatives | deterministic + encoder; selected nondefault configuration |
 
-**Implemented; bounded controls Tested,2026-11-05.** Exact aliases, PostgreSQL full-text ranking
-and exact eligible pgvector cosine remain separate scored channels. Declared RRF combines them
-at a fixed unique-target budget with deterministic ties. Type/parent/version constraints apply
-before retrieval; unknown values retain eligible alternatives. Candidate list identity binds
-actual channel results, inventory and policy. Similarity supplies no semantic witness.
+**Implemented; actual bounded E5/source/Reader/export behavior Tested,2026-11-06.** The registered
+`retrieve.contextual/3` method consumes actual retained occurrences. `locate.definition_terms/1`
+projects term roles from exact retained component references, preserving their original source
+coordinates; it supplies locations rather than a new independent semantic judgment. Source views
+without an eligible emitted definition stay explicitly unrequested/inapplicable for that route.
+The source corpus and all private components remain visible separately from that selection.
 
-The selector retains distinct relationship kinds, alternatives, local-sense/new-concept
-proposals and insufficient-evidence reasons. Current registered denotation selection requires
-an exact full-term label/alias cue and yields a private proposal. A low score or absent target
-does not establish novelty. Public admission requires the independent policy in D5; canonical
-identity and exclusion authority remain separate. Current selected source/inventory evaluation
-and remaining relation gaps are recorded by the PCE coordinator.
+Exact aliases, PostgreSQL full-text ranking and exact eligible pgvector cosine are distinct channels.
+Declared RRF and target budgets preserve candidate identities and channel provenance. The current
+source-backed inventory binds exact component term/content, source scope/version and original
+producer custody. Reusing unchanged target vectors preserves their original provenance and adds
+no evidence vote. Curated descriptors are a separate input type; they are not attributed source
+quotations or the registered producer's supplied-mention interface.
 
-**Configuration.** Immutable registry targets, exact source product/projection, declared supplied
-mentions, source scope/version, encoder profile and channel/unique-target budgets are task
-determinants. Inventory membership changes invalidate retrieval while unchanged descriptor
-vectors can be reused. Source-backed definition target input remains unsupported until it has
-its own authenticated source binding; it is not inferred from a catalog label.
+Released relationship constraints retain every compatible selected edge and all its qualifying
+witnesses, alongside explicit exclusive alternatives, local-sense proposals and unresolved outcomes.
+A term projected from a component may propose `defined-by` its own exact component; this is a
+coupled construction with unassessed witness standing, not independent applicability or identity
+support. An incorrect original definition can therefore remain an incorrect private linked proposal.
+Similarity, ranking, a low score or an absent target establishes neither semantic truth nor novelty.
+Exact independent public admission remains with D5.
+
+**Configuration.** Retained source dependency method/semantic types, genuine component references,
+exact source product/projection, scope/version, declared relationship constraints and encoder/
+channel/target budgets are determinants. No manual mention/configuration bridge remains in the
+registered producer. Native completion authenticates source and target custody and replays the
+relationship contract. Source-backed target descriptors are supported through their own authenticated
+bindings. The general method catalog and M1 catalog register term projection; the general catalog also
+registers contextual retrieval. The [WCE coordinator](../plans/witnessed-corpus-enrichment_2026-11-05.md) owns selected
+corpus quality and final qualification; defaults are not activated.
 
 ### M15 resolve.record_link
 

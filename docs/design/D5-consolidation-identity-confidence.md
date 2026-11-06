@@ -2,7 +2,7 @@
 
 ## Witnessed component target
 
-**Implemented; bounded Tested,2026-11-06.** Exact operation-specific eligibility qualifies only the independently assessed component or relationship statement. Whole-report applicability policies require their own evidence. Native completion replays selected relationship constraints and six applicability dimensions against actual retained bindings; private proposals and preferred selections alone confer no public standing. Typed comparison and supported-facet display remain accepted later targets, independently of canonical identity.
+**Implemented; bounded Tested,2026-11-06.** Exact operation-specific eligibility qualifies only the independently assessed component or relationship statement. Whole-report applicability policies require their own evidence. Native completion replays selected relationship constraints and six applicability dimensions against actual retained bindings; private proposals and preferred selections alone confer no public standing. Typed comparison and supported-facet display are implemented, with integrated qualification owned by WCE; neither establishes canonical identity.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
 consumers to current contracts. Historical semantic decoders and replaced decision paths are
@@ -14,6 +14,22 @@ endpoint roles, multiplicity and competing interpretations. Assessment questions
 facets; query wording is request context and does not define knowledge claim identity.
 
 > Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
+
+### Table support and completed numerical products
+
+**Implemented; selected integrated qualification Tested,2026-11-06.** `shared-table-band-2` gives each
+physical attachment its own binary applicability variable. Related edges share a factor only
+within the same physical target/relation band; both, neither and partial applicability remain
+possible. The shared factor is a declared coherence assumption, not duplicated source likelihood.
+The feasibility control has explicit zero unary potentials and a validated mode flag. Exact
+execution supports at most16 edges per band; larger bands retain all proposals with `not_run`.
+There is no support truncation or large-table posterior claim.
+
+Completed numerical products validate axes, factor/support shapes, finite probability domains,
+normalization, candidate/event membership and coherent alternatives at Python and native
+boundaries. Valid negative log weights and log normalizers remain valid. Noncompleted outcomes
+retain diagnostics without probabilities. This enforces mathematical product validity, not
+calibration or scientific truth; native admission does not rerun a solver or estimator.
 
 ## Independent local admission
 

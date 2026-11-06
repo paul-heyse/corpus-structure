@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "id": "wce.final-qualification",
+  "title": "Selected WCE final applicable qualification union",
+  "group": "WCE",
+  "package": "WCE12",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does applicable final-source functional/native/provider/consumer/nonfunctional evidence cover the declared current WCE scope, including current-only retirement and bounded source assessment?",
+  "answers": [
+    "WCE00",
+    "WCE01",
+    "WCE02",
+    "WCE03",
+    "WCE04",
+    "WCE05",
+    "WCE06",
+    "WCE07",
+    "WCE08",
+    "WCE09",
+    "WCE10",
+    "WCE11",
+    "WCE12"
+  ],
+  "method": "Required unique-node union with explicit product/harness/context applicability; healthy replacement of all failed-worker/unresolved nodes; separate actual providers/consumers, exclusive faults, hygiene, protected assessment, native deployment and retirement receipts.",
+  "commands": [
+    "just test-all -n auto",
+    "just test-all -n auto @docs/design_review/evidence/2026-11-06_wce-gs120/qualification/affected-current.txt tests/scripts/test_parallel_harness.py",
+    "just test-native-faults",
+    "just hygiene",
+    "just ready",
+    "just model check",
+    "just evidence"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "qualification/build_final_union.py",
+      "role": null,
+      "sha256": "effd20e3b203be9419705dc4320d10f6633f7e777f0be51a02bb9585898b0404"
+    },
+    {
+      "path": "qualification/affected-current-selection.json",
+      "role": null,
+      "sha256": "fe88c90d5e760e505845de41089b96888bceacfb0db96cfc41f5b896bca7ff69"
+    },
+    {
+      "path": "qualification/current-receipts-retention.json",
+      "role": null,
+      "sha256": "9a2440c6d2b8999028d129888c7d1205870a775d5ce7ce850b3ca6721ea8ef19"
+    },
+    {
+      "path": "retirement/current-integration001.json",
+      "role": null,
+      "sha256": "eb67e2eef26183a1da17aa1f8afca8f68d434633cdd5507533202169ff2bde8d"
+    },
+    {
+      "path": "retirement/worktree-cleanup001.json",
+      "role": null,
+      "sha256": "276feda7baa3643a49d34418b03916017c7bee86e6f52a54096f95d6c2c5e546"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "qualification/final-union.json",
+      "role": null,
+      "sha256": "3d9abff00f2a195a97a92c611002d6bbde85da7411f04c29ce9d9d552cd36bd0"
+    },
+    {
+      "path": "qualification/classified-current-union.json",
+      "role": null,
+      "sha256": "5b49da36789cea3751e9bff4357e8d56b804318b670631864440ae3122b0bcca"
+    },
+    {
+      "path": "native-current158-controls/hygiene-final001.log",
+      "role": null,
+      "sha256": "550b176ca59dd3328ce625b5dca11a37420c4ffc72f32ffd14d582f5e786710b"
+    },
+    {
+      "path": "native-current158-controls/model-final003.log",
+      "role": null,
+      "sha256": "c842de187ab6c7580605486b41337bf2518dcc0c9a0fc5870871077a391f0f94"
+    },
+    {
+      "path": "native-current158-controls/ready-after-crash005.log",
+      "role": null,
+      "sha256": "ec0ae26c0e40bb618224161d2fbe14371c45d8f8669b8a52addbcfa367d5b97d"
+    },
+    {
+      "path": "native-current158-controls/final-runtime-identity008.log",
+      "role": null,
+      "sha256": "695c1250365044af3d2aa5ee72f43bbf63168a5185085069c8adc4302da4680d"
+    }
+  ],
+  "depends_on": [
+    "wce.gs120-source-recovery",
+    "wce.gs120-model-delivery",
+    "wce.gs120-current-journeys",
+    "wce.gs120-benefit-account",
+    "wce.operation-fit-availability",
+    "wce.parallel-worker-recovery"
+  ],
+  "results": [
+    {
+      "name": "Required unique functional union",
+      "value": 5063,
+      "of": null,
+      "unit": "test identities",
+      "note": "5055ordinary+8exclusive faults; zero unresolved, all declared native context obligations complete."
+    },
+    {
+      "name": "Current affected parallel selection",
+      "value": 289,
+      "of": null,
+      "unit": "tests",
+      "note": "All228 original failed-worker and20 unresolved cases plus complete modified files/new probe; no worker loss/stream errors."
+    },
+    {
+      "name": "Exclusive native faults",
+      "value": 8,
+      "of": null,
+      "unit": "tests",
+      "note": "Passed serially after parallel jobs; real shared-cluster auth/recovery controls."
+    },
+    {
+      "name": "Final current portable bundles",
+      "value": 25,
+      "of": null,
+      "unit": "bundles",
+      "note": "Seven model, three policy, ten contextual, comparison, artifact, publication and two full dossiers; declared-context closure only."
+    },
+    {
+      "name": "Original full attempt",
+      "value": "failed/interrupted",
+      "of": null,
+      "unit": null,
+      "note": "5034passed,2assertion failures,1nativeworker loss,17incomplete/unexecuted; retained and not relabelled."
+    },
+    {
+      "name": "Rust functional selection",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "Zero Rust tests; separate Clippy/dependency/format passes, rustc1.101.0-nightly(2d20b42b8 2026-11-04)."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Complete selected current-only WCE implementation and applicable functional/native/provider/consumer/nonfunctional union are Tested2026-11-06. Product3552edf69/f473 and validation harness83d0c295d are identified; all5063 required identities have applicable passes and no selected obligation remains unresolved. Actual120-page GLiNER2.5/E5/Splink/scoped/comparison/dossier flows, protected two-attachment publication/refusals, complete read/file/portable/MCP and retirement are separately established. Hygiene/model/ready and read-only final CB runtime identity pass. The classified historical aggregate stays failed because original failures/loss are retained; source/harness applicability and replacement scope justify the final union without a clean-original-run claim. Native GC cause remains unestablished after clean bounded diagnostics/recovery; source semantic account remains partial and actual event fitting unavailable. No calibrated/scientific/whole-corpus completeness or absence-of-all-native-faults claim follows. Concurrent operator work is preserved.",
+  "consumed_by": [
+    "WCE coordinator",
+    "STATUS.md"
+  ]
+}

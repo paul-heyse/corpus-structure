@@ -1,0 +1,5 @@
+{"pytest_version": "9.1.1", "$report_type": "SessionStart"}
+{"nodeid": "", "outcome": "passed", "longrepr": null, "result": null, "sections": [], "$report_type": "CollectReport"}
+{"nodeid": "test_case.py", "outcome": "passed", "longrepr": null, "result": null, "sections": [], "$report_type": "CollectReport"}
+{"nodeid": ".", "outcome": "passed", "longrepr": null, "result": null, "sections": [], "$report_type": "CollectReport"}
+{"nodeid": "test_case.py::test_case", "location": ["test_case.py", 1, "test_case"], "keywords": {"test_case": 1, "test_case.py": 1, "case": 1, "": 1}, "outcome": "passed", "longrepr": null, "when": "setup", "user_properties": [], "sections": [], "duration": 0.017255474987905473, "start": 1794002827.098691, "stop": 1794002827.1159456, "$report_type": "TestReport"}

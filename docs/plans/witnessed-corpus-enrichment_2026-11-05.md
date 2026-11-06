@@ -1,13 +1,13 @@
 # Witnessed corpus enrichment
 
-**Status: WCE00–03 selected foundation delivered; WCE04–05 selected implementation complete and Tested. Updated 2026-11-06.** This coordinator owns
+**Status: Complete for the selected WCE00–12 current-only implementation, shared120-page assessment and applicable qualification union. Tested2026-11-06; semantic limits and an unreproduced native-GC fault remain explicit below.** This coordinator owns
 combined scope, package state, scheduled review-finding disposition and completion. Supporting
-plans own detailed realization; DESIGN/ADRs remain architectural authority. Package state below distinguishes implemented scope from remaining assessment and qualification.
-No defaults are activated by this plan.
+plans own detailed realization; DESIGN/ADRs remain architectural authority. Package state below records completed selected scope and explicit conditional or semantic limits.
+No product default graph or canonical-identity activation follows from this plan.
 
 ## Current execution decision — 2026-11-06
 
-**Accepted; implementation in progress.** ADR-0068 overrides earlier multi-source held-out/cohort
+**Accepted; selected implementation and applicable qualification complete,2026-11-06.** ADR-0068 overrides earlier multi-source held-out/cohort
 requirements for this execution. One shared120-page Grinstead–Snell corpus (physical191–310)
 serves development, regression, fitting, debugging and assessment. No new sources or held-out
 populations are required. The current method baseline is captured early, followed by iterative
@@ -28,76 +28,119 @@ Earlier package receipts remain dated/scoped evidence, not new final qualificati
 
 ## Execution checkpoint — 2026-11-06
 
-**Resumed; full remaining scope is in progress, not complete.** Main integrates current WCE06–10
-composition, coupled-policy, fitting, artifact-custody and dossier-source slices through `ee5e0441e`.
-The development database remains native157 `semantic_wce_baseline_20261106`; full current migration
-and subsequent actual120-page journeys remain required. Concurrent operator process/library edits
-are preserved independently of this execution.
+**Complete selected functional/native/provider/consumer/nonfunctional scope,2026-11-06.**
+The granular source-meaning account remains partial, and native GC root cause is unestablished;
+these limits are preserved rather than promoted into correctness or stability claims.
+Product source `3552edf69` includes source-local composition, typed comparison, automatic full-membership
+and bounded dossier delivery, table-policy2, numerical/native invariants, protected event fitting,
+artifact identity, current catalog registration and all affected current consumers. Development
+PostgreSQL18/corpus is native163 `semantic_wce_batch_20261106`, port5434. Semantic release
+`cb08727ec668c048998c82db31ef0e1242d714ca23e2b0f2a223eb88c6061a29` is unchanged by the
+runtime-only budget/native/configuration repairs; native deployment was readmitted through the
+ordinary restricted admission route. Original source and producing-runtime pins remain original.
+Concurrent operator process/library edits are outside this execution's source/qualification claim.
 
-Baseline003 run139 is now **finished and sealed**, with completed cut178. Resumed native publication
-reused all81 completed extraction results. Ordinary per-source bounded Reader/export reconciled
-53,270 contributions,19,149 operation rows,80 report metadata rows and9 located definition components.
-The first broad export exceeded the existing inventory bound; its failed receipt is retained beside
-the successful per-source export. No PDF conversion or completed extraction was repeated.
-[GS120 evidence](../design_review/evidence/2026-11-06_wce-gs120/) retains failed001/002, interrupted003,
-resumption, completed native result, all81 raw task envelopes and final account.
-`gliner25-verification.json` authenticates actual task504's `fastino/gliner2.5-base-v1`, revision
-54785d51df8d86a0d8f2eb212fec15871aad2c4d, boundary architecture and five model/tokenizer file hashes.
+[Reviewer inputs](../design_review/evidence/2026-11-06_wce-gs120/assessment/README.md) provide the
+reading route to original cuts, neutral packets, every raw model result, granular independent
+assessments and actual consumer/qualification receipts. [GS120 evidence](../design_review/evidence/2026-11-06_wce-gs120/)
+preserves all earlier failed/interrupted attempts. Baseline139 remains53,270 contribution rows,
+19,149 operations and9 components under its frozen old output shape; no legacy runtime decoder
+is retained to execute it. These are different populations from the final current outputs.
 
-Independent source inventories retain812 authored cases across102 selected projection pages;
-18 pages were absent from those views. These inventories are selective, not a census or812 distinct
-facts. C's common32-case source adjudication is complete with exact source quotes and exposure
-limits; native protected imports and assessment of regenerated source coverage remain open.
-Two independent output reviewers inspected all9 baseline components. One formula definition is
-supported; other outputs include incorrect definition labels and narrower useful explanatory or
-reference relationships. C's final facet adjudication is in progress. Physical intersections never
-confer semantic capture. The corrected final account retains4,554 raw-provider envelopes and
-separates exact native anchors from item-only anchors.
+Source recovery140–151 **passed**:12 original native products,48 nonempty views, all120 native
+and projected-text pages, zero duplicated projected fields. No PDF conversion, recognition or
+GLiNER was repeated for recovery. Text coverage does not establish recognition/graphical fidelity
+or semantic capture. All original sources/plans/evidence remain.
 
-| Execution finding | Owning scope and remaining action | Current evidence boundary |
+Final named160/cut210 retains35 components, exactly transported from independently assessed152.
+Final model161/cut245 retains those35 plus9 model additions; all97 raw envelopes are accepted and
+retained. Actual checkpoint is **fastino/gliner2.5-base-v1**, revision
+`54785d51df8d86a0d8f2eb212fec15871aad2c4d`, with five authenticated model files. The explicit CPU
+FP32 execution profile is not a GPU fallback. Complete model delivery passes200 bounded pages,
+48 selected exports and seven verified portable partitions:66,638 contributions,42,781 operations
+including39,098 zero-output operations. Counts describe retained rows, not distinct supported facts.
+
+Independent source work retains812 selective original authored records,32 common A/B/C cases and
+32 additional C-only cases. All64 selected source cases and all35 named plus9 added model outputs
+have granular source-grounded accounts. C supports32 narrow named attachments, rejects2 exact
+pairs and marks1 ambiguous; formula corruption, missing conditions and semantic-role failures remain
+separate. Of9 additions, a partial theorem application and definition-location reference are useful
+weaker relationships; seven exact pairs have subject/content/type/scope errors. There is no full-corpus
+recall, scientific-truth or calibrated-quality claim.
+
+Protected set13/A43/B44/C45 retains exact independent authors and C parents. Publication169/cut225
+reuses named task800 and admits only **two** supported narrow attachments. Other33 components and
+the complete report stay private. Whole-report, unassessed and two unsupported component controls
+refuse natively; original failed attempts remain.
+
+Actual feasibility162/cut214, independent170/cut235 and coupled180/cut243 share8210 contributions
+and84 candidate cohorts. Each executes41 bounded requests and retains3 oversized plus40 inapplicable
+`not_run` cohorts. Binary per-edge applicability permits multiple/no targets. Declared symmetric
+coherence changes joint structure without establishing semantic improvement or calibrated confidence.
+Comparison163/cut212 retains exact `T > 3`/`T > 6`, unknown units and withheld interval consequences.
+Ten E5 contextual graphs retain14 own-component private edges,28 fresh vectors and126 reuses; all
+witnesses remain independently unassessed and no retrieval-ranking benefit is claimed.
+
+Artifact183/task1070/cut247 passes ordinary native completion, Reader and detached export with
+142 records/116 candidate pairs/zero alias pairs over all48 sources. The fixed Splink model is
+explicitly diagnostic and unfitted. Independent selected-pair assessment distinguishes seven useful
+narrow lineages from four contrary-code lexical proposals; other pairs remain unassessed.
+Full greedy dossier184/task1071/cut249 passes native completion in93,576.252ms under the unchanged
+120s deadline, retaining8280 members,12 selected,8268 omitted and all4 exact supported facets.
+This is the declared coupled180+named/protected169 selection:8210 scoped contributions plus70
+role spans from35 named components; the9 additional model components and other model families
+remain separately retained/assessed rather than being counted as dossier membership.
+Control185/task1072/cut251 passes native completion in16,183.975ms under the same120s bound,
+with exact same full member/facet objects. At budget12, greedy represents all4 role facets of
+two supported attachments; source-ID control represents0 and retains4 missing facets. Both
+full files and complete portable source/raw closures now verify on3552edf69/f473. Both fresh
+CLI/MCP journeys pass4 pages/12 selected and four exact refusal identities. Different policy
+runtimes and timings remain distinct; no speedup or new-fact claim follows.
+
+| Execution finding | Current disposition and owning scope | Closure evidence / limit |
 |---|---|---|
-| WCE-R05: selected section views omit unheaded prefixes | WCE02/11: deploy residual-body recipev7, recover views from retained native products, assess missing regions and verify120-page coverage | All18 missing pages exist in retained native residual content; recovery script prepared, actual recovery not_run |
-| WCE-R06: artifact native custody and released-shape gaps | WCE10/11: integrate/deploy exact title/scope/content identities, frozen score/route semantics and legitimate empty/unbound diagnostic shapes | Implemented and independently re-reviewed; actual124-record/96-pair rollback checks plus forged-field refusals passed; completed current native journey remains open |
-| WCE-R07: raw-output characterization counter | WCE02/12: retain corrected counter and completed-cut account, preserving actual failure/interruption limits | Corrected controls and run139-final-account001 passed; rejected attempt138 payload remains unproven in truncated error parameters |
-| WCE-AF01 / DA-055: table multiplicity becomes competition | WCE08/12: retain binary applicability of each physical attachment, group only the same target/relation band, allow both/none/partial applicability and declare exact small-band support; retain large-band proposals without a computed posterior | Assembled source review requires revision; policy2 focused35-test controls passed, actual/native assessment remains open |
-| WCE-AF02 / DA-056: completed numerical validity | WCE08/09/12: validate request axes/support and completed result membership, normalization and finite probability domains at Python/native boundaries; enforce fitter prediction/status/numeric parameter structure without solver replay | Independent source review established resealed malformed-result gap; bounded repair in progress, final native159 awaits combined changes |
-| WCE-AF03 / DA-057: dossier predecessor meaning lost | WCE07/11/12: retain original definition/explanation/unresolved interpretation and applicability outcomes across member/facet/public identities, native replay and detached exports | Independent review found unconditional definition relabelling; isolated repair in progress |
+| WCE-R05 omitted unheaded prefixes | WCE02/11 recovery and selected meaning assessment delivered | All120 pages retained;64 source cases assessed; graphical/native-only caption gaps explicit |
+| WCE-R06 artifact custody/released shapes | WCE10/11 current source/custody and canonical numeric configuration integrated | Actual183 native/read/export plus controlled refusals; no calibrated/global identity claim |
+| WCE-R07 raw-output counter | WCE02/12 actual final model inventory and complete delivery delivered | All97 exact envelopes; parsed/raw diagnostics separate from native fields and meaning |
+| WCE-R08 bounded dossier MCP delivery | WCE11 shared serving owner registered in MCP | Actual184 fresh CLI/MCP four-page parity and four refusal identities passed; full membership stays in separately budgeted export |
+| WCE-AF01 / DA-055 table multiplicity | WCE08/12 binary per-edge policy2 implemented and source-assessed | Same-population three-arm journey, independent source account and applicable numerical/native qualification pass |
+| WCE-AF02 / DA-056 numerical validity | WCE08/09/12 Python/native invariants implemented | Stable focused controls and applicable integrated qualification pass |
+| WCE-AF03 / DA-057 dossier meaning | WCE07/11/12 original interpretations/outcomes enter member/facet/public identities | Actual184/185 full members/facets exactly equal; both Reader/file/portable/MCP checks pass; independent display/meaning account distinguishes proposed members from4 role facets of2 attachments |
+| WCE-R09 current consumer analysis | WCE11 new analysis binds consuming release; physical source custody retains original pins | Source-reader/retained controls29 passed; actual current journeys execute without re-ingestion |
+| WCE-R10 native batch execution fit | WCE11/12 grouped exact custody validation and one-pass full member aggregation implemented | Full8210-source-contribution dossier native acceptance93.6s; no larger-capacity/speedup claim; per-reference producer/export work remains a bounded-workload limitation |
+| WCE-R11 operation-fit availability | WCE09 actual corpus fit unavailable, explicitly not_run | Census of17 completed runs/91,310 selected rows finds zero relation/relation.defined_by events and zero corresponding protected operation evaluations. Trigger: a genuine compatible producer/event binding and exact independent binary grades; controlled fit is separate |
+| WCE-R12 portable predecessor custody | WCE11/12 focused correction committed3552edf69;79 targeted tests, global types/Ruff, independent review and actual both-dossier detached replay pass | Verifier authenticates exact selected and original producer contexts, original reports and native-owned published support; valid unrelated page metadata remains unborrowed. Cross-cut positive/forged custody, metadata-only page, selected/source session and detached cross-project controls pass. Actual184 source-project reuse remains same-project; replay its export without rebuilding producer |
+| WCE-R13 parallel crash shutdown | Resolved WCE12 harness behavior; default xdist zero restarts, auto/loadgroup unchanged | Actual two-worker fatal probe ends naturally with1crash/6not_run/no survivor; current289-test parallel rerun and eight exclusive native faults pass. The original stalled receipt/live stacks remain unchanged |
+| WCE-R14 native GC worker fault | Bounded diagnosis and functional recovery complete; causal explanation remains unestablished | Exact preceding30-node history passes normally and under debug allocator; every228 original failed-worker case plus20 unresolved cases passes current parallel rerun. No native-GC fix is claimed. Recurrence/core/allocator findings trigger wider lifetime/dependency investigation |
 
-The [assembled review](../design_review/reviews/design_review_wce-assembled_2026-11-06.md)
-requires these three corrections within the accepted target; it requests no new authority rule.
-The refreshed diagnostic account is published at86425f72e. Its initial source judgment is retained;
-corrected-source review and qualification remain separate obligations.
+The [assembled review](../design_review/reviews/design_review_wce-assembled_2026-11-06.md) preserves
+initial objections and corrected-source A1–A4 acceptance. [Final native review](../design_review/evidence/2026-11-06_wce-gs120/final-native-review/)
+finds no material defect in its bounded stable source scope. Neither review substitutes for tests,
+actual provider/consumer execution or independent source-meaning assessment.
 
-Source recovery now **passed**: current native158/recipev7 completed12 ordinary source runs140–151,
-with48 nonempty views, all120 pages covered by native provenance and projected text, and zero
-duplicate projected fields. C authored32 additional source-only cases across all18 formerly missing
-pages (130 exact quotes,125 roles,71 relations); protected import/capture assessment remain open.
-The original source recovery preparation receipts remain dated; actual results are in
-`source-recovery/attempt001/` and record `wce.gs120-source-recovery`.
+Fresh CLI/MCP parity passes named160, published169, model161, comparison163 and artifact183.
+All three integrated worktrees are removed; [retirement inventory](../design_review/evidence/2026-11-06_wce-gs120/retirement/)
+traces removed pair/singleton/manual/supplied production paths and obsolete semantic decoders.
+[Final applicable union](../design_review/evidence/2026-11-06_wce-gs120/qualification/final-union.json)
+covers **5063 unique required nodes**:5055 ordinary and8 exclusive native-fault cases, with
+zero unresolved. The original5054-node campaign remains failed/interrupted:5034 passed,2 test
+assertions failed,1 worker crashed,17 cases were incomplete/unexecuted. The healthy current
+`just test-all -n auto` affected selection passed289 cases, including all228 from that worker,
+all20 unresolved nodes and whole modified test files/new fatal-policy probe. Those are overlapping
+scopes, not additive totals. Source/harness/context applicability is explicit; no clean original
+full-run claim is made.
 
-Current registered linguistic construction152/cut204 retained35 proposals on all48 current views.
-Frozen original-input refinement separately retained32 named and9 model proposals. Independent B
-assessed all41 and found three material converted-formula/native-original discrepancies, unresolved
-anaphora, missing local conditions/subject notation, exercise/model-local speech acts, and a new
-binomial→Chapter3 reference that supplies no defining content (B-M01–05). Preserve these granular
-assessment limits and useful narrower relations; neither proposal counts nor exact converted-text
-coordinates establish clean formula fidelity or complete definitions. These findings belong to the
-WCE02/12 benefit account and do not authorize inventing scientific corrections.
+`just test-native-faults` passed8 cases after the parallel lane. All `just hygiene`, `just ready`,
+model0.6.5 and current archive/runtime identity checks pass. Rust nextest selected zero functional
+tests; Clippy/dependency/format checks pass separately. Evidence checks report0errors/40 older
+out-of-scope warnings. The same semantic CB release and original producer runtime pins remain.
 
-Model attempt153 stopped when integration changed the installed runtime fingerprint; ordinary
-settlement retained68 completed task results and cancelled28 remaining tasks. Its provider run is
-**failed/incomplete**, with raw outputs preserved under `assessment/run153-interrupted-model001/`.
-Freeze final source before the next full provider qualification. Diagnostic scoped policy1 run155/
-cut206 retained8210 contributions and178 operations across48 views; it does not qualify policy2.
-An inadvertently scheduled dossier156 was cancelled without a result; cancellation evidence stays.
-
-Current work closes source-contribution dossier integration and source-grounded definition refinements
-against the same frozen source/model outputs. Publication kinds are restricted to actually implemented
-public policies; artifact identity remains private. Then generate/deploy the complete current native
-migration, recover source scopes without PDF conversion, and execute real capability/Reader/CLI/MCP/
-export journeys and in-sample fitting diagnostics. Assembled review, legacy retirement and final
-applicable qualification follow. Previous targeted results retain their exact scope; final-source
-`test-all`, hygiene and handoff remain not_run for this increment.
+[Granular benefit account](../design_review/evidence/2026-11-06_wce-gs120/assessment/benefit-account/README.md)
+and [reviewer inputs](../design_review/evidence/2026-11-06_wce-gs120/assessment/README.md) supply all
+final declared assessments and actual artifact/dossier delivery, preserving every original failure,
+unsupported proposal and unassessed scope. No required selected implementation/consumer/qualification
+obligation remains; inactive investigations and observed refinement triggers below retain their
+own explicit entry conditions.
 
 ## Outcome, inputs and baseline
 
@@ -108,26 +151,26 @@ Complete knowledge remains the direction; complete records are not the universal
 
 Consume the [integrated target review](../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md)
 at `6487c486`, F01–F07, RC01–RC06 and its §9 recommendation crosswalk. The [audit companion](../design_review/reviews/audits/design_review_production-enrichment-improvements_2026-11-05_audit.md)
-supplies rationale and library-input hashes, not another target. Current source baseline: `6487c486`, inspected2026-11-05;
+supplies rationale and library-input hashes, not another target. Original planning source baseline: `6487c486`, inspected2026-11-05;
 product native152/test-resolution source is included. Five operator-owned dirty library addenda
-are inputs identified by hashes in the review's audit companion; recheck those bytes at execution.
+are original planning inputs identified by hashes in the review's audit companion; current execution results are recorded above.
 Their contents are not edited or staged by plan publication. Apply core3.3, heuristics1.0,
 code-intelligence1.4 and relevant test-assessment1.2 through standard.toml.
 
 The [PCE coordinator](progressive-corpus-enrichment_2026-11-04.md) remains complete for its selected
 qualified nondefault scope and owns PCE F37/F39. This series schedules contributing refinements
 through references, not reopened PCE packages or copied progress. The [test-resolution series](test-audit-resolution_2026-11-05.md)
-is essentially complete and in final checks; assume its foundation available for the target while
-preserving its actual final-qualification status. Do not schedule those repairs again.
+is complete at a537bea6; its foundation was consumed without reopening its independently owned campaign. Do not schedule those repairs again.
 
 ## Target and foundation assessment
 
+**Accepted planning baseline,2026-11-05; the checkpoint and execution queue above/below own current completion.**
 Existing released contribution/operation products, physical occurrence identities, retained annotation
 views, immutable source/runtime pins, local solver and common native publication are sufficient
-foundations. Current pair classification lacks located component witnesses; token rules lack named
-variant/role wiring; supplied mentions omit discovery integration; singleton selection suppresses
-compatible relations; lexical comparison and supplied dossiers do not implement the new synthesis.
-Those findings require changes at existing owners, not another store/workflow engine.
+foundations. At that baseline, pair classification lacked located component witnesses; token rules lacked named
+variant/role wiring; supplied mentions omitted discovery integration; singleton selection suppressed
+compatible relations; lexical comparison and supplied dossiers did not implement the new synthesis.
+Those findings were addressed at existing owners, without another store/workflow engine.
 
 A renamed role changes released binding and owned operation, not independent producer/read name
 sets. An implementation substitution preserves the same evidence question. Logical components may
@@ -163,30 +206,30 @@ ADR-0066 adopts the target on2026-11-06; RC05 is replaced by the operator direct
 | RC03 | Accept: typed/revision comparison beside lexical baseline. Version operation/policy and revise affected ADR-0065/D1/D4/D5 owners. |
 | RC04 | Accept: supported-facet dossier selection as versioned bounded display projection. D1/D8 representation policy; no stronger admitted coverage claim. |
 | RC05 | Replaced2026-11-06: qualify on statistics, with domain-owned contracts and extension scenarios. No enterprise acquisition/qualification prerequisite; DESIGN §1.2 remains statistics-first. |
-| RC06 | Accept: operation-specific held-out frames and frozen source/rubric/exposure contracts. Version evaluator protocol/native binding and amend D7. |
+| RC06 | Accept: operation-specific exact frames and frozen source/rubric/exposure contracts; ADR-0068 replaces held-out partitions with shared-development assessment. Version evaluator protocol/native binding and amend D7. |
 
 Do not edit immutable accepted ADRs. Record successor rationale and architectural-owner changes
 before using changed rules. Planning acceptance is not native deployment or a measured benefit.
 
 ## Execution queue
 
-WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obligations remain open. WCE04–05 selected implementation and current-only cutover are Tested under ADR-0067; later packages remain Proposed. Corpus-wide benefits and assembled qualification remain open. This table owns state.
+WCE00–12 selected mechanisms, shared-development assessments and applicable qualification are complete2026-11-06. Corpus-wide efficacy, calibrated truth, a native-GC causal fix and inactive conditional investigations are not implied. This table owns state.
 
 | ID | State | Prerequisite capability | Delivered behavior and completion boundary |
 |---|---|---|---|
 | WCE00 | Complete: ADR-0066 adopted; docs passed | Current source/review/rule decisions | Reconcile source and test-foundation receipts; adopt RC01–06 through existing decision owners; identify required verification union. |
-| WCE01 | Selected retention/read/frame foundation Tested; native155; positive public policies remain with their producers | WCE00 | Released component/relationship-constraint/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
-| WCE02 | Early statistics source/output slice Tested; later frames, exposure-limited references and parameter/header coverage remain open | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
-| WCE03 | Tested selected named-candidate increment; actual native/read/export and independent output assessment delivered | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
-| WCE04 | Complete selected functional scope; Tested2026-11-06, efficacy limits below | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; pair-only classifier and historical reader paths retired after current-contract migration. |
-| WCE05 | Complete selected functional scope; Tested2026-11-06, wider WCE11/12 qualification open | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
-| WCE06 | In progress; ADR-0068 shared-corpus execution | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
-| WCE07 | In progress; ADR-0068 shared-corpus execution | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
-| WCE08 | In progress; ADR-0068 shared-corpus execution | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
-| WCE09 | In progress; ADR-0068 shared-corpus execution | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
-| WCE10 | Proposed | WCE01/02/05; relevant WCE06 artifact slice; identity/cohort definition | Concrete scoped identity pilot with exact/lexical/external-pair/alias-block controls, field reasons, held-out pair and blocking assessment. Cohort gates execution. |
-| WCE11 | Proposed | Available delivered capabilities03–10 | Assemble native policies and selected Reader/CLI/MCP/export/continuations, verify partial-component versus whole-report standing and retire migrated production branches. |
-| WCE12 | Proposed | All required core functionality and affected consumers | Assembled design review at required cadence, final-source qualification, independent benefit account, retirement/caller inventory and handoff. |
+| WCE01 | Complete selected contract/native/read/publication foundation; native163, Tested2026-11-06 | WCE00 | Released component/relationship-constraint/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
+| WCE02 | Complete selected shared120-page source/output/downstream assessment; explicit64-case/35+9-output and bounded table/artifact/dossier limits | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
+| WCE03 | Complete selected named-candidate increment; actual native/read/export and independent output assessment delivered | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
+| WCE04 | Complete selected located-component/applicability scope; Tested2026-11-06, efficacy limits retained | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; pair-only classifier and historical reader paths retired after current-contract migration. |
+| WCE05 | Complete selected actual-mention/current-only scope and combined qualification; usage/ranking efficacy remains bounded | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
+| WCE06 | Complete selected scoped/typed comparison mechanisms, actual journeys and applicable qualification | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
+| WCE07 | Complete automatic full selected membership/representation, equal-budget control, all consumers and qualification | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
+| WCE08 | Complete actual three-arm same-population policy, numerical/native guards and independent bounded assessment; no semantic gain claimed | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
+| WCE09 | Complete event-evaluator/parameter mechanisms; actual corpus fit unavailable/not_run under its exact contract; no unsupported graph cache | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
+| WCE10 | Complete actual statistical-artifact pilot/native/read/export and selected independent pair assessment; fixed diagnostic model only | WCE01/02/05; relevant WCE06 artifact slice; identity/cohort definition | Concrete scoped identity pilot with exact/lexical/external-pair/alias-block controls, field reasons and shared-development pair/blocking assessment. Only real source/event prerequisites gate conditional fitting. |
+| WCE11 | Complete selected native/Reader/CLI/MCP/export/continuation integration and current-only retirement | Available delivered capabilities03–10 | Assemble native policies and selected Reader/CLI/MCP/export/continuations, verify partial-component versus whole-report standing and retire migrated production branches. |
+| WCE12 | Complete applicable functional/native/provider/nonfunctional union, independent benefit account, assembled review, retirement and handoff; native-GC cause retained as unreproduced limit | All required core functionality and affected consumers | Assembled design review at required cadence, final-source qualification, independent benefit account, retirement/caller inventory and handoff. |
 
 WCE02 has an early source/question/rubric slice, available without new outputs; later output-first
 freezes and grades follow each producer. Dependencies on WCE02 mean that named early slice or
@@ -202,6 +245,7 @@ Data/model execution conditions in WCE09/10 cannot be satisfied by invented labe
 absence as success. Before WCE12, record actual executed scope, missing prerequisites and any
 operator-selected scope adjustment. An unmet required prerequisite remains open; it is not passed.
 
+
 ## Conditional investigations
 
 Each is captured even when inactive. No dependency is added simply because it is documented.
@@ -209,23 +253,23 @@ Each is captured even when inactive. No dependency is added simply because it is
 | Item | Entry condition and settling evidence | Dependent direction |
 |---|---|---|
 | I01 GLiNER spans/JointIE | Actual GS120 definition baseline has missing content and invalid endpoint combinations. Three-window GLiNER2.5 JointIE diagnostic passed software/coherence checks but produced unsuitable definition-role edges; configuration not activated | WCE04/05/12; [retained diagnostic](../design_review/evidence/2026-11-06_wce-gs120/joint-ie-investigation001/README.md). Improve candidate role/content meaning before a further challenger; no efficacy claim |
-| I02 pgmpy diagnostics/learning/backend/MAP | A specific uncertain independence, independent discrete observations, useful excessive exact support/width, or separate assignment-only consumer; compare identical declared events and support | WCE08; each role has separate semantics, no silent backend fallback |
-| I03 Pyro/GEE/PPI | Independent operation/source groups or an explicit population estimand and probability sample; pooled baseline and held-out/sampling diagnostics | WCE09; defer unsupported inference without claiming calibrated truth |
-| I04 MILP/assignment | Real interacting dossier constraints or genuine one-to-one clause counterparts with unmatched options; equal-budget/known-answer comparison | WCE06/07; greedy and non-one-to-one paths remain baseline |
-| I05 learned spans/metric/graph analysis | Appropriate labels or a named candidate/reference-selection question; group-held-out comparisons, candidate recall and added useful structure | WCE03/09; no semantic edges inferred from similarity/clusters alone |
+| I02 pgmpy diagnostics/learning/backend/MAP | Inactive: actual41 bounded requests per arm execute on the exact solver;3 oversized bands retain all proposals/not_run. Symmetric coupling establishes no semantic gain. No suitable learned discrete model or assignment-only consumer was established | Trigger a concrete useful factorization/learning/backend question with identical declared support and independent source meaning; do not activate a backend merely to erase not_run counts |
+| I03 Pyro/GEE/PPI | Inactive: actual compatible operation-event/grade population is unavailable; no separate hierarchy, population estimand or probability-sampling question is selected | Trigger an explicit estimand/model question with its genuine event/observation assumptions. Same-corpus development remains allowed; no current independent-origin gate or calibrated-truth claim |
+| I04 MILP/assignment | Inactive: actual equal-budget greedy represents all4 protected facets; no demonstrated interacting-constraint need. The two literal predicates require no one-to-one matching | Trigger a concrete interacting dossier constraint or authentic clause-counterpart problem; retain current greedy and non-one-to-one semantics meanwhile |
+| I05 learned spans/metric/graph analysis | Inactive: source-role errors are explicitly assessed; no second compatible sklearn neighborhood consumer or justified learned-span/metric cohort was established. Existing exact E5 vector reuse is exercised | Trigger an exact role/candidate/reference-selection question and suitable independent labels on the shared development corpus. Similarity/clusters and self-links alone establish no semantic relationship |
 
 ## Findings and review coverage
 
 | Source item | Responsible scope and disposition | Closure evidence |
 |---|---|---|
-| review#F01 | WCE04 mechanism delivered; broader assessment remains open with WCE02/11/12 | Current component/applicability and exact independent publication pass. Exposed F37 comparison retains all20 cells and recovers mean source facet; ten targets/explanation gap and held-out benefit remain. See execution evidence below. |
-| review#F02 | Open; WCE03 | Pattern-variant role identity, overlapping raw groups, passive/coordinated cases and exact source reconstruction |
-| review#F03 | WCE05 mechanism delivered; assembled/efficacy obligations remain with WCE02/11/12 | Actual source occurrence/extracted target/E5/native relationship/applicability and Reader/CLI/MCP/export pass. Singleton paths retired; same-span role-carrier defect closed as WCE-R04. No corpus relationship quality estimate follows. |
-| review#F04 | Open; WCE06 | Independent lexical/typed/applicability outcomes, exact threshold endpoints/units/exceptions and source versions |
-| review#F05 | Open; WCE07 | Supported membership independent of display selection; equal-budget facets, conflicts and overflow |
-| review#F06 | Open; WCE08 | Genuine declared factors/support with no duplicate likelihoods; independent comparison establishes benefit or simpler sufficiency |
-| review#F07 | Open; WCE02/09/10/12 | Source opportunities before filtering, distinct errors/populations, held-out groups and truthful efficacy limits |
-| PCE F37/F39 | Linked contributing work WCE02/04/12; PCE remains disposition owner | Exact source/list/question refinement and fresh representative source/reference evidence, linked back without reopening completed packages |
+| review#F01 | WCE04 delivered; WCE02/12 granular efficacy assessment supplied | Exact located component construction/publication is tested. All35 named and9 additional model components source-read. Partial useful relationships, wrong pairs, lost qualifiers and formula corruption remain explicit refinement inputs. |
+| review#F02 | WCE03 named-pattern/variant/overlap implementation delivered | Current recipe role IDs, overlap/raw groups and reconstruction controls; actual named160/35 components and source-first account. Pattern success does not establish semantic role correctness. |
+| review#F03 | WCE05 actual occurrence/component/E5/compatible relationship mechanism delivered | Actual14 current own-component private edges; full retention/read/export and CLI/MCP routes. Witnesses remain unassessed; no ranking or independent usage-transfer benefit is inferred. Singleton/manual bridges retired; WCE-R04 remains closed. |
+| review#F04 | WCE06 typed partial comparison delivered | Actual163 literal comparator/value difference; unknown unit and withheld interval/applicability survive. Native numerical/forgery controls and final qualification distinguish mechanism from source semantics. |
+| review#F05 | WCE07 implemented and actual two-policy control/export assessment delivered; applicable qualification supplied | Full selected8280-member dossiers/4 protected role facets at equal budget12; greedy4/control0 represented, complete files/portable closures and fresh CLI/MCP pass. Private/proposed membership remains independent of representation. |
+| review#F06 | WCE08 implemented and actual same-population policy assessed | Three arms retain exact8210 IDs/84 cohorts,41 completed requests each, explicit unavailable states; no source-semantic gain or calibrated confidence established by symmetric coupling. No default activation. |
+| review#F07 | WCE02/09/10 delivered within ADR-0068 shared-development boundary; final account/qualification with WCE12 | Source opportunities/64 exact cases, distinct errors/count grains, all97 raw envelopes, actual artifact pair assessment and exact fitting availability. No held-out gate or fabricated labels. |
+| PCE F37/F39 | Linked contributing evidence; PCE remains disposition owner | Exact F37 source/list/question history and new shared-development source/model account remain linked. Completed PCE packages are not reopened and historical wrong-pair judgments are not silently relabelled. |
 
 Review §9's located components, phrase/dependency/GLiNER, actual mentions, non-denotation edges,
 table/symbol/procedure composition, formula semantics, typed comparison and dossiers map to WCE03–07.
@@ -241,6 +285,35 @@ checker, per-component deployment ledger, new multi-pack runtime or mathematical
 scheduled absent a concrete new requirement. Other corrected DA manifestations are preservation
 constraints, not new repair scope or a second diagnostic ledger.
 
+## Observed method limits and refinement triggers
+
+The [granular benefit account](../design_review/evidence/2026-11-06_wce-gs120/assessment/benefit-account/README.md)
+owns exact source/output case judgments. These are limitations of the measured shared-development
+result, alongside the delivered mechanisms; software qualification does not turn them into corrected
+knowledge or an automatic new implementation commitment.
+
+- **Role, subject and attachment meaning:** the wrong `Y` subject, historical contrast treated as a
+  definition, truncated constant-density term and seven wrong/mistyped model additions remain
+  concrete refinement inputs. Test a source-grounded role/content correction on the exact existing
+  cases before claiming that more candidates or stronger scores solve them.
+- **Recognition and scientific interpretation:** corrupted gamma-CDF exponent, expectation prose
+  and repeated conditional-expectation expression preserve distinct source-fidelity failures.
+  Literal attachment support cannot repair formula meaning. A later recognition/parsing correction
+  must retain the original source and measure those exact fidelity/condition facets separately.
+- **Table and contextual meaning:** native flags miss semantic die-table headings, ordinary clauses
+  receive spurious procedure-action roles, and14 private contextual edges simply point to their
+  own emitted components. Refine the actual role/usage question and exact source labels before
+  claiming ranking, transfer or connectivity benefit. Symmetric table coherence alone supplies none.
+- **Actual event learning:** the current fitter's exact `relation.defined_by` event is absent from
+  the selected emitted population. Existing defining-text attachments and contextual proposals have
+  different meanings. The next fitting trigger is a genuine compatible producer/event contract and
+  independent exact-ID binary grades, not more source origins, invented labels or relabelled edges.
+- **Identity and representation:**105 artifact pairs remain unassessed and two selected table
+  captions lack a projected bridge. Dossier greedy coverage concerns four role facets of two
+  already-supported attachments under the declared8280-member selection. It establishes useful
+  display coverage over the deterministic source-ID control, with no new source facts; the other
+  model families/components remain separately retained and assessable.
+
 ## Completion and publication boundary
 
 Completion requires required capabilities, native/read/export integration, exact affected verification
@@ -255,7 +328,7 @@ finalize source with `just turn-end`, run `just test-all` and applicable `just h
 failed/interrupted receipts and reconcile affected evidence after further changes. No complete
 functional campaign follows from authoring documents alone.
 
-**Plan publication,2026-11-06:** source/document inspection only; product tests, providers, database
+**Initial plan publication before execution,2026-11-06:** source/document inspection only; product tests, providers, database
 mutation and probes not_run. Documentation check outcomes belong to STATUS/publication commit.
 
 ## WCE00–03 execution boundary — 2026-11-06
@@ -265,7 +338,8 @@ implementation is available, but its stopped qualification is not resumed or cla
 The selected verification union covers generated/typed component contracts, native source/endpoint
 refusals, protected frame/partition/exposure controls, named matcher/M1 behavior and bounded
 Reader/CLI/MCP/export preservation. WCE12 retains full-series qualification. WCE02 later-producer
-output frames remain open after the early source/reference and WCE03 assessment slices.
+output frames remained open at this early source/reference and WCE03 increment. The current
+checkpoint/queue above now owns their delivered selected assessment and qualification.
 
 ## Implemented foundation and current limits — 2026-11-06
 
@@ -401,6 +475,7 @@ All task worktrees are integrated and removed; plans/evidence remain.
 
 [Granular source/output account](../design_review/evidence/2026-11-06_wce-definition-linking/capture-footprint.md)
 retains all44 normal-source C cases/144 quoted spans with physical intersections and explicit gaps.
-Physical overlap is not semantic credit. Full source-first capture grading and fresh held-out frames
-remain WCE02/12 obligations. WCE06–12, parameter/header expansion, independent efficacy and the
-separately stopped test-resolution campaign are not closed by this increment.
+Physical overlap is not semantic credit. This dated WCE04–05 increment did not close later scope.
+The current execution checkpoint and package/findings tables above now own the delivered shared120-page
+source/output, table/header and downstream assessments; ADR-0068 removes the old held-out-frame
+requirement. Test-resolution remains separately owned and complete; its campaign is not reopened.

@@ -8,6 +8,21 @@ finding disposition, rule decisions, evidence and completion. This document owns
 design explanation; selected realized behavior and its evidence limits are described at the end.
 Target requirements alone do not establish verification or corpus-wide benefits.
 
+> Current GS120 execution checkpoint — **Implemented; bounded Tested, 2026-11-06**:
+> `structure.definition_components/5` retains 35 named components in run160 and 44
+> model components in run161 over the same 48 original source views / 120 pages.
+> [Final model delivery](../../design_review/evidence/2026-11-06_wce-gs120/current-model-delivery/delivery-index.json)
+> preserves all 97 accepted raw task bodies, source context and partial/zero-output
+> operation states; transport does not establish semantic correctness or recall.
+> [Actual term/contextual delivery](../../design_review/evidence/2026-11-06_wce-gs120/current-contextual-journey/contextual001/summary.json)
+> projects the 14 declared definitions into 14 private `defined-by` edges, with all
+> witness support still unassessed. The 21 explanations and 38 views without eligible
+> emitted definitions remain visible in their own inventory. This is coupled
+> term-to-own-component construction, not independent usage-applicability evidence.
+> Canonical current registrations and shared consumer ports are integrated at
+> `66feb47ab`; the coordinator owns qualification and benefit conclusions. The earlier
+> selected realization below retains its original evidence scope, including method4.
+
 The input is the integrated [production-enrichment review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md),
 consumed at `6487c486` (542 lines), especially §§2–4.2, 7–12 and F01–F03. The
 [recommendation-audit companion](../../design_review/reviews/audits/design_review_production-enrichment-improvements_2026-11-05_audit.md)
@@ -43,7 +58,7 @@ Its historical execution receipts retain their original scope and dates.
 | [PreparedAnnotationRules](../../../python/corpus-structure/src/corpus_structure/methods/annotation_rules.py) | Matcher, PhraseMatcher and DependencyMatcher compile once; matches retain nodes, source extents, pieces and annotation digest; complete DEP is required. | Reuse preparation and retained annotations. Add variant identity and semantic role mapping rather than infer names from extents. |
 | [M1 source producer](../../../python/corpus-structure/src/corpus_structure/methods/m1_source.py) | `M1Config.annotation_token_rules` is the only configured rule family; the caller prepares only token rules. | Wire versioned phrase/dependency configuration and declared bindings through this existing producer. |
 | [Contribution adapter](../../../python/corpus-structure/src/corpus_structure/methods/contribution_adapter.py) | `adapt_annotation_matches` emits located `source_rule.*` proposals; dependency extents remain noncontiguous. | Extend this lowering to named roles and attachment proposals while preserving raw match provenance. |
-| [Definition producer](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py) | `pair_input` and `decode_applicability` classify a fixed usage/passage pair, returning a category, passage evidence and generic reason. | Retain the classifier as a control. Produce located target components before evaluating usage compatibility. |
+| [Definition producer](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py) | `pair_input` and `decode_applicability` classify a fixed usage/passage pair, returning a category, passage evidence and generic reason. | Replace the pair-only classifier and its production/control bridge with located target components and separately qualified applicability; literal controls use current contracts. |
 | [Contextual candidates](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py) | `SuppliedMention` isolates retrieval. `denotation_contribution` takes `alternatives[0]` after singleton selection. | Compose actual located contributions; migrate to authenticated actual occurrences and retire the supplied-input production bridge. |
 | [Contextual links](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) and [storage](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_storage.py) | `source-supported-scoped-links-1` accepts explicit-source-cue witnesses; more than one distinct target/relation is ambiguous. Storage reconstructs that exact policy. | Add a versioned compatibility/selection meaning and reconstruct it through its own policy; retire historical singleton decoding after the current-only data cutover. |
 | [Structural products](../../../python/corpus-structure/src/corpus_structure/semantic/structural_products.py), [admission](../../../python/corpus-structure/src/corpus_structure/semantic/structural_admission.py) | Finite private reports have exact original source closure; existing policies assess complete structural statements. | Reuse common native lifecycle, source binding and atomic publication. New independently admitted components need their own exact question and eligibility contract. |
@@ -153,7 +168,7 @@ not become universal semantic states. Unalignable source opportunities survive a
 Extend `adapt_annotation_matches` once to lower authored named roles, exact match/expansion evidence
 and candidate identity into existing contribution custody. Remove independently interpreted role
 dictionaries and unnamed-only production adaptation after all replacement consumers work. Keep
-raw matches and supported old result readers. Wire initial defining/calling, local-symbol declaration
+raw matches as evidence and supported current result readers; remove replaced historical decoders. Wire initial defining/calling, local-symbol declaration
 and condition/exception constructions; use active/passive actor/action/obligation and coordination
 cases to expose role-order assumptions without expanding into a general enterprise parser.
 
@@ -161,7 +176,7 @@ cases to expose role-order assumptions without expanding into a general enterpri
 
 | Selection | Precise mechanism and source | Maturity and boundary |
 |---|---|---|
-| spaCy `==3.8.18`; installed `en_core_web_sm` artifact `3.8.0` when that annotation recipe is used | Existing `Matcher(validate=True)`, `PhraseMatcher(attr="LOWER", validate=True)`, `DependencyMatcher(validate=True)` over retained `Doc`; [DependencyMatcher API](https://spacy.io/api/dependencymatcher). | Existing matcher path is implemented; per-variant named output is Proposed. Model artifact, recipe and retained-column revision remain pinned; no model execution follows from constructing a Doc. |
+| spaCy `==3.8.18`; installed `en_core_web_sm` artifact `3.8.0` when that annotation recipe is used | Existing `Matcher(validate=True)`, `PhraseMatcher(attr="LOWER", validate=True)`, `DependencyMatcher(validate=True)` over retained `Doc`; [DependencyMatcher API](https://spacy.io/api/dependencymatcher). | Matcher and per-variant named output are implemented and focused Tested within the selected current recipe. Model artifact, recipe and retained-column revision remain pinned; no model execution follows from constructing a Doc. |
 | Raw overlapping candidate groups | [SpanRuler API](https://spacy.io/api/spanruler); installed `spacy/pipeline/factories.py:263–275` and `span_ruler.py:128–139` settle explicit configuration and constructor/factory default difference. | Interface-checked source, 2026-11-05; no new efficacy test. The attempted upstream `v3.8.18` source URL did not resolve, so installed exact-version source is the version-specific reference. |
 | Conditional learned classification over retained candidates | [SpanCategorizer API](https://spacy.io/api/spancategorizer), installed `spacy/pipeline/spancat.py` preset suggester and output assignment. | Composition seam selected; fitting/activation conditional. The classifier cannot recover absent raw candidates. |
 
@@ -176,7 +191,7 @@ Deliver producer configuration → retained view → match → named role → co
 inspection/export as one usable path. Update release preparation, identity/reuse determinants,
 native source validation, result decoders and affected Reader/CLI/MCP projections with the
 new representation. Consumers must see role names, variant and partial expansion without
-reconstructing them from token order. Retained old matches decode under their old version.
+reconstructing them from token order. Authentic old raw matches remain evidence; current production reads only the current named-match contract, with no historical decoder.
 
 Use independent literal role/source expectations for two variants with different node order,
 passive reversal, nested/coordinated expressions, overlapping candidates and noncontiguous pieces.

@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "id": "wce.gs120-model-delivery",
+  "title": "Current GLiNER2.5 GS120 raw retention and complete bounded delivery",
+  "group": "WCE",
+  "package": "WCE12",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the actual current GLiNER2.5 run retain every accepted raw task and selected source/operation/contribution through bounded delivery and verified portable closure?",
+  "answers": [
+    "WCE02",
+    "WCE11",
+    "WCE12",
+    "WCE-R07"
+  ],
+  "method": "Actual registered execution and bounded source-grounded inspection; software outcomes are separate from semantic quality.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/current-extraction/run_current.py 003 --mode model",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/verify_gliner25_current.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/current-model-delivery/export_model.py --attempt delivery001 --phase all",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/current-model-delivery/export_model.py --attempt delivery001 --phase portable",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/qualification/bundle-reverify.py --execute --attempt 001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-manifest.json",
+      "role": null,
+      "sha256": "5c26959a59514e491527bb61821de0d42c7e4682338b63e2918b43767da6abec"
+    },
+    {
+      "path": "source-recovery/attempt001/result.json",
+      "role": null,
+      "sha256": "1d0ac7b92c8ed9c8746800cf8ad29f4cd674d0093a62f914b6dff4f7f6a61221"
+    },
+    {
+      "path": "current-extraction/model003/configuration.json",
+      "role": null,
+      "sha256": "08763b7324b1d283fb98a4ab9dfb960d72cf2f518e8d0994b94eb12e85138f32"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "current-extraction/model003/result.json",
+      "role": null,
+      "sha256": "bb896bc13124496efb12e79bdedf6aec4ec2ea8eb76ee6689ea4e929dcf53ab9"
+    },
+    {
+      "path": "gliner25-current161-verification.json",
+      "role": null,
+      "sha256": "344b6dbd2ef5a22ef1ccb60e39c80178886b50fd0981a6fe34388aed3da28755"
+    },
+    {
+      "path": "assessment/run161-final-model001/manifest.json",
+      "role": null,
+      "sha256": "9a2d6eaf948a5c5deafc26ecefee31318f590a3fc5b338d7def0a2b81559aabb"
+    },
+    {
+      "path": "current-model-delivery/delivery-index.json",
+      "role": null,
+      "sha256": "8ac0543a07239e16130a60430fc59f82ec4057c8af90ce8247a55b10bd7fa0d4"
+    },
+    {
+      "path": "qualification/bundle-reverify-run001.json",
+      "role": null,
+      "sha256": "0ffa5dc2d6456a49bad65403d550d36828bd5fbaa5d775e38f2c1f55a508d80a"
+    }
+  ],
+  "depends_on": [
+    "wce.gs120-source-recovery"
+  ],
+  "results": [
+    {
+      "name": "Accepted model raw tasks",
+      "value": 97,
+      "of": null,
+      "unit": "task envelopes",
+      "note": "Each exact original body retained; native parsing success is separate from meaning."
+    },
+    {
+      "name": "Current components",
+      "value": 44,
+      "of": null,
+      "unit": "components",
+      "note": "35 exact named members plus9 additions; source judgments are separately attributed."
+    },
+    {
+      "name": "Complete retained delivery",
+      "value": 66638,
+      "of": null,
+      "unit": "contribution rows",
+      "note": "Also66638 interpretation rows; not distinct supported facts."
+    },
+    {
+      "name": "Operations",
+      "value": 42781,
+      "of": null,
+      "unit": "operation rows",
+      "note": "Includes39098 explicit zero-output operations."
+    },
+    {
+      "name": "Portable partitions",
+      "value": 7,
+      "of": null,
+      "unit": "bundles",
+      "note": "200 Reader pages/48 selected files; all48 sources/120 pages and97 bodies; current verifier rechecks passed."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Actual161/cut245 uses fastino/gliner2.5-base-v1 revision54785d51df8d86a0d8f2eb212fec15871aad2c4d, five authenticated model files and the explicit CPU FP32 profile. Complete bounded read/file/portable delivery reconciles every selected raw/source/contribution/operation, including zero outputs, with no missing/extra reports. Final f473 portable verifier rechecks all seven model partitions. Original PDFs are separate; selected-context transport establishes neither semantic quality, scientific truth, calibrated confidence nor complete knowledge. Original failed/interrupted attempts and producing runtime remain unchanged.",
+  "consumed_by": [
+    "WCE02",
+    "WCE11",
+    "WCE12"
+  ]
+}

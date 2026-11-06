@@ -15,6 +15,16 @@ facets; query wording is request context and does not define knowledge claim ide
 
 > Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
+### Composed products and preserved interpretation
+
+**Implemented; selected integrated qualification Tested,2026-11-06.** Current structural-product3 and
+public-statement3 distinguish source contribution, definition component, typed comparison and
+automatic dossier membership. Members/facets/public identities retain original definition,
+explanation, usage and unresolved interpretations and applicability outcomes. A display section
+never changes those meanings. Scoped table/formula/declaration contributions retain source
+endpoints independently of a complete record. The [WCE coordinator](../plans/witnessed-corpus-enrichment_2026-11-05.md)
+owns final native/consumer assessment and remaining quality gaps.
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

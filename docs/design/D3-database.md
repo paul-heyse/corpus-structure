@@ -32,6 +32,57 @@ historical spike measurements do not qualify this corpus route.
 
 > Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
 
+### Original source custody and consuming analysis
+
+**Implemented;29 native/retained-source controls passed2026-11-06.** Retained source hydration
+keeps the original release, native product, projection recipe and exact text/pieces. A bound
+consumer prepares analytical layout under its own admitted release and runtime; related source
+contexts carry that same explicit analysis context. Reading custody for consolidation or reference
+validation performs no fresh analytical preparation. Thus a current method can consume authentic
+unchanged source projections without loading an older analytical implementation or silently
+changing original production provenance. Runtime guards remain enforced.
+
+### Protected fit parameters and current native declarations
+
+**Implemented; selected native/consumer qualification Tested,2026-11-06.** Ordinary parameter consumers use the
+owned `ops.read_operation_event_parameters` operation. Its security-definer implementation
+returns only immutable fit identity/status/parameters and diagnostic standing. Ordinary source
+roles retain no visibility into the protected `eval` namespace or reference labels. Protected
+fit/frame reads remain evaluator/fitter operations. A parameter read cannot elevate its caller
+into an evaluator.
+
+Managed function admission derives both complete ACL and EXECUTE-role expectations from the
+same normalized native object. A narrowed current ACL replaces predecessor grants in admission
+metadata as well as deployment; immutable earlier migration artifacts retain their recorded
+meaning. The WCE coordinator owns forward deployment and affected native verification.
+
+### Canonical configuration and dossier batch custody
+
+**Implemented; focused native controls and actual selected GS120 workload Tested,2026-11-06.**
+Method registration retains canonical decimal strings for floating configuration fields. Artifact
+products retain their typed numeric policy values. Native artifact validation decodes only the
+explicit threshold/probability fields, enforces canonical spelling, finiteness, range and exact
+policy correspondence, and preserves stored configuration/hash and numeric product/model identity.
+It does not rewrite configuration custody to match a consumer.
+
+One private batch resolver owns retained contribution reference, final cut, selected/origin task,
+runtime, revision, content identity, recursive endpoint and source-pin validation. The ordinary
+one-reference Reader delegates to that same owner. Dossier assembly groups only identical complete
+custody bindings, prepares backing rows and source premises once per group, and aggregates full
+membership before the existing deterministic ordering/display policy. Projection helpers are
+publisher-only frozen native objects; application roles receive no raw-row injection port.
+Native163 and the WCE coordinator retain deployment, regression and actual workload evidence.
+
+Detached dossier closure binds each predecessor's declared selected project/run/cut/release,
+revision and selected/origin task/runtime, rather than substituting the dossier's own cut. Captured
+original producer metadata remains distinct from selected context. Structural members/facets replay
+against exact original reports and native-owned published statements. Broader page publication
+metadata remains metadata; only assertions matching the selected predecessor cut/tasks/product
+receive exact statement enrichment and can support that predecessor. Source-context preparation
+cannot overwrite the selected structural session. The file capture reuses prepared predecessor
+readers within the same export while each retained reference still passes the owned validator.
+**Tested2026-11-06:**79 focused cases, actual both-dossier full portable replay and the applicable WCE11/12 union. The original native interpreter GC fault remains an unreproduced qualification limit; no causal fix is claimed.
+
 ## Semantic releases and runtime custody
 
 **Implemented; bounded native and preservation controls Tested,2026-11-05.** A semantic

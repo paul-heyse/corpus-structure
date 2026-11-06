@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "id": "wce.gs120-benefit-account",
+  "title": "Granular GS120 source, output and downstream meaning account",
+  "group": "WCE",
+  "package": "WCE12",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What useful structure, errors, losses, ambiguity and unassessed scope are established by the selected source/output cases and actual downstream products?",
+  "answers": [
+    "WCE02",
+    "WCE12",
+    "F01",
+    "F02",
+    "F03",
+    "F04",
+    "F05",
+    "F06",
+    "F07"
+  ],
+  "method": "Preserve original independently authored source/output passes and disagreements; exact native/source/pointer/byte crosswalks; bounded source-read semantic comparisons and literal/hash validation. No majority-vote or raw-count proxy for meaning.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/assessment/final-source-capture/validate.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/assessment/final-source-capture/validate_model.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/assessment/benefit-account/build_account.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/assessment/benefit-account/validate_account.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-manifest.json",
+      "role": null,
+      "sha256": "5c26959a59514e491527bb61821de0d42c7e4682338b63e2918b43767da6abec"
+    },
+    {
+      "path": "assessment/run160-exact-transport001.json",
+      "role": null,
+      "sha256": "b9c830ea66eee2d718f2396b111e5f8565dfd72e75083138af177ca18d58a868"
+    },
+    {
+      "path": "assessment/run161-final-model001/manifest.json",
+      "role": null,
+      "sha256": "9a2d6eaf948a5c5deafc26ecefee31318f590a3fc5b338d7def0a2b81559aabb"
+    },
+    {
+      "path": "assessment/protected-current/native160/final-verification.json",
+      "role": null,
+      "sha256": "e4e637f4644ded949e078fbc4b1d725b86f16d56ee790863a411bc0780a55234"
+    },
+    {
+      "path": "current-structural-journey/dossiers002/result.json",
+      "role": null,
+      "sha256": "124160dc1d4b4d6fa3480327a6debf0e049f9c2529f08592afea52bbed16b4d6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "assessment/README.md",
+      "role": null,
+      "sha256": "92ab7df259c2ddda4cd1b8caf98610f4edbcd189f0776743600b8ac4042e373c"
+    },
+    {
+      "path": "assessment/benefit-account/account.json",
+      "role": null,
+      "sha256": "3ff09a9659c74f197843a7caaab648913a091c36264cbbdc943fbbffd07d68d6"
+    },
+    {
+      "path": "assessment/benefit-account/validation-receipt.json",
+      "role": null,
+      "sha256": "37a86a2439b817a94754413b7be3bbc4e43c2aea9cd6301dda3508b276b56b4d"
+    },
+    {
+      "path": "assessment/final-source-capture/artifact-link-assessment.json",
+      "role": null,
+      "sha256": "a20038449b982e4d8de5242ba5d5e4d0bff3731855a9e7140cd45752fdab1fe6"
+    },
+    {
+      "path": "assessment/final-source-capture/dossier-selection-assessment.json",
+      "role": null,
+      "sha256": "5d426030c47df2c5ebb0e1a657f3d3f9c5cc51bf543ec275f26ce2fbf8978e32"
+    },
+    {
+      "path": "assessment/final-source-capture/model161-assessment.json",
+      "role": null,
+      "sha256": "90e0b6598860609e6857a8c9836b19aef23fc403ad309bd8dbdc15f3ba7c6b44"
+    },
+    {
+      "path": "assessment/final-source-capture/finalize-downstream001.log",
+      "role": null,
+      "sha256": "95bc285f4b361c58bef16a637d60ef265bf662095d2c3c2628c3c3b5e9f2ecf1"
+    }
+  ],
+  "depends_on": [
+    "wce.gs120-model-delivery",
+    "wce.gs120-current-journeys"
+  ],
+  "results": [
+    {
+      "name": "Source cases",
+      "value": 64,
+      "of": null,
+      "unit": "selected source cases",
+      "note": "32 common A/B/C plus32 C-only; original812 overlapping selective records retain different grains."
+    },
+    {
+      "name": "Named component assessments",
+      "value": 35,
+      "of": null,
+      "unit": "components",
+      "note": "C supports32 narrow attachments, rejects2 exact pairs, marks1 ambiguous; fidelity/conditions remain separate."
+    },
+    {
+      "name": "Additional model component assessments",
+      "value": 9,
+      "of": null,
+      "unit": "components",
+      "note": "Two useful weaker relationships; seven exact emitted pairs have subject/content/type/scope errors."
+    },
+    {
+      "name": "Selected artifact pair assessments",
+      "value": 11,
+      "of": null,
+      "unit": "pairs",
+      "note": "Seven useful narrow textual lineages/four contrary lexical alternatives;105 other pairs unassessed."
+    },
+    {
+      "name": "Protected public attachments",
+      "value": 2,
+      "of": null,
+      "unit": "attachments",
+      "note": "Four dossier role facets share these two already-supported statements; no four-independent-fact claim."
+    },
+    {
+      "name": "Dossier member object equality",
+      "value": 8280,
+      "of": null,
+      "unit": "selected members",
+      "note": "Both entire member/facet objects and35→70role interpretation transport match exactly;8276proposed members remain proposals."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The final bounded source/model/downstream account is supplied with no pending inputs in its declared scope. Original64 C source-case objects, independent author attributions, disagreements and raw runtime provenance are preserved. Useful partial local attachments, a theorem application, a definition-location reference, selected table/caption lineages and supported-facet display survive despite wrong subjects/roles, truncated terms, formula corruption, lost conditions and unassessed relations. All97 raw envelopes remain available; their successful parsing/task completion does not establish meaning. Actual dossier greedy displays four role facets of two previously supported attachments versus zero under deterministic source-ID control, without new source facts. Broad812-record capture, most provider fields/pairs, graphical fidelity, scientific truth, calibration and whole-corpus recall/precision remain unestablished. This partial semantic account is separate from complete selected software/consumer qualification.",
+  "consumed_by": [
+    "WCE02",
+    "WCE12",
+    "WCE refinement assessment"
+  ]
+}

@@ -1,0 +1,89 @@
+
+-- Private batch assembly: authenticate each exact custody binding once; retain every root.
+-- No caller-supplied raw rows, persistent cache, database writes or application EXECUTE grant.
+CREATE OR REPLACE FUNCTION ops.dossier_contribution_members(inputs jsonb,refs jsonb)
+RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE binding record; selected record; ref jsonb; first_ref jsonb; field_ text;
+ row_map jsonb; used_rows jsonb; rows_ jsonb; sources_ jsonb; row_ jsonb; pin_ jsonb;
+ view_ kb.source_view; dependency_index jsonb;
+BEGIN
+ IF jsonb_typeof(refs) IS DISTINCT FROM 'array' THEN
+  RAISE EXCEPTION 'invalid retained contribution reference list' USING ERRCODE='23514';END IF;
+ -- Validate primitive fields before any cast or grouping. Exactly the single-reference ABI.
+ FOR ref IN SELECT value FROM jsonb_array_elements(refs) LOOP
+  IF jsonb_typeof(ref) IS DISTINCT FROM 'object' OR
+   ref-ARRAY['contribution_id','project_id','run_id','cut_id','release_id','result_revision','selected_task_id','origin_task_id','runtime_fingerprint']<>'{}'::jsonb OR
+   NOT ref ?& ARRAY['contribution_id','project_id','run_id','cut_id','release_id','result_revision','selected_task_id','origin_task_id','runtime_fingerprint'] THEN
+   RAISE EXCEPTION 'invalid retained contribution reference fields' USING ERRCODE='23514';END IF;
+  FOREACH field_ IN ARRAY ARRAY['run_id','cut_id','selected_task_id','origin_task_id'] LOOP
+   IF jsonb_typeof(ref->field_) IS DISTINCT FROM 'number' OR ref->>field_ !~ '^[1-9][0-9]*$' THEN
+    RAISE EXCEPTION 'invalid retained contribution identifier' USING ERRCODE='23514';END IF;END LOOP;
+  IF jsonb_typeof(ref->'result_revision') IS DISTINCT FROM 'number' OR ref->>'result_revision' !~ '^(0|[1-9][0-9]*)$' OR ref->>'contribution_id' !~ '^source-contribution:[0-9a-f]{64}$' THEN
+   RAISE EXCEPTION 'invalid retained contribution identity/revision' USING ERRCODE='23514';END IF;
+  FOREACH field_ IN ARRAY ARRAY['project_id','release_id','runtime_fingerprint','contribution_id'] LOOP
+   IF jsonb_typeof(ref->field_) IS DISTINCT FROM 'string' OR length(ref->>field_)=0 THEN
+    RAISE EXCEPTION 'invalid retained contribution binding' USING ERRCODE='23514';END IF;END LOOP;
+ END LOOP;
+ SELECT COALESCE(jsonb_object_agg(d,true),'{}') INTO dependency_index
+ FROM jsonb_array_elements_text(inputs->'dependencies') d;
+ FOR binding IN SELECT r-'contribution_id' custody,jsonb_agg(r) refs_
+  FROM jsonb_array_elements(refs) r GROUP BY r-'contribution_id' LOOP
+  first_ref:=binding.refs_->0;
+  -- Same completed/final cut, selected/origin task and immutable producer checks as resolver.
+  SELECT result.body,origin_job.runtime_id,batch.data_revision INTO STRICT selected
+  FROM ops.run job JOIN ops.completed_result completed ON completed.run_id=job.id
+  JOIN data.batch batch ON batch.release_id=completed.release_id AND batch.realization_id=completed.output_realization_id AND batch.batch_id=completed.batch_id
+  JOIN ops.cut_task member ON member.cut_id=completed.cut_id JOIN ops.task task ON task.id=member.task_id
+  JOIN ops.task origin ON origin.id=COALESCE(task.reused_task_id,task.id)
+  JOIN ops.run origin_job ON origin_job.id=origin.run_id JOIN ops.task_result result ON result.task_id=origin.id
+  WHERE job.id=(first_ref->>'run_id')::bigint AND job.project_id=first_ref->>'project_id' AND job.release_id=first_ref->>'release_id'
+   AND job.sealed AND job.status='finished' AND completed.cut_id=(first_ref->>'cut_id')::bigint
+   AND task.id=(first_ref->>'selected_task_id')::bigint AND origin.id=(first_ref->>'origin_task_id')::bigint
+   AND member.origin_task_id=origin.id AND origin.release_id=first_ref->>'release_id' AND task.status IN ('done','reused')
+   AND task.unit_type='source_view' AND origin.unit_type='source_view' AND task.unit_id=origin.unit_id
+   AND result.body->>'release_id'=first_ref->>'release_id'
+   AND EXISTS(SELECT FROM ops.input_cut cut WHERE cut.id=completed.cut_id AND cut.run_id=job.id AND cut.release_id=job.release_id AND cut.final);
+  IF selected.runtime_id IS DISTINCT FROM first_ref->>'runtime_fingerprint' OR selected.data_revision IS DISTINCT FROM (first_ref->>'result_revision')::bigint THEN
+   RAISE EXCEPTION 'retained contribution differs from original producer custody' USING ERRCODE='23514';END IF;
+  -- Decode the large backing body once per exact binding. Refuse ambiguous identities.
+  IF EXISTS(SELECT FROM jsonb_array_elements(selected.body->'contributions') c
+    GROUP BY c->>'contribution_id' HAVING count(DISTINCT c)>1) THEN
+   RAISE EXCEPTION 'retained contribution identity or endpoint closure differs' USING ERRCODE='23514';END IF;
+  SELECT COALESCE(jsonb_object_agg(c->>'contribution_id',c),'{}') INTO row_map
+   FROM jsonb_array_elements(selected.body->'contributions') c;
+  WITH RECURSIVE closure(id) AS (
+   SELECT r->>'contribution_id' FROM jsonb_array_elements(binding.refs_) r
+   UNION SELECT ep.id FROM closure r CROSS JOIN LATERAL (
+    SELECT e->>'contribution_id' id FROM jsonb_array_elements(COALESCE(row_map->r.id->'endpoints','[]')) e
+    UNION SELECT jsonb_array_elements_text(COALESCE(row_map->r.id->'members','[]'))) ep)
+  SELECT jsonb_agg(row_map->id ORDER BY id) INTO used_rows FROM closure;
+  IF EXISTS(SELECT FROM jsonb_array_elements(used_rows) r WHERE r='null'::jsonb OR
+    r->>'contribution_id' IS DISTINCT FROM 'source-contribution:'||encode(sha256(convert_to(data.canonical_json(r-'contribution_id'),'UTF8')),'hex')) THEN
+   RAISE EXCEPTION 'retained contribution identity or endpoint closure differs' USING ERRCODE='23514';END IF;
+  sources_:='[]';
+  -- Original physical source/projection custody is shared, not borrowed from inputs.
+  FOR pin_ IN SELECT DISTINCT r->'pin' FROM jsonb_array_elements(used_rows) r LOOP
+   SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(pin_->>'source_view_id')::bigint;
+   IF NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=(first_ref->>'run_id')::bigint AND source_view_id=view_.id)
+    OR pin_ IS DISTINCT FROM jsonb_build_object('source',view_.key,'native_product_task_id',view_.native_task_id,'product_key',view_.native_product_key,'product_digest',view_.native_content_digest,'projection_digest',view_.projection_digest,'recipe_digest',view_.recipe_digest,'source_view_id',view_.id) THEN
+    RAISE EXCEPTION 'retained contribution source pin differs' USING ERRCODE='23514';END IF;
+   sources_:=sources_||jsonb_build_array(jsonb_build_object('source_view_id',view_.id,'pin',pin_,'projection',view_.projection));
+  END LOOP;
+  IF EXISTS(SELECT FROM jsonb_array_elements(used_rows) r CROSS JOIN LATERAL jsonb_array_elements(COALESCE(r->'anchors','[]')) a
+    WHERE a->'pin' IS DISTINCT FROM r->'pin') THEN
+   RAISE EXCEPTION 'retained contribution source pin differs' USING ERRCODE='23514';END IF;
+  FOR ref IN SELECT value FROM jsonb_array_elements(binding.refs_) LOOP
+   WITH RECURSIVE closure(id) AS (SELECT ref->>'contribution_id' UNION
+    SELECT ep.id FROM closure r CROSS JOIN LATERAL (
+     SELECT e->>'contribution_id' id FROM jsonb_array_elements(COALESCE(row_map->r.id->'endpoints','[]')) e
+     UNION SELECT jsonb_array_elements_text(COALESCE(row_map->r.id->'members','[]'))) ep)
+   SELECT jsonb_agg(row_map->id ORDER BY id) INTO rows_ FROM closure;
+   RETURN NEXT ops.dossier_contribution_member_from_retained(inputs,ref,
+    rows_,sources_,dependency_index);
+  END LOOP;
+ END LOOP;
+ RETURN;
+EXCEPTION WHEN no_data_found OR too_many_rows OR numeric_value_out_of_range OR invalid_text_representation THEN
+ RAISE EXCEPTION 'retained contribution cannot resolve exact selected origin' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.dossier_contribution_members(jsonb,jsonb) FROM PUBLIC;

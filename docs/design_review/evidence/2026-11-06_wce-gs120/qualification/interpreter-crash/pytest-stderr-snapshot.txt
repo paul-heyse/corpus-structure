@@ -1,0 +1,102 @@
+Fatal Python error: Segmentation fault
+
+Thread 0x0000787dbd6ff6c0 [python] (most recent call first):
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 534 in read
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 567 in from_io
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 1160 in _thread_receiver
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 341 in run
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 411 in _perform_spawn
+
+Current thread 0x0000787dbe51c740 [python] (most recent call first):
+  Garbage-collecting
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/linkml_runtime/utils/rdf_canonicalize.py", line 350 in <genexpr>
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/linkml_runtime/utils/rdf_canonicalize.py", line 349 in canonicalize_rdf_graph
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/ontology.py", line 136 in canonical_graph_bytes
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/ontology.py", line 261 in build_graph_artifacts
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/prepare.py", line 920 in _prepare_release_uncached
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/prepare.py", line 550 in _prepare_release_cached
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/prepare.py", line 540 in prepare_release
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/regeneration.py", line 366 in prepare_packs
+  File "/home/paul/corpus-structure/python/corpus-structure/tests/semantic/test_rule_literal_bindings.py", line 18 in inputs
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 1005 in call_fixture_func
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 1328 in pytest_fixture_setup
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 1232 in execute
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 726 in _get_active_fixturedef
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 1181 in execute
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 726 in _get_active_fixturedef
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 630 in getfixturevalue
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/fixtures.py", line 806 in _fillfixtures
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/python.py", line 1710 in setup
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 536 in setup
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 170 in pytest_runtest_setup
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 250 in <lambda>
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 361 in from_call
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 249 in call_and_report
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 132 in runtestprotocol
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/runner.py", line 118 in pytest_runtest_protocol
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/xdist/remote.py", line 227 in run_one_test
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/xdist/remote.py", line 206 in pytest_runtestloop
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/main.py", line 384 in _main
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/main.py", line 330 in wrap_session
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/_pytest/main.py", line 377 in pytest_cmdline_main
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/xdist/remote.py", line 427 in <module>
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 1291 in executetask
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 341 in run
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 411 in _perform_spawn
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 389 in integrate_as_primary_thread
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 1273 in serve
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/execnet/gateway_base.py", line 1806 in serve
+  File "<string>", line 8 in <module>
+  File "<string>", line 1 in <module>
+
+Current thread's C stack trace (most recent call first):
+  Binary file "/home/paul/corpus-structure/.venv/bin/python", at _Py_DumpStack+0x30 [0x12bcb20]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x132c21b]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x132c167]
+  Binary file "/lib/x86_64-linux-gnu/libc.so.6", at +0x45330 [0x787dbe245330]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1800600]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1abda0a]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1abf3ef]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python", at _Py_HandlePending+0x59 [0x1900e99]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1ac03b5]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x181660f]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python", at _PyList_Extend+0x363 [0x181a223]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1818923]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python", at PyObject_Vectorcall+0x4c [0x1818a4c]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x18191f5]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812dbd]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x18b830f]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1807764]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812dbd]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1930e90]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python", at PyObject_Vectorcall+0x279 [0x1818c79]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x18191f5]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812dbd]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1930e90]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1831606]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812dbd]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1930e90]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python", at PyObject_Vectorcall+0x279 [0x1818c79]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x18191f5]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812dc6]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812656]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1831230]
+  Binary file "/home/paul/corpus-structure/.venv/bin/python" [0x1812dbd]
+  <truncated rest of calls>
+
+Extension modules: sqlalchemy.util._collections_cy, sqlalchemy.util._immutabledict_cy, sqlalchemy.sql._util_cy, sqlalchemy.sql._cache_key_cy, sqlalchemy.engine._processors_cy, sqlalchemy.engine._util_cy, sqlalchemy.engine._row_cy, sqlalchemy.engine._result_cy, adbc_driver_manager._lib, psycopg_binary.pq, psycopg_binary._psycopg, yaml._yaml, chardet.pipeline.ascii, chardet.pipeline.escape, chardet.pipeline.language, chardet.models, chardet._kernel, chardet.models._format, chardet.pipeline.magic, chardet.pipeline.markup, chardet.pipeline.structural, chardet.pipeline.postprocess, chardet.pipeline.confusion, chardet.pipeline.statistical, chardet.pipeline.utf8, chardet.pipeline.utf1632, chardet.pipeline.validity, chardet.pipeline.orchestrator, charset_normalizer.md, charset_normalizer.cd, requests.packages.chardet.pipeline.ascii, requests.packages.chardet.pipeline.escape, requests.packages.chardet.pipeline.language, requests.packages.chardet.models, requests.packages.chardet._kernel, requests.packages.chardet.models._format, requests.packages.chardet.pipeline.magic, requests.packages.chardet.pipeline.markup, requests.packages.chardet.pipeline.structural, requests.packages.chardet.pipeline.postprocess, requests.packages.chardet.pipeline.confusion, requests.packages.chardet.pipeline.statistical, requests.packages.chardet.pipeline.utf8, requests.packages.chardet.pipeline.utf1632, requests.packages.chardet.pipeline.validity, requests.packages.chardet.pipeline.orchestrator, numpy._core._multiarray_umath, numpy.linalg._umath_linalg, pyarrow.lib, markupsafe._speedups, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, cuda.bindings._internal.utils, cuda.bindings._internal.driver, cuda.bindings.cydriver, cuda.bindings.driver, cuda.bindings._internal.runtime_ptds, cuda.bindings._internal.runtime, cuda.bindings.cyruntime, cuda.bindings.runtime, blis.cy, thinc.backends.cblas, cymem.cymem, preshed.maps, blis.py, thinc.backends.linalg, murmurhash.mrmr, thinc.backends.numpy_ops, srsly.ujson.ujson, srsly.msgpack._epoch, srsly.msgpack._packer, srsly.msgpack._unpacker, thinc.layers.premap_ids, thinc.layers.sparselinear, spacy.symbols, preshed.bloom, spacy.strings, spacy.attrs, spacy.parts_of_speech, spacy.morphology, spacy.lexeme, spacy.tokens.morphanalysis, spacy.tokens.token, spacy.tokens.span, spacy.tokens.span_group, spacy.tokens._retokenize, spacy.tokens.doc, spacy.vectors, spacy.vocab, spacy.training.align, spacy.training.alignment_array, spacy.pipeline._parser_internals.nonproj, spacy.training.example, spacy.training.gold_io, spacy.matcher.levenshtein, spacy.matcher.matcher, spacy.matcher.dependencymatcher, spacy.matcher.phrasematcher, spacy.tokenizer, spacy.pipeline.pipe, spacy.pipeline.trainable_pipe, spacy.pipeline._parser_internals.stateclass, spacy.pipeline._parser_internals.transition_system, spacy.kb.kb, spacy.kb.candidate, spacy.kb.kb_in_memory, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, spacy.ml.parser_model, thinc.extra.search, spacy.pipeline._parser_internals._beam_utils, spacy.pipeline.transition_parser, spacy.pipeline._parser_internals.arc_eager, spacy.pipeline.dep_parser, spacy.pipeline._edit_tree_internals.edit_trees, spacy.pipeline.tagger, spacy.pipeline.morphologizer, spacy.pipeline._parser_internals.ner, spacy.pipeline.ner, spacy.pipeline.senter, spacy.pipeline.sentencizer, regex._regex, PIL._imaging, PIL._imagingft, lazy_object_proxy.cext, rapidfuzz._feature_detector_cpp, rapidfuzz.distance._initialize_cpp, rapidfuzz.distance.metrics_cpp_avx2, rapidfuzz.fuzz_cpp_avx2, rapidfuzz.process_cpp_impl, rapidfuzz.utils_cpp, _cyutility, pandas._libs._cyutility, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.properties, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pyarrow._compute, pandas._libs.ops, pandas._libs.groupby, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.indexing, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs._ujson, pandas._libs.parsers, pandas._libs.testing, wcwidth._wcwidth_c, _cffi_backend, pyarrow._acero, pyarrow._fs, pyarrow._csv, pyarrow._json, pyarrow._substrait, pyarrow._dataset, pyarrow._dataset_orc, pyarrow._parquet, pyarrow._azurefs, pyarrow._hdfs, pyarrow._gcsfs, pyarrow._s3fs, pyarrow._parquet_encryption, pyarrow._dataset_parquet_encryption, pyarrow._dataset_parquet, adbc_driver_manager._reader, scipy._cyutility, scipy._lib._ccallback_c, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg._batched_linalg, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._internal_matfuncs, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg.cython_lapack, scipy.linalg._decomp_update, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpacklib, scipy.sparse.linalg._propack, scipy.optimize._group_columns, scipy._lib.messagestream, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._slsqplib, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy._lib._uarray._uarray, scipy.special._ufuncs_cxx, scipy.special._ellip_harm_2, scipy.special._special_ufuncs, scipy.special._gufuncs, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.spatial._ckdtree, scipy.spatial._hausdorff, scipy.spatial._distance_wrap, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.spatial.transform._rotation_cy, scipy.spatial.transform._rigid_transform_cy, scipy.optimize._direct, pglast.parser, sklearn.__check_build._check_build, psutil._psutil_linux, scipy.integrate._odepack, scipy.integrate._quadpack, scipy.integrate._vode, scipy.integrate._dop, scipy.interpolate._fitpack, scipy.interpolate._dierckx, scipy.interpolate._ppoly, scipy.interpolate._interpnd, scipy.interpolate._rbfinterp_pythran, scipy.interpolate._rgi_cython, scipy.special.cython_special, scipy.stats._stats, scipy.stats._biasedurn, scipy.stats._levy_stable.levyst, scipy.stats._stats_pythran, scipy.stats._ansari_swilk_statistics, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, scipy.stats._sobol, scipy.stats._qmc_cy, scipy.stats._rcont.rcont, scipy.stats._qmvnt_cy, scipy.ndimage._nd_image, scipy.ndimage._rank_filter_1d, _ni_label, scipy.ndimage._ni_label, sklearn._cyutility, sklearn.utils._isfinite, sklearn.utils.sparsefuncs_fast, sklearn.utils.murmurhash, sklearn.utils._openmp_helpers, sklearn.utils._random, sklearn.utils._seq_dataset, sklearn.utils._cython_blas, sklearn.linear_model._cd_fast, sklearn.metrics.cluster._expected_mutual_info_fast, sklearn.metrics._dist_metrics, sklearn.metrics._pairwise_distances_reduction._datasets_pair, sklearn.metrics._pairwise_distances_reduction._base, sklearn.metrics._pairwise_distances_reduction._middle_term_computer, sklearn.utils._heap, sklearn.utils._sorting, sklearn.metrics._pairwise_distances_reduction._argkmin, sklearn.metrics._pairwise_distances_reduction._argkmin_classmode, sklearn.utils._vector_sentinel, sklearn.metrics._pairwise_distances_reduction._radius_neighbors, sklearn.metrics._pairwise_distances_reduction._radius_neighbors_classmode, sklearn.metrics._pairwise_fast, sklearn.preprocessing._csr_polynomial_expansion, sklearn.preprocessing._target_encoder_fast, sklearn._loss._loss, sklearn.utils.arrayfuncs, sklearn.linear_model._sag_fast, sklearn.svm._liblinear, sklearn.svm._libsvm, sklearn.svm._libsvm_sparse, sklearn.utils._weight_vector, sklearn.linear_model._sgd_fast, ijson.backends._yajl2, lxml._elementpath, lxml.etree, spacy.pipeline.multitask (total: 325)

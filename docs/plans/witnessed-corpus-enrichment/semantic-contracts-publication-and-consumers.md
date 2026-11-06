@@ -1,6 +1,6 @@
 # Witnessed components: semantic contracts, publication and consumers
 
-> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Current authority,2026-11-06: ADR-0068 selects shared-development qualification; ADR-0067 selects current-only execution.
 > Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
 > assessment. No new sources, separate calibration population or independent-origin readiness gate
 > is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
@@ -11,7 +11,7 @@
 
 > Execution reading route,2026-11-06: ADR-0066 adopts the target. Current retention/frame/native groundwork is recorded at the coordinator; positive component publication policies remain with their owning producers.
 
-**Proposed,2026-11-05.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns state,
+**Implemented current contracts; execution reconciliation,2026-11-06.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns state,
 F/RC decisions and combined acceptance. This companion owns WCE00/01/11 target and cross-capability
 contracts, consuming review6487c486 §§2–4/7/11. No product change is claimed.
 
@@ -24,9 +24,9 @@ relationships, lifecycle, operations and effects; `semantic/contracts.py` compil
 and common publication already retain original cross-project source/runtime custody. Native152
 repairs transient rowtype handling; it does not make new semantic claims eligible.
 
-Extend these owners. The current local-interpretation report also fixes coupling_enabled=False and rejects true;
-WCE08 therefore requires an explicit report/binding/validator version change, coordinated with
-WCE01, before a coupled policy can honestly execute. A common envelope preserves custody; operation-specific definitions own role
+Extend these owners. The planning baseline had coupling disabled; WCE08 now implements the
+versioned current report/binding/validator together with WCE01. Actual three-arm policy2
+execution distinguishes feasibility, independent and genuinely coupled results. A common envelope preserves custody; operation-specific definitions own role
 and applicability semantics. Existing domain functions remain valid algorithm owners. Do not force
 all semantic decisions into generic strings or introduce a universal ontology/graph service.
 
@@ -71,7 +71,7 @@ identity question, not to legitimate comparison of excluded entities.
 ## WCE00 — adopt the settled target
 
 Reconcile current code and the five captured addenda, test-resolution final receipts and existing
-supported historical readers. Record the accepted Nov5 RC01–06 decisions; write successor decisions
+current supported readers. Record the accepted Nov5 RC01–06 decisions; write successor decisions
 and affected D1–D8/DESIGN owner edits through the existing ADR route before dependent code. Preserve
 immutable accepted ADRs and frozen migrations. No new rule decision is inferred from library availability.
 The target comparison and independent component policies extend existing meanings additively.
@@ -108,7 +108,7 @@ Sources: [LinkML effective-schema guide](../../libraries/data_model/linkml.md),
 [SchemaView](https://linkml.io/linkml/developers/schemaview.html),
 [Pydantic concepts](https://docs.pydantic.dev/latest/concepts/strict_mode/), review §§2–3;
 actual realization `semantic/prepare.py`, `contracts.py`, `boundary.py`, `contributions.py`.
-Evidence: source-inspected foundation; new contracts/guards Proposed, not Tested.
+Evidence: the preceding foundation assessment is the dated planning baseline. Current contract/guard implementation, focused controls and actual narrow publication are recorded in the current realization below; final combined qualification belongs to the coordinator.
 
 ## WCE11 — integrate and retire coherently
 
@@ -143,3 +143,25 @@ Complete WCE01 only when generated/compiled/native/read contracts agree for its 
 Complete WCE11 only when affected entrypoints and continuation/export versions are migrated and
 caller inventory establishes retirement. Proposed design adequacy is distinct from implementation
 and independent benefit; broad qualification belongs to WCE12.
+
+## Current contract realization — 2026-11-06
+
+**Implemented; combined acceptance owned by the coordinator.** `structural-product-3` and
+`structural-public-statement-3` are the current retained/public shapes. Native completion, exact
+component assessments and whole-report refusal share their released custody owners. Positive
+publication169 reuses exact task800 and exposes two supported components; it does not promote the
+whole35-component report. Registered catalogs include the actual retained-term and contextual
+producers without changing default graphs. New source analysis binds the consuming release while
+original physical source custody retains its producing release/projection.
+
+Reader, query, CLI and registered MCP consume the same bounded serving functions. Interactive
+structural and dossier reads retain the8M cap. Large full files use separately declared bounded
+exports, exact continuations and portable closure verification. No representative display substitutes
+for full membership. Runtime-only budget/native/canonical-configuration repairs preserve the
+semantic release identity; current deployment admission is re-established through the ordinary
+restricted admit route after a native descriptor change.
+
+[Retirement inventory](../../design_review/evidence/2026-11-06_wce-gs120/retirement/) traces current
+callers and actual removal commits for pair/singleton/manual/supplied-report and old semantic
+decoder paths. Frozen installation predecessors and authentic raw historical evidence remain;
+they are not active compatibility readers. All integrated task worktrees were removed.

@@ -1,0 +1,20 @@
+python/corpus-structure/tests/math/test_workers.py::test_real_spawn_transports_each_stage_without_preparation_or_reparsing
+python/corpus-structure/tests/methods/test_m1_source_preparation.py::test_m1_registry_has_no_agent_or_general_llm_route
+python/corpus-structure/tests/semantic/test_rule_literal_bindings.py::test_exact_bound_literals_compile_and_nearby_unknown_literals_refuse[(claim.subject.identity&['stat:canonical_name'] ?? '') == 'mu'-(claim.subject.identity&['stat:canonical_nam'] ?? '') == 'mu'-stat:canonical_name]
+python/corpus-structure/tests/semantic/test_rule_literal_bindings.py::test_source_model_changes_determine_binding_and_identity_vocabularies
+python/corpus-structure/tests/semantic/test_source_jit_native.py::test_source_view_reclaim_preserves_prior_batch_and_refuses_stale_completion
+python/corpus-structure/tests/semantic/test_trace_reference_fixture.py::test_explicit_forced_trace_sample_cannot_enlarge_its_selected_source_pool
+python/corpus-structure/tests/semantic/test_typed_realization.py::test_two_native_invocations_reuse_preparation_and_return_independent_rows
+python/corpus-structure/tests/semantic/test_typed_structural_composition.py::test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion
+python/corpus-structure/tests/semantic/test_witnessed_applicability_native.py::test_native_applicability_rejects_forged_semantics[applicability-forged-state]
+python/corpus-structure/tests/test_cli.py::test_a_mistyped_field_inside_a_section_is_refused
+python/corpus-structure/tests/test_cli.py::test_fresh_command_registration_does_not_import_unrelated_kernels[arguments2]
+python/corpus-structure/tests/test_cli.py::test_help_lists_groups_without_building_settings
+python/corpus-structure/tests/test_cli.py::test_json_is_a_command_option_not_a_root_option
+python/corpus-structure/tests/test_cli.py::test_planned_group_names_its_owner_on_stderr
+python/corpus-structure/tests/test_cli.py::test_status_json_is_the_result_model
+python/corpus-structure/tests/test_db_fixtures.py::test_a_malformed_record_line_is_refused
+python/corpus-structure/tests/test_db_fixtures.py::test_server_url_follows_the_settings_default
+python/corpus-structure/tests/test_review_cli.py::test_mixed_cohort_export_keeps_project_and_authorization_boundaries
+python/corpus-structure/tests/test_review_cli.py::test_offline_verify_refuses_missing_bundle_without_settings
+python/corpus-structure/tests/test_source_cli.py::test_current_inspection_preserves_exact_product_and_companion_selector

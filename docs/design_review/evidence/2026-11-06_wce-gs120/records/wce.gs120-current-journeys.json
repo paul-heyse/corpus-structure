@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "id": "wce.gs120-current-journeys",
+  "title": "Current GS120 composition and consumer journeys",
+  "group": "WCE",
+  "package": "WCE11",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the selected current scoped, comparison, contextual, artifact and equal-budget dossier products complete natively and retain exact source/runtime closure through ordinary consumers?",
+  "answers": [
+    "WCE06",
+    "WCE07",
+    "WCE08",
+    "WCE10",
+    "WCE11",
+    "WCE12",
+    "WCE-R06",
+    "WCE-R08",
+    "WCE-R09",
+    "WCE-R10",
+    "WCE-R12",
+    "DA-055",
+    "DA-057"
+  ],
+  "method": "Actual registered execution and bounded source-grounded inspection; software outcomes are separate from semantic quality.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/run_journey.py sources 002 --release-id release:cb08727ec668c048998c82db31ef0e1242d714ca23e2b0f2a223eb88c6061a29 --resume",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/run_comparison.py 001 --release-id release:cb08727ec668c048998c82db31ef0e1242d714ca23e2b0f2a223eb88c6061a29",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/run_journey.py dossiers 002 --release-id release:cb08727ec668c048998c82db31ef0e1242d714ca23e2b0f2a223eb88c6061a29 --sources-attempt docs/design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/sources002 --structural-run 169 --resume",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/qualification/bundle-reverify.py --execute --attempt 001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-manifest.json",
+      "role": null,
+      "sha256": "5c26959a59514e491527bb61821de0d42c7e4682338b63e2918b43767da6abec"
+    },
+    {
+      "path": "source-recovery/attempt001/result.json",
+      "role": null,
+      "sha256": "1d0ac7b92c8ed9c8746800cf8ad29f4cd674d0093a62f914b6dff4f7f6a61221"
+    },
+    {
+      "path": "assessment/protected-current/native160/published-predecessor-references.json",
+      "role": null,
+      "sha256": "5a6275f84d01c3fbe7b76e71136ba01bb6cc4c0aee168ba954e7989566a75bab"
+    },
+    {
+      "path": "current-structural-journey/run_journey.py",
+      "role": null,
+      "sha256": "f905dde30a0f087c220c27a269642aa45c1c15e1f724683b0791b3dd2579d55e"
+    },
+    {
+      "path": "current-structural-journey/journey_support.py",
+      "role": null,
+      "sha256": "f3ea8090be08c723eee36f658f0a6c185d4a4123e8b00bf21405a34fe1b9d18e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "current-structural-journey/sources002/result.json",
+      "role": null,
+      "sha256": "b3c26acad34c7b1dca867ab334609a58bbae9dae09b5d53edca7f2f75d0cfa75"
+    },
+    {
+      "path": "current-structural-journey/comparison001/result.json",
+      "role": null,
+      "sha256": "90a4589bf188718e8e53818c14e4121a1aa4267fa301ba6346065e52f80afcf3"
+    },
+    {
+      "path": "current-contextual-journey/contextual001/result.json",
+      "role": null,
+      "sha256": "5ce9b60152f1af0071b694599c826cee9256d339cc8d404d029c0b6d60e9a36c"
+    },
+    {
+      "path": "current-contextual-journey/contextual001/summary.json",
+      "role": null,
+      "sha256": "d8222209624c57a52ca989dcdac5524ee6eb018b32e120dad86e2410e7cd2bce"
+    },
+    {
+      "path": "current-structural-journey/dossiers002/result.json",
+      "role": null,
+      "sha256": "124160dc1d4b4d6fa3480327a6debf0e049f9c2529f08592afea52bbed16b4d6"
+    },
+    {
+      "path": "current-structural-journey/dossiers002/review-supported-facet-greedy-1.json",
+      "role": null,
+      "sha256": "7568903f4d4403a7c4b7aea352127a9a7f8ccf561c72ad623a2ca2760e7d5f83"
+    },
+    {
+      "path": "current-structural-journey/dossiers002/review-source-order-control-1.json",
+      "role": null,
+      "sha256": "422bfb94521490c298f41e1fef332a1e6f3573c4c3d1e78cff8919b6de4e84e3"
+    },
+    {
+      "path": "current-structural-journey/dossiers002/first-native-fit.json",
+      "role": null,
+      "sha256": "fbab9dca6dc9dab39fe20a9321b3541d6762e4c6489875da18e93e69ce718e4a"
+    },
+    {
+      "path": "consumer-transports/dossier184-mcp001/result.json",
+      "role": null,
+      "sha256": "74af3342152295175c97f05024cbf89e988eb9a3dedc39bca3805830454cd47c"
+    },
+    {
+      "path": "consumer-transports/dossier185-mcp001/result.json",
+      "role": null,
+      "sha256": "ba8b8b2eb507095749bdbec5974f6c8afd985ee5c40f897054a2598b5490629e"
+    },
+    {
+      "path": "qualification/bundle-reverify-run001.json",
+      "role": null,
+      "sha256": "0ffa5dc2d6456a49bad65403d550d36828bd5fbaa5d775e38f2c1f55a508d80a"
+    }
+  ],
+  "depends_on": [
+    "wce.gs120-source-recovery",
+    "wce.gs120-model-delivery"
+  ],
+  "results": [
+    {
+      "name": "Shared policy contribution population",
+      "value": 8210,
+      "of": null,
+      "unit": "contribution IDs",
+      "note": "Identical support across feasibility162/independent170/coupled180;84 cohorts,41 requests executed per arm,3 oversized and40 inapplicable not_run retained."
+    },
+    {
+      "name": "Private contextual edges",
+      "value": 14,
+      "of": null,
+      "unit": "edges",
+      "note": "28 fresh E5 vectors/126 reuse events; own-component witnesses unassessed; no ranking or independent connectivity gain claimed."
+    },
+    {
+      "name": "Artifact pilot records",
+      "value": 142,
+      "of": null,
+      "unit": "records",
+      "note": "Actual183/1070/cut247:116 private candidate pairs/zero alias pairs, fixed diagnostic unfitted assumptions."
+    },
+    {
+      "name": "Dossier full selected membership",
+      "value": 8280,
+      "of": null,
+      "unit": "members",
+      "note": "8210 coupled180 source members plus70 roles of35 named/protected169 components; other model outputs remain separate."
+    },
+    {
+      "name": "Equal display budget",
+      "value": 12,
+      "of": null,
+      "unit": "selected members per policy",
+      "note": "Both retain8268 omitted members and exact same full membership/facet objects."
+    },
+    {
+      "name": "Greedy represented facets",
+      "value": 4,
+      "of": null,
+      "unit": "role facets",
+      "note": "Four facets of two already-supported attachments; source-ID control represents0of4; no new facts or source repair."
+    },
+    {
+      "name": "Native greedy completion",
+      "value": 93576.252,
+      "of": null,
+      "unit": "milliseconds",
+      "note": "Unchanged120s deadline; control16183.975ms is a different policy, not a speedup comparison."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All actual selected native/Reader/full-file/portable routes passed on the same120 pages. Typed comparison163 preserves unknown units and withholds stronger interval claims. Artifact183 and three policy arms retain explicit assumptions/unassessed scope. Dossiers184/cut249 and185/cut251 preserve identical complete member/facet objects, original interpretations/outcomes, distinct producing runtimes and native-only independent support. Both fresh CLI/MCP transports deliver12 representatives over4 pages and refuse four custody/budget substitutions; complete8280-member files remain separately retained. All23 earlier final current bundles and both new dossiers verify on f473. Earlier native/configuration/export failures remain, including actual184 pre-repair cross-cut refusal. Software/closure execution does not establish whole-corpus semantic quality, calibration, scientific truth or all-model membership in one dossier.",
+  "consumed_by": [
+    "WCE06",
+    "WCE07",
+    "WCE08",
+    "WCE10",
+    "WCE11",
+    "WCE12"
+  ]
+}

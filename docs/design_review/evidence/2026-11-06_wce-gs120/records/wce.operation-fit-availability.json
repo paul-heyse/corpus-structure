@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "id": "wce.operation-fit-availability",
+  "title": "Current shared-corpus operation-event fitting availability",
+  "group": "WCE",
+  "package": "WCE09",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the selected current GS120 population supply the exact emitted event and protected grade needed for actual operation fitting?",
+  "answers": [
+    "WCE09",
+    "WCE-R11",
+    "F07"
+  ],
+  "method": "Read-only reader/evaluator metadata census against the exact existing native/Python event contract; no label, frame or reference identities manufactured.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/assessment/operation-fit-availability/census_availability.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "assessment/operation-fit-availability/census_availability.py",
+      "role": null,
+      "sha256": "6b401f704453c986f75449afd46ae9d2864a919f4c72bbb0897cd5477bbaf5bb"
+    },
+    {
+      "path": "assessment/operation-fit-availability/contribution-census.sql",
+      "role": null,
+      "sha256": "96459dd83784f42059d9a54af57528432f976514bf6e5b3ef045555c84872b40"
+    },
+    {
+      "path": "assessment/operation-fit-availability/protected-grade-census.sql",
+      "role": null,
+      "sha256": "817ae1f320f0809263933c5269f5df4709e27bac47d43f7e081c3ffed906f1c0"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "assessment/operation-fit-availability/availability001.json",
+      "role": null,
+      "sha256": "aa3194b503784c6986e3a5c76f33be77737b78d08f76d41850c30cd51cb85212"
+    },
+    {
+      "path": "assessment/operation-fit-availability/contribution-census001.json",
+      "role": null,
+      "sha256": "0a198cdd032547d84c64beb21b44758d8cd0f6b6de2d565adf6e24159fc66e2a"
+    },
+    {
+      "path": "assessment/operation-fit-availability/protected-grade-census001.json",
+      "role": null,
+      "sha256": "06869821740c2638989d5ca4e328cc6fc38c3926256539ef38a6398a99bba5fd"
+    },
+    {
+      "path": "assessment/operation-fit-availability/census001.log",
+      "role": null,
+      "sha256": "df5bdc4cc3928a1a6fcee896fb1dad269b25231186c89425cd1ae4c57d93415c"
+    }
+  ],
+  "depends_on": [
+    "wce.gs120-model-delivery"
+  ],
+  "results": [
+    {
+      "name": "Selected completed runs",
+      "value": 17,
+      "of": null,
+      "unit": "runs",
+      "note": "Exact declared cuts; no absence claim outside this selection."
+    },
+    {
+      "name": "Selected contribution rows",
+      "value": 91310,
+      "of": null,
+      "unit": "rows",
+      "note": "Repeated policy arms remain repeated rows, not independent source origins."
+    },
+    {
+      "name": "Eligible exact emitted events",
+      "value": 0,
+      "of": null,
+      "unit": "events",
+      "note": "Required kind relation and semantic_type relation.defined_by; other relationship types are not relabelled."
+    },
+    {
+      "name": "Corresponding protected evaluations",
+      "value": 0,
+      "of": null,
+      "unit": "evaluations",
+      "note": "Structural component assessments are a different contract."
+    },
+    {
+      "name": "Actual corpus fitting",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "Unavailable: genuine compatible emitted events plus exact independent binary operation grades are missing; no held-out/origin gate."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Read-only availability census passed and settles the selected population: no compatible relation.defined_by event or corresponding protected operation evaluation exists. Actual corpus fitting is unavailable/not_run; no native frame, grade, reference or parameter identity was invented. The controlled fitting mechanism is separately tested and supplies no corpus-efficacy claim. A future real producer/event binding and independently authored exact-ID binary grades, not additional source origins by default, are the fitting trigger. Existing partial knowledge remains retained.",
+  "consumed_by": [
+    "WCE09",
+    "WCE12"
+  ]
+}

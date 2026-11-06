@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.10, pytest-9.1.1, pluggy-1.7.0
+rootdir: /home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw1/test_real_distributed_failure_0/case
+configfile: pytest.ini
+plugins: anyio-4.15.1, xdist-3.8.0, hypothesis-6.170.12, Faker-40.44.0, platformdirs-4.14.0, reportlog-1.0.0
+created: 2/2 workers
+2 workers [1 item]
+
+[gw0] node down: Not properly terminated
+F
+worker gw0 crashed and worker restarting disabled
+                                                                         [100%]
+=================================== FAILURES ===================================
+_________________________________ test_case.py _________________________________
+[gw0] linux -- Python 3.14.10 /home/paul/corpus-structure/.venv/bin/python
+worker 'gw0' crashed while running 'test_case.py::test_case'
+=========== xdist: worker gw0 crashed and worker restarting disabled ===========
+- generated xml file: /home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw1/test_real_distributed_failure_0/receipt/pytest.junit.xml -
+- generated report log file: /home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-323/popen-gw1/test_real_distributed_failure_0/receipt/reportlog.jsonl -
+=========================== short test summary info ============================
+FAILED test_case.py::test_case - worker 'gw0' crashed while running 'test_cas...
+============================== 1 failed in 0.55s ===============================

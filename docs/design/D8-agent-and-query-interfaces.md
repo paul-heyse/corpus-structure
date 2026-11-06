@@ -10,6 +10,23 @@ retired; valid source custody remains an input to regeneration.
 
 > Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
+### Complete dossier export and bounded representation
+
+**Implemented; selected corpus/native/consumer/export qualification Tested,2026-11-06.** Interactive structural
+requests retain an8M response limit. Full selected structural file exports use a separately
+specified positive byte budget through `StructuralExportRequest` and the same authenticated
+page/decode owner. Portable export also enforces its cumulative file budget. An interactive
+limit does not restrict a complete dossier to its displayed members.
+
+Registered MCP `dossier_representation`, `ci structure dossier-page` and the named query
+all use the same bounded representation owner. Dossier representation pages bind full membership, facet and policy identities to continuation.
+Greedy supported-facet selection and source-order control use the same membership/facets/budget;
+mandatory exceptions/revisions/conflicts retain overflow. Source-order control sorts immutable
+source identity/citation/member keys, not physical book-page reading order. Full files preserve selected and
+omitted members, original interpretations/outcomes, source closure and raw producer dependencies.
+Support comes only from exact independently qualified predecessor statements, not membership,
+selection priority or private producer confidence.
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent
