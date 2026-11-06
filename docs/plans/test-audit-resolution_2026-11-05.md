@@ -1,6 +1,6 @@
 # Test audit resolution
 
-**Status:** Incomplete; original implementation delivered and qualification stopped; tooling amendments TR-11–15 Proposed. **Revised:** 2026-11-06. **Created:** 2026-11-05.
+**Status:** Incomplete; original campaign retained; TR-11–15 execution In progress under operator authorization. **Revised:** 2026-11-06. **Created:** 2026-11-05.
 This coordinator owns the new series' packages, scheduled remaining DTA scope and combined
 acceptance. Companion plans own detailed designs; architecture and accepted ADRs remain authority.
 
@@ -72,9 +72,9 @@ normal explanatory capture, full source-first/held-out efficacy and parameter/he
 retain their explicit WCE02/06–12 owners. TR-13 must not silently acquire those product/data tasks.
 Reconcile any further source changes at execution; old counts are not the new required manifest.
 
-Only document authoring is authorized by this publication. Original qualification stays stopped;
-future implementation of selected amendments requires its own execution instruction. The operator
-selected fresh qualification after that implementation, not after these document changes.
+The operator authorized execution of the entire remaining scope on2026-11-06, including safe
+unresolved-node export. Original campaign receipts stay immutable; this is a new implementation
+and final-source qualification engagement. Fresh qualification follows integrated functionality.
 
 The operator selected2026-11-05: include necessary bounded production/infrastructure corrections
 and fresh integrated qualification. This publication authorizes neither repair execution nor new
@@ -424,3 +424,51 @@ architecture/native work, library input bytes and original evidence were not edi
 revision. Product tests, probes, provider/native execution, installation and qualification are
 not_run for this document-only task. Publication uses just turn-end, just docs-check and scoped
 git diff --check; actual outcomes are reported in the publication commit and final handoff.
+
+## Implementation and qualification checkpoint — 2026-11-06
+
+TR-11–14 are Implemented with focused Tests; TR-09 source/caller reconciliation is complete for
+these changes, while final functional preservation and TR-10 remain pending. TR-15A is blocked
+by actual writer TEMP denial, with operator disposition requested; no executed retain/adopt or
+pg_prove qualification claim is made. TR-15B/C triggers remain inactive. This checkpoint supersedes
+Proposed wording for delivered changes, not the original failed/interrupted receipts.
+
+Public item.stash capture replaces suffix reconstruction, journals exact identities and refuses
+ambiguous/missing/unselected association for union claims. Worker facts distinguish creation,
+readiness, actual execution/PIDs and overlap from completed execution intervals. Math affinity now
+uses real staged fixture dependencies: current collection172 nodes,8 grouped and164 free of that
+group. Coarse/narrow controlled cases each read once; content-only reads zero. Cold compiler,
+transport and cancellation controls remain; no elapsed speedup is claimed.
+
+TR-14 adds required_node_coverage, preserving existing status/exit history. classify now supports
+--write-unresolved FILE --selection-lane ordinary|fault, with explicit nonempty required manifests,
+fresh supervised zero-body collection, canonical full node IDs, no overwrite/empty artifact and
+durable selection-validation receipts. Current collected manifest JSON/JSONL is --required-from;
+a pytest @argument file is not that manifest. No automated source-compatibility judgment is added.
+
+TR-13 extracts witnessed_scenario_support and migrates all discovered test-host setup callers;
+assert rewriting is registered before support import. Independent literal facet/endpoint/output/
+source-population and assessment-wording controls are added. Native negatives now establish
+positive same-task completion, exact refusal and no partial rows. Wrong-kind mutation was repaired
+to omit optional nulls and reach the intended guard, rather than accept earlier shape rejection.
+
+Focused results (counts overlap): harness initial27 passed; broader147 passed/1 new scaffold
+failure, repaired; affected reruns20,12 and2 association controls passed. Retention-enabled affinity
+controls passed2 after independent review found a colliding artifact path. TR-13 pure63 passed
+serial and two-worker; initial native11 passed/1 wrong-kind boundary failed, then repaired/changed
+consumer selection6 passed. Logs build/tr13-{pure-final,pure-distributed,native,native-final}.log,
+build/test-resolution-retention-fix.log and build/tmp/pytest/pytest-of-paul retain actual outcomes.
+Types, ready and dependency checks passed at their recorded source; initial Ruff style errors
+were corrected. Full final-source qualification/hygiene are not yet claimed.
+
+Independent assembled review accepted the implemented TR-11–14 scope after correcting collection
+association, configured native endpoints/owned clones and retention uniqueness. TR-15 evidence is
+[native comparison](../design_review/evidence/2026-11-06_test-resolution-tooling/README.md): actual
+writer Python/native controls passed, but pgTAP plan initialization raises42501 because TEMP is
+denied. Grants, normal template and persistent database were not changed. All named owned resources
+were checked absent; earlier failed probe attempts remain.
+
+Next: fresh full current ordinary qualification, exclusive native fault lane, applicable hygiene,
+and final required-union accounting. Original1390 pending identities and WCE322 counts do not
+define the new union. No full-series completion follows until required evidence and TR-15A
+disposition are settled.

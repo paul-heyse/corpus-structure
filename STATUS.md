@@ -8,10 +8,9 @@ _Updated 2026-11-06; selected WCE04–05 implementation complete and Tested._
 - [ADR-0067](docs/adr/0067-witnessed-current-only-cutover.md) selects full migration and legacy removal.
   Domain objects/relationships/conditions govern knowledge; assessment questions are separate.
 - Statistics remains qualification scope; no enterprise acquisition or full-book reread was performed.
-- [Test-resolution](docs/plans/test-audit-resolution_2026-11-05.md) remains separately stopped;
-  its [TR-11–15 proposals](docs/plans/test-audit-resolution_2026-11-05.md#proposed-tooling-packages-and-useful-execution-order)
-  remain Proposed, now scoped against delivered WCE04–05. That plan update neither resumes the
-  campaign nor closes its qualification.
+- [Test-resolution](docs/plans/test-audit-resolution_2026-11-05.md) TR-11–15 execution is in progress
+  under operator authorization. The historical campaign remains retained; new final-source
+  qualification follows integrated functionality. WCE product scope remains separately owned.
 
 ## Delivered — 2026-11-06
 

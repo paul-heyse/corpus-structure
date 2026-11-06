@@ -15,6 +15,23 @@ from hypothesis import settings
 _stream: TextIO | None = None
 _identity: dict[str, object] = {}
 _current_nodeid: str | None = None
+_logical_nodeid = pytest.StashKey[str]()
+_requested_worker_selection = pytest.StashKey[object]()
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_cmdline_main(config: pytest.Config) -> Generator[None, Any, Any]:
+    # Capture parsed CLI/ini/environment selection before xdist resolves auto/logical.
+    config.stash[_requested_worker_selection] = config.getoption("numprocesses", None)
+    return (yield)
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> Generator[None]:
+    # Wrappers enter before xdist's non-wrapper group mutation (pytest9.1.1/xdist3.8).
+    for item in items:
+        item.stash[_logical_nodeid] = item.nodeid
+    yield
 
 
 def native_context_active() -> bool:
@@ -56,7 +73,7 @@ def pytest_configure(config: pytest.Config) -> None:
     _identity = {"pid": os.getpid(), "worker": worker}
     _stream = (Path(directory) / f"events-{worker}-{os.getpid()}.jsonl").open("x")
     config.add_cleanup(_close)
-    _emit("process_start")
+    _emit("process_start", invocation_args=list(config.invocation_params.args))
 
 
 def _close() -> None:
@@ -76,23 +93,34 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         xdist_numprocesses=session.config.getoption("numprocesses"),
         xdist_dist=session.config.getoption("dist"),
         xdist_loadgroup=session.config.getoption("loadgroup", False),
+        invocation_args=list(session.config.invocation_params.args),
+        requested_worker_selection=session.config.stash.get(_requested_worker_selection, None),
+        effective_worker_count=int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "0")),
+        math_pool_cap=8,
     )
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
-    aliases = {}
-    if hasattr(session.config, "workerinput") and session.config.getoption("loadgroup", False):
-        for item in session.items:
-            groups = {
-                str(mark.args[0] if mark.args else mark.kwargs.get("name", "default"))
-                for mark in item.iter_markers("xdist_group")
-            }
-            if groups:
-                suffix = "@" + "_".join(sorted(groups))
-                aliases[item.nodeid] = item.nodeid.removesuffix(suffix)
+    aliases: dict[str, str] = {}
+    originals: set[str] = set()
+    for item in session.items:
+        original = item.stash[_logical_nodeid]
+        if item.nodeid in aliases or original in originals:
+            raise pytest.UsageError(f"ambiguous collected node identity: {item.nodeid}")
+        aliases[item.nodeid] = original
+        originals.add(original)
     _emit(
         "collection_finish",
         nodeid_aliases=aliases,
+        affinity_groups={
+            item.nodeid: sorted(
+                {
+                    str(mark.args[0] if mark.args else mark.kwargs.get("name", "default"))
+                    for mark in item.iter_markers("xdist_group")
+                }
+            )
+            for item in session.items
+        },
         selected=[item.nodeid for item in session.items],
         native_required=[
             item.nodeid for item in session.items if item.get_closest_marker("db") is not None
@@ -158,3 +186,13 @@ def pytest_runtest_logfinish(nodeid: str, location: object) -> None:
 @pytest.hookimpl(optionalhook=True)
 def pytest_testnodedown(node: Any, error: object) -> None:
     _emit("worker_down", lost_worker=node.gateway.id, error=str(error) if error else None)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_setupnodes(config: pytest.Config, specs: list[Any]) -> None:
+    _emit("workers_created", count=len(specs), workers=[spec.id for spec in specs])
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodeready(node: Any) -> None:
+    _emit("worker_ready", ready_worker=node.gateway.id)

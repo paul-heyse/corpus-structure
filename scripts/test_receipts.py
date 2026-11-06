@@ -15,6 +15,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -437,6 +438,52 @@ def _group_cleanup_errors(process: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _node_aliases(manifests: list[dict[str, Any]]) -> dict[str, str]:
+    """Validate exact collected identities, including historical partial alias maps."""
+    aliases: dict[str, str] = {}
+    for manifest in manifests:
+        mapping = manifest.get("nodeid_aliases", {})
+        selected = manifest["selected"]
+        if not isinstance(selected, (list, tuple)) or not all(isinstance(n, str) for n in selected):
+            raise ValueError("invalid selected-node manifest")
+        if len(selected) != len(set(selected)):
+            raise ValueError("duplicate selected node identity")
+        if not isinstance(mapping, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) and k and v for k, v in mapping.items()
+        ):
+            raise ValueError("invalid node identity map")
+        if set(mapping) - set(selected):
+            raise ValueError("node identity map includes unselected identities")
+        inverse: dict[str, str] = {}
+        for raw in selected:
+            logical = mapping.get(raw, raw)
+            if logical in inverse and inverse[logical] != raw:
+                raise ValueError(f"colliding collected node identity: {logical}")
+            inverse[logical] = raw
+            if raw in aliases and aliases[raw] != logical:
+                raise ValueError(f"conflicting worker node identity for {raw}")
+            aliases[raw] = logical
+        if not set(manifest.get("native_required", [])).issubset(selected):
+            raise ValueError("native-required nodes are outside selected manifest")
+    return aliases
+
+
+def _required_manifests(paths: list[Path]) -> list[dict[str, Any]]:
+    manifests = []
+    for path in paths:
+        if path.suffix == ".jsonl":
+            events, errors = read_stream(path)
+            if errors:
+                raise ValueError("; ".join(errors))
+            found = [event for event in events if event.get("event") == "collection_finish"]
+            if not found:
+                raise ValueError(f"no collection manifest: {path}")
+            manifests.extend(found)
+        else:
+            manifests.append(read_json(path))
+    return manifests
+
+
 def classify_receipt(directory: Path) -> dict[str, Any]:
     reports, errors = read_stream(directory / "reportlog.jsonl")
     companion: list[dict[str, Any]] = []
@@ -449,12 +496,18 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         errors.extend(problems)
     # loadgroup appends scheduler-only suffixes. Retain raw reportlog unchanged while
     # comparing the original pytest identities with earlier required-node manifests.
-    aliases: dict[str, str] = {}
-    for event in companion:
-        for scheduled, original in event.get("nodeid_aliases", {}).items():
-            if scheduled in aliases and aliases[scheduled] != original:
-                errors.append(f"conflicting worker node identity for {scheduled}")
-            aliases[scheduled] = original
+    identity_valid = True
+    try:
+        manifests = [e for e in companion if e.get("event") == "collection_finish"]
+        if not manifests:
+            raise ValueError("missing selected-node manifest")
+        aliases = _node_aliases(manifests)
+        if len({tuple(sorted(e["selected"])) for e in manifests}) > 1:
+            raise ValueError("workers disagree on selected scheduled identities")
+    except (ValueError, TypeError, KeyError) as error:
+        errors.append(f"invalid collection identity: {error}")
+        identity_valid = False
+        aliases = {}
     for event in [*companion, *reports]:
         if "nodeid" in event:
             event["nodeid"] = aliases.get(event["nodeid"], event["nodeid"])
@@ -590,12 +643,62 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "process_failed": process_failed,
         "session_finishes": session_finishes,
         "reporting_complete": not errors and not worker_loss,
+        "identity_valid": identity_valid,
         "native_contexts": native_events,
         "native_provenance": native_provenance,
         "session_contexts": [e for e in companion if e.get("event") == "session_start"],
+        "worker_facts": _worker_facts(companion),
         "invocation": read_json(directory / "invocation.json")
         if (directory / "invocation.json").exists()
         else None,
+    }
+
+
+def _worker_facts(events: list[dict[str, Any]]) -> dict[str, Any]:
+    executing = sorted({str(e.get("worker")) for e in events if e.get("event") == "phase_start"})
+    # Phase intervals come from durable process journals, not controller dispatch times.
+    intervals: list[tuple[float, int, str]] = []
+    finished = {(e.get("worker"), e.get("nodeid")) for e in events if e.get("event") == "logfinish"}
+    for event in events:
+        if (
+            str(event.get("worker")) in executing
+            and "time" in event
+            and (event.get("worker"), event.get("nodeid")) in finished
+            and (
+                event.get("event") == "logfinish"
+                or (event.get("event") == "phase_start" and event.get("phase") == "setup")
+            )
+        ):
+            intervals.append(
+                (
+                    event["time"],
+                    1 if event["event"] == "phase_start" else -1,
+                    str(event.get("worker")),
+                )
+            )
+    active: set[str] = set()
+    peak = 0
+    for _, direction, worker in sorted(intervals):
+        if direction == 1:
+            active.add(worker)
+        else:
+            active.discard(worker)
+        peak = max(peak, len(active))
+    return {
+        "created": [e for e in events if e.get("event") == "workers_created"],
+        "ready": sorted({e["ready_worker"] for e in events if e.get("event") == "worker_ready"}),
+        "executing": executing,
+        "executing_processes": [
+            dict(worker=worker, pid=pid)
+            for worker, pid in sorted(
+                {
+                    (str(e.get("worker")), e.get("pid"))
+                    for e in events
+                    if e.get("event") == "phase_start"
+                }
+            )
+        ],
+        "observed_peak_overlap": peak,
     }
 
 
@@ -659,27 +762,11 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
     receipts = [classify_receipt(path) for path in directories]
     required: set[str] = set()
     native_required: set[str] = set()
-    for path in required_from or []:
-        if path.suffix == ".jsonl":
-            events, errors = read_stream(path)
-            if errors:
-                raise ValueError("; ".join(errors))
-            manifests = [event for event in events if event.get("event") == "collection_finish"]
-            if not manifests:
-                raise ValueError(f"no collection manifest: {path}")
-            for event in manifests:
-                aliases = event.get("nodeid_aliases", {})
-                required.update(aliases.get(node, node) for node in event["selected"])
-                native_required.update(
-                    aliases.get(node, node) for node in event.get("native_required", [])
-                )
-        else:
-            manifest = read_json(path)
-            aliases = manifest.get("nodeid_aliases", {})
-            required.update(aliases.get(node, node) for node in manifest["selected"])
-            native_required.update(
-                aliases.get(node, node) for node in manifest.get("native_required", [])
-            )
+    manifests = _required_manifests(required_from or [])
+    for manifest in manifests:
+        aliases = _node_aliases([manifest])
+        required.update(aliases[node] for node in manifest["selected"])
+        native_required.update(aliases[node] for node in manifest.get("native_required", []))
     union = {
         node: [
             _union_node_status(receipt, node, native_required)
@@ -735,6 +822,19 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
         "required": sorted(required),
         "required_unresolved": missing,
         "coverage": union,
+        "required_node_coverage": {
+            "status": "not_declared"
+            if not required_from
+            else "covered"
+            if required and not missing
+            else "unresolved",
+            "required": sorted(required),
+            "unresolved": missing,
+            "applicability_note": (
+                "Observed node coverage only, not complete qualification. The owning plan "
+                "judges source/context applicability and remaining obligations."
+            ),
+        },
     }
 
 
@@ -744,6 +844,8 @@ def _union_node_status(receipt: dict[str, Any], node: str, native_required: set[
     Historical node outcomes remain available in ``receipt["nodes"]``. A current native
     requirement additionally needs a complete item-bound acquisition event in this receipt.
     """
+    if not receipt["identity_valid"] or node not in receipt["selected"]:
+        return "incomplete"
     status = receipt["nodes"][node]["status"]
     if node not in native_required or status != "passed":
         return status
@@ -764,6 +866,78 @@ def _positive_timeout(value: str) -> float:
     return timeout
 
 
+def write_unresolved(
+    result: dict[str, Any], destination: Path, *, required_from: list[Path], lane: str
+) -> dict[str, Any]:
+    """Publish full canonical IDs only after fresh, body-free collection in the selected lane.
+
+    The explicit current required manifest remains the operator's applicability declaration.
+    Collection checks identity, never source/evidence compatibility or test outcomes.
+    """
+    if not required_from or not result["required"] or not result["receipts"]:
+        raise ValueError("export needs receipts and an explicit nonempty current required manifest")
+    nodes = result["required_unresolved"]
+    if not nodes:
+        raise ValueError("empty unresolved selection; no argument file written")
+    if destination.exists():
+        raise ValueError(f"refusing to overwrite {destination}")
+    for node in result["required"]:
+        if (
+            not isinstance(node, str)
+            or not node
+            or node.startswith(("-", "@"))
+            or "\n" in node
+            or "\r" in node
+            or "\0" in node
+            or "::" not in node
+        ):
+            raise ValueError(f"not a full canonical test node ID: {node!r}")
+    # Validate the whole declared selection, so stale covered IDs cannot conceal stale history.
+    scratch = ROOT / "build" / "test-receipts" / "selection-validation"
+    scratch.mkdir(parents=True, exist_ok=True)
+    directory = Path(tempfile.mkdtemp(prefix="collection-", dir=scratch))
+    selection = directory / "required.txt"
+    selection.write_text("\n".join(result["required"]) + "\n")
+    with supervision(directory):
+        run_python(
+            directory,
+            [
+                "-o",
+                "addopts=",
+                "-n",
+                "0",
+                "--collect-only",
+                "-m",
+                "shared_cluster_fault" if lane == "fault" else "not shared_cluster_fault",
+                "@" + str(selection),
+            ],
+            cwd=Path.cwd(),
+            timeout=120,
+        )
+    collected = classify_receipt(directory)
+    if (
+        collected["process"].get("returncode") != 0
+        or collected["stream_errors"]
+        or collected["collection_errors"]
+        or collected["worker_loss"]
+        or set(collected["selected"]) != set(result["required"])
+    ):
+        raise ValueError(
+            "current collection is stale, ambiguous, failed or outside the selected lane; "
+            f"receipt: {directory}"
+        )
+    # Exclusive creation also handles a file appearing between validation and publication.
+    with destination.open("x") as handle:
+        handle.write("\n".join(nodes) + "\n")
+    return {
+        "path": str(destination),
+        "nodes": nodes,
+        "lane": lane,
+        "validation_receipt": str(directory),
+        "validation": "fresh collection only; no test bodies executed",
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
@@ -776,9 +950,21 @@ def main(argv: list[str] | None = None) -> int:
     inspect = sub.add_parser("classify")
     inspect.add_argument("--receipt-dir", action="append", type=Path, required=True)
     inspect.add_argument("--required-from", action="append", type=Path, default=[])
+    inspect.add_argument("--write-unresolved", type=Path)
+    inspect.add_argument("--selection-lane", choices=("ordinary", "fault"), default="ordinary")
     args = parser.parse_args(argv)
     if args.action == "classify":
-        result = classify(args.receipt_dir, args.required_from)
+        try:
+            result = classify(args.receipt_dir, args.required_from)
+            if args.write_unresolved is not None:
+                result["unresolved_selection"] = write_unresolved(
+                    result,
+                    args.write_unresolved,
+                    required_from=args.required_from,
+                    lane=args.selection_lane,
+                )
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            parser.error(str(error))
     else:
         directory = args.out_dir.resolve()
         directory.mkdir(parents=True, exist_ok=False)

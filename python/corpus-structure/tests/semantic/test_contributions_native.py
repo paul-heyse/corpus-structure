@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from psycopg import Error as PsycopgError
 from sqlalchemy import event, select
 from sqlalchemy.exc import DBAPIError
 
@@ -517,8 +518,21 @@ def test_native_located_component_custody_and_basis_refusal(private_source):
         invalid["contributions"][1]
     )
     with case.writer.begin() as conn:
-        with pytest.raises(DBAPIError, match="component basis"), conn.begin_nested():
+        with pytest.raises(DBAPIError) as caught, conn.begin_nested():
             bypass(case, conn, invalid)
+        error = caught.value.orig
+        assert isinstance(error, PsycopgError)
+        assert error.sqlstate == "23514"
+        assert error.diag.message_primary == (
+            "component basis has unavailable dependency or source anchor"
+        )
+        assert (
+            conn.scalar(
+                select(table("ops.task").c.status).where(table("ops.task").c.id == case.task)
+            )
+            == "running"
+        )
+        assert not conn.execute(select(table("kb.source_contribution"))).first()
         complete(case, conn, result)
     with case.writer.connect() as conn:
         actual = read_source_contributions(

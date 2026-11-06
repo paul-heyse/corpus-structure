@@ -2,7 +2,6 @@
 
 import os
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 
@@ -23,11 +22,18 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> Generator[None]:
-    # A session fixture is local to a worker. Keep the expensive corpus preparation and
-    # its own bounded page pool together instead of rebuilding both on every auto-selected worker.
-    math_tests = Path(__file__).parent / "python" / "corpus-structure" / "tests" / "math"
+    # Keep overlapping preparation tiers together; content-only and pure/cold controls
+    # have no shared parse/scoping lifetime. Closure includes transitive fixture consumers.
+    preparation = {
+        "spike_readings",
+        "spike_extraction",
+        "spike_scoped",
+        "s0r2_readings",
+        "s0r2_extraction",
+        "s0r2_scoped",
+    }
     for item in items:
-        if item.path.is_relative_to(math_tests):
+        if preparation.intersection(getattr(item, "fixturenames", ())):
             item.add_marker(pytest.mark.xdist_group("math_preparation"))
     yield
     # Check after pytest's marker deselection: ordinary parallel runs omit these controls.

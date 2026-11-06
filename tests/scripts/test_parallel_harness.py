@@ -1,0 +1,289 @@
+"""Real isolated serial/xdist controls for public collection and journal contracts."""
+
+from __future__ import annotations
+
+import os
+import shutil
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from test_receipts import ROOT, classify_receipt, read_stream, run_python
+
+
+def isolated(tmp_path, source, workers, *, conftest="", args=()):
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "pytest.ini").write_text(
+        "[pytest]\naddopts =\nmarkers =\n    db: actual database acquisition\n"
+        "    shared_cluster_fault: exclusive cluster controls\n"
+    )
+    (case / "test_case.py").write_text(source)
+    (case / "conftest.py").write_text(conftest)
+    output = tmp_path / "receipt"
+    output.mkdir()
+    run_python(
+        output,
+        [
+            "-c",
+            str(case / "pytest.ini"),
+            "-o",
+            "addopts=",
+            "-n",
+            str(workers),
+            "--dist=loadgroup",
+            "--max-worker-restart=0",
+            str(case),
+            *args,
+        ],
+        cwd=case,
+        timeout=40,
+        test_timeout=15,
+    )
+    retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
+    if retained:
+        shutil.copytree(output, Path(retained) / f"{tmp_path.name}-{workers}-{uuid4().hex}")
+    return output
+
+
+def events(output):
+    return [event for file in output.glob("events-*.jsonl") for event in read_stream(file)[0]]
+
+
+@pytest.mark.parametrize("workers", [0, 2])
+@pytest.mark.db
+def test_real_collection_group_identity_and_native_acquisition(tmp_path, workers):
+    # The enclosing item and every child own their acquisition and clone lifetime.
+    from uuid import uuid4
+
+    from native_test_support import PgAdmin, server_url
+
+    server = PgAdmin(server_url(), "template0", {})
+    with (
+        server.database(f"ci_test_{os.getpid()}_{uuid4().int}", "template0") as engine,
+        engine.connect() as connection,
+    ):
+        assert connection.exec_driver_sql("SELECT 1").scalar_one() == 1
+    source = """import os
+import time
+from uuid import uuid4
+from contextlib import contextmanager
+import pytest
+from native_test_support import PgAdmin, server_url
+
+@contextmanager
+def acquired_clone():
+    server = PgAdmin(server_url(), "template0", {})
+    with server.database(f"ci_test_{os.getpid()}_{uuid4().int}", "template0") as engine:
+        with engine.connect() as connection:
+            yield connection
+
+@pytest.fixture(params=[pytest.param("value", marks=pytest.mark.xdist_group("fixture"))])
+def grouped(request):
+    return request.param
+
+@pytest.mark.db
+@pytest.mark.xdist_group("shared")
+@pytest.mark.parametrize("value", ["literal@shared", "literal@x_y"])
+def test_native(value):
+    with acquired_clone() as connection:
+        connection.exec_driver_sql("SELECT pg_sleep(0.15)")
+
+@pytest.mark.db
+@pytest.mark.xdist_group("extra")
+def test_composite(grouped):
+    with acquired_clone() as connection:
+        connection.exec_driver_sql("SELECT pg_sleep(0.15)")
+
+@pytest.mark.xdist_group("fixture")
+@pytest.mark.xdist_group("extra")
+def test_composite_sibling():
+    time.sleep(0.15)
+
+@pytest.mark.parametrize("value", range(4))
+def test_ungrouped(value):
+    time.sleep(0.15)
+
+def test_deselected():
+    raise AssertionError("must not execute")
+"""
+    output = isolated(tmp_path, source, workers, args=("-k", "not deselected"))
+    result = classify_receipt(output)
+    assert result["status"] == "passed", (output / "pytest.stdout").read_text()
+    assert len(result["selected"]) == 8
+    assert any("literal@shared]" in node for node in result["selected"])
+    assert len(result["deselected"]) == 1
+    assert result["native_provenance"]["status"] == "complete"
+    assert len(result["native_provenance"]["required"]) == 3
+    journal = events(output)
+    manifests = [event for event in journal if event["event"] == "collection_finish"]
+    for manifest in manifests:
+        expected = [
+            "test_case.py::test_native[literal@shared]",
+            "test_case.py::test_native[literal@x_y]",
+            "test_case.py::test_composite[value]",
+            "test_case.py::test_composite_sibling",
+            *[f"test_case.py::test_ungrouped[{i}]" for i in range(4)],
+        ]
+        assert sorted(manifest["nodeid_aliases"].values()) == sorted(expected)
+    if workers:
+        assert result["worker_facts"]["created"][0]["count"] == 2
+        assert result["worker_facts"]["executing"] == ["gw0", "gw1"]
+        assert len({entry["pid"] for entry in result["worker_facts"]["executing_processes"]}) == 2
+        assert result["worker_facts"]["observed_peak_overlap"] == 2
+        for part in ("test_native", "test_composite"):
+            owners = {
+                e["worker"] for e in journal if e["event"] == "phase_start" and part in e["nodeid"]
+            }
+            assert len(owners) == 1
+        assert any("@extra_fixture" in raw for raw in manifests[0]["selected"])
+    else:
+        assert result["worker_facts"]["executing"] == ["controller"]
+        assert result["worker_facts"]["observed_peak_overlap"] == 1
+
+
+@pytest.mark.parametrize("workers", [0, 2])
+@pytest.mark.parametrize("failure", ["collection", "setup", "teardown", "loss"])
+def test_real_distributed_failure_boundaries(tmp_path, workers, failure):
+    sources = {
+        "collection": "raise RuntimeError('collection control')\n",
+        "setup": (
+            "import pytest\n@pytest.fixture\ndef broken():\n"
+            "    raise RuntimeError('setup control')\ndef test_case(broken):\n    pass\n"
+        ),
+        "teardown": (
+            "import pytest\n@pytest.fixture\ndef broken():\n    yield\n"
+            "    raise RuntimeError('teardown control')\ndef test_case(broken):\n    pass\n"
+        ),
+        "loss": "import os\ndef test_case():\n    os._exit(19)\n",
+    }
+    output = isolated(tmp_path, sources[failure], workers)
+    result = classify_receipt(output)
+    assert result["status"] in {"failed", "incomplete"}
+    if failure == "collection":
+        assert result["collection_errors"]
+    elif failure in {"setup", "teardown"}:
+        node = next(iter(result["nodes"].values()))
+        assert node["status"] == "failed"
+        assert any(r["when"] == failure and r["outcome"] == "failed" for r in node["reports"])
+    else:
+        assert result["active_phases"]
+        if workers:
+            assert result["worker_loss"]
+
+
+@pytest.mark.parametrize("workers,mixed", [(2, False), (0, True)])
+def test_fault_lane_collection_refuses_without_running_bodies(tmp_path, workers, mixed):
+    root_hooks = (ROOT / "conftest.py").read_text()
+    source = (
+        "import pytest\n@pytest.mark.shared_cluster_fault\ndef test_fault():\n"
+        "    raise AssertionError('body forbidden')\n"
+    )
+    if mixed:
+        source += "def test_ordinary():\n    raise AssertionError('body forbidden')\n"
+    output = isolated(tmp_path, source, workers, conftest=root_hooks, args=("--collect-only",))
+    result = classify_receipt(output)
+    assert result["process"]["returncode"] != 0
+    assert not any(e["event"] == "phase_start" for e in events(output))
+    assert "shared_cluster_fault controls" in (output / "pytest.stderr").read_text()
+
+
+@pytest.mark.parametrize("coarse", [False, True])
+def test_dependency_affinity_frees_content_and_cold_controls(tmp_path, coarse):
+    root_hooks = (ROOT / "conftest.py").read_text()
+    if coarse:
+        root_hooks = (
+            "import pytest\n@pytest.hookimpl(wrapper=True, tryfirst=True)\n"
+            "def pytest_collection_modifyitems(items):\n"
+            "    for item in items: item.add_marker(pytest.mark.xdist_group('math_preparation'))\n"
+            "    yield\n"
+        )
+    source = """import pytest
+from pathlib import Path
+@pytest.fixture(scope="session")
+def spike_content(): return object()
+@pytest.fixture(scope="session")
+def spike_readings(spike_content):
+    with Path("read-count").open("a") as handle: handle.write("read\\n")
+    return object()
+@pytest.fixture(scope="session")
+def spike_extraction(spike_readings): return spike_readings
+@pytest.fixture(scope="session")
+def spike_scoped(spike_extraction): return spike_extraction
+def test_read(spike_readings): pass
+def test_extract(spike_extraction): pass
+def test_scope(spike_scoped, spike_readings): assert spike_scoped is spike_readings
+def test_content(spike_content): pass
+def test_cold(): pass
+"""
+    output = isolated(tmp_path, source, 2, conftest=root_hooks)
+    result = classify_receipt(output)
+    assert result["status"] == "passed"
+    manifest = next(e for e in events(output) if e["event"] == "collection_finish")
+    grouped = {
+        logical
+        for raw, logical in manifest["nodeid_aliases"].items()
+        if raw.endswith("@math_preparation")
+    }
+    expected = {"test_case.py::test_read", "test_case.py::test_extract", "test_case.py::test_scope"}
+    if coarse:
+        expected |= {"test_case.py::test_content", "test_case.py::test_cold"}
+    assert grouped == expected
+    assert (tmp_path / "case" / "read-count").read_text().splitlines() == ["read"]
+    owners = {
+        e["worker"]
+        for e in events(output)
+        if e["event"] == "phase_start" and "@math_preparation" in e["nodeid"]
+    }
+    assert len(owners) == 1
+    content_only = tmp_path / "content-only"
+    content_only.mkdir()
+    output = isolated(content_only, source, 2, conftest=root_hooks, args=("-k", "test_content"))
+    assert classify_receipt(output)["status"] == "passed"
+    assert not (content_only / "case" / "read-count").exists()
+
+
+def test_actual_math_collection_preparation_inventory(tmp_path):
+    output = tmp_path / "collection"
+    output.mkdir()
+    run_python(
+        output,
+        ["-o", "addopts=", "-n", "0", "--collect-only", "python/corpus-structure/tests/math"],
+        timeout=60,
+    )
+    result = classify_receipt(output)
+    assert result["process"]["returncode"] == 0
+    manifest = next(e for e in events(output) if e["event"] == "collection_finish")
+    grouped = {
+        node for node, groups in manifest["affinity_groups"].items() if "math_preparation" in groups
+    }
+    assert grouped
+    assert len(grouped) < len(manifest["selected"])
+    assert any("test_staged_corpus_relations" in node for node in grouped)
+    assert any("test_core_standing_contexts" in node for node in grouped)
+    assert not any(
+        "test_real_spawn_transports" in node or "test_m13_rebuilds" in node for node in grouped
+    )
+    assert not result["native_contexts"]
+    assert not any(e["event"] == "phase_start" for e in events(output))
+
+
+def test_public_report_section_survives_two_worker_serialization(tmp_path):
+    output = isolated(
+        tmp_path,
+        """def test_case(request):
+    request.node.add_report_section(
+        "call", "public scenario", "guard=fixture; diagnostic=public-control"
+    )
+    assert False, "deliberate conformance failure"
+""",
+        2,
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "failed"
+    node = next(iter(result["nodes"].values()))
+    call = next(r for r in node["reports"] if r["when"] == "call")
+    assert ["Captured public scenario call", "guard=fixture; diagnostic=public-control"] in call[
+        "sections"
+    ]

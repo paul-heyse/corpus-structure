@@ -7,6 +7,22 @@ meaning, test semantic answers or an independent qualification register.
 
 ## Foundation and target
 
+Execution mechanisms selected2026-11-06 from the full library references and review addenda:
+
+| Obligation | Library mechanism and limit |
+|---|---|
+| Exact collection identity | pytest.hookimpl(wrapper=True,tryfirst=True), pytest.StashKey and item.stash; capture before xdist mutation, journal exact aliases, reject collisions |
+| Worker lifecycle | xdist setup/ready/collection/down hooks, worker_id and PYTEST_XDIST_WORKER_COUNT plus actual PID-tagged call intervals; created is not working or overlapping |
+| Isolated conformance | Explicit child -n0/-n2 and isolated config/plugin loading; pytester scaffolding only if simpler, retaining run_python/run_process receipt and settlement ownership |
+| Preparation | Public collected fixturenames and xdist_group, existing scoped fixture DAG/yield cleanup; no private fixture-manager or new cache service |
+| Diagnostics | Rewritten asserts, register_assert_rewrite before imports, narrow assertrepr hook, Item.add_report_section, phase user_properties; no protected-label dump |
+| Failures | Existing faulthandler bounds and supervisor settlement, warning/exception-group controls where relevant; worker replacement is not semantic retry |
+
+workerinput is bounded configuration and workeroutput an optional orderly summary, not shared
+memory or crash-proof evidence. Ordinary serializable report properties/sections are preferred;
+report serialization hooks are conditional on a concrete gap. No pytest9.2-only configuration,
+types or plugin loading, xdist development-only options, automatic retries or custom scheduler.
+
 Root `conftest.py` wraps collection, marks the entire package math directory with
 `xdist_group('math_preparation')`, and rejects mixed/parallel shared-cluster faults after
 deselection. `pyproject.toml` pins pytest9.1.1/xdist3.8.0 and defaults to auto/loadgroup;
@@ -122,3 +138,18 @@ Sources: [pytest reference](../../libraries/analytical_infrastructure/pytest.md)
 [xdist3.8 distribution](https://github.com/pytest-dev/pytest-xdist/blob/v3.8.0/docs/distribution.rst).
 These are interface/source grounds; implementation checks, native execution and performance
 measurements for TR-11/12 are not_run at plan publication.
+
+## Current implementation — 2026-11-06
+
+Implemented and focused Tested: public Stash capture and exact canonical map, conservative
+association eligibility, effective/actual worker facts, real serial/two-worker acquisition using
+configured PgAdmin-owned clones, and phase/report-section transport. Existing child/run_python
+scaffolding is retained because it already owns receipt/supervisor behavior; pytester is available
+but adds no necessary simplification here. Ordinary report sections suffice without a custom
+serializer. Workeroutput is not evidence authority.
+
+Dependency-shaped loadgroup replaces the directory rule. Actual172-node math collection has8
+staged-preparation consumers and164 independent items. Controlled coarse/narrow selections both
+read once and content-only reads zero; warm/cold and spawned worker controls remain. These are
+structural work/affinity observations, not measured elapsed benefit. Current receipt/context and
+final union are owned by the coordinator; focused counts overlap and do not qualify the full run.

@@ -41,7 +41,7 @@ from corpus_structure.serve.contributions import ContributionRequest, serve_cont
 from semantic.reference_scenarios import expected_reading
 
 from .native_record_fixtures import private_source as private_source
-from .test_contextual_workflow_native import completed_relationship_case
+from .witnessed_scenario_support import completed_relationship_case
 
 
 @pytest.fixture

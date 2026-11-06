@@ -30,7 +30,7 @@ from corpus_structure.semantic.operations import (
 
 from .native_record_fixtures import private_source as private_source
 from .native_record_fixtures import private_source_options as private_source_options
-from .test_contextual_workflow_native import completed_metadata, completed_relationship_case
+from .witnessed_scenario_support import completed_metadata, completed_relationship_case
 
 
 @pytest.fixture
@@ -126,18 +126,51 @@ def applicable(private_source, monkeypatch, tmp_path):
     )
 
 
-@pytest.mark.parametrize(
-    "corruption",
-    [
+APPLICABILITY_CORRUPTIONS = (
+    pytest.param(
         "missing_dimension",
+        "structural report differs from released shape",
+        id="applicability-missing-dimension",
+    ),
+    pytest.param(
         "duplicate_dimension",
+        "applicability requires the exact six independent dimensions",
+        id="applicability-duplicate-dimension",
+    ),
+    pytest.param(
         "forged_state",
+        "applicability premise differs from actual source-bound operation",
+        id="applicability-forged-state",
+    ),
+    pytest.param(
         "forged_evidence",
+        "applicability premise differs from actual source-bound operation",
+        id="applicability-forged-source-evidence",
+    ),
+    pytest.param(
         "wrong_outcome",
+        "applicability outcome differs from authenticated premises",
+        id="applicability-forged-outcome",
+    ),
+    pytest.param(
         "wrong_variant",
-    ],
+        "definition report differs from frozen source/question input",
+        id="applicability-wrong-product-kind",
+    ),
 )
-def test_native_applicability_rejects_forged_semantics(applicable, corruption):
+assert {parameter.values[0] for parameter in APPLICABILITY_CORRUPTIONS} == {
+    "missing_dimension",
+    "duplicate_dimension",
+    "forged_state",
+    "forged_evidence",
+    "wrong_outcome",
+    "wrong_variant",
+}
+assert len(APPLICABILITY_CORRUPTIONS) == 6
+
+
+@pytest.mark.parametrize("corruption,message", APPLICABILITY_CORRUPTIONS)
+def test_native_applicability_rejects_forged_semantics(applicable, request, corruption, message):
     a = applicable
     case = a.case
     with case.writer.begin() as conn:
@@ -172,6 +205,40 @@ def test_native_applicability_rejects_forged_semantics(applicable, corruption):
             invocation_key=row["invocation_key"],
             input_hash=row["input_hash"],
         )
+
+        def complete_native(payload):
+            return conn.execute(
+                text(
+                    "SELECT ops.complete_task(:t,:attempt,'native-corruption',"
+                    "'[]'::jsonb,'done',NULL,CAST(:body AS jsonb))"
+                ),
+                dict(t=task, attempt=row["attempt"], body=canonical_bytes(payload).decode()),
+            )
+
+        # The same task, role and unmodified payload must actually reach native completion.
+        with conn.begin_nested() as positive:
+            complete_native(body)
+            assert (
+                conn.scalar(
+                    select(table("ops.task").c.status).where(table("ops.task").c.id == task)
+                )
+                == "done"
+            )
+            assert (
+                conn.scalar(
+                    select(table("ops.task_result").c.task_id).where(
+                        table("ops.task_result").c.task_id == task
+                    )
+                )
+                == task
+            )
+            positive.rollback()
+        request.node.add_report_section(
+            "call",
+            "native-applicability-boundary",
+            f"task={task} source_run={case.run} release={case.prepared.release_id} "
+            f"question_version=1 mutation={corruption} positive_completion=accepted",
+        )
         reading = body["structural_product"]["definition"]["readings"][0]
         if corruption == "missing_dimension":
             reading["premises"].pop()
@@ -189,25 +256,28 @@ def test_native_applicability_rejects_forged_semantics(applicable, corruption):
             body["structural_product"].pop("definition")
             body["structural_product"].update(
                 kind="definition_components",
-                definition_components=a.linked.completed.report.model_dump(mode="json")[
-                    "definition_components"
-                ],
+                definition_components=a.linked.completed.report.model_dump(
+                    mode="json", exclude_none=True
+                )["definition_components"],
             )
         with pytest.raises(DBAPIError) as caught, conn.begin_nested():
-            conn.execute(
-                text(
-                    "SELECT ops.complete_task(:t,:attempt,'native-corruption',"
-                    "'[]'::jsonb,'done',NULL,CAST(:body AS jsonb))"
-                ),
-                dict(t=task, attempt=row["attempt"], body=canonical_bytes(body).decode()),
-            )
+            complete_native(body)
         error = caught.value.orig
         assert isinstance(error, PsycopgError)
         assert error.sqlstate == "23514"
-        if corruption not in {"missing_dimension", "wrong_variant"}:
-            message = error.diag.message_primary
-            assert message is not None
-            assert any(word in message for word in ("dimension", "premise", "outcome", "frozen"))
+        assert error.diag.message_primary == message
+        assert (
+            conn.scalar(select(table("ops.task").c.status).where(table("ops.task").c.id == task))
+            == "running"
+        )
+        assert (
+            conn.scalar(
+                select(table("ops.task_result").c.task_id).where(
+                    table("ops.task_result").c.task_id == task
+                )
+            )
+            is None
+        )
 
 
 def test_native_applicability_projection_and_dossier_component_resolution(

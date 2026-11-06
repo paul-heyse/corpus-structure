@@ -1047,3 +1047,168 @@ def test_cleanup_error_finalizes_receipt_and_cancels_later_commands(
     assert json.loads((tmp_path / "first.process.json").read_text()) == first
     assert later["returncode"] is None and later["cancelled"] is True
     assert not sentinel.exists()
+
+
+def test_required_coverage_is_additive_and_preserves_failed_history(tmp_path, capsys):
+    from test_receipts import main
+
+    failed, repaired = tmp_path / "failed", tmp_path / "repair"
+    failed.mkdir()
+    repaired.mkdir()
+    receipt(
+        failed,
+        [report("setup"), report("call", "failed"), report("teardown")],
+        selected=("a",),
+        returncode=1,
+    )
+    receipt(repaired, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    required = tmp_path / "required.json"
+    required.write_text(json.dumps({"selected": ["a"]}))
+    result = classify([failed, repaired], [required])
+    assert result["status"] == "failed"
+    assert result["required_node_coverage"]["status"] == "covered"
+    assert result["required_node_coverage"]["unresolved"] == []
+    assert (
+        main(
+            [
+                "classify",
+                "--receipt-dir",
+                str(failed),
+                "--receipt-dir",
+                str(repaired),
+                "--required-from",
+                str(required),
+            ]
+        )
+        == 1
+    )
+    assert json.loads(capsys.readouterr().out)["required_node_coverage"]["status"] == "covered"
+    assert classify([repaired])["required_node_coverage"]["status"] == "not_declared"
+    required.write_text(json.dumps({"selected": []}))
+    assert classify([repaired], [required])["required_node_coverage"]["status"] == "unresolved"
+
+
+@pytest.mark.parametrize("mapping", [{"a": "same", "b": "same"}, {"b": "a"}])
+def test_colliding_raw_identities_cannot_absorb_a_pass(tmp_path, mapping):
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")])
+    path = tmp_path / "events-controller-12.jsonl"
+    events = [json.loads(line) for line in path.read_text().splitlines()]
+    events[0]["nodeid_aliases"] = mapping
+    stream(path, events)
+    required = tmp_path / "required.json"
+    required.write_text(json.dumps({"selected": ["a", "b"]}))
+    result = classify([tmp_path], [required])
+    assert result["status"] == "incomplete"
+    assert result["required_node_coverage"]["status"] == "unresolved"
+    assert result["required_unresolved"] == ["a", "b"]
+    assert any("identity" in error for error in result["receipts"][0]["stream_errors"])
+
+
+def test_serial_parallel_required_manifests_share_literal_canonical_identity(tmp_path):
+    from test_receipts import _node_aliases
+
+    serial = {"selected": ["test.py::test_a[param@a_b]"]}
+    parallel = {
+        "selected": ["test.py::test_a[param@a_b]@a_b"],
+        "nodeid_aliases": {"test.py::test_a[param@a_b]@a_b": "test.py::test_a[param@a_b]"},
+    }
+    assert set(_node_aliases([serial, parallel]).values()) == {"test.py::test_a[param@a_b]"}
+    run = tmp_path / "run"
+    run.mkdir()
+    receipt(run, [], selected=())
+    paths = []
+    for index, manifest in enumerate((serial, parallel)):
+        path = tmp_path / f"required-{index}.json"
+        path.write_text(json.dumps(manifest))
+        paths.append(path)
+    assert classify([run], paths)["required"] == serial["selected"]
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "missing",
+        "empty",
+        "covered",
+        "prefix",
+        "option",
+        "argfile",
+        "stale",
+        "wrong_lane",
+        "overwrite",
+    ],
+)
+def test_unresolved_export_refuses_unsafe_selection(tmp_path, monkeypatch, state):
+    from test_receipts import write_unresolved
+
+    target = tmp_path / "rerun.txt"
+    required = tmp_path / "required.json"
+    nodes = ["test.py::test_a"]
+    result = {"required": nodes, "required_unresolved": nodes, "receipts": [{}]}
+    paths = [required]
+    if state == "missing":
+        paths = []
+    if state == "empty":
+        result["required"] = []
+    if state == "covered":
+        result["required_unresolved"] = []
+    if state == "prefix":
+        result["required"] = ["test.py"]
+    if state == "option":
+        result["required"] = ["--pyargs::test"]
+    if state == "argfile":
+        result["required"] = ["@selection::test"]
+    if state == "overwrite":
+        target.write_text("preserve\n")
+    if state in {"stale", "wrong_lane"}:
+
+        def collect(directory, args, **kwargs):
+            assert "--collect-only" in args
+            assert args[args.index("-n") + 1] == "0"
+            assert args[args.index("-m") + 1] == "not shared_cluster_fault"
+            receipt(directory, [], selected=(), returncode=4 if state == "stale" else 0)
+
+        monkeypatch.setattr("test_receipts.run_python", collect)
+    with pytest.raises(ValueError):
+        write_unresolved(result, target, required_from=paths, lane="ordinary")
+    if state == "overwrite":
+        assert target.read_text() == "preserve\n"
+    else:
+        assert not target.exists()
+
+
+def test_unresolved_export_fresh_collection_never_runs_body(tmp_path, monkeypatch):
+    from test_receipts import write_unresolved
+
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "pytest.ini").write_text("[pytest]\nmarkers = shared_cluster_fault: exclusive\n")
+    (case / "test_case.py").write_text(
+        "def test_case():\n    raise AssertionError('must never run')\n"
+    )
+    monkeypatch.chdir(case)
+    target = tmp_path / "unresolved.txt"
+    node = "test_case.py::test_case"
+    result = {"required": [node], "required_unresolved": [node], "receipts": [{}]}
+    written = write_unresolved(
+        result, target, required_from=[tmp_path / "required.json"], lane="ordinary"
+    )
+    assert written["nodes"] == [node]
+    assert target.read_text() == node + "\n"
+
+
+@pytest.mark.parametrize("manifest", [None, {"event": "collection_finish", "selected": ["other"]}])
+def test_uncollected_report_pass_cannot_cover_current_required_node(tmp_path, manifest):
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    path = tmp_path / "events-controller-12.jsonl"
+    events = [json.loads(line) for line in path.read_text().splitlines()]
+    events = events[1:]
+    if manifest is not None:
+        events.insert(0, manifest)
+    stream(path, events)
+    required = tmp_path / "required.json"
+    required.write_text(json.dumps({"selected": ["a"]}))
+    result = classify([tmp_path], [required])
+    assert result["receipts"][0]["nodes"]["a"]["status"] == "passed"
+    assert result["required_node_coverage"]["status"] == "unresolved"
+    assert result["required_unresolved"] == ["a"]

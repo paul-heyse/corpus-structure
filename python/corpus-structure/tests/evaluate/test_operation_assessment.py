@@ -468,20 +468,60 @@ def test_conditional_proposal_preserves_kind_and_exact_mention_semantics(frame):
     assert attribute["kind"] == "proposal" and not attribute["anchors"]
 
 
-@pytest.mark.parametrize("error", ("mention", "label", "class"))
-def test_conditional_role_requires_correct_label_location_and_entity_class(frame, error):
-    mention, attribute = conditional_products(anchor="cell-2" if error == "mention" else "term-1")
-    if error == "label":
+# Independently required distinctions: do not derive this inventory from producer declarations.
+CONDITIONAL_ROLE_CASES = (
+    pytest.param("mention", "missing_output", id="role-correct-location-wrong-endpoint"),
+    pytest.param("label", "wrong_structure", id="location-correct-role-wrong-label"),
+    pytest.param("class", "wrong_structure", id="location-correct-wrong-entity-class"),
+    pytest.param("endpoint_role", "missing_output", id="location-correct-wrong-endpoint-role"),
+)
+assert {parameter.values[0] for parameter in CONDITIONAL_ROLE_CASES} == {
+    "mention",
+    "label",
+    "class",
+    "endpoint_role",
+}
+assert len(CONDITIONAL_ROLE_CASES) == 4
+
+
+@pytest.mark.parametrize("error,error_category", CONDITIONAL_ROLE_CASES)
+def test_conditional_role_requires_correct_label_location_and_entity_class(
+    frame, request, error, error_category
+):
+    mention, attribute = conditional_products()
+    expected = conditional_role_case()
+    positive = score_cases(frame, (expected,), (attribute,), endpoint_closure=(mention,))
+    assert positive["cases"][0]["judgment"] == "supported"
+    if error == "mention":
+        mention["anchors"][0]["anchor_id"] = "cell-2"
+    elif error == "label":
         attribute["value"] = {"kind": "text", "text": "mentioned_term"}
-    if error == "class":
+    elif error == "class":
         mention["semantic_type"] = "entity.quantity"
-    result = score_cases(
-        frame, (conditional_role_case(),), (attribute,), endpoint_closure=(mention,)
+    else:
+        attribute["endpoints"][0]["role"] = "unrelated"
+    request.node.add_report_section(
+        "call",
+        "conditional-role-boundary",
+        json.dumps(
+            dict(
+                unit=frame.unit,
+                question=frame.operation_question,
+                question_version=frame.operation_version,
+                facet=expected.facet,
+                case_id=expected.case_id,
+                mutation=error,
+                expected_endpoint_role=expected.anchor_endpoint_role,
+                expected_anchor_ids=expected.anchor_ids,
+                endpoint_members=attribute["endpoints"],
+                endpoint_anchor_ids=[a["anchor_id"] for a in mention["anchors"]],
+            ),
+            sort_keys=True,
+        ),
     )
+    result = score_cases(frame, (expected,), (attribute,), endpoint_closure=(mention,))
     assert result["cases"][0]["judgment"] == "unsupported"
-    assert result["cases"][0]["error_category"] == (
-        "missing_output" if error == "mention" else "wrong_structure"
-    )
+    assert result["cases"][0]["error_category"] == error_category
 
 
 def test_conditional_proposal_requires_complete_endpoint_closure(frame):
@@ -561,7 +601,16 @@ def test_v2_frame_preserves_unalignable_opportunities_and_exposure_partition(fra
         replace(frozen, opportunities=(replace(opportunity, source_view_id=24),))
 
 
-def test_v2_coverage_preserves_missing_reference_and_missing_prediction(frame):
+@pytest.mark.parametrize(
+    "emitted,expected_status,expected_error",
+    [
+        pytest.param(False, "not_captured", "missing_output", id="source-opportunity-after-filter"),
+        pytest.param(True, "captured_structure", None, id="source-opportunity-with-output"),
+    ],
+)
+def test_v2_coverage_preserves_missing_reference_and_missing_prediction(
+    frame, request, emitted, expected_status, expected_error
+):
     from corpus_structure.evaluate.operation_assessment import (
         OperationEvaluationFrameV2,
         OperationSourceOpportunity,
@@ -577,13 +626,30 @@ def test_v2_coverage_preserves_missing_reference_and_missing_prediction(frame):
             OperationSourceOpportunity("not-authored", 23, 2, 4, "role", "uninspected"),
         ),
     )
-    result = score_cases(frozen, (case(),), ())
+    predictions = (prediction(),) if emitted else ()
+    request.node.add_report_section(
+        "call",
+        "source-opportunity-population",
+        json.dumps(
+            dict(
+                unit=frozen.unit,
+                release_id=frozen.release_id,
+                source_group=frozen.source_group,
+                partition=frozen.partition,
+                question=frozen.operation_question,
+                opportunity_ids=[item.opportunity_id for item in frozen.opportunities],
+                emitted_ids=[row["contribution_id"] for row in predictions],
+            ),
+            sort_keys=True,
+        ),
+    )
+    result = score_cases(frozen, (case(),), predictions)
     assert result["source_coverage"]["opportunity_count"] == 2
     assert [v["assessment_status"] for v in result["source_coverage"]["opportunities"]] == [
-        "not_captured",
+        expected_status,
         "reference_missing",
     ]
-    assert result["source_coverage"]["opportunities"][0]["error_category"] == "missing_output"
+    assert result["source_coverage"]["opportunities"][0]["error_category"] == expected_error
     assert result["source_coverage"]["opportunities"][1]["judgment"] == "unassessed"
 
 
@@ -623,3 +689,69 @@ def test_output_first_scores_each_frozen_observation_at_a_shared_occurrence(fram
     source = score_cases(frame, (case("first"), case("second")), predictions)
     assert source["facets"]["value"]["supported"] == 1
     assert source["cases"][1]["error_category"] == "duplicate_occurrence"
+
+
+OUTPUT_CAPTURE_CASES = (
+    pytest.param("complete", None, id="output-frozen-ids-complete"),
+    pytest.param("extra", None, id="output-unselected-id-excluded"),
+    pytest.param("duplicate_sidecar", None, id="output-repeated-view-one-id"),
+    pytest.param("missing", "frozen output population is absent", id="output-frozen-id-missing"),
+    pytest.param("conflict", "conflicting retained payloads", id="output-same-id-conflicting-body"),
+    pytest.param("duplicate_frame", "repeats an identity", id="output-frozen-id-duplicated"),
+)
+assert {parameter.values[0] for parameter in OUTPUT_CAPTURE_CASES} == {
+    "complete",
+    "extra",
+    "duplicate_sidecar",
+    "missing",
+    "conflict",
+    "duplicate_frame",
+}
+assert len(OUTPUT_CAPTURE_CASES) == 6
+
+
+@pytest.mark.parametrize("capture,error", OUTPUT_CAPTURE_CASES)
+def test_output_capture_preserves_exact_frozen_ids(frame, request, capture, error):
+    frozen_ids = ("p1", "p2")
+    predictions = [prediction("p1", origin_task_id=1), prediction("p2", origin_task_id=2)]
+    if capture == "extra":
+        predictions.append(prediction("unselected", anchors=("cell-2",)))
+    elif capture == "duplicate_sidecar":
+        predictions.append(dict(predictions[0], selected_task_id=99, task_status="reused"))
+    elif capture == "missing":
+        predictions.pop()
+    elif capture == "conflict":
+        predictions.append(dict(predictions[0], value="13"))
+    elif capture == "duplicate_frame":
+        frozen_ids = ("p1", "p1")
+    request.node.add_report_section(
+        "call",
+        "output-population",
+        json.dumps(
+            dict(
+                unit=frame.unit,
+                question=frame.operation_question,
+                version=frame.operation_version,
+                direction="output_first",
+                frozen_ids=frozen_ids,
+                captured_ids=[row["contribution_id"] for row in predictions],
+            ),
+            sort_keys=True,
+        ),
+    )
+
+    def assess():
+        frozen = replace(frame, direction="output_first", contribution_ids=frozen_ids)
+        expected = (case("first", contribution_id="p1"), case("second", contribution_id="p2"))
+        return score_cases(frozen, expected, predictions)
+
+    if error:
+        with pytest.raises(ReferenceError, match=error):
+            assess()
+    else:
+        result = assess()
+        assert result["prediction_count"] == 2
+        assert [(row["contribution_id"], row["judgment"]) for row in result["cases"]] == [
+            ("p1", "supported"),
+            ("p2", "supported"),
+        ]

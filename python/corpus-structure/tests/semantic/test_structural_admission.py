@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 
+import pytest
+
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
 from corpus_structure.semantic.structural_products import (
@@ -333,3 +335,34 @@ def test_physical_citation_aliases_do_not_duplicate_applicability_evidence():
         premise["evidence"] = ["target", "same-physical-target", "target"]
     after = StructuralProductReport.model_validate(changed)
     assert structural_statement(original) == structural_statement(after)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        pytest.param("question", id="domain-identity-independent-question-wording"),
+        pytest.param("reading_reason", id="domain-identity-independent-reading-explanation"),
+        pytest.param("premise_reason", id="domain-identity-independent-premise-explanation"),
+        pytest.param("policy", id="domain-identity-independent-nomination-policy"),
+    ],
+)
+def test_assessment_wording_cannot_change_domain_statement_identity(change):
+    original = definition()
+    body = original.model_dump(mode="json")
+    if change == "question":
+        body["inputs"]["question"] = "Which source text could apply at the selected occurrence?"
+    elif change == "reading_reason":
+        body["definition"]["readings"][0]["reason"] = "Independent assessor wording"
+    elif change == "premise_reason":
+        body["definition"]["readings"][0]["premises"][0]["reason"] = "Independent premise wording"
+    else:
+        body["inputs"]["policy_id"] = "independent-nomination-policy"
+    after = StructuralProductReport.model_validate(body)
+    assert after.product_id != original.product_id
+    statement = structural_statement(original)
+    assert structural_statement(after) == statement
+    assert structural_claim_id(structural_statement(after)) == structural_claim_id(statement)
+    # An actual domain change must still discriminate, independent of the wording mutation.
+    body["definition"]["readings"][0]["outcome"] = "mention"
+    different = StructuralProductReport.model_validate(body)
+    assert structural_claim_id(structural_statement(different)) != structural_claim_id(statement)
