@@ -255,6 +255,9 @@ def run_python(
     cwd: Path = ROOT,
 ) -> dict[str, Any]:
     env = dict(os.environ)
+    # A fresh pytest session owns its worker identity; nested xdist workers set theirs.
+    for name in ("PYTEST_XDIST_WORKER", "PYTEST_XDIST_WORKER_COUNT", "PYTEST_XDIST_TESTRUNUID"):
+        env.pop(name, None)
     env["QUALIFICATION_RECEIPT_DIR"] = str(directory)
     env["HYPOTHESIS_PROFILE"] = "ci"
     env["PYTHONPATH"] = os.pathsep.join(

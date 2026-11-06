@@ -256,6 +256,12 @@ def test_m1_refuses_unpinned_or_native_input_before_database_access():
 def test_m1_registry_has_no_agent_or_general_llm_route():
     from pathlib import Path
 
+    from corpus_structure.methods.definition_applicability import (
+        DefinitionApplicabilityConfig,
+        DefinitionApplicabilityMethod,
+        DefinitionComponentsConfig,
+        DefinitionComponentsMethod,
+    )
     from corpus_structure.orchestrate.m1 import (
         M1,
         RetainedIntegratedConfig,
@@ -270,8 +276,27 @@ def test_m1_registry_has_no_agent_or_general_llm_route():
         "extract.m1_annotations",
         "extract.m1_candidates",
         "resolve.m1_readings",
+        "structure.definition_components",
+        "structure.definitions",
         "retrieve.contextual",
     }
+    for name in ("structure.definition_components", "structure.definitions"):
+        assert [(method, config) for method, config in methods.named() if method == name] == [
+            (name, "default")
+        ]
+        assert methods.file.configs[name] == {}
+    components = methods.method("structure.definition_components")
+    definitions = methods.method("structure.definitions")
+    component_cfg = methods.overlay("structure.definition_components", "default")
+    definition_cfg = methods.overlay("structure.definitions", "default")
+    assert isinstance(components, DefinitionComponentsMethod)
+    assert isinstance(definitions, DefinitionApplicabilityMethod)
+    assert isinstance(component_cfg, DefinitionComponentsConfig)
+    assert isinstance(definition_cfg, DefinitionApplicabilityConfig)
+    assert component_cfg.inputs is None and definition_cfg.inputs is None
+    assert components.select(None, component_cfg) == ()
+    assert definitions.select(None, definition_cfg) == ()
+    assert components._worker is None
     assert M1.policy_propose is False
     steps = M1.stages[1][1]
     assert steps[1].upstream == ("extract.m1_annotations",)

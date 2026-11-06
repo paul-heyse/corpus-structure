@@ -12,6 +12,10 @@ from corpus_structure.ingest.pdf_recognition_methods import (
     PdfIntegratedIngestConfig,
 )
 from corpus_structure.methods.contextual_candidates import ContextualCandidates
+from corpus_structure.methods.definition_applicability import (
+    DefinitionApplicabilityMethod,
+    DefinitionComponentsMethod,
+)
 from corpus_structure.methods.m1_annotations import M1Annotations
 from corpus_structure.methods.m1_readings import M1Readings
 from corpus_structure.methods.m1_source import M1Candidates
@@ -234,6 +238,8 @@ def registry(pack: Path) -> MethodRegistry:
             M1Annotations(),
             M1Candidates(),
             M1Readings(),
+            DefinitionComponentsMethod(),
+            DefinitionApplicabilityMethod(),
             ContextualCandidates(),
         ),
         load_methods(path),

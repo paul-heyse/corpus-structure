@@ -50,7 +50,7 @@ def interpret_contribution_question(
         identities[key] = contribution
     retained = [identities[key] for key in sorted(identities)]
     row: dict[str, Any] = dict(
-        question_id=question_id,
+        constraint_id=question_id,
         contribution_ids=sorted(identities),
         retained_input_digest=_digest(retained),
         dependencies=sorted(dependency_ids),

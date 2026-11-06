@@ -53,7 +53,7 @@ def events(output):
 
 @pytest.mark.parametrize("workers", [0, 2])
 @pytest.mark.db
-def test_real_collection_group_identity_and_native_acquisition(tmp_path, workers):
+def test_real_collection_group_identity_and_native_acquisition(tmp_path, workers, monkeypatch):
     # The enclosing item and every child own their acquisition and clone lifetime.
     from uuid import uuid4
 
@@ -108,6 +108,19 @@ def test_ungrouped(value):
 def test_deselected():
     raise AssertionError("must not execute")
 """
+    inherited_identity = {
+        "PYTEST_XDIST_WORKER": "harness-parent-worker",
+        "PYTEST_XDIST_WORKER_COUNT": "73",
+        "PYTEST_XDIST_TESTRUNUID": "harness-parent-session",
+    }
+    if workers == 0:
+        for name, value in inherited_identity.items():
+            monkeypatch.setenv(name, value)
+        source += (
+            "\nassert 'PYTEST_XDIST_WORKER' not in os.environ\n"
+            "assert 'PYTEST_XDIST_WORKER_COUNT' not in os.environ\n"
+            "assert 'PYTEST_XDIST_TESTRUNUID' not in os.environ\n"
+        )
     output = isolated(tmp_path, source, workers, args=("-k", "not deselected"))
     result = classify_receipt(output)
     assert result["status"] == "passed", (output / "pytest.stdout").read_text()
@@ -139,8 +152,11 @@ def test_deselected():
             assert len(owners) == 1
         assert any("@extra_fixture" in raw for raw in manifests[0]["selected"])
     else:
+        assert all(os.environ[name] == value for name, value in inherited_identity.items())
         assert result["worker_facts"]["executing"] == ["controller"]
         assert result["worker_facts"]["observed_peak_overlap"] == 1
+        assert result["session_contexts"][0]["worker"] == "controller"
+        assert result["session_contexts"][0]["effective_worker_count"] == 0
 
 
 @pytest.mark.parametrize("workers", [0, 2])

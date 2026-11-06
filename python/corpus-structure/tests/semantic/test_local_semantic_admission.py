@@ -8,16 +8,40 @@ from sqlalchemy import text
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.local_semantic_admission import CONTEXT_POLICY, RUBRIC
-from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.observations import source_python, source_value
 
 
 def evidence() -> tuple[
     dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
 ]:
     # Expected semantic content is fixed independently of computational lineage.
+    source = dict(
+        project_id="independent-source",
+        native_product_key="fixture-text",
+        native_content_digest="a" * 64,
+        projection_digest="b" * 64,
+        recipe_digest="c" * 64,
+        coordinate_version=2,
+    )
     statement = dict(
-        target_id="statistics:poisson",
-        target_source_binding="descriptor:poisson",
+        target=dict(
+            term=dict(
+                source=source,
+                start=0,
+                end=7,
+                text="Poisson",
+                scope="selected-source-context",
+            ),
+            content=dict(
+                source=source,
+                start=8,
+                end=17,
+                text="count law",
+                scope="selected-source-context",
+            ),
+            interpretation="definition",
+            scope="selected-source-context",
+        ),
         relation="denotes",
         scope="selected-source-context",
         effective_version=None,
@@ -26,7 +50,7 @@ def evidence() -> tuple[
     contribution = dict(
         standing="retained_private",
         kind="proposal",
-        semantic_type="contextual.denotation",
+        semantic_type="contextual.relationship",
         contribution_id="proposal:one",
         occurrence_id="physical:one",
         value=value,
@@ -42,12 +66,12 @@ def evidence() -> tuple[
             )
         ],
     )
-    question = "contextual denotation selection for supplied occurrence"
-    operation = dict(question=question, operation_version="1", outcome="succeeded")
+    question = "contextual relationship selection for located occurrence"
+    operation = dict(question=question, operation_version="2", outcome="succeeded")
     frame = dict(
         direction="source_first",
         operation_question=question,
-        operation_version="1",
+        operation_version="2",
         rubric_version=RUBRIC,
         context_policy=CONTEXT_POLICY,
         pin=contribution["pin"],
@@ -55,17 +79,17 @@ def evidence() -> tuple[
     )
     case = dict(
         case_id="denotation-one",
-        facet="denotation",
+        facet="relationship",
         judgment="supported",
         source_state="stated",
         expectation_mode="structure",
         contribution_kind="proposal",
         anchor_ids=["anchor:one"],
-        alternatives=[dict(semantic_type="contextual.denotation", value=value)],
+        alternatives=[dict(semantic_type="contextual.relationship", value=value)],
     )
     result = dict(
         case_id="denotation-one",
-        facet="denotation",
+        facet="relationship",
         judgment="supported",
         source_state="stated",
         expectation_mode="structure",
@@ -99,7 +123,7 @@ def test_exact_independent_denotation_can_qualify(semantic_db_engine):
     [
         (0, "semantic_type", "entity.canonical_identity"),
         (1, "outcome", "failed"),
-        (1, "operation_version", "2"),
+        (1, "operation_version", "3"),
         (2, "direction", "output_first"),
         (2, "rubric_version", "other-rubric"),
         (2, "context_policy", "other-context"),
@@ -118,25 +142,23 @@ def test_exact_independent_denotation_can_qualify(semantic_db_engine):
 )
 def test_supported_label_cannot_bypass_applicability(semantic_db_engine, position, key, value):
     values = deepcopy(evidence())
+    assert native_match(semantic_db_engine, values)
     values[position][key] = value
     assert not native_match(semantic_db_engine, values)
 
 
 def test_partial_or_wrong_full_semantic_statement_is_not_admitted(semantic_db_engine):
+    values = evidence()
+    assert native_match(semantic_db_engine, values)
+    # Mutate only independently authored fixture content, never a producer projection.
+    wrong_statement = deepcopy(source_python(values[0]["value"]))
+    wrong_statement["target"]["content"]["text"] = "event law"
     for expected in (
-        {"semantic_type": "contextual.denotation"},
-        {"value": source_value({"target_id": "statistics:poisson"})},
+        {"semantic_type": "contextual.relationship"},
+        {"value": source_value({"target": {"interpretation": "definition"}})},
         {
-            "semantic_type": "contextual.denotation",
-            "value": source_value(
-                {
-                    "target_id": "statistics:binomial",
-                    "target_source_binding": "descriptor:binomial",
-                    "relation": "denotes",
-                    "scope": "selected-source-context",
-                    "effective_version": None,
-                }
-            ),
+            "semantic_type": "contextual.relationship",
+            "value": source_value(wrong_statement),
         },
     ):
         values = deepcopy(evidence())

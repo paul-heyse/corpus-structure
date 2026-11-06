@@ -248,6 +248,8 @@ def test_local_question_report_binds_actual_contributions_without_record(prepare
     local = local_question_operation(
         question="which role?", contributions=(row,), dependency_ids=("source",)
     )
+    assert local["local_interpretation"]["constraint_id"] == local["operation_key"]
+    assert "question_id" not in local["local_interpretation"]
     operations, output = bind_contributions(
         prepared,
         source="source",
@@ -256,6 +258,8 @@ def test_local_question_report_binds_actual_contributions_without_record(prepare
         coordinate_texts=(coordinate,),
     )
     assert operations[1]["outcome"] == "not_run"
+    assert operations[1]["local_interpretation"]["constraint_id"] == local["operation_key"]
+    assert "question_id" not in operations[1]["local_interpretation"]
     assert operations[1]["local_interpretation"]["contribution_ids"] == (row["contribution_id"],)
     assert len(output) == 1
 

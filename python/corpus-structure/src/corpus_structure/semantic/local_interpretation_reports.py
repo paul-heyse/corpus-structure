@@ -30,7 +30,7 @@ def validate_local_interpretation_report(
         raise ValueError("local interpretation input contribution unavailable or duplicated")
     if report["retained_input_digest"] != _digest([by_id[key] for key in sorted(selected)]):
         raise ValueError("local interpretation input digest differs from retained contributions")
-    if report["question_id"] != operation["operation_key"] or report["coupling_enabled"]:
+    if report["constraint_id"] != operation["operation_key"] or report["coupling_enabled"]:
         raise ValueError("local interpretation differs from private operation binding")
     dependencies = report["dependencies"]
     if len(dependencies) != len(set(dependencies)) or not set(dependencies) <= set(
@@ -58,7 +58,7 @@ def validate_local_interpretation_report(
         if report[field + "_digest"] != _digest(report[field]):
             raise ValueError("local interpretation request/result digest differs")
     request, result = source_python(report["request"]), source_python(report["result"])
-    if request["selection"]["scope_id"] != report["question_id"] or not set(dependencies) <= {
+    if request["selection"]["scope_id"] != report["constraint_id"] or not set(dependencies) <= {
         dep["key"] for dep in request["dependencies"]
     }:
         raise ValueError("local interpretation request omits scope or dependencies")
