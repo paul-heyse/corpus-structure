@@ -336,7 +336,7 @@ BEGIN
    IF dimension->>'outcome' IS DISTINCT FROM expected_outcome THEN RAISE EXCEPTION 'applicability outcome differs from authenticated premises' USING ERRCODE='23514'; END IF;
    IF NOT inputs->'dependencies' ? (dimension->'component_ref'->>'product_id') THEN
     RAISE EXCEPTION 'applicability lacks frozen component dependency' USING ERRCODE='23514'; END IF;
-   IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'state' IN ('unknown','incompatible')) THEN
+   IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') AS declared_premise(value) WHERE declared_premise.value->>'state' IN ('unknown','incompatible')) THEN
     RAISE EXCEPTION 'applicability requires resolved compatible premises' USING ERRCODE='23514'; END IF;
   END LOOP;
  WHEN 'qualified_comparison' THEN
