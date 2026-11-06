@@ -8,17 +8,17 @@ _Updated 2026-11-05; test resolution executing; enrichment target Proposed; PCE 
 - ADR-0062/0063 preserve progressive products and semantic/runtime separation; ADR-0064 owns
   local admission and [ADR-0065](docs/adr/0065-cross-source-structural-products.md) cross-source
   structural custody. Complete records remain stronger products; no default is activated.
-- Source projects stay isolated; structural products share owned lifetimes and independent judgments.
-- CLI/MCP and portable review retain raw outputs, source context, contracts, passes and granular gaps.
+- Source isolation, owned lifetimes, independent judgments and raw/contract/source/grade export remain.
 
 ## Current reviews and audits — 2026-11-05
 
 - [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/native/consumer boundaries refreshed; unresolved questions explicit.
 - [Test audit](docs/design_review/test-audit/README.md) feeds the [resolution series](docs/plans/test-audit-resolution_2026-11-05.md): TR-00 target accepted; TR-01–08 implemented; focused CLI/native/math passes; assembled review/final qualification open.
 - [Enrichment target review](docs/design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md)
-  proposes witnessed components/composition, seven target findings and six rule impacts. Separate test
-  plan completion assumed for target; actual test execution remains in progress. Product qualification not_run.
-- Review: `just docs-check` and task-scoped diff check passed; `just turn-end` recipe passed but reported concurrent test E402 lint errors, excluded from review.
+  is recommendation-audited: native span/lexer provenance, factor-policy/learning alternatives,
+  sklearn evaluation/reuse and concrete identity pilot. F01–07/RC01–06 preserved; test plan assumed
+  done for target, actual execution separate. New effectiveness/qualification not_run.
+- Recommendation audit: `just docs-check`, task-scoped `git diff --check`, `just turn-end` passed; product tests/probes not_run.
 
 ## Last verified — 2026-11-05
 

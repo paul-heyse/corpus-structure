@@ -19,6 +19,9 @@ functional opportunities. All targets remain Proposed; it consumes audit publica
 ## Production enrichment improvements target review
 
 [Evidence-grounded production enrichment](design_review_production-enrichment-improvements_2026-11-05.md)
-(2026-11-05) integrates the refreshed production audit and operator-supplied improved-M1 proposals.
+(2026-11-05; recommendation-audit revision) integrates the refreshed production audit,
+operator-supplied improved-M1 proposals and five new library addenda. Its
+[net-change companion](audits/design_review_production-enrichment-improvements_2026-11-05_audit.md)
+accounts for every original recommendation; the integrated review remains the planning input.
 Target contracts, library mechanisms, assessment deltas and rule impacts remain Proposed; the separate
 test-audit resolution scope is assumed complete for this target, not newly reported as implemented.

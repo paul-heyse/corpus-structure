@@ -3,8 +3,10 @@
 ## 1. Scope, outcome and coverage
 
 **Design tier; target purpose; combined principle/library focus. Reviewed 2026-11-05.**
-Principal synthesis: root reviewer, with independent domain/production and audit-disposition
-contributions and a targeted library assessment. These contributions inform one combined judgment.
+**Recommendation-audit revision, 2026-11-05.** Revised judgment: fresh principal auditor
+`enrichment_recommendation_auditor`, supported by independent parsing and mathematical library
+assessment; coordinator publication preserves that assessment. This supersedes the first-round
+recommendations, not their dated execution evidence. [Net changes and exact input](audits/design_review_production-enrichment-improvements_2026-11-05_audit.md).
 
 **Decision: revise for the improved functional target.** Retain the current semantic and native
 foundation; deepen the operations that produce evidence-backed relationships. The recommended
@@ -17,10 +19,11 @@ Inputs: [production audit](../audit/README.md), publication `8d4d9e91`, product 
 `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b`; authoring source `d1a872c2`; and the unchanged
 [operator-supplied improvement review](../../target-pipeline-design/production-miletone-one-improved.md),
 SHA-256 `316a368969bd969c0d9da95e0547e0a05983e76177e4dd3e8627780d3a78a993`.
-The intervening commits change documents/plans, not audited production source. Concurrent
-uncommitted test/harness changes appeared during review and are excluded from this production
-baseline and publication commit. Required turn-end maintenance also formatted concurrent Python
-files; they remain with that work and are not reviewed or qualified here.
+Audit source: `59ca348f`. Since the input review, test-resolution work changes tests/harness and
+native152's stable rowtype/scalar transport plus admission descriptor. Inspection of that diff does
+not change F01–07 or authorize a smaller component under a whole-statement policy. The five dirty
+library addenda are separately hashed inputs (companion); they remain operator-owned edits.
+The original review is recoverable at `abd45d00`; its baseline and historical receipts keep their scope.
 
 Apply core3.3, efficient-architecture heuristics1.0, code-intelligence1.4, relevant test-assessment1.2
 and the repository binding. DESIGN §1 supplies the functional objective: progressively construct
@@ -128,6 +131,33 @@ selected-checkpoint/API confirmation before exposure. Current main-branch exampl
 qualify the pinned route. JointIE is conditional on recurring invalid pair/type/direction combinations
 among present endpoints; missing candidates instead call for discovery/window/span work.
 
+### Native candidate composition and partial annotation
+
+**Selected target improvement.** Use named overlapping `Doc.spans` groups as transient candidate
+collections over retained annotation views. `SpanRuler`/`spans_filter` can reconcile rule candidates;
+select `spans_filter=None`, `annotate_ents=False` and explicit `spans_key`/`overwrite` for the raw
+overlapping group. Filtering/reconciliation writes a separate derived group. Keep raw candidates and classified
+outputs under separate keys. Factory-created SpanRuler defaults overwrite=True while the direct
+constructor defaults False; spancat replaces its configured output group. Do not use exclusive
+`Doc.ents` as the complete candidate universe or treat a filter's removal as source absence.
+
+Retain per-candidate rule/variant/provider/source identity when equal spans have several bases;
+a span group alone does not preserve that provenance. Keep noncontiguous dependency roles and
+original source pieces in existing located products. Use bounded `Token.subtree`, `conjuncts`,
+`ancestors`, `Span.root` and span/sentence-scoped LCA queries for declared expansion, not arbitrary
+whole-document ancestry matrices. Syntax supports a role proposal; it does not establish its meaning.
+
+`spacy.preset_spans_suggester.v1` permits optional SpanCategorizer consumption of retained candidates
+without enumerating all n-grams. Select that integration seam now; training remains conditional on
+suitable independently judged labels. Preserve candidate-generation and classification outcomes
+separately. NER missing/outside/blocked and `incorrect_spans_key` are annotation/training contracts,
+not universal semantic uncertainty or constraints on every span component. Define source opportunities
+before tokenizer alignment; retain unalignable and only partially annotated cases in coverage accounts.
+
+Source: [spaCy addendum §§2–5](../../libraries/parsing/spacy.md#addendum-to-the-spacy-38-comprehensive-python-library-overview),
+[SpanRuler](https://spacy.io/api/spanruler), [SpanCategorizer](https://spacy.io/api/spancategorizer);
+installed3.8.18 `pipeline/factories.py:263–275`, `span_ruler.py:128–139`, `spancat.py:380–405`.
+
 ### 4.2 Actual mentions, compatible edges and bounded composition
 
 `methods/contextual_candidates.py:134–181,208–350` starts from SuppliedMention and registry-label
@@ -177,6 +207,28 @@ with continuation/omissions, preserving the membership population. SciPy MILP is
 interacting-constraint need. One-to-one SciPy clause assignment is appropriate only for declared
 counterpart populations and an explicit unmatched option; split/merged clauses remain representable.
 
+### Source-bound lexical processing and ambiguity
+
+Prepare routed LALR/contextual grammars for genuinely grammatical comparator/unit/interval questions.
+Use `Lark(parser=None, lexer="basic")`/`lex(dont_ignore=True)` when the consumer needs lexical evidence only.
+For supported basic/contextual lexers, `TextSlice` preserves coordinates in its underlying buffer;
+that buffer must be authenticated captured text. Normalized text or reconstructed formula input
+still needs an explicit mapping to original source. Keep original lexeme and typed value together.
+
+Lower consumed grammar products into existing immutable located products before copies, transforms
+or persistence. `Token.update`/`new_borrow_pos` can carry positions; ordinary token pickle/deepcopy
+and shallow `Tree.copy` cannot be assumed to preserve all metadata. Repeated visits to shared
+subtrees do not create independent evidence. Retain typed domain ambiguity separately from grammar
+priorities or forest ranking. Use explicit ambiguity/forest processing only for a real ambiguous
+consumer; no general parse forest service is selected.
+
+`TextSlice` avoids substring copying but lexical-state initialization can scan the preceding prefix.
+Use bounded source scopes and prepared parsers; do not claim constant-time incremental parsing or
+build a custom low-level line-counter cache without an actual workload need.
+Sources: [Lark addendum §§2–5](../../libraries/parsing/lark.md),
+[tagged lexer](https://github.com/lark-parser/lark/blob/1.3.1/lark/lexer.py),
+[classes](https://github.com/lark-parser/lark/blob/1.3.1/docs/classes.rst).
+
 ### 4.4 Lifecycle, workload and derivation records
 
 | Operation family | Universe and output | Effects, growth and recovery |
@@ -220,19 +272,23 @@ requires equivalent event/alternative/refusal semantics, not merely a matching M
 Judgments below concern the **improved target**, not a retroactive rejection of PCE's narrower custody
 contract. No current protected-publication bypass was demonstrated.
 
-| Gate | Judgment and evidence boundary |
+| Gate | Proposed-design judgment and implementation boundary |
 |---|---|
-| G1 Authority | Satisfied in proposed ownership: released roles/questions, domain algorithms and native eligibility remain distinct; adoption is Proposed. |
-| G2 Semantic fidelity | Unresolved for improved automatic production: exposed F37 errors and missing component witnesses require correction/independent evaluation. Lexical versus semantic versus applicability axes are specified here. |
-| G3 Validity | Unresolved until new role, compatibility and component-policy enforcement is implemented and challenged; existing native guards are preservation strengths. |
-| G4 Hidden behavior | Satisfied at design level: proposal computation is private; separate eligibility and publication own effects. |
-| G5 Consistency/recovery | Satisfied at design level by common batch, source/runtime pins, exact replay and explicit partial/limited outcomes; no fresh runtime result. |
-| G6 Transformation/reuse | Unresolved for new offset/grammar/typed-delta transformations and any solver substitution; exact expected controls in §10 are required. |
-| G7 Truthful claims | Satisfied by scoped states and explicit qualification limits; no performance/quality claim beyond historical evidence. |
-| G8 Library leverage | Satisfied by retained matcher/grammar/scientific/solver mechanisms and conditional alternatives in §8; no generic replacement engine selected. |
-| CI-G1 Fidelity | Unresolved with G2 until composed semantics are independently supported. |
-| CI-G2 Evidence closure | Unresolved for new component exposure: named original-source witnesses and producing snapshot/runtime through ordinary reads/export; new component exposure remains unimplemented. |
-| CI-G3 Evaluation integrity | Satisfied at proposed-design level under the assumed test foundation; new assessment execution not_run: protected reference channel and fresh held-out source groups; no fitting on exposed development pairs presented as generalization. |
+| G1 Authority | Satisfied: released meanings, domain algorithms, protected judgments and native eligibility have separate owners. |
+| G2 Semantic fidelity | Satisfied for the specified distinctions; implementation of named roles, compatible edges and typed transformations remains unestablished. F37 quality limitations remain. |
+| G3 Validity | Satisfied as enforcement design in §3; actual new lowerings/native enforcement must realize it before implementation acceptance. |
+| G4 Effects | Satisfied: private production is separate from eligibility and atomic publication. |
+| G5 Recovery | Satisfied within common lifecycle, explicit outcomes and producing pins; no fresh execution acceptance. |
+| G6 Transformation/reuse | Satisfied for stated coordinate/comparison/graph/solver contracts; actual transformations require affected verification. |
+| G7 Claims | Satisfied by explicit maturity, states and exposure; no new quality/capacity claim. |
+| G8 Libraries | Satisfied by concrete native mechanisms and bounded challengers without a generic replacement engine. |
+| CI-G1 Fidelity | Satisfied at Proposed design level; independent support for new emitted relationships remains unestablished. |
+| CI-G2 Evidence closure | Satisfied at Proposed design level for original-source/producing-runtime closure through readers/export; actual new exposure must implement it. |
+| CI-G3 Evaluation integrity | Satisfied under the assumed test foundation and new source-opportunity protocol; execution not_run. |
+
+Design adequacy is separate from implementation and measured benefit. If supported implementation
+omits a governing distinction, A2/G2/G3 remain unresolved for that behavior; absence of new tests
+alone does not establish an inadequate Proposed model. No positive judgment offsets a fidelity failure.
 
 ## 7. Findings, applicability and production-audit dispositions
 
@@ -247,7 +303,7 @@ IDs, invent an existing admission failure, or change PCE's completed selected sc
 | F04 / medium | Lexical supplied fields cannot express typed revision consequences; scope/version mismatch currently prevents those comparisons (structural_products.py:56–97). FP-04, DP-08/11. | Separate axes, located typed fields and declared comparison transforms; endpoint/unit/exception/version known answers. |
 | F05 / medium | Supplied dossier membership and first representatives do not automatically establish supported facet coverage (structural_products.py:100–156). FP-03/04/07. | Qualified membership then greedy coverage; equal-budget source-order comparison with mandatory-member overflow. |
 | F06 / medium | No genuine factor policy was supplied for the actual local solve; adding a backend alone cannot resolve that absence. Dependence metadata alone cannot remove double counting. DP-08/11, CI-06. | §8 real policy, deterministic/independent/coupled comparison; retain simpler method if coupling adds no supported distinction. |
-| F07 / high prerequisite for efficacy | Structural assessment is development-only (evaluate/structural_assessment.py:18–34). Current tiny purposive groups cannot support population or broad reliability claims. CI-12, DP-22/23. | Operation-specific held-out source groups and eligible populations; exposure-aware claims and §10 quantity/quality/connectivity/synthesis assessment. |
+| F07 / high prerequisite for efficacy | Structural assessment is development-only (evaluate/structural_assessment.py:18–34). Current tiny purposive groups cannot support population or broad reliability claims. CI-12, DP-22/23. | Source opportunities before alignment/filtering, operation-specific held-out groups, native baseline/fold comparisons; §10 quantity/quality/connectivity/synthesis assessment. |
 
 | Audit item | Integrated disposition; target obligation |
 |---|---|
@@ -299,6 +355,70 @@ because it agrees with another interpretation of that header. Preserve `provisio
 coherent alternatives, unknown omitted mass and absence of publication authority. If coupling merely
 raises a score without correcting a supported distinction, retain the simpler route and report that result.
 
+### Graph reuse, learning lifecycle and concrete identity pilot
+
+**Select new operation-specific evaluator composition:** `Pipeline(StandardScaler(), LogisticRegression())`,
+`DummyClassifier` class-prior control, source-group folds, explicit fit/scoring weights and retained
+fold indices/estimators. `PrecisionRecallDisplay.from_cv_results` consumes `cross_validate` with
+`return_estimator=True, return_indices=True`; retain fold tables and failures as the authoritative
+comparison, with plots optional. Calibrate separately. The historical whole-reading algorithm and
+labels do not change meaning. `FrozenEstimator` is appropriate only for a deliberately pretrained
+component with known training provenance; cloning preserves that fitted state and does not remove
+leakage. Use explicit metadata routing where nested group/weight consumers need it; do not add a
+custom meta-estimator merely to exercise the protocol.
+
+Where several consumers genuinely share a candidate neighborhood, use `KNeighborsTransformer` or
+`RadiusNeighborsTransformer` and a pinned sparse graph: inventory, encoder/metric, neighbor policy,
+source split and construction revision. Preserve CSR zero-distance neighbors, query/training mapping,
+distance versus connectivity, and duplicate/self-edge semantics. Reuse only within that contract.
+This graph is heuristic candidate structure, not admitted relationships. NCA, explicit feature
+interactions, mutual information, density summaries and label propagation remain challengers for
+named tasks with sufficient labels or useful reference-selection populations. Graphical Lasso
+requires its Gaussian statistical question; no inferred graph establishes causal or source truth.
+Sources: [sklearn addendum §§1,3,5–7](../../libraries/scientific_compute/Scikit-learn.md#scikit-learn-191--advanced-capabilities-addendum),
+[tagged graph API](https://github.com/scikit-learn/scikit-learn/blob/1.9.1/doc/modules/neighbors.rst),
+[tagged release](https://github.com/scikit-learn/scikit-learn/blob/1.9.1/doc/whats_new/v1.9.rst).
+
+**Select pgmpy policy work separately from backend activation.** For a small table question,
+`Independencies` entailment/closure and `JointProbabilityDistribution` checks can challenge a
+particular declared independence or double-counted premise. They do not supply empirical truth or
+a universal validator. Given independent discrete observations, compare declared factors with
+prior-regularized `DiscreteBayesianEstimator`, configurable `DiscreteEM(m_step_estimator=...)`,
+or `MirrorDescentEstimator` over selected empirical marginals from data (not arbitrary externally supplied marginal arrays). These are conditional parameter-learning
+experiments, not reasons to fit current tiny groups. Tagged1.1.2 DiscreteEM drops partially missing
+rows and treats entirely missing columns as latent; that selection must be explicit. `Mplp` and
+its integrality gap may serve a separately declared assignment-only question, never substitute for
+normalized marginals, coherent alternatives or overlapping event probabilities. Causal/IV and Gaussian
+features require a suitable declared scientific model; co-occurrence cannot establish their assumptions.
+Sources: [pgmpy addendum §§1–8](../../libraries/scientific_compute/pgmpy.md#pgmpy-112--advanced-capabilities-addendum),
+[tagged DiscreteEM](https://github.com/pgmpy/pgmpy/blob/v1.1.2/pgmpy/parameter_estimator/discrete_em.py).
+
+**Select a concrete Splink pilot design now; cohort availability gates execution.** Choose scoped
+parameter identity or controlled-artifact identity, explicitly distinguishing immutable version from
+lineage. Compare exact keys/lexical baseline, existing candidate pairs registered through
+`table_management.register_blocked_pairs_for_predict` → `inference.predict`, native alias-array
+blocking (`block_on(..., arrays_to_explode=...)`) plus `ArrayIntersectAtSizes` alias-array
+comparison, and a justified candidate union. Alias intersection
+scoring cannot recover pairs that never entered the candidate universe.
+
+Distinguish unknown, malformed and observed-disagreeing fields through `NullLevel`,
+`valid_string_pattern` and owned input states; neutral null evidence is a model assumption. Retain
+comparison levels, likelihood contributions and available term-frequency evidence for the existing
+exclusion-aware resolver. A fixed/partially fixed parameter challenger can precede EM, with sensitivity
+analysis. `match_key` identifies one generating rule, not all corroboration; retain external candidate
+provenance separately when complete attribution matters. Do not import person-name/postcode templates
+as artifact/parameter semantics or threshold connected components into identity authority.
+
+Evaluate marginal/cumulative block counts and independently labeled eligible pairs, not only scored
+pairs. Use `accuracy_analysis_from_labels_table(output_type="table")` and error tables; distinguish
+clerical truth cutoffs from prediction thresholds. Registered external pairs reject automatic chunking
+in5.0.0: bounded ordinary prediction is the initial route; explicit chunk orchestration needs a
+separate execution decision. Common aliases, missing identifiers and A–B/B–C bridges with A–C
+exclusion are required countercases.
+Sources: [Splink addendum §§1–9](../../libraries/scientific_compute/Splink.md#splink-500--advanced-capabilities-addendum),
+[tagged pair registration](https://github.com/moj-analytical-services/splink/blob/v5.0.0/splink/internals/linker_components/table_management.py),
+[tagged evaluation](https://github.com/moj-analytical-services/splink/blob/v5.0.0/splink/internals/linker_components/evaluation.py).
+
 ## 9. Alternatives, tradeoffs and input recommendation coverage
 
 Keeping only the existing whole-pair classifier is the cheapest control but leaves the witnessed-
@@ -328,9 +448,9 @@ identify the input's material recommendations without creating another finding r
 | §3 separate lexical/typed/applicability comparison and changed band | Adopt with triggering-region semantics, exact premises and weaker outcomes when exceptions are unknown. Preserve baseline lexical reports. |
 | §3 Lark and shared scientific/comparator semantics | Adopt routed grammars and existing production kernels; extract pure reusable semantics only where missing, without importing protected reference models. |
 | §3 dossier membership then supported-facet coverage | Adopt greedy default at equal budget, mandatory overflow explicit; MILP conditional. |
-| §4 genuine factor policy and exact-solver comparison | Adopt now; pgmpy deferred to demonstrated width/support need, with full-interface equivalence. |
+| §4 genuine factor policy and exact-solver comparison | Adopt policy construction now, conditional parameter-learning challengers; backend activation still needs width/support evidence and full-interface equivalence. |
 | §4 Pyro reliability hierarchy | Adopt evaluator-side target; defer fitting until independent groups support its question. Keep capture separate from emitted-output correctness. |
-| §4 Splink identity pilot | Conditional scoped parameter/artifact/entity cohort; no identity solution to definition/explanation errors. Define identity grain and blocking first. |
+| §4 Splink identity pilot | Select the external-pair/alias-block pilot design and field/evaluation contracts now; cohort gates execution. Identity grain precedes scoring. |
 | §5 quantity, quality, connectivity, synthesis | Adopt distinct supported outcomes and source opportunities; raw annotation volume/graph density are not efficacy measures. |
 | §5 A/B/A+B and fixed candidates then discovery | Adopt with correction/loss/spurious/unresolved case ledger and fresh reference groups. |
 | §5 sklearn, SciPy, statsmodels, PPI | Adopt roles with the distinct prerequisites in §8; no generic calibrated truth score. |
@@ -394,13 +514,13 @@ identity rules. Dependency versions for optional research candidates remain unde
 | Judgment | Combined conclusion |
 |---|---|
 | A1 Localize change | Satisfied for the proposed ownership direction: named bindings, semantic operations, eligibility and assessment have coherent existing homes. Implementation must retire independently interpreted singleton/whole-pair assumptions. |
-| A2 Encode domain meaning | Unresolved for the expanded target; component evidence, question-relative compatibility and typed derivation must become governing contracts. The current private/report boundaries are honest but do not implement those stronger meanings. Revision required. |
+| A2 Encode domain meaning | Adequate at Proposed design level: component evidence, question-relative multiplicity, provenance and typed derivation have explicit governing contracts. The current expanded implementation remains unresolved until those contracts govern behavior; no conformance waiver. |
 | A3 Extend through composition | Satisfied at proposed-design level: retained annotations, contributions, retrieval, existing solver, scientific kernels and common publication compose without a new generic engine. |
 | A4 Execution fit | Credible scoped proposed route: prepared matchers/annotations, deduplicated occurrences, retained target vectors, indexed local joins, batched eligibility and short publication. Solver support guards, mandatory dossier overflow and growth limits remain explicit. No universal corpus-scale or measured capacity acceptance. |
 
 **Revise for improved-target implementation.** Recommend the coherent target above for subsequent
-planning, subject to rule dispositions and the explicit unresolved fidelity/enforcement obligations;
-do not claim overall architectural acceptance while A2/G2/G3/G6 remain unresolved. The current PCE
+planning, subject to rule dispositions. Proposed-design adequacy does not establish implementation
+conformance, execution qualification or effectiveness; those require the obligations in §10. The current PCE
 qualified nondefault completion is unchanged. The assumed completed test-plan foundation is not
 re-audited or scheduled by this review. The next design work is concrete contract/native/assessment
 realization of the witnessed component path, then typed compositions and a real factor policy.
@@ -408,14 +528,15 @@ realization of the witnessed component path, then typed compositions and a real 
 Transition obligations: keep supplied/control paths and supported old immutable reports readable under explicit reader compatibility; introduce new
 operation/schema versions for changed meanings; add prospective native migrations without modifying
 frozen bytes; update ordinary readers/queries/MCP/export and continuation pins together. Remove
-obsolete production pair-only interpretation, duplicated role dictionaries, missing named-node mappings
+obsolete production pair-only interpretation, duplicated role dictionaries, obsolete unnamed-only adaptation
 and replaced selector branches after their replacement consumers and controls pass. Retain useful
 controls, plans, evidence, original raw outputs and supported historical readers. This is a deletion
 obligation for later implementation, not authorization to discard evidence or unrelated code.
 
-Publication verification: `just docs-check` passed on 2026-11-05 (578 canonical pages, zero link
-errors); task-scoped `git diff --check` passed. `just turn-end` returned passed at recipe level,
-but its safe-fix lint phase emitted E402 import-order errors in concurrently edited tests. That
+Historical input publication: `just docs-check` passed on 2026-11-05 (578 canonical pages, zero link
+errors); task-scoped `git diff --check` passed. `just turn-end` returned passed at recipe level during the original publication,
+but its safe-fix lint phase then emitted E402 import-order errors in concurrently edited tests. That
 recipe uses exit-zero for residual lint; it is not an all-green repository lint result. Concurrent
 test/harness edits remain outside this publication and with the separate test work.
+Current audit publication outcomes are recorded in STATUS and the publishing commit.
 Product/provider/database execution and integrated qualification for this review: **not_run**.
