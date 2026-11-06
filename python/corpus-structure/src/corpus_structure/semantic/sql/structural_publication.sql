@@ -42,7 +42,7 @@ CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb,compone
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb;
 BEGIN
- result:=jsonb_build_object('version','structural-public-statement-2','kind',report->>'kind',
+ result:=jsonb_build_object('version','structural-public-statement-3','kind',report->>'kind',
   'scope',report->'inputs'->>'scope',
   'inventory_id',report->'inputs'->>'inventory_id','input_policy_id',report->'inputs'->>'policy_id',
   'coverage_limits',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(report->'inputs'->'coverage_limits') v),'[]'),
@@ -65,22 +65,27 @@ BEGIN
  ELSIF report->>'kind'='qualified_comparison' THEN
   value:=report->'comparison'; items:='[]';
   FOR item IN SELECT v FROM jsonb_array_elements(value->'dimensions') v LOOP
-   entry:=jsonb_build_object('dimension',item->>'dimension','outcome',item->>'outcome');
+   entry:=jsonb_build_object('dimension',item->>'dimension','outcome',item->>'outcome','typed_outcome',item->>'typed_outcome','assumptions',item->'assumptions');
+   IF nullif(item->'removed_interval','null') IS NOT NULL THEN entry:=entry||jsonb_build_object('removed_interval',item->'removed_interval');END IF;
+   IF nullif(item->'added_interval','null') IS NOT NULL THEN entry:=entry||jsonb_build_object('added_interval',item->'added_interval');END IF;
    FOREACH side IN ARRAY ARRAY['left','right'] LOOP
     IF item->side IS NOT NULL AND item->side<>'null' THEN
      entry:=entry||jsonb_build_object(side,jsonb_build_object('dimension',item->side->>'dimension',
       'lexical_value',item->side->>'lexical_value','evidence',data.structural_citations(report,item->side->'evidence')));
+     IF nullif(item->side->'typed','null') IS NOT NULL THEN
+      entry:=jsonb_set(entry,ARRAY[side,'typed'],((item->side->'typed')-'span')||jsonb_build_object('span',data.structural_citation(report,item->side->'typed'->'span'->>'passage_id')||((item->side->'typed'->'span')-'passage_id')));
+     END IF;
     END IF;
    END LOOP;
    items:=items||jsonb_build_array(entry);
   END LOOP;
   result:=result||jsonb_build_object('comparison',jsonb_build_object('left',data.structural_citation(report,value->>'left_id'),
    'right',data.structural_citation(report,value->>'right_id'),'dimensions',items,'equivalence',value->>'equivalence',
-   'identity_standing',value->>'identity_standing'));
+   'identity_standing',value->>'identity_standing','applicability',value->>'applicability'));
  ELSIF report->>'kind'='dossier' THEN
   value:=report->'dossier';
   SELECT COALESCE(jsonb_agg(v ORDER BY data.canonical_json(v)),'[]') INTO items FROM (
-   SELECT jsonb_strip_nulls(jsonb_build_object('passage',data.structural_citation(report,m->>'passage_id'),'role',m->>'role',
+   SELECT jsonb_strip_nulls(jsonb_build_object('passage',data.structural_citation(report,m->>'passage_id')||((m->'citation')-'passage_id'),'role',m->>'role',
     'sense',m->>'sense','scope',m->>'scope','effective_version',m->'effective_version','qualification',m->>'qualification')) v
    FROM jsonb_array_elements(value->'members') m) x;
   result:=result||jsonb_build_object('dossier',jsonb_build_object('root',value->>'root_id','members',items,
@@ -134,59 +139,9 @@ BEGIN
   IF c.id IS DISTINCT FROM (binding->>'c_pass_id')::bigint OR c.content_digest IS DISTINCT FROM binding->>'c_content_digest'
    OR c.parents IS DISTINCT FROM jsonb_build_array(a.id,b.id) OR a.actor=b.actor OR c.actor IN(a.actor,b.actor) THEN
    RAISE EXCEPTION 'structural public witness is stale or not independently adjudicated' USING ERRCODE='23514'; END IF;
-  -- Producer member labels are not independently checked member truth. Initial assembly policy
-  -- only admits proposals/ambiguous/rejected/unsupported members as their supplied standing.
-  IF report->>'kind'='dossier' THEN
-   FOR member IN SELECT value FROM jsonb_array_elements(report->'dossier'->'members') LOOP
-    IF member->>'qualification'='independently_supported' THEN
-     RAISE EXCEPTION 'member independent support needs a separate authenticated member policy' USING ERRCODE='23514'; END IF;
-    IF NOT(report->'inputs'->'dependencies' ? (member->>'relation_product_id')) THEN
-     RAISE EXCEPTION 'dossier predecessor is not a frozen dependency' USING ERRCODE='23514'; END IF;
-    -- Resolve only the predecessor selected by THIS immutable final cut. Several
-    -- completed historical origins can legitimately carry the same envelope ID.
-    -- Initial assembly policies consume definition/comparison products, not nested
-    -- dossiers: this finite layering supplies acyclicity without task-ID heuristics.
-    SELECT origin.id,result.body->'structural_product' product INTO STRICT upstream
-     FROM ops.cut_task dependency
-     JOIN ops.task task ON task.id=dependency.task_id
-     JOIN ops.task origin ON origin.id=dependency.origin_task_id
-     JOIN ops.run origin_run ON origin_run.id=origin.run_id
-     JOIN ops.task_result result ON result.task_id=origin.id
-     WHERE dependency.cut_id=p_cut AND task.run_id=p_run AND task.release_id=p_release
-      AND task.status IN ('done','reused') AND task.unit_type='run'
-      AND COALESCE(task.reused_task_id,task.id)=origin.id
-      AND origin.release_id=p_release AND origin_run.project_id=p_project
-      AND result.body->'structural_product'->>'kind' IN ('definition_applicability','qualified_comparison')
-      AND 'structural:'||encode(sha256(convert_to(data.canonical_json((result.body->'structural_product')-'retrieval_report'),'UTF8')),'hex')=member->>'relation_product_id';
-    IF upstream.product->'inputs'->>'scope' IS DISTINCT FROM report->'inputs'->>'scope'
-     OR EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'inputs'->'sources') source_
-      WHERE NOT(report->'inputs'->'sources' @> jsonb_build_array(source_))) THEN
-     RAISE EXCEPTION 'dossier predecessor source/scope is incompatible' USING ERRCODE='23514'; END IF;
-    -- An input frame is a candidate/context inventory, not evidence that each
-    -- passage participated in the predecessor's semantic output. Resolve physical
-    -- citations so local alias equality cannot link a different source extent.
-    IF upstream.product->>'kind'='definition_applicability' THEN
-     IF member->>'role'='definition' THEN
-      IF NOT EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'definition'->'readings') reading
-       WHERE reading->>'outcome'='applicable_definition'
-       AND data.retained_definition_citations(reading) @> jsonb_build_array(data.structural_citation(report,member->>'passage_id'))) THEN
-       RAISE EXCEPTION 'definition member is not an applicable definition output of its predecessor' USING ERRCODE='23514'; END IF;
-     ELSIF data.structural_citation(upstream.product,upstream.product->'definition'->>'usage_id') IS DISTINCT FROM data.structural_citation(report,member->>'passage_id')
-      AND NOT EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'definition'->'readings') reading
-       WHERE data.retained_definition_citations(reading) @> jsonb_build_array(data.structural_citation(report,member->>'passage_id'))) THEN
-      RAISE EXCEPTION 'dossier member did not participate in its definition predecessor output' USING ERRCODE='23514'; END IF;
-    ELSE
-     IF member->>'role'='definition' OR NOT EXISTS(
-      SELECT FROM (
-       SELECT upstream.product->'comparison'->>'left_id' id UNION ALL SELECT upstream.product->'comparison'->>'right_id'
-       UNION ALL SELECT evidence.id FROM jsonb_array_elements(upstream.product->'comparison'->'dimensions') dimension
-        CROSS JOIN LATERAL (SELECT dimension->'left' side UNION ALL SELECT dimension->'right') selected_side
-        CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(selected_side.side->'evidence','[]')) evidence(id)
-      ) participant WHERE data.structural_citation(upstream.product,participant.id)=data.structural_citation(report,member->>'passage_id')) THEN
-      RAISE EXCEPTION 'dossier member did not participate in its comparison predecessor output' USING ERRCODE='23514'; END IF;
-    END IF;
-   END LOOP;
-  END IF;
+  -- validate_structural_product_report replayed exact retained predecessor
+  -- roles, protected member support and representation. Assembly admission remains
+  -- separate from those independently established member assertions.
   statement:=data.structural_public_statement(report,binding->>'component_id');
   SELECT convert_from(content,'UTF8')::json INTO STRICT statement_shape FROM sem.artifact
    WHERE release_id=p_release AND artifact_name='json_schema/StructuralPublicStatement';

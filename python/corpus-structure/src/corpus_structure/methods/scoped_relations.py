@@ -437,7 +437,16 @@ class ScopedRelationsMethod:
 
             interpretation = table_policy_operations(
                 contributions=output["contributions"],
-                dependency_ids=output["operation"]["computation_dependencies"],
+                dependency_ids=tuple(
+                    sorted(
+                        {
+                            dependency
+                            for row in output["contributions"]
+                            for dependency in row["computation_dependencies"]
+                        }
+                        | set(output["operation"]["computation_dependencies"])
+                    )
+                ),
                 source_revision=frame.native_product.content_digest,
                 mode=cfg.interpretation_mode,
             )
