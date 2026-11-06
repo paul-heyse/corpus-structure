@@ -157,7 +157,8 @@ BEGIN
    local_:=op->'local_interpretation'; selected_ids:=COALESCE(local_->'contribution_ids','[]');
    IF local_->>'seal' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_-'seal'),'UTF8')),'hex')
     OR local_->>'constraint_id' IS DISTINCT FROM op->>'operation_key'
-    OR (local_->>'coupling_enabled')::boolean IS DISTINCT FROM false
+    OR op->>'operation_version' IS DISTINCT FROM 'local-interpretation-2'
+    OR COALESCE(local_->>'policy_version','')=''
     OR jsonb_array_length(selected_ids)<>(SELECT count(DISTINCT id) FROM jsonb_array_elements_text(selected_ids) x(id))
     OR EXISTS(SELECT FROM jsonb_array_elements_text(selected_ids) x(id) WHERE NOT identity_map ? id)
     OR jsonb_array_length(local_->'dependencies')=0
@@ -175,7 +176,8 @@ BEGIN
    IF local_->>'retained_input_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_inputs),'UTF8')),'hex') THEN
     RAISE EXCEPTION 'local interpretation input digest differs from retained contributions' USING ERRCODE='23514'; END IF;
    IF local_->>'outcome'='not_run' THEN
-    IF op->>'outcome'<>'not_run' OR local_->>'probability_standing'<>'not_computed'
+    IF local_->>'policy_mode'<>'not_run' OR (local_->>'coupling_enabled')::boolean IS DISTINCT FROM false
+     OR op->>'outcome'<>'not_run' OR local_->>'probability_standing'<>'not_computed'
      OR local_ ?| ARRAY['request','result','request_digest','result_digest'] THEN
      RAISE EXCEPTION 'unrun local interpretation cannot carry computed probabilities' USING ERRCODE='23514'; END IF;
    ELSE
@@ -184,6 +186,11 @@ BEGIN
      OR local_->>'result_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_->'result'),'UTF8')),'hex') THEN
      RAISE EXCEPTION 'local interpretation request/result custody differs' USING ERRCODE='23514'; END IF;
     local_request:=data.record_source_json(local_->'request'); local_result:=data.record_source_json(local_->'result');
+    IF local_->>'probability_standing' IS DISTINCT FROM 'provisional_candidate_relative'
+     OR (local_->>'coupling_enabled')::boolean IS DISTINCT FROM EXISTS(SELECT FROM jsonb_array_elements(local_request->'potentials') factor WHERE jsonb_array_length(factor->'scope')>1)
+     OR local_->>'policy_mode' IS DISTINCT FROM (CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(local_request->'potentials') factor WHERE jsonb_array_length(factor->'scope')>1) THEN 'coupled' WHEN jsonb_array_length(local_request->'potentials')>0 THEN 'independent' ELSE 'feasibility' END)
+     OR NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') dep WHERE dep->>'key'=local_request->>'policy_dependency_id' AND dep->>'revision'=local_->>'policy_version') THEN
+     RAISE EXCEPTION 'local interpretation mode or policy differs from actual factors' USING ERRCODE='23514'; END IF;
     IF local_request->'selection'->>'scope_id' IS DISTINCT FROM local_->>'constraint_id'
      OR EXISTS(SELECT FROM jsonb_array_elements_text(local_->'dependencies') x(id)
       WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d WHERE d->>'key'=id))

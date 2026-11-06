@@ -30,7 +30,7 @@ def validate_local_interpretation_report(
         raise ValueError("local interpretation input contribution unavailable or duplicated")
     if report["retained_input_digest"] != _digest([by_id[key] for key in sorted(selected)]):
         raise ValueError("local interpretation input digest differs from retained contributions")
-    if report["constraint_id"] != operation["operation_key"] or report["coupling_enabled"]:
+    if report["constraint_id"] != operation["operation_key"] or operation["operation_version"] != "local-interpretation-2":
         raise ValueError("local interpretation differs from private operation binding")
     dependencies = report["dependencies"]
     if len(dependencies) != len(set(dependencies)) or not set(dependencies) <= set(
@@ -46,7 +46,9 @@ def validate_local_interpretation_report(
         raise ValueError("local interpretation population differs from selected contributions")
     if report["outcome"] == "not_run":
         if (
-            operation["outcome"] != "not_run"
+            report["policy_mode"] != "not_run"
+            or report["coupling_enabled"]
+            or operation["outcome"] != "not_run"
             or report["probability_standing"] != "not_computed"
             or any(k in report for k in ("request", "result", "request_digest", "result_digest"))
         ):
@@ -62,6 +64,14 @@ def validate_local_interpretation_report(
         dep["key"] for dep in request["dependencies"]
     }:
         raise ValueError("local interpretation request omits scope or dependencies")
+    if report["probability_standing"] != "provisional_candidate_relative":
+        raise ValueError("local interpretation cannot claim calibrated or factual probability")
+    joint = any(len(factor["scope"]) > 1 for factor in request["potentials"])
+    mode = "coupled" if joint else "independent" if request["potentials"] else "feasibility"
+    policy = next((dep for dep in request["dependencies"] if dep["key"] == request["policy_dependency_id"]), None)
+    if (report["coupling_enabled"] != joint or report["policy_mode"] != mode
+            or policy is None or report["policy_version"] != policy["revision"]):
+        raise ValueError("local interpretation mode or policy differs from actual factors")
     expected = (
         "succeeded"
         if report["outcome"] == "completed"

@@ -57,6 +57,8 @@ def interpret_contribution_question(
         independent_baseline="retained_independent_contributions",
         probability_standing="not_computed",
         coupling_enabled=False,
+        policy_mode="not_run",
+        policy_version="table-interpretation-1",
     )
     if request is None:
         row.update(outcome="not_run", reason="applicable real local factor policy unavailable")
@@ -65,6 +67,11 @@ def interpret_contribution_question(
             raise ValueError("local interpretation scope differs from declared question")
         if not set(dependency_ids) <= {dep.key for dep in request.dependencies}:
             raise ValueError("local interpretation omits retained computation dependencies")
+        joint = any(len(factor.scope) > 1 for factor in request.potentials)
+        policy = next((d for d in request.dependencies if d.key == request.policy_dependency_id), None)
+        if policy is None:
+            raise ValueError("local interpretation policy dependency unavailable")
+        row.update(coupling_enabled=joint, policy_mode=("coupled" if joint else "independent" if request.potentials else "feasibility"), policy_version=policy.revision)
         request_row = _sealed_value(asdict(request))
         result = _sealed_value(asdict(interpret_local(request, cancellation=cancellation)))
         row.update(
@@ -92,12 +99,7 @@ def local_question_operation(
     from corpus_structure.semantic.contributions import operation_identity
     from corpus_structure.semantic.observations import source_value
 
-    question_id = operation_identity(
-        "local-interpretation-1",
-        question,
-        sorted(row["contribution_id"] for row in contributions),
-        sorted(dependency_ids),
-    )
+    question_id = local_constraint_id(question, contributions, dependency_ids)
     report = interpret_contribution_question(
         question_id=question_id,
         contributions=contributions,
@@ -127,7 +129,7 @@ def local_question_operation(
     return dict(
         operation_key=question_id,
         question=question,
-        operation_version="local-interpretation-1",
+        operation_version="local-interpretation-2",
         outcome=operation_outcome,
         inspected_count=len(report["contribution_ids"]),
         emitted_count=0,
@@ -135,3 +137,8 @@ def local_question_operation(
         reason=report["reason"],
         local_interpretation=report,
     )
+
+
+def local_constraint_id(question, contributions, dependency_ids):
+    from corpus_structure.semantic.contributions import operation_identity
+    return operation_identity("local-interpretation-2", question, sorted(row["contribution_id"] for row in contributions), sorted(dependency_ids))
