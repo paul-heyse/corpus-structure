@@ -1,0 +1,31 @@
+bringing up nodes...
+bringing up nodes...
+
+.                                                                        [100%]
+=============================== warnings summary ===============================
+python/corpus-structure/tests/semantic/test_witnessed_publication_native.py::test_exact_component_admits_without_whole_applicability
+  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/torch/cuda/__init__.py:1264: UserWarning: Can't initialize NVML
+    raw_cnt = _raw_device_count_nvml()
+
+python/corpus-structure/tests/semantic/test_witnessed_publication_native.py::test_exact_component_admits_without_whole_applicability
+  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sssom/util.py:111: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
+    pd.options.mode.copy_on_write = True
+
+python/corpus-structure/tests/semantic/test_witnessed_publication_native.py::test_exact_component_admits_without_whole_applicability
+  /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/oaklib/datamodels/ontology_metadata.py:20: DeprecationWarning: The LinkML dataclass extension patch is deprecated and will be removed in a future release.
+  If you're currently using Python < 3.13, where this patch still applies, you should:
+    • Upgrade your LinkML tooling to version >= 1.9.0 (which no longer needs this patch), OR
+    • Migrate to Pydantic models if you're using LinkML's generated classes at runtime.
+  
+    from linkml_runtime.utils.dataclass_extensions_376 import dataclasses_init_fn_with_kwargs
+
+python/corpus-structure/tests/semantic/test_witnessed_publication_native.py::test_exact_component_admits_without_whole_applicability
+  /home/paul/corpus-structure-wce-native/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py:714: DeprecationWarning: Field `annotations` is deprecated; use `meta` instead.
+    result[alias] = supplied_state(getattr(value, name))
+
+python/corpus-structure/tests/semantic/test_witnessed_publication_native.py::test_exact_component_admits_without_whole_applicability
+  /home/paul/corpus-structure-wce-native/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py:714: DeprecationWarning: deprecated
+    result[alias] = supplied_state(getattr(value, name))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 5 warnings in 65.84s (0:01:05)
