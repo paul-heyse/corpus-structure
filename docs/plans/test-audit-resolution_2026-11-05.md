@@ -25,8 +25,9 @@ Consume [tooling review](../plan_improvement_reviews/test-audit-resolution-tooli
 at `23d677be8978a04ab8c5f8c3494f0a36899167a6`, I01–I11 and its capability appendix.
 Authoring-start baseline is `93a782920945a0a59b4c69c0dc87ca91c2b8453b`: intervening commits only
 published the library inputs; product/test source is unchanged from the review's `5599cb0d`.
-The three tooling input hashes still match the review, including the PostgreSQL addendum after
-line1099. Read the current source before execution because WCE work is concurrent.
+The three tooling input hashes matched the review at authoring, including the PostgreSQL addendum
+after line1099. The current product baseline is updated by the WCE04–05 reconciliation below;
+the original review source is not the current product source.
 
 Current configuration is pytest9.1.1/xdist3.8.0, `-n auto --dist=loadgroup`; the last WCE
 checkpoint reports32 workers on this host. Dedicated18/corpus now declares256 connections and
@@ -41,14 +42,35 @@ available contracts, not unfinished producers or invented labels. WCE/PCE findin
 product algorithms and future producer-specific acceptance remain with their existing owners.
 WCE plan files are unchanged by this revision.
 
-During authoring, `e5ade8a5` records the operator-directed current-only WCE cutover through
-ADR-0067, `2350ae05` freezes development questions and `f1ab022f` publishes native contract work.
-These concurrent changes are not test-series implementation evidence. Follow current architectural
-authority and reconcile actual consumer migration at execution; this plan does not execute that
-cutover. Preserve raw historical plans/evidence/migrations, but
-do not turn earlier executable-legacy-reader controls into permanent compatibility obligations
-where the current WCE decision deliberately replaces them. The semantic guarantee needs a current
-counterpart or an explicit owning disposition; old counts are not the new required manifest.
+### Delivered WCE04–05 foundation and revised test scope — 2026-11-06
+
+Reconciled at `0e61a0d6aebfa45377a16b7dc8ec6385e9fe290b` with final tested product source
+`cd7a57a5`. The [WCE coordinator](witnessed-corpus-enrichment_2026-11-05.md#wce04wce05-selected-acceptance-and-remaining-gaps)
+owns selected WCE04/05 completion. Its [final-union record](../design_review/evidence/2026-11-06_wce-definition-linking/records/wce04-05.final-union.json)
+retains the exact25-file `just test-all -n auto` selection:322 passed, Rust not_run/empty selection,
+with hygiene/model/ready outcomes at their stated source. These are existing bounded receipts,
+not tests run by this plan update or closure of TR-10/WCE12.
+
+ADR-0067's current-only cutover is implemented. Native156 now supplies one155→156 transition in
+place of temporary156–162; fresh/deployed state agrees on218 native objects. Replaced pair-only,
+singleton/manual-definition and historical semantic decoder paths are retired. Preserve retained
+raw historical plans/evidence and the current migration history; do not recreate removed temporary
+migrations or executable legacy readers. Use current semantic counterparts for assurance.
+
+WCE04's located definitions, model-span/attachment distinction, linguistic-only method4 and
+polarity-aware recipes, plus WCE05's actual-occurrence/extracted-target linking, per-edge qualified
+role carriers, separate applicability and current Reader/CLI/MCP/export paths are available inputs
+to TR-13/15. Their implementation and existing controls are preservation scope, not new producer
+work or a reason to repeat successful provider/corpus journeys. Domain objects, relationship
+constraints and conditions govern production meaning; assessment questions/query wording neither
+govern that model nor become public statement identity.
+
+WCE-R01's concrete normal-density attachment and WCE-R04's same-span carrier defect have scoped
+repairs at the WCE owner. Retain regression discrimination without calling them unimplemented
+repairs. Transfer applicability, new mean independent support, remaining exposed F37 targets,
+normal explanatory capture, full source-first/held-out efficacy and parameter/header expansion
+retain their explicit WCE02/06–12 owners. TR-13 must not silently acquire those product/data tasks.
+Reconcile any further source changes at execution; old counts are not the new required manifest.
 
 Only document authoring is authorized by this publication. Original qualification stays stopped;
 future implementation of selected amendments requires its own execution instruction. The operator
@@ -160,13 +182,14 @@ Original package state above is retained; the following work is not yet implemen
 |---|---|---|
 | TR-11 | Current configuration, public collection/report contracts, original receipt controls | Actual worker/group facts and serial/two-worker conformance; injective canonical identities, explicit fault-lane refusal, durable native attribution |
 | TR-12 | TR-11 conformance; actual preparation-consumer inventory | Compare coarse versus dependency-shaped affinity; select and migrate the justified grouping, retaining warm/cold preparation and nested deadlines |
-| TR-13 | Existing scenario/frame/scoring contracts; source-authored expectations | Current WCE facet matrices and bounded diagnostics across pure/native/read consumers; no future-producer efficacy claim |
+| TR-13 | Delivered WCE04/05 contracts and controls; independent current expectations | Integrate definition/link/applicability/native/read cases with new infrastructure; extend only discriminating gaps, preserve domain/assessment distinction and bounded efficacy limits |
 | TR-14 | Existing TR-08 semantics; TR-11 identity map | Additive required-node coverage, unchanged attempt status/CLI contract, explicit applicability limits and safe failed-only selection |
 | TR-15 | Exact available witnessed SQL contract; native lifecycle/provenance | Required bounded Python/pgTAP comparison and documented adopt/retain outcome; entered adoption branches fully integrated. Shared-template/private-cluster branches remain gated |
 
 Establish TR-11 before changing shared scheduling/identity; TR-13 can proceed independently on
 stable source contracts, and TR-14 can develop its additive semantics alongside TR-11. TR-15's
-comparison needs only the existing located-component custody/basis contract, not WCE04 completion.
+comparison consumes delivered component/publication semantics and custody/basis controls;
+WCE04/05 implementation is available and is not a prerequisite to build again.
 TR-09 then reconciles all changed consumers and TR-10 qualifies the selected integrated scope.
 Shared editing surfaces (root hooks/plugin/classifier) require coordinated ownership even where
 capability work is logically independent.
@@ -184,7 +207,7 @@ of mutable progress. Review references below use the tooling review, not WCE's s
 | [review#I04](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I04) | Harness/TR-11 | Open/Proposed: real serial/two-worker grouping/alias/phase/loss controls, including ambiguity rejection |
 | [review#I05](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I05) | Native/assertions/TR-15 | Open/Proposed comparison; adopt only for useful simplification/additional assurance with actual psql identity and faithful TAP integration |
 | [review#I06](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I06) | Native/TR-15 | Deferred, trigger: actual server lifecycle/configuration variation needed; private environment cannot replace dedicated-cluster claims |
-| [review#I07](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I07) | Scenarios/assertions/TR-13 | Open/Proposed: current independent question/facet cases; future producer-specific obligations link to WCE02–12 |
+| [review#I07](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I07) | Scenarios/assertions/TR-13 | Open/Proposed: current WCE04/05 controls and gap-directed matrices; remaining producer/efficacy obligations stay with WCE02/06–12 |
 | [review#I08](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I08) | Assertion/native/harness/TR-11/13 | Open/Proposed: useful phase/source diagnostics without label leakage or loss of durable acquisition events |
 | [review#I09](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I09) | Qualification/TR-14 | Open/Proposed: failed-only selection cannot silently broaden or lose unfinished obligations; no automatic retries |
 | [review#I10](../plan_improvement_reviews/test-audit-resolution-tooling_2026-11-06.md#I10) | Qualification/TR-10 | Open: fresh parallel ordinary plus exclusive fault/native/applicable hygiene union after selected functionality |

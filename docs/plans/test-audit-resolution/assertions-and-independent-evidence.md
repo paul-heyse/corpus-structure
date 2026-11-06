@@ -143,7 +143,7 @@ production validators may enforce setup but do not compute both actual and expec
 Stable pytest.param IDs identify question/facet and distinction. Required outcomes remain separate
 collected cases; runtime subtests are optional diagnostics inside a case, not new union obligations.
 
-Required current-contract cases distinguish right location/wrong role (the WCE-R01 regression),
+Required current-contract cases distinguish right location/wrong role (preserve WCE-R01's scoped repair),
 right role/wrong endpoint, compatible overlap/exclusive alternatives, missing/extra/duplicate exact
 outputs, repeated windows/physical occurrences, missing reference/missing output, ambiguous/unresolved,
 unstated/uninspected and local component support/unsupported whole statement. Exposure/partition
@@ -153,6 +153,21 @@ quality or independent author agreement. Protected A/B/C reference services rema
 pytest gains no second reference ledger. Later threshold/unit/revision/cohort cases enter with their
 actual WCE producers, without expanding this test series into those product algorithms.
 
+WCE04/05 are implemented inputs, not future producers. Start with delivered controls and add only
+missing discrimination or infrastructure integration. Definitions cover retained spans with empty/
+failed attachment, linguistic-only mode, copula polarity/negation, endpoint closure and unknown
+applicability. Linking covers actual occurrences/extracted components, corroboration versus competing
+senses, each edge's own qualified role carrier (preserve WCE-R04), and source/version scope. Native
+and consumer controls separate exact component eligibility from whole-statement applicability,
+reject forged semantics, and preserve Reader/query/CLI/MCP/continuation/export identity and evidence.
+
+Production relationship constraints own roles, multiplicity, competition and conditions; assessment
+questions remain independent reference/query intent. Extend existing claim-identity controls so
+assessment wording or derivation cannot change public domain statement identity. Model-span success
+is not attachment, linguistic detection is not independent support, and defined-by binding is not
+transfer applicability. F37/normal capture gaps and unassessed corpus edges remain WCE obligations;
+passing mechanism controls cannot close them.
+
 Reuse assert rewriting for shared assertion modules before import, narrow pytest_assertrepr_compare
 where useful, and Item.add_report_section for phase diagnostics. Show frozen frame/question/source
 identifiers, facet, expected/actual endpoint-role members and missing versus uninspected. Do not
@@ -160,7 +175,7 @@ dump protected answers, normalize away duplicates or build a new assertion engin
 Counter-style bags and independently specified numeric tolerances remain credible simple choices.
 Native errors retain intended SQLSTATE/constraint/message identity, positive premises and valid siblings.
 
-TR-15 compares the same current located-component custody/basis case in Python and SQL before
+TR-15 compares delivered current component/publication custody and exact eligibility in Python and SQL before
 selecting pgTAP. SQL expectations use results_eq only for contractual order, bag_eq for multiplicity,
 set_eq only for true sets; schema/signature-qualified catalog assertions protect promised properties,
 not every installed object. Name inventory is not overload inventory; generated body checksums do

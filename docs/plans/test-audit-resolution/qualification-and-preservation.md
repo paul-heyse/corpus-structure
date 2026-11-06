@@ -162,10 +162,27 @@ automatic substitute for changed harness/native/source context.
 
 At execution establish the required union from actual current collection and selected conditional
 branches. Preserve DTA guarantees with current counterparts and independent expectations. Reconcile
-WCE's authorized current-only cutover rather than requiring obsolete executable semantic readers;
-raw source, frozen migrations, plans/evidence and original failed/interrupted receipts remain.
-Later WCE producers/quality/reference cohorts remain with WCE02–12; their absence does not become
+WCE's delivered current-only cutover: native156 replaces temporary156–162 and the legacy pair/
+singleton/manual-definition/semantic decoder routes are removed. Preserve retained source, current
+migration history, plans/evidence and original receipts; do not reconstruct obsolete executable
+paths or temporary migrations. Later WCE producers/quality/reference cohorts stay with WCE02/06–12;
+their absence does not become
 an invented implementation or a synthetic provider pass in this test series.
+
+The [WCE04/05 final selected union](../../design_review/evidence/2026-11-06_wce-definition-linking/records/wce04-05.final-union.json)
+records322 passing tests over25 files on product source cd7a57a5, plus scoped hygiene/model/ready
+results. Carry those receipts with their source/selection; do not add counts to old TR passes,
+call them TR-10 completion or subtract322 from the historical1390pending selection. At future
+infrastructure qualification use current collected identities and explicit applicability. No
+successful WCE tests/providers are rerun for this plan update. Provider reruns during implementation
+need a changed provider contract or genuinely missing required obligation, not fixture reorganization.
+
+TR-09's affected inventory now includes delivered definition/linguistic-only, contextual actual-target
+and per-edge-carrier, witnessed publication/applicability, structural assessment/read/query and
+CLI/MCP/export controls. Preserve existing tests and add only missing harness/case discrimination.
+Fresh/deployed native-cutover agreement is existing scoped evidence to reassess if affected. Full
+WCE12 efficacy/assembled qualification and WCE02 exposure/reference gaps stay with WCE; the test
+series still needs its own final infrastructure qualification.
 
 After TR-11–14 and TR-15's required comparison/entered adoptions, TR-09 inventories actual changed
 callers and retires only replaced helper mechanisms. Obtain assembled design/target assessment at

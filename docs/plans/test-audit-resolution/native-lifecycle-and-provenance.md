@@ -184,10 +184,13 @@ prerequisite obligations in the combined acceptance account.
 
 ### TR-15A — Required bounded SQL contract comparison
 
-Use the available located-component custody/basis contract in
-semantic/test_contributions_native.py::test_native_located_component_custody_and_basis_refusal,
-not a hypothetical later producer. Hand-author the same valid value-role/source-dependency rows,
-invalid basis dependency and duplicate/missing member comparison in Python and pgTAP1.3.4. The
+Use the delivered current WCE component/publication contract in
+semantic/test_witnessed_publication_native.py::test_exact_component_admits_without_whole_applicability,
+with semantic/test_contributions_native.py::test_native_located_component_custody_and_basis_refusal
+as the source-dependency precondition control. Hand-author equivalent permitted component rows,
+refused stronger applicability, invalid basis and duplicate/missing member expectations in Python
+and pgTAP1.3.4. Native156 is the deployed/fresh-install target; temporary156–162 are not fixture
+inputs to restore. Do not rebuild WCE04/05 production or eligibility machinery. The
 comparison assesses readable independent expectations, native diagnostics and total lifecycle/report
 burden, not corpus semantic efficacy. Retain Python-only if pgTAP adds no meaningful simplification
 or useful assurance; record the decision and reason at TR-15. This decision completes comparison,
@@ -199,8 +202,8 @@ connections execute the independent Python query and pgTAP SQL over equivalent o
 Retain actual acquisition context, SQL/TAP results, fixed plans and errors for the bounded decision;
 inspect TAP outcomes rather than inferring success from execute() returning. No new permanent TAP
 parser/runner or psql provenance bridge is needed just to decide retain/adopt. Re-resolve the named
-test's current equivalent after concurrent WCE cutover; compare the same custody/basis meaning,
-not resurrected legacy fixtures. If extension availability or purpose rights prevent the comparison,
+test's current equivalent after any subsequent contract changes, preserving independent literal
+statement expectations and the domain/assessment distinction; do not resurrect legacy fixtures. If extension availability or purpose rights prevent the comparison,
 report the prerequisite and keep TR-15A open; do not broaden grants or claim an executed retain result.
 
 If adopted, PgAdmin owns an isolated migrated clone. Maintenance installs pgtap only after checking

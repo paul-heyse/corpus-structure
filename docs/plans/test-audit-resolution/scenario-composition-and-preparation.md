@@ -184,8 +184,10 @@ complete source/configuration dependencies, immutable reuse and separate active-
 A fixture name change must update scheduling consumers with its dependency; no ambient cache or
 new preparation service is introduced. Pure collection still activates no compiler/database/NLP.
 
-TR-13 extends ordinary scenario values/builders for current witnessed components and frame-v2
-assessment. Inputs are independently selected original source coordinates, dependency closure,
+TR-13 consumes delivered WCE04/05 domain components, relationship constraints, applicability
+and current assessment frames. Extend builders only for actual sharing or coverage gaps; existing
+producer controls are preservation scope. Keep production domain objects/relationships/conditions
+separate from assessment questions and query intent. Inputs are independently selected original source coordinates, dependency closure,
 question/version, scope, partition/exposure and declared output IDs where the direction needs them.
 Source-first scenarios can have real opportunities without any prediction; output-first scenarios
 freeze exact emitted IDs after production. Builders create valid downstream setup, not expected
@@ -195,11 +197,14 @@ repair or reject the defect before native enforcement.
 Keep source/frame setup reusable across pure scoring and native custody variants; request native
 publication only where its effect is the claim. The actual current migration set includes
 semantic/test_contributions{,_native}.py and evaluate/test_operation_assessment{,_native}.py,
-plus structural-assessment and current read/export consumers found by import/call search. Later
-WCE04–10 producers supply their own available questions/outputs through the WCE owner, not an
-invented placeholder producer or newly required corpus campaign. Coordinate with the current-only
-WCE cutover: retire affected executable legacy scenarios only with the owning migration and
-current-contract counterparts; preserve frozen source/reference bytes and prior test receipts.
+plus methods/test_definition_applicability.py and test_definition_terms.py; semantic witnessed
+publication/applicability, contextual workflow/group, structural assessment and read/export consumers.
+Inventory actual helper consumers before editing; this is not a requirement to rewrite all their
+tests. Current completed_component_case and literal native publication expectations provide available
+setup patterns. Retain actual E5/GLiNER receipts at their original scope; fixture reorganization does
+not require repeating providers. Later WCE06–10 producer inputs and WCE02 reference expansion remain
+with WCE. The current-only cutover has removed legacy paths: consume current counterparts/native156,
+preserving prior receipts and source/reference custody instead of restoring obsolete scenarios.
 
 Construct separately collected pytest.param cases with stable meaningful IDs. Use indirect setup
 for native variants; required finite matrix membership is independently authored and checked before

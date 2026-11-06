@@ -10,7 +10,8 @@ _Updated 2026-11-06; selected WCE04–05 implementation complete and Tested._
 - Statistics remains qualification scope; no enterprise acquisition or full-book reread was performed.
 - [Test-resolution](docs/plans/test-audit-resolution_2026-11-05.md) remains separately stopped;
   its [TR-11–15 proposals](docs/plans/test-audit-resolution_2026-11-05.md#proposed-tooling-packages-and-useful-execution-order)
-  remain Proposed. This increment neither resumes that campaign nor closes its qualification.
+  remain Proposed, now scoped against delivered WCE04–05. That plan update neither resumes the
+  campaign nor closes its qualification.
 
 ## Delivered — 2026-11-06
 

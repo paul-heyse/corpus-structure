@@ -106,7 +106,10 @@ decision only with its workload/reuse reasoning recorded at the coordinator.
 ## Integration and verification timing
 
 TR-11 precedes identity/grouping changes and supplies stable reporting to TR-12/14/15. TR-13 can
-develop independent case matrices against stable current contracts. Native acquisition and
+develop independent case matrices against delivered WCE04/05 contracts. Their selected auto-worker
+322-test result does not qualify new TR-11/12 changes. Definition/applicability and contextual
+per-edge-carrier consumers join the harness inventory; their producers are not work to build again.
+Native acquisition and
 coverage meaning are owned by [native lifecycle](native-lifecycle-and-provenance.md), not here.
 TR-09 reconciles replaced helper callers, root hooks and required selections. TR-10 supplies
 fresh final-source qualification after selected functionality; focused child controls are not
