@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from pathlib import Path
@@ -191,6 +192,62 @@ def test_real_distributed_failure_boundaries(tmp_path, workers, failure):
         assert result["active_phases"]
         if workers:
             assert result["worker_loss"]
+
+
+def test_project_policy_ends_native_worker_loss_without_restarting(tmp_path, monkeypatch):
+    monkeypatch.delenv("PYTEST_ADDOPTS", raising=False)
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "conftest.py").write_text(
+        "import json\nfrom pathlib import Path\n"
+        "def pytest_configure(config):\n"
+        "    if not hasattr(config, 'workerinput'):\n"
+        "        Path('effective-policy.json').write_text(json.dumps({\n"
+        "            'restart': config.getoption('maxworkerrestart'),\n"
+        "            'workers': config.getoption('numprocesses'),\n"
+        "            'distribution': config.getoption('dist'),\n"
+        "        }))\n"
+    )
+    (case / "test_case.py").write_text(
+        "import os\nimport pytest\n"
+        "@pytest.mark.xdist_group('fatal_control')\n"
+        "def test_crash():\n    os._exit(73)\n"
+        "@pytest.mark.xdist_group('fatal_control')\n"
+        "@pytest.mark.parametrize('index', range(6))\n"
+        "def test_unexecuted(index):\n    raise AssertionError('queued body must not run')\n"
+        "def test_independent():\n    pass\n"
+    )
+    output = tmp_path / "receipt"
+    output.mkdir()
+    process = run_python(
+        output,
+        ["-c", str(ROOT / "pyproject.toml"), "-n", "2", str(case)],
+        cwd=case,
+        timeout=60,
+        test_timeout=30,
+    )
+    shutil.copyfile(case / "effective-policy.json", output / "effective-policy.json")
+    retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
+    if retained:
+        shutil.copytree(output, Path(retained) / f"{tmp_path.name}-policy-{uuid4().hex}")
+    result = classify_receipt(output)
+    assert process["returncode"] != 0
+    assert "interruption" not in process
+    assert not process["owned_group_cleanup"]["group_present_after_cleanup"]
+    assert result["status"] in {"failed", "incomplete"}
+    assert len(result["selected"]) == 8
+    assert len(result["worker_loss"]) == 1
+    assert result["worker_facts"]["created"][0]["count"] == 2
+    tail = [node for name, node in result["nodes"].items() if "::test_unexecuted[" in name]
+    assert len(tail) == 6
+    assert {node["status"] for node in tail} == {"not_run"}
+    policy = json.loads((case / "effective-policy.json").read_text())
+    assert int(policy["restart"]) == 0
+    assert policy["workers"] == 2 and policy["distribution"] == "loadgroup"
+    ready_workers = {
+        event["ready_worker"] for event in events(output) if event["event"] == "worker_ready"
+    }
+    assert ready_workers == {"gw0", "gw1"}
 
 
 @pytest.mark.parametrize("workers,mixed", [(2, False), (0, True)])

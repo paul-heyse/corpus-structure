@@ -47,6 +47,8 @@ addopts = [
     "--import-mode=importlib",
     "-n", "auto",
     "--dist=loadgroup",
+    # A fatal worker ends its attempt; receipts retain unresolved cases for explicit recovery.
+    "--max-worker-restart=0",
     "-m", "not shared_cluster_fault",
 ]
 markers = [

@@ -145,7 +145,9 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
     page = small_page()
     ordinary_token = Token("CONTROL", "x", 0, 1, 1, 1, 2, 1)
     ordinary_pickle = pickle.dumps(ordinary_token)
-    readings = _run_pages(read_content, {page.page: page}, workers=1, timeout=30)[page.page]
+    # Exercise transport under the helper's ordinary deadline, including spawn/import
+    # startup during parallel qualification. This test has no shorter timing contract.
+    readings = _run_pages(read_content, {page.page: page}, workers=1)[page.page]
     assert [r.span.latex for r in readings] == ["x", "x + 1", "x = 1"]
     assert all(r.prepared is None for r in readings)
     assert all(isinstance(r.result.macros, MappingProxyType) for r in readings)
@@ -168,12 +170,10 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
         [(0, 1, 1, 1, 1, 2), (2, 3, 1, 3, 1, 4), (4, 5, 1, 5, 1, 6)],
     ]
     assert printed == ["x", "x+1", "x=1"]
-    assert _run_pages(reading_positions, {page.page: readings}, workers=1, timeout=30)[
+    assert _run_pages(reading_positions, {page.page: readings}, workers=1)[
         page.page
     ] == reading_positions(readings)
-    values, extraction = _run_pages(extract_readings, {page.page: readings}, workers=1, timeout=30)[
-        page.page
-    ]
+    values, extraction = _run_pages(extract_readings, {page.page: readings}, workers=1)[page.page]
     assert [v.value.latex for v in values] == ["x", "x + 1", "x = 1"]
     assert [(m.name, m.start, m.end) for m in extraction.mentions] == [
         ("x", 6, 7),
@@ -183,9 +183,9 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
     assert [(r.label, r.head, r.tail, r.operator) for r in extraction.relations] == [
         ("equals", (48, 49), (52, 53), "=")
     ]
-    scopes = _run_pages(
-        scope_extraction, {page.page: (page, values, extraction)}, workers=1, timeout=30
-    )[page.page]
+    scopes = _run_pages(scope_extraction, {page.page: (page, values, extraction)}, workers=1)[
+        page.page
+    ]
     later = next(s for s in scopes if s.mention.start == 26)
     assert later.symbol == "x"
     assert later.site is not None and later.site.extent is ScopeExtent.STATEMENT
@@ -249,10 +249,7 @@ def test_staged_corpus_relations_preserve_direct_page_semantics(spike_readings, 
 
     direct_positions = reading_positions(direct.readings)
     assert reading_positions(staged.readings) == direct_positions
-    assert (
-        _run_pages(reading_positions, {key: staged.readings}, workers=1, timeout=30)[key]
-        == direct_positions
-    )
+    assert _run_pages(reading_positions, {key: staged.readings}, workers=1)[key] == direct_positions
     values, extraction = extract_readings(direct.readings)
     assert extraction.relations  # this control must actually exercise relational transport
     assert spike_extraction[key].values == values
