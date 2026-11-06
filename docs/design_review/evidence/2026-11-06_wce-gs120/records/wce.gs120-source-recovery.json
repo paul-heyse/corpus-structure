@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "wce.gs120-source-recovery",
+  "title": "Current GS120 native source coverage recovery",
+  "group": "WCE",
+  "package": "WCE11",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does ordinary adoption of retained native products recover all120 shared physical pages without duplicate projected fields or repeated PDF/model execution?",
+  "answers": [
+    "WCE-R05"
+  ],
+  "method": "Actual registered execution and bounded source-grounded inspection; software outcomes are separate from semantic quality.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/source-recovery/recover_sources.py 001"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-manifest.json",
+      "role": null,
+      "sha256": "5c26959a59514e491527bb61821de0d42c7e4682338b63e2918b43767da6abec"
+    },
+    {
+      "path": "source-recovery/recover_sources.py",
+      "role": null,
+      "sha256": "f2f8676abc7808a02b24a803e71220d9ab6416fc5e0c5a5933b0413445eee7bc"
+    },
+    {
+      "path": "source-recovery/native-inputs.json",
+      "role": null,
+      "sha256": "75cbab4af12a493655faf3893fbb0c67c81fcf758298a76adfb77b8560e1a4eb"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "source-recovery/attempt001.log",
+      "role": null,
+      "sha256": "3377928553f0dd133ad5fdda1d19f137bfeaa86e8c6f864fdaa30bf05838a9d3"
+    },
+    {
+      "path": "source-recovery/attempt001",
+      "role": null,
+      "sha256": "b9bd1bf8a498f048dc7cd2b1ffa7bfb6ec851ed61edca5f3e9177ad033e07a66"
+    }
+  ],
+  "depends_on": [
+    "wce02.gs120-source"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Passed ordinary current ingest.pdf3/recipev7 adoption and current annotations across12 completed source runs140–151. All120 physical pages have native item and projected text coverage across48 nonempty views; no duplicate projected native fields. Exact original12 native products/file hashes retained; no PDF conversion, recognition or GLiNER invocation in this graph. This establishes source selection coverage only; semantic capture and graphics inspection remain unassessed.",
+  "consumed_by": [
+    "WCE02",
+    "WCE11",
+    "WCE12"
+  ]
+}

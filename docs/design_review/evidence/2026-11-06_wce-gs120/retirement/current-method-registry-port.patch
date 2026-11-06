@@ -1,0 +1,42 @@
+--- a/python/corpus-structure/src/corpus_structure/orchestrate/phase0.py
++++ b/python/corpus-structure/src/corpus_structure/orchestrate/phase0.py
+@@ -32,10 +32,12 @@
+ )
+ from corpus_structure.ingest import methods as ingest_methods
+ from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
++from corpus_structure.methods.contextual_candidates import ContextualCandidates
+ from corpus_structure.methods.definition_applicability import (
+     DefinitionApplicabilityMethod,
+     DefinitionComponentsMethod,
+ )
++from corpus_structure.methods.definition_terms import DefinitionTermsMethod
+ from corpus_structure.methods.llm.agent_opus import AgentGeneral, AgentOpus
+ from corpus_structure.methods.math import methods as math_methods
+ from corpus_structure.methods.scoped_relations import ScopedRelationsMethod
+@@ -109,6 +111,8 @@
+     ArtifactIdentityMethod(),
+     DefinitionComponentsMethod(),
+     DefinitionApplicabilityMethod(),
++    DefinitionTermsMethod(),
++    ContextualCandidates(),
+     ConsolidateMethod(),
+     RulesMethod(),
+     EvaluateStub(),
+--- a/python/corpus-structure/src/corpus_structure/orchestrate/m1.py
++++ b/python/corpus-structure/src/corpus_structure/orchestrate/m1.py
+@@ -16,6 +16,7 @@
+     DefinitionApplicabilityMethod,
+     DefinitionComponentsMethod,
+ )
++from corpus_structure.methods.definition_terms import DefinitionTermsMethod
+ from corpus_structure.methods.m1_annotations import M1Annotations
+ from corpus_structure.methods.m1_readings import M1Readings
+ from corpus_structure.methods.m1_source import M1Candidates
+@@ -240,6 +241,7 @@
+             M1Readings(),
+             DefinitionComponentsMethod(),
+             DefinitionApplicabilityMethod(),
++            DefinitionTermsMethod(),
+             ContextualCandidates(),
+         ),
+         load_methods(path),

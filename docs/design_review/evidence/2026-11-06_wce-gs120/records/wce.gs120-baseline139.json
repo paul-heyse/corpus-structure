@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "id": "wce.gs120-baseline139",
+  "title": "Completed shared-corpus baseline and bounded exports",
+  "group": "WCE",
+  "package": "WCE02",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the actual selected40-view baseline finish native publication and retain its model, component and operation populations through ordinary read/export?",
+  "answers": [
+    "WCE02"
+  ],
+  "method": "Actual registered execution and bounded source-grounded inspection; software outcomes are separate from semantic quality.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/run_baseline.py 003",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/resume_baseline.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/export_baseline.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/verify_gliner25.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-manifest.json",
+      "role": null,
+      "sha256": "5c26959a59514e491527bb61821de0d42c7e4682338b63e2918b43767da6abec"
+    },
+    {
+      "path": "baseline003/gs120-all120-pages/configuration.json",
+      "role": null,
+      "sha256": "28efaa3a65bf19e61f448b3f86ce1374586311f19cb21a4169f0889780f423f9"
+    },
+    {
+      "path": "run_baseline.py",
+      "role": null,
+      "sha256": "b8cae9618c723091a52ed7504f01b0259d38d691b263dd9f4e2da8f3a91431c9"
+    },
+    {
+      "path": "resume_baseline.py",
+      "role": null,
+      "sha256": "0ffda0ac741367ff3ecf21e4a9c3566f8a56eced3f0ad6d4a8d0d2f19ad11040"
+    },
+    {
+      "path": "export_baseline.py",
+      "role": null,
+      "sha256": "156a9c371be1a6c6ca67e8f93d25edd878386281895fca369f395c54e868b1f0"
+    },
+    {
+      "path": "verify_gliner25.py",
+      "role": null,
+      "sha256": "0097a8817116254e7fa493ffe50ba647584c8c2cba821e5e2fa97c9b9d5c559e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "baseline001.log",
+      "role": null,
+      "sha256": "5e1691eababf3ae6793937fbfbf0ced21bf789649dcb1de756f518ce10a1d2db"
+    },
+    {
+      "path": "baseline001/failure.json",
+      "role": null,
+      "sha256": "682eb5bb710a8832a5adb9d0467160f779327e45dfb6179790cc977106452946"
+    },
+    {
+      "path": "baseline002.log",
+      "role": null,
+      "sha256": "c0a76f2d40883769bafb42de47aaa43854d49ce997a860dbbe460830cb0ea4de"
+    },
+    {
+      "path": "baseline002/failure.json",
+      "role": null,
+      "sha256": "f046c6e8141b7ab166ebadc6f83e932d98b43abc5390031f9c96b8d09e48b2c4"
+    },
+    {
+      "path": "baseline003.log",
+      "role": null,
+      "sha256": "b60bb9f296ba20307d9748e198d675f5e2dbd6e615ba1131412a87ef7f8ae530"
+    },
+    {
+      "path": "baseline003/failure.json",
+      "role": null,
+      "sha256": "1348cc4c6d0b52136c2a93a40b4ff4a2eb45d3ae52599236d25c88967fa284f4"
+    },
+    {
+      "path": "baseline003-resume001.log",
+      "role": null,
+      "sha256": "3791a3875856f842d2ee296b51a3f280dcbc406fff91ff1d355a9e581ad1c675"
+    },
+    {
+      "path": "baseline003-resume001/consolidation-result.json",
+      "role": null,
+      "sha256": "95d6ba7659c520055c10a2ba3f348eb751d11b93736b4d3717a9c2cf548b3077"
+    },
+    {
+      "path": "baseline003-resume001/failure.json",
+      "role": null,
+      "sha256": "bd6b230b99abcea7dcf8d32b04b37268246e0bce23654f87b2f724cc1caba36b"
+    },
+    {
+      "path": "baseline003-export001.log",
+      "role": null,
+      "sha256": "aaa7eefd8188cd6da0a867b169383ccc80415c1089a26f89868c4a7f652b3bed"
+    },
+    {
+      "path": "baseline003-export001",
+      "role": null,
+      "sha256": "74c2a03e2fe1f3cfba03abc630d30a1cf630f7aed3b440ef8925b84b0012bc69"
+    },
+    {
+      "path": "gliner25-verification.json",
+      "role": null,
+      "sha256": "a2d6264be5f668dab913fe2a702231c26a14b6a297d4367b491f1eb2c66ea896"
+    },
+    {
+      "path": "assessment/run139-final001",
+      "role": null,
+      "sha256": "5d9583e10d0e5503951b9c210722c88430adb48bc60ac2a7ba164850c46de01b"
+    },
+    {
+      "path": "assessment/run139-final-account001",
+      "role": null,
+      "sha256": "68c3b065fa2cf2c4fc9de87b56c9c00a88312b40dc2a6e8e814283e1a78b05ac"
+    }
+  ],
+  "depends_on": [
+    "wce02.gs120-source"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Actual run139/cut178 finished native publication after the operator interruption; all81 completed extraction task results were reused. Ordinary per-source reads/exports reconcile all53,270 contributions and19,149 operation rows across40 views, plus9 definition components. Actual GLiNER2.5 boundary checkpoint and five file hashes verified. Source views omit18 original pages; semantic capture, independent correctness and complete records remain unestablished. The10000-row unbounded-selection refusal is preserved; bounded selections pass. Rejected attempt138 full payload retention is not established by truncated error parameters.",
+  "consumed_by": [
+    "WCE02",
+    "WCE12"
+  ]
+}

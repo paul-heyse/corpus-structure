@@ -1,0 +1,249 @@
+--- a/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql
++++ b/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql
+@@ -511,17 +511,51 @@
+  lexical double precision; log_odds double precision; probability double precision; external_ boolean; policy jsonb;
+  code_gamma integer; title_gamma integer; code_mw double precision; title_mw double precision;
+  field_ jsonb; expected_value double precision; model_id text; expected_provenance jsonb; unbound jsonb; anchors jsonb;
++ parameter_name text; parameter_value jsonb; parameter_text text; decoded_value double precision;
++ title_threshold double precision; config_policy jsonb:='{}';
+  python_space text:=chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(28)||chr(29)||chr(30)||chr(31)||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288);
+ BEGIN
+  policy:=product->'policy';
++ -- MethodRegistry stores floats as canonical decimal strings; products keep typed numbers.
++ -- Decode only these declared numeric configuration fields, without rewriting custody bytes.
++ IF jsonb_typeof(config->'policy') IS DISTINCT FROM 'object'
++  OR jsonb_typeof(policy) IS DISTINCT FROM 'object' THEN
++  RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
++ IF NOT ((config->'policy') ?& ARRAY['prior','code_m','code_u','title_m','title_u'])
++  OR (SELECT count(*) FROM jsonb_each(config->'policy'))<>5 THEN
++  RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
++ FOR parameter_name,parameter_value IN
++  SELECT key,value FROM jsonb_each(config->'policy')
++  UNION ALL SELECT 'title_threshold',config->'title_threshold' LOOP
++  IF COALESCE(jsonb_typeof(parameter_value),'null') NOT IN ('number','string') THEN
++   RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514'; END IF;
++  parameter_text:=parameter_value#>>'{}';
++  IF jsonb_typeof(parameter_value)='string' THEN
++   -- Canonical floats have no exponent; reject it before the decimal normalizer expands it.
++   IF parameter_text ~ '[eE]' THEN
++    RAISE EXCEPTION 'artifact numeric config requires canonical decimal strings' USING ERRCODE='23514'; END IF;
++   IF parameter_text IS DISTINCT FROM data.decimal_canonical(parameter_text) THEN
++    RAISE EXCEPTION 'artifact numeric config requires canonical decimal strings' USING ERRCODE='23514'; END IF;
++  END IF;
++  decoded_value:=parameter_text::double precision;
++  IF NOT (decoded_value>'-Infinity'::double precision AND decoded_value<'Infinity'::double precision) THEN
++   RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514'; END IF;
++  IF parameter_name='title_threshold' THEN
++   IF decoded_value<0 OR decoded_value>100 THEN
++    RAISE EXCEPTION 'artifact title threshold must be between zero and one hundred' USING ERRCODE='23514'; END IF;
++   title_threshold:=decoded_value;
++  ELSE
++   IF decoded_value<=0 OR decoded_value>=1 THEN
++    RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
++   config_policy:=config_policy||jsonb_build_object(parameter_name,decoded_value);
++  END IF;
++ END LOOP;
+  IF product->>'identity_grain' IS DISTINCT FROM 'source_work_artifact_lineage'
+-  OR jsonb_typeof(config->'title_threshold') IS DISTINCT FROM 'number'
+-  OR (config->>'title_threshold')::double precision<0 OR (config->>'title_threshold')::double precision>100
+   OR jsonb_typeof(config->'work_bindings') IS DISTINCT FROM 'array'
+   OR jsonb_typeof(config->'external_pairs') IS DISTINCT FROM 'array'
+   OR jsonb_typeof(config->'exclusions') IS DISTINCT FROM 'array'
+   OR NOT policy ?& ARRAY['prior','code_m','code_u','title_m','title_u'] OR product->>'protocol'<>'artifact-identity-1' OR product->>'standing'<>'candidate_relative_private'
+-  OR policy IS DISTINCT FROM config->'policy' OR EXISTS(SELECT FROM jsonb_each(policy) p
++  OR policy IS DISTINCT FROM config_policy OR EXISTS(SELECT FROM jsonb_each(policy) p
+    WHERE (p.value#>>'{}')::double precision<=0 OR (p.value#>>'{}')::double precision>=1)
+   OR (SELECT count(*) FROM jsonb_each(policy))<>5 THEN
+   RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
+@@ -557,7 +591,7 @@
+   code_b:=CASE WHEN btrim(b->'artifact'->>'controlled_code') COLLATE pg_catalog.pg_unicode_fast ~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$' THEN lower(btrim(b->'artifact'->>'controlled_code')) END;
+   lexical:=ops.artifact_lexical_score(a->'artifact'->>'title',b->'artifact'->>'title');routes:='[]';
+   IF compatible AND code_a IS NOT NULL AND code_a=code_b THEN routes:=routes||'"exact_code"'::jsonb; END IF;
+-  IF compatible AND COALESCE(a->'artifact'->>'title','')<>'' AND COALESCE(b->'artifact'->>'title','')<>'' AND lexical*100 >=(config->>'title_threshold')::double precision THEN routes:=routes||'"lexical_title"'::jsonb; END IF;
++  IF compatible AND COALESCE(a->'artifact'->>'title','')<>'' AND COALESCE(b->'artifact'->>'title','')<>'' AND lexical*100 >=title_threshold THEN routes:=routes||'"lexical_title"'::jsonb; END IF;
+   IF external_ THEN routes:=routes||'"external_pairs"'::jsonb; END IF;
+   IF routes='[]'::jsonb THEN CONTINUE; END IF;
+   expected_pairs:=expected_pairs||jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id'));
+@@ -596,6 +630,8 @@
+   RAISE EXCEPTION 'artifact configured pair endpoint lies outside source cohort' USING ERRCODE='23514'; END IF;
+ EXCEPTION WHEN no_data_found OR too_many_rows THEN
+  RAISE EXCEPTION 'artifact candidate or source custody cannot resolve exact population' USING ERRCODE='23514';
++WHEN invalid_text_representation OR numeric_value_out_of_range THEN
++ RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514';
+ END $$;
+ REVOKE ALL ON FUNCTION ops.validate_artifact_identity(jsonb,jsonb,jsonb) FROM PUBLIC;
+ 
+--- a/python/corpus-structure/tests/semantic/test_artifact_identity_native.py
++++ b/python/corpus-structure/tests/semantic/test_artifact_identity_native.py
+@@ -109,6 +109,44 @@
+             )
+ 
+         check(product)
++        # Ordinary registry ABI stores float config fields as canonical strings.
++        # This helper still tests nonempty likelihood/routes independently of source custody.
++        from corpus_structure.orchestrate.registry import canonical_numbers
++
++        canonical_cfg = canonical_numbers(cfg)
++        check(product, canonical_cfg)
++        for invalid in (None, True, [], {}, "NaN", "Infinity", "-Infinity", "70.0", "7e1", " 70", "1" + "0" * 400, -0.1, 100.1):
++            bad_cfg = deepcopy(canonical_cfg)
++            bad_cfg["title_threshold"] = invalid
++            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
++                check(product, bad_cfg)
++            assert refused.value.orig.sqlstate == "23514"
++        # A valid but different threshold must not authenticate this frozen pair/routes output.
++        for threshold in ("0", "100"):
++            bad_cfg = deepcopy(canonical_cfg)
++            bad_cfg["title_threshold"] = threshold
++            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
++                check(product, bad_cfg)
++            assert refused.value.orig.sqlstate == "23514"
++        for invalid in (None, True, [], "policy", {}, {**canonical_cfg["policy"], "extra": "0.1"}):
++            bad_cfg = deepcopy(canonical_cfg)
++            bad_cfg["policy"] = invalid
++            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
++                check(product, bad_cfg)
++            assert refused.value.orig.sqlstate == "23514"
++        for key in canonical_cfg["policy"]:
++            for invalid in (None, True, [], {}, "NaN", "Infinity", "-Infinity", "0", "1", "0.10", "1e-1", "1" + "0" * 400):
++                bad_cfg = deepcopy(canonical_cfg)
++                bad_cfg["policy"][key] = invalid
++                with pytest.raises(DBAPIError) as refused, conn.begin_nested():
++                    check(product, bad_cfg)
++                assert refused.value.orig.sqlstate == "23514"
++        for key in ("prior", "code_m", "code_u", "title_m", "title_u"):
++            forged = deepcopy(product)
++            forged["policy"][key] = 0.2
++            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
++                check(forged, canonical_cfg)
++            assert refused.value.orig.sqlstate == "23514"
+         # Existing pair-only anchor/exclusion semantics are independently enforced natively.
+         guarded_cfg = {**cfg, "known_anchor_ids": ["b", "a"], "exclusions": [["a", "c"]]}
+         guarded_pairs = score_pairs(
+--- /dev/null
++++ b/python/corpus-structure/tests/semantic/test_artifact_identity_registered_native.py
+@@ -0,0 +1,124 @@
++"""Ordinary registrar/native completion observes canonical numeric configuration ABI.
++
++A controlled real native source with an empty artifact cohort isolates this ABI;
++scoring/source quality remains with the nonempty replay/provider tests.
++"""
++import json
++from dataclasses import replace
++from pathlib import Path
++
++import pytest
++from sqlalchemy import select
++from sqlalchemy.exc import DBAPIError
++
++from corpus_structure.core.method import MethodSettings
++from corpus_structure.core.vocab import Stage
++from corpus_structure.methods.artifact_identity import ArtifactIdentityConfig, ArtifactIdentityMethod
++from corpus_structure.methods.scoped_relations import SourceWorkBinding
++from corpus_structure.orchestrate import semantic
++from corpus_structure.orchestrate.commands import finalize_bound_run
++from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
++from corpus_structure.orchestrate.runner import Graph, Step
++from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
++from corpus_structure.semantic.metadata import table
++from corpus_structure.semantic.operations import OperationBinding, OperationConflict
++from corpus_structure.semantic.structural_products import ExternalSourceRef, StructuralInput, StructuralPassage
++
++from .native_record_fixtures import (
++    complete_contributions, contribution_drafts, private_source as private_source,
++)
++from .witnessed_scenario_support import completed_metadata
++
++
++def test_registered_artifact_canonical_config_completes_and_policy_forgery_refuses(
++    private_source, semantic_db_engine, tmp_path, monkeypatch
++):
++    case = private_source
++    # Use current native artifact owners, without overriding source replay or permissions.
++    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
++    body = sql.read_text()
++    helper = body[body.index("CREATE OR REPLACE FUNCTION ops.artifact_source_records"):
++                  body.index("CREATE OR REPLACE FUNCTION ops.validate_structural_product_report")]
++    with semantic_db_engine.begin() as conn:
++        conn.exec_driver_sql(helper, execution_options={"no_parameters": True})
++    with case.writer.begin() as conn:
++        complete_contributions(case, conn, contribution_drafts(case))
++    finalize_bound_run(case.writer, case.run, "artifact-abi-native-source")
++    completed, revision, _runtime = completed_metadata(case, case.run)
++    native = case.view_row
++    source = ExternalSourceRef(
++        project_id="private-records", run_id=case.run, cut_id=completed["cut_id"],
++        release_id=case.prepared.release_id, result_revision=revision, source_view_id=case.view,
++        native_task_id=native["native_task_id"], native_product_key=native["native_product_key"],
++        native_content_digest=native["native_content_digest"],
++        projection_digest=native["projection_digest"], recipe_digest=native["recipe_digest"],
++        coordinate_version=2,
++    )
++    inputs = StructuralInput(
++        question="retain an actual controlled artifact cohort under canonical config custody",
++        scope="native canonical-config boundary", inventory_id="artifact-abi-source",
++        policy_id="source-artifact-identity-1", sources=(source,),
++        passages=(StructuralPassage(passage_id="literal", source_ref=source.identity,
++                                   start=0, end=2, text="12", scope="controlled native source"),),
++        dependencies=("controlled-native-source",),
++    )
++    policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
++    cfg = ArtifactIdentityConfig(
++        inputs=inputs, structural_input_digest=inputs.identity, title_threshold=70.5,
++        policy=policy, work_bindings=(SourceWorkBinding(
++            native_content_digest=source.native_content_digest, source_work="controlled-book",
++            provenance="actual controlled source fixture"),),
++    )
++    method = ArtifactIdentityMethod()
++    registry = MethodRegistry([method], MethodsFile(configs={
++        method.name: {"default": cfg.model_dump(mode="json")}}))
++    resolved = registry.resolve(method.name, "default")
++    assert resolved.params["title_threshold"] == "70.5"
++    assert resolved.params["policy"] == {
++        "prior": "0.1", "code_m": "0.9", "code_u": "0.01", "title_m": "0.8", "title_u": "0.05"}
++
++    def run():
++        return semantic.run_source_methods(
++            case.writer, project_id="private-records", prepared=case.prepared,
++            binding=OperationBinding(case.prepared.release_id, "artifact-abi-native-source", revision, b"{}"),
++            registry=registry, graph=Graph(((Stage.ASSEMBLE, (Step(method.name + "/default"),)),), policy_propose=False),
++            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
++            fresh=(method.name,),
++        )
++
++    success = run()
++    tasks, results, configs = (table(n) for n in ("ops.task", "ops.task_result", "ops.method_config"))
++    with case.writer.connect() as conn:
++        row = conn.execute(select(tasks.c.status, configs.c.params, results.c.body)
++                           .join(configs, configs.c.id == tasks.c.method_config_id)
++                           .join(results, results.c.task_id == tasks.c.id)
++                           .where(tasks.c.run_id == success.run_id)).mappings().one()
++    stored = row["params"]  # Native method_config.params is JSONB, returned as a mapping.
++    assert stored == dict(resolved.params)
++    assert row["status"] == "done"
++    product = row["body"]["structural_product"]["artifact_identity"]
++    assert product["policy"] == policy.model_dump(mode="json")
++    assert all(isinstance(v, float) for v in product["policy"].values())
++    assert product["pairs"] == []  # This native fixture has no numbered artifacts.
++
++    original = ArtifactIdentityMethod.run
++
++    def forged(self, units, configuration, context):
++        produced = original(self, units, configuration, context)
++        altered = []
++        for result in produced:
++            payload = json.loads(json.dumps(result.structural_product))
++            payload["artifact_identity"]["policy"]["prior"] = 0.2
++            altered.append(replace(result, structural_product=payload))
++        return tuple(altered)
++
++    monkeypatch.setattr(ArtifactIdentityMethod, "run", forged)
++    with pytest.raises((DBAPIError, OperationConflict), match="artifact model requires"):
++        run()
++    with case.writer.connect() as conn:
++        failed = conn.execute(select(tasks.c.id, tasks.c.status)
++                              .where(tasks.c.method_config_id == conn.scalar(
++                                  select(tasks.c.method_config_id).where(tasks.c.run_id == success.run_id)))
++                              .order_by(tasks.c.id.desc()).limit(1)).mappings().one()
++        assert failed["status"] in {"failed", "cancelled"}
++        assert conn.scalar(select(results.c.task_id).where(results.c.task_id == failed["id"])) is None

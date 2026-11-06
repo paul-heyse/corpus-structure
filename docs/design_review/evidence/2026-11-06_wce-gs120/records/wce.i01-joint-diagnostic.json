@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "wce.i01-joint-diagnostic",
+  "title": "Bounded GLiNER2.5 joint decoder diagnostic",
+  "group": "WCE",
+  "package": "WCE12",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does typed joint decoding resolve the observed independent-role inconsistency on three actual baseline windows without substituting graph coherence for source meaning?",
+  "answers": [
+    "WCE12"
+  ],
+  "method": "Actual registered execution and bounded source-grounded inspection; software outcomes are separate from semantic quality.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/joint-ie-investigation001/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "joint-ie-investigation001/probe.py",
+      "role": null,
+      "sha256": "c25d9e36f14229a6d125d801c2ac9e00ed2508b7a914f8b52974e2979289bc1f"
+    },
+    {
+      "path": "joint-ie-investigation001/inputs.json",
+      "role": null,
+      "sha256": "1b3ac3b4b8e2494f1a0001262d4f5ec41cf1d966f6d9286ea8325dfa9b1c475b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "joint-ie-investigation001/result.json",
+      "role": null,
+      "sha256": "1639f164370565b3555e4f4ab4a16113289b179a81671f49d8439eef9abd3407"
+    },
+    {
+      "path": "joint-ie-investigation001/probe.log",
+      "role": null,
+      "sha256": "8773d03b9b7824838af981c000b8815882fbfb9e479a4080ee65b65df4061063"
+    }
+  ],
+  "depends_on": [
+    "wce02.gs120-source"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Actual GLiNER2.5 JointIE returned three feasible graphs with17 combined edges and exact entity slices. Role-semantic benefit is not established: retained edges include binomial-distribution to Section5.2 and p to normal-density under a definition relation. Do not activate this configuration. Candidate role/content improvement remains the prerequisite for another joint challenger; no general absence-of-capability or efficacy claim follows.",
+  "consumed_by": [
+    "WCE02",
+    "WCE12"
+  ]
+}
