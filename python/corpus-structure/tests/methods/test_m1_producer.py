@@ -173,7 +173,7 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
         .model_copy(
             update={
                 "local_schema": {"entities": ["term"]},
-                "annotation_token_rules": {"copula": [[{"LOWER": "is"}]]},
+                "annotation_rules": (m1_source.AnnotationRule(rule="copula", variant="is", mechanism="token", pattern=[{"LOWER": "is"}], bindings={"cue": {"node": "match"}}),),
             }
         )
     )
@@ -185,6 +185,15 @@ def test_local_schema_and_retained_lower_rule_products_survive_empty_record_outp
     assert result.contributions is not None
     types = {row["semantic_type"] for row in result.contributions}
     assert {"source_rule.copula", "entity.term"} <= types
+    assert "source_role.cue" in types
+    (role,) = [row for row in result.contributions if row["semantic_type"] == "source_role.cue"]
+    assert role["component"]["kind"] == "located_role"
+    assert role["component"]["roles"] == [dict(role="cue", anchor_ids=[a["anchor_id"] for a in role["anchors"]], head_token=1, expansion="exact", outcome="complete")]
+    assert [(a["start"], a["end"], a["source_piece"]) for a in role["anchors"]] == [(5, 7, "is")]
+    assert role["component"]["interpretation"] == "unassessed"
+    assert role["standing"] == "retained_private"
+    assert all(op["operation_version"] == "retained-annotation-rules-2"
+               for op in result.contribution_operations if op["question"] == "propose_named_source_roles_from_retained_annotations")
     assert not result.records
     assert result.parse_detail is not None and result.parse_detail["local_reports"]
 
@@ -645,3 +654,22 @@ def test_dense_native_structure_emits_only_the_explicit_context_target_cells(mon
         }
         assert len(captured[-1]["cells"]) == 9
     assert len({index for group in captured for index in group["cells"]}) == 270
+
+
+def test_witnessed_recipe_is_explicit_versioned_and_rejects_old_writer_config():
+    from pydantic import ValidationError
+    from corpus_structure.orchestrate.m1 import registry
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    methods = registry(ROOT / "domains/statistics")
+    cfg = methods.overlay("extract.m1_candidates", "witnessed")
+    assert m1_source.M1Candidates.version == "8"
+    assert {(r.rule, r.variant) for r in cfg.annotation_rules} == {
+        ("defining", "active"), ("defining", "passive"),
+        ("symbol_declaration", "denotes"), ("condition_exception", "marked_clause"),
+    }
+    baseline = methods.overlay("extract.m1_candidates", "default")
+    assert not baseline.annotation_rules
+    assert canonical_bytes(cfg.model_dump(mode="json")) != canonical_bytes(baseline.model_dump(mode="json"))
+    with pytest.raises(ValidationError, match="annotation_token_rules"):
+        m1_source.M1Config.model_validate({**baseline.model_dump(), "annotation_token_rules": {}})

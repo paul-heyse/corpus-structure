@@ -71,6 +71,7 @@ def annotation_view(
         raise ValueError("invalid retained token extent or head index")
     # These indices are already absolute within the original block Doc. Do not
     # apply the relative HEAD-array convention to the constructor's heads argument.
+    complete_dep = availability.get("DEP") == "complete"
     doc = Doc(
         vocab,
         words=[
@@ -81,8 +82,9 @@ def annotation_view(
         pos=[row.pos for row in rows],
         tags=[row.tag for row in rows],
         morphs=["|".join(row.morphology) for row in rows],
-        heads=[row.head for row in rows],
-        deps=[row.dependency for row in rows],
+        heads=[row.head for row in rows] if complete_dep else None,
+        deps=[row.dependency for row in rows] if complete_dep else None,
+        sent_starts=None if complete_dep else [row.start in {s.start for s in product.sentences} for row in rows],
     )
     view = AnnotationView(product, doc)
     view.check_layout()
@@ -98,19 +100,10 @@ def annotation_view(
             )
     for native, retained in zip(doc, rows, strict=True):
         if (
-            native.lemma_,
-            native.pos_,
-            native.tag_,
+            native.lemma_, native.pos_, native.tag_,
             tuple(str(native.morph).split("|")) if str(native.morph) else (),
-            native.dep_,
-            native.head.i,
-        ) != (
-            retained.lemma,
-            retained.pos,
-            retained.tag,
-            retained.morphology,
-            retained.dependency,
-            retained.head,
-        ):
+        ) != (retained.lemma, retained.pos, retained.tag, retained.morphology):
             raise ValueError("native view changed retained linguistic columns")
+        if complete_dep and (native.dep_, native.head.i) != (retained.dependency, retained.head):
+            raise ValueError("native view changed retained dependency columns")
     return view

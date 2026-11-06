@@ -14,6 +14,7 @@ from corpus_structure.core.method import CoverageDraft, Digest, Resources, UnitR
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.annotations import AnnotationProfile
 from corpus_structure.ingest.sentences import SentenceConfig, pipeline
+from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import (
     WHITESPACE_PROFILE,
     GlinerInput,
@@ -141,7 +142,7 @@ def _structural_groups(view, selection, context):
 class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     local_schema: dict[str, Any] | None = None
-    annotation_token_rules: dict[str, list[list[dict[str, Any]]]] = Field(default_factory=dict)
+    annotation_rules: tuple[AnnotationRule, ...] = ()
     formula_syntax: bool = False
     formula_syntax_input_policy: Literal["recognized_only", "captured_native_text"] = (
         "recognized_only"
@@ -260,7 +261,7 @@ def configured_pack_variants(prepared, cfg):
 
 class M1Candidates:
     name = "extract.m1_candidates"
-    version = "7"
+    version = "8"
     family = MethodFamily.EXTRACT
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -444,13 +445,13 @@ class M1Candidates:
         details["local_execution"] = []
         if local_pack is not None:
             details["schema_packs"][local_pack.fingerprint] = asdict(local_pack)
-        if cfg.annotation_token_rules:
+        if cfg.annotation_rules:
             from corpus_structure.ingest.annotation_views import annotation_view
             from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
             from corpus_structure.methods.contribution_adapter import adapt_annotation_matches
 
             vocabulary = pipeline(cfg.sentences).vocab
-            rules = PreparedAnnotationRules(vocabulary, token_rules=cfg.annotation_token_rules)
+            rules = PreparedAnnotationRules(vocabulary, rules=cfg.annotation_rules)
             for product in prepared_source.annotations:
                 primary_ranges = tuple(
                     (selection.start, selection.end) for selection in prepared_source.selections
@@ -461,8 +462,9 @@ class M1Candidates:
                     continue
                 ctx.check_active()
                 text = prepared_source.source.text[product.block_start : product.block_end]
-                native_view = annotation_view(product, text, vocabulary)
-                matches = rules.match(native_view)
+                native_view = annotation_view(product, text, vocabulary, required=())
+                match_result = rules.match(native_view)
+                matches = match_result.matches
                 if cfg.region_pointers is not None:
                     matches = tuple(
                         match
@@ -477,7 +479,8 @@ class M1Candidates:
                         prepared_source.source,
                         product,
                         matches,
-                        rules=cfg.annotation_token_rules,
+                        rules=[rule.model_dump(mode="json") for rule in cfg.annotation_rules],
+                        availability=match_result.availability,
                     )
                 )
         assemblies = []

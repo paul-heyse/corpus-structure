@@ -202,25 +202,16 @@ def test_retained_matchers_preserve_overlaps_and_source_coordinates(controlled):
     request = item(controlled, "X X .", start=100)
     (product,) = annotate((request,))
     view = annotation_view(product, request.block.text, controlled.vocab)
-    rules = PreparedAnnotationRules(
-        controlled.vocab,
-        token_rules={"cue": [[{"TEXT": "X"}]]},
-        phrase_rules={"name": [("X", "X")]},
-        dependency_rules={
-            "role": [
-                [
-                    {"RIGHT_ID": "root", "RIGHT_ATTRS": {"DEP": "ROOT"}},
-                    {
-                        "LEFT_ID": "root",
-                        "REL_OP": ">",
-                        "RIGHT_ID": "other",
-                        "RIGHT_ATTRS": {"TEXT": "X"},
-                    },
-                ]
-            ]
-        },
-    )
-    matches = rules.match(view)
+    from corpus_structure.methods.annotation_rules import AnnotationRule
+    rules = PreparedAnnotationRules(controlled.vocab, rules=(
+        AnnotationRule(rule="cue", variant="x", mechanism="token", pattern=[{"TEXT": "X"}], bindings={"cue": {"node": "match"}}),
+        AnnotationRule(rule="name", variant="xx", mechanism="phrase", pattern=["X", "X"], bindings={"name": {"node": "match"}}),
+        AnnotationRule(rule="role", variant="dep", mechanism="dependency", pattern=[
+            {"RIGHT_ID": "root", "RIGHT_ATTRS": {"DEP": "ROOT"}},
+            {"LEFT_ID": "root", "REL_OP": ">", "RIGHT_ID": "other", "RIGHT_ATTRS": {"TEXT": "X"}},
+        ], bindings={"head": {"node": "root"}, "other": {"node": "other"}}),
+    ))
+    matches = rules.match(view).matches
     assert [(m.rule, m.extents) for m in matches[:3]] == [
         ("cue", ((100, 101),)),
         ("cue", ((102, 103),)),
@@ -382,3 +373,85 @@ def test_display_only_formula_retains_absolute_scope_and_native_identity_despite
     assert [(sentence.start, sentence.end) for sentence in product.sentences] == [(200, 205)]
     assert all(token.piece_indices == (0,) for token in product.tokens)
     assert product.native_pieces[0].item_ref == "#/texts/display-formula"
+
+
+def test_named_variants_keep_node_order_roles_and_overlapping_raw_candidates(controlled):
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules, RAW_GROUP, RECONCILED_GROUP
+
+    request = item(controlled, "X X .", start=100)
+    (product,) = annotate((request,))
+    view = annotation_view(product, request.block.text, controlled.vocab)
+    root = {"RIGHT_ID": "root", "RIGHT_ATTRS": {"DEP": "ROOT"}}
+    other = {"LEFT_ID": "root", "REL_OP": ">", "RIGHT_ID": "other", "RIGHT_ATTRS": {"TEXT": "X"}}
+    reverse = [
+        {"RIGHT_ID": "other", "RIGHT_ATTRS": {"TEXT": "X", "DEP": "dep"}},
+        {"LEFT_ID": "other", "REL_OP": "<", "RIGHT_ID": "root", "RIGHT_ATTRS": {"DEP": "ROOT"}},
+    ]
+    prepared = PreparedAnnotationRules(controlled.vocab, rules=(
+        AnnotationRule(rule="same", variant="forward", mechanism="dependency", pattern=[root, other], bindings={"actor": {"node": "root"}, "object": {"node": "other"}}),
+        AnnotationRule(rule="same", variant="reverse", mechanism="dependency", pattern=reverse, bindings={"actor": {"node": "root"}, "object": {"node": "other"}}),
+        AnnotationRule(rule="nested", variant="whole", mechanism="phrase", pattern=["X", "X"], bindings={"phrase": {"node": "match"}}),
+    ))
+    matches = prepared.match(view).matches
+    assert [(m.variant, m.nodes) for m in matches[:2]] == [("forward", (0, 1)), ("reverse", (1, 0))]
+    assert [[(r.role, r.head, r.extents) for r in m.roles] for m in matches[:2]] == [
+        [("actor", 0, ((100, 101),)), ("object", 1, ((102, 103),))],
+        [("actor", 0, ((100, 101),)), ("object", 1, ((102, 103),))],
+    ]
+    assert len(view.doc.spans[RAW_GROUP]) == 5
+    assert {s.label_ for s in view.doc.spans[RAW_GROUP]} == {"actor", "object", "phrase"}
+    assert not view.doc.ents
+    view.doc.spans[RECONCILED_GROUP] = []
+    assert len(view.doc.spans[RAW_GROUP]) == 5
+    prepared.match(view)
+    assert len(view.doc.spans[RAW_GROUP]) == 5  # Explicit replacement, never accumulation.
+    suggestions = prepared.candidate_suggester([view.doc], ops=__import__('thinc').api.get_current_ops())
+    assert suggestions.lengths.tolist() == [5]
+
+
+def test_unavailable_dependency_variant_preserves_token_phrase_work(controlled):
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+
+    request = item(controlled, "X X .", start=100)
+    (product,) = annotate((request,))
+    product = replace(product, availability=tuple(replace(c, status="absent") if c.attribute == "DEP" else c for c in product.availability))
+    view = annotation_view(product, request.block.text, controlled.vocab, required=())
+    prepared = PreparedAnnotationRules(controlled.vocab, rules=(
+        AnnotationRule(rule="available", variant="token", mechanism="token", pattern=[{"TEXT": "X"}], bindings={"cue": {"node": "match"}}),
+        AnnotationRule(rule="available", variant="phrase", mechanism="phrase", pattern=["X", "X"], bindings={"term": {"node": "match"}}),
+        AnnotationRule(rule="dependency", variant="missing", mechanism="dependency", pattern=[{"RIGHT_ID": "root", "RIGHT_ATTRS": {"DEP": "ROOT"}}], bindings={"head": {"node": "root"}}),
+    ))
+    result = prepared.match(view)
+    assert [(m.rule, m.variant) for m in result.matches] == [("available", "token"), ("available", "token"), ("available", "phrase")]
+    assert result.availability == (("available", "token", "available"), ("available", "phrase", "available"), ("dependency", "missing", "unavailable"))
+    assert not view.doc.has_annotation("DEP")
+
+
+def test_bounded_expansion_retains_partial_head_and_independent_scope(controlled):
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+
+    request = item(controlled, "X X .", start=100)
+    (product,) = annotate((request,))
+    view = annotation_view(product, request.block.text, controlled.vocab)
+    prepared = PreparedAnnotationRules(controlled.vocab, rules=(AnnotationRule(
+        rule="expand", variant="bounded", mechanism="dependency",
+        pattern=[{"RIGHT_ID": "head", "RIGHT_ATTRS": {"DEP": "ROOT"}}],
+        bindings={"whole": {"node": "head", "expansion": "subtree", "max_tokens": 1}, "exact": {"node": "head"}},
+    ),))
+    (match,) = prepared.match(view).matches
+    assert [(r.role, r.status, r.nodes, r.extents) for r in match.roles] == [
+        ("whole", "partial", (0,), ((100, 101),)), ("exact", "complete", (0,), ((100, 101),))]
+    assert "token limit" in match.roles[0].reason
+
+
+def test_authored_bindings_refuse_unknown_nodes_and_duplicate_variants(controlled):
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+
+    with pytest.raises(ValueError, match="unavailable pattern node"):
+        AnnotationRule(rule="bad", variant="one", mechanism="token", pattern=[{"TEXT": "X"}], bindings={"role": {"node": "made_up"}})
+    rule = AnnotationRule(rule="same", variant="one", mechanism="token", pattern=[{"TEXT": "X"}], bindings={"role": {"node": "match"}})
+    with pytest.raises(ValueError, match="duplicate authored"):
+        PreparedAnnotationRules(controlled.vocab, rules=(rule, rule))

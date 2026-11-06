@@ -8,7 +8,7 @@ configs:
   extract.m1_annotations:
     default: {}
   extract.m1_candidates:
-    default:
+    default: &baseline
       snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
       checkpoint: fastino/gliner2.5-base-v1
       revision: 54785d51df8d86a0d8f2eb212fec15871aad2c4d
@@ -29,6 +29,61 @@ configs:
       max_context_pieces: 64
       pack_descriptions: {}
       source_inspection: false
+    witnessed:
+      <<: *baseline
+      annotation_rules:
+      - rule: defining
+        variant: active
+        mechanism: dependency
+        pattern:
+        - RIGHT_ID: cue
+          RIGHT_ATTRS: {LEMMA: {IN: [define, call]}}
+        - LEFT_ID: cue
+          REL_OP: '>'
+          RIGHT_ID: term
+          RIGHT_ATTRS: {DEP: {IN: [dobj, obj, attr]}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term, expansion: subtree, max_tokens: 32}
+      - rule: defining
+        variant: passive
+        mechanism: dependency
+        pattern:
+        - RIGHT_ID: term
+          RIGHT_ATTRS: {DEP: nsubjpass}
+        - LEFT_ID: term
+          REL_OP: '<'
+          RIGHT_ID: cue
+          RIGHT_ATTRS: {LEMMA: {IN: [define, call]}}
+        bindings:
+          defined_term: {node: term, expansion: subtree, max_tokens: 32}
+          defining_cue: {node: cue}
+      - rule: symbol_declaration
+        variant: denotes
+        mechanism: dependency
+        pattern:
+        - RIGHT_ID: cue
+          RIGHT_ATTRS: {LEMMA: denote}
+        - LEFT_ID: cue
+          REL_OP: '>'
+          RIGHT_ID: symbol
+          RIGHT_ATTRS: {DEP: nsubj}
+        bindings:
+          declaration_cue: {node: cue}
+          declared_symbol: {node: symbol}
+      - rule: condition_exception
+        variant: marked_clause
+        mechanism: dependency
+        pattern:
+        - RIGHT_ID: marker
+          RIGHT_ATTRS: {LOWER: {IN: [if, unless, except]}}
+        - LEFT_ID: marker
+          REL_OP: '<'
+          RIGHT_ID: clause
+          RIGHT_ATTRS: {}
+        bindings:
+          scope_marker: {node: marker}
+          scoped_clause: {node: clause, expansion: subtree, max_tokens: 64, stop_words: []}
     described: &described
       snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
       checkpoint: fastino/gliner2.5-base-v1

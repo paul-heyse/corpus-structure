@@ -506,66 +506,74 @@ def _adapt_local_report(report, context, *, pack, item_key, dependencies):
     return builder.finish()
 
 
-def adapt_annotation_matches(source, product, matches, *, rules):
-    """Lower retained-column rule matches to ordinary source contribution custody."""
-    from corpus_structure.semantic.source_contexts import (
-        NativeSourceContext,
-        NativeSourcePin,
-        SourceSlice,
-    )
+def adapt_annotation_matches(source, product, matches, *, rules, availability):
+    """Lower named match evidence once; retain each zero-output/unavailable variant."""
+    from corpus_structure.semantic.source_contexts import NativeSourcePin, SourceSlice
 
     if product.source != NativeSourcePin.from_source(source):
         raise ValueError("retained annotation belongs to another source")
-
     context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(source.source_view_id, product.block_start, product.block_end),),
-        "retained annotation rule proposals",
-        "retained-annotation-rules-1",
-        "whole retained block",
-        max_chars=product.block_end - product.block_start,
+        source, (), (SourceSlice(source.source_view_id, product.block_start, product.block_end),),
+        "retained named annotation proposals", "retained-annotation-rules-2",
+        "whole retained block", max_chars=product.block_end - product.block_start,
     )
-    builder = _Builder(
-        context,
-        report_digest=_digest([asdict(match) for match in matches]),
-        computation=product.dependency_digest,
-        producer="retained_annotation_rules",
-        item_key=product.block_id,
-        dependencies=("annotation:" + product.dependency_digest, "rules:" + _digest(rules)),
-        question="propose_source_cues_from_retained_annotations",
-        operation_version="retained-annotation-rules-1",
-    )
-    for index, match in enumerate(matches):
-        builder.operation["inspected_count"] += 1
-        anchors = []
-        extents = match.extents
-        if match.mechanism != "dependency" and extents:
-            extents = ((extents[0][0], extents[-1][1]),)
-        for start, end in extents:
-            for piece in context.map_span(
-                start - product.block_start,
-                end - product.block_start,
-                literal=source.text[start:end],
-                allow_multiple=True,
-            ):
-                anchor, coordinate = evidence_anchor(context, piece, native=True)
-                anchors.append(anchor)
-                builder.coordinates[
-                    canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})
-                ] = coordinate
-        builder.add(
-            kind="proposal",
-            semantic_type="source_rule." + match.rule,
-            item_key=product.block_id + f"/match/{index}",
-            anchors=anchors,
-            value=source_value(asdict(match)),
-            reason=(
-                "source-located linguistic pattern proposal; "
-                "no semantic admission or attachment proof"
-            ),
+    states = {(rule, variant): state for rule, variant, state in availability}
+    batches = []
+    for rule in rules:
+        variant_key = _digest((rule["rule"], rule["variant"]))
+        state = states[rule["rule"], rule["variant"]]
+        selected = [match for match in matches if (match.rule, match.variant) == (rule["rule"], rule["variant"])]
+        builder = _Builder(
+            context, report_digest=_digest([asdict(match) for match in selected]),
+            computation=product.dependency_digest, producer="retained_annotation_rules",
+            item_key=product.block_id + "/" + variant_key,
+            dependencies=("annotation:" + product.dependency_digest, "rules:" + _digest(rule)),
+            question="propose_named_source_roles_from_retained_annotations",
+            operation_version="retained-annotation-rules-2",
         )
-    return builder.finish()
+        builder.operation["inspected_count"] = len(product.tokens) if state == "available" else 0
+
+        def anchors_for(extents, builder=builder):
+            anchors = []
+            for start, end in extents:
+                for piece in context.map_span(start-product.block_start, end-product.block_start,
+                        literal=source.text[start:end], allow_multiple=True):
+                    anchor, coordinate = evidence_anchor(context, piece, native=True)
+                    anchors.append(anchor)
+                    builder.coordinates[canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})] = coordinate
+            return anchors
+
+        for index, match in enumerate(selected):
+            key = product.block_id + f"/{variant_key}/match/{index}"
+            builder.add(kind="proposal", semantic_type="source_rule." + match.rule,
+                item_key=key, anchors=anchors_for(match.extents), value=source_value(asdict(match)),
+                reason="named source-located pattern proposal; no attachment or semantic admission")
+            for role in match.roles:
+                role_anchors = anchors_for(role.extents)
+                dependencies = builder.operation["computation_dependencies"]
+                component = dict(
+                    protocol="witnessed-component-1", kind="located_role",
+                    question=builder.operation["question"], question_version=builder.operation["operation_version"],
+                    scope=f"source_view:{source.source_view_id}/block:{product.block_id}", interpretation="unassessed",
+                    bases=[dict(kind="matched_cue", dependencies=dependencies, anchor_ids=[a["anchor_id"] for a in role_anchors])],
+                    dependencies=dependencies, rule=match.rule, variant=match.variant,
+                    roles=[dict(role=role.role, anchor_ids=[a["anchor_id"] for a in role_anchors],
+                        head_token=role.head, expansion="sentence_subtree" if role.expansion == "subtree" else role.expansion,
+                        outcome="unresolved" if role.status == "unavailable" else role.status)],
+                )
+                builder.add(kind="proposal", semantic_type="source_role." + role.role,
+                    item_key=key + "/role/" + role.role, anchors=role_anchors, component=component,
+                    value=source_value(dict(protocol="named-annotation-role-2", rule=match.rule,
+                        variant=match.variant, mechanism=match.mechanism,
+                        annotation_digest=product.dependency_digest, **asdict(role))),
+                    disposition="unresolved" if role.status != "complete" else "candidate",
+                    reason=role.reason or "located syntactic role proposal; not semantic attachment proof")
+        batch = builder.finish()
+        if state != "available":
+            builder.operation["outcome"] = "unsupported"
+            builder.operation["reason"] = "required retained linguistic columns unavailable"
+        batches.append(batch)
+    return ContributionBatch.combine(batches)
 
 
 def adapt_formula_syntax(context, occurrence, *, seconds=1.0, input_policy="recognized_only"):
