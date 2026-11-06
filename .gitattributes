@@ -28,12 +28,9 @@ docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.json fi
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.jsonl filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stderr.txt filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-30_data-capture/run.log filter=lfs diff=lfs merge=lfs -text
-
 docs/design_review/evidence/2026-10-31_pdf-child-ocr/inputs/**/*.png filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-child-ocr/inputs/*.png filter=lfs diff=lfs merge=lfs -text
-
 fixtures/toy/corpus/toy.pdf filter=lfs diff=lfs merge=lfs -text
-
 docs/design_review/evidence/2026-11-03_m1-population/regions.jsonl filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-population/manifest.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-gliner-cpu/attempt-*.json filter=lfs diff=lfs merge=lfs -text
@@ -63,34 +60,28 @@ docs/design_review/evidence/2026-11-03_m1-record-references/*.log filter=lfs dif
 docs/design_review/evidence/2026-11-03_m1-record-references/*.patch filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-record-references/final-worker-handoff/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-record-references/final-worker-handoff/*.patch filter=lfs diff=lfs merge=lfs -text
-
 docs/design_review/evidence/2026-11-03_m1-qualification/native-author-*/** filter=lfs diff=lfs merge=lfs -text
-
 # Audit-closure raw diagnostic receipts retain original bytes through LFS.
 docs/design_review/evidence/2026-11-03_audit-closure/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_audit-closure/candidate-*/* filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_ac14-acceptance/**/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_ac14-acceptance/**/attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_ac14-acceptance/native*/candidate-*/* filter=lfs diff=lfs merge=lfs -text
-
 # Hash-bound generated native DDL retains the original compiler bytes.
 python/corpus-structure/semantic_alembic/versions/semantic_m1_admission_20261104_physical.sql filter=lfs diff=lfs merge=lfs -text
-
 docs/design_review/evidence/2026-11-05_pce-structural-products/native_candidate_*/** filter=lfs diff=lfs merge=lfs -text
-
 python/corpus-structure/semantic_alembic/versions/semantic_pce_structure_20261105_* filter=lfs diff=lfs merge=lfs -text
 python/corpus-structure/semantic_alembic/versions/semantic_pce_exposure_20261105_* filter=lfs diff=lfs merge=lfs -text
-
 # WCE native authoring and parallel diagnostic outputs preserve exact raw bytes.
 docs/design_review/evidence/2026-11-06_wce-contracts/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/native-candidate*/** filter=lfs diff=lfs merge=lfs -text
 python/corpus-structure/semantic_alembic/versions/semantic_wce_* filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/*.jsonl filter=lfs diff=lfs merge=lfs -text
-
 # Frozen WCE source intake, candidate captures and protected-reference receipts.
 docs/design_review/evidence/2026-11-06_wce-candidate-foundation/candidates*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-candidate-foundation/intake*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-candidate-foundation/normal-excerpt*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-candidate-foundation/normal-native-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-candidate-foundation/*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-definition-linking/normal-*.json filter=lfs diff=lfs merge=lfs -text
