@@ -132,6 +132,16 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
     assert all("edge_id" not in source_python(row["value"]) and "constraint_id" not in source_python(row["value"]) for row in rows)
     assert all(row["members"] == (source["contribution_id"],) for row in rows)
     assert len(decision.selected_edges) == 2
+    first = relationship_contributions(decision, source, inventory, "edge-op", {
+        "concept": {"term": {"text": "Mean", "start": 0}, "content": {"text": "average", "start": 8}}
+    })
+    reordered = relationship_contributions(decision, source, inventory, "edge-op", {
+        "concept": {"content": {"start": 8, "text": "average"}, "term": {"start": 0, "text": "Mean"}}
+    })
+    assert first == reordered
+    assert source_python(first[0]["value"])["target"] == {
+        "term": {"text": "Mean", "start": 0}, "content": {"text": "average", "start": 8}
+    }
 
 
 @pytest.mark.parametrize(

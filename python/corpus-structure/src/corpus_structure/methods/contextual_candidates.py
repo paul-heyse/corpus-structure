@@ -86,9 +86,9 @@ def relationship_contributions(decision, source_product, inventory, operation_ke
             standing="retained_private", score_state="missing",
             computation_dependencies=(source_product["contribution_id"], decision.candidate_list_id,
                                       decision.decision_id, inventory.source_selection, edge.edge_id),
-            value=source_value(dict(target=semantic_targets[target.target_id],
+            value=source_value(json.loads(canonical_bytes(dict(target=semantic_targets[target.target_id],
                                     relation=edge.relation, scope=decision.scope,
-                                    effective_version=decision.effective_version)),
+                                    effective_version=decision.effective_version)))),
         )
         row["contribution_id"] = contribution_identity(row)
         rows.append(row)
