@@ -47,3 +47,74 @@ def test_empty_selected_population_is_not_source_completeness(monkeypatch):
     assert result.reports == () and result.next_after_task_id is None
     assert result.source_coverage == "declared_report_inputs_only"
     assert result.standing == "private_proposals"
+
+
+def dossier_metadata():
+    return dict(
+        origin_id=3,
+        product_id="structural:exact",
+        policy="supported-facet-greedy-1",
+        membership_digest="a" * 64,
+        facet_digest="b" * 64,
+        mandatory_overflow=True,
+        selected_count=3,
+        full_member_count=5,
+        omitted_member_count=2,
+        missing_facet_count=1,
+    )
+
+
+def test_dossier_page_budget_checks_selected_projection_before_hydration(monkeypatch):
+    bind(monkeypatch)
+    conn = MagicMock(spec=Connection)
+    conn.execute.return_value.mappings.return_value.one_or_none.return_value = dossier_metadata()
+    conn.scalar.return_value = 2000
+    with pytest.raises(SemanticRefusal, match="byte budget"):
+        reader.serve_dossier_representation(
+            conn, reader.DossierRepresentationRequest(run_id=1, task_id=12, max_bytes=1000)
+        )
+    assert conn.scalar.call_count == 1
+    sql = str(conn.scalar.call_args.args[0])
+    assert "octet_length(body::text)" in sql
+    assert "ord>:offset" in sql and "ord<=:end_offset" in sql
+
+
+def test_dossier_page_continuation_is_bound_before_selected_payload_read(monkeypatch):
+    bind(monkeypatch)
+    conn = MagicMock(spec=Connection)
+    conn.execute.return_value.mappings.return_value.one_or_none.return_value = dossier_metadata()
+    cursor = reader.DossierContinuation(
+        product_id="another",
+        membership_digest="a" * 64,
+        facet_digest="b" * 64,
+        policy="supported-facet-greedy-1",
+        offset=2,
+    )
+    with pytest.raises(SemanticRefusal, match="continuation differs"):
+        reader.serve_dossier_representation(
+            conn, reader.DossierRepresentationRequest(run_id=1, task_id=12, continuation=cursor)
+        )
+    conn.scalar.assert_not_called()
+
+
+def test_dossier_page_returns_selected_members_and_exact_citations(monkeypatch):
+    bind(monkeypatch)
+    conn = MagicMock(spec=Connection)
+    conn.execute.return_value.mappings.return_value.one_or_none.return_value = dossier_metadata()
+    conn.scalar.side_effect = (
+        100,
+        dict(
+            members=[dict(member_id="m")],
+            citations=[dict(member_id="m", citation=dict(text="source"))],
+            supported_facets=[],
+        ),
+    )
+    page = reader.serve_dossier_representation(
+        conn, reader.DossierRepresentationRequest(run_id=1, task_id=12, limit=1)
+    )
+    assert page.continuation is not None and page.continuation.offset == 1
+    assert page.full_member_count == 5 and page.omitted_member_count == 2
+    assert page.members[0]["member_id"] == "m" and page.citations[0]["citation"] == dict(
+        text="source"
+    )
+    assert page.mandatory_overflow is True

@@ -1,5 +1,7 @@
 """Independent selected-only source construction, custody and report controls."""
 
+from typing import Any
+
 import pytest
 
 from corpus_structure.ingest.pdf_section_views import (
@@ -329,3 +331,118 @@ def test_selected_projection_refuses_absent_consumer_context_before_any_query():
     with pytest.raises(ValueError, match="explicit consumer release"):
         reader.sections()
     conn.execute.assert_not_called()
+
+
+class ResidualBodyReader(SelectedReader):
+    def __init__(self, *, headings=True, residual=True):
+        super().__init__()
+        self.headings = headings
+        self.residual = residual
+
+    def sections(self, **kwargs):
+        return super().sections(**kwargs) if self.headings else []
+
+    def section_nodes(self, section, membership):
+        if section != "#/body":
+            return super().section_nodes(section, membership)
+        self.requests.append((section, membership))
+        assert membership == "direct"
+        children = ([{"$ref": "#/texts/prefix"}] if self.residual else []) + (
+            [{"$ref": "#/groups/1"}] if self.headings else []
+        )
+        rows: list[dict[str, Any]] = [
+            dict(
+                pointer="#/body",
+                role="selected",
+                native_json=dict(
+                    self_ref="#/body", label="unspecified", content_layer="body", children=children
+                ),
+            )
+        ]
+        if self.residual:
+            rows.append(
+                dict(
+                    pointer="#/texts/prefix",
+                    role="selected",
+                    native_json=dict(
+                        self_ref="#/texts/prefix",
+                        label="text",
+                        text="Unheaded source prefix",
+                        content_layer="body",
+                        children=[],
+                        parent={"$ref": "#/body"},
+                    ),
+                )
+            )
+        return rows
+
+    def section_reports(self, pointers, sections):
+        return []
+
+
+def test_default_full_selection_includes_exact_unheaded_body_without_section_duplication():
+    reader = ResidualBodyReader()
+    drafts = published_section_drafts(
+        reader,
+        document_id=1,
+        selections=(),
+        membership="direct",
+        scope=None,
+        consumer_release="consumer",
+    )
+    assert reader.requests == [
+        ("#/body", "direct"),
+        ("#/groups/1", "direct"),
+        ("#/groups/2", "direct"),
+    ]
+    assert [d.section_pointer for d in drafts] == ["#/body", "#/groups/1", "#/groups/2"]
+    assert [d.text for d in drafts] == ["Unheaded source prefix", "x=1", ""]
+    assert drafts[0].items == ("#/body", "#/texts/prefix") and drafts[0].membership == "direct"
+    assert "#/groups/1" not in drafts[0].items
+    assert drafts[0].health["inline_coverage"] == "unknown"
+
+
+def test_default_no_heading_source_uses_authentic_body_scope_without_organization():
+    reader = ResidualBodyReader(headings=False)
+    (draft,) = published_section_drafts(
+        reader,
+        document_id=1,
+        selections=(),
+        membership="descendants",
+        scope=None,
+        consumer_release="consumer",
+    )
+    assert draft.section_pointer == "#/body" and draft.membership == "direct"
+    assert draft.text == "Unheaded source prefix" and draft.ancestors == ()
+    assert all(not pointer.startswith("#/groups") for pointer in draft.items)
+
+
+def test_explicit_section_selection_omits_residual_and_empty_root_is_not_a_new_view():
+    reader = ResidualBodyReader()
+    drafts = published_section_drafts(
+        reader,
+        document_id=1,
+        selections=("Target",),
+        membership="direct",
+        scope=None,
+        consumer_release="consumer",
+    )
+    assert len(drafts) == 2 and all(d.section_pointer != "#/body" for d in drafts)
+    assert all(pointer != "#/body" for pointer, _ in reader.requests)
+    reader = ResidualBodyReader(residual=False)
+    drafts = published_section_drafts(
+        reader,
+        document_id=1,
+        selections=(),
+        membership="direct",
+        scope=None,
+        consumer_release="consumer",
+    )
+    assert len(drafts) == 2 and all(d.section_pointer != "#/body" for d in drafts)
+
+
+def test_explicit_native_section_scope_does_not_expand_to_root_body():
+    rows = SelectedReader().sections()
+    assert select_published_sections(
+        rows, (), "descendants", dict(kind="native_sections", sections=["Target"])
+    ) == ("#/groups/1",)

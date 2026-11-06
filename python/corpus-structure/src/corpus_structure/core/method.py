@@ -418,12 +418,20 @@ class SourcePreparationReader(Protocol):
         """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
+    def structural_source_frame(self, inputs: Any, source_ref: str) -> Any:
+        """Detach an exact selected native frame from authenticated structural inputs."""
+        ...
+
     def structural_source_annotations(self, inputs: Any, source_ref: str, profile: Any) -> Any:
         """Detach authenticated original source and unchanged retained annotation products."""
         ...
 
     def retained_definition_component(self, reference: Any) -> Mapping[str, Any]:
         """Detach authenticated retained component and original source manifest."""
+        ...
+
+    def retained_structural_report(self, reference: Any) -> Mapping[str, Any]:
+        """Authenticate an exact predecessor and its protected public assertions."""
         ...
 
     def resolve_definition_component(self, reference: Any) -> Mapping[str, Any]:

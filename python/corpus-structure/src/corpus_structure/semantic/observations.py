@@ -312,6 +312,11 @@ def bind_result(
             structural["retrieval_report"] = prepared.validate_json(
                 "ContextualEnrichmentReport", canonical_bytes(structural["retrieval_report"])
             ).model_dump(mode="python")
+        if "artifact_identity" in structural:
+            for record in structural["artifact_identity"]["records"]:
+                record["source_contribution"] = prepared.validate_json(
+                    "SourceContribution", canonical_bytes(record["source_contribution"])
+                ).model_dump(mode="python", exclude_none=True)
         payload["structural_product"] = structural
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)

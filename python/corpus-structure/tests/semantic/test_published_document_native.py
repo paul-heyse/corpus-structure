@@ -334,3 +334,77 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
                 ),
             )
         ]
+
+
+def test_default_residual_body_read_publish_and_refusal_controls(
+    private_build,
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_reader_engine,
+    tmp_path,
+):
+    from dataclasses import replace
+
+    deploy_selected(semantic_db_engine)
+    published = publish_selected(semantic_writer_engine, private_build, tmp_path / "root-source")
+    reference = ProductReference(private_build.task_id, "selected", published.logical_digest)
+    with semantic_writer_engine.begin() as conn:
+        task = conn.execute(
+            text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
+            dict(task=private_build.task_id),
+        ).one()
+        reader = published_record_reader(
+            conn, reference, projection_context=open_release(conn, private_build.release_id)
+        )
+        assert reader is not None
+        drafts = published_section_drafts(
+            reader,
+            document_id=task.unit_id,
+            selections=(),
+            membership="direct",
+            scope=None,
+            consumer_release=private_build.release_id,
+        )
+        body = next(d for d in drafts if d.section_pointer == "#/body")
+        assert body.text == "omitted sibling body" and body.membership == "direct"
+        assert body.items == ("#/body", "#/texts/0")
+        assert all("#/texts/0" not in d.items for d in drafts if d.section_pointer != "#/body")
+        identity = store_source_view(
+            conn,
+            run_id=task.run_id,
+            task_id=private_build.task_id,
+            attempt=task.attempt,
+            holder=task.claimed_by,
+            draft=body,
+            position=0,
+        )
+    with semantic_reader_engine.connect() as conn:
+        selected = load_source_view(conn, identity)
+        assert selected.text == "omitted sibling body" and selected.ref.section_pointer == "#/body"
+    for pointer, membership in (
+        ("#/body", "descendants"),
+        ("#/texts/0", "direct"),
+        ("#/missing", "direct"),
+    ):
+        with (
+            semantic_reader_engine.connect() as conn,
+            pytest.raises(DBAPIError, match="invalid published section selection"),
+        ):
+            reader = published_record_reader(
+                conn, reference, projection_context=open_release(conn, private_build.release_id)
+            )
+            assert reader is not None
+            reader.section_nodes(pointer, membership)
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="direct residual body scope"),
+    ):
+        store_source_view(
+            conn,
+            run_id=task.run_id,
+            task_id=private_build.task_id,
+            attempt=task.attempt,
+            holder=task.claimed_by,
+            draft=replace(body, key=body.key + ":invalid-descendants", membership="descendants"),
+            position=1,
+        )

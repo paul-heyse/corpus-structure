@@ -86,7 +86,7 @@ def reference(frozen, **changes):
 
 def product(frozen, outcome="empty"):
     return dict(
-        version="structural-product-2",
+        version="structural-product-3",
         kind="definition_components",
         inputs=frozen.inputs.model_dump(mode="json"),
         definition_components=dict(

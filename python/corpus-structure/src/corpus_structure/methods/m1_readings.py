@@ -40,6 +40,7 @@ class M1ReadingConfig(BaseModel):
     source_dependency_method: Literal["extract.m1_candidates"] = UPSTREAM
     subset: str = Field(default="statistics-m1-source-readings-2", min_length=1)
     feature_instances: tuple[FeatureInstance, ...] = ()
+    local_policy_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
     # Historical reports may predate in-report schema/context retention. An explicitly
     # supplied exact declaration/bounds is verified against their retained digests.
     retained_schema_packs: dict[str, dict[str, Any]] = Field(default_factory=dict)
@@ -124,7 +125,7 @@ def reading_diagnostics(row, details):
 
 class M1Readings:
     name = METHOD
-    version = "3"
+    version = "4"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
@@ -165,13 +166,18 @@ class M1Readings:
             retained = _historical(unit.run.reader, view, cfg)
             packet = dict(
                 recipe=cfg.recipe,
+                local_policy_mode=cfg.local_policy_mode,
                 retained_task_id=retained.task_id,
                 retained_release_id=retained.release_id,
                 retained_result_digest=retained.body_digest,
                 retained_source_bindings=retained.source_bindings,
             )
         else:
-            packet = dict(recipe=cfg.recipe, upstream=_upstream(unit.run.reader, view))
+            packet = dict(
+                recipe=cfg.recipe,
+                local_policy_mode=cfg.local_policy_mode,
+                upstream=_upstream(unit.run.reader, view),
+            )
         return Digest(canonical_bytes(packet))
 
     def interpretation_request(self, group):
@@ -205,10 +211,8 @@ class M1Readings:
                     context_bounds=cfg.retained_context_bounds,
                 )
             )
-            # Local attachment questions are inventoried independently of record assembly.
-            # No real factor policy currently applies: record the exact unavailable solve,
-            # retaining all useful returned products rather than manufacturing probabilities.
-            from .local_interpretation import local_question_operation
+            # Policy dispatch consumes retained source products before record assembly.
+            from .table_interpretation import table_policy_operations
 
             local_dependencies = tuple(
                 sorted(
@@ -221,22 +225,21 @@ class M1Readings:
                 )
             )
             if contribution_batch.contributions:
-                local_operation = local_question_operation(
-                    question=(
-                        "which contextual role or attachment is supported "
-                        "for these retained source contributions?"
-                    ),
+                local_operations = table_policy_operations(
                     contributions=contribution_batch.contributions,
                     dependency_ids=local_dependencies,
+                    source_revision=digest,
+                    mode=cfg.local_policy_mode,
                 )
                 if retained:
-                    local_operation.update(
-                        retained_task_id=retained.task_id,
-                        retained_result_digest=retained.body_digest,
-                        retained_source_bindings=retained.source_bindings,
-                    )
+                    for local_operation in local_operations:
+                        local_operation.update(
+                            retained_task_id=retained.task_id,
+                            retained_result_digest=retained.body_digest,
+                            retained_source_bindings=retained.source_bindings,
+                        )
                 contribution_batch = type(contribution_batch)(
-                    (*contribution_batch.operations, local_operation),
+                    (*contribution_batch.operations, *local_operations),
                     contribution_batch.contributions,
                     contribution_batch.coordinate_texts,
                 )

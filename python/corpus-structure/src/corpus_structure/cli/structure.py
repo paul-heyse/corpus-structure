@@ -53,3 +53,44 @@ def structures(
 
 def register(root: typer.Typer):
     root.add_typer(app, name="structure")
+
+
+@app.command("dossier-page")
+def dossier_page(
+    ctx: typer.Context,
+    run: Annotated[int, typer.Option()],
+    task: Annotated[int, typer.Option()],
+    cut: int | None = None,
+    limit: int = 20,
+    max_bytes: int = 1_000_000,
+    continuation: str | None = None,
+    json: JsonOpt = False,
+):
+    """Page an immutable dossier's selected representation and exact citations."""
+    import json as json_module
+
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.structural_products import (
+        DossierRepresentationRequest,
+        serve_dossier_representation,
+    )
+
+    with failure_boundary(json):
+        request = DossierRepresentationRequest.model_validate(
+            dict(
+                run_id=run,
+                task_id=task,
+                cut_id=cut,
+                limit=limit,
+                max_bytes=max_bytes,
+                continuation=json_module.loads(continuation) if continuation else None,
+            )
+        )
+        with (
+            open_runtime_engine(state(ctx).settings(), "ci-dossier", purpose="read") as engine,
+            read_snapshot(engine) as conn,
+        ):
+            result = serve_dossier_representation(conn, request)
+    emit(result, json=json)

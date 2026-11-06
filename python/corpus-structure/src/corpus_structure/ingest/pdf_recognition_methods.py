@@ -144,7 +144,7 @@ class IngestPdfIntegrated:
     """
 
     name = "ingest.pdf_integrated"
-    version = "1"
+    version = "2"
     family = MethodFamily.INGEST
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.ENCODER

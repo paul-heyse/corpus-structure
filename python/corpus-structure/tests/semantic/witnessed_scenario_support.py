@@ -624,7 +624,7 @@ def authored_component_admission(completed, evaluator_engine):
         scope="controlled-source",
     )
     expected = dict(
-        version="structural-public-statement-2",
+        version="structural-public-statement-3",
         kind="definition_components",
         scope="controlled-source",
         coverage_limits=[],

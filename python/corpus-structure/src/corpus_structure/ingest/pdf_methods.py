@@ -98,7 +98,7 @@ class PdfIngestConfig(PdfRuntimeConfig):
 
 class IngestPdf:
     name = "ingest.pdf"
-    version = "2"
+    version = "3"
     family = MethodFamily.INGEST
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.ENCODER
@@ -335,7 +335,12 @@ def _select_sections(
     nodes: Mapping[str, Any], cfg: PdfIngestConfig, *, scope: Any = None
 ) -> tuple[str, ...]:
     sections = [p for p, n in nodes.items() if str(n.label) in {"section", "chapter"}]
+    include_body = not cfg.sections and not (
+        isinstance(scope, dict) and scope.get("kind") == "native_sections"
+    )
     if not sections:
+        if include_body and "#/body" in nodes:
+            return ("#/body",)
         raise ValueError(
             "native product has no qualified organizational sections; organize it before adoption"
         )
@@ -368,10 +373,12 @@ def _select_sections(
             node = nodes[node.parent.cref]
 
     if cfg.membership == "direct":
-        return tuple(
+        selected = tuple(
             p for p in sections if p in matched_set or any(a in matched_set for a in ancestry(p))
         )
-    return tuple(p for p in matched if not any(a in matched_set for a in ancestry(p)))
+    else:
+        selected = tuple(p for p in matched if not any(a in matched_set for a in ancestry(p)))
+    return ("#/body", *selected) if include_body else selected
 
 
 def _member_order(nodes, section_refs, section, membership):
@@ -409,10 +416,12 @@ def _drafts(
 ) -> tuple[SourceViewDraft, ...]:
     doc = load_snapshot(native) if document is None else document
     nodes = native_nodes(doc) if node_index is None else node_index
-    section_refs = frozenset(p for p, n in nodes.items() if str(n.label) in {"section", "chapter"})
+    section_refs = frozenset(
+        p for p, n in nodes.items() if p == "#/body" or str(n.label) in {"section", "chapter"}
+    )
     recipe = canonical_bytes(
         {
-            "recipe": "native-section-text-v6",
+            "recipe": "native-section-text-v7",
             "content_layers": ["body"],
             "analysis_eligible": analysis_eligible,
             "organization_owner": native_product.values(),
@@ -428,15 +437,18 @@ def _drafts(
     }
     drafts = []
     for section in sections:
+        selected_membership = "direct" if section == "#/body" else membership
+        item_refs = _member_order(nodes, section_refs, section, selected_membership)
+        if section == "#/body" and item_refs == ("#/body",):
+            continue
         projection = project_section(
             doc,
             native.digest,
             section,
-            "direct" if membership == "direct" else "descendant",
+            "direct" if selected_membership == "direct" else "descendant",
             section_refs=section_refs,
             node_index=nodes,
         )
-        item_refs = _member_order(nodes, section_refs, section, membership)
         ancestors = []
         item = nodes[section]
         while item.parent is not None:
@@ -448,7 +460,7 @@ def _drafts(
         view_health = source_view_health(
             health,
             section,
-            membership,
+            selected_membership,
             [nodes[p].model_dump(mode="json", by_alias=True) for p in item_refs],
             tuple(reversed(ancestors)),
             recognition_coverage=recognition_coverage,
@@ -461,7 +473,7 @@ def _drafts(
                         "consumer_release": consumer_release,
                         "native": native_product.values(),
                         "section": section,
-                        "membership": membership,
+                        "membership": selected_membership,
                         "analysis_eligible": analysis_eligible,
                         "recipe": sha256(recipe).hexdigest(),
                     }
@@ -474,14 +486,14 @@ def _drafts(
                 document_id,
                 native_product,
                 section,
-                membership,
+                selected_membership,
                 projection.text,
                 tuple(p.to_wire() for p in projection.pieces),
                 tuple(item_refs),
                 tuple(reversed(ancestors)),
                 view_health,
                 recipe,
-                replaces_source_view_id=(replacements or {}).get((section, membership)),
+                replaces_source_view_id=(replacements or {}).get((section, selected_membership)),
                 analysis_eligible=analysis_eligible,
             )
         )

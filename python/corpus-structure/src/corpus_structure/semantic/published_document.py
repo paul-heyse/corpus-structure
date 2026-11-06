@@ -301,7 +301,9 @@ IF p_pointers IS NULL OR array_position(p_pointers,NULL) IS NOT NULL THEN RAISE 
 IF p_section IS NULL OR p_membership IS NULL OR p_membership NOT IN
 ('direct','descendants') OR NOT EXISTS(SELECT FROM kb.pdf_record_access a WHERE
  a.product_id=published.build_id AND a.revision_id=published.build_id AND
- a.pointer=p_section AND a.label IN ('section','chapter')) THEN RAISE EXCEPTION
+ a.pointer=p_section AND (a.label IN ('section','chapter') OR
+ (p_section='#/body' AND p_membership='direct' AND a.parent_pointer IS NULL
+ AND a.content_layer='body' AND a.native_json->>'self_ref'='#/body'))) THEN RAISE EXCEPTION
 'invalid published section selection' USING ERRCODE='22023'; END IF;""",
         "items": pointers,
         "section_reports": """

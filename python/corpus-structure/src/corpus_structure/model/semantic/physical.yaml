@@ -2285,6 +2285,33 @@ classes:
         ["set_id"], "target": "eval.reference_set.id"}]'
       ph:checks: '[]'
 
+  operation_event_fit:
+    in_subset: [eval]
+    description: Protected immutable operation-event development frame, labels and numerical diagnostics; parameter-only owned reads never expose judgments.
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations: {ph:identity: 'true'}
+      project_id: {range: string, required: true}
+      evaluation_id: {range: integer, required: true}
+      run_id: {range: integer, required: true}
+      cut_id: {range: integer, required: true}
+      release_id: {range: string, required: true}
+      set_id: {range: integer, required: true}
+      source_frame_digest: {range: string, required: true}
+      reference_snapshot: {range: json_payload, required: true}
+      frame: {range: json_payload, required: true}
+      result: {range: json_payload, required: true}
+      content_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '["corpus_sem_evaluator"]'
+      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["evaluation_id"],"target":"eval.reference_evaluation.id"},{"columns":["run_id"],"target":"ops.completed_result.run_id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["release_id"],"target":"sem.release.release_id"},{"columns":["set_id"],"target":"eval.reference_set.id"}]'
+      ph:checks: '["content_digest ~ ''^[0-9a-f]{64}$''", "source_frame_digest ~ ''^[0-9a-f]{64}$''"]'
+
   split_decision:
     in_subset: [eval]
     attributes:

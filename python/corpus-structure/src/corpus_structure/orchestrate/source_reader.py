@@ -106,10 +106,16 @@ class ScopedSourceReader:
     def validate_structural_inputs(self, inputs):
         return self._read(lambda reader: reader.validate_structural_inputs(inputs))
 
+    def structural_source_frame(self, inputs, source_ref):
+        return self._read(lambda reader: reader.structural_source_frame(inputs, source_ref))
+
     def structural_source_annotations(self, inputs, source_ref, profile):
         return self._read(
             lambda reader: reader.structural_source_annotations(inputs, source_ref, profile)
         )
+
+    def retained_structural_report(self, reference):
+        return self._read(lambda reader: reader.retained_structural_report(reference))
 
     def source_context_membership(self, source_view_id):
         return self._read(lambda reader: reader.source_context_membership(source_view_id))

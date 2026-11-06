@@ -57,7 +57,7 @@ def structural_statement(
         return [resolved[key] for key in sorted(resolved)]
 
     statement: dict[str, Any] = {
-        "version": "structural-public-statement-2",
+        "version": "structural-public-statement-3",
         "kind": report.kind,
         "scope": report.inputs.scope,
         "inventory_id": report.inputs.inventory_id,
@@ -142,6 +142,13 @@ def structural_statement(
         dimensions = []
         for dimension in value.dimensions:
             item: dict[str, Any] = {"dimension": dimension.dimension, "outcome": dimension.outcome}
+            item.update(
+                typed_outcome=dimension.typed_outcome, assumptions=list(dimension.assumptions)
+            )
+            for interval_name in ("removed_interval", "added_interval"):
+                interval = getattr(dimension, interval_name)
+                if interval is not None:
+                    item[interval_name] = interval.model_dump(mode="json", exclude_none=True)
             for name in ("left", "right"):
                 side = getattr(dimension, name)
                 if side is not None:
@@ -150,6 +157,15 @@ def structural_statement(
                         "lexical_value": side.lexical_value,
                         "evidence": citations(side.evidence),
                     }
+                    if side.span is not None:
+                        item[name]["span"] = span_citation(side.span)
+                    if side.typed is not None:
+                        item[name]["typed"] = {
+                            **side.typed.model_dump(
+                                mode="json", exclude_none=True, exclude={"span"}
+                            ),
+                            "span": span_citation(side.typed.span),
+                        }
             dimensions.append(item)
         statement["comparison"] = {
             "left": citation(value.left_id),
@@ -157,6 +173,7 @@ def structural_statement(
             "dimensions": dimensions,
             "equivalence": value.equivalence,
             "identity_standing": value.identity_standing,
+            "applicability": value.applicability,
         }
     if report.dossier is not None:
         value = report.dossier
@@ -165,7 +182,7 @@ def structural_statement(
             "members": sorted(
                 (
                     {
-                        "passage": citation(m.passage_id),
+                        "passage": span_citation(m.citation),
                         "role": m.role,
                         "sense": m.sense,
                         "scope": m.scope,

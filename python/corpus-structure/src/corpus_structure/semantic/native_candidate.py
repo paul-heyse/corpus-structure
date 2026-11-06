@@ -713,6 +713,23 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple((role, "EXECUTE", False) for role in roles),
             )
         )
+    from corpus_structure.evaluate.operation_fitting import operation_event_fitting_native_sql
+
+    for name, roles in {
+        "operation_event_fit_frame": ("corpus_sem_evaluator",),
+        "record_operation_event_fit": ("corpus_sem_evaluator",),
+        "read_operation_event_fit": ("corpus_sem_evaluator", "corpus_sem_fitter"),
+    }.items():
+        definitions.extend(
+            _task_call_definitions(
+                connection,
+                operation_event_fitting_native_sql(),
+                name=name,
+                source="operation event fitting:forward",
+                schema="eval",
+                grants=tuple((role, "EXECUTE", False) for role in roles),
+            )
+        )
     review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
     for name in (
         "review_history_preflight",
@@ -752,9 +769,17 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_structural_source",
         "validate_structural_input",
         "resolve_retained_component",
+        "resolve_retained_structural_report",
         "resolve_retained_relationship_decision",
         "validate_component_targets",
         "component_semantic_target",
+        "artifact_source_records",
+        "artifact_lexical_score",
+        "validate_artifact_identity",
+        "structural_clause_fields",
+        "structural_threshold_field",
+        "structural_comparison",
+        "structural_dossier",
         "validate_structural_product_report",
     ):
         definitions.extend(
@@ -772,6 +797,7 @@ def series_native_definitions(connection, *, include_selected=True):
                     "validate_structural_source",
                     "validate_structural_input",
                     "resolve_retained_component",
+                    "resolve_retained_structural_report",
                     "resolve_retained_relationship_decision",
                     "validate_component_targets",
                     "component_semantic_target",

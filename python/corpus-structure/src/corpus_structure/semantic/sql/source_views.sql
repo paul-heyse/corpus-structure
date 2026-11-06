@@ -1,15 +1,3 @@
--- One native containment projection serves membership validation and scoped recognition.
-CREATE OR REPLACE FUNCTION ops.native_scope_items(p_task bigint,p_key text,p_section text,p_membership text)
-RETURNS SETOF text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scope$
- WITH RECURSIVE subtree AS (
-  SELECT pointer FROM kb.native_document_item WHERE task_id=p_task AND product_key=p_key AND pointer=p_section
-  UNION ALL SELECT child.pointer FROM kb.native_document_item child JOIN subtree parent ON child.parent_pointer=parent.pointer
-   WHERE child.task_id=p_task AND child.product_key=p_key AND p_membership='descendants'
- ) SELECT pointer FROM kb.native_document_item WHERE task_id=p_task AND product_key=p_key AND content_layer='body'
-  AND ((p_membership='direct' AND section_pointer=p_section) OR (p_membership='descendants' AND pointer IN (SELECT pointer FROM subtree)))
-$scope$;
-REVOKE ALL ON FUNCTION ops.native_scope_items(bigint,text,text,text) FROM PUBLIC;
-
 -- Immutable section views are instances, never fabricated document/rendition rows.
 CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_attempt bigint,p_holder text,p_position bigint,p_payload bytea,p_recipe bytea) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
@@ -38,7 +26,11 @@ BEGIN
  OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/implementation/pdf/docling-validation.schema.json' AND encode(sha256(content),'hex')=native.schema_digest) THEN
  RAISE EXCEPTION 'native producer/consumer schema compatibility is unavailable' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT section FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=product->>'section_pointer';
- IF section.label NOT IN ('section','chapter') THEN RAISE EXCEPTION 'source view requires admitted section container' USING ERRCODE='23514'; END IF;
+ IF section.label NOT IN ('section','chapter') AND NOT (
+ section.pointer='#/body' AND product->>'membership'='direct'
+ AND section.parent_pointer IS NULL AND section.content_layer='body'
+ AND section.native_json->>'self_ref'='#/body') THEN
+ RAISE EXCEPTION 'source view requires admitted section or direct residual body scope' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements_text(projection->'items') ptr WHERE NOT EXISTS(SELECT FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=ptr))
  OR EXISTS(SELECT FROM jsonb_array_elements_text(COALESCE(projection->'ancestors','[]')) ptr WHERE NOT EXISTS(SELECT FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=ptr)) THEN
  RAISE EXCEPTION 'source view references an unqualified occurrence' USING ERRCODE='23514'; END IF;

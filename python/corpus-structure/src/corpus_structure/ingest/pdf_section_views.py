@@ -14,10 +14,12 @@ from .pdf_hierarchy import project_section_nodes
 
 
 class NoQualifiedSections(ValueError):
-    """A published native graph needs its explicit global organization phase."""
+    """An explicitly requested section requires native organization."""
 
 
 def select_published_sections(rows, selections, membership, scope):
+    scoped_sections = isinstance(scope, dict) and scope.get("kind") == "native_sections"
+    include_body = not selections and not scoped_sections
     names = {row["pointer"]: row["name"] for row in rows}
     matched = [
         row["pointer"]
@@ -25,9 +27,9 @@ def select_published_sections(rows, selections, membership, scope):
         if not selections or row["pointer"] in selections or row["name"] in selections
     ]
     if not rows:
-        raise NoQualifiedSections(
-            "native product has no qualified organizational sections; organize it before adoption"
-        )
+        if include_body:
+            return ("#/body",)
+        raise NoQualifiedSections("native product has no requested organizational sections")
     if selections and len(matched) != len(set(selections)):
         raise ValueError("requested intact section selection is missing or ambiguous")
     if (
@@ -39,16 +41,18 @@ def select_published_sections(rows, selections, membership, scope):
         matched = list(resolve_native_sections(names, scope["sections"]))
     chosen = set(matched)
     if membership == "direct":
-        return tuple(
+        selected = tuple(
             row["pointer"]
             for row in rows
             if row["pointer"] in chosen or chosen.intersection(row["ancestors"])
         )
-    return tuple(
-        row["pointer"]
-        for row in rows
-        if row["pointer"] in chosen and not chosen.intersection(row["ancestors"])
-    )
+    else:
+        selected = tuple(
+            row["pointer"]
+            for row in rows
+            if row["pointer"] in chosen and not chosen.intersection(row["ancestors"])
+        )
+    return ("#/body", *selected) if include_body else selected
 
 
 def published_section_drafts(
@@ -62,7 +66,8 @@ def published_section_drafts(
 ) -> tuple[SourceViewDraft, ...]:
     sections = reader.sections()
     selected_sections = select_published_sections(sections, selections, membership, scope)
-    section_refs = frozenset(row["pointer"] for row in sections)
+    # The root is an authentic residual scope, never an invented section heading.
+    section_refs = frozenset({"#/body", *(row["pointer"] for row in sections)})
     wrappers = [row for row in reader.iter_companions("health") if "source_scope" in row]
     if (
         len(wrappers) != 1
@@ -79,7 +84,7 @@ def published_section_drafts(
     reference = reader.reference
     recipe = canonical_bytes(
         dict(
-            recipe="native-section-text-v6",
+            recipe="native-section-text-v7",
             content_layers=["body"],
             analysis_eligible=True,
             organization_owner=reference.values(),
@@ -87,12 +92,15 @@ def published_section_drafts(
     )
     result = []
     for section in selected_sections:
-        rows = reader.section_nodes(section, membership)
+        selected_membership = "direct" if section == "#/body" else membership
+        rows = reader.section_nodes(section, selected_membership)
         members = tuple(row["pointer"] for row in rows if row["role"] == "selected")
         ancestors = tuple(row["pointer"] for row in rows if row["role"] == "ancestor")
         nodes = {row["pointer"]: row["native_json"] for row in rows}
         if len(nodes) != len(rows) or section not in members:
             raise ValueError("published section closure is absent or ambiguous")
+        if section == "#/body" and members == ("#/body",):
+            continue
         # The relational membership is body-only, while admitted native values keep
         # their original children, including furniture. Qualify that excluded
         # frontier under the same immutable pin before the projector follows it;
@@ -102,7 +110,7 @@ def published_section_drafts(
             for pointer in members
             for child in nodes[pointer].get("children", ())
             if child["$ref"] not in nodes
-            and not (membership == "direct" and child["$ref"] in section_refs)
+            and not (selected_membership == "direct" and child["$ref"] in section_refs)
         }
         if frontier:
             excluded = reader.selected_native_items(tuple(sorted(frontier)))
@@ -129,7 +137,7 @@ def published_section_drafts(
             nodes,
             reference.content_digest,
             section,
-            "direct" if membership == "direct" else "descendant",
+            "direct" if selected_membership == "direct" else "descendant",
             section_refs=section_refs,
         )
         reports = reader.section_reports(members, (section, *ancestors))
@@ -148,7 +156,7 @@ def published_section_drafts(
         health = source_view_health(
             dict(common_health, formula_outcomes=outcomes),
             section,
-            membership,
+            selected_membership,
             [nodes[pointer] for pointer in members],
             ancestors,
             recognition_coverage=coverage,
@@ -162,7 +170,7 @@ def published_section_drafts(
                         consumer_release=consumer_release,
                         native=reference.values(),
                         section=section,
-                        membership=membership,
+                        membership=selected_membership,
                         analysis_eligible=True,
                         recipe=sha256(recipe).hexdigest(),
                     )
@@ -175,7 +183,7 @@ def published_section_drafts(
                 document_id,
                 reference,
                 section,
-                membership,
+                selected_membership,
                 projection.text,
                 tuple(piece.to_wire() for piece in projection.pieces),
                 members,
