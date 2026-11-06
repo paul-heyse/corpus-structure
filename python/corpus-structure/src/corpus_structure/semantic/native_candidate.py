@@ -776,6 +776,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "artifact_source_records",
         "artifact_lexical_score",
         "validate_artifact_identity",
+        "structural_clause_fields",
         "structural_threshold_field",
         "structural_comparison",
         "structural_dossier",
