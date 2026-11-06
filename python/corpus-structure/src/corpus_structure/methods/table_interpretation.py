@@ -1,6 +1,6 @@
 """Source-bound shared table-band policy over current scoped attachment products.
 
-Uniform per-cell priors and an explicitly declared soft coherence preference are policy
+Uniform per-edge applicability priors and a declared soft coherence preference are policy
 assumptions, not measured likelihoods. Each shared candidate band contributes once;
 no physical source observation is multiplied once per row. Private posterior standing
 remains separate from independently established support.
@@ -28,7 +28,11 @@ from corpus_structure.semantic.record_interpretation import (
 
 from .local_interpretation import local_constraint_id, local_question_operation
 
-POLICY_VERSION = "shared-table-band-1"
+POLICY_VERSION = "shared-table-band-2"
+# The selected exact-enumeration pilot handles small ambiguity bands. Discovery
+# and private evidence retention cover larger tables without constructing their
+# exponential applicability joint or inventing a uniformly applicable band.
+MAX_BAND_EDGES = 16
 MODE = Literal["feasibility", "independent", "coupled"]
 
 
@@ -45,7 +49,7 @@ def table_policy_operations(
     by_id = {row["contribution_id"]: row for row in contributions}
     if len(by_id) != len(contributions):
         raise ValueError("table policy cannot collapse duplicate contribution identities")
-    choices = defaultdict(dict)
+    groups = defaultdict(dict)
     selected = defaultdict(set)
     for row in contributions:
         if row.get("semantic_type") != "structural.scoped_attachment":
@@ -59,13 +63,11 @@ def table_policy_operations(
         subject, target = value["subject_id"], value["target_id"]
         if subject not in by_id or target not in by_id:
             raise ValueError("table policy endpoint is outside retained contribution selection")
-        key = (value["region"], value["scope"], value["relation"], subject)
-        choices[key][target] = row["contribution_id"]
+        key = (value["region"], value["scope"], value["relation"], target)
+        if subject in groups[key]:
+            raise ValueError("table policy repeats one physical attachment in its band")
+        groups[key][subject] = row["contribution_id"]
         selected[key].update((subject, target, row["contribution_id"]))
-    groups = defaultdict(list)
-    for key, targets in choices.items():
-        # Sharing requires identical actual competing physical band candidates.
-        groups[(*key[:3], tuple(sorted(targets)))].append(key)
     if not groups:
         return (
             local_question_operation(
@@ -76,8 +78,8 @@ def table_policy_operations(
             ),
         )
     operations = []
-    for group, keys in sorted(groups.items()):
-        ids = set().union(*(selected[key] for key in keys))
+    for group, edges in sorted(groups.items()):
+        ids = selected[group]
         retained = tuple(by_id[key] for key in sorted(ids))
         deps = tuple(
             sorted(
@@ -87,9 +89,26 @@ def table_policy_operations(
         )
         question = "shared table band " + repr(group)
         scope = local_constraint_id(question, retained, deps)
+        if len(edges) > MAX_BAND_EDGES:
+            operations.append(
+                local_question_operation(
+                    question=question,
+                    contributions=retained,
+                    dependency_ids=deps,
+                    cancellation=cancellation,
+                    unavailable_policy_version=POLICY_VERSION,
+                    unavailable_reason=(
+                        f"Exact small-band policy supports at most {MAX_BAND_EDGES} "
+                        f"attachment applicability axes; this band has {len(edges)}. "
+                        "All located attachments remain retained and unassessed; "
+                        "no applicability posterior or uniform-band claim is computed."
+                    ),
+                )
+            )
+            continue
         decisions = tuple(
-            Decision(key[3], tuple(Candidate(target) for target in sorted(choices[key])))
-            for key in sorted(keys)
+            Decision(edge, (Candidate("does_not_apply"), Candidate("applies")))
+            for _subject, edge in sorted(edges.items())
         )
         metadata = (
             Dependency("table-model:" + source_revision, DependencyKind.MODEL, source_revision),

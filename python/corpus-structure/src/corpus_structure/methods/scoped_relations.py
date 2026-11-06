@@ -741,7 +741,9 @@ class ScopedRelationsMethod:
             results.append(
                 UnitResult(
                     ref=unit.ref,
-                    outcome=ObservationOutcome.PRODUCED,
+                    outcome=ObservationOutcome.PRODUCED
+                    if output["contributions"]
+                    else ObservationOutcome.EMPTY,
                     contributions=output["contributions"],
                     contribution_operations=(
                         output["operation"],

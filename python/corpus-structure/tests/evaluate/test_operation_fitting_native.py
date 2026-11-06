@@ -30,7 +30,7 @@ from corpus_structure.evaluate.operation_fitting import (
     read_native_fit,
     read_native_frame,
 )
-from corpus_structure.evaluate.record_references import assign_origin
+from corpus_structure.evaluate.record_references import assign_origin, source_binding
 from corpus_structure.evaluate.semantic import split_documents
 from corpus_structure.evaluate.split import SplitConfig
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
@@ -116,8 +116,32 @@ def _development_grade(case, evaluator):
             SplitConfig(forced_dev={uri: "shared development source"}),
             release_id=case.prepared.release_id,
         )
+        reference_pin = dict(
+            head["pin"],
+            source=source_binding(
+                conn,
+                source_run_id=case.run,
+                source_view_id=case.view,
+                source_cut_id=case.cut,
+            ),
+        )
+        endpoint_scopes = tuple(
+            dict(
+                pin=reference_pin,
+                space="native",
+                pointer=f"{case.table}/data/table_cells/{cell}",
+                precision="exact",
+                start=0,
+                end=2,
+            )
+            for cell in (0, 1)
+        )
+        endpoint_ids = tuple(
+            anchor_identity(dict(scope, source_piece="12")) for scope in endpoint_scopes
+        )
+        assert endpoint_ids == (head["anchors"][0]["anchor_id"], tail_anchor["anchor_id"])
         frame = OperationEvaluationFrame(
-            unit="private-unit",
+            unit=case.view_row["key"],
             release_id=case.prepared.release_id,
             guideline_version="defined-by-guideline-1",
             rubric_version="exact-endpoints-scope-1",
@@ -126,7 +150,9 @@ def _development_grade(case, evaluator):
             operation_version="1",
             domain="scientific-source",
             direction="output_first",
-            pin=head["pin"],
+            pin=reference_pin,
+            anchor_ids=endpoint_ids,
+            anchor_scopes=endpoint_scopes,
             contribution_ids=tuple(r["contribution_id"] for r in relations),
         )
         created = create_reference_set(
@@ -159,8 +185,8 @@ def _development_grade(case, evaluator):
             {
                 "semantic_type": "relation.defined_by",
                 "endpoint_semantics": [
-                    {"role": "head", "anchor_ids": [head["anchors"][0]["anchor_id"]]},
-                    {"role": "tail", "anchor_ids": [tail_anchor["anchor_id"]]},
+                    {"role": "head", "anchor_ids": [head["anchors"][0]["anchor_id"]], "fields": {}},
+                    {"role": "tail", "anchor_ids": [tail_anchor["anchor_id"]], "fields": {}},
                 ],
             },
         )

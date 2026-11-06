@@ -55,7 +55,7 @@ BEGIN
    END IF;
    identity:=contribution.task_id::text||':'||contribution.contribution_id;
    IF event_ids ? identity THEN RAISE EXCEPTION 'one emitted event cannot be weighted twice' USING ERRCODE='23514'; END IF;
-   SELECT tr.body->'contributions'->contribution.position INTO STRICT detail FROM ops.task_result tr WHERE tr.task_id=contribution.task_id;
+   SELECT tr.body->'contributions'->contribution.position::integer INTO STRICT detail FROM ops.task_result tr WHERE tr.task_id=contribution.task_id;
    SELECT * INTO STRICT operation FROM kb.source_contribution_operation WHERE task_id=contribution.task_id AND operation_key=contribution.operation_key;
    SELECT count(DISTINCT e.endpoint_id) FILTER(WHERE e.role='head' AND a.precision='exact'),
     count(DISTINCT e.endpoint_id) FILTER(WHERE e.role='tail' AND a.precision='exact') INTO head_exact,tail_exact

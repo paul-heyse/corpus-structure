@@ -261,11 +261,11 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                     from corpus_structure.semantic.operations import BoundReader
 
                     for reference in report.dossier.contribution_predecessors:
-                        original = bind_completed_result(conn, reference.run_id)
+                        predecessor = bind_completed_result(conn, reference.run_id)
                         reader = BoundReader(
                             conn,
                             reference.run_id,
-                            original.prepared,
+                            predecessor.prepared,
                             cut_id=reference.cut_id,
                             analysis=False,
                         )

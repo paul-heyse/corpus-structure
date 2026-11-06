@@ -27,6 +27,8 @@ def interpret_contribution_question(
     dependency_ids: tuple[str, ...],
     request: LocalInterpretationRequest | None = None,
     cancellation: Event | None = None,
+    unavailable_reason: str | None = None,
+    unavailable_policy_version: str | None = None,
 ) -> dict[str, Any]:
     """Seal a declared local question without requiring an assembled record.
 
@@ -58,10 +60,13 @@ def interpret_contribution_question(
         probability_standing="not_computed",
         coupling_enabled=False,
         policy_mode="not_run",
-        policy_version="table-interpretation-1",
+        policy_version=unavailable_policy_version or "table-interpretation-1",
     )
     if request is None:
-        row.update(outcome="not_run", reason="applicable real local factor policy unavailable")
+        row.update(
+            outcome="not_run",
+            reason=unavailable_reason or "applicable real local factor policy unavailable",
+        )
     else:
         if request.selection.scope_id != question_id:
             raise ValueError("local interpretation scope differs from declared question")
@@ -102,6 +107,8 @@ def local_question_operation(
     dependency_ids: tuple[str, ...],
     request: LocalInterpretationRequest | None = None,
     cancellation: Event | None = None,
+    unavailable_reason: str | None = None,
+    unavailable_policy_version: str | None = None,
 ) -> dict[str, Any]:
     """Released operation row; exact SourceValue encoding preserves numerical report bytes."""
     from corpus_structure.semantic.observations import source_value
@@ -113,6 +120,8 @@ def local_question_operation(
         dependency_ids=dependency_ids,
         request=request,
         cancellation=cancellation,
+        unavailable_reason=unavailable_reason,
+        unavailable_policy_version=unavailable_policy_version,
     )
     report["contribution_ids"] = tuple(report["contribution_ids"])
     report["dependencies"] = tuple(report["dependencies"])
