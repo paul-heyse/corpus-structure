@@ -193,3 +193,65 @@ def export_operation_review(
     with reference_session(ctx, project, json=json) as (conn, pid):
         result = review_export(conn, project_id=pid, set_id=set_id)
     output(result, json)
+
+
+@eval_app.command("operation-event-fit")
+def operation_event_fit(
+    ctx: typer.Context,
+    evaluation: Annotated[int, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    out: Annotated[Path | None, typer.Option()] = None,
+    json: JsonOpt = False,
+):
+    """Persist same-corpus development fit of independently graded emitted events."""
+    import json as jsonlib
+
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import state
+    from corpus_structure.evaluate.operation_fitting import fit_native_operation_event
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    if out is not None and out.exists():
+        raise typer.BadParameter("runtime parameter output already exists")
+    with (
+        failure_boundary(json),
+        open_runtime_engine(
+            state(ctx).settings(), application_name="ci-event-fit", purpose="fit"
+        ) as engine,
+    ):
+        result = fit_native_operation_event(engine, project_id=project, evaluation_id=evaluation)
+    parameters = result["result"]["parameters"]
+    if out is not None and parameters is not None:
+        with out.open("x") as stream:
+            jsonlib.dump(parameters, stream, indent=2, allow_nan=False)
+            stream.write("\n")
+    output(result, json)
+
+
+@eval_app.command("operation-event-read")
+def operation_event_read(
+    ctx: typer.Context,
+    fit: Annotated[int, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    diagnostics: Annotated[
+        bool, typer.Option(help="Protected evaluator labels and diagnostics.")
+    ] = False,
+    json: JsonOpt = False,
+):
+    """Read finite runtime parameters, or explicitly protected fit diagnostics."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import state
+    from corpus_structure.evaluate.operation_fitting import read_native_fit
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with (
+        failure_boundary(json),
+        open_runtime_engine(
+            state(ctx).settings(),
+            application_name="ci-event-fit-read",
+            purpose="evaluate" if diagnostics else "read",
+        ) as engine,
+        engine.begin() as conn,
+    ):
+        result = read_native_fit(conn, project_id=project, fit_id=fit, protected=diagnostics)
+    output(result, json)

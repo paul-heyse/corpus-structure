@@ -68,10 +68,18 @@ def interpret_contribution_question(
         if not set(dependency_ids) <= {dep.key for dep in request.dependencies}:
             raise ValueError("local interpretation omits retained computation dependencies")
         joint = any(len(factor.scope) > 1 for factor in request.potentials)
-        policy = next((d for d in request.dependencies if d.key == request.policy_dependency_id), None)
+        policy = next(
+            (d for d in request.dependencies if d.key == request.policy_dependency_id), None
+        )
         if policy is None:
             raise ValueError("local interpretation policy dependency unavailable")
-        row.update(coupling_enabled=joint, policy_mode=("coupled" if joint else "independent" if request.potentials else "feasibility"), policy_version=policy.revision)
+        row.update(
+            coupling_enabled=joint,
+            policy_mode=(
+                "coupled" if joint else "independent" if request.potentials else "feasibility"
+            ),
+            policy_version=policy.revision,
+        )
         request_row = _sealed_value(asdict(request))
         result = _sealed_value(asdict(interpret_local(request, cancellation=cancellation)))
         row.update(
@@ -96,7 +104,6 @@ def local_question_operation(
     cancellation: Event | None = None,
 ) -> dict[str, Any]:
     """Released operation row; exact SourceValue encoding preserves numerical report bytes."""
-    from corpus_structure.semantic.contributions import operation_identity
     from corpus_structure.semantic.observations import source_value
 
     question_id = local_constraint_id(question, contributions, dependency_ids)
@@ -141,4 +148,10 @@ def local_question_operation(
 
 def local_constraint_id(question, contributions, dependency_ids):
     from corpus_structure.semantic.contributions import operation_identity
-    return operation_identity("local-interpretation-2", question, sorted(row["contribution_id"] for row in contributions), sorted(dependency_ids))
+
+    return operation_identity(
+        "local-interpretation-2",
+        question,
+        sorted(row["contribution_id"] for row in contributions),
+        sorted(dependency_ids),
+    )

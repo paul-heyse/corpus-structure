@@ -92,6 +92,46 @@ classes:
       payload_json:
         required: true
         slot_uri: execution:ReferenceItem_payload_json
+  OperationEventFit:
+    description: An immutable same-corpus operation correctness development fit; not a whole-reading grade or truth authority.
+    attributes:
+      project_id:
+        required: true
+        slot_uri: execution:OperationEventFit_project_id
+      evaluation_id:
+        range: integer
+        required: true
+        slot_uri: execution:OperationEventFit_evaluation_id
+      run_id:
+        range: integer
+        required: true
+        slot_uri: execution:OperationEventFit_run_id
+      cut_id:
+        range: integer
+        required: true
+        slot_uri: execution:OperationEventFit_cut_id
+      release_id:
+        required: true
+        slot_uri: execution:OperationEventFit_release_id
+      set_id:
+        range: integer
+        required: true
+        slot_uri: execution:OperationEventFit_set_id
+      source_frame_digest:
+        required: true
+        slot_uri: execution:OperationEventFit_source_frame_digest
+      reference_snapshot_json:
+        required: true
+        slot_uri: execution:OperationEventFit_reference_snapshot_json
+      frame_json:
+        required: true
+        slot_uri: execution:OperationEventFit_frame_json
+      result_json:
+        required: true
+        slot_uri: execution:OperationEventFit_result_json
+      content_digest:
+        required: true
+        slot_uri: execution:OperationEventFit_content_digest
   ReferenceEvaluation:
     description: An independent-reference grade; never the completed knowledge output
       EvaluationResult.

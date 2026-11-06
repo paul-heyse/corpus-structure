@@ -173,7 +173,11 @@ class M1Readings:
                 retained_source_bindings=retained.source_bindings,
             )
         else:
-            packet = dict(recipe=cfg.recipe, local_policy_mode=cfg.local_policy_mode, upstream=_upstream(unit.run.reader, view))
+            packet = dict(
+                recipe=cfg.recipe,
+                local_policy_mode=cfg.local_policy_mode,
+                upstream=_upstream(unit.run.reader, view),
+            )
         return Digest(canonical_bytes(packet))
 
     def interpretation_request(self, group):
