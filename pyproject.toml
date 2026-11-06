@@ -16,7 +16,7 @@ corpus-structure = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "pytest==9.2.0",
+    "pytest==9.1.1",
     "ruff==0.17.3",
     "pyrefly==1.4.0",
     "hypothesis==6.170.12",
@@ -29,6 +29,7 @@ dev = [
     "scipy-stubs==1.18.1.1",
     "pytest-reportlog==1.0.0",
     "types-networkx==3.6.1.20261029",
+    "pytest-xdist==3.8.0",
 ]
 
 [tool.uv]
@@ -39,7 +40,19 @@ add-bounds = "exact"
 [tool.pytest.ini_options]
 testpaths = ["tests", "python/corpus-structure/tests"]
 # importlib mode: the root and package `tests/` trees cannot collide on module names.
-addopts = ["--strict-markers", "--strict-config", "-q", "--import-mode=importlib"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-q",
+    "--import-mode=importlib",
+    "-n", "16",
+    "--dist=loadgroup",
+    "-m", "not shared_cluster_fault",
+]
+markers = [
+    "db: uses the PostgreSQL test database",
+    "shared_cluster_fault: exclusive serial controls that mutate shared PostgreSQL authentication",
+]
 pythonpath = ["scripts", "python/corpus-structure/tests"]
 
 [tool.ruff]
@@ -66,7 +79,7 @@ exclude = ["python/corpus-structure/semantic_alembic/versions/*.py"]
 
 [tool.pyrefly]
 python-version = "3.14"
-project-includes = ["scripts", "tests", "tools", "python", "domains"]
+project-includes = ["conftest.py", "scripts", "tests", "tools", "python", "domains"]
 project-excludes = ["fixtures/**", ".claude/**", "**/target/**"]
 search-path = ["scripts", "tools/evidence/src", "python/corpus-structure/src", "python/corpus-structure/tests"]
 site-package-path = [".venv/lib/python3.14/site-packages"]

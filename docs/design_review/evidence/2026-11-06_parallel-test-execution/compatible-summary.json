@@ -1,0 +1,69 @@
+{
+  "status": "passed",
+  "pytest": "9.1.1",
+  "pytest_xdist": "3.8.0",
+  "selected_items": 40,
+  "parallel_items": 32,
+  "grouped_items": 8,
+  "workers": {
+    "gw11": 2697560,
+    "gw14": 2697571,
+    "gw6": 2697528,
+    "gw8": 2697549,
+    "gw9": 2697552,
+    "gw0": 2697501,
+    "gw1": 2697504,
+    "gw5": 2697525,
+    "gw12": 2697563,
+    "gw2": 2697507,
+    "gw4": 2697516,
+    "gw15": 2697576,
+    "gw3": 2697512,
+    "gw7": 2697546,
+    "gw13": 2697568,
+    "gw10": 2697555
+  },
+  "maximum_overlapping_test_calls": 16,
+  "shared_group_worker": "gw0",
+  "native_clones": [
+    {
+      "worker": "gw2",
+      "pid": 2697507,
+      "started": 1793942703.1631382,
+      "finished": 1793942703.2634637,
+      "database": "ci_test_parallel_2697507_2",
+      "acquired": [
+        "ci_test_parallel_2697507_2",
+        "paul"
+      ]
+    },
+    {
+      "worker": "gw1",
+      "pid": 2697504,
+      "started": 1793942703.1629262,
+      "finished": 1793942703.2833047,
+      "database": "ci_test_parallel_2697504_0",
+      "acquired": [
+        "ci_test_parallel_2697504_0",
+        "paul"
+      ]
+    }
+  ],
+  "native_provenance": {
+    "claimed": [
+      "docs/design_review/evidence/2026-11-06_parallel-test-execution/test_parallel_smoke.py::test_compatible_pair_parallel[compatible@0]",
+      "docs/design_review/evidence/2026-11-06_parallel-test-execution/test_parallel_smoke.py::test_compatible_pair_parallel[compatible@2]"
+    ],
+    "not_claimed": [],
+    "reason": null,
+    "required": [
+      "docs/design_review/evidence/2026-11-06_parallel-test-execution/test_parallel_smoke.py::test_compatible_pair_parallel[compatible@0]",
+      "docs/design_review/evidence/2026-11-06_parallel-test-execution/test_parallel_smoke.py::test_compatible_pair_parallel[compatible@2]"
+    ],
+    "status": "complete",
+    "unresolved": []
+  },
+  "raw_report_calls": 40,
+  "worker_collection_manifests": 16,
+  "canonical_identity_preserves_literal_at": true
+}

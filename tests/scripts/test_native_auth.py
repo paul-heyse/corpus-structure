@@ -557,6 +557,7 @@ def test_preexisting_owned_row_is_never_claimed_or_removed(
     assert list(native_auth.ROOT.glob("*.json")) == []
 
 
+@pytest.mark.shared_cluster_fault
 @pytest.mark.skipif(
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in shared-cluster SIGKILL recovery control",
@@ -675,6 +676,7 @@ with server.alternate_reader(settings.database.template) as role:
                 pass
 
 
+@pytest.mark.shared_cluster_fault
 @pytest.mark.skipif(
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in shared-cluster delayed-backend SIGKILL recovery control",
@@ -803,6 +805,7 @@ with server.alternate_reader(database) as owned_role:
                 pass
 
 
+@pytest.mark.shared_cluster_fault
 @pytest.mark.skipif(
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in shared-cluster partial-authentication failure controls",
@@ -931,6 +934,7 @@ print('RECOVERED',flush=True)
                 pass
 
 
+@pytest.mark.shared_cluster_fault
 @pytest.mark.skipif(
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in root-helper SIGTERM recovery control",
@@ -1077,6 +1081,7 @@ with server.alternate_reader(database):
                 pass
 
 
+@pytest.mark.shared_cluster_fault
 @pytest.mark.skipif(
     os.environ.get("CORPUS_TEST_NATIVE_AUTH_CRASH") != "1",
     reason="opt-in privileged guardian generation-fence control",

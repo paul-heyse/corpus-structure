@@ -1,6 +1,6 @@
 # Native lifecycle and provenance
 
-**Status:** Implemented; final-source integrated qualification pending. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
+**Status:** Implemented; full qualification stopped by operator2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md) owns TR-06–08
 and DTA disposition. Reuse native_test_support, qualification_plugin and test_receipts; no
 second janitor, observation subsystem or qualification register is selected.
 
@@ -67,7 +67,7 @@ bounded call observations for work elimination rather than timing instrumentatio
 
 ### DTA-003 decision
 
-**Proposed correction to claim precision; source reasoning Interface-checked,2026-11-05.**
+**Implemented claim-precision correction; focused Tested,2026-11-05; full qualification unfinished.**
 Existing _complete_native_context explicitly judges an item-bound acquired identity: database/OID,
 principal/login, host/port and server incarnation/version. Current minimal-context controls
 intentionally omit revision/policy. No current classifier consumer requires full deployment/policy
@@ -132,3 +132,17 @@ authority does not approve a new architecture. Run just ready after any actual e
 [SQL-only isolation contract](https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/test/isolation/README),
 [pgTAP](https://pgtap.org/documentation.html). TR-09/10 owns fresh integrated qualification;
 this document supplies no new native pass or performance measurement.
+
+## Parallel harness and stopped evidence — 2026-11-06
+
+The first serial attempt completed504native-required cases with item-bound contexts before the
+operator stop;338native obligations were not claimed. All8shared-cluster/root-auth controls passed.
+Raw interruption/failure records remain unchanged; no historical pass was retagged.
+
+The configured16worker route and separate8case serial fault lane are owned by the qualification
+companion. The plugin records real per-worker streams and collection-derived node aliases; the
+classifier retains raw artifacts while applying those exact aliases to selected/native-required,
+report/lifecycle/native-context identities and required-from manifests. Two real bare-clone cases
+and40new parallel probe cases establish the bounded reporting/isolation behavior, not all16worker
+native template/connection capacity. Pending original cases remain1390; the operator requested no
+successful-case replay and a stop after configuration/plan handoff.

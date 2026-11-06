@@ -73,12 +73,26 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         hypothesis_settings=str(settings.default),
         faulthandler_timeout=session.config.getini("faulthandler_timeout"),
         faulthandler_exit_on_timeout=session.config.getini("faulthandler_exit_on_timeout"),
+        xdist_numprocesses=session.config.getoption("numprocesses"),
+        xdist_dist=session.config.getoption("dist"),
+        xdist_loadgroup=session.config.getoption("loadgroup", False),
     )
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
+    aliases = {}
+    if hasattr(session.config, "workerinput") and session.config.getoption("loadgroup", False):
+        for item in session.items:
+            groups = {
+                str(mark.args[0] if mark.args else mark.kwargs.get("name", "default"))
+                for mark in item.iter_markers("xdist_group")
+            }
+            if groups:
+                suffix = "@" + "_".join(sorted(groups))
+                aliases[item.nodeid] = item.nodeid.removesuffix(suffix)
     _emit(
         "collection_finish",
+        nodeid_aliases=aliases,
         selected=[item.nodeid for item in session.items],
         native_required=[
             item.nodeid for item in session.items if item.get_closest_marker("db") is not None

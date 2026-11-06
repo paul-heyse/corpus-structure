@@ -447,6 +447,20 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         events, problems = read_stream(path)
         companion.extend(events)
         errors.extend(problems)
+    # loadgroup appends scheduler-only suffixes. Retain raw reportlog unchanged while
+    # comparing the original pytest identities with earlier required-node manifests.
+    aliases: dict[str, str] = {}
+    for event in companion:
+        for scheduled, original in event.get("nodeid_aliases", {}).items():
+            if scheduled in aliases and aliases[scheduled] != original:
+                errors.append(f"conflicting worker node identity for {scheduled}")
+            aliases[scheduled] = original
+    for event in [*companion, *reports]:
+        if "nodeid" in event:
+            event["nodeid"] = aliases.get(event["nodeid"], event["nodeid"])
+        for key in ("selected", "native_required", "nodes"):
+            if key in event:
+                event[key] = [aliases.get(node, node) for node in event[key]]
     selected: set[str] = set()
     deselected: set[str] = set()
     starts: set[str] = set()
@@ -654,12 +668,18 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
             if not manifests:
                 raise ValueError(f"no collection manifest: {path}")
             for event in manifests:
-                required.update(event["selected"])
-                native_required.update(event.get("native_required", []))
+                aliases = event.get("nodeid_aliases", {})
+                required.update(aliases.get(node, node) for node in event["selected"])
+                native_required.update(
+                    aliases.get(node, node) for node in event.get("native_required", [])
+                )
         else:
             manifest = read_json(path)
-            required.update(manifest["selected"])
-            native_required.update(manifest.get("native_required", []))
+            aliases = manifest.get("nodeid_aliases", {})
+            required.update(aliases.get(node, node) for node in manifest["selected"])
+            native_required.update(
+                aliases.get(node, node) for node in manifest.get("native_required", [])
+            )
     union = {
         node: [
             _union_node_status(receipt, node, native_required)
@@ -764,7 +784,14 @@ def main(argv: list[str] | None = None) -> int:
         directory.mkdir(parents=True, exist_ok=False)
         with supervision(directory) as control:
             versions: dict[str, str | None] = {}
-            for package in ("pytest", "pytest-reportlog", "hypothesis", "psycopg", "SQLAlchemy"):
+            for package in (
+                "pytest",
+                "pytest-xdist",
+                "pytest-reportlog",
+                "hypothesis",
+                "psycopg",
+                "SQLAlchemy",
+            ):
                 try:
                     versions[package] = importlib.metadata.version(package)
                 except importlib.metadata.PackageNotFoundError:

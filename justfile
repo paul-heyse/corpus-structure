@@ -13,10 +13,15 @@ default:
 # The functional tests agents run once all functional scope is implemented
 check: test py-test
 
-# Everything functional (end-of-scope acceptance, not the design loop)
+# Parallel ordinary functional lane; the exclusive fault lane follows separately when required.
 [positional-arguments]
 test-all *args:
     @uv run python scripts/test_receipts.py run --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-$$" -- "$@"
+
+# Exclusive shared-cluster authentication fault controls; run after the parallel lane finishes.
+[positional-arguments]
+test-native-faults *args:
+    @CORPUS_TEST_NATIVE_AUTH_CRASH=1 uv run python scripts/test_receipts.py run --python-only --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-faults-$$" -- -n 0 -m shared_cluster_fault tests/scripts/test_native_auth.py "$@"
 
 turn_end_steps := "adr-index fmt"
 ready_steps := "doctor-check"

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "id": "tests.parallel16-configuration",
+  "title": "Bounded sixteen-worker configuration and canonical receipt identity",
+  "group": "Test runner configuration",
+  "package": "TR-10",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the compatible pytest/xdist pair run sixteen workers, keep a declared shared group together and preserve native/canonical receipt identities?",
+  "answers": [
+    "TR-10"
+  ],
+  "method": "New bounded sixteen-worker rendezvous and shared-group controls, two actual owned bare native clones, raw report/manifest identity checks; existing successful product cases are not rerun.",
+  "commands": [
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/parallel16-compatible-20261106 -- docs/design_review/evidence/2026-11-06_parallel-test-execution/test_parallel_smoke.py -k test_compatible_pair",
+    "uv run python docs/design_review/evidence/2026-11-06_parallel-test-execution/summarize.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "test_parallel_smoke.py",
+      "role": "new bounded functional controls",
+      "sha256": "baf14285695e7abf2734fee752d861718673a46a5cb50268b596578c8510853a"
+    },
+    {
+      "path": "summarize.py",
+      "role": "independent checks of concurrency grouping and canonical receipt identities",
+      "sha256": "090aa5f4eb85ad653053aac5803c866cff8861be161e9a4e7f7ffd9835e34061"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "compatible-summary.json",
+      "role": "observed bounded final configuration result",
+      "sha256": "b3a5251ac89c06658d245c1287a3bfbc5fb7b537914b2eb93a16504c52d7d2a8"
+    },
+    {
+      "path": "raw/parallel16-compatible-20261106",
+      "role": "unchanged final receipt streams and process artifacts",
+      "sha256": "3cff5b3eb75cae58e100f196546f377b088b18558032863c49f68a8fb08157f9"
+    },
+    {
+      "path": "raw/parallel-group-identity-20261106",
+      "role": "retained incompatible-pair grouping evidence",
+      "sha256": "384e5773cbd557ef20d77155e5ebf394d9ba905cbcf3daf3973c8e0d2275648d"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "new_cases_passed",
+      "value": 40,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "actual_parallel_workers",
+      "value": 16,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "maximum_overlapping_calls",
+      "value": 16,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "shared_group_workers",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "complete_native_items",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Tested2026-11-06: pytest9.1.1/xdist3.8.0 passed forty newly authored cases, with sixteen actual concurrent workers, one worker for the eight-case shared group, complete provenance for two concurrently owned bare clones, and canonical receipt identities preserving literal parameter @ characters. This is bounded configuration evidence, not full functional or native-capacity qualification. pytest9.2 silently ignored xdist3.8 loadgroup writes; its attempts remain retained and do not qualify grouping.",
+  "consumed_by": [
+    "TR-10"
+  ]
+}

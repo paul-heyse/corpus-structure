@@ -1,0 +1,46 @@
+{
+  "items": 32,
+  "workers": {
+    "gw10": 2681156,
+    "gw13": 2681187,
+    "gw4": 2681132,
+    "gw8": 2681146,
+    "gw5": 2681135,
+    "gw15": 2681195,
+    "gw9": 2681150,
+    "gw3": 2681129,
+    "gw11": 2681163,
+    "gw2": 2681126,
+    "gw7": 2681143,
+    "gw6": 2681138,
+    "gw12": 2681167,
+    "gw1": 2681123,
+    "gw14": 2681190,
+    "gw0": 2681120
+  },
+  "maximum_overlapping_test_calls": 16,
+  "native_clones": [
+    {
+      "worker": "gw2",
+      "pid": 2681126,
+      "started": 1793942458.3646953,
+      "finished": 1793942458.5458534,
+      "database": "ci_test_parallel_2681126_2",
+      "acquired": [
+        "ci_test_parallel_2681126_2",
+        "paul"
+      ]
+    },
+    {
+      "worker": "gw0",
+      "pid": 2681120,
+      "started": 1793942458.4303756,
+      "finished": 1793942458.5306976,
+      "database": "ci_test_parallel_2681120_0",
+      "acquired": [
+        "ci_test_parallel_2681120_0",
+        "paul"
+      ]
+    }
+  ]
+}

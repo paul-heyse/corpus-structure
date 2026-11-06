@@ -1,6 +1,6 @@
 # Qualification and preservation
 
-**Status:** In progress; static preservation reconciliation complete, final-source qualification pending.
+**Status:** Incomplete/stopped by operator2026-11-06; static preservation reconciled, final qualification unfinished.
 The [coordinator](../test-audit-resolution_2026-11-05.md) owns TR-09/10, all DTA dispositions
 and combined acceptance. Historical TA/PCE/UM receipts keep their original dates and limits.
 
@@ -56,7 +56,7 @@ and selected-node manifests; overlapping results are not added as though they we
 ### Required native and process evidence
 
 Include the eight opt-in shared-cluster/root-auth crash controls because observer/lifecycle support
-changes can alter their acquisition and cleanup context. Select `CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all` as the broad functional command, on the exact owned cluster/role envelope, preserving unrelated
+changes can alter their acquisition and cleanup context. For a separately authorized fresh campaign, use `just test-all` for the16worker ordinary lane, then `just test-native-faults` for the exclusive serial fault lane, on the exact owned cluster/role envelope, preserving unrelated
 rows, resources and failures. They are not replaced by mocks or source inspection. The broad
 functional route plus additional explicit native selections may supply the union if source/context
 and required-node association match. Each selected node must have its actual prerequisite/outcome. Reconcile native-required marking
@@ -107,3 +107,45 @@ plans/evidence; the operator explicitly excluded amendments to older plans from 
 Keep Implemented, Tested, Measured and full-series qualification distinct. No unavailable required
 evidence can be deferred while still declaring this series Complete. Unsupported historical or
 broader product capabilities remain explicit boundaries, not falsely repaired findings.
+
+## Stop checkpoint and corrected parallel route — 2026-11-06
+
+The operator stopped the first broad attempt and requested only encountered-failure repairs,
+parallel configuration and plan updates before pivoting. Do not resume automatically and do not
+replay successful cases. Original receipt selected4762/842native-required;3371passed,1failed,
+1incomplete,1389not_run. Controller interruption drained its owned group without survivors.
+The exact failed renderer node was corrected and rerun alone: passed. Thus3372 original nodes
+have successful bounded results;1390 remain pending in the coordinator's manifest-derived file.
+All eight actual auth fault controls already passed and are excluded from that pending selection.
+Rust did not execute after cancellation. Full qualification/applicable hygiene remain incomplete.
+
+The initial pytest run was serial. Corrected developer/qualification configuration pins
+pytest9.1.1+pytest-xdist3.8.0 and defaults to `-n 16 --dist=loadgroup` with
+`-m 'not shared_cluster_fault'`. The shared math preparation group stays on one pytest worker;
+its internal page pool still caps at8. This prevents duplicated session preparation, not duplicate
+execution of the78page coverage case (which was already one test item). Session native templates
+and serving seeds remain per-worker, with owned names/leases. The configured100connection cluster
+and16-template envelope have not undergone full-suite capacity qualification; no host settings changed.
+
+`just test-native-faults` selects only the8marked controls, enables their existing environment
+flag and forces `-n 0`. Guards reject parallel or mixed fault selections after deselection. Run it
+exclusively after the parallel lane, never concurrently. These two lanes are the future general
+route; this engagement already has successful fault evidence and will not repeat those cases.
+If remaining work is explicitly resumed, `just test-all @build/test-receipts/qualification/test-audit-remaining-20261106.txt`
+selects only the1390pending original nodes; retain their original required manifest and current
+successful evidence with explicit source/harness applicability.
+
+Pytest9.2 changed node identity storage while xdist3.8 writes the older field: workers started but
+loadgroup silently split marked cases. The compatible pair avoids private API adaptation and
+retains faulthandler exit behavior. The [hold](../../pins.md) names the revisit condition.
+Collection-derived execution-to-logical node aliases preserve scheduler suffixes in raw artifacts
+and stable identities in manifests/report/native-context classification, including required-from
+worker manifests and literal@parameter IDs. Conflicting maps are refused.
+
+**passed:** a new40case configuration probe on16distinct concurrent worker processes,8same-group
+cases on one worker and2overlapping real isolated bare databases with complete item contexts;
+40canonical required nodes resolve with raw scheduler IDs retained. These new probe cases do not
+reduce the original1390pending count. Fault selection/refusal collection controls executed no old
+test bodies. [Evidence](../../design_review/evidence/2026-11-06_parallel-test-execution/README.md)
+retains all failed/earlier attempts and precise commands. This establishes configured parallelism,
+not complete16worker application-template capacity or full-series qualification.

@@ -1,6 +1,6 @@
 # Test audit resolution
 
-**Status:** In progress; execution authorized2026-11-05. **Created:** 2026-11-05.
+**Status:** Incomplete; implementation delivered, execution stopped at operator request2026-11-06. **Created:** 2026-11-05.
 This coordinator owns the new series' packages, scheduled remaining DTA scope and combined
 acceptance. Companion plans own detailed designs; architecture and accepted ADRs remain authority.
 
@@ -91,7 +91,7 @@ No installation or dependency change is currently scheduled.
 
 ## Package queue
 
-**TR-00 accepted; TR-01–08 Implemented; focused evidence below; TR-09/10 open.** The table is the execution-state owner; listed order is
+**TR-00 accepted; TR-01–08 Implemented; TR-09 static reconciliation complete; TR-10 qualification incomplete/stopped.** The table is the execution-state owner; listed order is
 one useful route, not a barrier between independent work.
 
 | Package | Required working input | Delivered behavior and acceptance |
@@ -170,8 +170,9 @@ Missing required evidence prevents Complete. A design decision is not implementa
 pass is not full-series acceptance. Broad product/provider/adoption claims remain outside this
 series. Quantitative benefits require separate measurements if later claimed.
 
-**Next:** integrate TR-01–08 and their focused evidence, reconcile preservation, obtain TR-10
-assembled review, then qualify final source. The operator authorized full execution2026-11-05.
+**Next:** none in this engagement. The operator requested the failing-test correction, parallel
+configuration and this handoff, then a stop for a different plan. Do not resume qualification
+automatically. Remaining obligations and exact pending selection are recorded below.
 
 ## Execution checkpoint — 2026-11-05
 
@@ -193,7 +194,7 @@ observer/capture controls (build/tr-native-noqualification-{observer,capture}-fi
 Initial infrastructure receipt remains blocked by its disabled opt-in guardian control;
 all86 executed cases passed. Seven direct PostgreSQL auth nodes are now native-required;
 the eighth filesystem guardian remains functionally required without a native acquisition claim.
-TR-10 independent assembled review is underway; final integrated qualification remains not_run.
+TR-10 assembled review accepted the implementation; final integrated qualification was later interrupted as recorded below.
 
 ## Authoring assessment and publication — 2026-11-05
 
@@ -236,3 +237,69 @@ Filesystem exhaustion interrupted review publication/deployment preparation; no 
 ran during that failure. The operator freed space; writable capacity was verified169GB before
 resuming. No cache deletion was performed by this task. Root source maintenance/ready checks,
 normal dev152 integration and final qualification now follow.
+
+## Operator stop and parallel execution amendment — 2026-11-06
+
+The initial full run was **serial pytest**, not16workers. Cargo jobs=16 only controls Rust
+compilation; math support separately caps its page pool at8. The execution approach failed to
+verify suite-level parallelism before launching. pytest-xdist was absent from the manifest and
+environment. This execution gap is corrected through the pinned compatible pytest9.1.1/xdist3.8
+pair, default16worker loadgroup execution, a shared math preparation group and a separate exclusive
+serial shared-cluster fault lane. The qualification companion owns commands and evidence limits.
+No host PostgreSQL capacity/settings change or new full run was performed for this amendment.
+
+**Interrupted by operator:** `CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all`, source59ca348f,
+receipt build/test-receipts/qualification/20261106T040813Z-2251830. Collected4762, native-required842;
+final body/phase records retain3371passed,1failed,1incomplete and1389not_run. Reporting is incomplete;
+the active pack-acquisition case was cancelled. Controller SIGINT drained the owned process group
+with SIGTERM; no descendants/group remained. Rust is not_run/cancelled before its route. All504
+completed native claims have item-bound acquisition context;338 native obligations were not claimed.
+All eight opt-in auth controls passed, including seven native-required PG controls and the distinct
+filesystem-only guardian. This is a partial result, not full qualification.
+
+**Encountered failure corrected:** root renderer preparation test still expected runtime_id in the
+three-field renderer provenance payload. The independently reviewed test-only repair asserts exact
+implementation_digest/pypdfium2/Pillow from the qualified archive and retains explicit-binding
+qualification, rejection and separate leaf controls. Only
+`tests/test_native_render_preparation.py::test_renderer_qualifies_the_explicit_runtime_binding`
+was rerun and **passed** through receipt
+build/test-receipts/qualification/test-audit-renderer-failure-repair-20261106. The other successful
+cases were not rerun. Original failure and interrupted records remain unchanged.
+
+There are3372 unique successful original-scope nodes across those receipts.1390 original nodes
+remain incomplete/not_run. Resume-only selection, derived from the original collected manifest
+and successful outcomes: build/test-receipts/qualification/test-audit-remaining-20261106.txt.
+It excludes all already successful nodes, including the repaired renderer case and eight auth
+controls. The operator explicitly prohibited replaying successful tests after this full attempt.
+No Complete, full-union pass or complete hygiene claim follows.
+
+The normal development DB was integrated separately: `ci db migrate --json` with explicit
+corpus_structure_dev maintenance URL on5434 applied only migration152. Before/after158 ordinary
+tablecounts, four project defaults and404 relation/owner/ACL fingerprints are identical; only the
+validator and execution descriptor functions changed. Descriptor/deployment checks passed.
+Receipts: build/test-receipts/tr03-dev-deployment/{before,after,summary}.json and
+build/test-receipts/tr03-dev-{before,migrate,after}.log. No release/default activation occurred.
+
+Remaining TR-10 work, only if separately resumed: qualify the pending selection under the new
+parallel route, retain existing successful evidence with its original pytest9.2 serial source
+context, account for changed harness/dependency applicability, and complete applicable hygiene.
+The new parallel probe demonstrates configured execution and selected isolation; it does not
+qualify the complete16worker native template/connection/storage envelope. Source DTA findings
+and TR10-F01/F02 have implemented corrections and bounded evidence; full-series closure stays open.
+
+### Final bounded configuration checks — 2026-11-06
+
+**passed:** new parallel40case probe/required-manifest classification and scheduling refusal/selection
+controls, `just ready`, `just types`, `uv run ruff check`, `just deps`, `git diff --check`, and
+`just evidence` (0 errors;40 existing repository warnings). New evidence record:
+`2026-11-06_parallel-test-execution/tests.parallel16-configuration`. The pytest9.2 attempts that
+started workers but failed the intended grouping property are retained; final grouping evidence
+uses9.1.1/xdist3.8.0. Raw node IDs are preserved and canonical aliases come from actual collection.
+Only the observed failed original test was rerun. No successful original cases, full suite,
+root fault bodies or remaining1390cases were replayed after the stop. Complete `just hygiene`
+and remaining functional/Rust qualification are not_run at this stopped boundary. Root publication
+maintenance and documentation checks are recorded in the handoff, without a runtime closure claim.
+
+**Final stop publication passed,2026-11-06:** `just turn-end`, `just docs-check` and task-scoped
+`git diff --check`. STATUS points to this incomplete/stopped owner and the pending selection.
+No further functional execution is scheduled in this engagement.

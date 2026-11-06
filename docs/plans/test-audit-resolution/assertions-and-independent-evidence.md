@@ -1,6 +1,6 @@
 # Assertions and independent evidence
 
-**Status:** Implemented; assembled review and final qualification pending. [Coordinator](../test-audit-resolution_2026-11-05.md)
+**Status:** Implemented; assembled review accepted; full qualification stopped by operator2026-11-06. [Coordinator](../test-audit-resolution_2026-11-05.md)
 owns TR-03/04/05 and DTA disposition. Paths below are package-relative unless marked root.
 
 ## Target and invariants
@@ -121,3 +121,14 @@ IDs, real SDK transport and production serializer tests remain. TR-09 reconciles
 applicability. Each capability gets focused functional checks and appropriate typing/lint at its
 coherent endpoint. The coordinator's TR-10 owns final integration; no full campaign per assertion
 or helper, automatic mutation suite, snapshot regeneration or reference rewriting is required.
+
+## Encountered qualification repair — 2026-11-06
+
+The initial serial broad attempt found one stale assertion in root test_native_render_preparation:
+it expected runtime_id in the renderer provenance payload. Current PdfRendererProvenance has exact
+implementation_digest/pypdfium2/Pillow fields; runtime binding is qualified separately. Independent
+focused review accepted the test-only correction. The explicit qualifier call assertion remains,
+and the expected renderer fields come from the qualified archive. Only that failed node was rerun;
+it passed in build/test-receipts/qualification/test-audit-renderer-failure-repair-20261106.
+Successful cases were not rerun. Full attempt and interruption remain retained; coordinator owns
+remaining1390-node scope and the operator stop. No full qualification claim follows.
