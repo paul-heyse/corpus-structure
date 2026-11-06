@@ -21,6 +21,7 @@ from corpus_structure.semantic.contextual_links import (
     ProposalWitness,
     RelationKind,
     RelationshipWitness,
+    RelationshipConstraint,
     select_relationships,
 )
 from corpus_structure.semantic.contextual_retrieval import (
@@ -77,6 +78,10 @@ def selection(c=None, inv=None, **kw):
         source_binding="source",
         scope="chapter5",
         effective_version=None,
+        constraints=(RelationshipConstraint("sense", ("denotes", "alias-of", "defined-by"), "usage", "sense", "one"),
+                   RelationshipConstraint("comparison", ("compared-with",), "subject", "comparator", "many"),
+                   RelationshipConstraint("specialization", ("specializes",), "specialization", "parent", "many"),
+                   RelationshipConstraint("participation", ("participates-in",), "participant", "process", "many")),
         **kw,
     )
 
@@ -211,15 +216,15 @@ def test_foreign_duplicate_or_nonfinite_channel_refused(hits):
 def test_similarity_only_produces_insufficient_evidence():
     decision = selection()
     assert decision.outcome == "insufficient_evidence"
-    assert decision.alternatives == ()
+    assert decision.selected_edges == ()
 
 
 def test_distinct_relationships_and_ambiguity_survive():
     first = selection(witnesses=(witness(),))
-    assert first.outcome == "selected"
+    assert first.outcome == "partial"
     second = selection(witnesses=(witness(), witness("w2", "b", "compared-with")))
-    assert second.outcome == "ambiguous"
-    assert {w.relation for w in second.alternatives} == {"defined-by", "compared-with"}
+    assert second.outcome == "partial"
+    assert {w.relation for w in second.selected_edges} == {"defined-by", "compared-with"}
 
 
 def test_cannot_link_blocks_alias_without_erasing_comparison():
@@ -227,7 +232,7 @@ def test_cannot_link_blocks_alias_without_erasing_comparison():
         witnesses=(witness(relation="alias-of"), witness("w2", relation="compared-with")),
         exclusions=frozenset({("occ", "a")}),
     )
-    assert [w.relation for w in decision.alternatives] == ["compared-with"]
+    assert [w.relation for w in decision.selected_edges] == ["compared-with"]
 
 
 def test_foreign_version_and_source_witness_refuse():
@@ -275,7 +280,7 @@ def test_report_profiles_and_list_closure():
         ),
     )
     report = enrichment_report(profiles=(E5,), vectors=(vector,))
-    assert report["version"] == "contextual-enrichment-1"
+    assert report["version"] == "contextual-enrichment-2"
     with pytest.raises(ValueError, match="unavailable"):
         enrichment_report(profiles=(E5,), vectors=(vector,), candidate_lists=(candidates(),))
 
@@ -321,8 +326,8 @@ def test_unknown_source_version_keeps_versions_but_refuses_unjustified_selection
     )
     unknown = inventory(*targets)
     assert unknown.target_ids == ("a", "b", "generic")
-    question = candidates(unknown, {"dense": (ChannelHit("a", 1.0), ChannelHit("b", 0.5))})
-    result = selection(question, unknown, witnesses=(witness(target_="a"),))
+    constraint = candidates(unknown, {"dense": (ChannelHit("a", 1.0), ChannelHit("b", 0.5))})
+    result = selection(constraint, unknown, witnesses=(witness(target_="a"),))
     assert result.outcome == "insufficient_evidence"
     assert result.reason is not None
     assert "version is unestablished" in result.reason
@@ -330,3 +335,33 @@ def test_unknown_source_version_keeps_versions_but_refuses_unjustified_selection
         targets, source_selection="selected-source", scope="chapter5", effective_version="v1"
     )
     assert known.target_ids == ("a", "generic")
+
+
+def test_exclusive_senses_do_not_hide_compatible_comparison():
+    decision = selection(witnesses=(witness("sense-a", "a", "denotes"),
+                                   witness("sense-b", "b", "denotes"),
+                                   witness("compare", "a", "compared-with")))
+    assert decision.outcome == "partial"
+    assert [(e.target_id, e.relation) for e in decision.selected_edges] == [("a", "compared-with")]
+    assert len(decision.alternative_groups) == 1
+    assert {(e.target_id, e.relation) for e in decision.alternative_groups[0].edges} == {("a", "denotes"), ("b", "denotes")}
+    assert decision.alternative_groups[0].constraint_id == "sense"
+
+
+def test_parallel_witnesses_are_one_edge_and_order_invariant():
+    witnesses = (witness("first"), witness("second"))
+    first = selection(witnesses=witnesses)
+    second = selection(witnesses=tuple(reversed(witnesses)))
+    assert first == second
+    assert len(first.selected_edges) == 1
+    assert {w.witness_id for w in first.selected_edges[0].witnesses} == {"first", "second"}
+    assert first.selected_edges[0].selection == "preferred"
+    assert first.selected_edges[0].witnesses[0].support_state == "unassessed"
+
+
+def test_rejected_witness_inputs_remain_in_replay_population():
+    original = witness("unsupported", support_state="unsupported")
+    decision = selection(witnesses=(original,))
+    assert decision.witnesses == (original,)
+    assert not decision.selected_edges
+    assert decision.outcome == "insufficient_evidence"

@@ -1,127 +1,81 @@
-"""Controlled workflow faults prove retention, never native encoder or retrieval quality."""
+"""Independent source/role and selected-edge projection controls for actual occurrence linking."""
 
-from types import SimpleNamespace
+from dataclasses import replace
 
 import pytest
 
-from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
-    ContextualCandidates,
+    relationship_contributions,
+    retained_occurrences,
 )
-from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
-from corpus_structure.semantic.contextual_retrieval import ChannelHit, fuse_candidates
+from corpus_structure.semantic.contextual_links import (
+    RelationshipConstraint,
+    RelationshipWitness,
+    select_relationships,
+)
+from corpus_structure.semantic.contextual_retrieval import (
+    ChannelHit,
+    freeze_inventory,
+    fuse_candidates,
+    target_representation,
+)
+from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
 from corpus_structure.semantic.observations import source_python
-from methods.test_m1_producer import view
+from corpus_structure.semantic.record_contracts import anchor_identity
 
 
-@pytest.mark.parametrize(
-    "failure", [OSError("controlled late read failure"), DatabaseOperationCancelled("cancelled")]
-)
-def test_later_operation_failure_preserves_encoder_and_completed_products(monkeypatch, failure):
-    source = view()
-    cfg = ContextualCandidateConfig(
-        registry_targets=(dict(target_id="a", label="Mean", description="An average."),),
-        cases=(
-            dict(
-                case_id="first",
-                pointer="#/texts/1",
-                text=source.text,
-                start=0,
-                end=4,
-                mention="Mean",
-            ),
-            dict(
-                case_id="second",
-                pointer="#/texts/1",
-                text=source.text,
-                start=8,
-                end=15,
-                mention="average",
-            ),
-        ),
-        source_product_digest=source.ref.native_product.content_digest,
-        source_projection_digest=source.ref.projection_digest,
-        scope="chapter5",
+PIN = dict(source="source", native_product_task_id=1, product_key="native", product_digest="a" * 64, projection_digest="b" * 64, recipe_digest="c" * 64, source_view_id=1)
+
+def located(role="term", start=0, end=4):
+    anchor = dict(pin=PIN, space="native", pointer="#/texts/1", precision="exact",
+                  start=start, end=end, source_piece="Mean is average."[start:end])
+    anchor["anchor_id"] = anchor_identity(anchor)
+    row = dict(kind="occurrence", semantic_type="source_rule." + role, operation_key="producer-op",
+               item_key=role, pin=PIN, anchors=(anchor,), occurrence_id=occurrence_identity((anchor,)))
+    row["contribution_id"] = contribution_identity(row)
+    return row
+
+
+def test_actual_roles_preserved_with_one_physical_query_context():
+    a, b = located(), located("expression")
+    rows, contexts, coordinates = retained_occurrences(
+        {"contributions": (a, b)}, {"#/texts/1": {"text": "Mean is average."}}, PIN, "new-op"
     )
+    assert len(rows) == 2 and len(contexts) == 1
+    assert rows[0]["contribution_id"] != rows[1]["contribution_id"]
+    assert rows[0]["occurrence_id"] == rows[1]["occurrence_id"]
+    assert {source_python(row["value"])["producer_semantic_type"] for row in rows} == {"source_rule.term", "source_rule.expression"}
+    assert coordinates[0]["text"] == "Mean is average."
 
-    def encoded(inputs, profile, **kwargs):
-        vectors = []
-        for item in inputs:
-            digest = "a" * 64
-            vector_id = identity(
-                "context-vector",
-                [
-                    item.object_id,
-                    item.source_binding,
-                    profile.profile_id,
-                    digest,
-                    item.representation_digest,
-                ],
-            )
-            vectors.append(
-                EncodedVector(
-                    vector_id,
-                    item.object_id,
-                    item.source_binding,
-                    profile.profile_id,
-                    digest,
-                    (1.0,) + (0.0,) * (profile.dimension - 1),
-                    item.representation_digest,
-                )
-            )
-        return EncoderResult(profile.profile_id, (), tuple(vectors), ())
 
-    calls = []
+def test_actual_occurrence_cannot_invent_source_extent():
+    row = located()
+    row["anchors"][0]["source_piece"] = "wrong"
+    with pytest.raises(ValueError, match="slice"):
+        retained_occurrences({"contributions": (row,)}, {"#/texts/1": {"text": "Mean is average."}}, PIN, "new-op")
 
-    def retrieve(**request):
-        calls.append(request)
-        if len(calls) == 2:
-            raise failure
-        return fuse_candidates(
-            occurrence_id=request["occurrence_id"],
-            query=request["query"],
-            inventory=request["inventory"],
-            channels={"dense": (ChannelHit("a", 1.0),)},
-        )
 
-    reader = SimpleNamespace(
-        source_view=lambda _: source,
-        cached_contextual_vectors=lambda **_: (),
-        contextual_candidates=retrieve,
-    )
-    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
-    )
-    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
-    if isinstance(failure, DatabaseOperationCancelled):
-        with pytest.raises(DatabaseOperationCancelled):
-            ContextualCandidates().run((unit,), cfg, ctx)
-        return
-    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
-    assert result.contribution_operations is not None
-    first, *phases = result.contribution_operations
-    report = first["contextual_enrichment"]
-    assert first["outcome"] == "succeeded" and "encoder products" in first["question"]
-    assert report["product_counts"]["vectors"] == 3
-    assert report["product_counts"]["candidate_lists"] == 1
-    assert report["product_counts"]["relationship_decisions"] == 1
-    assert [p["outcome"] for p in phases] == ["succeeded", "succeeded", "failed", "not_run"]
-    assert [p["emitted_count"] for p in phases] == [0, 1, 0, 0]
-    assert result.contributions is not None
-    proposal = next(
-        c for c in result.contributions if c["semantic_type"] == "contextual.denotation"
-    )
-    source_product = result.contributions[0]
-    assert proposal["members"] == (source_product["contribution_id"],)
-    assert proposal["anchors"] == source_product["anchors"]
-    statement = source_python(proposal["value"])
-    assert statement["target_id"] == "a" and statement["relation"] == "denotes"
-    assert statement["scope"] == "chapter5" and statement["effective_version"] is None
-    assert proposal["score_state"] == "missing" and "score" not in proposal
-    assert first["emitted_count"] == 2
-    assert "controlled late read failure" in phases[-2]["reason"]
+def test_supplied_mention_and_registry_production_bridge_removed():
+    with pytest.raises(ValueError):
+        ContextualCandidateConfig.model_validate(dict(cases=(), registry_targets=(), scope="s"))
+
+
+def test_projection_preserves_all_selected_kinds_without_first_alternative():
+    from corpus_structure.methods.contextual_embeddings import EncodedVector
+
+    target = target_representation("concept", "component-source", "Mean", "average", scope="chapter")
+    inventory = freeze_inventory((target,), source_selection="component-inventory", scope="chapter")
+    candidates = fuse_candidates(occurrence_id="occ", query=EncodedVector("v", "occ", "source", "p", "digest", (1., 0.)), inventory=inventory,
+                                 channels={"dense": (ChannelHit("concept", 1.),)})
+    original = RelationshipWitness("d", "occ", "concept", "denotes", "source", "chapter", None, ("raw",), "producer_group")
+    decision = select_relationships(candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
+                                    constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),
+                                                 RelationshipConstraint("comparison", ("compared-with",), "subject", "comparator", "many")),
+                                    witnesses=(original, replace(original, witness_id="c", relation="compared-with")))
+    source = located()
+    rows = relationship_contributions(decision, source, inventory, "edge-op")
+    assert {source_python(row["value"])["relation"] for row in rows} == {"denotes", "compared-with"}
+    assert len({source_python(row["value"])["edge_id"] for row in rows}) == 2
+    assert all(row["members"] == (source["contribution_id"],) for row in rows)
+    assert len(decision.selected_edges) == 2

@@ -15,11 +15,11 @@ from typing import Any
 
 from .identity import canonical_bytes
 
-POLICY_ID = "independent-contextual-denotation-1"
-FACET = "denotation"
-RUBRIC = "contextual-denotation-1"
-CONTEXT_POLICY = "declared-native-source-and-curated-targets-1"
-QUESTION = "contextual denotation selection for supplied occurrence"
+POLICY_ID = "independent-contextual-relationship-2"
+FACET = "relationship"
+RUBRIC = "contextual-relationship-2"
+CONTEXT_POLICY = "declared-native-source-and-extracted-components-2"
+QUESTION = "contextual relationship selection for located occurrence"
 
 
 @dataclass(frozen=True)
@@ -83,7 +83,7 @@ def project_semantic_assertions(
         "LocalSemanticPublicationPolicy",
         dict(
             policy_id=POLICY_ID,
-            policy_version="1",
+            policy_version="2",
             facet=FACET,
             rubric_version=RUBRIC,
             context_policy=CONTEXT_POLICY,
@@ -103,7 +103,7 @@ def semantic_assertion_facets(
     result.update(
         standing="admitted_local_semantic_claim",
         assessment="independently_adjudicated_exact_case",
-        semantic_scope="supplied_target_denotation_in_declared_source_context",
+        semantic_scope="selected_relationship_in_declared_source_context",
         canonical_identity="not_established",
         scientific_support="unmodeled",
         original_pdf_glyph_fidelity="not_established_by_local_publication",

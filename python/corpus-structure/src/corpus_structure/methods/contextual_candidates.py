@@ -1,9 +1,4 @@
-"""Registered supplied-mention retrieval over an immutable curated input registry.
-
-Reference spans are declared operation inputs, not discovery predictions. Registry descriptions
-are curator inputs, never source quotations or protected assessment labels. Lexical denotation
-is a scoped proposal; this method has no canonical identity or publication authority.
-"""
+"""Actual retained occurrence retrieval over authenticated definition-component targets."""
 
 from __future__ import annotations
 
@@ -17,8 +12,8 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.contextual_links import RelationshipWitness, select_relationships
-from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
+from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
+from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget, component_target_input
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory
 from corpus_structure.semantic.contextual_storage import enrichment_report
 from corpus_structure.semantic.contributions import (
@@ -29,7 +24,6 @@ from corpus_structure.semantic.contributions import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
 
 from .contextual_embeddings import (
@@ -44,13 +38,13 @@ from .contextual_embeddings import (
 def _phase_operation(phase, occurrence, dependencies, *, result_id=None, error=None, skipped=False):
     """Semantic child operation; its report digest references the intrinsic typed product ID."""
     row = dict(
-        operation_key=operation_identity("contextual-phase-1", phase, occurrence, dependencies),
+        operation_key=operation_identity("contextual-phase-2", phase, occurrence, dependencies),
         question=(
-            "contextual denotation selection for supplied occurrence"
+            "contextual relationship selection for located occurrence"
             if phase == "relationship selection"
-            else f"contextual {phase} for supplied occurrence {occurrence}"
+            else f"contextual {phase} for located occurrence {occurrence}"
         ),
-        operation_version="1",
+        operation_version="2",
         inspected_count=1,
         emitted_count=0,
         computation_dependencies=tuple(dependencies),
@@ -77,65 +71,39 @@ def _propagate_cancellation(error, check_active):
     check_active()
 
 
-def denotation_contribution(decision, source_product, registry_id, inventory, operation_key):
-    """Address one selected scoped denotation without assigning canonical authority."""
-    if decision.outcome != "selected" or not decision.alternatives:
-        return None
-    witness = decision.alternatives[0]
-    if witness.relation != "denotes":
-        return None
-    target = next(target for target in inventory.targets if target.target_id == witness.target_id)
-    dependencies = (
-        source_product["contribution_id"],
-        decision.candidate_list_id,
-        decision.decision_id,
-        registry_id,
-    )
-    row = dict(
-        contract="RetainedContributionSemantics",
-        kind="proposal",
-        semantic_type="contextual.denotation",
-        operation_key=operation_key,
-        item_key=source_product["item_key"] + ":denotation",
-        pin=source_product["pin"],
-        anchors=source_product["anchors"],
-        occurrence_id=source_product["occurrence_id"],
-        members=(source_product["contribution_id"],),
-        disposition="scoped_proposal",
-        standing="retained_private",
-        score_state="missing",
-        computation_dependencies=dependencies,
-        value=source_value(
-            dict(
-                target_id=target.target_id,
-                target_source_binding=target.source_binding,
-                relation=witness.relation,
-                scope=decision.scope,
-                effective_version=decision.effective_version,
-            )
-        ),
-    )
-    row["contribution_id"] = contribution_identity(row)
-    return row
-
-
-class SuppliedMention(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    case_id: str = Field(min_length=1)
-    pointer: str = Field(min_length=1)
-    text: str
-    start: int = Field(ge=0)
-    end: int = Field(gt=0)
-    mention: str = Field(min_length=1)
-    heading: str = ""
-    parent: str = ""
+def relationship_contributions(decision, source_product, inventory, operation_key):
+    """Project each explicitly selected scoped edge without selecting from alternatives."""
+    rows = []
+    for edge in decision.selected_edges:
+        target = next(t for t in inventory.targets if t.target_id == edge.target_id)
+        row = dict(
+            contract="RetainedContributionSemantics", kind="proposal",
+            semantic_type="contextual.relationship", operation_key=operation_key,
+            item_key=source_product["item_key"] + ":relationship:" + edge.edge_id,
+            pin=source_product["pin"], anchors=source_product["anchors"],
+            occurrence_id=source_product["occurrence_id"],
+            members=(source_product["contribution_id"],), disposition="scoped_proposal",
+            standing="retained_private", score_state="missing",
+            computation_dependencies=(source_product["contribution_id"], decision.candidate_list_id,
+                                      decision.decision_id, inventory.source_selection, edge.edge_id),
+            value=source_value(dict(target_id=target.target_id, target_source_binding=target.source_binding,
+                                    relation=edge.relation, scope=decision.scope,
+                                    effective_version=decision.effective_version,
+                                    edge_id=edge.edge_id, constraint_id=edge.constraint_id)),
+        )
+        row["contribution_id"] = contribution_identity(row)
+        rows.append(row)
+    return tuple(rows)
 
 
 class ContextualCandidateConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     profile: Literal["e5", "qwen"] = "e5"
-    registry_targets: tuple[RegistryTarget, ...] = Field(min_length=1, max_length=256)
-    cases: tuple[SuppliedMention, ...] = Field(min_length=1, max_length=128)
+    source_dependencies: Literal["source_view_product"] = "source_view_product"
+    source_dependency_method: str = Field(default="extract.m1_candidates", min_length=1)
+    semantic_types: tuple[str, ...] = ()
+    target_components: tuple[ExtractedComponentTarget, ...] = Field(min_length=1, max_length=256)
+    relationship_constraints: tuple[RelationshipConstraint, ...] = Field(min_length=1)
     source_product_digest: str = Field(pattern="^[0-9a-f]{64}$")
     source_projection_digest: str = Field(pattern="^[0-9a-f]{64}$")
     scope: str = Field(min_length=1)
@@ -144,9 +112,50 @@ class ContextualCandidateConfig(BaseModel):
     channel_budget: int = Field(default=30, ge=1, le=256)
 
 
+def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=()):
+    """Authenticate selected producer locations; role proposals remain distinct products.
+
+    Multiple pieces in one native item may share an encoder context without making
+    their intervening characters a new asserted source occurrence.
+    """
+    products, contexts, coordinates = [], {}, {}
+    for original in upstream.get("contributions", ()):
+        if semantic_types and original["semantic_type"] not in semantic_types:
+            continue
+        anchors = tuple(original.get("anchors", ()))
+        if original.get("kind") not in {"occurrence", "proposal", "group"} or not anchors:
+            continue
+        for anchor in anchors:
+            node = nodes.get(anchor["pointer"])
+            if node is None or anchor["pin"] != pin or anchor["space"] != "native":
+                raise ValueError("retained occurrence differs from actual native source")
+            if node.get("text", "")[anchor["start"]:anchor["end"]] != anchor["source_piece"]:
+                raise ValueError("retained occurrence source slice is invalid")
+            coordinates[anchor["pointer"]] = dict(pin=pin, space="native", pointer=anchor["pointer"], text=node["text"])
+        occurrence = occurrence_identity(anchors)
+        if occurrence != original["occurrence_id"]:
+            raise ValueError("retained occurrence identity differs from actual source anchors")
+        product = dict(contract="RetainedContributionSemantics", kind="occurrence",
+                       semantic_type="contextual.located_mention", operation_key=operation_key,
+                       item_key=original["contribution_id"], pin=pin, anchors=anchors,
+                       occurrence_id=occurrence, disposition="located_proposal",
+                       standing="retained_private", score_state="missing",
+                       value=source_value(dict(producer_semantic_type=original["semantic_type"],
+                                               producer_component=original.get("component"),
+                                               producer_value=original.get("value"))),
+                       computation_dependencies=(original["contribution_id"], original["operation_key"]))
+        product["contribution_id"] = contribution_identity(product)
+        products.append(product)
+        if len({a["pointer"] for a in anchors}) == 1:
+            start, end = min(a["start"] for a in anchors), max(a["end"] for a in anchors)
+            text = nodes[anchors[0]["pointer"]]["text"]
+            contexts[occurrence] = (text, start, end, text[start:end])
+    return tuple(products), contexts, tuple(coordinates.values())
+
+
 class ContextualCandidates:
     name = "retrieve.contextual"
-    version = "2"
+    version = "3"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -175,7 +184,8 @@ class ContextualCandidates:
                     configuration=cfg.model_dump(mode="json"),
                     source=view.ref.native_product.values(),
                     projection=view.ref.projection_digest,
-                    input_population="explicit-supplied-mentions-1",
+                    input_population="retained-producer-occurrences-1",
+                    producer=unit.run.reader.source_result(unit.ref.unit_id, cfg.source_dependency_method),
                 )
             )
         )
@@ -183,15 +193,15 @@ class ContextualCandidates:
     def run(self, units, cfg, ctx):
         profile = E5 if cfg.profile == "e5" else QWEN
         verify_encoder_implementation(profile)
-        registry_id, targets = registry_input(cfg.registry_targets)
+        ctx.reader.validate_component_targets(cfg.target_components)
+        registry_id, targets = component_target_input(cfg.target_components)
         inventory = freeze_inventory(
             targets,
             source_selection=registry_id,
             scope=cfg.scope,
             effective_version=cfg.effective_version,
         )
-        if len(cfg.cases) + len(targets) > profile.max_items:
-            raise ValueError("contextual combined input population exceeds encoder bound")
+        
         results = []
         for unit in units:
             ctx.check_active()
@@ -205,57 +215,17 @@ class ContextualCandidates:
             operation_key = operation_identity(
                 self.name, self.version, cfg.model_dump(mode="json"), pin
             )
-            products, coordinates, inputs = [], {}, []
-            for case in cfg.cases:
-                node = nodes.get(case.pointer)
-                if node is None or node.get("text") != case.text:
-                    raise ValueError("supplied contextual source differs from actual native item")
-                if case.text[case.start : case.end] != case.mention:
-                    raise ValueError(
-                        "supplied contextual mention differs from exact source occurrence"
-                    )
-                anchor = dict(
-                    pin=pin,
-                    space="native",
-                    pointer=case.pointer,
-                    precision="exact",
-                    start=case.start,
-                    end=case.end,
-                    source_piece=case.mention,
-                )
-                anchor["anchor_id"] = anchor_identity(anchor)
-                occurrence = occurrence_identity((anchor,))
-                product = dict(
-                    contract="RetainedContributionSemantics",
-                    kind="occurrence",
-                    semantic_type="contextual.supplied_mention",
-                    operation_key=operation_key,
-                    item_key=case.case_id,
-                    pin=pin,
-                    anchors=(anchor,),
-                    occurrence_id=occurrence,
-                    disposition="supplied_input",
-                    standing="retained_private",
-                    score_state="missing",
-                )
-                product["contribution_id"] = contribution_identity(product)
-                products.append(product)
-                coordinates[case.pointer] = dict(
-                    pin=pin, space="native", pointer=case.pointer, text=case.text
-                )
-                inputs.append(
-                    ContextInput(
-                        occurrence,
-                        frame.unit_ref,
-                        "query",
-                        case.mention,
-                        case.text,
-                        case.start,
-                        case.end,
-                        heading=case.heading,
-                        parent=case.parent,
-                    )
-                )
+            upstream = ctx.reader.source_result(unit.ref.unit_id, cfg.source_dependency_method)
+            if upstream is None:
+                raise ValueError("selected retained occurrence producer is unavailable")
+            source_products, contexts, coordinates = retained_occurrences(
+                upstream, nodes, pin, operation_key, cfg.semantic_types
+            )
+            products = list(source_products)
+            inputs = [ContextInput(occurrence, frame.unit_ref, "query", mention, text, start, end)
+                      for occurrence, (text, start, end, mention) in contexts.items()]
+            if len(inputs) + len(targets) > profile.max_items:
+                raise ValueError("contextual combined input population exceeds encoder bound")
             cached = ctx.reader.cached_contextual_vectors(
                 profile_id=profile.profile_id, targets=inventory.targets
             )
@@ -289,8 +259,8 @@ class ContextualCandidates:
             vectors = {v.object_id: v for v in all_vectors}
             target_vectors = tuple(v for v in all_vectors if v.object_id in inventory.target_ids)
             lists, decisions, phases = [], [], []
-            source_products = tuple(products)
-            for case, product in zip(cfg.cases, source_products, strict=True):
+            for occurrence, (text, start, end, mention) in contexts.items():
+                product = next(p for p in source_products if p["occurrence_id"] == occurrence)
                 ctx.check_active()
                 occurrence = product["occurrence_id"]
                 dependencies = (
@@ -304,7 +274,7 @@ class ContextualCandidates:
                         query=vectors[occurrence],
                         inventory=inventory,
                         target_vectors=target_vectors,
-                        lexical_query=case.mention,
+                        lexical_query=mention,
                         dimension=profile.dimension,
                         budget=cfg.unique_target_budget,
                         channel_budget=cfg.channel_budget,
@@ -343,11 +313,12 @@ class ContextualCandidates:
                             cfg.scope,
                             cfg.effective_version,
                             (product["contribution_id"],),
-                            "explicit_source_cue",
+                            "producer_group",
+                            "unassessed",
                         )
                         for target in inventory.targets
                         if target.target_id in available
-                        and case.mention.lower()
+                        and mention.lower()
                         in {target.label.lower(), *(a.lower() for a in target.aliases)}
                     )
                     decision = select_relationships(
@@ -356,8 +327,9 @@ class ContextualCandidates:
                         source_binding=frame.unit_ref,
                         scope=cfg.scope,
                         effective_version=cfg.effective_version,
+                        constraints=cfg.relationship_constraints,
                         witnesses=witnesses,
-                        insufficient_reason="no exact full-term registry label/alias witness",
+                        insufficient_reason="no exact full-term component label witness",
                     )
                 except (ValueError, TimeoutError, OSError) as error:
                     _propagate_cancellation(error, ctx.check_active)
@@ -377,13 +349,12 @@ class ContextualCandidates:
                     (candidate_list.list_id,),
                     result_id=decision.decision_id,
                 )
-                proposal = denotation_contribution(
-                    decision, product, registry_id, inventory, phase["operation_key"]
-                )
-                if proposal is not None:
-                    products.append(proposal)
-                    phase["emitted_count"] = 1
-                    phase["computation_dependencies"] = proposal["computation_dependencies"]
+                proposals = relationship_contributions(decision, product, inventory, phase["operation_key"])
+                products.extend(proposals)
+                phase["emitted_count"] = len(proposals)
+                phase["computation_dependencies"] = tuple(dict.fromkeys(
+                    dependency for proposal in proposals for dependency in proposal["computation_dependencies"]
+                )) or (candidate_list.list_id,)
                 phases.append(phase)
             report = enrichment_report(
                 profiles=(profile,),
@@ -391,12 +362,12 @@ class ContextualCandidates:
                 inventories=(inventory,),
                 candidate_lists=lists,
                 relationship_decisions=decisions,
-                curated_registry_id=registry_id,
+                component_targets=tuple(t.model_dump(mode="python") for t in cfg.target_components),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
             operation = dict(
                 operation_key=operation_key,
-                question="source-supplied mention locations and contextual encoder products",
+                question="retained producer occurrence roles and contextual encoder products",
                 operation_version=self.version,
                 outcome="succeeded",
                 inspected_count=len(source_products),
@@ -414,12 +385,12 @@ class ContextualCandidates:
                     outcome=ObservationOutcome.PRODUCED,
                     contribution_operations=(operation, *phases),
                     contributions=tuple(products),
-                    contribution_coordinate_texts=tuple(coordinates.values()),
+                    contribution_coordinate_texts=coordinates,
                     parse_detail=json.loads(
                         canonical_bytes(
                             dict(
-                                input_population="explicit-supplied-mentions-1",
-                                registry_standing="curated_input_not_source_truth",
+                                input_population="retained-producer-occurrences-1",
+                                target_standing="retained_component_private_proposal",
                                 encoder_implementation=encoded.implementation,
                                 fresh_vector_count=len(encoded.vectors),
                                 reused_vector_count=len(cached),

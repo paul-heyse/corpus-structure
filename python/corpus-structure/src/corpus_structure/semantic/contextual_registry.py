@@ -35,3 +35,44 @@ def registry_input(targets: Sequence[RegistryTarget]):
         for t in ordered
     )
     return registry_id, representations
+
+
+class ExtractedComponentTarget(BaseModel):
+    """Located component description; native completion authenticates its original custody."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    reference: dict
+    label: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    scope: str = Field(min_length=1)
+    effective_version: str | None = None
+    parent: str | None = None
+
+    def authenticated_reference(self):
+        from .structural_products import RetainedComponentRef
+
+        return RetainedComponentRef.model_validate(self.reference)
+
+
+def component_target_input(targets: Sequence[ExtractedComponentTarget]):
+    """Prepare immutable representations without manufacturing curated source attribution.
+
+    This checks the reference contract, not whether a database really contains that
+    component. The owned Reader and native completion resolve it against original results.
+    """
+    if not targets:
+        raise ValueError("component inventory requires retained target components")
+    ordered = tuple(sorted(targets, key=lambda t: t.authenticated_reference().identity))
+    refs = tuple(target.authenticated_reference() for target in ordered)
+    if len({ref.component_id for ref in refs}) != len(refs):
+        raise ValueError("component inventory contains duplicate target identities")
+    inventory_source = identity("definition-component-inventory", [t.model_dump(mode="json") for t in ordered])
+    representations = tuple(
+        target_representation(
+            ref.component_id, "definition-component:" + ref.identity,
+            target.label, target.description, scope=target.scope,
+            effective_version=target.effective_version, parent=target.parent,
+        )
+        for target, ref in zip(ordered, refs, strict=True)
+    )
+    return inventory_source, representations

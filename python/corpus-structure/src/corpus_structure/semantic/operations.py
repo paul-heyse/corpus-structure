@@ -12,7 +12,7 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, JsonValue
-from sqlalchemy import Connection, cast, func, insert, literal, select
+from sqlalchemy import Connection, cast, func, insert, literal, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -1073,6 +1073,15 @@ class BoundReader:
             limit=limit,
             read_budget=self._read_budget or read_budget,
         )
+
+    def validate_component_targets(self, targets):
+        """Resolve retained component descriptions before provider work in a short read."""
+        import json
+
+        self.conn.execute(
+            text("SELECT ops.validate_component_targets(CAST(:targets AS jsonb))"),
+            {"targets": json.dumps([target.model_dump(mode="json") for target in targets])},
+        ).scalar_one()
 
     def cached_contextual_vectors(self, *, profile_id, targets):
         from .contextual_storage import cached_target_vectors

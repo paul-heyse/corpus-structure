@@ -418,6 +418,10 @@ class SourcePreparationReader(Protocol):
         """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
+    def validate_component_targets(self, targets: Sequence[Any]) -> None:
+        """Authenticate retained target content and original custody before model execution."""
+        ...
+
     def cached_contextual_vectors(
         self, *, profile_id: str, targets: Sequence[TargetRepresentation]
     ) -> tuple[CachedTargetVector, ...]:

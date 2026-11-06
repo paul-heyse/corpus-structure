@@ -44,6 +44,7 @@ def enrichment_report(
     candidate_lists: Sequence[CandidateList] = (),
     relationship_decisions: Sequence[RelationshipDecision] = (),
     curated_registry_id: str | None = None,
+    component_targets: Sequence[dict] = (),
     vector_reuse: Sequence[VectorReuse] = (),
 ) -> dict:
     """A typed report payload for SourceContributionOperation.contextual_enrichment.
@@ -51,6 +52,14 @@ def enrichment_report(
     The ordinary bind_report/completion owner validates its released shape and native source
     closure, then projects it atomically. This function does not write rows or grant authority.
     """
+    if component_targets:
+        from .contextual_registry import ExtractedComponentTarget, component_target_input
+
+        if curated_registry_id is not None:
+            raise ValueError("component targets cannot use curated registry attribution")
+        _, authenticated_targets = component_target_input(tuple(ExtractedComponentTarget.model_validate(t) for t in component_targets))
+        if any(t not in authenticated_targets for i in inventories for t in i.targets):
+            raise ValueError("inventory target differs from authenticated component representation")
     profile_map = {p.profile_id: p for p in profiles}
     if len(profile_map) != len(profiles):
         raise ValueError("duplicate contextual profile")
@@ -141,7 +150,8 @@ def enrichment_report(
             source_binding=decision.source_binding,
             scope=decision.scope,
             effective_version=decision.effective_version,
-            witnesses=decision.alternatives,
+            constraints=decision.constraints,
+            witnesses=decision.witnesses,
             exclusions=frozenset((e.left, e.right) for e in decision.exclusions),
             exclusion_snapshot=decision.exclusion_snapshot,
             proposal=decision.proposal,
@@ -160,8 +170,9 @@ def enrichment_report(
 
     cleaned = clean(
         dict(
-            version="contextual-enrichment-1",
+            version="contextual-enrichment-2",
             curated_registry_id=curated_registry_id,
+            component_targets=tuple(component_targets),
             vector_reuse=[asdict(r) for r in vector_reuse],
             product_counts=dict(
                 profiles=len(profiles),

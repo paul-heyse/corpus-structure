@@ -85,6 +85,9 @@ class ScopedSourceReader:
             lambda reader: reader.retained_source_result(source_view_id, task_id, method)
         )
 
+    def validate_component_targets(self, targets):
+        return self._read(lambda reader: reader.validate_component_targets(targets))
+
     def cached_contextual_vectors(self, **request):
         return self._read(lambda reader: reader.cached_contextual_vectors(**request))
 
