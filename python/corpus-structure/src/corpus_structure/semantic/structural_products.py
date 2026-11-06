@@ -227,6 +227,7 @@ DefinitionOutcome = Literal[
 class StructuralDefinitionReading(StructuralValue):
     target_id: Nonempty
     component_ref: RetainedComponentRef
+    component: LocatedDefinitionComponent
     outcome: DefinitionOutcome
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
     premises: tuple[ApplicabilityPremise, ...] = Field(min_length=1)
@@ -234,6 +235,8 @@ class StructuralDefinitionReading(StructuralValue):
 
     @model_validator(mode="after")
     def supported_premises(self) -> Self:
+        if self.component_ref.component_id != self.component.component_id:
+            raise ValueError("applicability reading substitutes its component")
         if len({p.dimension for p in self.premises}) != len(self.premises):
             raise ValueError("duplicate applicability premise")
         states = {p.state for p in self.premises}
