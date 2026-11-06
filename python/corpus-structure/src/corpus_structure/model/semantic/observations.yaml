@@ -9,6 +9,191 @@ types:
     base: float
     uri: http://www.w3.org/2001/XMLSchema#double
 classes:
+  ArtifactCitation:
+    is_a: SourceRecordProduct
+    attributes:
+      source_ref:
+        range: string
+        required: true
+      passage_id:
+        range: string
+        required: true
+      source_pointer:
+        range: string
+        required: true
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+      end:
+        range: integer
+        required: true
+      text:
+        range: string
+        required: true
+  ArtifactModelField:
+    is_a: SourceRecordProduct
+    attributes:
+      name:
+        range: string
+        required: true
+      value:
+        range: contextual_float
+  ArtifactPair:
+    is_a: SourceRecordProduct
+    attributes:
+      left:
+        range: string
+        required: true
+      right:
+        range: string
+        required: true
+      candidate_routes:
+        multivalued: true
+        minimum_cardinality: 1
+        range: string
+        required: true
+      scope_state:
+        range: IdentityArtifactPairScopeStateValue
+        required: true
+      revision_relation:
+        range: IdentityArtifactPairRevisionRelationValue
+        required: true
+      lexical_score:
+        range: contextual_float
+        required: true
+        minimum_value: 0
+        maximum_value: 1
+      model_probability:
+        range: contextual_float
+        minimum_value: 0
+        maximum_value: 1
+      model_id:
+        range: string
+      model_evidence:
+        multivalued: true
+        range: ArtifactModelField
+        inlined: true
+      standing:
+        equals_string: candidate_relative_private
+      dependencies:
+        multivalued: true
+        range: string
+        required: true
+  ArtifactPairKey:
+    is_a: SourceRecordProduct
+    attributes:
+      left:
+        range: string
+        required: true
+      right:
+        range: string
+        required: true
+  ArtifactRecord:
+    is_a: SourceRecordProduct
+    attributes:
+      contribution_id:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      artifact:
+        range: SourceArtifactOccurrence
+        inlined: true
+        required: true
+      citations:
+        multivalued: true
+        minimum_cardinality: 1
+        range: ArtifactCitation
+        inlined: true
+        required: true
+  ArtifactScoringPolicy:
+    is_a: SourceRecordProduct
+    attributes:
+      prior:
+        range: contextual_float
+        required: true
+      code_m:
+        range: contextual_float
+        required: true
+      code_u:
+        range: contextual_float
+        required: true
+      title_m:
+        range: contextual_float
+        required: true
+      title_u:
+        range: contextual_float
+        required: true
+  SourceArtifactOccurrence:
+    is_a: SourceRecordProduct
+    attributes:
+      protocol:
+        equals_string: source-artifact-occurrence-1
+      artifact_kind:
+        range: IdentitySourceArtifactOccurrenceArtifactKindValue
+        required: true
+      source_work:
+        range: string
+        required: true
+      controlled_code:
+        range: string
+      title:
+        range: string
+      aliases:
+        multivalued: true
+        range: string
+      revision:
+        range: string
+      revision_state:
+        range: IdentitySourceArtifactOccurrenceRevisionStateValue
+      occurrence_role:
+        range: IdentitySourceArtifactOccurrenceOccurrenceRoleValue
+        required: true
+      scope:
+        range: string
+        required: true
+      source_pointer:
+        range: string
+        required: true
+      dependencies:
+        multivalued: true
+        minimum_cardinality: 1
+        range: string
+        required: true
+  ArtifactIdentityProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      protocol:
+        equals_string: artifact-identity-1
+      records:
+        multivalued: true
+        range: ArtifactRecord
+        inlined: true
+        required: true
+      pairs:
+        multivalued: true
+        range: ArtifactPair
+        inlined: true
+        required: true
+      native_alias_pairs:
+        multivalued: true
+        range: ArtifactPairKey
+        inlined: true
+      policy:
+        range: ArtifactScoringPolicy
+        inlined: true
+        required: true
+      source_mapping_provenance:
+        multivalued: true
+        range: string
+        required: true
+      unbound_source_ids:
+        multivalued: true
+        range: integer
+      standing:
+        equals_string: candidate_relative_private
   SourceRecordProduct:
     abstract: true
     description: Private operation product, validated through released report boundaries; not a knowledge graph class or datatype.
@@ -1156,6 +1341,7 @@ classes:
       dossier:
         range: DossierProduct
         inlined: true
+      artifact_identity: {range: ArtifactIdentityProduct, inlined: true}
       retrieval_report: {range: ContextualEnrichmentReport, inlined: true}
 
   StructuralPublicationPolicy:
@@ -1395,6 +1581,31 @@ classes:
         inlined: true
 
 enums:
+  IdentityArtifactPairScopeStateValue:
+    permissible_values:
+      compatible: {}
+      excluded: {}
+  IdentityArtifactPairRevisionRelationValue:
+    permissible_values:
+      same_observed: {}
+      different_observed: {}
+      unknown: {}
+  IdentitySourceArtifactOccurrenceArtifactKindValue:
+    permissible_values:
+      table: {}
+      figure: {}
+      theorem: {}
+      section: {}
+  IdentitySourceArtifactOccurrenceRevisionStateValue:
+    permissible_values:
+      observed: {}
+      unknown: {}
+      malformed: {}
+      unresolved: {}
+  IdentitySourceArtifactOccurrenceOccurrenceRoleValue:
+    permissible_values:
+      caption: {}
+      reference: {}
   StructuralParseState:
     permissible_values: {parsed: {}, unsupported: {}, ambiguous: {}}
   StructuralComparator:
@@ -1576,6 +1787,7 @@ enums:
       open_question: {}
   StructuralStructuralProductReportKindValue:
     permissible_values:
+      artifact_identity: {}
       definition_components: {}
       definition_applicability: {}
       qualified_comparison: {}

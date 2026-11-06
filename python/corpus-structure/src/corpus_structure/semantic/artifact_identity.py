@@ -59,6 +59,16 @@ class ArtifactRecord(StructuralValue):
     citations: tuple[ArtifactCitation, ...] = Field(min_length=1)
 
 
+class ArtifactModelField(StructuralValue):
+    name: str = Field(min_length=1)
+    value: float | None = Field(default=None, allow_inf_nan=False)
+
+
+class ArtifactPairKey(StructuralValue):
+    left: str = Field(min_length=1)
+    right: str = Field(min_length=1)
+
+
 class ArtifactPair(StructuralValue):
     left: str
     right: str
@@ -68,7 +78,7 @@ class ArtifactPair(StructuralValue):
     lexical_score: float = Field(ge=0, le=1)
     model_probability: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
     model_id: str | None = None
-    model_evidence: dict[str, float | int | None] = Field(default_factory=dict)
+    model_evidence: tuple[ArtifactModelField, ...] = ()
     standing: Literal["candidate_relative_private"] = "candidate_relative_private"
     dependencies: tuple[str, ...]
 
@@ -216,11 +226,11 @@ def score_pairs(
                 **p.model_dump(),
                 "model_probability": float(probabilities[(p.left, p.right)]["match_probability"]),
                 "model_id": policy.identity,
-                "model_evidence": {
-                    key: value
+                "model_evidence": tuple(
+                    ArtifactModelField(name=key, value=value)
                     for key, value in probabilities[(p.left, p.right)].items()
                     if key.startswith(("gamma_", "mw_", "tf_"))
-                },
+                ),
             }
         )
         if p.scope_state == "compatible"
@@ -270,7 +280,7 @@ class ArtifactIdentityProduct(StructuralValue):
     protocol: Literal["artifact-identity-1"] = "artifact-identity-1"
     records: tuple[ArtifactRecord, ...]
     pairs: tuple[ArtifactPair, ...]
-    native_alias_pairs: tuple[tuple[str, str], ...] = ()
+    native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
     policy: ArtifactScoringPolicy
     source_mapping_provenance: tuple[str, ...]
     unbound_source_ids: tuple[int, ...] = ()
@@ -297,7 +307,8 @@ class ArtifactIdentityProduct(StructuralValue):
                 pair.scope_state != "compatible" or pair.model_id != self.policy.identity
             ):
                 raise ValueError("identity score lacks selected frozen model custody")
-        for left, right in self.native_alias_pairs:
+        for native_pair in self.native_alias_pairs:
+            left, right = native_pair.left, native_pair.right
             if left >= right or not {left, right} <= by_id.keys():
                 raise ValueError("native alias pair outside exact cohort")
         return self

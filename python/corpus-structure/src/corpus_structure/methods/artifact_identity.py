@@ -11,6 +11,7 @@ from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOut
 from corpus_structure.semantic.artifact_identity import (
     ArtifactCitation,
     ArtifactIdentityProduct,
+    ArtifactPairKey,
     ArtifactRecord,
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
@@ -26,11 +27,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralValue,
 )
 
-
-class SourceWorkBinding(StructuralValue):
-    native_content_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    source_work: str = Field(min_length=1)
-    provenance: str = Field(min_length=1)
+from .scoped_relations import SourceWorkBinding
 
 
 class ArtifactIdentityConfig(StructuralValue):
@@ -63,7 +60,7 @@ class ArtifactIdentityConfig(StructuralValue):
 def discover_identity_records(frame, inputs, source_ref, source_work):
     from .scoped_relations import discover_relations
 
-    rows = discover_relations(frame, source_work=source_work)[0]
+    rows = discover_relations(frame, source_work=source_work)["contributions"]
     pieces = json.loads(frame.native_context)["pieces"]
     passages = tuple(p for p in inputs.passages if p.source_ref == source_ref)
     records = []
@@ -183,7 +180,7 @@ class ArtifactIdentityMethod:
             artifact_identity=ArtifactIdentityProduct(
                 records=selected,
                 pairs=scored,
-                native_alias_pairs=alias,
+                native_alias_pairs=tuple(ArtifactPairKey(left=a, right=b) for a, b in alias),
                 policy=cfg.policy,
                 source_mapping_provenance=tuple(sorted(set(provenance))),
                 unbound_source_ids=tuple(unbound),

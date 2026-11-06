@@ -114,7 +114,7 @@ def test_native_alias_blocking_is_source_scoped_and_frozen_model_is_recorded():
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     scored = score_pairs(records, pair_candidates(records), policy)
     assert scored[0].model_id == policy.identity
-    assert "gamma_controlled_code" in scored[0].model_evidence
+    assert "gamma_controlled_code" in {f.name for f in scored[0].model_evidence}
 
 
 def test_identity_product_rejects_cross_work_scores_and_missing_citations():
