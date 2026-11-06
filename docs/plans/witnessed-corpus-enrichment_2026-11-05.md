@@ -60,15 +60,15 @@ arms; it does not duplicate fitting labels, graph authority or mutable status.
 ## Accepted planning decisions and adoption
 
 The operator explicitly accepted all six review impacts on2026-11-05 during plan preparation.
-These are target decisions; WCE00 routes their formal adoption before dependent implementation.
+ADR-0066 adopts the target on2026-11-06; RC05 is replaced by the operator direction below.
 
 | Review impact | Decision and adoption route |
 |---|---|
-| RC01 | Accept: additive witnessed components and independent narrow policies. Successor ADR for affected ADR-0065 scope, with D1/D2/D5/D8 owner edits. Preserve whole-report rules. |
+| RC01 | Accept: additive witnessed components and independent narrow policies. Additive ADR-0066 beside existing ADR-0065 scope, with D1/D2/D5/D8 owner edits. Preserve whole-report rules. |
 | RC02 | Accept: question-relative compatibility and qualified bases. Version observations/selector policy and amend D1/D5/D8; publish rationale through the same ADR route. |
 | RC03 | Accept: typed/revision comparison beside lexical baseline. Version operation/policy and revise affected ADR-0065/D1/D4/D5 owners. |
 | RC04 | Accept: supported-facet dossier selection as versioned bounded display projection. D1/D8 representation policy; no stronger admitted coverage claim. |
-| RC05 | Accept: bounded enterprise reference/transfer packet. Amend DESIGN §1.2 via its decision route; no second fully released corpus or default adoption. |
+| RC05 | Replaced2026-11-06: qualify on statistics, with domain-owned contracts and extension scenarios. No enterprise acquisition/qualification prerequisite; DESIGN §1.2 remains statistics-first. |
 | RC06 | Accept: operation-specific held-out frames and frozen source/rubric/exposure contracts. Version evaluator protocol/native binding and amend D7. |
 
 Do not edit immutable accepted ADRs. Record successor rationale and architectural-owner changes
@@ -76,13 +76,13 @@ before using changed rules. Planning acceptance is not native deployment or a me
 
 ## Execution queue
 
-All packages below are **Proposed / not started**; this table alone owns their state.
+WCE00–03 are executing2026-11-06; later packages remain Proposed. This table owns state.
 
 | ID | Prerequisite capability | Delivered behavior and completion boundary |
 |---|---|---|
 | WCE00 | Current source/review/rule decisions | Reconcile source and test-foundation receipts; adopt RC01–06 through existing decision owners; identify required verification union. |
 | WCE01 | WCE00 | Released component/question/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
-| WCE02 | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics/enterprise packet and independent references. Can proceed alongside producers once questions settle. |
+| WCE02 | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
 | WCE03 | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
 | WCE04 | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; current whole-pair classifier retained as control. |
 | WCE05 | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
@@ -163,3 +163,12 @@ functional campaign follows from authoring documents alone.
 
 **Plan publication,2026-11-06:** source/document inspection only; product tests, providers, database
 mutation and probes not_run. Documentation check outcomes belong to STATUS/publication commit.
+
+## WCE00–03 execution boundary — 2026-11-06
+
+ADR-0066 adopts RC01–04/06 and the operator replacement of RC05. Current test-resolution
+implementation is available, but its stopped qualification is not resumed or claimed complete.
+The selected verification union covers generated/typed component contracts, native source/endpoint
+refusals, protected frame/partition/exposure controls, named matcher/M1 behavior and bounded
+Reader/CLI/MCP/export preservation. WCE12 retains full-series qualification. WCE02 later-producer
+output frames remain open after the early source/reference and WCE03 assessment slices.

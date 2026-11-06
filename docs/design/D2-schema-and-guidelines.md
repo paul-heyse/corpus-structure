@@ -1,5 +1,11 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Witnessed component target
+
+**Proposed target, adopted2026-11-06.** Executable released declarations own component variants, role bindings and operation contracts. Generated boundaries and native validators consume that same meaning; no parallel witness store or independently authored role vocabulary is introduced.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

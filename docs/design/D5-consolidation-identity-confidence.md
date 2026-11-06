@@ -1,5 +1,11 @@
 # D5 · Consolidation, identity and confidence
 
+## Witnessed component target
+
+**Proposed target, adopted2026-11-06.** Exact operation-specific eligibility qualifies only the assessed component statement. Whole-report policies remain unchanged. Typed comparison and supported-facet display are accepted later targets, independently of canonical identity.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 ## Independent local admission
 
 **Implemented; integrated qualification in progress, 2026-11-05.** The released local

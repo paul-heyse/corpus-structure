@@ -1,5 +1,11 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## Witnessed component target
+
+**Proposed target, adopted2026-11-06.** Freeze source opportunities before alignment or filtering; distinguish source-first capture from output-first correctness. Provenance groups and exposure partitions belong to existing protected reference custody. Qualification uses statistics; enterprise material is not a prerequisite.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

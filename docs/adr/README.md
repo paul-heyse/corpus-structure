@@ -46,6 +46,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0063](0063-semantic-runtime-identity.md) | Semantic releases retain data meaning while immutable runtimes pin execution provenance | 2026-11-05 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0064](0064-local-semantic-admission.md) | Publish independently judged local semantics through a later ordinary consolidation | 2026-11-05 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0065](0065-cross-source-structural-products.md) | Retain cross-source structural products with original source custody | 2026-11-05 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Tested |  |
+| [ADR-0066](0066-witnessed-component-policies.md) | Retain witnessed components and assess exact operation questions independently | 2026-11-06 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

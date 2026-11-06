@@ -1,5 +1,11 @@
 # D1 · Knowledge representation
 
+## Witnessed component target
+
+**Proposed target, adopted2026-11-06.** Located components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Question-relative compatible edges remain distinct from exclusive alternatives.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

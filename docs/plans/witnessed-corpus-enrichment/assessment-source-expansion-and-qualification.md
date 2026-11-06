@@ -62,16 +62,11 @@ coordinate limitations. Select the actual source before drawing claims from a ru
 No full-book reread or historical-reference projection is a prerequisite; use bounded fresh ingestion
 only when retained source products lack necessary authentic evidence.
 
-For RC05, author a small authentic controlled-artifact packet: glossary/form identifiers, issuer/site,
-policy/procedure links, prerequisite/exception clauses and successive versions. Include repeated
-artifact lineage with distinct immutable versions, similar titles under different issuers and genuine
-cannot-links. This supplies WCE10's chosen identity grain and typed revision countercases. Inventory
-access/availability explicitly; if no suitable authentic packet exists, record the missing prerequisite
-and obtain/author a suitable source selection before claiming pilot execution. Do not fabricate an
-enterprise efficacy cohort from expected fixture answers.
-
-The packet is bounded reference/transfer qualification, not another fully released corpus. Statistics
-and enterprise runs each retain their own canonical domain and explicit cross-source projections.
+RC05 was replaced by the operator on2026-11-06: qualify on the existing statistics set.
+Keep source groups, schemas, role bindings and policies domain-owned. Enterprise examples remain
+focused change scenarios; no authentic enterprise packet or second-corpus campaign is required.
+WCE10 must reconcile its selected identity question with available statistics material rather than
+claiming that unrelated statistics qualification establishes controlled-artifact identity efficacy.
 Original projects/runs/cuts/releases/runtime and source bytes remain pinned and independently readable.
 
 ## New evaluation and benefit contracts

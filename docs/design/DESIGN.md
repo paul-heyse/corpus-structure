@@ -188,6 +188,14 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
+**Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
+retain exact operation questions and source bases. Independent component assessment and scoped
+eligibility remain separate from private production and whole-report standing. WCE owns adoption;
+statistics qualification uses domain-owned contracts, without an enterprise corpus prerequisite.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
+
 **Implemented; bounded native/publication Tested, 2026-11-05.** Cross-source structural
 products retain original source occurrence, typed report envelope, complete raw task result,
 source-resolved public claim and admission witness as distinct identities. Numeric retrieval
@@ -250,6 +258,14 @@ uses its frozen claim form until scheduled consumer migration.
 <a id="section-b2"></a>
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
+retain exact operation questions and source bases. Independent component assessment and scoped
+eligibility remain separate from private production and whole-report standing. WCE owns adoption;
+statistics qualification uses domain-owned contracts, without an enterprise corpus prerequisite.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 
 **Implemented; bounded native/publication Tested, 2026-11-05.** Original-project source guards
 remain intact. Finite RUN-unit structural reports use the existing immutable task lifecycle;
@@ -514,6 +530,14 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
+retain exact operation questions and source bases. Independent component assessment and scoped
+eligibility remain separate from private production and whole-report standing. WCE owns adoption;
+statistics qualification uses domain-owned contracts, without an enterprise corpus prerequisite.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 
 **Implemented; bounded native/consumer controls Tested, 2026-11-05.** Finite released
 structural variants, original-source references, group frames and operation-specific public

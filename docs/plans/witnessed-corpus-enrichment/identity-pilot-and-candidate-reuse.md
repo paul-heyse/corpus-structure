@@ -2,7 +2,7 @@
 
 **Proposed implementation companion · 2026-11-05.** This document develops WCE10 of the [witnessed corpus enrichment coordinator](../witnessed-corpus-enrichment_2026-11-05.md). The coordinator owns execution status, finding disposition, rule changes and conditional decisions. This document owns the selected pilot's identity question, field/candidate model, cohort entry conditions, actual integration and acceptance. It carries the integrated [production enrichment review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md) §8/F07/§10 at `6487c486075a832e50b59fcec96c88485f30c11a`; it does not promote the earlier functional review into principal authority.
 
-RC01–RC06 were accepted for planning on 2026-11-05. WCE00 routes those changes, especially RC05's bounded enterprise packet and RC06's independent group-held-out assessment, before their dependents. The separately owned test-plan foundation is assumed ready as a target; its remaining final checks are not this pilot's scope or passing evidence.
+RC01–RC06 were accepted for planning on 2026-11-05. WCE00 routes those changes, including RC05's November6 replacement with statistics qualification and RC06's independent group-held-out assessment, before their dependents. The separately owned test-plan foundation is assumed ready as a target; its remaining final checks are not this pilot's scope or passing evidence.
 
 ## 1. The selected identity question
 
@@ -36,7 +36,11 @@ The focused foundation assessment under core 3.3, the efficient-architecture com
 
 WCE10's design is required now. Its numerical execution starts only after WCE02 and WCE06 supply a frozen, authentic repeated multi-attribute cohort with independently authored eligible-pair truth and enough independent source/lineage groups for the declared development/assessment split. The cohort includes genuine repeated lineages, similar distinct artifacts and unknown cases; a handful of convenient positives or the existing twenty definition pairs from two usages cannot supply this question.
 
-Inventory currently available or operator-provided authentic documents before selecting the bounded controlled-artifact packet. If none supplies the required distinctions, retain that missing source prerequisite; synthetic fixtures can test mechanisms but cannot establish enterprise identity efficacy. WCE02's early source/question/rubric slice enables producer preparation; later output-first freezes and labels follow actual producer runs rather than blocking all WCE10 design on the whole assessment package.
+The operator replaced the enterprise packet requirement on2026-11-06. WCE10 remains future
+scope: reconcile this controlled-artifact lineage question with a statistics-compatible identity
+population before execution. Enterprise vocabulary below is an extension scenario, not a corpus
+procurement requirement. Do not silently credit extraction qualification as identity efficacy.
+WCE02's early source/question slice enables preparation; output-first labels follow actual runs.
 
 Before scoring, retain the selected packet's exact source membership, issuer/domain/kind coverage, occurrence IDs and source closure, extraction/binding revisions, field states, eligible-pair population, hard exclusions, independent reference origin and partition assignments. Group related revisions/mentions and shared source evidence so they do not leak across held-out groups. An entity-disjoint final group tests unseen lineages; a source-disjoint test involving known lineages answers a different linking question. Select and label the intended question before assigning groups. The initial pilot targets held-out lineage/source groups within the declared packet/domain, with no claim of broad enterprise-population coverage.
 

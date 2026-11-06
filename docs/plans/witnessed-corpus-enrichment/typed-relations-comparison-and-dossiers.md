@@ -90,7 +90,7 @@ protected assessment and public admission remain separate immutable relations.
 
 **Contribution:** F04 and typed F03 composition; supplies real ambiguity to F06/WCE08.
 **Delivers:** source-local typed attachments and comparisons, their qualified derivations and
-native/read integration. WCE02's enterprise packet is bounded transfer material under RC05;
+native/read integration. RC05 now requires statistics qualification and domain-neutral extension scenarios;
 it does not establish a second fully released corpus.
 
 ### Table relationships and coverage
@@ -139,7 +139,7 @@ graph walk is required for a local formula question.
 
 ### Procedure relationships
 
-Within the bounded enterprise packet, compose step → controlled artifact → prerequisite/order
+As a domain-neutral extension scenario, compose step → controlled artifact → prerequisite/order
 using witnessed actor/action/object/modality and condition/exception roles. Preserve prescribed,
 described and example behavior. A passive surface order must not reverse actor and object.
 An artifact identifier denotes a scoped artifact/version; a dependency edge is not identity.

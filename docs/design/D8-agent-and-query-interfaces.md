@@ -1,5 +1,11 @@
 # D8 · Agent and query interfaces
 
+## Witnessed component target
+
+**Proposed target, adopted2026-11-06.** Ordinary inspection and export preserve component roles, operation versions, source/runtime pins and partial/unavailable outcomes. Protected reference labels remain protected. Retained candidates do not gain public standing from syntax or a score.
+
+> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent
