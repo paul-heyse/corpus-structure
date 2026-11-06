@@ -185,5 +185,14 @@ BEGIN
  RETURN jsonb_build_object('id',fitted.id,'content_digest',fitted.content_digest,'status',fitted.result->>'status',
   'parameters',fitted.result->'parameters','quality_claim','not_established','assessment_mode','in_sample_development');
 END $$;
-REVOKE ALL ON FUNCTION eval.read_operation_event_fit(text,bigint,boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION eval.read_operation_event_fit(text,bigint,boolean) TO corpus_sem_reader,corpus_sem_evaluator,corpus_sem_fitter;
+REVOKE ALL ON FUNCTION eval.read_operation_event_fit(text,bigint,boolean) FROM PUBLIC,corpus_sem_reader;
+GRANT EXECUTE ON FUNCTION eval.read_operation_event_fit(text,bigint,boolean) TO corpus_sem_evaluator,corpus_sem_fitter;
+
+-- Ordinary consumers receive parameters through an owned operation in their
+-- existing namespace; they never need visibility into the protected eval schema.
+CREATE OR REPLACE FUNCTION ops.read_operation_event_parameters(p_project text,p_fit bigint)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT eval.read_operation_event_fit(p_project,p_fit,false)
+$$;
+REVOKE ALL ON FUNCTION ops.read_operation_event_parameters(text,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.read_operation_event_parameters(text,bigint) TO corpus_sem_reader,corpus_sem_evaluator,corpus_sem_fitter;

@@ -208,6 +208,9 @@ class LocalInterpretationRequest:
     marginal_decisions: tuple[str, ...] | None = None
     dependence_scopes: tuple[DependenceScope, ...] = ()
     limits: SearchLimits = SearchLimits()
+    # Explicit zero unary potentials declare uniform measure over retained
+    # feasible support for the control, without a relative preference.
+    feasibility_control: bool = False
 
 
 class Outcome(StrEnum):
@@ -465,6 +468,21 @@ def _interpret(
                 covered.update(table.scope)
         if covered != set(by_key):
             raise _Stop(Outcome.INVALID_INPUT, "every decision needs an explicit log potential")
+        if isinstance(request, LocalInterpretationRequest):
+            from .local_interpretation_reports import local_policy_mode
+
+            try:
+                local_policy_mode(
+                    {
+                        "feasibility_control": request.feasibility_control,
+                        "potentials": [
+                            {"scope": factor.scope, "values": factor.values}
+                            for factor in request.potentials
+                        ],
+                    }
+                )
+            except ValueError as error:
+                raise _Stop(Outcome.INVALID_INPUT, str(error)) from error
         for dependence in request.dependence_scopes:
             poll()
             dependency_ids(dependence.dependency_ids)

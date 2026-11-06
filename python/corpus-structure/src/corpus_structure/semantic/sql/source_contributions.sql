@@ -186,9 +186,17 @@ BEGIN
      OR local_->>'result_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_->'result'),'UTF8')),'hex') THEN
      RAISE EXCEPTION 'local interpretation request/result custody differs' USING ERRCODE='23514'; END IF;
     local_request:=data.record_source_json(local_->'request'); local_result:=data.record_source_json(local_->'result');
+    IF (local_request ? 'feasibility_control' AND jsonb_typeof(local_request->'feasibility_control') IS DISTINCT FROM 'boolean')
+     OR (local_request->'feasibility_control'='true'::jsonb AND (
+      jsonb_array_length(local_request->'potentials')=0 OR EXISTS(
+       SELECT FROM jsonb_array_elements(local_request->'potentials') factor
+       WHERE jsonb_array_length(factor->'scope')<>1 OR EXISTS(
+        SELECT FROM jsonb_array_elements(factor->'values') factor_value(value)
+        WHERE factor_value.value<>'0'::jsonb)))) THEN
+     RAISE EXCEPTION 'local interpretation feasibility control requires explicit zero unary potentials' USING ERRCODE='23514'; END IF;
     IF local_->>'probability_standing' IS DISTINCT FROM 'provisional_candidate_relative'
      OR (local_->>'coupling_enabled')::boolean IS DISTINCT FROM EXISTS(SELECT FROM jsonb_array_elements(local_request->'potentials') factor WHERE jsonb_array_length(factor->'scope')>1)
-     OR local_->>'policy_mode' IS DISTINCT FROM (CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(local_request->'potentials') factor WHERE jsonb_array_length(factor->'scope')>1) THEN 'coupled' WHEN jsonb_array_length(local_request->'potentials')>0 THEN 'independent' ELSE 'feasibility' END)
+     OR local_->>'policy_mode' IS DISTINCT FROM (CASE WHEN local_request->'feasibility_control'='true'::jsonb THEN 'feasibility' WHEN EXISTS(SELECT FROM jsonb_array_elements(local_request->'potentials') factor WHERE jsonb_array_length(factor->'scope')>1) THEN 'coupled' WHEN jsonb_array_length(local_request->'potentials')>0 THEN 'independent' ELSE 'feasibility' END)
      OR NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') dep WHERE dep->>'key'=local_request->>'policy_dependency_id' AND dep->>'revision'=local_->>'policy_version') THEN
      RAISE EXCEPTION 'local interpretation mode or policy differs from actual factors' USING ERRCODE='23514'; END IF;
     IF local_request->'selection'->>'scope_id' IS DISTINCT FROM local_->>'constraint_id'

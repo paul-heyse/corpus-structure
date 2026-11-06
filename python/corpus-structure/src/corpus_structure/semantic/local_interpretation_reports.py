@@ -14,6 +14,24 @@ def _digest(value: Any) -> str:
     return sha256(canonical_bytes(value)).hexdigest()
 
 
+def local_policy_mode(request: Mapping[str, Any]) -> tuple[str, bool]:
+    """Classify a declared control without confusing absent factors with uniform support."""
+    potentials = request["potentials"]
+    joint = any(len(factor["scope"]) > 1 for factor in potentials)
+    control = request.get("feasibility_control", False)
+    if type(control) is not bool:
+        raise ValueError("feasibility control must be an explicit Boolean")
+    if control:
+        if (
+            any(len(factor["scope"]) != 1 for factor in potentials)
+            or not potentials
+            or any(value != 0.0 for factor in potentials for value in factor["values"])
+        ):
+            raise ValueError("feasibility control requires explicit zero unary potentials")
+        return "feasibility", False
+    return ("coupled" if joint else "independent" if potentials else "feasibility"), joint
+
+
 def validate_local_interpretation_values(request, result) -> None:
     """Validate the declared numerical product, without solving or rescoring it."""
 
@@ -317,8 +335,7 @@ def validate_local_interpretation_report(
         raise ValueError("local interpretation request omits scope or dependencies")
     if report["probability_standing"] != "provisional_candidate_relative":
         raise ValueError("local interpretation cannot claim calibrated or factual probability")
-    joint = any(len(factor["scope"]) > 1 for factor in request["potentials"])
-    mode = "coupled" if joint else "independent" if request["potentials"] else "feasibility"
+    mode, joint = local_policy_mode(request)
     policy = next(
         (dep for dep in request["dependencies"] if dep["key"] == request["policy_dependency_id"]),
         None,

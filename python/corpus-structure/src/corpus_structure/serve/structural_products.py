@@ -67,6 +67,7 @@ class StructuralExportRequest(BaseModel):
     Full retained membership may exceed a transport page. Export owns its cumulative
     file budget; interactive inspection keeps the narrower StructuralRequest policy.
     """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
     run_id: int = Field(strict=True, gt=0)
     cut_id: int | None = Field(default=None, strict=True, gt=0)

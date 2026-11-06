@@ -114,6 +114,8 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
     assert member.assessment_id is None and member.scope.startswith(
         inputs.sources[0].identity + ":"
     )
+    assert member.contribution_citations is not None
+    assert member.computation_dependencies is not None
     assert {c.span.text for c in member.contribution_citations} == {"50", "Probability %"}
     assert set(member.computation_dependencies) >= {
         r["contribution_id"] for r in payload["contributions"]
@@ -131,6 +133,7 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
         contribution_predecessors=(ref,),
         member_budget=1,
     )
+    assert report.dossier is not None
     assert len(report.dossier.members) == 1 and report.dossier.supported_facets == ()
     assert "definition" in report.dossier.missing_sections
 
@@ -319,6 +322,7 @@ def test_native_source_member_replay_preserves_all_endpoint_citations(semantic_d
         report = select_dossier(
             inputs, root_id="corpus", members=(expected,), contribution_predecessors=(ref,)
         )
+        assert report.dossier is not None
         assert actual == report.dossier.model_dump(mode="json", exclude_none=True)
         from corpus_structure.semantic.structural_admission import structural_statement
 

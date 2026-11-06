@@ -121,17 +121,15 @@ def table_policy_operations(
             tuple(Dependency(d, DependencyKind.OBSERVATION, source_revision) for d in deps)
             + metadata
         )
-        potentials = []
-        if mode != "feasibility":
-            potentials.extend(
-                LogPotential(
-                    "uniform:" + d.key,
-                    (d.key,),
-                    tuple(0.0 for _ in d.candidates),
-                    (metadata[-1].key,),
-                )
-                for d in decisions
+        potentials = list(
+            LogPotential(
+                "uniform:" + d.key,
+                (d.key,),
+                tuple(0.0 for _ in d.candidates),
+                (metadata[-1].key,),
             )
+            for d in decisions
+        )
         states = 1
         for d in decisions:
             states *= len(d.candidates)
@@ -157,6 +155,7 @@ def table_policy_operations(
             model_dependency_id=metadata[0].key,
             ontology_dependency_id=metadata[1].key,
             policy_dependency_id=metadata[2].key,
+            feasibility_control=mode == "feasibility",
         )
         operations.append(
             local_question_operation(

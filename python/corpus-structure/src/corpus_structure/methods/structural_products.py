@@ -510,7 +510,7 @@ class StructuralComparisonMethod:
     Config = StructuralComparisonConfig
     resources = Resources()
 
-    def select(self, run, cfg):
+    def select(self, run, cfg) -> tuple[UnitRef, ...]:
         return (UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity),) if cfg.inputs else ()
 
     def input_digest(self, unit, cfg):
@@ -584,7 +584,7 @@ class StructuralDossierMethod:
     Config = StructuralDossierConfig
     resources = Resources()
 
-    def select(self, run, cfg):
+    def select(self, run, cfg) -> tuple[UnitRef, ...]:
         return (UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity),) if cfg.inputs else ()
 
     def input_digest(self, unit, cfg):

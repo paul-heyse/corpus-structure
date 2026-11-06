@@ -237,10 +237,13 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
         while True:
             cancellation.check_active()
             page = read_structural_export_page(
-                conn, original.model_copy(update={
-                    "after_task_id": after,
-                    "max_bytes": min(original.max_bytes, selection.max_bytes),
-                })
+                conn,
+                original.model_copy(
+                    update={
+                        "after_task_id": after,
+                        "max_bytes": min(original.max_bytes, selection.max_bytes),
+                    }
+                ),
             )
             if after == 0:
                 yield (

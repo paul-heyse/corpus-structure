@@ -410,11 +410,14 @@ def test_native_local_question_refuses_forged_input_or_probability(private_sourc
         )
 
 
-def test_native_local_question_seals_supplied_model_result_without_admission(private_source):
+@pytest.mark.parametrize("feasibility_control", [False, True])
+def test_native_local_question_seals_supplied_model_result_without_admission(
+    private_source, feasibility_control
+):
     from dataclasses import replace
 
     from corpus_structure.methods.local_interpretation import local_question_operation
-    from corpus_structure.semantic.record_interpretation import CandidateSelection
+    from corpus_structure.semantic.record_interpretation import CandidateSelection, LogPotential
     from semantic.test_local_interpretation import local_request
 
     case = private_source
@@ -427,6 +430,15 @@ def test_native_local_question_seals_supplied_model_result_without_admission(pri
     )
     scope = local_question_operation(**arguments)["operation_key"]
     request = replace(local_request(), selection=CandidateSelection(scope, ("source",)))
+    if feasibility_control:
+        request = replace(
+            request,
+            feasibility_control=True,
+            potentials=tuple(
+                LogPotential("uniform-" + d.key, (d.key,), (0.0,) * len(d.candidates), ("source",))
+                for d in request.decisions
+            ),
+        )
     operation = local_question_operation(**arguments, request=request)
     result = replace(result, contribution_operations=(*result.contribution_operations, operation))
     with case.writer.begin() as conn:
@@ -440,6 +452,7 @@ def test_native_local_question_seals_supplied_model_result_without_admission(pri
             if "local_interpretation" in op
         ]
         assert len(local) == 1 and local[0]["outcome"] == "completed"
+        assert local[0]["policy_mode"] == ("feasibility" if feasibility_control else "coupled")
         assert local[0]["probability_standing"] == "provisional_candidate_relative"
         assert local[0]["request_digest"] and local[0]["result_digest"]
         assert conn.scalar(select(table("data.source_record").c.record_id).limit(1)) is None
@@ -512,6 +525,7 @@ def test_native_local_question_refuses_resealed_invalid_numerical_products(priva
             "normalization",
             "assignment",
             "factor_size",
+            "false_feasibility",
         ):
             raw = deepcopy(original)
             report = raw["contribution_operations"][-1]["local_interpretation"]
@@ -526,6 +540,10 @@ def test_native_local_question_refuses_resealed_invalid_numerical_products(priva
                 output["alternatives"][0]["choices"][0]["candidate"] = "foreign"
             if mutation == "factor_size":
                 req["potentials"][0]["values"].pop()
+            if mutation == "false_feasibility":
+                req["feasibility_control"] = True
+                report["policy_mode"] = "feasibility"
+                report["coupling_enabled"] = False
             for key, value in (("request", req), ("result", output)):
                 report[key] = source_value(value)
                 report[key + "_digest"] = _digest(report[key])

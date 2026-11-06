@@ -719,7 +719,8 @@ def series_native_definitions(connection, *, include_selected=True):
         "operation_event_fit_frame": ("corpus_sem_evaluator", "corpus_sem_fitter"),
         "record_operation_event_fit": ("corpus_sem_evaluator", "corpus_sem_fitter"),
         "read_operation_event_fit": (
-            "corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_fitter"
+            "corpus_sem_evaluator",
+            "corpus_sem_fitter",
         ),
     }.items():
         definitions.extend(
@@ -732,6 +733,19 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple((role, "EXECUTE", False) for role in roles),
             )
         )
+    definitions.extend(
+        _task_call_definitions(
+            connection,
+            operation_event_fitting_native_sql(),
+            name="read_operation_event_parameters",
+            source="ordinary operation fit parameters:forward",
+            schema="ops",
+            grants=tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_fitter")
+            ),
+        )
+    )
     review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
     for name in (
         "review_history_preflight",
@@ -1639,9 +1653,7 @@ def prepare_series_candidate(
         for item in created:
             relation = item.to_table()
             name = connection.dialect.identifier_preparer.format_table(relation)
-            ordered.append(
-                ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher")
-            )
+            ordered.append(ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher"))
         publisher_work: list[MigrateOperation] = []
         if physical_contract is not None:
             publisher_work.append(ExecuteSQLOp(physical_contract))
@@ -1668,13 +1680,24 @@ def prepare_series_candidate(
                         )
                     )
                 )
+        # Fitting is protected; ordinary parameter reads use their owned ops port.
+        for role in ("corpus_sem_fitter",):
+            if (
+                connection.scalar(
+                    text("SELECT has_schema_privilege(:role,'eval','USAGE')"), {"role": role}
+                )
+                is not True
+            ):
+                publisher_work.append(ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO " + role))
         if (
             connection.scalar(
-                text("SELECT has_schema_privilege('corpus_sem_fitter','eval','USAGE')")
+                text("SELECT has_schema_privilege('corpus_sem_reader','eval','USAGE')")
             )
-            is not True
+            is True
         ):
-            publisher_work.append(ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO corpus_sem_fitter"))
+            publisher_work.append(
+                ExecuteSQLOp("REVOKE USAGE ON SCHEMA eval FROM corpus_sem_reader")
+            )
         if publisher_work:
             ordered.extend((ExecuteSQLOp(publisher), *publisher_work, ExecuteSQLOp(restore)))
         candidate.upgrade_ops.ops[:] = ordered

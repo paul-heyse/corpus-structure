@@ -72,7 +72,9 @@ def interpret_contribution_question(
             raise ValueError("local interpretation scope differs from declared question")
         if not set(dependency_ids) <= {dep.key for dep in request.dependencies}:
             raise ValueError("local interpretation omits retained computation dependencies")
-        joint = any(len(factor.scope) > 1 for factor in request.potentials)
+        from corpus_structure.semantic.local_interpretation_reports import local_policy_mode
+
+        mode, joint = local_policy_mode(asdict(request))
         policy = next(
             (d for d in request.dependencies if d.key == request.policy_dependency_id), None
         )
@@ -80,9 +82,7 @@ def interpret_contribution_question(
             raise ValueError("local interpretation policy dependency unavailable")
         row.update(
             coupling_enabled=joint,
-            policy_mode=(
-                "coupled" if joint else "independent" if request.potentials else "feasibility"
-            ),
+            policy_mode=mode,
             policy_version=policy.revision,
         )
         request_row = _sealed_value(asdict(request))

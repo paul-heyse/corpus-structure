@@ -757,6 +757,10 @@ def contribution_envelope(case, result):
 
 
 def bypass_contributions(case, conn, raw):
+    # Encode immutable SourceValue tuple collections as their actual JSON wire
+    # arrays without applying semantic validation to the deliberate bad payload.
+    from corpus_structure.semantic.identity import canonical_bytes
+
     return complete_task(
         conn,
         task_id=case.task,
@@ -765,7 +769,7 @@ def bypass_contributions(case, conn, raw):
         prepared=case.prepared,
         observations=(),
         outcome="done",
-        envelope=raw,
+        envelope=json.loads(canonical_bytes(raw)),
     )
 
 

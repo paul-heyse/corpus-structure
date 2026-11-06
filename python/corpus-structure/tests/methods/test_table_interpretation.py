@@ -58,7 +58,8 @@ def test_current_source_products_dispatch_once_owned_shared_factor():
     assert len(joint) == 1
     assert joint[0]["scope"] == ["cell-aband-x", "cell-bband-x"]
     assert {c["key"] for d in request["decisions"] for c in d["candidates"]} == {
-        "applies", "does_not_apply"
+        "applies",
+        "does_not_apply",
     }
     assert result["log_partition"] == pytest.approx(1.791759469228055)
     probabilities = [a["probability"] for a in result["alternatives"]]
@@ -92,6 +93,14 @@ def test_three_modes_preserve_same_source_selection():
         digests = {o[band]["local_interpretation"]["retained_input_digest"] for o in modes.values()}
         assert len(digests) == 1
     for mode in ("feasibility", "independent"):
+        for op in modes[mode]:
+            report = op["local_interpretation"]
+            result = source_python(report["result"])
+            assert report["outcome"] == "completed" and op["outcome"] == "succeeded"
+            assert len(result["alternatives"]) == 4
+            assert source_python(report["request"])["feasibility_control"] == (
+                mode == "feasibility"
+            )
         assert all(
             a["probability"] == pytest.approx(0.25)
             for op in modes[mode]
@@ -116,6 +125,26 @@ def test_absent_endpoint_and_false_mode_refuse():
     )
     with pytest.raises(ValueError, match="mode"):
         validate_local_interpretation_report(bad, rows())
+
+
+def test_weighted_joint_cannot_be_resealed_as_uniform_feasibility():
+    from corpus_structure.semantic.local_interpretation_reports import _digest
+
+    operations = table_policy_operations(
+        contributions=rows(), dependency_ids=("source",), source_revision="native1"
+    )
+    assert len(operations) == 2
+    op = operations[0]
+    report = op["local_interpretation"]
+    request = source_python(report["request"])
+    request["feasibility_control"] = True
+    report["request"] = source_value(request)
+    report["request_digest"] = _digest(report["request"])
+    report["policy_mode"] = "feasibility"
+    report["coupling_enabled"] = False
+    report["seal"] = _digest({key: value for key, value in report.items() if key != "seal"})
+    with pytest.raises(ValueError, match="feasibility control"):
+        validate_local_interpretation_report(op, rows())
 
 
 @pytest.mark.parametrize("relation", ["header", "note"])
@@ -147,16 +176,31 @@ def test_multiple_bands_may_coapply_or_not_apply_without_competition(relation):
 
 
 def test_large_band_retains_all_edges_without_constructing_exponential_support():
-    products = [dict(contribution_id="band", computation_dependencies=("source",))]
+    products: list[dict[str, Any]] = [
+        dict(contribution_id="band", computation_dependencies=("source",))
+    ]
     for i in range(17):
         subject = "cell-" + str(i)
-        products.extend((
-            dict(contribution_id=subject, computation_dependencies=("source",)),
-            dict(contribution_id="edge-" + str(i), semantic_type="structural.scoped_attachment",
-                 computation_dependencies=("source",), value=source_value(dict(
-                     protocol="scoped-attachment-1", subject_id=subject, target_id="band",
-                     relation="header", region="#/tables/1", scope="column1"))),
-        ))
+        products.extend(
+            (
+                dict(contribution_id=subject, computation_dependencies=("source",)),
+                dict(
+                    contribution_id="edge-" + str(i),
+                    semantic_type="structural.scoped_attachment",
+                    computation_dependencies=("source",),
+                    value=source_value(
+                        dict(
+                            protocol="scoped-attachment-1",
+                            subject_id=subject,
+                            target_id="band",
+                            relation="header",
+                            region="#/tables/1",
+                            scope="column1",
+                        )
+                    ),
+                ),
+            )
+        )
     (op,) = table_policy_operations(
         contributions=products, dependency_ids=("source",), source_revision="native1"
     )

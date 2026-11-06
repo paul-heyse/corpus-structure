@@ -131,6 +131,15 @@ def native_admission_sql(
             )
         functions[signature].update(
             owner=catalog["owner"],
+            # Managed objects declare their complete ACL. CREATE OR REPLACE
+            # inventory alone retains predecessor grants that normalization
+            # deliberately removed; both admission checks must describe the
+            # same current privilege boundary.
+            execute_roles=sorted(
+                grantee
+                for grantee, privilege, _ in catalog["acl"]
+                if privilege == "EXECUTE" and grantee != catalog["owner"]
+            ),
             result_definition=catalog["result"],
             argument_definition=catalog["arguments"],
             catalog_acl=catalog["acl"],

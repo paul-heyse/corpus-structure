@@ -349,8 +349,10 @@ def read_native_fit(conn, *, project_id: str, fit_id: int, protected: bool = Fal
     from sqlalchemy import text
 
     value = conn.execute(
-        text("SELECT eval.read_operation_event_fit(:p,:i,:s)"),
-        {"p": project_id, "i": fit_id, "s": protected},
+        text("SELECT eval.read_operation_event_fit(:p,:i,true)")
+        if protected
+        else text("SELECT ops.read_operation_event_parameters(:p,:i)"),
+        {"p": project_id, "i": fit_id},
     ).scalar_one()
     if protected:
         result = OperationEventFitResult.model_validate_json(json.dumps(value["result"]))

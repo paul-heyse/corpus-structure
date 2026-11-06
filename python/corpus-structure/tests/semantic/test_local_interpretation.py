@@ -52,6 +52,13 @@ def test_role_only_without_identity_template_or_event():
     assert result.omitted_candidate_mass == "unknown"
 
 
+def test_executor_rejects_weighted_model_claiming_uniform_feasibility_control():
+    result = ri.interpret_local(replace(local_request(), feasibility_control=True))
+    assert result.outcome is ri.Outcome.INVALID_INPUT
+    assert result.marginals == result.alternatives == result.event_probabilities == ()
+    assert result.log_partition is None
+
+
 def test_partial_composite_union_counts_overlapping_assignments_once():
     event = ri.CompositeEvent(
         "actor-or-first",

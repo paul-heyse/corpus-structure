@@ -50,7 +50,7 @@ def test_file_export_budget_preserves_interactive_cap_and_exact_selection(monkey
         {"id": 12, "origin_id": 3, "bytes": 9_000_000}
     ]
     with pytest.raises(ValidationError):
-        reader.StructuralRequest(run_id=1, max_bytes=16_000_000)
+        reader.StructuralRequest.model_validate(dict(run_id=1, max_bytes=16_000_000))
     with pytest.raises(SemanticRefusal, match="byte budget"):
         reader.serve_structural_products(
             conn, reader.StructuralRequest(run_id=1, cut_id=9, max_bytes=8_000_000)

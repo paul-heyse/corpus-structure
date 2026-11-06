@@ -98,3 +98,35 @@ def test_explicit_predecessor_without_admission_refuses_clearly():
     )
     with pytest.raises(NativeAuthoringError, match="include its descriptor and enforcing guard"):
         native_candidate._predecessor_source(None, predecessor=(definition,))
+
+
+def test_managed_acl_replacement_removes_inherited_execute_role():
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
+    versions = ALEMBIC_DIR / "versions"
+    managed = next(
+        item
+        for item in native_candidate.load_native_state(
+            versions / "semantic_wce_params_20261106_native.json"
+        )
+        if item.identity.qualified == "eval.read_operation_event_fit(text,bigint,boolean)"
+    )
+    predecessor = (versions / "semantic_wce_access_20261106_admission.sql").read_text()
+    previous = next(
+        item
+        for item in _admission_descriptor(predecessor)["functions"]
+        if item["signature"] == managed.identity.qualified
+    )
+    assert "corpus_sem_reader" in previous["execute_roles"]
+    successor = native_admission_sql(
+        "\n".join(statement.rstrip(";\n") + ";" for statement in managed.statements),
+        base_admission=predecessor,
+        native_objects=(managed,),
+    )
+    current = next(
+        item
+        for item in _admission_descriptor(successor)["functions"]
+        if item["signature"] == managed.identity.qualified
+    )
+    assert current["execute_roles"] == ["corpus_sem_evaluator", "corpus_sem_fitter"]
+    assert ["corpus_sem_reader", "EXECUTE", False] not in current["catalog_acl"]

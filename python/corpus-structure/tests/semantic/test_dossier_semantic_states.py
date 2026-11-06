@@ -47,6 +47,7 @@ def components():
 
 def applicability():
     original = definition()
+    assert original.definition is not None
     template = original.definition.readings[0]
     readings = []
     for i, outcome in enumerate(
@@ -252,6 +253,7 @@ def test_native_dossier_and_public_projection_preserve_literal_semantic_states(
             text("SELECT ops.structural_dossier(CAST(:i AS jsonb),CAST(:c AS jsonb))"),
             dict(i=value.model_dump_json(exclude_none=True), c=json.dumps(config)),
         )
+        assert report.dossier is not None
         assert actual == report.dossier.model_dump(mode="json", exclude_none=True)
         public = conn.scalar(
             text("SELECT data.structural_public_statement(CAST(:r AS jsonb),NULL)"),

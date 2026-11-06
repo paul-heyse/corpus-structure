@@ -81,7 +81,7 @@ def test_original_projects_do_not_collapse_equal_text():
 
 def test_comparison_config_rejects_supplied_report():
     with pytest.raises(ValueError):
-        StructuralComparisonConfig(report={})
+        StructuralComparisonConfig.model_validate({"report": {}})
 
 
 def test_clause_comparison_preserves_ten_dimensions_and_no_equivalence():
@@ -185,5 +185,6 @@ def test_automatic_comparison_run_and_released_report_roundtrip():
         cfg,
         SimpleNamespace(check_active=lambda: None),
     )[0]
+    assert result.structural_product is not None
     assert result.structural_product["kind"] == "qualified_comparison"
     assert method.select(None, StructuralComparisonConfig()) == ()
