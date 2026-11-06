@@ -256,8 +256,9 @@ def test_native_operation_event_fit_retains_exact_frame_and_blocks_forgery(
     with semantic_reader_engine.begin() as conn:
         runtime = read_native_fit(conn, project_id="private-records", fit_id=fitted["id"])
         assert runtime["parameters"] is not None and "judgment" not in json.dumps(runtime)
-        with pytest.raises(DBAPIError, match="protected"), conn.begin_nested():
+        with pytest.raises(DBAPIError) as refusal, conn.begin_nested():
             read_native_fit(conn, project_id="private-records", fit_id=fitted["id"], protected=True)
+        assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
         with pytest.raises(DBAPIError), conn.begin_nested():
             conn.execute(select(table("eval.operation_event_fit")))
     with semantic_evaluator_engine.begin() as conn:
