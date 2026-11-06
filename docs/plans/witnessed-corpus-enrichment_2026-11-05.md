@@ -26,6 +26,79 @@ Sources, plans and evidence are preserved; insufficient derived populations are 
 Current test-resolution is complete at a537bea6; consume its foundation rather than reopening it.
 Earlier package receipts remain dated/scoped evidence, not new final qualification.
 
+## Execution checkpoint — 2026-11-06
+
+**Resumed; full remaining scope is in progress, not complete.** Main integrates current WCE06–10
+composition, coupled-policy, fitting, artifact-custody and dossier-source slices through `ee5e0441e`.
+The development database remains native157 `semantic_wce_baseline_20261106`; full current migration
+and subsequent actual120-page journeys remain required. Concurrent operator process/library edits
+are preserved independently of this execution.
+
+Baseline003 run139 is now **finished and sealed**, with completed cut178. Resumed native publication
+reused all81 completed extraction results. Ordinary per-source bounded Reader/export reconciled
+53,270 contributions,19,149 operation rows,80 report metadata rows and9 located definition components.
+The first broad export exceeded the existing inventory bound; its failed receipt is retained beside
+the successful per-source export. No PDF conversion or completed extraction was repeated.
+[GS120 evidence](../design_review/evidence/2026-11-06_wce-gs120/) retains failed001/002, interrupted003,
+resumption, completed native result, all81 raw task envelopes and final account.
+`gliner25-verification.json` authenticates actual task504's `fastino/gliner2.5-base-v1`, revision
+54785d51df8d86a0d8f2eb212fec15871aad2c4d, boundary architecture and five model/tokenizer file hashes.
+
+Independent source inventories retain812 authored cases across102 selected projection pages;
+18 pages were absent from those views. These inventories are selective, not a census or812 distinct
+facts. C's common32-case source adjudication is complete with exact source quotes and exposure
+limits; native protected imports and assessment of regenerated source coverage remain open.
+Two independent output reviewers inspected all9 baseline components. One formula definition is
+supported; other outputs include incorrect definition labels and narrower useful explanatory or
+reference relationships. C's final facet adjudication is in progress. Physical intersections never
+confer semantic capture. The corrected final account retains4,554 raw-provider envelopes and
+separates exact native anchors from item-only anchors.
+
+| Execution finding | Owning scope and remaining action | Current evidence boundary |
+|---|---|---|
+| WCE-R05: selected section views omit unheaded prefixes | WCE02/11: deploy residual-body recipev7, recover views from retained native products, assess missing regions and verify120-page coverage | All18 missing pages exist in retained native residual content; recovery script prepared, actual recovery not_run |
+| WCE-R06: artifact native custody and released-shape gaps | WCE10/11: integrate/deploy exact title/scope/content identities, frozen score/route semantics and legitimate empty/unbound diagnostic shapes | Implemented and independently re-reviewed; actual124-record/96-pair rollback checks plus forged-field refusals passed; completed current native journey remains open |
+| WCE-R07: raw-output characterization counter | WCE02/12: retain corrected counter and completed-cut account, preserving actual failure/interruption limits | Corrected controls and run139-final-account001 passed; rejected attempt138 payload remains unproven in truncated error parameters |
+| WCE-AF01 / DA-055: table multiplicity becomes competition | WCE08/12: retain binary applicability of each physical attachment, group only the same target/relation band, allow both/none/partial applicability and declare exact small-band support; retain large-band proposals without a computed posterior | Assembled source review requires revision; policy2 focused35-test controls passed, actual/native assessment remains open |
+| WCE-AF02 / DA-056: completed numerical validity | WCE08/09/12: validate request axes/support and completed result membership, normalization and finite probability domains at Python/native boundaries; enforce fitter prediction/status/numeric parameter structure without solver replay | Independent source review established resealed malformed-result gap; bounded repair in progress, final native159 awaits combined changes |
+| WCE-AF03 / DA-057: dossier predecessor meaning lost | WCE07/11/12: retain original definition/explanation/unresolved interpretation and applicability outcomes across member/facet/public identities, native replay and detached exports | Independent review found unconditional definition relabelling; isolated repair in progress |
+
+The [assembled review](../design_review/reviews/design_review_wce-assembled_2026-11-06.md)
+requires these three corrections within the accepted target; it requests no new authority rule.
+The refreshed diagnostic account is published at86425f72e. Its initial source judgment is retained;
+corrected-source review and qualification remain separate obligations.
+
+Source recovery now **passed**: current native158/recipev7 completed12 ordinary source runs140–151,
+with48 nonempty views, all120 pages covered by native provenance and projected text, and zero
+duplicate projected fields. C authored32 additional source-only cases across all18 formerly missing
+pages (130 exact quotes,125 roles,71 relations); protected import/capture assessment remain open.
+The original source recovery preparation receipts remain dated; actual results are in
+`source-recovery/attempt001/` and record `wce.gs120-source-recovery`.
+
+Current registered linguistic construction152/cut204 retained35 proposals on all48 current views.
+Frozen original-input refinement separately retained32 named and9 model proposals. Independent B
+assessed all41 and found three material converted-formula/native-original discrepancies, unresolved
+anaphora, missing local conditions/subject notation, exercise/model-local speech acts, and a new
+binomial→Chapter3 reference that supplies no defining content (B-M01–05). Preserve these granular
+assessment limits and useful narrower relations; neither proposal counts nor exact converted-text
+coordinates establish clean formula fidelity or complete definitions. These findings belong to the
+WCE02/12 benefit account and do not authorize inventing scientific corrections.
+
+Model attempt153 stopped when integration changed the installed runtime fingerprint; ordinary
+settlement retained68 completed task results and cancelled28 remaining tasks. Its provider run is
+**failed/incomplete**, with raw outputs preserved under `assessment/run153-interrupted-model001/`.
+Freeze final source before the next full provider qualification. Diagnostic scoped policy1 run155/
+cut206 retained8210 contributions and178 operations across48 views; it does not qualify policy2.
+An inadvertently scheduled dossier156 was cancelled without a result; cancellation evidence stays.
+
+Current work closes source-contribution dossier integration and source-grounded definition refinements
+against the same frozen source/model outputs. Publication kinds are restricted to actually implemented
+public policies; artifact identity remains private. Then generate/deploy the complete current native
+migration, recover source scopes without PDF conversion, and execute real capability/Reader/CLI/MCP/
+export journeys and in-sample fitting diagnostics. Assembled review, legacy retirement and final
+applicable qualification follow. Previous targeted results retain their exact scope; final-source
+`test-all`, hygiene and handoff remain not_run for this increment.
+
 ## Outcome, inputs and baseline
 
 Produce more independently assessable source-grounded knowledge by making relationships carry
@@ -135,7 +208,7 @@ Each is captured even when inactive. No dependency is added simply because it is
 
 | Item | Entry condition and settling evidence | Dependent direction |
 |---|---|---|
-| I01 GLiNER spans/JointIE | Selected checkpoint/public API and observed missing spans versus invalid combinations; compare retained-span/local extraction under fixed candidates | WCE04/05; preserve existing supported route on refusal |
+| I01 GLiNER spans/JointIE | Actual GS120 definition baseline has missing content and invalid endpoint combinations. Three-window GLiNER2.5 JointIE diagnostic passed software/coherence checks but produced unsuitable definition-role edges; configuration not activated | WCE04/05/12; [retained diagnostic](../design_review/evidence/2026-11-06_wce-gs120/joint-ie-investigation001/README.md). Improve candidate role/content meaning before a further challenger; no efficacy claim |
 | I02 pgmpy diagnostics/learning/backend/MAP | A specific uncertain independence, independent discrete observations, useful excessive exact support/width, or separate assignment-only consumer; compare identical declared events and support | WCE08; each role has separate semantics, no silent backend fallback |
 | I03 Pyro/GEE/PPI | Independent operation/source groups or an explicit population estimand and probability sample; pooled baseline and held-out/sampling diagnostics | WCE09; defer unsupported inference without claiming calibrated truth |
 | I04 MILP/assignment | Real interacting dossier constraints or genuine one-to-one clause counterparts with unmatched options; equal-budget/known-answer comparison | WCE06/07; greedy and non-one-to-one paths remain baseline |
