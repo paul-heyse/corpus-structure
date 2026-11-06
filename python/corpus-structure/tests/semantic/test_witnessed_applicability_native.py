@@ -69,7 +69,7 @@ def test_native_applicability_rejects_forged_semantics(applicable,corruption):
             body["structural_product"].pop("definition")
             body["structural_product"].update(kind="definition_components",definition_components=a.linked.completed.report.model_dump(mode="json")["definition_components"])
         with pytest.raises(DBAPIError) as caught,conn.begin_nested():
-            conn.execute(text("SELECT ops.validate_structural_product_report(:t,CAST(:body AS jsonb))"),dict(t=task,body=canonical_bytes(body).decode()))
+            conn.execute(text("SELECT ops.complete_task(:t,:attempt,'native-corruption','[]'::jsonb,'done',NULL,CAST(:body AS jsonb))"),dict(t=task,attempt=row["attempt"],body=canonical_bytes(body).decode()))
         assert caught.value.orig.sqlstate=="23514"
         if corruption!="missing_dimension":
             assert any(word in caught.value.orig.diag.message_primary for word in ("dimension","premise","outcome","frozen"))

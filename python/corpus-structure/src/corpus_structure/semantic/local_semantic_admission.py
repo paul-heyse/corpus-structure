@@ -83,7 +83,7 @@ def project_semantic_assertions(
         "LocalSemanticPublicationPolicy",
         dict(
             policy_id=POLICY_ID,
-            policy_version="2",
+            policy_version="1",
             facet=FACET,
             rubric_version=RUBRIC,
             context_policy=CONTEXT_POLICY,
