@@ -172,7 +172,7 @@ GRANT EXECUTE ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) TO c
 
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; premise jsonb; expected_state text; expected_outcome text; states text[];
+DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; target_passage jsonb; premise jsonb; expected_state text; expected_outcome text; states text[];
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -292,21 +292,25 @@ BEGIN
     OR source_->'decision'->>'scope' IS DISTINCT FROM passage->>'scope'
     OR source_->'decision'->>'effective_version' IS DISTINCT FROM passage->>'effective_version' THEN
     RAISE EXCEPTION 'applicability requires actual usage-sense selection under the usage scope/version' USING ERRCODE='23514'; END IF;
+   SELECT p INTO STRICT target_passage FROM jsonb_array_elements(ref->'report'->'inputs'->'passages') p WHERE p->>'passage_id'=ref->'component'->'term'->>'passage_id';
    introduction:=config_->>'applicability_scope'='defining_occurrence'
     AND inputs->>'policy_id'='definition-introduction-1'
     AND source_->'edge'->>'relation'='defined-by'
     AND passage->>'start'=ref->'component'->'term'->>'start' AND passage->>'end'=ref->'component'->'term'->>'end'
     AND passage->>'text'=ref->'component'->'term'->>'text' AND passage->>'scope'=ref->'component'->>'scope'
     AND passage->>'effective_version' IS NOT DISTINCT FROM ref->'component'->>'effective_version'
-    AND passage->>'source_ref'=(SELECT p->>'source_ref' FROM jsonb_array_elements(ref->'report'->'inputs'->'passages') p WHERE p->>'passage_id'=ref->'component'->'term'->>'passage_id');
-   IF jsonb_array_length(dimension->'premises')<>5 OR
+    AND passage->>'parent' IS NOT DISTINCT FROM target_passage->>'parent'
+    AND passage->>'source_ref'=target_passage->>'source_ref';
+   IF jsonb_array_length(dimension->'premises')<>6 OR
     (SELECT array_agg(p->>'dimension' ORDER BY p->>'dimension') FROM jsonb_array_elements(dimension->'premises') p)
-     IS DISTINCT FROM ARRAY['convention','parameterization','scope','sense','version'] THEN
-    RAISE EXCEPTION 'applicability requires the exact five independent dimensions' USING ERRCODE='23514'; END IF;
+     IS DISTINCT FROM ARRAY['convention','parameterization','parent','scope','sense','version'] THEN
+    RAISE EXCEPTION 'applicability requires the exact six independent dimensions' USING ERRCODE='23514'; END IF;
    states:=ARRAY[]::text[];
    FOR premise IN SELECT value FROM jsonb_array_elements(dimension->'premises') LOOP
     expected_state:=CASE premise->>'dimension'
      WHEN 'sense' THEN 'compatible'
+     WHEN 'parent' THEN CASE WHEN passage->>'parent' IS NOT NULL AND target_passage->>'parent' IS NOT NULL THEN CASE WHEN passage->>'parent'=target_passage->>'parent' THEN 'compatible' ELSE 'incompatible' END
+      WHEN passage->>'parent' IS NULL AND target_passage->>'parent' IS NULL AND COALESCE(introduction,false) THEN 'inapplicable' ELSE 'unknown' END
      WHEN 'scope' THEN CASE WHEN passage->>'scope'=ref->'component'->>'scope' THEN 'compatible' ELSE 'incompatible' END
      WHEN 'version' THEN CASE WHEN passage->>'effective_version' IS NULL AND ref->'component'->>'effective_version' IS NOT NULL THEN 'unknown'
       WHEN passage->>'effective_version' IS NOT DISTINCT FROM ref->'component'->>'effective_version' THEN 'compatible' ELSE 'incompatible' END
