@@ -872,7 +872,7 @@ classes:
       link_ref: {required: true, range: RetainedRelationshipDecisionRef, inlined: true}
       component_ref: {required: true, range: RetainedComponentRef, inlined: true}
       component: {required: true, range: LocatedDefinitionComponent, inlined: true}
-      premises: {required: true, range: ApplicabilityPremise, inlined: true, multivalued: true, minimum_cardinality: 1}
+      premises: {required: true, range: ApplicabilityPremise, inlined: true, multivalued: true, minimum_cardinality: 6, maximum_cardinality: 6}
       target_id:
         required: true
       outcome:
@@ -1149,7 +1149,7 @@ classes:
   StructuralPublicDefinitionReading:
     attributes:
       component: {required: true, range: StructuralPublicApplicableComponent, inlined: true}
-      premises: {required: true, range: StructuralPublicApplicabilityPremise, multivalued: true, inlined: true}
+      premises: {required: true, range: StructuralPublicApplicabilityPremise, multivalued: true, inlined: true, minimum_cardinality: 6, maximum_cardinality: 6}
       outcome:
         range: StructuralDefinitionReadingOutcomeValue
         required: true
