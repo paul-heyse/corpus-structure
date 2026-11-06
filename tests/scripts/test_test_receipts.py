@@ -1197,6 +1197,40 @@ def test_unresolved_export_fresh_collection_never_runs_body(tmp_path, monkeypatc
     assert target.read_text() == node + "\n"
 
 
+def test_unresolved_export_preserves_configured_import_mode(tmp_path, monkeypatch):
+    from test_receipts import write_unresolved
+
+    case = tmp_path / "case"
+    case.mkdir()
+    (case / "pytest.ini").write_text(
+        "[pytest]\n"
+        "addopts = --import-mode=importlib --strict-config --strict-markers -n 2 "
+        "-m shared_cluster_fault\n"
+        "markers = shared_cluster_fault: exclusive\n"
+    )
+    nodes = []
+    # Importlib gives equal file basenames separate identities without __init__.py files.
+    for namespace in ("left", "right"):
+        directory = case / namespace
+        directory.mkdir()
+        (directory / "test_same.py").write_text(
+            "def test_case():\n    raise AssertionError('collection must never run bodies')\n"
+        )
+        nodes.append(f"{namespace}/test_same.py::test_case")
+    required = case / "required.json"
+    required.write_text(json.dumps({"selected": nodes}))
+    monkeypatch.chdir(case)
+    target = tmp_path / "unresolved.txt"
+    result = {"required": nodes, "required_unresolved": nodes, "receipts": [{}]}
+    written = write_unresolved(result, target, required_from=[required], lane="ordinary")
+
+    assert target.read_text().splitlines() == nodes
+    collected = classify_receipt(Path(written["validation_receipt"]))
+    assert collected["selected"] == sorted(nodes)
+    assert collected["worker_facts"]["created"] == []
+    assert collected["session_contexts"][0]["requested_worker_selection"] == 0
+
+
 @pytest.mark.parametrize("manifest", [None, {"event": "collection_finish", "selected": ["other"]}])
 def test_uncollected_report_pass_cannot_cover_current_required_node(tmp_path, manifest):
     receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))

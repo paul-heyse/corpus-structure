@@ -905,8 +905,6 @@ def write_unresolved(
         run_python(
             directory,
             [
-                "-o",
-                "addopts=",
                 "-n",
                 "0",
                 "--collect-only",
