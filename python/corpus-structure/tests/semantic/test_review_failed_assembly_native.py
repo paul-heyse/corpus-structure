@@ -93,7 +93,9 @@ def test_native_failed_assembly_keeps_exact_source_and_rejected_nomination(
         source_binding="control",
         scope="review-control",
         effective_version=None,
-        constraints=(RelationshipConstraint("alias", ("alias-of",), "occurrence", "concept", "one"),),
+        constraints=(
+            RelationshipConstraint("alias", ("alias-of",), "occurrence", "concept", "one"),
+        ),
         insufficient_reason="controlled nomination lacks a source-supported alias witness",
     )
     assert rejected.outcome == "insufficient_evidence" and rejected.selected_edges == ()

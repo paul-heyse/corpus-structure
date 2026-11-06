@@ -188,7 +188,9 @@ def score_structural_reference(
         if case.facet == "public_statement":
             from corpus_structure.semantic.structural_admission import structural_statement
 
-            actual: Any = {"public_statement": structural_statement(report, component_id=case.component_id)}
+            actual: Any = {
+                "public_statement": structural_statement(report, component_id=case.component_id)
+            }
         else:
             actual = product
         found = True

@@ -57,7 +57,9 @@ def enrichment_report(
 
         if curated_registry_id is not None:
             raise ValueError("component targets cannot use curated registry attribution")
-        _, authenticated_targets = component_target_input(tuple(ExtractedComponentTarget.model_validate(t) for t in component_targets))
+        _, authenticated_targets = component_target_input(
+            tuple(ExtractedComponentTarget.model_validate(t) for t in component_targets)
+        )
         if any(t not in authenticated_targets for i in inventories for t in i.targets):
             raise ValueError("inventory target differs from authenticated component representation")
     profile_map = {p.profile_id: p for p in profiles}

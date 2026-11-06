@@ -106,7 +106,8 @@ def render_query(result: Any) -> Table:
                     or "no applicability decision"
                 )
             elif kind == "definition_components":
-                summary = f"{len(product['definition_components']['components'])} located definition components"
+                count = len(product["definition_components"]["components"])
+                summary = f"{count} located definition components"
             elif kind == "dossier":
                 summary = f"{len(product['dossier']['members'])} declared members"
             else:

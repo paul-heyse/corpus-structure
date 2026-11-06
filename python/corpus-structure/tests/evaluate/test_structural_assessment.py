@@ -6,9 +6,9 @@ from corpus_structure.evaluate.structural_assessment import (
     StructuralAuthoredReference,
     StructuralEvaluationFrame,
     StructuralReferenceCase,
-    score_structural_reference,
     StructuralSourceGroup,
     StructuralSourceOpportunity,
+    score_structural_reference,
 )
 from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
@@ -52,8 +52,14 @@ def frame():
             dependencies=("inventory",),
         ),
         partition="development",
-        source_groups=(StructuralSourceGroup(source_ref=source.identity, origin_group="source-family"),),
-        opportunities=(StructuralSourceOpportunity(opportunity_id="term",passage_id="p1",facet="role",source_state="stated"),),
+        source_groups=(
+            StructuralSourceGroup(source_ref=source.identity, origin_group="source-family"),
+        ),
+        opportunities=(
+            StructuralSourceOpportunity(
+                opportunity_id="term", passage_id="p1", facet="role", source_state="stated"
+            ),
+        ),
         inspected_scope="source-passage",
         operation="definition_components",
         direction="source_first",
@@ -79,9 +85,22 @@ def reference(frozen, **changes):
 
 
 def product(frozen, outcome="empty"):
-    return dict(version="structural-product-2", kind="definition_components",
-                inputs=frozen.inputs.model_dump(mode="json"),
-                definition_components=dict(components=[], stages=[dict(passage_id="p1",operation="located_extraction",outcome=outcome,reason="Actual extraction outcome.")]))
+    return dict(
+        version="structural-product-2",
+        kind="definition_components",
+        inputs=frozen.inputs.model_dump(mode="json"),
+        definition_components=dict(
+            components=[],
+            stages=[
+                dict(
+                    passage_id="p1",
+                    operation="located_extraction",
+                    outcome=outcome,
+                    reason="Actual extraction outcome.",
+                )
+            ],
+        ),
+    )
 
 
 def test_wrong_relationship_and_missing_member_are_not_supported():
@@ -139,6 +158,7 @@ def test_source_first_frame_cannot_select_outputs():
 
 def test_current_source_population_and_legacy_refusal():
     from corpus_structure.evaluate.structural_assessment import decode_structural_frame
+
     original = frame()
     values = original.model_dump(mode="json")
     assert decode_structural_frame(values).protocol == "structural-evaluation-frame-3"
@@ -146,6 +166,10 @@ def test_current_source_population_and_legacy_refusal():
         with pytest.raises(ValueError):
             decode_structural_frame(dict(values, protocol=protocol))
     with pytest.raises(ValueError, match="exposed sources"):
-        decode_structural_frame(dict(values, partition="final_assessment", exposure_history=["feedback"]))
+        decode_structural_frame(
+            dict(values, partition="final_assessment", exposure_history=["feedback"])
+        )
     with pytest.raises(ValueError, match="source group assignment"):
-        decode_structural_frame(dict(values, source_groups=[dict(source_ref="foreign",origin_group="wrong")]))
+        decode_structural_frame(
+            dict(values, source_groups=[dict(source_ref="foreign", origin_group="wrong")])
+        )

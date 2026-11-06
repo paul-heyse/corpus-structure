@@ -3,20 +3,18 @@
 from dataclasses import replace
 from types import SimpleNamespace
 
+import pytest
+
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.methods.contextual_candidates import ContextualCandidates
-from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
-from methods.test_m1_producer import view
-
-import pytest
-
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
+    ContextualCandidates,
     relationship_contributions,
     retained_occurrences,
 )
+from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
 from corpus_structure.semantic.contextual_links import (
     RelationshipConstraint,
     RelationshipWitness,
@@ -31,16 +29,39 @@ from corpus_structure.semantic.contextual_retrieval import (
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.record_contracts import anchor_identity
+from methods.test_m1_producer import view
 
+PIN = dict(
+    source="source",
+    native_product_task_id=1,
+    product_key="native",
+    product_digest="a" * 64,
+    projection_digest="b" * 64,
+    recipe_digest="c" * 64,
+    source_view_id=1,
+)
 
-PIN = dict(source="source", native_product_task_id=1, product_key="native", product_digest="a" * 64, projection_digest="b" * 64, recipe_digest="c" * 64, source_view_id=1)
 
 def located(role="term", start=0, end=4):
-    anchor = dict(pin=PIN, space="native", pointer="#/texts/1", precision="exact",
-                  start=start, end=end, source_piece="Mean is average."[start:end])
+    anchor = dict(
+        pin=PIN,
+        space="native",
+        pointer="#/texts/1",
+        precision="exact",
+        start=start,
+        end=end,
+        source_piece="Mean is average."[start:end],
+    )
     anchor["anchor_id"] = anchor_identity(anchor)
-    row = dict(kind="occurrence", semantic_type="source_rule." + role, operation_key="producer-op",
-               item_key=role, pin=PIN, anchors=(anchor,), occurrence_id=occurrence_identity((anchor,)))
+    row = dict(
+        kind="occurrence",
+        semantic_type="source_rule." + role,
+        operation_key="producer-op",
+        item_key=role,
+        pin=PIN,
+        anchors=(anchor,),
+        occurrence_id=occurrence_identity((anchor,)),
+    )
     row["contribution_id"] = contribution_identity(row)
     return row
 
@@ -53,7 +74,10 @@ def test_actual_roles_preserved_with_one_physical_query_context():
     assert len(rows) == 2 and len(contexts) == 1
     assert rows[0]["contribution_id"] != rows[1]["contribution_id"]
     assert rows[0]["occurrence_id"] == rows[1]["occurrence_id"]
-    assert {source_python(row["value"])["producer_semantic_type"] for row in rows} == {"source_rule.term", "source_rule.expression"}
+    assert {source_python(row["value"])["producer_semantic_type"] for row in rows} == {
+        "source_rule.term",
+        "source_rule.expression",
+    }
     assert coordinates[0]["text"] == "Mean is average."
 
 
@@ -61,7 +85,9 @@ def test_actual_occurrence_cannot_invent_source_extent():
     row = located()
     row["anchors"][0]["source_piece"] = "wrong"
     with pytest.raises(ValueError, match="slice"):
-        retained_occurrences({"contributions": (row,)}, {"#/texts/1": {"text": "Mean is average."}}, PIN, "new-op")
+        retained_occurrences(
+            {"contributions": (row,)}, {"#/texts/1": {"text": "Mean is average."}}, PIN, "new-op"
+        )
 
 
 def test_supplied_mention_and_registry_production_bridge_removed():
@@ -72,15 +98,33 @@ def test_supplied_mention_and_registry_production_bridge_removed():
 def test_projection_preserves_all_selected_kinds_without_first_alternative():
     from corpus_structure.methods.contextual_embeddings import EncodedVector
 
-    target = target_representation("concept", "component-source", "Mean", "average", scope="chapter")
+    target = target_representation(
+        "concept", "component-source", "Mean", "average", scope="chapter"
+    )
     inventory = freeze_inventory((target,), source_selection="component-inventory", scope="chapter")
-    candidates = fuse_candidates(occurrence_id="occ", query=EncodedVector("v", "occ", "source", "p", "digest", (1., 0.)), inventory=inventory,
-                                 channels={"dense": (ChannelHit("concept", 1.),)})
-    original = RelationshipWitness("d", "occ", "concept", "denotes", "source", "chapter", None, ("raw",), "producer_group")
-    decision = select_relationships(candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
-                                    constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),
-                                                 RelationshipConstraint("comparison", ("compared-with",), "subject", "comparator", "many")),
-                                    witnesses=(original, replace(original, witness_id="c", relation="compared-with")))
+    candidates = fuse_candidates(
+        occurrence_id="occ",
+        query=EncodedVector("v", "occ", "source", "p", "digest", (1.0, 0.0)),
+        inventory=inventory,
+        channels={"dense": (ChannelHit("concept", 1.0),)},
+    )
+    original = RelationshipWitness(
+        "d", "occ", "concept", "denotes", "source", "chapter", None, ("raw",), "producer_group"
+    )
+    decision = select_relationships(
+        candidates=candidates,
+        inventory=inventory,
+        source_binding="source",
+        scope="chapter",
+        effective_version=None,
+        constraints=(
+            RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),
+            RelationshipConstraint(
+                "comparison", ("compared-with",), "subject", "comparator", "many"
+            ),
+        ),
+        witnesses=(original, replace(original, witness_id="c", relation="compared-with")),
+    )
     source = located()
     rows = relationship_contributions(decision, source, inventory, "edge-op")
     assert {source_python(row["value"])["relation"] for row in rows} == {"denotes", "compared-with"}
@@ -94,27 +138,62 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
 )
 def test_later_operation_failure_preserves_encoder_and_completed_products(monkeypatch, failure):
     source = view()
+    from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
-    from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
 
     pin = record_source_pin(native_source_frame(source, ()))
     products = []
     for index, (start, end) in enumerate(((0, 4), (8, 15))):
-        anchor = dict(pin=pin, space="native", pointer="#/texts/1", precision="exact", start=start, end=end, source_piece=source.text[start:end])
+        anchor = dict(
+            pin=pin,
+            space="native",
+            pointer="#/texts/1",
+            precision="exact",
+            start=start,
+            end=end,
+            source_piece=source.text[start:end],
+        )
         anchor["anchor_id"] = anchor_identity(anchor)
-        product = dict(kind="occurrence", semantic_type="source_rule.term", operation_key="producer", item_key=str(index), pin=pin, anchors=(anchor,), occurrence_id=occurrence_identity((anchor,)))
+        product = dict(
+            kind="occurrence",
+            semantic_type="source_rule.term",
+            operation_key="producer",
+            item_key=str(index),
+            pin=pin,
+            anchors=(anchor,),
+            occurrence_id=occurrence_identity((anchor,)),
+        )
         product["contribution_id"] = contribution_identity(product)
         products.append(product)
     cfg = ContextualCandidateConfig(
-        target_components=(ExtractedComponentTarget.model_validate(dict(
-            reference=dict(product_id="structural:source", component_id="a" * 64,
-                           operation_id="components", operation_version="1", project_id="source", run_id=1,
-                           cut_id=1, release_id="release", result_revision=0, selected_task_id=1,
-                           origin_task_id=1, runtime_fingerprint="runtime", dependencies=("source",)),
-            label="Mean", description="An average", scope="chapter5",
-        )),),
-        relationship_constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),),
+        target_components=(
+            ExtractedComponentTarget.model_validate(
+                dict(
+                    reference=dict(
+                        product_id="structural:source",
+                        component_id="a" * 64,
+                        operation_id="components",
+                        operation_version="1",
+                        project_id="source",
+                        run_id=1,
+                        cut_id=1,
+                        release_id="release",
+                        result_revision=0,
+                        selected_task_id=1,
+                        origin_task_id=1,
+                        runtime_fingerprint="runtime",
+                        dependencies=("source",),
+                    ),
+                    label="Mean",
+                    description="An average",
+                    scope="chapter5",
+                )
+            ),
+        ),
+        relationship_constraints=(
+            RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),
+        ),
         source_product_digest=source.ref.native_product.content_digest,
         source_projection_digest=source.ref.projection_digest,
         scope="chapter5",
@@ -212,17 +291,43 @@ def test_actual_named_role_group_proposes_multiple_compatible_kinds():
     for role, start, end in (("subject", 0, 4), ("object", 8, 15)):
         original = located(role, start, end)
         original["item_key"] = "actual-group/role/" + role
-        original["component"] = dict(kind="located_role", rule="typed-comparison",
-                                     roles=(dict(role=role, outcome="complete"),))
+        original["component"] = dict(
+            kind="located_role",
+            rule="typed-comparison",
+            roles=(dict(role=role, outcome="complete"),),
+        )
         original["contribution_id"] = contribution_identity(original)
         originals.append(original)
     upstream = {"contributions": originals}
-    products, _, _ = retained_occurrences(upstream, {"#/texts/1": {"text": "Mean is average."}}, PIN, "current")
-    target = target_representation("average-concept", "definition-source", "average", "an average", scope="chapter")
+    products, _, _ = retained_occurrences(
+        upstream, {"#/texts/1": {"text": "Mean is average."}}, PIN, "current"
+    )
+    target = target_representation(
+        "average-concept", "definition-source", "average", "an average", scope="chapter"
+    )
     inventory = freeze_inventory((target,), source_selection="components", scope="chapter")
-    witnesses = producer_relationship_witnesses(upstream, products, products[0]["occurrence_id"], inventory, {"average-concept"},
-        tuple(ProducerRelationshipRecipe(rule="typed-comparison", occurrence_role="subject", target_role="object", relation=relation)
-              for relation in ("compared-with", "specializes")), "source", "chapter", None)
+    witnesses = producer_relationship_witnesses(
+        upstream,
+        products,
+        products[0]["occurrence_id"],
+        inventory,
+        {"average-concept"},
+        tuple(
+            ProducerRelationshipRecipe(
+                rule="typed-comparison",
+                occurrence_role="subject",
+                target_role="object",
+                relation=relation,
+            )
+            for relation in ("compared-with", "specializes")
+        ),
+        "source",
+        "chapter",
+        None,
+    )
     assert {w.relation for w in witnesses} == {"compared-with", "specializes"}
-    assert all(w.evidence_ids == (products[0]["contribution_id"], products[1]["contribution_id"]) for w in witnesses)
+    assert all(
+        w.evidence_ids == (products[0]["contribution_id"], products[1]["contribution_id"])
+        for w in witnesses
+    )
     assert all(w.basis == "producer_group" and w.support_state == "unassessed" for w in witnesses)

@@ -11,8 +11,8 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .identity import canonical_bytes
 from .contextual_links import RetainedRelationshipDecisionRef
+from .identity import canonical_bytes
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -177,8 +177,17 @@ class LocatedDefinitionComponent(StructuralValue):
 def definition_component(**meaning) -> LocatedDefinitionComponent:
     wire = {key: value for key, value in meaning.items() if value is not None}
     wire.setdefault("alternatives", ())
-    wire = {key: (value.model_dump(mode="json", exclude_none=True) if isinstance(value, StructuralValue) else value) for key, value in wire.items()}
-    return LocatedDefinitionComponent.model_validate(dict(component_id=sha256(canonical_bytes(wire)).hexdigest(), **wire))
+    wire = {
+        key: (
+            value.model_dump(mode="json", exclude_none=True)
+            if isinstance(value, StructuralValue)
+            else value
+        )
+        for key, value in wire.items()
+    }
+    return LocatedDefinitionComponent.model_validate(
+        dict(component_id=sha256(canonical_bytes(wire)).hexdigest(), **wire)
+    )
 
 
 class DefinitionStage(StructuralValue):

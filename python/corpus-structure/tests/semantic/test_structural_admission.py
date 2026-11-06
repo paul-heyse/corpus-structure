@@ -5,18 +5,18 @@ from copy import deepcopy
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
 from corpus_structure.semantic.structural_products import (
+    ApplicabilityPremise,
     DefinitionProduct,
     DossierMember,
     DossierProduct,
     ExternalSourceRef,
-    StructuralDefinitionReading,
-    RetainedComponentRef,
-    ApplicabilityPremise,
     LocatedDefinitionSpan,
-    definition_component,
+    RetainedComponentRef,
+    StructuralDefinitionReading,
     StructuralInput,
     StructuralPassage,
     StructuralProductReport,
+    definition_component,
 )
 
 
@@ -68,9 +68,19 @@ def inputs():
 
 
 def fixture_component():
-    passage=inputs().passages[1]
-    span=LocatedDefinitionSpan(passage_id=passage.passage_id,start=passage.start,end=passage.end,text=passage.text)
-    return definition_component(term=span,content=span,interpretation="definition",basis="model_reading",scope=passage.scope,evidence=(passage.passage_id,),reason="Literal shape fixture")
+    passage = inputs().passages[1]
+    span = LocatedDefinitionSpan(
+        passage_id=passage.passage_id, start=passage.start, end=passage.end, text=passage.text
+    )
+    return definition_component(
+        term=span,
+        content=span,
+        interpretation="definition",
+        basis="model_reading",
+        scope=passage.scope,
+        evidence=(passage.passage_id,),
+        reason="Literal shape fixture",
+    )
 
 
 def definition():
@@ -85,10 +95,44 @@ def definition():
             readings=(
                 StructuralDefinitionReading(
                     target_id="target",
-                    component_ref=RetainedComponentRef(product_id="component-product",component_id=fixture_component().component_id,operation_id="structure.definition_components",operation_version="1",project_id="book",run_id=1,cut_id=1,release_id="r",result_revision=1,selected_task_id=1,origin_task_id=1,runtime_fingerprint="runtime",dependencies=("source",)),
-                    link_ref=RetainedRelationshipDecisionRef(project_id="book",run_id=1,cut_id=1,release_id="r",result_revision=1,selected_task_id=2,origin_task_id=2,runtime_fingerprint="runtime",operation_key="operation",decision_id="decision",edge_id="edge",occurrence_contribution_id="occurrence"),
+                    component_ref=RetainedComponentRef(
+                        product_id="component-product",
+                        component_id=fixture_component().component_id,
+                        operation_id="structure.definition_components",
+                        operation_version="1",
+                        project_id="book",
+                        run_id=1,
+                        cut_id=1,
+                        release_id="r",
+                        result_revision=1,
+                        selected_task_id=1,
+                        origin_task_id=1,
+                        runtime_fingerprint="runtime",
+                        dependencies=("source",),
+                    ),
+                    link_ref=RetainedRelationshipDecisionRef(
+                        project_id="book",
+                        run_id=1,
+                        cut_id=1,
+                        release_id="r",
+                        result_revision=1,
+                        selected_task_id=2,
+                        origin_task_id=2,
+                        runtime_fingerprint="runtime",
+                        operation_key="operation",
+                        decision_id="decision",
+                        edge_id="edge",
+                        occurrence_contribution_id="occurrence",
+                    ),
                     component=fixture_component(),
-                premises=(ApplicabilityPremise(dimension="sense",state="compatible",evidence=("target",),reason="Literal fixture binding"),),
+                    premises=(
+                        ApplicabilityPremise(
+                            dimension="sense",
+                            state="compatible",
+                            evidence=("target",),
+                            reason="Literal fixture binding",
+                        ),
+                    ),
                     outcome="applicable_definition",
                     evidence=("target",),
                     reason="supplied reading",

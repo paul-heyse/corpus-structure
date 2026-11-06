@@ -605,17 +605,57 @@ def test_base_noun_chunk_excludes_parameter_scope_from_defined_subject(controlle
     from corpus_structure.ingest.annotation_views import annotation_view
     from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
 
-    request = item(controlled, "The normal density function with parameters µ and σ is defined .", start=100)
+    request = item(
+        controlled, "The normal density function with parameters µ and \u03c3 is defined .", start=100
+    )
     (product,) = annotate((request,))
     # Literal independent syntax fixture reproduces the observed parser structure:
     # function is ROOT and defined attaches to it; sigma is the misleading subject.
-    heads=(3,3,3,3,3,6,4,3,10,10,3,10)
-    dependencies=("det","amod","compound","ROOT","prep","compound","pobj","cc","nsubjpass","auxpass","conj","punct")
-    positions=("DET","ADJ","NOUN","NOUN","ADP","NOUN","PROPN","CCONJ","NOUN","AUX","VERB","PUNCT")
-    tokens=tuple(replace(row,head=head,dependency=dep,pos=pos) for row,head,dep,pos in zip(product.tokens,heads,dependencies,positions,strict=True))
-    view=annotation_view(replace(product,tokens=tokens),request.block.text,controlled.vocab)
-    rule=AnnotationRule(rule="nominal",variant="follows",mechanism="dependency",pattern=[{"RIGHT_ID":"term","RIGHT_ATTRS":{"TEXT":"function","DEP":"ROOT"}}],bindings={"defined_term":{"node":"term","expansion":"noun_chunk"}})
-    (match,)=PreparedAnnotationRules(controlled.vocab,rules=(rule,)).match(view).matches
-    role=match.roles[0]
-    assert role.status=="complete" and role.nodes==(0,1,2,3)
-    assert request.block.text[role.extents[0][0]-100:role.extents[-1][1]-100]=="The normal density function"
+    heads = (3, 3, 3, 3, 3, 6, 4, 3, 10, 10, 3, 10)
+    dependencies = (
+        "det",
+        "amod",
+        "compound",
+        "ROOT",
+        "prep",
+        "compound",
+        "pobj",
+        "cc",
+        "nsubjpass",
+        "auxpass",
+        "conj",
+        "punct",
+    )
+    positions = (
+        "DET",
+        "ADJ",
+        "NOUN",
+        "NOUN",
+        "ADP",
+        "NOUN",
+        "PROPN",
+        "CCONJ",
+        "NOUN",
+        "AUX",
+        "VERB",
+        "PUNCT",
+    )
+    tokens = tuple(
+        replace(row, head=head, dependency=dep, pos=pos)
+        for row, head, dep, pos in zip(product.tokens, heads, dependencies, positions, strict=True)
+    )
+    view = annotation_view(replace(product, tokens=tokens), request.block.text, controlled.vocab)
+    rule = AnnotationRule(
+        rule="nominal",
+        variant="follows",
+        mechanism="dependency",
+        pattern=[{"RIGHT_ID": "term", "RIGHT_ATTRS": {"TEXT": "function", "DEP": "ROOT"}}],
+        bindings={"defined_term": {"node": "term", "expansion": "noun_chunk"}},
+    )
+    (match,) = PreparedAnnotationRules(controlled.vocab, rules=(rule,)).match(view).matches
+    role = match.roles[0]
+    assert role.status == "complete" and role.nodes == (0, 1, 2, 3)
+    assert (
+        request.block.text[role.extents[0][0] - 100 : role.extents[-1][1] - 100]
+        == "The normal density function"
+    )

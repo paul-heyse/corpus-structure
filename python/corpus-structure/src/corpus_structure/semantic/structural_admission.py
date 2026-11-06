@@ -23,7 +23,9 @@ POLICIES = {
 }
 
 
-def structural_statement(report: StructuralProductReport, component_id: str | None = None) -> dict[str, Any]:
+def structural_statement(
+    report: StructuralProductReport, component_id: str | None = None
+) -> dict[str, Any]:
     """Project complete meaning and physical citations, without derivation aliases."""
     refs = {s.identity: s.model_dump(mode="json", exclude_none=True) for s in report.inputs.sources}
     passages = {p.passage_id: p for p in report.inputs.passages}
@@ -68,6 +70,7 @@ def structural_statement(report: StructuralProductReport, component_id: str | No
             key=canonical_bytes,
         ),
     }
+
     def span_citation(span):
         value = citation(span.passage_id)
         value.update(start=span.start, end=span.end, text=span.text)
@@ -76,15 +79,24 @@ def structural_statement(report: StructuralProductReport, component_id: str | No
     if report.definition_components is not None:
         if component_id is None:
             raise ValueError("definition publication requires one exact component selector")
-        selected = [c for c in report.definition_components.components if c.component_id == component_id]
+        selected = [
+            c for c in report.definition_components.components if c.component_id == component_id
+        ]
         if len(selected) != 1:
             raise ValueError("selected definition component is missing or duplicated")
         component = selected[0]
         statement["definition_component"] = {
-            "term": span_citation(component.term), "content": span_citation(component.content),
-            "interpretation": component.interpretation, "basis": component.basis,
-            "scope": component.scope, "alternatives": sorted(component.alternatives),
-            **({"effective_version": component.effective_version} if component.effective_version is not None else {}),
+            "term": span_citation(component.term),
+            "content": span_citation(component.content),
+            "interpretation": component.interpretation,
+            "basis": component.basis,
+            "scope": component.scope,
+            "alternatives": sorted(component.alternatives),
+            **(
+                {"effective_version": component.effective_version}
+                if component.effective_version is not None
+                else {}
+            ),
         }
     elif component_id is not None:
         raise ValueError("component selector requires a definition component report")
@@ -94,16 +106,36 @@ def structural_statement(report: StructuralProductReport, component_id: str | No
             "usage": citation(value.usage_id),
             "eligible_targets": sorted(value.eligible_targets),
             "candidate_targets": sorted(value.candidate_targets),
-            "readings": sorted(({
-                "component": {
-                    "term": span_citation(r.component.term), "content": span_citation(r.component.content),
-                    "interpretation": r.component.interpretation, "scope": r.component.scope,
-                    "alternatives": sorted(r.component.alternatives),
-                    **({"effective_version": r.component.effective_version} if r.component.effective_version is not None else {}),
-                },
-                "outcome": r.outcome, "evidence": citations(set(r.evidence)),
-                "premises": [{"dimension":p.dimension,"state":p.state,"evidence":citations(set(p.evidence))} for p in r.premises],
-            } for r in value.readings), key=canonical_bytes),
+            "readings": sorted(
+                (
+                    {
+                        "component": {
+                            "term": span_citation(r.component.term),
+                            "content": span_citation(r.component.content),
+                            "interpretation": r.component.interpretation,
+                            "scope": r.component.scope,
+                            "alternatives": sorted(r.component.alternatives),
+                            **(
+                                {"effective_version": r.component.effective_version}
+                                if r.component.effective_version is not None
+                                else {}
+                            ),
+                        },
+                        "outcome": r.outcome,
+                        "evidence": citations(set(r.evidence)),
+                        "premises": [
+                            {
+                                "dimension": p.dimension,
+                                "state": p.state,
+                                "evidence": citations(set(p.evidence)),
+                            }
+                            for p in r.premises
+                        ],
+                    }
+                    for r in value.readings
+                ),
+                key=canonical_bytes,
+            ),
             "inventory_coverage": value.inventory_coverage,
             "retrieval_diagnosis": value.retrieval_diagnosis,
         }

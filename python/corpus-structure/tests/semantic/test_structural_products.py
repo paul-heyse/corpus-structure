@@ -15,12 +15,12 @@ from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     ClauseField,
     ClauseReading,
-    LocatedDefinitionSpan,
-    definition_component,
     DossierMember,
     ExternalSourceRef,
+    LocatedDefinitionSpan,
     StructuralInput,
     StructuralPassage,
+    definition_component,
 )
 
 
@@ -58,9 +58,19 @@ def inputs():
 
 
 def fixture_component():
-    passage=inputs().passages[1]
-    span=LocatedDefinitionSpan(passage_id=passage.passage_id,start=passage.start,end=passage.end,text=passage.text)
-    return definition_component(term=span,content=span,interpretation="definition",basis="model_reading",scope=passage.scope,evidence=(passage.passage_id,),reason="Literal shape fixture")
+    passage = inputs().passages[1]
+    span = LocatedDefinitionSpan(
+        passage_id=passage.passage_id, start=passage.start, end=passage.end, text=passage.text
+    )
+    return definition_component(
+        term=span,
+        content=span,
+        interpretation="definition",
+        basis="model_reading",
+        scope=passage.scope,
+        evidence=(passage.passage_id,),
+        reason="Literal shape fixture",
+    )
 
 
 def test_original_projects_do_not_collapse_equal_text():
@@ -71,10 +81,18 @@ def test_original_projects_do_not_collapse_equal_text():
 
 
 def test_generic_structural_writer_cannot_bypass_owned_definition_producer():
-    from corpus_structure.semantic.structural_products import DefinitionComponentsProduct, StructuralProductReport
-    report=StructuralProductReport(kind="definition_components",inputs=inputs(),definition_components=DefinitionComponentsProduct(components=(),stages=()))
-    with pytest.raises(ValueError,match="owned automatic"):
-        StructuralProductsConfig(report=report,structural_input_digest=report.inputs.identity)
+    from corpus_structure.semantic.structural_products import (
+        DefinitionComponentsProduct,
+        StructuralProductReport,
+    )
+
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=inputs(),
+        definition_components=DefinitionComponentsProduct(components=(), stages=()),
+    )
+    with pytest.raises(ValueError, match="owned automatic"):
+        StructuralProductsConfig(report=report, structural_input_digest=report.inputs.identity)
 
 
 def test_clause_comparison_preserves_ten_dimensions_and_no_equivalence():
@@ -191,5 +209,3 @@ def test_run_method_and_released_report_roundtrip():
     assert roundtrip.product_id == report.product_id
     assert roundtrip.inputs.identity == value.identity
     assert method.select(None, StructuralProductsConfig()) == []
-
-

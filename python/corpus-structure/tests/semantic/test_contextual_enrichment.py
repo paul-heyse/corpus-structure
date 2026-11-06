@@ -20,8 +20,8 @@ from corpus_structure.methods.contextual_embeddings import (
 from corpus_structure.semantic.contextual_links import (
     ProposalWitness,
     RelationKind,
-    RelationshipWitness,
     RelationshipConstraint,
+    RelationshipWitness,
     select_relationships,
 )
 from corpus_structure.semantic.contextual_retrieval import (
@@ -78,10 +78,20 @@ def selection(c=None, inv=None, **kw):
         source_binding="source",
         scope="chapter5",
         effective_version=None,
-        constraints=(RelationshipConstraint("sense", ("denotes", "alias-of", "defined-by"), "usage", "sense", "one"),
-                   RelationshipConstraint("comparison", ("compared-with",), "subject", "comparator", "many"),
-                   RelationshipConstraint("specialization", ("specializes",), "specialization", "parent", "many"),
-                   RelationshipConstraint("participation", ("participates-in",), "participant", "process", "many")),
+        constraints=(
+            RelationshipConstraint(
+                "sense", ("denotes", "alias-of", "defined-by"), "usage", "sense", "one"
+            ),
+            RelationshipConstraint(
+                "comparison", ("compared-with",), "subject", "comparator", "many"
+            ),
+            RelationshipConstraint(
+                "specialization", ("specializes",), "specialization", "parent", "many"
+            ),
+            RelationshipConstraint(
+                "participation", ("participates-in",), "participant", "process", "many"
+            ),
+        ),
         **kw,
     )
 
@@ -338,13 +348,20 @@ def test_unknown_source_version_keeps_versions_but_refuses_unjustified_selection
 
 
 def test_exclusive_senses_do_not_hide_compatible_comparison():
-    decision = selection(witnesses=(witness("sense-a", "a", "denotes"),
-                                   witness("sense-b", "b", "denotes"),
-                                   witness("compare", "a", "compared-with")))
+    decision = selection(
+        witnesses=(
+            witness("sense-a", "a", "denotes"),
+            witness("sense-b", "b", "denotes"),
+            witness("compare", "a", "compared-with"),
+        )
+    )
     assert decision.outcome == "partial"
     assert [(e.target_id, e.relation) for e in decision.selected_edges] == [("a", "compared-with")]
     assert len(decision.alternative_groups) == 1
-    assert {(e.target_id, e.relation) for e in decision.alternative_groups[0].edges} == {("a", "denotes"), ("b", "denotes")}
+    assert {(e.target_id, e.relation) for e in decision.alternative_groups[0].edges} == {
+        ("a", "denotes"),
+        ("b", "denotes"),
+    }
     assert decision.alternative_groups[0].constraint_id == "sense"
 
 
@@ -373,14 +390,28 @@ def test_component_target_preserves_authenticated_origin_not_curated_text():
         component_target_input,
     )
 
-    target = ExtractedComponentTarget.model_validate(dict(
-        reference=dict(product_id="structural:original", component_id="a" * 64,
-                       operation_id="structure.definition_components", operation_version="1",
-                       project_id="source-project", run_id=1, cut_id=2, release_id="source-release",
-                       result_revision=0, selected_task_id=3, origin_task_id=4,
-                       runtime_fingerprint="original-runtime", dependencies=("original-source",)),
-        label="normal density", description="source-stated defining content", scope="chapter5",
-    ))
+    target = ExtractedComponentTarget.model_validate(
+        dict(
+            reference=dict(
+                product_id="structural:original",
+                component_id="a" * 64,
+                operation_id="structure.definition_components",
+                operation_version="1",
+                project_id="source-project",
+                run_id=1,
+                cut_id=2,
+                release_id="source-release",
+                result_revision=0,
+                selected_task_id=3,
+                origin_task_id=4,
+                runtime_fingerprint="original-runtime",
+                dependencies=("original-source",),
+            ),
+            label="normal density",
+            description="source-stated defining content",
+            scope="chapter5",
+        )
+    )
     original_inventory, representations = component_target_input((target,))
     assert representations[0].target_id == "a" * 64
     assert representations[0].source_binding == "definition-component:" + target.reference.identity
@@ -388,25 +419,61 @@ def test_component_target_preserves_authenticated_origin_not_curated_text():
     changed = target.model_copy(update={"description": "different text"})
     changed_inventory, changed_representations = component_target_input((changed,))
     assert changed_inventory != original_inventory
-    assert changed_representations[0].representation_digest != representations[0].representation_digest
+    assert (
+        changed_representations[0].representation_digest != representations[0].representation_digest
+    )
     with pytest.raises(ValueError):
-        ExtractedComponentTarget.model_validate(target.model_dump() | {"reference": {"component_id": "a" * 64}})
+        ExtractedComponentTarget.model_validate(
+            target.model_dump() | {"reference": {"component_id": "a" * 64}}
+        )
 
 
 def test_report_replays_complete_constraints_witnesses_and_selected_edges():
     inv = inventory()
     vectors = []
-    for object_id, binding, representation in (("occ", "source", None), *((t.target_id, t.source_binding, t.representation_digest) for t in inv.targets)):
-        values = (1.,) + (0.,) * (E5.dimension - 1)
-        vector = EncodedVector("", object_id, binding, E5.profile_id, "input", values, representation)
-        vectors.append(replace(vector, vector_id=identity("context-vector", [object_id, binding, E5.profile_id, "input", representation])))
-    candidate_list = fuse_candidates(occurrence_id="occ", query=vectors[0], inventory=inv,
-                                     channels={"dense": (ChannelHit("a", 1.), ChannelHit("b", .5))})
-    decision = selection(candidate_list, inv, witnesses=(witness("supported"), witness("refused", "b", support_state="unsupported")))
-    report = enrichment_report(profiles=(E5,), vectors=vectors, inventories=(inv,), candidate_lists=(candidate_list,), relationship_decisions=(decision,))
+    for object_id, binding, representation in (
+        ("occ", "source", None),
+        *((t.target_id, t.source_binding, t.representation_digest) for t in inv.targets),
+    ):
+        values = (1.0,) + (0.0,) * (E5.dimension - 1)
+        vector = EncodedVector(
+            "", object_id, binding, E5.profile_id, "input", values, representation
+        )
+        vectors.append(
+            replace(
+                vector,
+                vector_id=identity(
+                    "context-vector", [object_id, binding, E5.profile_id, "input", representation]
+                ),
+            )
+        )
+    candidate_list = fuse_candidates(
+        occurrence_id="occ",
+        query=vectors[0],
+        inventory=inv,
+        channels={"dense": (ChannelHit("a", 1.0), ChannelHit("b", 0.5))},
+    )
+    decision = selection(
+        candidate_list,
+        inv,
+        witnesses=(witness("supported"), witness("refused", "b", support_state="unsupported")),
+    )
+    report = enrichment_report(
+        profiles=(E5,),
+        vectors=vectors,
+        inventories=(inv,),
+        candidate_lists=(candidate_list,),
+        relationship_decisions=(decision,),
+    )
     stored = report["relationship_decisions"][0]
     assert {w["witness_id"] for w in stored["witnesses"]} == {"supported", "refused"}
     assert stored["selected_edges"][0]["target_id"] == "a"
     assert "alternatives" not in stored
     with pytest.raises(ValueError, match="selection semantics"):
-        enrichment_report(profiles=(E5,), vectors=vectors, inventories=(inv,), candidate_lists=(candidate_list,), relationship_decisions=(replace(decision, selected_edges=()),))
+        enrichment_report(
+            profiles=(E5,),
+            vectors=vectors,
+            inventories=(inv,),
+            candidate_lists=(candidate_list,),
+            relationship_decisions=(replace(decision, selected_edges=()),),
+        )

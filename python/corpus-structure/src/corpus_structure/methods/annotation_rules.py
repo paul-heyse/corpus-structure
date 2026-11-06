@@ -160,9 +160,15 @@ class PreparedAnnotationRules:
         )
         results, spans = [], []
         noun_chunks = {}
-        if "DEP" in columns and any(binding.expansion == "noun_chunk" for rule in self.variants.values() for binding in rule.bindings.values()):
+        if "DEP" in columns and any(
+            binding.expansion == "noun_chunk"
+            for rule in self.variants.values()
+            for binding in rule.bindings.values()
+        ):
             try:
-                noun_chunks = {chunk.root.i: set(range(chunk.start, chunk.end)) for chunk in doc.noun_chunks}
+                noun_chunks = {
+                    chunk.root.i: set(range(chunk.start, chunk.end)) for chunk in doc.noun_chunks
+                }
             except NotImplementedError:
                 # A language without a declared syntax iterator has no such expansion.
                 noun_chunks = {}
@@ -198,10 +204,14 @@ class PreparedAnnotationRules:
                         )
                     else:
                         if binding.expansion == "noun_chunk" and head not in noun_chunks:
-                            status, reason = "unavailable", "no retained base noun phrase for this head"
+                            status, reason = (
+                                "unavailable",
+                                "no retained base noun phrase for this head",
+                            )
                         expanded = (
-                            noun_chunks.get(head, {head}) if binding.expansion == "noun_chunk" else
-                            {t.i for t in doc[head].subtree}
+                            noun_chunks.get(head, {head})
+                            if binding.expansion == "noun_chunk"
+                            else {t.i for t in doc[head].subtree}
                             if binding.expansion == "subtree"
                             else {head, *(t.i for t in doc[head].conjuncts)}
                         )

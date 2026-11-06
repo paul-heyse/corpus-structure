@@ -65,12 +65,18 @@ def component_target_input(targets: Sequence[ExtractedComponentTarget]):
     refs = tuple(target.authenticated_reference() for target in ordered)
     if len({ref.component_id for ref in refs}) != len(refs):
         raise ValueError("component inventory contains duplicate target identities")
-    inventory_source = identity("definition-component-inventory", [t.model_dump(mode="json") for t in ordered])
+    inventory_source = identity(
+        "definition-component-inventory", [t.model_dump(mode="json") for t in ordered]
+    )
     representations = tuple(
         target_representation(
-            ref.component_id, "definition-component:" + ref.identity,
-            target.label, target.description, scope=target.scope,
-            effective_version=target.effective_version, parent=target.parent,
+            ref.component_id,
+            "definition-component:" + ref.identity,
+            target.label,
+            target.description,
+            scope=target.scope,
+            effective_version=target.effective_version,
+            parent=target.parent,
         )
         for target, ref in zip(ordered, refs, strict=True)
     )

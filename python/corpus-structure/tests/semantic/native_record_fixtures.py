@@ -21,7 +21,10 @@ from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_health import FormulaOutcome
 from corpus_structure.ingest.pdf_hierarchy import snapshot
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.methods.contextual_candidates import _phase_operation, relationship_contributions
+from corpus_structure.methods.contextual_candidates import (
+    _phase_operation,
+    relationship_contributions,
+)
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
     EncoderProfile,
@@ -36,7 +39,11 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
+from corpus_structure.semantic.contextual_links import (
+    RelationshipConstraint,
+    RelationshipWitness,
+    select_relationships,
+)
 from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
 from corpus_structure.semantic.contextual_retrieval import (
     ChannelHit,

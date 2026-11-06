@@ -140,7 +140,10 @@ class StructuralProductsConfig(StructuralValue):
 
     @model_validator(mode="after")
     def bound_input(self) -> Self:
-        if self.report is not None and self.report.kind in {"definition_components", "definition_applicability"}:
+        if self.report is not None and self.report.kind in {
+            "definition_components",
+            "definition_applicability",
+        }:
             raise ValueError("definition products require their owned automatic producers")
         expected = self.report.inputs.identity if self.report else None
         if self.structural_input_digest != expected:
