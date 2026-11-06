@@ -371,9 +371,9 @@ BEGIN
   END LOOP;
  END LOOP;
  IF (SELECT count(*)<>count(DISTINCT v->>'contribution_id') FROM jsonb_array_elements(COALESCE(config->'contribution_predecessors','[]'))v) THEN RAISE EXCEPTION 'duplicate dossier contribution predecessor' USING ERRCODE='23514';END IF;
- FOR reference IN SELECT value FROM jsonb_array_elements(COALESCE(config->'contribution_predecessors','[]')) LOOP
-  member_:=ops.dossier_contribution_member(inputs,reference);members:=members||jsonb_build_array(member_);
- END LOOP;
+ -- Aggregate full source membership once; never append to the growing dossier per row.
+ SELECT members||COALESCE(jsonb_agg(source_member.value),'[]') INTO members
+ FROM ops.dossier_contribution_members(inputs,COALESCE(config->'contribution_predecessors','[]')) AS source_member(value);
  SELECT COALESCE(jsonb_agg(m ORDER BY source_passage.value->>'source_ref',(m->'citation'->>'start')::bigint,(m->'citation'->>'end')::bigint,m->>'member_id'),'[]') INTO members FROM jsonb_array_elements(members)m JOIN jsonb_array_elements(inputs->'passages')source_passage(value) ON source_passage.value->>'passage_id'=m->>'passage_id';
  SELECT COALESCE(jsonb_agg(f ORDER BY f->>'facet_id'),'[]') INTO facets FROM jsonb_array_elements(facets)f;
  SELECT COALESCE(jsonb_agg(m->'member_id' ORDER BY n),'[]'),count(*) INTO selected,mandatory FROM jsonb_array_elements(members) WITH ORDINALITY row_(m,n) WHERE m->>'role' IN ('exception','revision','conflict');
@@ -511,17 +511,51 @@ DECLARE expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; exp
  lexical double precision; log_odds double precision; probability double precision; external_ boolean; policy jsonb;
  code_gamma integer; title_gamma integer; code_mw double precision; title_mw double precision;
  field_ jsonb; expected_value double precision; model_id text; expected_provenance jsonb; unbound jsonb; anchors jsonb;
+ parameter_name text; parameter_value jsonb; parameter_text text; decoded_value double precision;
+ title_threshold double precision; config_policy jsonb:='{}';
  python_space text:=chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(28)||chr(29)||chr(30)||chr(31)||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288);
 BEGIN
  policy:=product->'policy';
+ -- MethodRegistry stores floats as canonical decimal strings; products keep typed numbers.
+ -- Decode only these declared numeric configuration fields, without rewriting custody bytes.
+ IF jsonb_typeof(config->'policy') IS DISTINCT FROM 'object'
+  OR jsonb_typeof(policy) IS DISTINCT FROM 'object' THEN
+  RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
+ IF NOT ((config->'policy') ?& ARRAY['prior','code_m','code_u','title_m','title_u'])
+  OR (SELECT count(*) FROM jsonb_each(config->'policy'))<>5 THEN
+  RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
+ FOR parameter_name,parameter_value IN
+  SELECT key,value FROM jsonb_each(config->'policy')
+  UNION ALL SELECT 'title_threshold',config->'title_threshold' LOOP
+  IF COALESCE(jsonb_typeof(parameter_value),'null') NOT IN ('number','string') THEN
+   RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514'; END IF;
+  parameter_text:=parameter_value#>>'{}';
+  IF jsonb_typeof(parameter_value)='string' THEN
+   -- Canonical floats have no exponent; reject it before the decimal normalizer expands it.
+   IF parameter_text ~ '[eE]' THEN
+    RAISE EXCEPTION 'artifact numeric config requires canonical decimal strings' USING ERRCODE='23514'; END IF;
+   IF parameter_text IS DISTINCT FROM data.decimal_canonical(parameter_text) THEN
+    RAISE EXCEPTION 'artifact numeric config requires canonical decimal strings' USING ERRCODE='23514'; END IF;
+  END IF;
+  decoded_value:=parameter_text::double precision;
+  IF NOT (decoded_value>'-Infinity'::double precision AND decoded_value<'Infinity'::double precision) THEN
+   RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514'; END IF;
+  IF parameter_name='title_threshold' THEN
+   IF decoded_value<0 OR decoded_value>100 THEN
+    RAISE EXCEPTION 'artifact title threshold must be between zero and one hundred' USING ERRCODE='23514'; END IF;
+   title_threshold:=decoded_value;
+  ELSE
+   IF decoded_value<=0 OR decoded_value>=1 THEN
+    RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
+   config_policy:=config_policy||jsonb_build_object(parameter_name,decoded_value);
+  END IF;
+ END LOOP;
  IF product->>'identity_grain' IS DISTINCT FROM 'source_work_artifact_lineage'
-  OR jsonb_typeof(config->'title_threshold') IS DISTINCT FROM 'number'
-  OR (config->>'title_threshold')::double precision<0 OR (config->>'title_threshold')::double precision>100
   OR jsonb_typeof(config->'work_bindings') IS DISTINCT FROM 'array'
   OR jsonb_typeof(config->'external_pairs') IS DISTINCT FROM 'array'
   OR jsonb_typeof(config->'exclusions') IS DISTINCT FROM 'array'
   OR NOT policy ?& ARRAY['prior','code_m','code_u','title_m','title_u'] OR product->>'protocol'<>'artifact-identity-1' OR product->>'standing'<>'candidate_relative_private'
-  OR policy IS DISTINCT FROM config->'policy' OR EXISTS(SELECT FROM jsonb_each(policy) p
+  OR policy IS DISTINCT FROM config_policy OR EXISTS(SELECT FROM jsonb_each(policy) p
    WHERE (p.value#>>'{}')::double precision<=0 OR (p.value#>>'{}')::double precision>=1)
   OR (SELECT count(*) FROM jsonb_each(policy))<>5 THEN
   RAISE EXCEPTION 'artifact model requires five strict finite probabilities and exact custody' USING ERRCODE='23514'; END IF;
@@ -557,7 +591,7 @@ BEGIN
   code_b:=CASE WHEN btrim(b->'artifact'->>'controlled_code') COLLATE pg_catalog.pg_unicode_fast ~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$' THEN lower(btrim(b->'artifact'->>'controlled_code')) END;
   lexical:=ops.artifact_lexical_score(a->'artifact'->>'title',b->'artifact'->>'title');routes:='[]';
   IF compatible AND code_a IS NOT NULL AND code_a=code_b THEN routes:=routes||'"exact_code"'::jsonb; END IF;
-  IF compatible AND COALESCE(a->'artifact'->>'title','')<>'' AND COALESCE(b->'artifact'->>'title','')<>'' AND lexical*100 >=(config->>'title_threshold')::double precision THEN routes:=routes||'"lexical_title"'::jsonb; END IF;
+  IF compatible AND COALESCE(a->'artifact'->>'title','')<>'' AND COALESCE(b->'artifact'->>'title','')<>'' AND lexical*100 >=title_threshold THEN routes:=routes||'"lexical_title"'::jsonb; END IF;
   IF external_ THEN routes:=routes||'"external_pairs"'::jsonb; END IF;
   IF routes='[]'::jsonb THEN CONTINUE; END IF;
   expected_pairs:=expected_pairs||jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id'));
@@ -596,6 +630,8 @@ BEGIN
   RAISE EXCEPTION 'artifact configured pair endpoint lies outside source cohort' USING ERRCODE='23514'; END IF;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN
  RAISE EXCEPTION 'artifact candidate or source custody cannot resolve exact population' USING ERRCODE='23514';
+WHEN invalid_text_representation OR numeric_value_out_of_range THEN
+ RAISE EXCEPTION 'artifact numeric config requires finite typed values' USING ERRCODE='23514';
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_artifact_identity(jsonb,jsonb,jsonb) FROM PUBLIC;
 

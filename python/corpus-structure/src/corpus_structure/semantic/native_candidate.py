@@ -781,7 +781,13 @@ def series_native_definitions(connection, *, include_selected=True):
         )
     )
     dossier_sql = Path(__file__).with_name("sql").joinpath("dossier_contributions.sql").read_text()
-    for name in ("resolve_retained_source_contribution", "dossier_contribution_member"):
+    for name in (
+        "resolve_retained_source_contributions",
+        "resolve_retained_source_contribution",
+        "dossier_contribution_member_from_retained",
+        "dossier_contribution_member",
+        "dossier_contribution_members",
+    ):
         definitions.extend(
             _task_call_definitions(
                 connection,

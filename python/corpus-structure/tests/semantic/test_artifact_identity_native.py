@@ -109,6 +109,71 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             )
 
         check(product)
+        # Ordinary registry ABI stores float config fields as canonical strings.
+        # This helper still tests nonempty likelihood/routes independently of source custody.
+        from corpus_structure.orchestrate.registry import canonical_numbers
+
+        canonical_cfg = canonical_numbers(cfg)
+        check(product, canonical_cfg)
+        for invalid in (
+            None,
+            True,
+            [],
+            {},
+            "NaN",
+            "Infinity",
+            "-Infinity",
+            "70.0",
+            "7e1",
+            " 70",
+            "1" + "0" * 400,
+            -0.1,
+            100.1,
+        ):
+            bad_cfg = deepcopy(canonical_cfg)
+            bad_cfg["title_threshold"] = invalid
+            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+                check(product, bad_cfg)
+            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+        # A valid but different threshold must not authenticate this frozen pair/routes output.
+        for threshold in ("0", "100"):
+            bad_cfg = deepcopy(canonical_cfg)
+            bad_cfg["title_threshold"] = threshold
+            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+                check(product, bad_cfg)
+            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+        for invalid in (None, True, [], "policy", {}, {**canonical_cfg["policy"], "extra": "0.1"}):
+            bad_cfg = deepcopy(canonical_cfg)
+            bad_cfg["policy"] = invalid
+            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+                check(product, bad_cfg)
+            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+        for key in canonical_cfg["policy"]:
+            for invalid in (
+                None,
+                True,
+                [],
+                {},
+                "NaN",
+                "Infinity",
+                "-Infinity",
+                "0",
+                "1",
+                "0.10",
+                "1e-1",
+                "1" + "0" * 400,
+            ):
+                bad_cfg = deepcopy(canonical_cfg)
+                bad_cfg["policy"][key] = invalid
+                with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+                    check(product, bad_cfg)
+                assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+        for key in ("prior", "code_m", "code_u", "title_m", "title_u"):
+            forged = deepcopy(product)
+            forged["policy"][key] = 0.2
+            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+                check(forged, canonical_cfg)
+            assert getattr(refused.value.orig, "sqlstate", None) == "23514"
         # Existing pair-only anchor/exclusion semantics are independently enforced natively.
         guarded_cfg = {**cfg, "known_anchor_ids": ["b", "a"], "exclusions": [["a", "c"]]}
         guarded_pairs = score_pairs(

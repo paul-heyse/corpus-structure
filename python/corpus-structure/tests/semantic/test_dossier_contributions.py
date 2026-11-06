@@ -9,6 +9,7 @@ from methods.test_m1_source_preparation import native_table_source, table_cell
 from methods.test_scoped_relations import complete_native_fields
 from pydantic import ValidationError
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.methods.dossier_contributions import derive_contribution_members
 from corpus_structure.methods.scoped_relations import discover_relations
@@ -297,9 +298,11 @@ def test_native_source_member_replay_preserves_all_endpoint_citations(semantic_d
             dict(p=json.dumps(payload)),
         )
         conn.exec_driver_sql(
-            "CREATE OR REPLACE FUNCTION ops.resolve_retained_source_contribution(ref jsonb) "
-            "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
-            "SELECT current_setting('test.source_contribution_payload')::jsonb $$"
+            "CREATE OR REPLACE FUNCTION ops.resolve_retained_source_contributions(refs jsonb) "
+            "RETURNS TABLE(reference jsonb,contributions jsonb,sources jsonb) "
+            "LANGUAGE sql STABLE AS $$ SELECT refs->0, "
+            "current_setting('test.source_contribution_payload')::jsonb->'contributions', "
+            "current_setting('test.source_contribution_payload')::jsonb->'sources' $$"
         )
         actual = conn.scalar(
             text("SELECT ops.dossier_contribution_member(CAST(:i AS jsonb),CAST(:r AS jsonb))"),
@@ -513,3 +516,83 @@ def test_detached_dossier_refuses_missing_or_forged_contribution_closure(tmp_pat
         rows[3][1]["body"]["structural_product"] = report.model_dump(mode="json")
     with pytest.raises(ValueError):
         write_review_bundle(selection, tmp_path / "forged", iter(rows))
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("run_id", "1"),
+        ("cut_id", 0),
+        ("origin_task_id", -1),
+        ("selected_task_id", True),
+        ("result_revision", "1"),
+        ("runtime_fingerprint", ""),
+        ("contribution_id", "invented"),
+    ],
+)
+def test_batch_and_single_resolver_reject_same_malformed_reference(
+    semantic_db_engine, field, replacement
+):
+    """Both entry points exercise one real native owner; no substituted resolver."""
+    _, reference, _ = source_fixture()
+    reference = {**reference.model_dump(mode="json"), field: replacement}
+    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/dossier_contributions.sql"
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
+        for call, payload in (
+            ("ops.resolve_retained_source_contribution", reference),
+            ("ops.resolve_retained_source_contributions", [reference]),
+        ):
+            with pytest.raises(DBAPIError) as error, conn.begin_nested():
+                conn.execute(
+                    text("SELECT * FROM " + call + "(CAST(:r AS jsonb))"),
+                    {"r": json.dumps(payload)},
+                )
+            assert getattr(error.value.orig, "sqlstate", None) == "23514"
+
+
+def test_batch_projection_keeps_endpoint_meaning_and_private_authority(semantic_db_engine):
+    """Projection-only parity is separate from custody and actual completion qualification."""
+    inputs, reference, payload = source_fixture()
+    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/dossier_contributions.sql"
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
+        # The private projection cannot be called by application roles with fabricated rows.
+        for role in ("corpus_sem_reader", "corpus_sem_writer"):
+            for signature in (
+                "ops.resolve_retained_source_contributions(jsonb)",
+                "ops.dossier_contribution_member_from_retained(jsonb,jsonb,jsonb,jsonb,jsonb)",
+                "ops.dossier_contribution_members(jsonb,jsonb)",
+            ):
+                assert not conn.scalar(
+                    text("SELECT has_function_privilege(:role,:sig,'EXECUTE')"),
+                    {"role": role, "sig": signature},
+                )
+        actual = conn.scalar(
+            text("""
+            SELECT ops.dossier_contribution_member_from_retained(
+                CAST(:i AS jsonb),CAST(:r AS jsonb),CAST(:rows AS jsonb),
+                CAST(:sources AS jsonb),CAST(:dependencies AS jsonb))
+        """),
+            {
+                "i": inputs.model_dump_json(),
+                "r": reference.model_dump_json(),
+                "rows": json.dumps(payload["contributions"]),
+                "sources": json.dumps(payload["sources"]),
+                "dependencies": json.dumps({reference.contribution_id: True}),
+            },
+        )
+        assert actual["role"] == "relationship"
+        assert actual["qualification"] == "proposed"
+        assert "assessment_id" not in actual
+        assert {c["span"]["text"] for c in actual["contribution_citations"]} == {
+            "50",
+            "Probability %",
+        }
+        assert len(actual["contribution_citations"]) == 2
+        assert set(actual["computation_dependencies"]) >= {
+            r["contribution_id"] for r in payload["contributions"]
+        }
+        assert actual == derive_contribution_members(inputs, reference, payload)[0].model_dump(
+            mode="json", exclude_none=True
+        )

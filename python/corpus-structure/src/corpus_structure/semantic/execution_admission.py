@@ -203,7 +203,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Exact current native body hashes frozen by witnessed baseline migration0157.
 # Deployment checks retain ownership, privilege, configuration and body enforcement.
-_DESCRIPTOR_SHA256 = "192e37919940c03d4902e0176f8d96ac57ea469d4a7ba5a0d839e6c31b8cc06b"
+_DESCRIPTOR_SHA256 = "8b3aff8528a928832267099a36725734503191a883edde9f2fb3e19a500e02e1"
 _REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"
