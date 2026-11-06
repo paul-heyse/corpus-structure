@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "wce.current-native-cutover",
+  "title": "Single witnessed native cutover with fresh and persistent catalog agreement",
+  "group": "WCE",
+  "package": "WCE04/05",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the consolidated155-to-current156 migration produce exactly the declared final native/physical state and reconcile the already deployed development state without changing retained data or semantic releases?",
+  "answers": [
+    "WCE04",
+    "WCE05",
+    "ADR-0067"
+  ],
+  "method": "Author final transition on isolated155, exercise full fresh migration through current156, compare all218 declared native objects and zero physical/native differences. Apply reviewed exact-before descriptor metadata transition on persistent development, verify all state before stamping, preserve table populations and refresh existing admission through the restricted purpose.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-definition-linking/verify_current_cutover.py python/corpus-structure/semantic_alembic/versions"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author_current_cutover.py",
+      "role": null,
+      "sha256": "0ca85f91ea77c9ddffaff62cad940956f3871ccc312df0a0883c93102d42bf15"
+    },
+    {
+      "path": "verify_current_cutover.py",
+      "role": null,
+      "sha256": "ad42056e8bb547cad0d838013e68c0faaec1c468d05969f4b4a210e61816af96"
+    },
+    {
+      "path": "stamp_current_cutover.py",
+      "role": null,
+      "sha256": "54404aefcb054da9b7f48059682c00718d8460415601eae0781822a6230d1632"
+    },
+    {
+      "path": "cutover-descriptor-before.json",
+      "role": null,
+      "sha256": "ab014033f42b08da7109b8b240ab74327a89a5b64075dee41526cd409f87e8e7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native-candidate-current-cutover-final",
+      "role": null,
+      "sha256": "ce71c40e2798c0b769a960e6b9fcdf78aabfe0f9769dcf519969bea28eccd0e1"
+    },
+    {
+      "path": "current-cutover-fresh-migration.json",
+      "role": null,
+      "sha256": "5fa6169361bb4e695d72bcbe8c3b7c54a0238b09719cec91bb96235285468f93"
+    },
+    {
+      "path": "current-cutover-fresh-migration-final.log",
+      "role": null,
+      "sha256": "8183e61f5b15291ef268b1de417a288204a1946f472a675b64e6c687fcf73d2b"
+    },
+    {
+      "path": "current-cutover-dev-stamp.json",
+      "role": null,
+      "sha256": "5c17f7e72cf5c331ee2192d69c1d4218051f6790d540c7f04f8b7fb10ca90739"
+    },
+    {
+      "path": "current-cutover-dev-stamp-final.log",
+      "role": null,
+      "sha256": "58ce7f9b406905a6c59e5d5f1cdee113588e26f2fbe87623427876626009acce"
+    },
+    {
+      "path": "current-cutover-admission-refresh.json",
+      "role": null,
+      "sha256": "95e4a8122a534046f42a5a1dd5dbb782fc82e277b17c55d7b595409749e8fd2a"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Current active increment has one155-to-semantic_wce_target_20261106 migration, replacing temporary156–162 assets. Fresh and persistent state agree on218 native objects and zero native/physical differences. Persistent descriptor adjustment changes only final execution catalog/generated-report source metadata; all retained table populations and semantic release identities remain unchanged. Failed authoring, schema-source-drift and initial preflight receipts remain. Full WCE qualification is not established.",
+  "consumed_by": [
+    "WCE04",
+    "WCE05",
+    "WCE12",
+    "ADR-0067"
+  ]
+}
