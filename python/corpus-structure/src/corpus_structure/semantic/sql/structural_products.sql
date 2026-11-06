@@ -127,6 +127,39 @@ END $$;
 REVOKE ALL ON FUNCTION ops.validate_component_targets(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.validate_component_targets(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
+CREATE OR REPLACE FUNCTION ops.resolve_retained_relationship_decision(ref jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected record; operation jsonb; decision jsonb; edge jsonb; occurrence jsonb; target jsonb;
+BEGIN
+ SELECT result.body, task.unit_id, batch.data_revision, origin_job.runtime_id INTO STRICT selected
+ FROM ops.run job JOIN ops.completed_result completed ON completed.run_id=job.id
+ JOIN data.batch batch ON batch.release_id=completed.release_id AND batch.realization_id=completed.output_realization_id AND batch.batch_id=completed.batch_id
+ JOIN ops.cut_task member ON member.cut_id=completed.cut_id JOIN ops.task task ON task.id=member.task_id
+ JOIN ops.task origin ON origin.id=member.origin_task_id JOIN ops.run origin_job ON origin_job.id=origin.run_id
+ JOIN ops.task_result result ON result.task_id=origin.id
+ WHERE job.id=(ref->>'run_id')::bigint AND job.project_id=ref->>'project_id' AND job.release_id=ref->>'release_id'
+ AND job.sealed AND job.status='finished' AND completed.cut_id=(ref->>'cut_id')::bigint
+ AND task.id=(ref->>'selected_task_id')::bigint AND origin.id=(ref->>'origin_task_id')::bigint
+ AND origin.id=COALESCE(task.reused_task_id,task.id) AND origin.release_id=ref->>'release_id' AND task.status IN ('done','reused');
+ IF selected.data_revision IS DISTINCT FROM (ref->>'result_revision')::bigint OR selected.runtime_id IS DISTINCT FROM ref->>'runtime_fingerprint' THEN
+  RAISE EXCEPTION 'retained relationship differs from original runtime/revision' USING ERRCODE='23514'; END IF;
+ SELECT value INTO STRICT operation FROM jsonb_array_elements(selected.body->'contribution_operations') WHERE value->>'operation_key'=ref->>'operation_key';
+ IF operation->'contextual_enrichment'->>'version' IS DISTINCT FROM 'contextual-enrichment-2' THEN
+  RAISE EXCEPTION 'retained relationship requires current contextual product' USING ERRCODE='23514'; END IF;
+ SELECT value INTO STRICT decision FROM jsonb_array_elements(operation->'contextual_enrichment'->'relationship_decisions') WHERE value->>'decision_id'=ref->>'decision_id';
+ SELECT value INTO STRICT edge FROM jsonb_array_elements(decision->'selected_edges') WHERE value->>'edge_id'=ref->>'edge_id';
+ SELECT value INTO STRICT occurrence FROM jsonb_array_elements(selected.body->'contributions') WHERE value->>'contribution_id'=ref->>'occurrence_contribution_id'
+ AND value->>'semantic_type'='contextual.located_mention' AND value->>'occurrence_id'=decision->>'occurrence_id'
+ AND EXISTS(SELECT FROM jsonb_array_elements(edge->'witnesses') w WHERE w->'evidence_ids' ? (value->>'contribution_id'));
+ SELECT value INTO STRICT target FROM jsonb_array_elements(operation->'contextual_enrichment'->'component_targets') WHERE value->'reference'->>'component_id'=edge->>'target_id';
+ PERFORM ops.resolve_retained_component(target->'reference');
+ RETURN jsonb_build_object('decision',decision,'edge',edge,'occurrence',occurrence,'component_target',target,'source_view_id',selected.unit_id);
+EXCEPTION WHEN no_data_found OR too_many_rows OR numeric_value_out_of_range THEN
+ RAISE EXCEPTION 'retained relationship cannot resolve exact original edge/source' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) TO corpus_sem_reader,corpus_sem_writer;
+
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text;
@@ -217,13 +250,31 @@ BEGIN
   item:=product->'definition';
   IF item IS NULL OR NOT passage_map ? (item->>'usage_id') OR item->>'retrieval_diagnosis' IS DISTINCT FROM 'not_independently_assessed' THEN
    RAISE EXCEPTION 'invalid definition usage or unsupported retrieval diagnosis' USING ERRCODE='23514'; END IF;
-  IF method_='structure.definitions' AND (item->>'candidate_list_id' IS DISTINCT FROM config_->>'candidate_list_id' OR item->>'usage_id' IS DISTINCT FROM config_->>'usage_id'
-   OR (SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(item->'candidate_targets') v) IS DISTINCT FROM (SELECT jsonb_agg(c->'target_id' ORDER BY c->'target_id') FROM jsonb_array_elements(config_->'candidates') c)) THEN
-   RAISE EXCEPTION 'applicability target selection differs from frozen configured candidates' USING ERRCODE='23514'; END IF;
+  IF method_='structure.definitions' AND (
+   (SELECT jsonb_agg(v ORDER BY data.canonical_json(v)) FROM jsonb_array_elements(config_->'selection_refs') v)
+   IS DISTINCT FROM (SELECT jsonb_agg(r->'link_ref' ORDER BY data.canonical_json(r->'link_ref')) FROM jsonb_array_elements(item->'readings') r)) THEN
+   RAISE EXCEPTION 'applicability differs from frozen actual relationship selection' USING ERRCODE='23514'; END IF;
   IF EXISTS(SELECT FROM jsonb_array_elements_text(item->'candidate_targets') c WHERE NOT item->'eligible_targets' ? c)
    OR EXISTS(SELECT FROM jsonb_array_elements(item->'readings') r WHERE NOT item->'candidate_targets' ? (r->>'target_id')) THEN
    RAISE EXCEPTION 'definition reading differs from fixed eligible candidate population' USING ERRCODE='23514'; END IF;
   FOR dimension IN SELECT value FROM jsonb_array_elements(item->'readings') LOOP
+   source_:=ops.resolve_retained_relationship_decision(dimension->'link_ref');
+   IF dimension->'component_ref' IS DISTINCT FROM source_->'component_target'->'reference'
+    OR dimension->>'target_id' IS DISTINCT FROM source_->'edge'->>'target_id'
+    OR item->>'candidate_list_id' IS DISTINCT FROM source_->'decision'->>'candidate_list_id' THEN
+    RAISE EXCEPTION 'applicability loses actual selected edge and target binding' USING ERRCODE='23514'; END IF;
+   passage:=passage_map->(item->>'usage_id');
+   SELECT * INTO STRICT v FROM kb.source_view WHERE id=(source_->>'source_view_id')::bigint;
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(inputs->'sources') src WHERE (src->>'source_view_id')::bigint=v.id
+    AND encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex')=passage->>'source_ref')
+    OR (SELECT jsonb_agg(jsonb_build_object('pointer',p->>'item_ref'||CASE WHEN p->>'source_field'='cell_text' THEN '/data/table_cells/'||(p->>'cell_index') ELSE '' END,
+      'start',greatest((passage->>'start')::bigint,(p->>'start')::bigint)-(p->>'start')::bigint,
+      'end',least((passage->>'end')::bigint,(p->>'end')::bigint)-(p->>'start')::bigint,
+      'source_piece',substring(v.projection->>'text' FROM greatest((passage->>'start')::integer,(p->>'start')::integer)+1 FOR least((passage->>'end')::integer,(p->>'end')::integer)-greatest((passage->>'start')::integer,(p->>'start')::integer))) ORDER BY p->>'item_ref',greatest((passage->>'start')::bigint,(p->>'start')::bigint)-(p->>'start')::bigint)
+      FROM jsonb_array_elements(v.projection->'pieces') p WHERE p->>'kind'='native_text' AND (p->>'start')::bigint<(passage->>'end')::bigint AND (p->>'end')::bigint>(passage->>'start')::bigint)
+     IS DISTINCT FROM (SELECT jsonb_agg(jsonb_build_object('pointer',a->'pointer','start',a->'start','end',a->'end','source_piece',a->'source_piece') ORDER BY a->>'pointer',(a->>'start')::bigint,(a->>'end')::bigint)
+      FROM jsonb_array_elements(source_->'occurrence'->'anchors') WITH ORDINALITY anchor(a,n)) THEN
+     RAISE EXCEPTION 'usage differs from exact linked occurrence original source pieces' USING ERRCODE='23514'; END IF;
    ref:=ops.resolve_retained_component(dimension->'component_ref');
    IF dimension->'component' IS DISTINCT FROM ref->'component' THEN RAISE EXCEPTION 'applicability component differs from authenticated origin' USING ERRCODE='23514'; END IF;
    IF NOT inputs->'dependencies' ? (dimension->'component_ref'->>'product_id') THEN

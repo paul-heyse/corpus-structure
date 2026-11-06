@@ -795,6 +795,21 @@ classes:
       origin_task_id: {required: true, range: integer, minimum_value: 1}
       runtime_fingerprint: {required: true}
       dependencies: {required: true, multivalued: true, minimum_cardinality: 1}
+  RetainedRelationshipDecisionRef:
+    is_a: SourceRecordProduct
+    attributes:
+      project_id: {required: true}
+      run_id: {required: true, range: integer, minimum_value: 1}
+      cut_id: {required: true, range: integer, minimum_value: 1}
+      release_id: {required: true}
+      result_revision: {required: true, range: integer, minimum_value: 0}
+      selected_task_id: {required: true, range: integer, minimum_value: 1}
+      origin_task_id: {required: true, range: integer, minimum_value: 1}
+      runtime_fingerprint: {required: true}
+      operation_key: {required: true}
+      decision_id: {required: true}
+      edge_id: {required: true}
+      occurrence_contribution_id: {required: true}
   LocatedDefinitionSpan:
     is_a: SourceRecordProduct
     attributes:
@@ -856,6 +871,7 @@ classes:
   StructuralDefinitionReading:
     is_a: SourceRecordProduct
     attributes:
+      link_ref: {required: true, range: RetainedRelationshipDecisionRef, inlined: true}
       component_ref: {required: true, range: RetainedComponentRef, inlined: true}
       component: {required: true, range: LocatedDefinitionComponent, inlined: true}
       premises: {required: true, range: ApplicabilityPremise, inlined: true, multivalued: true, minimum_cardinality: 1}
