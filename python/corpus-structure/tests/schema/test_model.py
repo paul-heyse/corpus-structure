@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,6 +16,8 @@ import yaml
 from corpus_structure.core import schemas, vocab
 from corpus_structure.core._model import names, qualifiers, revision, sql, validators
 from corpus_structure.schema import generate, model
+
+from .lint_support import lint_errors
 
 MODEL = model.MODEL_DIR
 
@@ -39,21 +40,10 @@ def seeded(tmp_path: Path, edit_core=None, edit_system=None) -> model.Model:
 # --- Lint and the declaration check ------------------------------------------------------------
 
 
-def lint_errors(path: Path) -> list[str]:
-    """linkml-lint's error lines for one module (its TSV format drops metamodel errors)."""
-    lint = shutil.which("linkml-lint")
-    assert lint is not None
-    out = subprocess.run(
-        [lint, "--config", str(MODEL / ".linkmllint.yaml"), str(path)],
-        capture_output=True, text=True, check=False,
-    )  # fmt: skip
-    return [line for line in out.stdout.splitlines() if line.lstrip().startswith("error")]
-
-
 @pytest.mark.skipif(shutil.which("linkml-lint") is None, reason="blocked: linkml (dev) missing")
 @pytest.mark.parametrize("module", ["core.yaml", "system.yaml"])
 def test_the_modules_lint_without_errors(module: str) -> None:
-    assert lint_errors(MODEL / module) == []
+    assert lint_errors(MODEL / module, MODEL / ".linkmllint.yaml") == []
 
 
 @pytest.mark.skipif(shutil.which("linkml-lint") is None, reason="blocked: linkml (dev) missing")
@@ -63,7 +53,12 @@ def test_lint_reports_a_seeded_metamodel_error(tmp_path: Path) -> None:
     (tmp_path / "system.yaml").write_text(
         text.replace("  RunStatus:\n", "  RunStatus:\n    bogus: 1\n", 1)
     )
-    assert any("'bogus' was unexpected" in line for line in lint_errors(tmp_path / "system.yaml"))
+    assert any(
+        "'bogus' was unexpected" in line
+        for line in lint_errors(
+            tmp_path / "system.yaml", MODEL / ".linkmllint.yaml", expected_returncode=2
+        )
+    )
 
 
 def test_the_model_passes_its_declaration_check(loaded: model.Model) -> None:

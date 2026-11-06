@@ -125,16 +125,9 @@ def test_each_pack_file_lints_clean(schema: Path, tmp_path: Path) -> None:
     # the pack imports `core`, which the loader maps to the model's file; lint sees it beside it
     shutil.copy(schema, tmp_path / schema.name)
     shutil.copy(REPO / "python/corpus-structure/src/corpus_structure/model/core.yaml", tmp_path)
-    lint = shutil.which("linkml-lint")
-    assert lint is not None
-    out = subprocess.run(
-        [lint, "--config", str(REPO / "domains/.linkmllint.yaml"), str(tmp_path / schema.name)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    errors = [line for line in out.stdout.splitlines() if line.lstrip().startswith("error")]
-    assert errors == [], out.stdout
+    from .lint_support import lint_errors
+
+    assert lint_errors(tmp_path / schema.name, REPO / "domains/.linkmllint.yaml") == []
 
 
 def _edit(

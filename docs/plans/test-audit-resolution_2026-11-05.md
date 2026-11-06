@@ -1,6 +1,6 @@
 # Test audit resolution
 
-**Status:** Proposed; implementation not started. **Created:** 2026-11-05.
+**Status:** In progress; execution authorized2026-11-05. **Created:** 2026-11-05.
 This coordinator owns the new series' packages, scheduled remaining DTA scope and combined
 acceptance. Companion plans own detailed designs; architecture and accepted ADRs remain authority.
 
@@ -91,7 +91,7 @@ No installation or dependency change is currently scheduled.
 
 ## Package queue
 
-**All packages Proposed / not started.** The table is the execution-state owner; listed order is
+**TR-00 accepted; TR-01–08 in progress; TR-09/10 pending.** The table is the execution-state owner; listed order is
 one useful route, not a barrier between independent work.
 
 | Package | Required working input | Delivered behavior and acceptance |
@@ -157,10 +157,23 @@ Missing required evidence prevents Complete. A design decision is not implementa
 pass is not full-series acceptance. Broad product/provider/adoption claims remain outside this
 series. Quantitative benefits require separate measurements if later claimed.
 
-**Next:** execute TR-00 when repair execution is authorized. This document series is the current
-implementable proposal; no repair, probe, database operation, installation or product qualification
-was performed while writing it. Independent focused plan assessment and documentation checks are
-recorded at publication; formal target and assembled reviews remain explicitly scheduled.
+**Next:** integrate TR-01–08 and their focused evidence, reconcile preservation, obtain TR-10
+assembled review, then qualify final source. The operator authorized full execution2026-11-05.
+
+## Execution checkpoint — 2026-11-05
+
+TR-00's [independent target review](../design_review/reviews/design_review_test-audit-resolution-tr00_2026-11-05.md)
+accepts the Proposed target without new material findings or rule impacts. No runtime result follows
+from that review. Scenario/assertion, math and native/harness assignments own coordinated changes;
+root owns CLI/rendering, integration and qualification. Unrelated production-review/STATUS edits
+remain preserved and excluded from test implementation ownership.
+
+TR-05 focused **passed**: `uv run pytest tests/test_native_region_render.py python/corpus-structure/tests/schema/test_lint_support.py python/corpus-structure/tests/schema/test_model.py python/corpus-structure/tests/schema/test_packs.py -k 'pdf_point or lint'`
+(14 cases before the additional real warning/argument control); `uv run pytest python/corpus-structure/tests/schema/test_lint_support.py`
+(9 cases including real warning/argument outcomes). Logs: build/test-audit-tr05{,-cli}.log.
+Actual published artifact **passed** through `uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/tr05-region-artifact-20261105 -- python/corpus-structure/tests/semantic/test_published_region_artifact.py`.
+Initial asymmetric fixture failed on unsupported page context-manager use; corrected to explicit
+close before the passing checks. Other package acceptance and integrated qualification remain open.
 
 ## Authoring assessment and publication — 2026-11-05
 

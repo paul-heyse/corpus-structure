@@ -35,9 +35,10 @@ def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request)
     recipe = b'{"recipe":"stage-test"}'
     path = tmp_path / "source.pdf"
     if getattr(request, "param", None) == "renderable_pdf":
-        from pdf_acceptance_support import write_controlled_pdf
+        from pdf_region_support import asymmetric_pdf
 
-        original = write_controlled_pdf(path, ("Region section", "evidence"))
+        original = asymmetric_pdf(612, 792)
+        path.write_bytes(original)
     else:
         original = b"%PDF-1.7 private staging fixture"
         path.write_bytes(original)

@@ -178,6 +178,8 @@ def test_published_region_render_frame_artifact_replay_and_invalid_address(
     rendered = render_pdf_region(original, region, scale=2)
     with Image.open(BytesIO(rendered)) as image:
         assert image.size == (120, 80)
+        assert image.convert("RGB").getpixel((40, 40)) == (255, 0, 0)
+        assert image.convert("RGB").getpixel((100, 20)) == (0, 128, 0)
     selection: dict[str, JsonValue] = dict(
         task_id=reference.task_id,
         product_key=reference.product_key,

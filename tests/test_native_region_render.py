@@ -2,27 +2,15 @@
 
 from io import BytesIO
 
-import pypdfium2 as pdfium
 import pytest
+from pdf_region_support import asymmetric_pdf
 from PIL import Image
 
 from corpus_structure.serve.native_regions import render_pdf_region
 
 
-def original():
-    document = pdfium.PdfDocument.new()
-    try:
-        page = document.new_page(200, 300)
-        page.close()
-        output = BytesIO()
-        document.save(output)
-        return output.getvalue()
-    finally:
-        document.close()
-
-
 def test_pdf_point_region_origins_and_dimensions():
-    source = original()
+    source = asymmetric_pdf()
     region = dict(
         page_no=1,
         page_width=200,
@@ -38,6 +26,14 @@ def test_pdf_point_region_origins_and_dimensions():
     assert render_pdf_region(source, alternate, scale=2) == first
     with Image.open(BytesIO(first)) as image:
         assert image.size == (120, 80)
+        assert image.convert("RGB").getpixel((40, 40)) == (255, 0, 0)
+        assert image.convert("RGB").getpixel((100, 20)) == (0, 128, 0)
+        assert image.convert("RGB").getpixel((5, 5)) == (255, 255, 255)
+    translated = render_pdf_region(source, dict(region, left=80, right=140), scale=2)
+    assert translated != first
+    with Image.open(BytesIO(translated)) as image:
+        assert image.size == (120, 80)
+        assert image.convert("RGB").getpixel((40, 40)) == (0, 0, 255)
     with pytest.raises(ValueError, match="dimensions"):
         render_pdf_region(source, dict(region, page_width=201))
     with pytest.raises(ValueError, match="invalid"):
