@@ -426,8 +426,8 @@ class SourcePreparationReader(Protocol):
         """Authenticate an actual retained relationship selection and its source endpoints."""
         ...
 
-    def validate_component_targets(self, targets: Sequence[Any]) -> None:
-        """Authenticate retained target content and original custody before model execution."""
+    def component_semantic_targets(self, targets: Sequence[Any]) -> Mapping[str, Any]:
+        """Authenticate and detach source-resolved target meanings before encoder work."""
         ...
 
     def cached_contextual_vectors(

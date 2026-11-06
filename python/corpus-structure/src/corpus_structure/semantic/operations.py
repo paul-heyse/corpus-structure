@@ -1093,14 +1093,21 @@ class BoundReader:
             {"reference": json.dumps(reference.model_dump(mode="json"))},
         ).scalar_one()
 
-    def validate_component_targets(self, targets):
-        """Resolve retained component descriptions before provider work in a short read."""
+    def component_semantic_targets(self, targets):
+        """Hydrate source-resolved target meanings once within one short owned read."""
         import json
 
+        payload = json.dumps([target.model_dump(mode="json") for target in targets])
         self.conn.execute(
             text("SELECT ops.validate_component_targets(CAST(:targets AS jsonb))"),
-            {"targets": json.dumps([target.model_dump(mode="json") for target in targets])},
+            {"targets": payload},
         ).scalar_one()
+        return dict(self.conn.execute(
+            text("SELECT target->'reference'->>'component_id', "
+                 "ops.component_semantic_target(target->'reference') "
+                 "FROM jsonb_array_elements(CAST(:targets AS jsonb)) target"),
+            {"targets": payload},
+        ).tuples().all())
 
     def cached_contextual_vectors(self, *, profile_id, targets):
         from .contextual_storage import cached_target_vectors
@@ -1215,6 +1222,8 @@ class BoundReader:
             raise OperationConflict("upstream source result differs from its run/task binding")
         # Return detached decoded columns; the enclosing stored envelope remains
         # the one persistence and source-product custody owner.
+        if body.get("parse_detail") is None:
+            return dict(body)
         return dict(body, parse_detail=source_python(body["parse_detail"]))
 
     def retained_source_result(self, source_view_id, task_id, method):

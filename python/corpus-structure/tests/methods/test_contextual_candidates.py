@@ -126,9 +126,10 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
         witnesses=(original, replace(original, witness_id="c", relation="compared-with")),
     )
     source = located()
-    rows = relationship_contributions(decision, source, inventory, "edge-op")
+    rows = relationship_contributions(decision, source, inventory, "edge-op", {"concept": {"term": {"text": "Mean"}, "content": {"text": "average"}}})
     assert {source_python(row["value"])["relation"] for row in rows} == {"denotes", "compared-with"}
-    assert len({source_python(row["value"])["edge_id"] for row in rows}) == 2
+    assert len({row["computation_dependencies"][4] for row in rows}) == 2
+    assert all("edge_id" not in source_python(row["value"]) and "constraint_id" not in source_python(row["value"]) for row in rows)
     assert all(row["members"] == (source["contribution_id"],) for row in rows)
     assert len(decision.selected_edges) == 2
 
@@ -242,7 +243,7 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
     reader = SimpleNamespace(
         source_view=lambda _: source,
         source_result=lambda *_: dict(contributions=products),
-        validate_component_targets=lambda _: None,
+        component_semantic_targets=lambda _: {"a" * 64: {"term": {"text": "Mean"}, "content": {"text": "An average"}}},
         cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
     )
@@ -274,7 +275,7 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
     assert proposal["members"] == (source_product["contribution_id"],)
     assert proposal["anchors"] == source_product["anchors"]
     statement = source_python(proposal["value"])
-    assert statement["target_id"] == "a" * 64 and statement["relation"] == "denotes"
+    assert statement["target"]["term"]["text"] == "Mean" and statement["relation"] == "denotes"
     assert statement["scope"] == "chapter5" and statement["effective_version"] is None
     assert proposal["score_state"] == "missing" and "score" not in proposal
     assert first["emitted_count"] == 2

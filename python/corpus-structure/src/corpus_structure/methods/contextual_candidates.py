@@ -12,16 +12,8 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.contextual_links import (
-    RelationKind,
-    RelationshipConstraint,
-    RelationshipWitness,
-    select_relationships,
-)
-from corpus_structure.semantic.contextual_registry import (
-    ExtractedComponentTarget,
-    component_target_input,
-)
+from corpus_structure.semantic.contextual_links import RelationKind, RelationshipConstraint, RelationshipWitness, select_relationships
+from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget, component_target_input
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory
 from corpus_structure.semantic.contextual_storage import enrichment_report
 from corpus_structure.semantic.contributions import (
@@ -79,42 +71,24 @@ def _propagate_cancellation(error, check_active):
     check_active()
 
 
-def relationship_contributions(decision, source_product, inventory, operation_key):
+def relationship_contributions(decision, source_product, inventory, operation_key, semantic_targets):
     """Project each explicitly selected scoped edge without selecting from alternatives."""
     rows = []
     for edge in decision.selected_edges:
         target = next(t for t in inventory.targets if t.target_id == edge.target_id)
         row = dict(
-            contract="RetainedContributionSemantics",
-            kind="proposal",
-            semantic_type="contextual.relationship",
-            operation_key=operation_key,
+            contract="RetainedContributionSemantics", kind="proposal",
+            semantic_type="contextual.relationship", operation_key=operation_key,
             item_key=source_product["item_key"] + ":relationship:" + edge.edge_id,
-            pin=source_product["pin"],
-            anchors=source_product["anchors"],
+            pin=source_product["pin"], anchors=source_product["anchors"],
             occurrence_id=source_product["occurrence_id"],
-            members=(source_product["contribution_id"],),
-            disposition="scoped_proposal",
-            standing="retained_private",
-            score_state="missing",
-            computation_dependencies=(
-                source_product["contribution_id"],
-                decision.candidate_list_id,
-                decision.decision_id,
-                inventory.source_selection,
-                edge.edge_id,
-            ),
-            value=source_value(
-                dict(
-                    target_id=target.target_id,
-                    target_source_binding=target.source_binding,
-                    relation=edge.relation,
-                    scope=decision.scope,
-                    effective_version=decision.effective_version,
-                    edge_id=edge.edge_id,
-                    constraint_id=edge.constraint_id,
-                )
-            ),
+            members=(source_product["contribution_id"],), disposition="scoped_proposal",
+            standing="retained_private", score_state="missing",
+            computation_dependencies=(source_product["contribution_id"], decision.candidate_list_id,
+                                      decision.decision_id, inventory.source_selection, edge.edge_id),
+            value=source_value(dict(target=semantic_targets[target.target_id],
+                                    relation=edge.relation, scope=decision.scope,
+                                    effective_version=decision.effective_version)),
         )
         row["contribution_id"] = contribution_identity(row)
         rows.append(row)
@@ -131,17 +105,8 @@ class ProducerRelationshipRecipe(BaseModel):
     relation: RelationKind
 
 
-def producer_relationship_witnesses(
-    upstream,
-    products,
-    occurrence,
-    inventory,
-    available,
-    recipes,
-    source_binding,
-    scope,
-    effective_version,
-):
+def producer_relationship_witnesses(upstream, products, occurrence, inventory, available,
+                                    recipes, source_binding, scope, effective_version):
     originals = {p["contribution_id"]: p for p in upstream.get("contributions", ())}
     pairs = tuple((p, originals[p["computation_dependencies"][0]]) for p in products)
     witnesses = []
@@ -153,9 +118,7 @@ def producer_relationship_witnesses(
             roles = component.get("roles", ())
             if component.get("kind") != "located_role" or component.get("rule") != recipe.rule:
                 continue
-            if not any(
-                r["role"] == recipe.occurrence_role and r["outcome"] == "complete" for r in roles
-            ):
+            if not any(r["role"] == recipe.occurrence_role and r["outcome"] == "complete" for r in roles):
                 continue
             group = original["item_key"].rsplit("/role/", 1)[0]
             for target_product, target_original in pairs:
@@ -169,31 +132,15 @@ def producer_relationship_witnesses(
                     continue
                 label = " ".join(a["source_piece"] for a in target_product["anchors"])
                 for target in inventory.targets:
-                    if (
-                        target.target_id not in available
-                        or target.label.casefold() != label.casefold()
-                    ):
+                    if target.target_id not in available or target.label.casefold() != label.casefold():
                         continue
-                    witness_id = "producer-group:" + operation_identity(
-                        recipe.model_dump(mode="json"),
-                        product["contribution_id"],
-                        target_product["contribution_id"],
-                        target.target_id,
-                    )
-                    witnesses.append(
-                        RelationshipWitness(
-                            witness_id,
-                            occurrence,
-                            target.target_id,
-                            recipe.relation,
-                            source_binding,
-                            scope,
-                            effective_version,
-                            (product["contribution_id"], target_product["contribution_id"]),
-                            "producer_group",
-                            "unassessed",
-                        )
-                    )
+                    witness_id = "producer-group:" + operation_identity(recipe.model_dump(mode="json"), product["contribution_id"], target_product["contribution_id"], target.target_id)
+                    witnesses.append(RelationshipWitness(
+                        witness_id, occurrence, target.target_id, recipe.relation,
+                        source_binding, scope, effective_version,
+                        (product["contribution_id"], target_product["contribution_id"]),
+                        "producer_group", "unassessed",
+                    ))
     return tuple(witnesses)
 
 
@@ -231,35 +178,21 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
             node = nodes.get(anchor["pointer"])
             if node is None or anchor["pin"] != pin or anchor["space"] != "native":
                 raise ValueError("retained occurrence differs from actual native source")
-            if node.get("text", "")[anchor["start"] : anchor["end"]] != anchor["source_piece"]:
+            if node.get("text", "")[anchor["start"]:anchor["end"]] != anchor["source_piece"]:
                 raise ValueError("retained occurrence source slice is invalid")
-            coordinates[anchor["pointer"]] = dict(
-                pin=pin, space="native", pointer=anchor["pointer"], text=node["text"]
-            )
+            coordinates[anchor["pointer"]] = dict(pin=pin, space="native", pointer=anchor["pointer"], text=node["text"])
         occurrence = occurrence_identity(anchors)
         if occurrence != original["occurrence_id"]:
             raise ValueError("retained occurrence identity differs from actual source anchors")
-        product = dict(
-            contract="RetainedContributionSemantics",
-            kind="occurrence",
-            semantic_type="contextual.located_mention",
-            operation_key=operation_key,
-            item_key=original["contribution_id"],
-            pin=pin,
-            anchors=anchors,
-            occurrence_id=occurrence,
-            disposition="located_proposal",
-            standing="retained_private",
-            score_state="missing",
-            value=source_value(
-                dict(
-                    producer_semantic_type=original["semantic_type"],
-                    producer_component=original.get("component"),
-                    producer_value=original.get("value"),
-                )
-            ),
-            computation_dependencies=(original["contribution_id"], original["operation_key"]),
-        )
+        product = dict(contract="RetainedContributionSemantics", kind="occurrence",
+                       semantic_type="contextual.located_mention", operation_key=operation_key,
+                       item_key=original["contribution_id"], pin=pin, anchors=anchors,
+                       occurrence_id=occurrence, disposition="located_proposal",
+                       standing="retained_private", score_state="missing",
+                       value=source_value(dict(producer_semantic_type=original["semantic_type"],
+                                               producer_component=original.get("component"),
+                                               producer_value=original.get("value"))),
+                       computation_dependencies=(original["contribution_id"], original["operation_key"]))
         product["contribution_id"] = contribution_identity(product)
         products.append(product)
         if len({a["pointer"] for a in anchors}) == 1:
@@ -301,9 +234,7 @@ class ContextualCandidates:
                     source=view.ref.native_product.values(),
                     projection=view.ref.projection_digest,
                     input_population="retained-producer-occurrences-1",
-                    producer=unit.run.reader.source_result(
-                        unit.ref.unit_id, cfg.source_dependency_method
-                    ),
+                    producer=unit.run.reader.source_result(unit.ref.unit_id, cfg.source_dependency_method),
                 )
             )
         )
@@ -311,7 +242,7 @@ class ContextualCandidates:
     def run(self, units, cfg, ctx):
         profile = E5 if cfg.profile == "e5" else QWEN
         verify_encoder_implementation(profile)
-        ctx.reader.validate_component_targets(cfg.target_components)
+        semantic_targets = ctx.reader.component_semantic_targets(cfg.target_components)
         registry_id, targets = component_target_input(cfg.target_components)
         inventory = freeze_inventory(
             targets,
@@ -319,7 +250,7 @@ class ContextualCandidates:
             scope=cfg.scope,
             effective_version=cfg.effective_version,
         )
-
+        
         results = []
         for unit in units:
             ctx.check_active()
@@ -340,10 +271,8 @@ class ContextualCandidates:
                 upstream, nodes, pin, operation_key, cfg.semantic_types
             )
             products = list(source_products)
-            inputs = [
-                ContextInput(occurrence, frame.unit_ref, "query", mention, text, start, end)
-                for occurrence, (text, start, end, mention) in contexts.items()
-            ]
+            inputs = [ContextInput(occurrence, frame.unit_ref, "query", mention, text, start, end)
+                      for occurrence, (text, start, end, mention) in contexts.items()]
             if len(inputs) + len(targets) > profile.max_items:
                 raise ValueError("contextual combined input population exceeds encoder bound")
             cached = ctx.reader.cached_contextual_vectors(
@@ -379,26 +308,12 @@ class ContextualCandidates:
             vectors = {v.object_id: v for v in all_vectors}
             target_vectors = tuple(v for v in all_vectors if v.object_id in inventory.target_ids)
             lists, decisions, phases = [], [], []
-            for occurrence in sorted(
-                {p["occurrence_id"] for p in source_products} - contexts.keys()
-            ):
-                phase = _phase_operation(
-                    "candidate retrieval", occurrence, (inventory.inventory_id,)
-                )
-                phase.update(
-                    outcome="not_run",
-                    reason="multi-item occurrence has no single owned encoder context",
-                )
+            for occurrence in sorted({p["occurrence_id"] for p in source_products} - contexts.keys()):
+                phase = _phase_operation("candidate retrieval", occurrence, (inventory.inventory_id,))
+                phase.update(outcome="not_run", reason="multi-item occurrence has no single owned encoder context")
                 phases.append(phase)
-                phases.append(
-                    _phase_operation(
-                        "relationship selection",
-                        occurrence,
-                        (inventory.inventory_id,),
-                        skipped=True,
-                    )
-                )
-            for occurrence, (_text, _start, _end, mention) in contexts.items():
+                phases.append(_phase_operation("relationship selection", occurrence, (inventory.inventory_id,), skipped=True))
+            for occurrence, (text, start, end, mention) in contexts.items():
                 product = next(p for p in source_products if p["occurrence_id"] == occurrence)
                 ctx.check_active()
                 occurrence = product["occurrence_id"]
@@ -444,10 +359,7 @@ class ContextualCandidates:
                     available = {c.target_id for c in candidate_list.candidates}
                     witnesses = tuple(
                         RelationshipWitness(
-                            "component-label:"
-                            + source_product["contribution_id"]
-                            + ":"
-                            + target.target_id,
+                            "component-label:" + source_product["contribution_id"] + ":" + target.target_id,
                             occurrence,
                             target.target_id,
                             "denotes",
@@ -467,15 +379,8 @@ class ContextualCandidates:
                         in {target.label.lower(), *(a.lower() for a in target.aliases)}
                     )
                     witnesses += producer_relationship_witnesses(
-                        upstream,
-                        source_products,
-                        occurrence,
-                        inventory,
-                        available,
-                        cfg.relationship_recipes,
-                        frame.unit_ref,
-                        cfg.scope,
-                        cfg.effective_version,
+                        upstream, source_products, occurrence, inventory, available,
+                        cfg.relationship_recipes, frame.unit_ref, cfg.scope, cfg.effective_version,
                     )
                     decision = select_relationships(
                         candidates=candidate_list,
@@ -505,18 +410,12 @@ class ContextualCandidates:
                     (candidate_list.list_id,),
                     result_id=decision.decision_id,
                 )
-                proposals = relationship_contributions(
-                    decision, product, inventory, phase["operation_key"]
-                )
+                proposals = relationship_contributions(decision, product, inventory, phase["operation_key"], semantic_targets)
                 products.extend(proposals)
                 phase["emitted_count"] = len(proposals)
-                phase["computation_dependencies"] = tuple(
-                    dict.fromkeys(
-                        dependency
-                        for proposal in proposals
-                        for dependency in proposal["computation_dependencies"]
-                    )
-                ) or (candidate_list.list_id,)
+                phase["computation_dependencies"] = tuple(dict.fromkeys(
+                    dependency for proposal in proposals for dependency in proposal["computation_dependencies"]
+                )) or (candidate_list.list_id,)
                 phases.append(phase)
             report = enrichment_report(
                 profiles=(profile,),
