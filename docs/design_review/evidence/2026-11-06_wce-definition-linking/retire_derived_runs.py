@@ -26,6 +26,7 @@ def retire(*, commit: bool, receipt: Path) -> None:
         with engine.connect() as conn:
             transaction = conn.begin()
             try:
+                conn.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'))
                 database = conn.execute(text('select current_database()')).scalar_one()
                 if database != 'corpus_structure_dev':
                     raise ValueError('retirement is restricted to corpus_structure_dev')
@@ -43,7 +44,7 @@ def retire(*, commit: bool, receipt: Path) -> None:
                     raise ValueError('selected run contains source/non-run tasks')
                 conn.execute(text("""insert into wce_retire_rows select 'ops.task'::regclass,t.ctid
                     from ops.task t join ops.task_result r on r.task_id=t.id
-                    where r.body::text like '%contextual-enrichment-1%' on conflict do nothing"""))
+                    where jsonb_path_exists(r.body, '$.contribution_operations[*].contextual_enrichment.version ? (@ == "contextual-enrichment-1")') on conflict do nothing"""))
                 conn.execute(text("""insert into wce_retire_rows select 'eval.structural_reference_set'::regclass,s.ctid
                     from eval.structural_reference_set s where s.frame->>'protocol' in
                     ('structural-evaluation-frame-1','structural-evaluation-frame-2') on conflict do nothing"""))
