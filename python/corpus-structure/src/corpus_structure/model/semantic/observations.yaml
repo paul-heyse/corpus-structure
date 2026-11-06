@@ -246,7 +246,7 @@ classes:
       role: {required: true}
       anchor_ids: {multivalued: true, required: true, minimum_cardinality: 1}
       head_token: {range: integer, required: true, minimum_value: 0}
-      expansion: {required: true, pattern: '^(exact|sentence_subtree|conjuncts)$'}
+      expansion: {required: true, pattern: '^(exact|sentence_subtree|conjuncts|noun_chunk)$'}
       outcome: {required: true, pattern: '^(complete|partial|unresolved)$'}
   WitnessedComponent:
     is_a: SourceRecordProduct
@@ -857,6 +857,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       component_ref: {required: true, range: RetainedComponentRef, inlined: true}
+      component: {required: true, range: LocatedDefinitionComponent, inlined: true}
       premises: {required: true, range: ApplicabilityPremise, inlined: true, multivalued: true, minimum_cardinality: 1}
       target_id:
         required: true
@@ -1119,30 +1120,22 @@ classes:
         range: StructuralPublicCitation
         required: true
         inlined: true
-  StructuralPublicComponentRef:
-    attributes:
-      product_id: {required: true}
-      component_id: {required: true, pattern: '^[0-9a-f]{64}$'}
-      operation_id: {required: true}
-      operation_version: {required: true}
-      project_id: {required: true}
-      run_id: {required: true, range: integer, minimum_value: 1}
-      cut_id: {required: true, range: integer, minimum_value: 1}
-      release_id: {required: true}
-      result_revision: {required: true, range: integer, minimum_value: 0}
-      selected_task_id: {required: true, range: integer, minimum_value: 1}
-      origin_task_id: {required: true, range: integer, minimum_value: 1}
-      runtime_fingerprint: {required: true}
-      dependencies: {required: true, multivalued: true, minimum_cardinality: 1}
   StructuralPublicApplicabilityPremise:
     attributes:
       dimension: {required: true, pattern: '^(scope|parent|parameterization|convention|version|sense)$'}
       state: {required: true, pattern: '^(compatible|incompatible|unknown|inapplicable)$'}
-      evidence: {multivalued: true}
-      reason: {required: true}
+      evidence: {range: StructuralPublicCitation, multivalued: true, inlined: true}
+  StructuralPublicApplicableComponent:
+    attributes:
+      term: {required: true, range: StructuralPublicCitation, inlined: true}
+      content: {required: true, range: StructuralPublicCitation, inlined: true}
+      interpretation: {required: true, pattern: '^(definition|explanation|unresolved)$'}
+      scope: {required: true}
+      effective_version: {}
+      alternatives: {multivalued: true}
   StructuralPublicDefinitionReading:
     attributes:
-      component_ref: {required: true, range: StructuralPublicComponentRef, inlined: true}
+      component: {required: true, range: StructuralPublicApplicableComponent, inlined: true}
       premises: {required: true, range: StructuralPublicApplicabilityPremise, multivalued: true, inlined: true}
       target:
         range: string
@@ -1173,6 +1166,8 @@ classes:
       readings:
         range: StructuralPublicDefinitionReading
         multivalued: true
+        inlined: true
+        inlined_as_list: true
         required: false
       inventory_coverage:
         range: StructuralDefinitionProductInventoryCoverageValue

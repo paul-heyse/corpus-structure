@@ -49,7 +49,7 @@ def test_selected_denotation_is_independently_addressable(private_source):
             )
         )
         proposals = [
-            c for c in body["contributions"] if c["semantic_type"] == "contextual.denotation"
+            c for c in body["contributions"] if c["semantic_type"] == "contextual.relationship"
         ]
         assert len(proposals) == 1
         assert proposals[0]["score_state"] == "missing"
@@ -68,7 +68,7 @@ def test_native_denotation_cannot_relabel_its_retained_decision(private_source, 
     result, _, _ = contextual_result(case, denotation=True)
     raw = envelope(case, result)
     proposal = next(
-        c for c in raw["contributions"] if c["semantic_type"] == "contextual.denotation"
+        c for c in raw["contributions"] if c["semantic_type"] == "contextual.relationship"
     )
     if corruption == "members":
         proposal["members"] = [raw["contributions"][1]["contribution_id"]]
@@ -143,7 +143,7 @@ def test_native_contextual_refusal_is_atomic(private_source, corruption):
     elif corruption == "foreign_inventory":
         report["inventories"][0]["targets"][0]["label"] = "changed under same identity"
     elif corruption == "empty_selected":
-        report["relationship_decisions"][0]["alternatives"] = []
+        report["relationship_decisions"][0]["selected_edges"] = []
     elif corruption == "wrong_occurrence":
         value = report["vectors"][0]
         value["object_id"] = "foreign-occurrence"

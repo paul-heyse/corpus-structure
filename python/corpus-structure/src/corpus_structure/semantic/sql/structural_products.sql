@@ -82,18 +82,19 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalo
 DECLARE selected record; component jsonb;
 BEGIN
  SELECT origin.id, result.body->'structural_product' report, method.name, method.version,
-  batch.data_revision, job.runtime_id INTO STRICT selected
+  batch.data_revision, origin_job.runtime_id INTO STRICT selected
  FROM ops.run job JOIN ops.completed_result completed ON completed.run_id=job.id
  JOIN data.batch batch ON batch.release_id=completed.release_id AND batch.realization_id=completed.output_realization_id AND batch.batch_id=completed.batch_id
  JOIN ops.cut_task member ON member.cut_id=completed.cut_id
  JOIN ops.task task ON task.id=member.task_id
  JOIN ops.task origin ON origin.id=COALESCE(task.reused_task_id,task.id)
+ JOIN ops.run origin_job ON origin_job.id=origin.run_id
  JOIN ops.task_result result ON result.task_id=origin.id
  JOIN ops.method_config config ON config.id=origin.method_config_id JOIN ops.method method ON method.id=config.method_id
  WHERE job.id=(ref->>'run_id')::bigint AND job.project_id=ref->>'project_id'
  AND job.release_id=ref->>'release_id' AND job.sealed AND job.status='finished'
  AND completed.cut_id=(ref->>'cut_id')::bigint AND task.id=(ref->>'selected_task_id')::bigint
- AND origin.id=(ref->>'origin_task_id')::bigint AND task.status IN ('done','reused');
+ AND origin.id=(ref->>'origin_task_id')::bigint AND member.origin_task_id=origin.id AND origin.release_id=ref->>'release_id' AND task.status IN ('done','reused');
  IF selected.report->>'version' IS DISTINCT FROM 'structural-product-2'
  OR selected.report->>'kind' IS DISTINCT FROM 'definition_components'
  OR 'structural:'||encode(sha256(convert_to(data.canonical_json(selected.report-'retrieval_report'),'UTF8')),'hex') IS DISTINCT FROM ref->>'product_id'
@@ -216,14 +217,15 @@ BEGIN
   item:=product->'definition';
   IF item IS NULL OR NOT passage_map ? (item->>'usage_id') OR item->>'retrieval_diagnosis' IS DISTINCT FROM 'not_independently_assessed' THEN
    RAISE EXCEPTION 'invalid definition usage or unsupported retrieval diagnosis' USING ERRCODE='23514'; END IF;
-  FOR cited IN SELECT jsonb_array_elements_text(item->'eligible_targets') LOOP
-   IF NOT passage_map ? cited THEN RAISE EXCEPTION 'definition target outside source closure' USING ERRCODE='23514'; END IF;
-  END LOOP;
+  IF method_='structure.definitions' AND (item->>'candidate_list_id' IS DISTINCT FROM config_->>'candidate_list_id' OR item->>'usage_id' IS DISTINCT FROM config_->>'usage_id'
+   OR (SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(item->'candidate_targets') v) IS DISTINCT FROM (SELECT jsonb_agg(c->'target_id' ORDER BY c->'target_id') FROM jsonb_array_elements(config_->'candidates') c)) THEN
+   RAISE EXCEPTION 'applicability target selection differs from frozen configured candidates' USING ERRCODE='23514'; END IF;
   IF EXISTS(SELECT FROM jsonb_array_elements_text(item->'candidate_targets') c WHERE NOT item->'eligible_targets' ? c)
    OR EXISTS(SELECT FROM jsonb_array_elements(item->'readings') r WHERE NOT item->'candidate_targets' ? (r->>'target_id')) THEN
    RAISE EXCEPTION 'definition reading differs from fixed eligible candidate population' USING ERRCODE='23514'; END IF;
   FOR dimension IN SELECT value FROM jsonb_array_elements(item->'readings') LOOP
    ref:=ops.resolve_retained_component(dimension->'component_ref');
+   IF dimension->'component' IS DISTINCT FROM ref->'component' THEN RAISE EXCEPTION 'applicability component differs from authenticated origin' USING ERRCODE='23514'; END IF;
    IF NOT inputs->'dependencies' ? (dimension->'component_ref'->>'product_id') THEN
     RAISE EXCEPTION 'applicability lacks frozen component dependency' USING ERRCODE='23514'; END IF;
    IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'state' IN ('unknown','incompatible')) THEN

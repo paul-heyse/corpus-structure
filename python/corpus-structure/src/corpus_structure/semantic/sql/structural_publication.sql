@@ -18,6 +18,16 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION data.structural_citations(jsonb,jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION data.structural_definition_component(report jsonb,component jsonb)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT jsonb_strip_nulls(jsonb_build_object(
+  'term',data.structural_citation(report,component->'term'->>'passage_id')||((component->'term')-'passage_id'),
+  'content',data.structural_citation(report,component->'content'->>'passage_id')||((component->'content')-'passage_id'),
+  'interpretation',component->'interpretation','scope',component->'scope','effective_version',component->'effective_version',
+  'alternatives',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(component->'alternatives') v),'[]')))
+$$;
+REVOKE ALL ON FUNCTION data.structural_definition_component(jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb,component_id text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb;
@@ -41,8 +51,8 @@ BEGIN
  ELSIF report->>'kind'='definition_applicability' THEN
   value:=report->'definition';
   SELECT COALESCE(jsonb_agg(v ORDER BY data.canonical_json(v)),'[]') INTO items FROM (
-   SELECT jsonb_build_object('target',r->'target_id','component_ref',r->'component_ref','outcome',r->'outcome',
-    'premises',r->'premises','evidence',data.structural_citations(report,r->'evidence')) v FROM jsonb_array_elements(value->'readings') r) x;
+   SELECT jsonb_build_object('component',data.structural_definition_component(report,r->'component'),'outcome',r->'outcome',
+    'premises',(SELECT COALESCE(jsonb_agg(jsonb_build_object('dimension',p->'dimension','state',p->'state','evidence',data.structural_citations(report,p->'evidence')) ORDER BY n),'[]') FROM jsonb_array_elements(r->'premises') WITH ORDINALITY premise(p,n)),'evidence',data.structural_citations(report,r->'evidence')) v FROM jsonb_array_elements(value->'readings') r) x;
   result:=result||jsonb_build_object('definition',jsonb_build_object('usage',data.structural_citation(report,value->>'usage_id'),
    'eligible_targets',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'eligible_targets') v),'[]'),
    'candidate_targets',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'candidate_targets') v),'[]'),'readings',items,

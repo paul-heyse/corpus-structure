@@ -203,6 +203,21 @@ BEGIN
    OR (op->>'outcome' IN ('failed','skipped','unsupported','limited','not_run') AND COALESCE(op->>'reason','')='') THEN
    RAISE EXCEPTION 'operation outcome or cardinality differs from actual contribution population' USING ERRCODE='23514'; END IF;
  END LOOP;
+ -- Located mentions preserve the selected producer's source anchors and semantic role.
+ FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions') WHERE value->>'semantic_type'='contextual.located_mention' LOOP
+  SELECT cc INTO STRICT retained_body FROM ops.task producer JOIN ops.method_config cfg ON cfg.id=producer.method_config_id
+   JOIN ops.method method ON method.id=cfg.method_id JOIN ops.task origin ON origin.id=COALESCE(producer.reused_task_id,producer.id)
+   JOIN ops.task_result result ON result.task_id=origin.id
+   CROSS JOIN LATERAL jsonb_array_elements(result.body->'contributions') cc
+   WHERE producer.run_id=t.run_id AND producer.unit_id=t.unit_id AND producer.unit_type=t.unit_type AND producer.status IN ('done','reused')
+   AND method.name=(SELECT params->>'source_dependency_method' FROM ops.method_config WHERE id=t.method_config_id)
+   AND cc->>'contribution_id'=contribution->'computation_dependencies'->>0;
+  IF contribution->'anchors' IS DISTINCT FROM retained_body->'anchors' OR contribution->'pin' IS DISTINCT FROM retained_body->'pin'
+   OR contribution->>'occurrence_id' IS DISTINCT FROM retained_body->>'occurrence_id'
+   OR contribution->'computation_dependencies'->>1 IS DISTINCT FROM retained_body->>'operation_key'
+   OR data.record_source_json(contribution->'value') IS DISTINCT FROM jsonb_build_object('producer_semantic_type',retained_body->'semantic_type','producer_component',retained_body->'component','producer_value',retained_body->'value') THEN
+   RAISE EXCEPTION 'located mention differs from selected producer source and role' USING ERRCODE='23514'; END IF;
+ END LOOP;
  -- Contextual reports remain private, source-bound operation products.
  FOR op IN SELECT value FROM jsonb_array_elements(p_envelope->'contribution_operations') LOOP
   IF NOT op ? 'contextual_enrichment' THEN CONTINUE; END IF;
