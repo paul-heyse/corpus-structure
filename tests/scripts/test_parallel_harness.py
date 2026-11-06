@@ -12,7 +12,7 @@ import pytest
 from test_receipts import ROOT, classify_receipt, read_stream, run_python
 
 
-def isolated(tmp_path, source, workers, *, conftest="", args=()):
+def isolated(tmp_path, source, workers, *, conftest="", args=(), timeout=40, test_timeout=15):
     case = tmp_path / "case"
     case.mkdir()
     (case / "pytest.ini").write_text(
@@ -38,8 +38,8 @@ def isolated(tmp_path, source, workers, *, conftest="", args=()):
             *args,
         ],
         cwd=case,
-        timeout=40,
-        test_timeout=15,
+        timeout=timeout,
+        test_timeout=test_timeout,
     )
     retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
     if retained:
@@ -61,7 +61,7 @@ def test_real_collection_group_identity_and_native_acquisition(tmp_path, workers
 
     server = PgAdmin(server_url(), "template0", {})
     with (
-        server.database(f"ci_test_{os.getpid()}_{uuid4().int}", "template0") as engine,
+        server.database(f"cs_sem_bare_{os.getpid()}_{uuid4().hex[:12]}", "template0") as engine,
         engine.connect() as connection,
     ):
         assert connection.exec_driver_sql("SELECT 1").scalar_one() == 1
@@ -75,7 +75,7 @@ from native_test_support import PgAdmin, server_url
 @contextmanager
 def acquired_clone():
     server = PgAdmin(server_url(), "template0", {})
-    with server.database(f"ci_test_{os.getpid()}_{uuid4().int}", "template0") as engine:
+    with server.database(f"cs_sem_bare_{os.getpid()}_{uuid4().hex[:12]}", "template0") as engine:
         with engine.connect() as connection:
             yield connection
 
@@ -121,7 +121,11 @@ def test_deselected():
             "assert 'PYTEST_XDIST_WORKER_COUNT' not in os.environ\n"
             "assert 'PYTEST_XDIST_TESTRUNUID' not in os.environ\n"
         )
-    output = isolated(tmp_path, source, workers, args=("-k", "not deselected"))
+    # Shared native DROP can await a forced checkpoint; the retained repair attempt
+    # observed 20.521s. Keep this native watchdog separate from failure/loss controls.
+    output = isolated(
+        tmp_path, source, workers, args=("-k", "not deselected"), timeout=180, test_timeout=60
+    )
     result = classify_receipt(output)
     assert result["status"] == "passed", (output / "pytest.stdout").read_text()
     assert len(result["selected"]) == 8

@@ -689,9 +689,13 @@ def test_witnessed_recipe_is_explicit_versioned_and_rejects_old_writer_config():
     cfg = methods.overlay("extract.m1_candidates", "witnessed")
     assert isinstance(cfg, m1_source.M1Config)
     assert m1_source.M1Candidates.version == "8"
+    assert len(cfg.annotation_rules) == 7
     assert {(r.rule, r.variant) for r in cfg.annotation_rules} == {
-        ("defining", "active"),
-        ("defining", "passive"),
+        ("defining", "active_as"),
+        ("defining", "passive_as"),
+        ("defining", "call_reversed"),
+        ("defining", "nominal_follows"),
+        ("defining", "constructive_copula"),
         ("symbol_declaration", "denotes"),
         ("condition_exception", "marked_clause"),
     }
