@@ -292,6 +292,7 @@ class DefinitionProduct(StructuralValue):
 
 class TypedPremise(StructuralValue):
     """Exact source field and a separately qualified numerical reading."""
+
     span: LocatedDefinitionSpan
     grammar: Nonempty
     state: Literal["parsed", "unsupported", "ambiguous"]
@@ -305,9 +306,14 @@ class TypedPremise(StructuralValue):
     def faithful_parse(self) -> Self:
         if self.state == "parsed":
             from .structural_parsing import parse_threshold
+
             actual = parse_threshold(self.span.text)
-            expected = dict(value=self.value, comparator=self.comparator, quantity=self.quantity, unit=self.unit)
-            if actual is None or self.grammar != actual["grammar"] or any(actual[key] != value for key, value in expected.items()):
+            if (
+                actual is None
+                or self.grammar != actual["grammar"]
+                or (actual["value"], actual["comparator"], actual["quantity"], actual["unit"])
+                != (self.value, self.comparator, self.quantity, self.unit)
+            ):
                 raise ValueError("typed premise differs from its source grammar")
         elif self.value is not None or self.comparator is not None:
             raise ValueError("unparsed premise cannot carry interpreted numeric values")
@@ -323,12 +329,17 @@ class TriggerInterval(StructuralValue):
     @model_validator(mode="after")
     def finite_extent(self) -> Self:
         from decimal import Decimal, InvalidOperation
+
         try:
             lo = Decimal(self.lower) if self.lower is not None else None
             hi = Decimal(self.upper) if self.upper is not None else None
             if any(value is not None and not value.is_finite() for value in (lo, hi)):
                 raise ValueError("interval endpoints must be finite")
-            if lo is not None and hi is not None and (lo > hi or (lo == hi and not (self.lower_closed and self.upper_closed))):
+            if (
+                lo is not None
+                and hi is not None
+                and (lo > hi or (lo == hi and not (self.lower_closed and self.upper_closed)))
+            ):
                 raise ValueError("empty or reversed interval")
             if (lo is None and self.lower_closed) or (hi is None and self.upper_closed):
                 raise ValueError("infinite endpoint cannot be closed")
@@ -362,7 +373,9 @@ class DimensionComparison(StructuralValue):
     ]
     left: ClauseField | None = None
     right: ClauseField | None = None
-    typed_outcome: Literal["equivalent", "different", "unknown", "unsupported", "ambiguous"] = "unknown"
+    typed_outcome: Literal["equivalent", "different", "unknown", "unsupported", "ambiguous"] = (
+        "unknown"
+    )
     removed_interval: TriggerInterval | None = None
     added_interval: TriggerInterval | None = None
     assumptions: tuple[Nonempty, ...] = ()
@@ -375,7 +388,9 @@ class ComparisonProduct(StructuralValue):
     dimensions: tuple[DimensionComparison, ...]
     equivalence: Literal["not_asserted"] = "not_asserted"
     identity_standing: Literal["not_asserted"] = "not_asserted"
-    applicability: Literal["co_applicable", "successive_revisions", "differently_scoped", "unestablished"] = "unestablished"
+    applicability: Literal[
+        "co_applicable", "successive_revisions", "differently_scoped", "unestablished"
+    ] = "unestablished"
     applicability_reason: Nonempty = "No complete applicability premises have been established."
 
 
@@ -456,7 +471,9 @@ class DossierProduct(StructuralValue):
             or not set(self.representatives) <= ids
         ):
             raise ValueError("invalid representative membership")
-        if self.representatives != self.representation.selected or set(self.representation.omitted) != ids - set(self.representatives):
+        if self.representatives != self.representation.selected or set(
+            self.representation.omitted
+        ) != ids - set(self.representatives):
             raise ValueError("dossier representation differs from its full membership")
         if any(f.member_id not in ids for f in self.supported_facets):
             raise ValueError("dossier facet refers outside full membership")
@@ -464,16 +481,35 @@ class DossierProduct(StructuralValue):
         if set(self.representation.represented_facets) != facets:
             raise ValueError("represented facet lacks its selected supported member")
         all_facets = {f.facet_id for f in self.supported_facets}
-        if len(all_facets) != len(self.supported_facets) or set(self.representation.missing_facets) != all_facets-facets:
+        if (
+            len(all_facets) != len(self.supported_facets)
+            or set(self.representation.missing_facets) != all_facets - facets
+        ):
             raise ValueError("facet representation is incomplete or duplicated")
-        if self.representation.membership_digest != sha256(canonical_bytes([m.model_dump(mode="json", exclude_none=True) for m in self.members])).hexdigest():
+        if (
+            self.representation.membership_digest
+            != sha256(
+                canonical_bytes(
+                    [m.model_dump(mode="json", exclude_none=True) for m in self.members]
+                )
+            ).hexdigest()
+        ):
             raise ValueError("membership digest differs from full membership")
-        if self.representation.facet_digest != sha256(canonical_bytes([f.model_dump(mode="json", exclude_none=True) for f in self.supported_facets])).hexdigest():
+        if (
+            self.representation.facet_digest
+            != sha256(
+                canonical_bytes(
+                    [f.model_dump(mode="json", exclude_none=True) for f in self.supported_facets]
+                )
+            ).hexdigest()
+        ):
             raise ValueError("facet digest differs from supported facets")
         mandatory = {m.member_id for m in self.members if m.role in MANDATORY_ROLES}
-        if not mandatory <= set(self.representatives) or self.representation.mandatory_overflow != (len(mandatory)>self.representation.member_budget):
+        if not mandatory <= set(self.representatives) or self.representation.mandatory_overflow != (
+            len(mandatory) > self.representation.member_budget
+        ):
             raise ValueError("mandatory dossier members must be retained")
-        if len(self.representatives)>max(self.representation.member_budget,len(mandatory)):
+        if len(self.representatives) > max(self.representation.member_budget, len(mandatory)):
             raise ValueError("representation exceeds declared member budget")
         return self
 
@@ -549,16 +585,40 @@ class StructuralProductReport(StructuralValue):
                         cited.update(side.evidence)
                         if side.typed is not None:
                             span = side.typed.span
-                            selected = next((p for p in self.inputs.passages if p.passage_id == span.passage_id),None)
-                            if selected is None or not selected.start <= span.start < span.end <= selected.end or selected.text[span.start-selected.start:span.end-selected.start] != span.text:
-                                raise ValueError("typed field differs from its exact original source")
+                            selected = next(
+                                (
+                                    p
+                                    for p in self.inputs.passages
+                                    if p.passage_id == span.passage_id
+                                ),
+                                None,
+                            )
+                            if (
+                                selected is None
+                                or not selected.start <= span.start < span.end <= selected.end
+                                or selected.text[
+                                    span.start - selected.start : span.end - selected.start
+                                ]
+                                != span.text
+                            ):
+                                raise ValueError(
+                                    "typed field differs from its exact original source"
+                                )
                             cited.add(span.passage_id)
         if self.dossier:
             cited.update(m.passage_id for m in self.dossier.members)
             for member in self.dossier.members:
-                span=member.citation
-                passage=next((p for p in self.inputs.passages if p.passage_id==member.passage_id),None)
-                if passage is None or span.passage_id!=member.passage_id or not passage.start<=span.start<span.end<=passage.end or passage.text[span.start-passage.start:span.end-passage.start]!=span.text:
+                span = member.citation
+                passage = next(
+                    (p for p in self.inputs.passages if p.passage_id == member.passage_id), None
+                )
+                if (
+                    passage is None
+                    or span.passage_id != member.passage_id
+                    or not passage.start <= span.start < span.end <= passage.end
+                    or passage.text[span.start - passage.start : span.end - passage.start]
+                    != span.text
+                ):
                     raise ValueError("dossier member citation differs from original source")
         if self.artifact_identity:
             by_id = {p.passage_id:p for p in self.inputs.passages}

@@ -10,7 +10,6 @@ from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionProduct,
     DossierMember,
-    DossierProduct,
     ExternalSourceRef,
     LocatedDefinitionSpan,
     RetainedComponentRef,
@@ -203,6 +202,12 @@ def test_dossier_complete_membership_does_not_depend_on_display():
         DossierMember(
             member_id=str(i),
             passage_id="target",
+            citation=LocatedDefinitionSpan(
+                passage_id="target",
+                start=inputs().passages[1].start,
+                end=inputs().passages[1].end,
+                text=inputs().passages[1].text,
+            ),
             role=role,
             sense="mean",
             scope="statistics",
@@ -210,16 +215,9 @@ def test_dossier_complete_membership_does_not_depend_on_display():
         )
         for i, role in enumerate(("definition", "exception", "conflict"))
     )
-    report = StructuralProductReport(
-        kind="dossier",
-        inputs=inputs(),
-        dossier=DossierProduct(
-            root_id="mean",
-            members=members,
-            representatives=("0", "1", "2"),
-            missing_sections=("revision",),
-        ),
-    )
+    from corpus_structure.methods.structural_products import select_dossier
+
+    report = select_dossier(inputs(), root_id="mean", members=members, member_budget=3)
     statement = structural_statement(report)
     assert len(statement["dossier"]["members"]) == 3
     assert statement["dossier"]["admission_scope"] == "membership_assembly_not_member_truth"

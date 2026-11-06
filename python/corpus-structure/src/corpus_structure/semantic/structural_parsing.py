@@ -1,16 +1,35 @@
 """Small source-preserving field grammars, prepared once per declared route."""
 
-from functools import lru_cache
 from decimal import Decimal
+from functools import lru_cache
+from typing import Literal, TypedDict
 
 from lark import Lark, Token, UnexpectedInput
 
 from corpus_structure.semantic.scientific_evidence import canonical_operand
 
+Comparator = Literal[">", ">=", "<", "<=", "="]
+
+
+class ParsedThreshold(TypedDict):
+    value: str
+    comparator: Comparator
+    quantity: str | None
+    unit: str | None
+    positions: dict[str, tuple[int, int]]
+    grammar: str
+
+
+class LocatedThreshold(ParsedThreshold):
+    start: int
+    end: int
+    text: str
+
 
 @lru_cache(maxsize=1)
 def field_lexer():
-    return Lark(r'''
+    return Lark(
+        r"""
         start: atom*
         ?atom: OP | NUMBER | WORD | OTHER
         OP.3: ">=" | "<=" | ">" | "<" | "=" | "≥" | "≤"
@@ -19,12 +38,17 @@ def field_lexer():
         OTHER: /[^\s]/
         %import common.WS
         %ignore WS
-    ''', parser=None, lexer="basic", propagate_positions=True)
+    """,
+        parser=None,
+        lexer="basic",
+        propagate_positions=True,
+    )
 
 
 @lru_cache(maxsize=1)
 def threshold_grammar():
-    return Lark(r'''
+    return Lark(
+        r"""
         start: SYMBOL? OP NUMBER UNIT?
         SYMBOL: /[A-Za-z][A-Za-z0-9_]*/
         OP: ">=" | "<=" | ">" | "<" | "=" | "≥" | "≤"
@@ -32,7 +56,11 @@ def threshold_grammar():
         UNIT: /[%$€£]|[A-Za-z][A-Za-z0-9_\/-]*/
         %import common.WS
         %ignore WS
-    ''', parser="lalr", lexer="contextual", propagate_positions=True)
+    """,
+        parser="lalr",
+        lexer="contextual",
+        propagate_positions=True,
+    )
 
 
 def located_tokens(text):
@@ -40,7 +68,7 @@ def located_tokens(text):
     return tuple(field_lexer().lex(text))
 
 
-def parse_threshold(text):
+def parse_threshold(text: str) -> ParsedThreshold | None:
     """Parse one complete threshold field. Unsupported prose is not silently discarded."""
     try:
         tree = threshold_grammar().parse(text)
@@ -49,9 +77,18 @@ def parse_threshold(text):
     values = {token.type: token for token in tree.scan_values(lambda v: isinstance(v, Token))}
     number = values["NUMBER"]
     canonical = canonical_operand(dict(kind="number", number=Decimal(str(number))), {})
-    return dict(
+    comparators: dict[str, Comparator] = {
+        ">": ">",
+        ">=": ">=",
+        "<": "<",
+        "<=": "<=",
+        "=": "=",
+        "≥": ">=",
+        "≤": "<=",
+    }
+    return ParsedThreshold(
         value=canonical["v"],
-        comparator=str(values["OP"]).replace("≥", ">=").replace("≤", "<="),
+        comparator=comparators[str(values["OP"])],
         quantity=str(values["SYMBOL"]) if "SYMBOL" in values else None,
         unit=str(values["UNIT"]) if "UNIT" in values else None,
         positions={name: (token.start_pos, token.end_pos) for name, token in values.items()},
@@ -59,7 +96,7 @@ def parse_threshold(text):
     )
 
 
-def threshold_fields(text):
+def threshold_fields(text: str) -> tuple[LocatedThreshold, ...]:
     """Nominate local grammatical fields from lexemes, retaining multiple possible readings."""
     tokens = located_tokens(text)
     result = []
@@ -72,11 +109,21 @@ def threshold_fields(text):
         end = tokens[i + 1].end_pos
         # Units are nominated only by explicit conventional symbols/codes. Other words
         # remain prose rather than accidentally consuming the next sentence as a unit.
-        if i + 2 < len(tokens) and str(tokens[i + 2]) in {"%", "$", "€", "£", "USD", "EUR", "kg", "m", "s"}:
+        if i + 2 < len(tokens) and str(tokens[i + 2]) in {
+            "%",
+            "$",
+            "€",
+            "£",
+            "USD",
+            "EUR",
+            "kg",
+            "m",
+            "s",
+        }:
             end = tokens[i + 2].end_pos
         if start is None or end is None:
             raise ValueError("field lexer omitted source positions")
         parsed = parse_threshold(text[start:end])
         if parsed is not None:
-            result.append(dict(start=start, end=end, text=text[start:end], **parsed))
+            result.append(LocatedThreshold(start=start, end=end, text=text[start:end], **parsed))
     return tuple(result)

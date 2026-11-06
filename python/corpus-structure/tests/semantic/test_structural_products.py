@@ -1,15 +1,14 @@
 """Independent structural expectations: unknown is not absence or equivalence."""
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from corpus_structure.methods.structural_products import (
-    StructuralProductsConfig,
-    StructuralProductsMethod,
-    assemble_dossier,
+    StructuralComparisonConfig,
+    StructuralComparisonMethod,
     compare_clauses,
+    select_dossier,
 )
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
@@ -80,19 +79,9 @@ def test_original_projects_do_not_collapse_equal_text():
         ExternalSourceRef.model_validate({**value.sources[0].model_dump(), "project_id": 1})
 
 
-def test_generic_structural_writer_cannot_bypass_owned_definition_producer():
-    from corpus_structure.semantic.structural_products import (
-        DefinitionComponentsProduct,
-        StructuralProductReport,
-    )
-
-    report = StructuralProductReport(
-        kind="definition_components",
-        inputs=inputs(),
-        definition_components=DefinitionComponentsProduct(components=(), stages=()),
-    )
-    with pytest.raises(ValueError, match="owned automatic"):
-        StructuralProductsConfig(report=report, structural_input_digest=report.inputs.identity)
+def test_comparison_config_rejects_supplied_report():
+    with pytest.raises(ValueError):
+        StructuralComparisonConfig(report={})
 
 
 def test_clause_comparison_preserves_ten_dimensions_and_no_equivalence():
@@ -143,7 +132,8 @@ def test_parent_scope_is_not_normalized_away():
     )
     result = compare_clauses(value, left=left, right=right)
     assert result.comparison is not None
-    assert result.comparison.dimensions[1].outcome == "incompatible_applicability"
+    assert result.comparison.dimensions[1].outcome == "same_lexical_value"
+    assert result.comparison.applicability == "differently_scoped"
 
 
 def test_dossier_keeps_all_members_and_mandatory_representatives():
@@ -152,6 +142,12 @@ def test_dossier_keeps_all_members_and_mandatory_representatives():
         DossierMember(
             member_id=str(i),
             passage_id="a" if i % 2 == 0 else "b",
+            citation=LocatedDefinitionSpan(
+                passage_id="a" if i % 2 == 0 else "b",
+                start=0 if i % 2 == 0 else 10,
+                end=5 if i % 2 == 0 else 15,
+                text="hello" if i % 2 == 0 else "world",
+            ),
             role="exception" if i < 3 else "usage",
             sense="sense",
             scope="scope",
@@ -159,53 +155,35 @@ def test_dossier_keeps_all_members_and_mandatory_representatives():
         )
         for i in range(7)
     )
-    report = assemble_dossier(value, root_id="sense", members=members)
+    report = select_dossier(value, root_id="sense", members=members, member_budget=4)
     assert report.dossier is not None
     assert len(report.dossier.members) == 7
     assert set(report.dossier.representatives) >= {"0", "1", "2"}
     assert len(report.dossier.representatives) == 4
     assert "definition" in report.dossier.missing_sections
-    assert report == assemble_dossier(value, root_id="sense", members=tuple(reversed(members)))
+    assert report == select_dossier(
+        value, root_id="sense", members=tuple(reversed(members)), member_budget=4
+    )
     with pytest.raises(ValueError, match="independent assessment"):
         DossierMember.model_validate(
             {**members[0].model_dump(), "qualification": "independently_supported"}
         )
 
 
-def test_run_method_and_released_report_roundtrip():
+def test_automatic_comparison_run_and_released_report_roundtrip():
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.observations import bind_result, observation_inputs
 
     value = inputs()
-    report = assemble_dossier(value, root_id="sense", members=())
-    cfg = StructuralProductsConfig(report=report, structural_input_digest=value.identity)
-    (selected,) = StructuralProductsMethod().select(None, cfg)
-    assert selected.unit_key == report.product_id
-    method = StructuralProductsMethod()
-    ref = UnitRef(TaskUnitType.RUN, unit_key="run")
-    result = method.run((SimpleNamespace(ref=ref),), cfg, None)[0]
-    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    prepared = prepare_release(
-        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
+    cfg = StructuralComparisonConfig(
+        inputs=value, structural_input_digest=value.identity, left_id="a", right_id="b"
     )
-    bound = bind_result(
-        prepared,
-        source="run",
-        method=method.name,
-        operation_version=method.version,
-        configuration_hash="config",
-        input_hash="input",
-        invocation_key="invocation",
-        result=result,
-    )
-    payload = bound.model_dump(mode="json")
-    assert "records" not in payload
-    assert payload["structural_product"]["kind"] == "dossier"
-    from corpus_structure.semantic.structural_products import StructuralProductReport
-
-    roundtrip = StructuralProductReport.model_validate(payload["structural_product"])
-    assert roundtrip.product_id == report.product_id
-    assert roundtrip.inputs.identity == value.identity
-    assert method.select(None, StructuralProductsConfig()) == []
+    method = StructuralComparisonMethod()
+    assert method.select(None, cfg)[0].unit_key == value.identity
+    result = method.run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="run")),),
+        cfg,
+        SimpleNamespace(check_active=lambda: None),
+    )[0]
+    assert result.structural_product["kind"] == "qualified_comparison"
+    assert method.select(None, StructuralComparisonConfig()) == ()

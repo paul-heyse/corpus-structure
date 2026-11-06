@@ -11,6 +11,56 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.structural_products import StructuralProductReport
 
 
+class DossierContinuation(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    product_id: str
+    membership_digest: str
+    facet_digest: str
+    policy: str
+    offset: int = Field(strict=True, ge=0)
+
+
+def dossier_representation_page(report, *, limit=20, continuation=None):
+    """Page selected members without changing immutable membership or selection.
+
+    The enclosing completed-cut reader authenticates the report. The continuation
+    binds both its source-derived membership and independently supported facets.
+    Mandatory overflow is a normal pageable result, never a dropped exception.
+    """
+    if report.dossier is None or type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError("representation page requires a dossier and limit 1..100")
+    value = report.dossier
+    representation = value.representation
+    binding = dict(
+        product_id=report.product_id,
+        membership_digest=representation.membership_digest,
+        facet_digest=representation.facet_digest,
+        policy=representation.policy,
+    )
+    offset = 0
+    if continuation is not None:
+        cursor = DossierContinuation.model_validate(continuation)
+        if any(getattr(cursor, key) != expected for key, expected in binding.items()):
+            raise SemanticRefusal(
+                "dossier continuation differs from exact membership/facets/policy"
+            )
+        offset = cursor.offset
+    if offset > len(representation.selected):
+        raise SemanticRefusal("dossier continuation is outside representation")
+    selected = representation.selected[offset : offset + limit]
+    members = {m.member_id: m for m in value.members}
+    end = offset + len(selected)
+    return dict(
+        members=tuple(members[key] for key in selected),
+        continuation=DossierContinuation(**binding, offset=end).model_dump(mode="json")
+        if end < len(representation.selected)
+        else None,
+        mandatory_overflow=representation.mandatory_overflow,
+        omitted=representation.omitted,
+        missing_facets=representation.missing_facets,
+    )
+
+
 class StructuralRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     run_id: int = Field(strict=True, gt=0)

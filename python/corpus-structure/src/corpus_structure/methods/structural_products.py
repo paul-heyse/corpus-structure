@@ -6,10 +6,9 @@ admission remain separate boundaries; these producers emit only private proposal
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import Self
+from typing import Literal
 
-from pydantic import ConfigDict, model_validator
+from pydantic import Field, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
@@ -21,90 +20,243 @@ from corpus_structure.semantic.structural_products import (
     DimensionComparison,
     DossierMember,
     DossierProduct,
+    RetainedStructuralRef,
     StructuralInput,
     StructuralProductReport,
     StructuralValue,
 )
 
 
-def compare_clauses(
-    inputs: StructuralInput,
-    *,
-    left: ClauseReading,
-    right: ClauseReading,
-    cancelled: Callable[[], bool] = lambda: False,
-) -> StructuralProductReport:
+def _difference(left, right):
+    """Exact difference of same-direction threshold half-lines."""
+    from decimal import Decimal
+
+    from corpus_structure.semantic.structural_products import TriggerInterval
+
+    a, b = Decimal(left.value), Decimal(right.value)
+    if (
+        left.comparator not in {">", ">=", "<", "<="}
+        or right.comparator not in {">", ">=", "<", "<="}
+        or left.comparator[0] != right.comparator[0]
+    ):
+        return None, None, "unsupported"
+    if a == b:
+        if left.comparator == right.comparator:
+            return None, None, "equivalent"
+        interval = TriggerInterval(lower=str(a), upper=str(a), lower_closed=True, upper_closed=True)
+        return (
+            (interval, None, "different")
+            if "=" in left.comparator
+            else (None, interval, "different")
+        )
+    low, high = (left, right) if a < b else (right, left)
+    lower_side = left.comparator[0] == ">"
+    interval = TriggerInterval(
+        lower=low.value,
+        upper=high.value,
+        lower_closed=("=" in low.comparator) if lower_side else ("=" not in low.comparator),
+        upper_closed=("=" not in high.comparator) if lower_side else ("=" in high.comparator),
+    )
+    removed = a < b if lower_side else a > b
+    return (interval, None, "different") if removed else (None, interval, "different")
+
+
+def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
     if left.passage_id == right.passage_id:
         raise ValueError("comparison requires distinct original passages")
     passages = {p.passage_id: p for p in inputs.passages}
     if left.passage_id not in passages or right.passage_id not in passages:
         raise ValueError("clause outside selected passage closure")
     a, b = passages[left.passage_id], passages[right.passage_id]
-    incompatible = a.scope != b.scope or a.effective_version != b.effective_version
     lf, rf = {f.dimension: f for f in left.fields}, {f.dimension: f for f in right.fields}
     dimensions = []
     for dimension in DIMENSIONS:
         if cancelled():
             raise InterruptedError("structural comparison cancelled")
-        left_field, right_field = lf.get(dimension), rf.get(dimension)
-        if left_field is None or right_field is None:
-            outcome = "unknown"
-        elif incompatible:
-            outcome = "incompatible_applicability"
-        else:
-            outcome = (
-                "same_lexical_value"
-                if left_field.lexical_value == right_field.lexical_value
-                else "different_lexical_value"
-            )
+        x, y = lf.get(dimension), rf.get(dimension)
+        lexical = (
+            "unknown"
+            if x is None or y is None
+            else "same_lexical_value"
+            if x.lexical_value == y.lexical_value
+            else "different_lexical_value"
+        )
+        typed, removed, added = "unknown", None, None
+        reason = "No complete source-qualified typed premises."
+        if x and y and x.typed and y.typed:
+            p, q = x.typed, y.typed
+            if "ambiguous" in {p.state, q.state}:
+                typed = "ambiguous"
+            elif "unsupported" in {p.state, q.state}:
+                typed = "unsupported"
+            elif (
+                not p.unit
+                or not q.unit
+                or not p.quantity
+                or p.quantity != q.quantity
+                or p.unit != q.unit
+                or p.basis != q.basis
+            ):
+                reason = "Unknown unit, quantity or basis withholds a stronger typed conclusion."
+            else:
+                removed, added, typed = _difference(p, q)
+                reason = "Exact threshold consequence only; other rule dimensions remain separate."
         dimensions.append(
             DimensionComparison(
-                dimension=dimension, outcome=outcome, left=left_field, right=right_field
+                dimension=dimension,
+                outcome=lexical,
+                left=x,
+                right=y,
+                typed_outcome=typed,
+                removed_interval=removed,
+                added_interval=added,
+                assumptions=("same_quantity_unit_basis",)
+                if typed in {"different", "equivalent"}
+                else (),
+                reason=reason,
             )
+        )
+    if a.scope != b.scope:
+        applicability, reason = "differently_scoped", "Original source scopes differ."
+    elif a.effective_version is None or b.effective_version is None:
+        applicability, reason = "unestablished", "Effective versions are not established."
+    elif a.effective_version != b.effective_version:
+        applicability, reason = (
+            "unestablished",
+            "Different version labels do not establish succession or authority.",
+        )
+    elif all(
+        d in lf and d in rf and lf[d].lexical_value == rf[d].lexical_value
+        for d in DIMENSIONS
+        if d != "threshold_unit"
+    ):
+        applicability, reason = (
+            "co_applicable",
+            "All non-threshold dimensions match under explicit scope/version.",
+        )
+    else:
+        applicability, reason = (
+            "unestablished",
+            "Missing or changed applicability dimensions remain material.",
         )
     return StructuralProductReport(
         kind="qualified_comparison",
         inputs=inputs,
         comparison=ComparisonProduct(
-            left_id=left.passage_id, right_id=right.passage_id, dimensions=tuple(dimensions)
+            left_id=a.passage_id,
+            right_id=b.passage_id,
+            dimensions=tuple(dimensions),
+            applicability=applicability,
+            applicability_reason=reason,
         ),
     )
 
 
-def assemble_dossier(
-    inputs: StructuralInput,
+def read_clause(passage):
+    from corpus_structure.semantic.structural_parsing import threshold_fields
+    from corpus_structure.semantic.structural_products import (
+        ClauseField,
+        LocatedDefinitionSpan,
+        TypedPremise,
+    )
+
+    fields = threshold_fields(passage.text)
+    if len(fields) != 1:
+        return ClauseReading(passage_id=passage.passage_id, fields=())
+    f = fields[0]
+    return ClauseReading(
+        passage_id=passage.passage_id,
+        fields=(
+            ClauseField(
+                dimension="threshold_unit",
+                lexical_value=f["text"],
+                evidence=(passage.passage_id,),
+                typed=TypedPremise(
+                    span=LocatedDefinitionSpan(
+                        passage_id=passage.passage_id,
+                        start=passage.start + f["start"],
+                        end=passage.start + f["end"],
+                        text=f["text"],
+                    ),
+                    grammar=f["grammar"],
+                    state="parsed",
+                    value=f["value"],
+                    comparator=f["comparator"],
+                    quantity=f["quantity"],
+                    unit=f["unit"],
+                ),
+            ),
+        ),
+    )
+
+
+def select_dossier(
+    inputs,
     *,
-    root_id: str,
-    members: Sequence[DossierMember],
-    representatives_per_group: int = 1,
-    cancelled: Callable[[], bool] = lambda: False,
-) -> StructuralProductReport:
-    if type(representatives_per_group) is not int or representatives_per_group < 1:
-        raise ValueError("representative group budget must be positive")
-    order = {p.passage_id: (p.source_ref, p.start, p.end, p.passage_id) for p in inputs.passages}
-    if any(m.passage_id not in order for m in members):
-        raise ValueError("dossier member outside declared source closure")
-    ordered = sorted(
-        members,
-        key=lambda m: (
-            m.sense,
-            m.role,
-            m.scope,
-            m.effective_version or "",
-            order[m.passage_id],
-            m.member_id,
-        ),
-    )
-    counts: dict[tuple[str, str, str, str | None], int] = {}
-    representatives = []
-    for member in ordered:
+    root_id,
+    members,
+    supported_facets=(),
+    predecessors=(),
+    member_budget=12,
+    policy="supported-facet-greedy-1",
+    cancelled=lambda: False,
+):
+    """Represent an already authenticated membership; this never grants support."""
+    from hashlib import sha256
+
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.structural_products import DossierRepresentation
+
+    if type(member_budget) is not int or member_budget < 1:
+        raise ValueError("dossier budget must be positive")
+    if policy not in {"supported-facet-greedy-1", "source-order-control-1"}:
+        raise ValueError("unsupported representation policy")
+    passages = {p.passage_id: p for p in inputs.passages}
+
+    def order(m):
+        return (passages[m.passage_id].source_ref, m.citation.start, m.citation.end, m.member_id)
+
+    ordered = tuple(sorted(members, key=order))
+    ids = {m.member_id for m in ordered}
+    if any(f.member_id not in ids for f in supported_facets):
+        raise ValueError("facet lies outside dossier membership")
+    facets = tuple(sorted(supported_facets, key=lambda f: f.facet_id))
+    # Repeated evidence for one facet is not multiple coverage. Facet identity includes
+    # its semantic kind/scope, while member identity supplies the supporting witness.
+    coverage = {
+        m.member_id: {(f.kind, f.scope) for f in facets if f.member_id == m.member_id}
+        for m in ordered
+    }
+    selected = [m for m in ordered if m.role in MANDATORY_ROLES]
+    seen = set().union(*(coverage[m.member_id] for m in selected)) if selected else set()
+    remaining = [m for m in ordered if m.member_id not in {x.member_id for x in selected}]
+    while remaining and len(selected) < member_budget:
         if cancelled():
             raise InterruptedError("dossier composition cancelled")
-        key = (member.sense, member.role, member.scope, member.effective_version)
-        count = counts.get(key, 0)
-        if member.role in MANDATORY_ROLES or count < representatives_per_group:
-            representatives.append(member.member_id)
-        counts[key] = count + 1
+        if policy == "source-order-control-1":
+            chosen = remaining[0]
+        else:
+            chosen = min(remaining, key=lambda m: (-len(coverage[m.member_id] - seen), order(m)))
+        selected.append(chosen)
+        remaining.remove(chosen)
+        seen.update(coverage[chosen.member_id])
+    chosen = tuple(m.member_id for m in selected)
+    represented = tuple(f.facet_id for f in facets if f.member_id in chosen)
+    representation = DossierRepresentation(
+        policy=policy,
+        member_budget=member_budget,
+        selected=chosen,
+        omitted=tuple(m.member_id for m in ordered if m.member_id not in chosen),
+        represented_facets=represented,
+        missing_facets=tuple(f.facet_id for f in facets if f.facet_id not in represented),
+        mandatory_overflow=sum(m.role in MANDATORY_ROLES for m in ordered) > member_budget,
+        membership_digest=sha256(
+            canonical_bytes([m.model_dump(mode="json", exclude_none=True) for m in ordered])
+        ).hexdigest(),
+        facet_digest=sha256(
+            canonical_bytes([f.model_dump(mode="json", exclude_none=True) for f in facets])
+        ).hexdigest(),
+    )
     roles = {m.role for m in ordered}
     sections = (
         "definition",
@@ -123,72 +275,243 @@ def assemble_dossier(
         inputs=inputs,
         dossier=DossierProduct(
             root_id=root_id,
-            members=tuple(ordered),
-            representatives=tuple(representatives),
+            members=ordered,
+            predecessors=tuple(predecessors),
+            representatives=chosen,
             missing_sections=tuple(r for r in sections if r not in roles),
+            supported_facets=facets,
+            representation=representation,
         ),
     )
 
 
-# Registration is deliberately lightweight: retained report reads import no encoder.
+def derive_dossier_members(inputs, retained):
+    """Derive role spans from actual retained products, never from input inventory."""
+    from hashlib import sha256
+
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.structural_admission import structural_statement
+    from corpus_structure.semantic.structural_products import (
+        DossierFacet,
+        LocatedDefinitionSpan,
+        MemberRole,
+    )
+
+    passages = {p.passage_id: p for p in inputs.passages}
+    members = []
+    facets = []
+    for reference, payload in retained:
+        report = StructuralProductReport.model_validate(payload["report"])
+        if report.product_id != reference.product_id:
+            raise ValueError("retained predecessor product substituted")
+        if report.product_id not in inputs.dependencies:
+            raise ValueError("dossier predecessor outside declared dependencies")
+        for p in report.inputs.passages:
+            if p.passage_id not in passages or passages[p.passage_id] != p:
+                raise ValueError("predecessor original source passage differs from dossier closure")
+        roles: list[tuple[MemberRole, LocatedDefinitionSpan, str | None]] = []
+        if report.definition_components:
+            for c in report.definition_components.components:
+                roles.extend(
+                    (
+                        ("terminology", c.term, c.component_id),
+                        ("definition", c.content, c.component_id),
+                    )
+                )
+        if report.definition:
+            p = passages[report.definition.usage_id]
+            roles.append(
+                (
+                    "usage",
+                    LocatedDefinitionSpan(
+                        passage_id=p.passage_id, start=p.start, end=p.end, text=p.text
+                    ),
+                    None,
+                )
+            )
+            for r in report.definition.readings:
+                roles.append(("definition", r.component.content, None))
+        if report.comparison:
+            for d in report.comparison.dimensions:
+                for side in (d.left, d.right):
+                    if side and side.typed:
+                        roles.append(("variant", side.typed.span, None))
+        for role, span, component_id in roles:
+            p = passages[span.passage_id]
+            key = sha256(
+                canonical_bytes(
+                    dict(
+                        product=report.product_id, role=role, citation=span.model_dump(mode="json")
+                    )
+                )
+            ).hexdigest()
+            supported = None
+            expected = (
+                structural_statement(report, component_id)
+                if report.definition_components
+                else structural_statement(report)
+            )
+            # Native supplies only protected existing assertions, not producer confidence.
+            # Exact statement equality prevents borrowing an assessment of another role,
+            # physical source, interpretation, or incomplete predecessor.
+            for assertion in payload.get("public_assertions", ()):
+                if assertion.get("statement") == expected and assertion.get("assessment_id"):
+                    supported = assertion["assessment_id"]
+                    break
+            member = DossierMember(
+                member_id=key,
+                passage_id=p.passage_id,
+                citation=span,
+                role=role,
+                sense="unresolved",
+                scope=p.scope,
+                effective_version=p.effective_version,
+                relation_product_id=report.product_id,
+                qualification="independently_supported" if supported else "proposed",
+                assessment_id=supported,
+            )
+            if member.member_id in {m.member_id for m in members}:
+                continue
+            members.append(member)
+            if supported:
+                facet_kind = role + ":" + span.text
+                facets.append(
+                    DossierFacet(
+                        facet_id=key + ":" + role,
+                        kind=facet_kind,
+                        scope=p.scope,
+                        member_id=key,
+                        assessment_id=supported,
+                        evidence=(p.passage_id,),
+                    )
+                )
+    return tuple(members), tuple(facets)
 
 
-class StructuralProductsConfig(StructuralValue):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    report: StructuralProductReport | None = None
+class StructuralComparisonConfig(StructuralValue):
+    inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
+    left_id: str | None = None
+    right_id: str | None = None
 
     @model_validator(mode="after")
-    def bound_input(self) -> Self:
-        if self.report is not None and self.report.kind in {
-            "definition_components",
-            "definition_applicability",
-        }:
-            raise ValueError("definition products require their owned automatic producers")
-        expected = self.report.inputs.identity if self.report else None
-        if self.structural_input_digest != expected:
-            raise ValueError("structural configuration must name exact input manifest digest")
+    def bound_input(self):
+        if self.inputs is None:
+            if any((self.structural_input_digest, self.left_id, self.right_id)):
+                raise ValueError("partial comparison config")
+        elif (
+            self.structural_input_digest != self.inputs.identity
+            or self.left_id == self.right_id
+            or not {self.left_id, self.right_id} <= {p.passage_id for p in self.inputs.passages}
+        ):
+            raise ValueError("comparison requires exact inputs and two selected passages")
         return self
 
 
-class StructuralProductsMethod:
-    """Execute a frozen attributed reading through ordinary RUN task completion.
-
-    Upstream retrieval/readings are supplied immutable inputs, not protected feedback.
-    A default absent report selects no task and does not create a fabricated result.
-    """
-
-    name = "structure.products"
-    version = "2"
+class StructuralComparisonMethod:
+    name = "structure.compare"
+    version = "1"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
     confidence_source = None
-    Config = StructuralProductsConfig
+    Config = StructuralComparisonConfig
     resources = Resources()
 
     def select(self, run, cfg):
-        return (
-            [UnitRef(TaskUnitType.RUN, unit_key=cfg.report.product_id)]
-            if cfg.report is not None
-            else []
-        )
+        return (UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity),) if cfg.inputs else ()
 
     def input_digest(self, unit, cfg):
-        if cfg.report is None:
-            raise ValueError("no structural report selected")
         from corpus_structure.semantic.identity import canonical_bytes
 
-        return Digest(canonical_bytes(cfg.report.model_dump(mode="json")))
+        return Digest(canonical_bytes(cfg.model_dump(mode="json")))
 
     def run(self, units, cfg, ctx):
-        if cfg.report is None:
-            raise ValueError("no structural report selected")
+        if cfg.inputs is None:
+            raise ValueError("comparison inputs absent")
+        ctx.check_active()
+        passages = {p.passage_id: p for p in cfg.inputs.passages}
+        report = compare_clauses(
+            cfg.inputs,
+            left=read_clause(passages[cfg.left_id]),
+            right=read_clause(passages[cfg.right_id]),
+        )
         return tuple(
             UnitResult(
-                ref=unit.ref,
+                ref=u.ref,
                 outcome=ObservationOutcome.PRODUCED,
-                structural_product=cfg.report.model_dump(mode="json"),
+                structural_product=report.model_dump(mode="json"),
             )
-            for unit in units
+            for u in units
+        )
+
+
+class StructuralDossierConfig(StructuralValue):
+    inputs: StructuralInput | None = None
+    structural_input_digest: str | None = None
+    root_id: str | None = None
+    predecessors: tuple[RetainedStructuralRef, ...] = ()
+    member_budget: int = Field(default=12, gt=0, strict=True)
+    policy: Literal["supported-facet-greedy-1", "source-order-control-1"] = (
+        "supported-facet-greedy-1"
+    )
+
+    @model_validator(mode="after")
+    def bound_input(self):
+        if self.inputs is None:
+            if self.structural_input_digest or self.root_id or self.predecessors:
+                raise ValueError("partial dossier config")
+        elif (
+            self.structural_input_digest != self.inputs.identity
+            or not self.root_id
+            or not self.predecessors
+        ):
+            raise ValueError("dossier requires original inputs and retained predecessors")
+        if len({p.product_id for p in self.predecessors}) != len(self.predecessors):
+            raise ValueError("duplicate dossier predecessor")
+        return self
+
+
+class StructuralDossierMethod:
+    name = "structure.dossier"
+    version = "1"
+    family = MethodFamily.CONSOLIDATE
+    unit_type = TaskUnitType.RUN
+    tier = MethodTier.DETERMINISTIC
+    confidence_source = None
+    Config = StructuralDossierConfig
+    resources = Resources()
+
+    def select(self, run, cfg):
+        return (UnitRef(TaskUnitType.RUN, unit_key=cfg.inputs.identity),) if cfg.inputs else ()
+
+    def input_digest(self, unit, cfg):
+        from corpus_structure.semantic.identity import canonical_bytes
+
+        return Digest(canonical_bytes(cfg.model_dump(mode="json")))
+
+    def run(self, units, cfg, ctx):
+        if cfg.inputs is None:
+            raise ValueError("dossier inputs absent")
+        retained = []
+        for reference in cfg.predecessors:
+            ctx.check_active()
+            retained.append((reference, ctx.reader.retained_structural_report(reference)))
+        members, facets = derive_dossier_members(cfg.inputs, retained)
+        report = select_dossier(
+            cfg.inputs,
+            root_id=cfg.root_id,
+            members=members,
+            supported_facets=facets,
+            predecessors=cfg.predecessors,
+            member_budget=cfg.member_budget,
+            policy=cfg.policy,
+        )
+        return tuple(
+            UnitResult(
+                ref=u.ref,
+                outcome=ObservationOutcome.PRODUCED,
+                structural_product=report.model_dump(mode="json"),
+            )
+            for u in units
         )
