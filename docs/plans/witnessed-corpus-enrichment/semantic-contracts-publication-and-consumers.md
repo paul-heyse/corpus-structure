@@ -1,5 +1,14 @@
 # Witnessed components: semantic contracts, publication and consumers
 
+> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
+> assessment. No new sources, separate calibration population or independent-origin readiness gate
+> is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
+> and source-only reference judgments. Current test-resolution is complete. Remove replaced
+> production contracts and historical decoder paths across ALL remaining WCE, retaining controls
+> only on current contracts. The coordinator owns execution status and final-source qualification.
+
+
 > Execution reading route,2026-11-06: ADR-0066 adopts the target. Current retention/frame/native groundwork is recorded at the coordinator; positive component publication policies remain with their owning producers.
 
 **Proposed,2026-11-05.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns state,

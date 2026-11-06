@@ -1,5 +1,14 @@
 # Controlled-artifact identity pilot and candidate reuse
 
+> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
+> assessment. No new sources, separate calibration population or independent-origin readiness gate
+> is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
+> and source-only reference judgments. Current test-resolution is complete. Remove replaced
+> production contracts and historical decoder paths across ALL remaining WCE, retaining controls
+> only on current contracts. The coordinator owns execution status and final-source qualification.
+
+
 **Proposed implementation companion · 2026-11-05.** This document develops WCE10 of the [witnessed corpus enrichment coordinator](../witnessed-corpus-enrichment_2026-11-05.md). The coordinator owns execution status, finding disposition, rule changes and conditional decisions. This document owns the selected pilot's identity question, field/candidate model, cohort entry conditions, actual integration and acceptance. It carries the integrated [production enrichment review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md) §8/F07/§10 at `6487c486075a832e50b59fcec96c88485f30c11a`; it does not promote the earlier functional review into principal authority.
 
 RC01–RC06 were accepted for planning on 2026-11-05. WCE00 routes those changes, including RC05's November6 replacement with statistics qualification and RC06's independent group-held-out assessment, before their dependents. The separately owned test-plan foundation is assumed ready as a target; its remaining final checks are not this pilot's scope or passing evidence.

@@ -59,6 +59,13 @@ service; RDF publication; the methods D0 lists as deliberately left out until a 
 asks for them; per-item human verification of goldens (the operator steers through guidelines,
 [D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)).
 
+**Accepted method-development scope,2026-11-06.** WCE develops and assesses the same120
+Grinstead–Snell physical pages191–310 for all activities. Separate source populations, held-out
+origins and group counts do not gate this exploratory benchmark. Progressive grounded structure
+and granular failure/capture assessment are the objective; complete records are a stronger outcome.
+
+> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+
 <a id="section-1-3"></a>
 
 ### §1.3 Generality check

@@ -1,5 +1,17 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## Shared-corpus method development
+
+**Accepted target,2026-11-06.** Use one120-page Grinstead–Snell benchmark for development,
+fitting, debugging, regression and assessment. Preserve source-only reference authoring, exact
+output identities, granular dimensions and exposure provenance. In-sample fitting needs genuine
+labels and valid numerical inputs; it requires no held-out population or multiple-origin minimum.
+Useful construction survives unavailable fitting or incomplete records. Compare successive methods
+on the same opportunities and retain corrected references explicitly. Separate calibration and
+generalization studies are deferred until method performance warrants them.
+
+> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+
 ## Witnessed component target
 
 **Proposed target, adopted2026-11-06.** Freeze source opportunities before alignment or filtering; distinguish source-first capture from output-first correctness. Provenance groups and exposure partitions belong to existing protected reference custody. Qualification uses statistics; enterprise material is not a prerequisite.

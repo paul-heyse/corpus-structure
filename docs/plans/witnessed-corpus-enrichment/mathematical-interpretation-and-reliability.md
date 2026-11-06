@@ -1,5 +1,14 @@
 # Mathematical interpretation and operation reliability
 
+> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
+> assessment. No new sources, separate calibration population or independent-origin readiness gate
+> is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
+> and source-only reference judgments. Current test-resolution is complete. Remove replaced
+> production contracts and historical decoder paths across ALL remaining WCE, retaining controls
+> only on current contracts. The coordinator owns execution status and final-source qualification.
+
+
 **Proposed implementation companion · 2026-11-05.** This document develops WCE08 and WCE09 of the [witnessed corpus enrichment coordinator](../witnessed-corpus-enrichment_2026-11-05.md). The coordinator alone owns execution status, accepted rule dispositions, conditional-investigation decisions and finding closure. This companion specifies the required capability and its evidence; it does not report implementation completion.
 
 The principal input is the integrated [production enrichment target review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md), especially F06–F07, §4.4, §8 and §10, at `6487c486075a832e50b59fcec96c88485f30c11a`. The operator accepted RC01–RC06 for planning on 2026-11-05; WCE00 routes the owning rule/ADR changes before dependent implementation. The separate test-audit resolution plan is treated as an available target foundation, with its final checks separately owned. This plan neither reopens its scope nor counts that assumption as a new passing receipt.

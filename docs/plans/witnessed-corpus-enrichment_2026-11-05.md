@@ -5,6 +5,27 @@ combined scope, package state, scheduled review-finding disposition and completi
 plans own detailed realization; DESIGN/ADRs remain architectural authority. Package state below distinguishes implemented scope from remaining assessment and qualification.
 No defaults are activated by this plan.
 
+## Current execution decision — 2026-11-06
+
+**Accepted; implementation in progress.** ADR-0068 overrides earlier multi-source held-out/cohort
+requirements for this execution. One shared120-page Grinstead–Snell corpus (physical191–310)
+serves development, regression, fitting, debugging and assessment. No new sources or held-out
+populations are required. The current method baseline is captured early, followed by iterative
+source-grounded feedback; final full-scope qualification follows all implementation.
+
+WCE02 owns the source/opportunity census and granular assessment, including raw outputs, missing,
+incorrect, unresolved and unassessed facets. WCE06/07 implement typed source composition/comparison
+and automatic dossiers. WCE08 implements real feasibility/independent/coupled policies; WCE09
+implements in-sample operation-event fitting without independent-origin readiness gates. WCE10
+uses statistical table/reference artifact identity within the source-work namespace; WCE11/12
+integrate, decommission and assess the resulting system. Fitting never gates useful construction.
+
+ADR-0067's hard migration now applies throughout remaining WCE: no obsolete production readers,
+manual/supplied bridges or duplicated semantic routes remain after replacement verification.
+Sources, plans and evidence are preserved; insufficient derived populations are recreated honestly.
+Current test-resolution is complete at a537bea6; consume its foundation rather than reopening it.
+Earlier package receipts remain dated/scoped evidence, not new final qualification.
+
 ## Outcome, inputs and baseline
 
 Produce more independently assessable source-grounded knowledge by making relationships carry
@@ -86,10 +107,10 @@ WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obliga
 | WCE03 | Tested selected named-candidate increment; actual native/read/export and independent output assessment delivered | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
 | WCE04 | Complete selected functional scope; Tested2026-11-06, efficacy limits below | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; pair-only classifier and historical reader paths retired after current-contract migration. |
 | WCE05 | Complete selected functional scope; Tested2026-11-06, wider WCE11/12 qualification open | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
-| WCE06 | Proposed | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
-| WCE07 | Proposed | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
-| WCE08 | Proposed | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
-| WCE09 | Proposed | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
+| WCE06 | In progress; ADR-0068 shared-corpus execution | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
+| WCE07 | In progress; ADR-0068 shared-corpus execution | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
+| WCE08 | In progress; ADR-0068 shared-corpus execution | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
+| WCE09 | In progress; ADR-0068 shared-corpus execution | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
 | WCE10 | Proposed | WCE01/02/05; relevant WCE06 artifact slice; identity/cohort definition | Concrete scoped identity pilot with exact/lexical/external-pair/alias-block controls, field reasons, held-out pair and blocking assessment. Cohort gates execution. |
 | WCE11 | Proposed | Available delivered capabilities03–10 | Assemble native policies and selected Reader/CLI/MCP/export/continuations, verify partial-component versus whole-report standing and retire migrated production branches. |
 | WCE12 | Proposed | All required core functionality and affected consumers | Assembled design review at required cadence, final-source qualification, independent benefit account, retirement/caller inventory and handoff. |

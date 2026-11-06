@@ -1,5 +1,14 @@
 # Source opportunities, independent assessment and qualification
 
+> Current authority,2026-11-06: ADR-0068 overrides conflicting historical/held-out clauses below.
+> Use the SAME120 Grinstead–Snell physical pages191–310 for development, regression, fitting and
+> assessment. No new sources, separate calibration population or independent-origin readiness gate
+> is required. In-sample fitting is diagnostic; preserve numerical validity, exact source evidence
+> and source-only reference judgments. Current test-resolution is complete. Remove replaced
+> production contracts and historical decoder paths across ALL remaining WCE, retaining controls
+> only on current contracts. The coordinator owns execution status and final-source qualification.
+
+
 > Execution reading route,2026-11-06: Current early source/output evidence, protected frame IDs and remaining exposure/reference gaps are linked at the coordinator. Later producer frames remain open; original source partitions are not relabelled.
 
 **Proposed,2026-11-05.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns package
