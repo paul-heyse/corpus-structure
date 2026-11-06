@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -42,7 +43,7 @@ PIN = dict(
 )
 
 
-def located(role="term", start=0, end=4):
+def located(role="term", start=0, end=4) -> dict[str, Any]:
     anchor = dict(
         pin=PIN,
         space="native",
@@ -98,6 +99,8 @@ def test_supplied_mention_and_registry_production_bridge_removed():
 def test_projection_preserves_all_selected_kinds_without_first_alternative():
     from corpus_structure.methods.contextual_embeddings import EncodedVector
 
+    source = located()
+    occurrence = source["occurrence_id"]
     target = target_representation(
         "concept", "definition-component:source", "Mean", "average", scope="chapter"
     )
@@ -114,13 +117,13 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
         semantic_targets={"concept": semantic},
     )
     candidates = fuse_candidates(
-        occurrence_id="occ",
-        query=EncodedVector("v", "occ", "source", "p", "digest", (1.0, 0.0)),
+        occurrence_id=occurrence,
+        query=EncodedVector("v", occurrence, "source", "p", "digest", (1.0, 0.0)),
         inventory=inventory,
         channels={"dense": (ChannelHit("concept", 1.0),)},
     )
     original = RelationshipWitness(
-        "d", "occ", "concept", "denotes", "source", "chapter", None, ("raw",), "producer_group"
+        "d", occurrence, "concept", "denotes", "source", "chapter", None, (source["contribution_id"],), "producer_group"
     )
     decision = select_relationships(
         candidates=candidates,
@@ -136,8 +139,7 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
         ),
         witnesses=(original, replace(original, witness_id="c", relation="compared-with")),
     )
-    source = located()
-    rows = relationship_contributions(decision, source, inventory, "edge-op")
+    rows = relationship_contributions(decision, (source,), inventory, "edge-op")
     assert {source_python(row["value"])["relation"] for row in rows} == {"denotes", "compared-with"}
     assert len({row["computation_dependencies"][4] for row in rows}) == 2
     assert all(
@@ -159,7 +161,7 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
             }
         },
     )
-    assert relationship_contributions(decision, source, reordered, "edge-op") == rows
+    assert relationship_contributions(decision, (source,), reordered, "edge-op") == rows
     assert source_python(rows[0]["value"])["target"] == semantic
 
 
@@ -368,3 +370,72 @@ def test_actual_named_role_group_proposes_multiple_compatible_kinds():
         for w in witnesses
     )
     assert all(w.basis == "producer_group" and w.support_state == "unassessed" for w in witnesses)
+
+
+def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
+    from corpus_structure.methods.contextual_candidates import (
+        ProducerRelationshipRecipe,
+        producer_relationship_witnesses,
+    )
+
+    unrelated = located("unrelated")
+    unrelated["item_key"] = "other-group/role/unrelated"
+    subject, object_ = located("subject"), located("object", 8, 15)
+    for row, role in ((subject, "subject"), (object_, "object")):
+        row["item_key"] = "actual-group/role/" + role
+        row["component"] = dict(kind="located_role", rule="typed-specialization",
+                                roles=(dict(role=role, outcome="complete"),))
+        row["contribution_id"] = contribution_identity(row)
+    unrelated["contribution_id"] = contribution_identity(unrelated)
+    inventory = freeze_inventory(
+        (target_representation("average", "definition", "average", "an average", scope="chapter"),),
+        source_selection="components", scope="chapter",
+    )
+    observations = []
+    for originals in ((unrelated, subject, object_), (subject, unrelated, object_)):
+        upstream = dict(contributions=originals)
+        products, contexts, _ = retained_occurrences(
+            upstream, {"#/texts/1": {"text": "Mean is average."}}, PIN, "current",
+        )
+        assert len(products) == 3 and len(contexts) == 2
+        by_role = {source_python(p["value"])["producer_semantic_type"]: p for p in products}
+        subject_product, unrelated_product = by_role["source_rule.subject"], by_role["source_rule.unrelated"]
+        occurrence = subject_product["occurrence_id"]
+        assert occurrence == unrelated_product["occurrence_id"]
+        witnesses = producer_relationship_witnesses(
+            upstream, products, occurrence, inventory, {"average"},
+            (ProducerRelationshipRecipe(rule="typed-specialization", occurrence_role="subject", target_role="object", relation="specializes"),),
+            "source", "chapter", None,
+        )
+        (witness,) = witnesses
+        assert witness.evidence_ids == (subject_product["contribution_id"], by_role["source_rule.object"]["contribution_id"])
+        candidates = fuse_candidates(
+            occurrence_id=occurrence,
+            query=EncodedVector("query", occurrence, "source", "profile", "digest", (1., 0.)),
+            inventory=inventory, channels={"dense": (ChannelHit("average", 1.),)},
+        )
+        decision = select_relationships(
+            candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
+            constraints=(RelationshipConstraint("specialization", ("specializes",), "subject", "object", "one"),),
+            witnesses=witnesses,
+        )
+        (proposal,) = relationship_contributions(decision, products, inventory, "edge-operation")
+        assert proposal["members"] == (subject_product["contribution_id"],)
+        assert proposal["anchors"] == subject_product["anchors"]
+        assert proposal["computation_dependencies"][0] == subject_product["contribution_id"]
+        assert source_python(proposal["value"])["relation"] == "specializes"
+        observations.append(proposal)
+        # The object-side evidence is real but belongs to another physical occurrence;
+        # the unrelated same-span role is not a witness for this selected edge.
+        with pytest.raises(ValueError, match="lacks a cited source occurrence"):
+            relationship_contributions(decision, tuple(p for p in products if p is not subject_product), inventory, "edge-operation")
+        comparison = replace(witness, witness_id="separate-comparison", relation="compared-with", evidence_ids=(unrelated_product["contribution_id"],))
+        multi = select_relationships(
+            candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
+            constraints=(*decision.constraints, RelationshipConstraint("comparison", ("compared-with",), "usage", "comparator", "many")),
+            witnesses=(*witnesses, comparison),
+        )
+        projected = {source_python(p["value"])["relation"]: p for p in relationship_contributions(multi, products, inventory, "edge-operation")}
+        assert projected["specializes"]["members"] == (subject_product["contribution_id"],)
+        assert projected["compared-with"]["members"] == (unrelated_product["contribution_id"],)
+    assert observations[0] == observations[1]

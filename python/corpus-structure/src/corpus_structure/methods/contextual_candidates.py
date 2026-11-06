@@ -79,10 +79,23 @@ def _propagate_cancellation(error, check_active):
     check_active()
 
 
-def relationship_contributions(decision, source_product, inventory, operation_key):
-    """Project each explicitly selected scoped edge without selecting from alternatives."""
+def relationship_contributions(decision, source_products, inventory, operation_key):
+    """Project selected edges through witness-cited products of their own occurrence.
+
+    The deterministic carrier is operational; the decision retains every qualifying witness.
+    """
     rows = []
     for edge in decision.selected_edges:
+        evidence = {identifier for witness in edge.witnesses for identifier in witness.evidence_ids}
+        carriers = sorted(
+            (product for product in source_products
+             if product["occurrence_id"] == decision.occurrence_id
+             and product["contribution_id"] in evidence),
+            key=lambda product: product["contribution_id"],
+        )
+        if not carriers:
+            raise ValueError("selected relationship edge lacks a cited source occurrence product")
+        source_product = carriers[0]
         target = next(
             group for group in inventory.semantic_groups if group.target_id == edge.target_id
         )
@@ -450,9 +463,7 @@ class ContextualCandidates:
                     )
                 )
             for occurrence, (_text, _start, _end, mention) in contexts.items():
-                product = next(p for p in source_products if p["occurrence_id"] == occurrence)
                 ctx.check_active()
-                occurrence = product["occurrence_id"]
                 dependencies = (
                     vectors[occurrence].vector_id,
                     inventory.inventory_id,
@@ -568,7 +579,7 @@ class ContextualCandidates:
                     result_id=decision.decision_id,
                 )
                 proposals = relationship_contributions(
-                    decision, product, inventory, phase["operation_key"]
+                    decision, source_products, inventory, phase["operation_key"]
                 )
                 products.extend(proposals)
                 phase["emitted_count"] = len(proposals)

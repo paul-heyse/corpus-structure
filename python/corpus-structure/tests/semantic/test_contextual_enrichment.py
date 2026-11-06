@@ -560,15 +560,15 @@ def test_same_source_meaning_different_producer_bases_corroborate_one_edge():
     from corpus_structure.methods.contextual_candidates import relationship_contributions
 
     source = dict(
-        contribution_id="located-role",
+        contribution_id="evidence",
         item_key="retained-source-term",
         pin={},
         anchors=(),
         occurrence_id="occ",
     )
-    (single_observation,) = relationship_contributions(single, source, inv, "selection-operation")
+    (single_observation,) = relationship_contributions(single, (source,), inv, "selection-operation")
     (corroborated_observation,) = relationship_contributions(
-        result, source, inv, "selection-operation"
+        result, (source,), inv, "selection-operation"
     )
     assert single_observation["value"] == corroborated_observation["value"]
     assert single_observation["contribution_id"] != corroborated_observation["contribution_id"]

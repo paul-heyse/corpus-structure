@@ -6,6 +6,7 @@ this test makes no model/provider or semantic-quality claim.
 """
 
 import json
+from collections.abc import Mapping
 from dataclasses import replace
 from types import SimpleNamespace
 from typing import Any
@@ -19,6 +20,7 @@ from corpus_structure.core.vocab import MethodTier, Stage, TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
     ContextualCandidates,
+    ProducerRelationshipRecipe,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
 from corpus_structure.orchestrate import semantic
@@ -271,7 +273,7 @@ def completed_component_case(case, tmp_path):
     )
 
 
-def completed_relationship_case(case, monkeypatch, tmp_path):
+def completed_relationship_case(case, monkeypatch, tmp_path, *, overlapping_recipe=None):
     completed = completed_component_case(case, tmp_path)
     target, component_revision, v, task = (
         completed.target,
@@ -293,6 +295,12 @@ def completed_relationship_case(case, monkeypatch, tmp_path):
         source_projection_digest=v["projection_digest"],
         scope="controlled-source",
     )
+
+    if overlapping_recipe is not None:
+        cfg = cfg.model_copy(update={
+            "relationship_constraints": (RelationshipConstraint("specialization", ("specializes",), "subject", "object", "one"),),
+            "relationship_recipes": (ProducerRelationshipRecipe(rule="native-specialization", occurrence_role="subject", target_role="object", relation="specializes"),),
+        })
 
     class OccurrenceConfig(BaseModel):
         pass
@@ -334,19 +342,38 @@ def completed_relationship_case(case, monkeypatch, tmp_path):
                 )
                 products = []
                 assert draft.contributions is not None
-                for original in draft.contributions:
+                assert draft.contribution_operations is not None
+                originals: tuple[Mapping[str, Any], ...] = draft.contributions
+                if overlapping_recipe is not None:
+                    base = next(row for row in originals if row["kind"] == "occurrence")
+                    roles = ("unrelated", "subject", "object")
+                    if overlapping_recipe:
+                        roles = ("subject", "unrelated", "object")
+                    originals = tuple(dict(base, semantic_type="source_rule." + role,
+                        item_key=("other-group" if role == "unrelated" else "actual-group") + "/role/" + role,
+                        anchors=tuple(dict(anchor, pointer=case.table + "/data/table_cells/" + ("0" if role == "object" else "1")) for anchor in base["anchors"])) for role in roles)
+                for original in originals:
                     anchors = []
                     for anchor in original["anchors"]:
                         located: dict[str, Any] = dict(anchor)
                         located["pin"] = pin
                         located["anchor_id"] = anchor_identity(located)
                         anchors.append(located)
-                    product = dict(
+                    product: dict[str, Any] = dict(
                         original,
                         pin=pin,
                         anchors=tuple(anchors),
                         occurrence_id=occurrence_identity(anchors),
                     )
+                    if overlapping_recipe is not None:
+                        role = product["semantic_type"].removeprefix("source_rule.")
+                        dependencies = ("native:" + str(pin["native_product_task_id"]),)
+                        product["computation_dependencies"] = dependencies
+                        product["component"] = dict(protocol="witnessed-component-1", kind="located_role",
+                            question="inspect_cell", question_version="1", scope="controlled-source", interpretation="unassessed",
+                            bases=(dict(kind="producer_group", dependencies=dependencies, anchor_ids=tuple(a["anchor_id"] for a in anchors)),),
+                            dependencies=dependencies, rule="unrelated" if role == "unrelated" else "native-specialization", variant="controlled-1",
+                            roles=(dict(role=role, anchor_ids=tuple(a["anchor_id"] for a in anchors), head_token=0, expansion="exact", outcome="complete"),))
                     product["contribution_id"] = contribution_identity(product)
                     products.append(product)
                 results.append(
@@ -354,9 +381,8 @@ def completed_relationship_case(case, monkeypatch, tmp_path):
                         draft,
                         ref=unit.ref,
                         contributions=tuple(products),
-                        contribution_coordinate_texts=tuple(
-                            dict(c, pin=pin) for c in draft.contribution_coordinate_texts
-                        ),
+                        contribution_operations=tuple(dict(operation, emitted_count=len(products)) if operation["operation_key"] == "locate-cell-1" else operation for operation in draft.contribution_operations),
+                        contribution_coordinate_texts=tuple(dict(c, pin=pin) for c in draft.contribution_coordinate_texts) + ((dict(pin=pin, space="native", pointer=case.table + "/data/table_cells/1", text="12"),) if overlapping_recipe is not None else ()) ,
                     )
                 )
             return tuple(results)
@@ -427,10 +453,11 @@ def completed_relationship_case(case, monkeypatch, tmp_path):
     monkeypatch.setattr(
         "corpus_structure.methods.contextual_candidates.encode_contexts", controlled_encoder
     )
-    monkeypatch.setattr(
-        "corpus_structure.methods.contextual_candidates.select_relationships",
-        controlled_interpretation,
-    )
+    if overlapping_recipe is None:
+        monkeypatch.setattr(
+            "corpus_structure.methods.contextual_candidates.select_relationships",
+            controlled_interpretation,
+        )
 
     def produce_relationship(*, local_semantic_admission=()):
         return semantic.run_source_methods(
@@ -476,8 +503,8 @@ def completed_relationship_case(case, monkeypatch, tmp_path):
         payload = body["contribution_operations"][0]["contextual_enrichment"]
         assert payload["version"] == "contextual-enrichment-2"
         assert {
-            edge["relation"] for edge in payload["relationship_decisions"][0]["selected_edges"]
-        } == {"denotes", "compared-with", "defined-by"}
+            edge["relation"] for decision in payload["relationship_decisions"] for edge in decision["selected_edges"]
+        } == ({"denotes", "compared-with", "defined-by"} if overlapping_recipe is None else {"specializes"})
         assert payload["component_targets"][0]["reference"]["origin_task_id"] == task["id"]
         assert {c["semantic_type"] for c in body["contributions"]} == {
             "contextual.located_mention",
@@ -633,3 +660,25 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
             app_body["structural_product"]["definition"]["readings"][0]["link_ref"]["edge_id"]
             == edge["edge_id"]
         )
+
+
+@pytest.mark.parametrize("reverse", (False, True))
+def test_native_same_span_roles_bind_each_edge_to_its_qualifying_carrier(private_source, monkeypatch, tmp_path, reverse):
+    from corpus_structure.semantic.observations import source_python
+
+    linked = completed_relationship_case(private_source, monkeypatch, tmp_path, overlapping_recipe=reverse)
+    assert linked.body["outcome"] == "produced"
+    mentions = {source_python(row["value"])["producer_semantic_type"]: row for row in linked.body["contributions"] if row["semantic_type"] == "contextual.located_mention"}
+    subject, unrelated, object_ = (mentions["source_rule." + role] for role in ("subject", "unrelated", "object"))
+    assert subject["occurrence_id"] == unrelated["occurrence_id"] != object_["occurrence_id"]
+    assert len(mentions) == 3
+    assert linked.payload["product_counts"]["vectors"] == 3
+    (proposal,) = (row for row in linked.body["contributions"] if row["semantic_type"] == "contextual.relationship")
+    assert proposal["members"] == [subject["contribution_id"]]
+    assert proposal["computation_dependencies"][0] == subject["contribution_id"]
+    assert proposal["anchors"] == subject["anchors"]
+    assert source_python(proposal["value"])["relation"] == "specializes"
+    (edge,) = (edge for decision in linked.payload["relationship_decisions"] for edge in decision["selected_edges"])
+    (witness,) = edge["witnesses"]
+    assert witness["evidence_ids"] == [subject["contribution_id"], object_["contribution_id"]]
+    assert unrelated["contribution_id"] not in witness["evidence_ids"]

@@ -140,3 +140,32 @@ pattern. Context7 confirmed the supported explicit command/args/env/cwd/log-file
 and `keep_alive=False` lifecycle against the [FastMCP transport documentation](https://github.com/prefecthq/fastmcp/blob/main/docs/clients/transports.mdx).
 This consumer evidence establishes delivery/parity for the stated retained selections, not
 corpus completeness, scientific truth or new independent semantic support.
+
+## Edge-specific occurrence carriers — 2026-11-06
+
+The final review's overlapping-role correction selects an operational carrier separately
+for each selected edge: it must have that decision's physical occurrence and be cited by
+that edge's qualifying witnesses. Ordering is by contribution ID. Every qualifying origin
+remains in the frozen decision; an unrelated same-span role or a target-side product from
+another occurrence cannot substitute for missing source evidence. A missing carrier refuses.
+
+- `carrier001-functional.log`: the targeted three-file pytest-xdist run passed46 unit controls
+  and the existing native workflow. The two new native cases initially refused their test
+  role-component metadata before linking; their producing-operation question and retained
+  native dependency were corrected in the fixture. No production validator was changed.
+- `carrier001-native-rerun.log`: passed2 actual native full-method controls, original and
+  reversed source-role order. Unrelated/subject roles share authentic native cell1 anchors;
+  the object role belongs to cell0. Only subject/object share the configured relationship
+  recipe. Native completion retains `specializes` with the subject carrier and both actual
+  witness IDs. Controlled encoding makes no provider-quality claim.
+- `carrier001-types.log`: targeted Pyrefly passed0 errors.
+
+```bash
+uv run pytest -n auto python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contextual_workflow_native.py
+uv run pytest -n auto python/corpus-structure/tests/semantic/test_contextual_workflow_native.py -k same_span_roles
+uv run pyrefly check python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contextual_workflow_native.py
+```
+
+The focused unit control also combines same-span unrelated/subject roles with a distinct
+object span, tests input-order stability and missing-carrier refusal, and proves that two
+selected edges can require different carriers from the same physical occurrence.
