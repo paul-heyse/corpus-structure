@@ -388,7 +388,8 @@ GENERIC = (
     Evidence(),
     Find(),
     Unsupported(),
-    StructuralProducts("structural_definitions", "definition_applicability"),
+    StructuralProducts("structural_definitions", "definition_components"),
+    StructuralProducts("structural_applicability", "definition_applicability"),
     StructuralProducts("structural_comparisons", "qualified_comparison"),
     StructuralProducts("structural_dossiers", "dossier"),
 )

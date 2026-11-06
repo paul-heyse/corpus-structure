@@ -105,6 +105,8 @@ def render_query(result: Any) -> Table:
                     ", ".join(reading["outcome"] for reading in product["definition"]["readings"])
                     or "no applicability decision"
                 )
+            elif kind == "definition_components":
+                summary = f"{len(product['definition_components']['components'])} located definition components"
             elif kind == "dossier":
                 summary = f"{len(product['dossier']['members'])} declared members"
             else:

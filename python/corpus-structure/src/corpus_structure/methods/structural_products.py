@@ -180,7 +180,7 @@ class StructuralProductsMethod:
     """
 
     name = "structure.products"
-    version = "1"
+    version = "2"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC

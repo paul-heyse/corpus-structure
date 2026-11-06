@@ -1,170 +1,177 @@
-"""Owned automatic source-backed definition nomination and applicability proposals.
+"""Located target extraction and separately justified usage applicability.
 
-The model classifies each fixed-list usage/passage pair. Its category and confidence
-are retained observations, never public eligibility or a calibrated truth estimate.
+The extraction task retains target-local products independently of downstream
+linking. Neither returned model attributes nor deterministic compatibility confer
+independent assessment or publication standing.
 """
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
-from hashlib import sha256
-from typing import Self
+from types import SimpleNamespace
+from typing import Any, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.methods.contextual_embeddings import (
-    E5,
-    ContextInput,
-    encode_contexts,
-)
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
-from corpus_structure.methods.structural_products import definition_applicability
-from corpus_structure.methods.structural_retrieval import source_definition_inventory
-from corpus_structure.semantic.contextual_storage import enrichment_report
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
-    DefinitionReading,
+    ApplicabilityPremise,
+    DefinitionComponentsProduct,
+    DefinitionProduct,
+    DefinitionStage,
+    LocatedDefinitionComponent,
+    LocatedDefinitionSpan,
+    RetainedComponentRef,
+    StructuralDefinitionReading,
     StructuralInput,
+    StructuralPassage,
+    StructuralProductReport,
     StructuralValue,
+    definition_component,
 )
 
 
-class DefinitionApplicabilityConfig(StructuralValue):
+class DefinitionComponentsConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
-    usage_id: str | None = None
     target_ids: tuple[str, ...] = ()
     profile: GlinerProfile | None = None
-    unique_target_budget: int = Field(default=10, ge=1, le=256)
-    channel_budget: int = Field(default=30, ge=1, le=256)
+    term_entity: str = Field(default="defined term or expression", min_length=1)
+    content_entity: str = Field(default="defining text or formula", min_length=1)
+    attachment_relation: str = Field(default="term is defined or explained by", min_length=1)
+    threshold: float = Field(default=0.5, gt=0, lt=1)
+    term_role: str = Field(default="term", min_length=1)
+    content_role: str = Field(default="content", min_length=1)
+    use_named_candidates: bool = True
 
     @model_validator(mode="after")
-    def declared_inputs(self) -> Self:
+    def bound_inputs(self) -> Self:
         if self.inputs is None:
-            if (
-                self.usage_id is not None
-                or self.target_ids
-                or self.profile is not None
-                or self.structural_input_digest is not None
-            ):
-                raise ValueError(
-                    "an absent automatic definition operation cannot carry partial inputs"
-                )
+            if self.target_ids or self.profile or self.structural_input_digest:
+                raise ValueError("absent definition extraction cannot carry partial inputs")
             return self
-        if self.profile is None or self.usage_id is None:
-            raise ValueError("automatic definition operation needs a declared provider and usage")
-        if self.structural_input_digest != self.inputs.identity:
-            raise ValueError("automatic definition operation needs its exact frozen input digest")
+        if self.profile is None or self.structural_input_digest != self.inputs.identity:
+            raise ValueError("definition extraction requires provider and exact input digest")
         passages = {p.passage_id for p in self.inputs.passages}
-        if self.usage_id not in passages or self.usage_id in self.target_ids:
-            raise ValueError("usage and target passage identities must be distinct")
-        if (
-            not self.target_ids
-            or len(set(self.target_ids)) != len(self.target_ids)
-            or not set(self.target_ids) <= passages
-        ):
-            raise ValueError("target inventory must be nonempty, unique and source-backed")
-        if not self.unique_target_budget <= self.channel_budget:
-            raise ValueError("candidate budget cannot exceed channel overfetch")
-        version = next(
-            p.effective_version for p in self.inputs.passages if p.passage_id == self.usage_id
-        )
-        inventory = source_definition_inventory(
-            self.inputs, target_ids=self.target_ids, effective_version=version
-        )
-        if inventory.inventory_id != self.inputs.inventory_id:
-            raise ValueError("automatic definition inventory must be frozen before model execution")
-        if len(self.target_ids) + 1 > E5.max_items:
-            raise ValueError("automatic definition inventory exceeds owned encoder bound")
+        if not self.target_ids or len(set(self.target_ids)) != len(self.target_ids) or not set(self.target_ids) <= passages:
+            raise ValueError("definition targets must be unique selected passages")
+        if self.term_entity == self.content_entity:
+            raise ValueError("term and defining content need distinct entity roles")
         return self
 
 
-def applicability_pack(prepared) -> GlinerPack:
-    """Descriptions and closed labels come from the bound semantic release."""
-    vocabulary = next(
-        v for v in prepared.vocabularies if v.enum == "StructuralDefinitionReadingOutcomeValue"
-    )
-    declaration = next(
-        r
-        for r in prepared.registry_rows
-        if r.kind == "enum_definition" and r.name == vocabulary.enum
-    )
-    members = json.loads(declaration.body)["permissible_values"]
-    labels = {
-        m.value: members[m.value].get("description") or m.value.replace("_", " ")
-        for m in vocabulary.members
-    }
-    return GlinerPack.from_declaration(
-        prepared.release_id,
-        {"classifications": [{"task": "applicability", "labels": labels}]},
-        version="native-combined-v2",
-    )
+def definition_pack(release: str, cfg: DefinitionComponentsConfig) -> GlinerPack:
+    return GlinerPack.from_declaration(release, {
+        "entities": [cfg.term_entity, cfg.content_entity],
+        "entity_attributes": {"interpretation": {
+            "labels": ["definition", "explanation", "unresolved"],
+            "applies_to": [cfg.term_entity], "qualify_labels": True,
+        }},
+        "relations": [cfg.attachment_relation],
+    }, version="native-local-v1")
 
 
-def pair_input(
-    inputs: StructuralInput, usage_id: str, target_id: str, pack: GlinerPack
-) -> GlinerInput:
-    passages = {p.passage_id: p for p in inputs.passages}
-    usage, target = passages[usage_id], passages[target_id]
-    text = (
-        "SOURCE USAGE (assess the meaning invoked here):\n"
-        + usage.text
-        + "\nTARGET PASSAGE (classify its applicability to that source usage):\n"
-        + target.text
-        + "\nQuestion: "
-        + inputs.question
-        + "\nScope: "
-        + inputs.scope
-        + "\nUsage scope/version: "
-        + usage.scope
-        + " / "
-        + str(usage.effective_version)
-        + "\nTarget scope/version: "
-        + target.scope
-        + " / "
-        + str(target.effective_version)
-        + "\nChoose the target's source-grounded relationship, not topical similarity."
-    )
-    digest = sha256(
-        canonical_bytes(
-            dict(usage=usage.identity, target=target.identity, text=text, pack=pack.fingerprint)
-        )
-    ).hexdigest()
-    return GlinerInput("definition-pair:" + digest, digest, text)
+def _located(passage: StructuralPassage, raw: Any) -> LocatedDefinitionSpan:
+    if not isinstance(raw, dict):
+        raise GlinerRefused("located definition endpoint must be an object")
+    start, end, text = raw.get("start"), raw.get("end"), raw.get("text")
+    if type(start) is not int or type(end) is not int or not isinstance(text, str) or not 0 <= start < end <= len(passage.text) or passage.text[start:end] != text:
+        raise GlinerRefused("definition endpoint differs from exact original input slice")
+    return LocatedDefinitionSpan(passage_id=passage.passage_id, start=passage.start+start, end=passage.start+end, text=text)
 
 
-def decode_applicability(
-    raw, *, target_id: str, usage_id: str, allowed: frozenset[str]
-) -> DefinitionReading:
-    value = raw.get("applicability") if isinstance(raw, dict) else None
-    label = value.get("label") if isinstance(value, dict) else value
-    if not isinstance(label, str) or label not in allowed:
-        raise GlinerRefused("native applicability output has no valid declared category")
-    return DefinitionReading.model_validate(
-        dict(
-            target_id=target_id,
-            outcome=label,
-            evidence=(usage_id, target_id),
-            reason=(
-                "Native fixed-list source-pair classification; "
-                "independent source support remains unassessed."
-            ),
-        )
-    )
+def decode_definition_components(raw: Any, passage: StructuralPassage, cfg: DefinitionComponentsConfig) -> tuple[LocatedDefinitionComponent, ...]:
+    """Require both independently located endpoint roles and a returned attachment.
+
+    Equal strings never reconcile endpoints; the complete source interval does.
+    Unattached decoded entities stay in the immutable raw report, not invented edges.
+    """
+    if not isinstance(raw, dict) or not isinstance(raw.get("entities"), dict) or not isinstance(raw.get("relation_extraction"), dict):
+        raise GlinerRefused("located extraction did not return declared entity/relation channels")
+    entities = raw["entities"]
+    term_spans = {}
+    for term in entities.get(cfg.term_entity, ()):
+        span = _located(passage, term)
+        interpretation = term.get("interpretation")
+        if isinstance(interpretation, dict):
+            interpretation = interpretation.get("label")
+        if interpretation not in {"definition", "explanation", "unresolved"}:
+            raise GlinerRefused("decoded term has no supported span-conditioned interpretation")
+        term_spans[span.identity] = (span, interpretation)
+    content_spans = {_located(passage, c).identity: _located(passage, c) for c in entities.get(cfg.content_entity, ())}
+    components = {}
+    for relation in raw["relation_extraction"].get(cfg.attachment_relation, ()):
+        if not isinstance(relation, dict):
+            raise GlinerRefused("attachment has no located endpoints")
+        term, content = _located(passage, relation.get("head")), _located(passage, relation.get("tail"))
+        if term.identity not in term_spans or content.identity not in content_spans:
+            raise GlinerRefused("attachment endpoints lack the declared decoded roles")
+        component = definition_component(term=term, content=content, interpretation=term_spans[term.identity][1], basis="model_reading", scope=passage.scope, effective_version=passage.effective_version, evidence=(passage.passage_id,), reason="Target-local decoded span roles and directed attachment; independent support unassessed.")
+        components[component.component_id] = component
+    return tuple(components[key] for key in sorted(components))
 
 
-class DefinitionApplicabilityMethod:
-    name = "structure.definitions"
+def components_from_named_matches(passage: StructuralPassage, matches, *, term_role: str, content_role: str) -> tuple[LocatedDefinitionComponent, ...]:
+    """Consume WCE03 named role expansions; never infer a role from node order.
+
+    Only exact contiguous available roles can form this attachment. Raw matches,
+    alternatives and discontinuous roles remain retained in their source producer.
+    """
+    components = {}
+    for match in matches:
+        roles = {role.role: role for role in match.roles}
+        selected = []
+        for name in (term_role, content_role):
+            role = roles.get(name)
+            if role is None or role.status != "complete" or not role.extents or role.nodes != tuple(range(role.nodes[0], role.nodes[-1]+1)):
+                break
+            start, end = role.extents[0][0], role.extents[-1][1]
+            if not passage.start <= start < end <= passage.end:
+                break
+            selected.append(LocatedDefinitionSpan(passage_id=passage.passage_id, start=start, end=end, text=passage.text[start-passage.start:end-passage.start]))
+        if len(selected) != 2:
+            continue
+        component = definition_component(term=selected[0], content=selected[1], interpretation="definition", basis="matched_cue", scope=passage.scope, effective_version=passage.effective_version, evidence=(passage.passage_id,), reason=f"Named rule {match.rule}/{match.variant} binds explicit {term_role}/{content_role} roles; semantic attachment remains independently unassessed.")
+        components[component.component_id] = component
+    return tuple(components[key] for key in sorted(components))
+
+
+def retained_named_components(reader, inputs: StructuralInput, passage: StructuralPassage, cfg: DefinitionComponentsConfig):
+    """Consume the selected actual WCE03 producer, never caller-supplied role labels."""
+    from corpus_structure.semantic.observations import source_python
+
+    source = next(ref for ref in inputs.sources if ref.identity == passage.source_ref)
+    result = reader.source_result(source.source_view_id, "extract.m1_candidates")
+    if result is None:
+        return (), "selected named-candidate producer unavailable"
+    matches = []
+    for row in result.get("contributions", ()):
+        if not row.get("semantic_type", "").startswith("source_rule."):
+            continue
+        pin = row.get("pin", {})
+        expected = {"source_view_id": source.source_view_id, "native_product_task_id": source.native_task_id, "product_key": source.native_product_key, "product_digest": source.native_content_digest, "projection_digest": source.projection_digest, "recipe_digest": source.recipe_digest}
+        if any(pin.get(key) != value for key, value in expected.items()):
+            raise ValueError("named candidate differs from original source custody")
+        match = source_python(row["value"])
+        if match.get("protocol") != "named-annotation-match-2":
+            raise ValueError("named candidate requires current role contract")
+        roles = tuple(SimpleNamespace(**{**role, "nodes": tuple(role["nodes"]), "extents": tuple(tuple(v) for v in role["extents"])}) for role in match["roles"])
+        matches.append(SimpleNamespace(**{**match, "roles": roles}))
+    return components_from_named_matches(passage, matches, term_role=cfg.term_role, content_role=cfg.content_role), "Consumed selected source-authenticated named candidates."
+
+
+class DefinitionComponentsMethod:
+    name = "structure.definition_components"
     version = "1"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
     confidence_source = None
-    Config = DefinitionApplicabilityConfig
+    Config = DefinitionComponentsConfig
     resources = Resources(worker="cpu", batch_size=1, max_concurrency=1)
 
     def __init__(self):
@@ -176,171 +183,123 @@ class DefinitionApplicabilityMethod:
         self._worker = None
 
     def select(self, run, cfg):
-        return (
-            (
-                UnitRef(
-                    TaskUnitType.RUN,
-                    unit_key="definition:" + cfg.inputs.identity + ":" + cfg.usage_id,
-                ),
-            )
-            if cfg.inputs is not None
-            else ()
-        )
+        return (UnitRef(TaskUnitType.RUN, unit_key="definition-components:"+cfg.inputs.identity),) if cfg.inputs is not None else ()
 
     def input_digest(self, unit, cfg):
         return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
 
     def run(self, units, cfg, ctx):
-        if cfg.inputs is None or cfg.profile is None or cfg.usage_id is None:
-            raise ValueError("automatic definition task requires complete configured inputs")
-        # One short read validates the original complete foreign-source frame. Its
-        # snapshot is settled before either owned model starts.
+        if cfg.inputs is None or cfg.profile is None:
+            raise ValueError("definition extraction needs complete configured inputs")
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
-        ctx.check_active()
-        passages = {p.passage_id: p for p in cfg.inputs.passages}
-        usage = passages[cfg.usage_id]
-        inventory = source_definition_inventory(
-            cfg.inputs, target_ids=cfg.target_ids, effective_version=usage.effective_version
-        )
-        contexts = [
-            ContextInput(
-                cfg.usage_id,
-                "source-passage:" + usage.identity,
-                "query",
-                usage.text,
-                usage.text,
-                0,
-                len(usage.text),
-                parent=usage.parent or "",
-            )
-        ]
-        for target in inventory.targets:
-            contexts.append(
-                ContextInput(
-                    target.target_id,
-                    target.source_binding,
-                    "document",
-                    target.label,
-                    target.description,
-                    0,
-                    len(target.label),
-                    parent=target.parent or "",
-                    type_name=target.type_name,
-                    representation_digest=target.representation_digest,
-                )
-            )
-        encoded = encode_contexts(contexts, E5, check_active=ctx.check_active)
-        vectors = {v.object_id: v for v in encoded.vectors}
-        candidates = ctx.reader.contextual_candidates(
-            occurrence_id=cfg.usage_id,
-            query=vectors[cfg.usage_id],
-            inventory=inventory,
-            target_vectors=tuple(vectors[t.target_id] for t in inventory.targets),
-            lexical_query=usage.text,
-            dimension=E5.dimension,
-            budget=cfg.unique_target_budget,
-            channel_budget=cfg.channel_budget,
-        )
-        retrieval = enrichment_report(
-            profiles=(E5,),
-            vectors=encoded.vectors,
-            inventories=(inventory,),
-            candidate_lists=(candidates,),
-        )
-        pack = applicability_pack(ctx.reader.prepared)
+        pack = definition_pack(ctx.reader.prepared.release_id, cfg)
         if self._worker is None:
             self._worker = GlinerWorker(cfg.profile)
         elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
-            raise GlinerRefused("one automatic definition owner cannot switch provider profile")
-        readings, raw_reports, stages = [], [], []
-        targets = tuple(c.target_id for c in candidates.candidates)
-        allowed = ctx.reader.prepared.enum_members("StructuralDefinitionReadingOutcomeValue")
-        for start in range(0, len(targets), cfg.profile.max_batch):
-            selected = targets[start : start + cfg.profile.max_batch]
-            requests = tuple(pair_input(cfg.inputs, cfg.usage_id, t, pack) for t in selected)
+            raise GlinerRefused("definition worker cannot switch model profile")
+        passages = {p.passage_id:p for p in cfg.inputs.passages}
+        components, stages, raw_reports = [], [], []
+        # Detach all selected source products before the owned encoder starts.
+        if cfg.use_named_candidates:
+            for passage_id in cfg.target_ids:
+                named, reason = retained_named_components(ctx.reader, cfg.inputs, passages[passage_id], cfg)
+                components.extend(named)
+                stages.append(DefinitionStage(passage_id=passage_id, operation="attachment", outcome="succeeded" if named else "unavailable" if "unavailable" in reason else "empty", reason=reason))
+        for passage_id in cfg.target_ids:
             ctx.check_active()
+            passage = passages[passage_id]
+            request = GlinerInput("definition-target:"+passage.identity, passage.identity, passage.text)
             try:
-                replies = self._worker.extract(
-                    pack,
-                    requests,
-                    threshold=0.5,
-                    overlap_policy="flat",
-                    check_active=ctx.check_active,
-                )
+                reply, = self._worker.extract(pack, (request,), threshold=cfg.threshold, overlap_policy="flat", check_active=ctx.check_active)
+                raw_reports.append(dict(passage_id=passage_id, **asdict(reply)))
+                decoded = decode_definition_components(reply.raw, passage, cfg)
             except (GlinerRefused, GlinerWorkerError, ValueError, TimeoutError, OSError) as error:
-                ctx.check_active()
-                stages.append(
-                    dict(
-                        outcome="failed",
-                        targets=selected,
-                        error_type=type(error).__name__,
-                        error=str(error),
-                    )
-                )
-                if self._worker.closed:
-                    remaining = targets[start + len(selected) :]
-                    if remaining:
-                        stages.append(
-                            dict(
-                                outcome="not_run",
-                                targets=remaining,
-                                reason="native owner retired after failure",
-                            )
-                        )
-                    break
+                stages.append(DefinitionStage(passage_id=passage_id, operation="located_extraction", outcome="failed", reason=f"{type(error).__name__}: {error}"))
                 continue
-            for target, reply in zip(selected, replies, strict=True):
-                raw_reports.append(dict(target_id=target, **asdict(reply)))
-                try:
-                    reading = decode_applicability(
-                        reply.raw, target_id=target, usage_id=cfg.usage_id, allowed=allowed
-                    )
-                except GlinerRefused as error:
-                    stages.append(dict(outcome="failed", targets=(target,), reason=str(error)))
-                else:
-                    readings.append(reading)
-                    stages.append(
-                        dict(outcome="succeeded", targets=(target,), category=reading.outcome)
-                    )
+            components.extend(decoded)
+            stages.append(DefinitionStage(passage_id=passage_id, operation="located_extraction", outcome="succeeded" if decoded else "empty", reason="Retained exact target-local output; no absence or semantic correctness claim."))
         ctx.check_active()
-        report = definition_applicability(
-            cfg.inputs,
-            usage_id=cfg.usage_id,
-            candidate_list_id=candidates.list_id,
-            eligible_targets=inventory.target_ids,
-            candidate_targets=targets,
-            readings=readings,
-        )
-        report = report.model_copy(update={"retrieval_report": retrieval})
-        detail = dict(
-            version="automatic-definition-applicability-1",
-            standing="unassessed_model_observations",
-            native_options=dict(
-                operation="batch_extract",
-                threshold=0.5,
-                overlap_policy="flat",
-                include_spans=True,
-                include_confidence=True,
-                max_len=None,
-            ),
-            nomination=dict(outcome="succeeded", candidate_list_id=candidates.list_id),
-            classification_stages=stages,
-            raw_reports=raw_reports,
-            profile=cfg.model_dump(mode="json")["profile"],
-            profile_fingerprint=cfg.profile.fingerprint,
-            schema_declaration=pack.declaration_json,
-            pack_fingerprint=pack.fingerprint,
-            encoder_implementation=encoded.implementation,
-            encoder_inputs=[asdict(i) for i in encoded.inputs],
-        )
-        detail = RootModel[dict[str, JsonValue]].model_validate_json(canonical_bytes(detail)).root
-        return tuple(
-            UnitResult(
-                ref=unit.ref,
-                outcome=ObservationOutcome.PRODUCED,
-                structural_product=report.model_dump(mode="json"),
-                parse_detail=detail,
-            )
-            for unit in units
-        )
+        report = StructuralProductReport(kind="definition_components", inputs=cfg.inputs, definition_components=DefinitionComponentsProduct(components=tuple(components), stages=tuple(stages)))
+        detail = RootModel[dict[str, JsonValue]].model_validate_json(canonical_bytes(dict(version="located-definition-extraction-1", raw_reports=raw_reports, pack_fingerprint=pack.fingerprint, schema_declaration=pack.declaration_json, profile_fingerprint=cfg.profile.fingerprint, profile=cfg.model_dump(mode="json")["profile"]))).root
+        return tuple(UnitResult(ref=unit.ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json"), parse_detail=detail) for unit in units)
+
+
+class ApplicabilityCandidate(StructuralValue):
+    target_id: str = Field(min_length=1)
+    reference: RetainedComponentRef
+    component: LocatedDefinitionComponent
+    premises: tuple[ApplicabilityPremise, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def component_binding(self) -> Self:
+        if self.reference.component_id != self.component.component_id:
+            raise ValueError("applicability candidate substitutes its component")
+        return self
+
+
+class DefinitionApplicabilityConfig(StructuralValue):
+    inputs: StructuralInput | None = None
+    structural_input_digest: str | None = None
+    usage_id: str | None = None
+    candidate_list_id: str | None = None
+    candidates: tuple[ApplicabilityCandidate, ...] = ()
+
+    @model_validator(mode="after")
+    def bound_inputs(self) -> Self:
+        if self.inputs is None:
+            if self.structural_input_digest or self.usage_id or self.candidate_list_id or self.candidates:
+                raise ValueError("absent applicability cannot carry partial inputs")
+            return self
+        if self.structural_input_digest != self.inputs.identity or not self.candidate_list_id or self.usage_id not in {p.passage_id for p in self.inputs.passages}:
+            raise ValueError("applicability requires exact inputs and usage/candidate selection")
+        return self
+
+
+def assess_applicability(inputs: StructuralInput, usage_id: str, candidate: ApplicabilityCandidate) -> StructuralDefinitionReading:
+    usage = next(p for p in inputs.passages if p.passage_id == usage_id)
+    component = candidate.component
+    dimensions = {p.dimension for p in candidate.premises}
+    if dimensions != {"sense", "parameterization", "convention"}:
+        raise ValueError("usage binding requires explicit sense, parameterization and convention premises")
+    premises = (*candidate.premises,
+        ApplicabilityPremise(dimension="scope", state="compatible" if usage.scope == component.scope else "incompatible", evidence=(usage_id, component.term.passage_id), reason="Compare original usage and component scope."),
+        ApplicabilityPremise(dimension="version", state="unknown" if usage.effective_version is None and component.effective_version is not None else ("compatible" if usage.effective_version == component.effective_version else "incompatible"), evidence=(usage_id, component.term.passage_id), reason="Compare declared original effective versions; unknown is not compatible."))
+    states = {p.state for p in premises}
+    if "incompatible" in states:
+        outcome = "incompatible"
+    elif "unknown" in states or component.interpretation == "unresolved":
+        outcome = "unresolved"
+    else:
+        outcome = "applicable_definition" if component.interpretation == "definition" else "applicable_explanation"
+    return StructuralDefinitionReading(target_id=candidate.target_id, component_ref=candidate.reference, outcome=outcome, evidence=(usage_id, component.term.passage_id, component.content.passage_id), premises=premises, reason="Applicability derived from explicit usage binding and compatibility premises; independent support unassessed.")
+
+
+class DefinitionApplicabilityMethod:
+    name = "structure.definitions"
+    version = "2"
+    family = MethodFamily.RESOLVE
+    unit_type = TaskUnitType.RUN
+    tier = MethodTier.DETERMINISTIC
+    confidence_source = None
+    Config = DefinitionApplicabilityConfig
+    resources = Resources()
+
+    def select(self, run, cfg):
+        return (UnitRef(TaskUnitType.RUN, unit_key="definition-applicability:"+cfg.inputs.identity+":"+cfg.usage_id),) if cfg.inputs is not None else ()
+
+    def input_digest(self, unit, cfg):
+        return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
+
+    def run(self, units, cfg, ctx):
+        if cfg.inputs is None or cfg.usage_id is None or cfg.candidate_list_id is None:
+            raise ValueError("applicability requires complete configured inputs")
+        ctx.check_active()
+        ctx.reader.validate_structural_inputs(cfg.inputs)
+        readings = []
+        for candidate in cfg.candidates:
+            ctx.check_active()
+            readings.append(assess_applicability(cfg.inputs, cfg.usage_id, candidate))
+        targets = tuple(dict.fromkeys(c.target_id for c in cfg.candidates))
+        report = StructuralProductReport(kind="definition_applicability", inputs=cfg.inputs, definition=DefinitionProduct(usage_id=cfg.usage_id, candidate_list_id=cfg.candidate_list_id, eligible_targets=targets, candidate_targets=targets, readings=tuple(readings)))
+        return tuple(UnitResult(ref=unit.ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json")) for unit in units)

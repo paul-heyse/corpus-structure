@@ -15,7 +15,7 @@ class StructuralRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     run_id: int = Field(strict=True, gt=0)
     cut_id: int | None = Field(default=None, strict=True, gt=0)
-    kind: Literal["definition_applicability", "qualified_comparison", "dossier"] | None = None
+    kind: Literal["definition_components", "definition_applicability", "qualified_comparison", "dossier"] | None = None
     after_task_id: int = Field(default=0, strict=True, ge=0)
     limit: int = Field(default=20, strict=True, ge=1, le=100)
     max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
@@ -30,7 +30,7 @@ class StructuralRequest(BaseModel):
 
 
 class StructuralPage(BaseModel):
-    version: Literal["structural-inspection-1"] = "structural-inspection-1"
+    version: Literal["structural-inspection-2"] = "structural-inspection-2"
     run_id: int
     cut_id: int
     release_id: str
