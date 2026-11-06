@@ -7,7 +7,7 @@ independent assessment or publication standing.
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from types import SimpleNamespace
 from typing import Any, Literal, Self
 
@@ -290,6 +290,14 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
     return tuple(found)
 
 
+@dataclass(frozen=True)
+class NamedDefinitionResult:
+    components: tuple[LocatedDefinitionComponent, ...]
+    available: bool
+    operations: tuple[dict[str, Any], ...]
+    reason: str
+
+
 def retained_annotation_components(reader, inputs, passage, cfg, *, retained=None):
     from spacy.lang.en import English
 
@@ -304,10 +312,10 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
         )
     frame, products, errors = retained.source, retained.annotations, retained.errors
     if errors:
-        return (), "; ".join(errors)
+        return NamedDefinitionResult((), False, (), "; ".join(errors))
     rules = tuple(AnnotationRule.model_validate(rule) for rule in cfg.annotation_rules)
     prepared = PreparedAnnotationRules(English().vocab, rules=rules)
-    found = []
+    found, operations = [], []
     for product in products:
         if product.block_start >= passage.end or product.block_end <= passage.start:
             continue
@@ -317,7 +325,14 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
             prepared.vocab,
             required=(),
         )
-        matches = prepared.match(restored).matches
+        result = prepared.match(restored)
+        matches = result.matches
+        for rule,variant,state in result.availability:
+            selected = [match for match in matches if (match.rule,match.variant)==(rule,variant)]
+            operations.append(dict(passage_id=passage.passage_id,source_ref=passage.source_ref,
+                annotation_task_id=retained.annotation_task_id,block_id=product.block_id,
+                rule=rule,variant=variant,availability=state,matched_count=len(selected),
+                role_outcomes=[dict(role=role.role,outcome=role.status) for match in selected for role in match.roles]))
         found.extend(
             components_from_named_matches(
                 passage, matches, term_role=cfg.term_role, content_role=cfg.content_role
@@ -334,9 +349,10 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                 passage, matches, display_spans, term_role=cfg.term_role
             )
         )
-    return tuple(
-        found
-    ), "Current named rules executed on authenticated retained annotation columns."
+    available=any(operation["availability"]=="available" for operation in operations)
+    return NamedDefinitionResult(tuple(found),available,tuple(operations),
+        "Current named rules executed on authenticated retained annotation columns."
+        if available else "No selected retained linguistic rule operation is executable; no source absence is established.")
 
 
 def retained_named_components(
@@ -348,7 +364,7 @@ def retained_named_components(
     source = next(ref for ref in inputs.sources if ref.identity == passage.source_ref)
     result = reader.source_result(source.source_view_id, "extract.m1_candidates")
     if result is None:
-        return (), "selected named-candidate producer unavailable"
+        return NamedDefinitionResult((), False, (), "selected named-candidate producer unavailable")
     matches = []
     for row in result.get("contributions", ()):
         if not row.get("semantic_type", "").startswith("source_rule."):
@@ -378,9 +394,11 @@ def retained_named_components(
             for role in match["roles"]
         )
         matches.append(SimpleNamespace(**{**match, "roles": roles}))
-    return components_from_named_matches(
-        passage, matches, term_role=cfg.term_role, content_role=cfg.content_role
-    ), "Consumed selected source-authenticated named candidates."
+    operations=tuple(dict(operation) for operation in result.get("contribution_operations",()))
+    available=any(operation.get("outcome") in {"succeeded","empty","limited"} for operation in operations)
+    return NamedDefinitionResult(components_from_named_matches(passage,matches,
+        term_role=cfg.term_role,content_role=cfg.content_role),available,operations,
+        "Consumed selected source-authenticated named candidates.")
 
 
 _DEFINITION_WINDOW_CHARS = 1536
@@ -466,6 +484,7 @@ class DefinitionComponentsMethod:
             raise GlinerRefused("definition worker cannot switch model profile")
         passages = {p.passage_id: p for p in cfg.inputs.passages}
         components, stages, raw_reports = [], [], []
+        named_rule_operations = []
         annotation_sources = {}
         if cfg.use_named_candidates and cfg.annotation_rules:
             from corpus_structure.ingest.annotations import AnnotationProfile
@@ -478,7 +497,7 @@ class DefinitionComponentsMethod:
         # Detach all selected source products before the owned encoder starts.
         if cfg.use_named_candidates:
             for passage_id in cfg.target_ids:
-                named, reason = (
+                named = (
                     retained_annotation_components(
                         ctx.reader,
                         cfg.inputs,
@@ -491,17 +510,14 @@ class DefinitionComponentsMethod:
                         ctx.reader, cfg.inputs, passages[passage_id], cfg
                     )
                 )
-                components.extend(named)
+                components.extend(named.components)
+                named_rule_operations.extend(named.operations)
                 stages.append(
                     DefinitionStage(
                         passage_id=passage_id,
                         operation="attachment",
-                        outcome="succeeded"
-                        if named
-                        else "unavailable"
-                        if "unavailable" in reason
-                        else "empty",
-                        reason=reason,
+                        outcome="succeeded" if named.components else "empty" if named.available else "unavailable",
+                        reason=named.reason,
                     )
                 )
         for passage_id in cfg.target_ids:
@@ -628,6 +644,7 @@ class DefinitionComponentsMethod:
                     dict(
                         version="located-definition-extraction-1",
                         raw_reports=raw_reports,
+                        named_rule_operations=named_rule_operations,
                         annotation_inputs=[
                             dict(
                                 source_ref=source_ref,
