@@ -217,7 +217,7 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_array_elements(payload->'cases') c GROUP BY c->>'case_id' HAVING count(*)>1) THEN
   RAISE EXCEPTION 'duplicate structural reference case' USING ERRCODE='23514'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(payload->'cases') LOOP
-  IF item-ARRAY['case_id','facet','path','expected','source_passages','judgment','explanation']<>'{}'
+  IF item-ARRAY['case_id','component_id','facet','path','expected','source_passages','judgment','explanation']<>'{}'
    OR btrim(COALESCE(item->>'case_id',''))='' OR btrim(COALESCE(item->>'explanation',''))=''
    OR COALESCE(item->>'facet','') NOT IN ('location','role','attachment','relationship','applicability','scope','difference','membership','source_support','completeness','public_statement')
    OR COALESCE(item->>'judgment','') NOT IN ('supported','unsupported','ambiguous','unassessed')

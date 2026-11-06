@@ -274,6 +274,7 @@ def _release_guard_definitions(connection, sql, *, source):
 _RETIRED_SOURCE_FUNCTIONS = frozenset(
     {
         ("kb", "check_offsets"),
+        ("data", "structural_public_statement"),
         ("eval", "assign_document_split"),
         *(
             ("eval", name)

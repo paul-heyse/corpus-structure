@@ -156,7 +156,7 @@ classes:
     is_a: SourceRecordProduct
     description: Sealed private local question over an exact retained contribution selection; no admission authority.
     attributes:
-      question_id: {required: true}
+      constraint_id: {required: true}
       contribution_ids: {multivalued: true}
       retained_input_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
@@ -674,16 +674,17 @@ classes:
       policy_id: {required: true}
       exclusion_snapshot: {required: true}
       outcome: {required: true, pattern: '^(selected|partial|ambiguous|local_sense|new_concept|insufficient_evidence)$'}
-      questions: {range: ContextualRelationshipQuestion, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      unresolved_constraints: {multivalued: true}
+      constraints: {range: ContextualRelationshipConstraint, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
       witnesses: {range: ContextualRelationshipWitness, inlined: true, multivalued: true}
       selected_edges: {range: ContextualRelationshipEdge, inlined: true, multivalued: true}
       alternative_groups: {range: ContextualAlternativeGroup, inlined: true, multivalued: true}
       proposal: {range: ContextualProposalWitness, inlined: true}
       reason: {}
-  ContextualRelationshipQuestion:
+  ContextualRelationshipConstraint:
     is_a: SourceRecordProduct
     attributes:
-      question_id: {required: true}
+      constraint_id: {required: true}
       relation_kinds: {required: true, multivalued: true, minimum_cardinality: 1}
       occurrence_role: {required: true}
       target_role: {required: true}
@@ -693,7 +694,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       edge_id: {required: true}
-      question_id: {required: true}
+      constraint_id: {required: true}
       occurrence_id: {required: true}
       target_id: {required: true}
       relation: {required: true}
@@ -702,7 +703,7 @@ classes:
   ContextualAlternativeGroup:
     is_a: SourceRecordProduct
     attributes:
-      question_id: {required: true}
+      constraint_id: {required: true}
       edges: {range: ContextualRelationshipEdge, inlined: true, multivalued: true, required: true, minimum_cardinality: 2}
       reason: {required: true}
   ContextualProductCounts:
@@ -1118,10 +1119,31 @@ classes:
         range: StructuralPublicCitation
         required: true
         inlined: true
+  StructuralPublicComponentRef:
+    attributes:
+      product_id: {required: true}
+      component_id: {required: true, pattern: '^[0-9a-f]{64}$'}
+      operation_id: {required: true}
+      operation_version: {required: true}
+      project_id: {required: true}
+      run_id: {required: true, range: integer, minimum_value: 1}
+      cut_id: {required: true, range: integer, minimum_value: 1}
+      release_id: {required: true}
+      result_revision: {required: true, range: integer, minimum_value: 0}
+      selected_task_id: {required: true, range: integer, minimum_value: 1}
+      origin_task_id: {required: true, range: integer, minimum_value: 1}
+      runtime_fingerprint: {required: true}
+      dependencies: {required: true, multivalued: true, minimum_cardinality: 1}
+  StructuralPublicApplicabilityPremise:
+    attributes:
+      dimension: {required: true, pattern: '^(scope|parent|parameterization|convention|version|sense)$'}
+      state: {required: true, pattern: '^(compatible|incompatible|unknown|inapplicable)$'}
+      evidence: {multivalued: true}
+      reason: {required: true}
   StructuralPublicDefinitionReading:
     attributes:
-      component_ref: {required: true, range: RetainedComponentRef, inlined: true}
-      premises: {required: true, range: ApplicabilityPremise, multivalued: true, inlined: true}
+      component_ref: {required: true, range: StructuralPublicComponentRef, inlined: true}
+      premises: {required: true, range: StructuralPublicApplicabilityPremise, multivalued: true, inlined: true}
       target:
         range: string
         required: true
@@ -1264,9 +1286,6 @@ classes:
         equals_string: structural-public-statement-2
       kind:
         range: StructuralStructuralProductReportKindValue
-        required: true
-      question:
-        range: string
         required: true
       scope:
         range: string

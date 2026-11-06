@@ -32,14 +32,14 @@ REVOKE ALL ON FUNCTION ops.contextual_nullable_value(jsonb) FROM PUBLIC;
 -- Replay question-relative selection from the complete witnessed input population.
 CREATE OR REPLACE FUNCTION ops.validate_contextual_selection(d jsonb,candidates jsonb,inventory jsonb) RETURNS void
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE question jsonb; edges jsonb; edge jsonb; selected jsonb:='[]'; groups jsonb:='[]'; expected text; actual_pairs jsonb;
+DECLARE question jsonb; edges jsonb; edge jsonb; selected jsonb:='[]'; groups jsonb:='[]'; unresolved jsonb:='[]'; expected text; actual_pairs jsonb;
 BEGIN
- IF jsonb_array_length(d->'questions')=0 OR EXISTS(SELECT FROM jsonb_array_elements(d->'questions') q GROUP BY q->>'question_id' HAVING count(*)>1)
- OR EXISTS(SELECT FROM jsonb_array_elements(d->'questions') q,LATERAL jsonb_array_elements_text(q->'relation_kinds') k GROUP BY k HAVING count(*)>1)
+ IF jsonb_array_length(d->'constraints')=0 OR EXISTS(SELECT FROM jsonb_array_elements(d->'constraints') q GROUP BY q->>'constraint_id' HAVING count(*)>1)
+ OR EXISTS(SELECT FROM jsonb_array_elements(d->'constraints') q,LATERAL jsonb_array_elements_text(q->'relation_kinds') k GROUP BY k HAVING count(*)>1)
  OR EXISTS(SELECT FROM jsonb_array_elements(d->'witnesses') w GROUP BY w->>'witness_id' HAVING count(*)>1)
- OR EXISTS(SELECT FROM jsonb_array_elements(d->'witnesses') w WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(d->'questions') q WHERE q->'relation_kinds' ? (w->>'relation'))) THEN
+ OR EXISTS(SELECT FROM jsonb_array_elements(d->'witnesses') w WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(d->'constraints') q WHERE q->'relation_kinds' ? (w->>'relation'))) THEN
   RAISE EXCEPTION 'relationship question ownership or witness population invalid' USING ERRCODE='23514'; END IF;
- FOR question IN SELECT value FROM jsonb_array_elements(d->'questions') ORDER BY value->>'question_id' LOOP
+ FOR question IN SELECT value FROM jsonb_array_elements(d->'constraints') ORDER BY value->>'constraint_id' LOOP
   WITH eligible AS (
    SELECT w FROM jsonb_array_elements(d->'witnesses') w WHERE question->'relation_kinds' ? (w->>'relation')
    AND w->>'support_state' NOT IN ('unsupported','ambiguous') AND w->>'occurrence_id'<>w->>'target_id'
@@ -49,15 +49,17 @@ BEGIN
   ), pair AS (
    SELECT w->>'target_id' target_id,w->>'relation' relation,jsonb_agg(w ORDER BY w->>'witness_id') witnesses FROM eligible GROUP BY w->>'target_id',w->>'relation'
   ), meanings AS (
-   SELECT target_id,relation,jsonb_build_object('question_id',question->>'question_id','occurrence_id',d->>'occurrence_id','target_id',target_id,'relation',relation,'witnesses',witnesses,'selection',CASE WHEN (question->>'exhaustive')::boolean THEN 'forced' ELSE 'preferred' END) meaning FROM pair
+   SELECT target_id,relation,jsonb_build_object('constraint_id',question->>'constraint_id','occurrence_id',d->>'occurrence_id','target_id',target_id,'relation',relation,'witnesses',witnesses,'selection',CASE WHEN (question->>'exhaustive')::boolean THEN 'forced' ELSE 'preferred' END) meaning FROM pair
   ) SELECT COALESCE(jsonb_agg(meaning||jsonb_build_object('edge_id','scoped-edge:'||encode(sha256(convert_to(data.canonical_json(ops.contextual_nullable_value(meaning)),'UTF8')),'hex')) ORDER BY target_id,relation),'[]') INTO edges FROM meanings;
+  IF jsonb_array_length(edges)=0 OR (question->>'multiplicity'='one' AND jsonb_array_length(edges)>1) THEN unresolved:=unresolved||jsonb_build_array(question->>'constraint_id'); END IF;
   IF question->>'multiplicity'='one' AND jsonb_array_length(edges)>1 THEN
-   groups:=groups||jsonb_build_array(jsonb_build_object('question_id',question->>'question_id','edges',edges,'reason','competing senses under declared exclusive question'));
+   groups:=groups||jsonb_build_array(jsonb_build_object('constraint_id',question->>'constraint_id','edges',edges,'reason','competing senses under declared exclusive question'));
   ELSE selected:=selected||edges; END IF;
  END LOOP;
+ IF d->'unresolved_constraints' IS DISTINCT FROM unresolved THEN RAISE EXCEPTION 'unresolved constraints differ from eligible edge population' USING ERRCODE='23514'; END IF;
  IF jsonb_strip_nulls(d->'selected_edges') IS DISTINCT FROM jsonb_strip_nulls(selected) OR jsonb_strip_nulls(d->'alternative_groups') IS DISTINCT FROM jsonb_strip_nulls(groups) THEN
   RAISE EXCEPTION 'selected edges or alternatives differ from exact question replay' USING ERRCODE='23514'; END IF;
- expected:=CASE WHEN jsonb_array_length(selected)>0 THEN CASE WHEN jsonb_array_length(groups)>0 THEN 'partial' ELSE 'selected' END WHEN jsonb_array_length(groups)>0 THEN 'ambiguous' WHEN d ? 'proposal' THEN d->'proposal'->>'kind' ELSE 'insufficient_evidence' END;
+ expected:=CASE WHEN jsonb_array_length(selected)>0 THEN CASE WHEN jsonb_array_length(unresolved)>0 THEN 'partial' ELSE 'selected' END WHEN jsonb_array_length(groups)>0 THEN 'ambiguous' WHEN d ? 'proposal' THEN d->'proposal'->>'kind' ELSE 'insufficient_evidence' END;
  IF d->>'outcome' IS DISTINCT FROM expected OR ((jsonb_array_length(selected)>0 OR jsonb_array_length(groups)>0) AND d ? 'proposal') THEN
   RAISE EXCEPTION 'decision outcome differs from question-relative selection' USING ERRCODE='23514'; END IF;
 END $$;
@@ -154,7 +156,7 @@ BEGIN
   IF op ? 'local_interpretation' THEN
    local_:=op->'local_interpretation'; selected_ids:=COALESCE(local_->'contribution_ids','[]');
    IF local_->>'seal' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_-'seal'),'UTF8')),'hex')
-    OR local_->>'question_id' IS DISTINCT FROM op->>'operation_key'
+    OR local_->>'constraint_id' IS DISTINCT FROM op->>'operation_key'
     OR (local_->>'coupling_enabled')::boolean IS DISTINCT FROM false
     OR jsonb_array_length(selected_ids)<>(SELECT count(DISTINCT id) FROM jsonb_array_elements_text(selected_ids) x(id))
     OR EXISTS(SELECT FROM jsonb_array_elements_text(selected_ids) x(id) WHERE NOT identity_map ? id)
@@ -182,7 +184,7 @@ BEGIN
      OR local_->>'result_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_->'result'),'UTF8')),'hex') THEN
      RAISE EXCEPTION 'local interpretation request/result custody differs' USING ERRCODE='23514'; END IF;
     local_request:=data.record_source_json(local_->'request'); local_result:=data.record_source_json(local_->'result');
-    IF local_request->'selection'->>'scope_id' IS DISTINCT FROM local_->>'question_id'
+    IF local_request->'selection'->>'scope_id' IS DISTINCT FROM local_->>'constraint_id'
      OR EXISTS(SELECT FROM jsonb_array_elements_text(local_->'dependencies') x(id)
       WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d WHERE d->>'key'=id))
      OR local_result->>'outcome' IS DISTINCT FROM local_->>'outcome'
@@ -509,7 +511,7 @@ BEGIN
     OR statement IS DISTINCT FROM jsonb_build_object(
       'target_id',denotation_target->'target_id',
       'target_source_binding',denotation_target->'source_binding','relation',selected_edge->>'relation',
-      'scope',denotation->'scope','effective_version',denotation->'effective_version','edge_id',selected_edge->'edge_id','question_id',selected_edge->'question_id')
+      'scope',denotation->'scope','effective_version',denotation->'effective_version','edge_id',selected_edge->'edge_id','constraint_id',selected_edge->'constraint_id')
     OR contribution->'computation_dependencies' IS DISTINCT FROM jsonb_build_array(
       source_cue->>'contribution_id',denotation->>'candidate_list_id',denotation->>'decision_id',
       (SELECT ii->>'source_selection' FROM jsonb_array_elements(denotation_report->'inventories') ii WHERE ii->>'inventory_id'=denotation_list->>'inventory_id'),selected_edge->>'edge_id')

@@ -79,6 +79,7 @@ def decode_structural_frame(value: dict[str, Any]) -> StructuralEvaluationFrame:
 
 class StructuralReferenceCase(StructuralValue):
     case_id: str = Field(min_length=1)
+    component_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     facet: Literal[
         "location",
         "role",
@@ -187,7 +188,7 @@ def score_structural_reference(
         if case.facet == "public_statement":
             from corpus_structure.semantic.structural_admission import structural_statement
 
-            actual: Any = {"public_statement": structural_statement(report)}
+            actual: Any = {"public_statement": structural_statement(report, component_id=case.component_id)}
         else:
             actual = product
         found = True

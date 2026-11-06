@@ -21,7 +21,7 @@ from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_health import FormulaOutcome
 from corpus_structure.ingest.pdf_hierarchy import snapshot
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.methods.contextual_candidates import _phase_operation, denotation_contribution
+from corpus_structure.methods.contextual_candidates import _phase_operation, relationship_contributions
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
     EncoderProfile,
@@ -36,7 +36,7 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contextual_links import RelationshipWitness, select_relationships
+from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
 from corpus_structure.semantic.contextual_retrieval import (
     ChannelHit,
@@ -893,6 +893,7 @@ def contextual_result(case, *, cached=(), effective_version=None, denotation=Fal
         scope="chapter5",
         effective_version=effective_version,
         witnesses=(witness,),
+        constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "concept", "one"),),
     )
     report = enrichment_report(
         curated_registry_id=registry_id,
@@ -915,9 +916,10 @@ def contextual_result(case, *, cached=(), effective_version=None, denotation=Fal
             (lists.list_id,),
             result_id=decision.decision_id,
         )
-        proposal = denotation_contribution(
-            decision, contributions[0], registry_id, inv, phase["operation_key"]
+        proposals = relationship_contributions(
+            decision, contributions[0], inv, phase["operation_key"]
         )
+        proposal = proposals[0]
         assert proposal is not None
         phase["emitted_count"] = 1
         phase["computation_dependencies"] = proposal["computation_dependencies"]

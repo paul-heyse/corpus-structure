@@ -7,6 +7,8 @@ from corpus_structure.evaluate.structural_assessment import (
     StructuralEvaluationFrame,
     StructuralReferenceCase,
     score_structural_reference,
+    StructuralSourceGroup,
+    StructuralSourceOpportunity,
 )
 from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
@@ -49,7 +51,11 @@ def frame():
             ),
             dependencies=("inventory",),
         ),
-        operation="definition_applicability",
+        partition="development",
+        source_groups=(StructuralSourceGroup(source_ref=source.identity, origin_group="source-family"),),
+        opportunities=(StructuralSourceOpportunity(opportunity_id="term",passage_id="p1",facet="role",source_state="stated"),),
+        inspected_scope="source-passage",
+        operation="definition_components",
         direction="source_first",
         rubric_version="1",
         rubric_text="Inspect whether the source defines population mean, not an example.",
@@ -60,8 +66,8 @@ def reference(frozen, **changes):
     values = dict(
         case_id="c1",
         facet="applicability",
-        path=("definition", "readings", 0, "outcome"),
-        expected="applicable_definition",
+        path=("definition_components", "stages", 0, "outcome"),
+        expected="succeeded",
         source_passages=("p1",),
         judgment="supported",
         explanation="Independent source reading.",
@@ -72,20 +78,10 @@ def reference(frozen, **changes):
     )
 
 
-def product(frozen, outcome="mention"):
-    return dict(
-        kind="definition_applicability",
-        inputs=frozen.inputs.model_dump(mode="json"),
-        definition=dict(
-            usage_id="p1",
-            candidate_list_id="list",
-            eligible_targets=["p1"],
-            candidate_targets=["p1"],
-            readings=[
-                dict(target_id="p1", outcome=outcome, evidence=["p1"], reason="Evidence retained.")
-            ],
-        ),
-    )
+def product(frozen, outcome="empty"):
+    return dict(version="structural-product-2", kind="definition_components",
+                inputs=frozen.inputs.model_dump(mode="json"),
+                definition_components=dict(components=[], stages=[dict(passage_id="p1",operation="located_extraction",outcome=outcome,reason="Actual extraction outcome.")]))
 
 
 def test_wrong_relationship_and_missing_member_are_not_supported():
@@ -141,39 +137,15 @@ def test_source_first_frame_cannot_select_outputs():
         )
 
 
-def test_v2_structural_source_population_and_v1_boundary():
-    from corpus_structure.evaluate.structural_assessment import (
-        StructuralEvaluationFrameV2,
-        decode_structural_frame,
-    )
-
+def test_current_source_population_and_legacy_refusal():
+    from corpus_structure.evaluate.structural_assessment import decode_structural_frame
     original = frame()
     values = original.model_dump(mode="json")
-    values.update(
-        protocol="structural-evaluation-frame-2",
-        partition="final_assessment",
-        source_groups=[
-            dict(source_ref=original.inputs.sources[0].identity, origin_group="source-family")
-        ],
-        opportunities=[
-            dict(
-                opportunity_id="unalignable-source-opportunity",
-                passage_id="p1",
-                facet="role",
-                source_state="stated",
-            )
-        ],
-        inspected_scope="original-source-passage",
-        exposure_history=[],
-    )
-    frozen = decode_structural_frame(values)
-    assert isinstance(frozen, StructuralEvaluationFrameV2)
-    assert frozen.product_ids == ()
+    assert decode_structural_frame(values).protocol == "structural-evaluation-frame-3"
+    for protocol in ("structural-evaluation-frame-1", "structural-evaluation-frame-2"):
+        with pytest.raises(ValueError):
+            decode_structural_frame(dict(values, protocol=protocol))
     with pytest.raises(ValueError, match="exposed sources"):
-        decode_structural_frame(dict(values, exposure_history=["development-feedback"]))
-    with pytest.raises(ValueError, match="Extra inputs"):
-        StructuralEvaluationFrame.model_validate(values)
-    with pytest.raises(ValueError, match="development-only"):
-        StructuralEvaluationFrame.model_validate(
-            dict(original.model_dump(mode="json"), partition="final_assessment")
-        )
+        decode_structural_frame(dict(values, partition="final_assessment", exposure_history=["feedback"]))
+    with pytest.raises(ValueError, match="source group assignment"):
+        decode_structural_frame(dict(values, source_groups=[dict(source_ref="foreign",origin_group="wrong")]))

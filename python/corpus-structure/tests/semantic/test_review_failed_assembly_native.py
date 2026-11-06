@@ -15,7 +15,7 @@ import pytest
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.contextual_embeddings import EncodedVector
-from corpus_structure.semantic.contextual_links import select_relationships
+from corpus_structure.semantic.contextual_links import RelationshipConstraint, select_relationships
 from corpus_structure.semantic.contextual_retrieval import (
     ChannelHit,
     freeze_inventory,
@@ -93,9 +93,10 @@ def test_native_failed_assembly_keeps_exact_source_and_rejected_nomination(
         source_binding="control",
         scope="review-control",
         effective_version=None,
+        constraints=(RelationshipConstraint("alias", ("alias-of",), "occurrence", "concept", "one"),),
         insufficient_reason="controlled nomination lacks a source-supported alias witness",
     )
-    assert rejected.outcome == "insufficient_evidence" and rejected.alternatives == ()
+    assert rejected.outcome == "insufficient_evidence" and rejected.selected_edges == ()
     partial = {
         **valid,
         "fields": tuple(field for field in valid["fields"] if field["role"] != "location"),

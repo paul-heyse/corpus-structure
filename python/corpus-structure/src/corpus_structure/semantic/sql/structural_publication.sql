@@ -23,7 +23,7 @@ RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $
 DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb;
 BEGIN
  result:=jsonb_build_object('version','structural-public-statement-2','kind',report->>'kind',
-  'question',report->'inputs'->>'question','scope',report->'inputs'->>'scope',
+  'scope',report->'inputs'->>'scope',
   'inventory_id',report->'inputs'->>'inventory_id','input_policy_id',report->'inputs'->>'policy_id',
   'coverage_limits',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(report->'inputs'->'coverage_limits') v),'[]'),
   'exclusions',COALESCE((SELECT jsonb_agg(v ORDER BY data.canonical_json(v)) FROM (
@@ -180,7 +180,7 @@ BEGIN
   authored:=convert_from(c.authored,'UTF8')::jsonb;
   SELECT value INTO STRICT case_ FROM jsonb_array_elements(authored->'cases')
    WHERE value->>'facet'='public_statement' AND value->'path'='["public_statement"]'::jsonb
-   AND value->>'judgment'='supported' AND value->'expected'=statement;
+   AND value->>'judgment'='supported' AND value->'expected'=statement AND value->>'component_id' IS NOT DISTINCT FROM binding->>'component_id';
   IF NOT(case_->'source_passages' @> COALESCE((SELECT jsonb_agg(p->>'passage_id') FROM jsonb_array_elements(report->'inputs'->'passages') p),'[]')) THEN
    RAISE EXCEPTION 'public structural judgment omits selected source passages' USING ERRCODE='23514'; END IF;
   row_:=jsonb_build_object('claim_id','structural-claim:'||encode(sha256(convert_to(data.canonical_json(statement),'UTF8')),'hex'),
