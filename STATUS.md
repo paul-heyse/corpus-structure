@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-05; production and test audits refreshed; selected PCE scope remains qualified nondefault._
+_Updated 2026-11-05; test audit resolution series Proposed; selected PCE scope remains qualified nondefault._
 
 ## Current scope and authority
 
@@ -17,8 +17,8 @@ _Updated 2026-11-05; production and test audits refreshed; selected PCE scope re
 
 - [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/relations/actions/states,
   native custody, consumers and library boundaries refreshed; unresolved questions remain explicit.
-- [Test audit](docs/design_review/test-audit/README.md), same source: full authored reading and independent
-  challenge; renewed discrimination, scenario ownership and execution-fit concerns. No repairs selected.
+- [Test audit](docs/design_review/test-audit/README.md) feeds the new [resolution series](docs/plans/test-audit-resolution_2026-11-05.md):
+  Proposed TR-00–10; all23 finding dispositions, explicit repairs/preservation and fresh qualification target.
 - `just docs-check`, `git diff --check`, `just turn-end`: passed for audit publication; product tests not_run. Neither alignment certification nor fresh product qualification follows.
 
 ## Last verified — 2026-11-05
@@ -55,6 +55,6 @@ _Updated 2026-11-05; production and test audits refreshed; selected PCE scope re
 
 ## Next
 
-- No required execution remains in the selected scope. F37 targeted applicability refinement and
-  F39 broader source/reference authoring retain explicit triggers; conditional inference/training/
-  ANN/transfer work remains unselected. Adoption requires its own operator selection.
+- Next test work: TR-00 target review when repair execution is authorized; current writing scope is complete.
+- Selected PCE has no required execution remaining. F37/F39 retain their triggers; inference/training/ANN/
+  transfer and adoption remain unselected. New test plans do not close broader product obligations.

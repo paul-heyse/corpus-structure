@@ -100,10 +100,13 @@ shared-cluster effects. No exhaustive trace or mandatory mutation campaign is im
 | [Support structure](support-structure.md) | DTA-009; reconciliation of005/008/012/016 |
 | [Retirement and transfer](retirement-transfer.md) | DTA-004/014 scoped correction and withdrawn broad diagnosis |
 
-The [test architecture coordinator](../../plans/test-architecture-and-evidence_2026-11-02.md)
-continues to own its completed packages and scoped DTA dispositions. Renewed manifestations do
-not erase those corrections or broaden their qualification. Unscheduled observations remain
-here with their revisit triggers; no new execution ledger is created.
+The new [test audit resolution coordinator](../../plans/test-audit-resolution_2026-11-05.md)
+owns planned remaining work, all23 DTA dispositions/preservation obligations and the unnumbered
+provenance/runner questions. Its status is Proposed; no repair or new qualification follows from
+planning. The older [TA coordinator](../../plans/test-architecture-and-evidence_2026-11-02.md)
+retains its completed packages and historical scoped conclusions without amendment. Renewed
+manifestations do not erase those corrections or broaden their qualification. This account
+remains the diagnostic source, not a duplicate execution ledger.
 
 ## Library and system-tooling assessment
 
@@ -164,9 +167,8 @@ audit closes no PCE, UM, provider, adoption or full-union acceptance obligation.
 are followed only to judge test evidence, not to refresh the broad audit's DA baseline.
 
 Each finding has one primary home. Stable IDs/anchors remain; removed diagnoses and their
-supporting evidence are recoverable in Git. New or expanded observations are unscheduled and
-revisited when their component is selected for correction or when a solution review consumes this
-account. Accepted architectural decisions do not establish implemented or tested correction.
+supporting evidence are recoverable in Git. Current remaining observations are scheduled in the new resolution coordinator. Future
+observations remain here until selected, with an explicit revisit trigger. Accepted architectural decisions do not establish implemented or tested correction.
 
 ## Publication checks — 2026-11-05
 
