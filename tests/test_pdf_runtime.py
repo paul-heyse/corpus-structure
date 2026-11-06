@@ -687,7 +687,9 @@ def test_descendant_projection_selects_scoped_nested_roots_before_reader_filteri
     assert _select_sections(nodes, cfg, scope=scope) == (sets,)
     scope["sections"] = ["Sets", "Operations"]
     assert _select_sections(nodes, cfg, scope=scope) == (sets,)
-    assert _select_sections(nodes, cfg) == (parent,)
+    # Unscoped ingestion also examines unheaded body content. Its residual
+    # projection removes fields already owned by the selected section roots.
+    assert _select_sections(nodes, cfg) == ("#/body", parent)
     assert not isinstance(PdfEnrichConfig(), PdfIngestConfig)
     assert "originals" not in PdfEnrichConfig.model_fields
 
