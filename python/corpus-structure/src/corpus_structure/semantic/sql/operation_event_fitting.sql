@@ -123,8 +123,14 @@ BEGIN
    OR parameters->'algorithm'->>'algorithm' IS DISTINCT FROM 'scaled-logistic-operation-event-1'
    OR parameters->'algorithm'->>'solver' IS DISTINCT FROM 'lbfgs'
    OR parameters->'algorithm'->>'weights' IS DISTINCT FROM 'unit'
+   OR jsonb_typeof(parameters->'algorithm'->'regularization_c') IS DISTINCT FROM 'number'
+   OR jsonb_typeof(parameters->'algorithm'->'tolerance') IS DISTINCT FROM 'number'
+   OR jsonb_typeof(parameters->'algorithm'->'max_iterations') IS DISTINCT FROM 'number'
+   OR COALESCE(parameters->'algorithm'->>'max_iterations','') !~ '^[1-9][0-9]*$'
    OR (parameters->'algorithm'->>'regularization_c')::numeric<=0
+   OR (parameters->'algorithm'->>'regularization_c')::numeric>1.7976931348623157e308
    OR (parameters->'algorithm'->>'tolerance')::numeric<=0
+   OR (parameters->'algorithm'->>'tolerance')::numeric>1.7976931348623157e308
    OR (parameters->'algorithm'->>'max_iterations')::integer<1 THEN
    RAISE EXCEPTION 'fitted parameters lack exact event applicability or finite algorithm' USING ERRCODE='23514'; END IF;
   n:=jsonb_array_length(parameters->'feature_names');
@@ -144,6 +150,17 @@ BEGIN
   IF (SELECT jsonb_agg(x->>'event_id' ORDER BY ord) FROM jsonb_array_elements(p_result->'predictions') WITH ORDINALITY AS q(x,ord)) IS DISTINCT FROM p_frame->'frame'->'event_ids'
    OR EXISTS(SELECT FROM jsonb_array_elements(p_result->'predictions') x JOIN jsonb_array_elements(p_frame->'frame'->'observations') o ON x->>'event_id'=o->>'event_id' WHERE x->>'judgment' IS DISTINCT FROM o->>'judgment') THEN
    RAISE EXCEPTION 'operation predictions change exact event/label identity' USING ERRCODE='23514'; END IF;
+  FOR item IN SELECT value FROM jsonb_array_elements(p_result->'predictions') LOOP
+   IF NOT item ?& ARRAY['event_id','judgment','prior_probability','fitted_probability']
+    OR item-ARRAY['event_id','judgment','prior_probability','fitted_probability']<>'{}'
+    OR jsonb_typeof(item->'prior_probability') IS DISTINCT FROM 'number'
+    OR NOT (0<=(item->>'prior_probability')::numeric AND (item->>'prior_probability')::numeric<=1)
+    OR (p_result->>'status'='fitted' AND (
+     jsonb_typeof(item->'fitted_probability') IS DISTINCT FROM 'number'
+     OR NOT (0<=(item->>'fitted_probability')::numeric AND (item->>'fitted_probability')::numeric<=1)))
+    OR (p_result->>'status'<>'fitted' AND item->'fitted_probability' IS DISTINCT FROM 'null'::jsonb) THEN
+    RAISE EXCEPTION 'operation predictions require finite status-qualified probabilities' USING ERRCODE='23514'; END IF;
+  END LOOP;
  END IF;
  INSERT INTO eval.operation_event_fit(project_id,evaluation_id,run_id,cut_id,release_id,set_id,source_frame_digest,reference_snapshot,frame,result,content_digest)
  VALUES(p_project,p_evaluation,(p_frame->>'run_id')::bigint,(p_frame->>'cut_id')::bigint,p_frame->>'release_id',(p_frame->>'set_id')::bigint,

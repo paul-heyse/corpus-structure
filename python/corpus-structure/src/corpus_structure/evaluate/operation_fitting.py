@@ -85,7 +85,7 @@ class NativeOperationEventFrame(EventContract):
 
 
 class EventPrediction(EventContract):
-    event_id: str
+    event_id: str = Field(min_length=1)
     judgment: Literal["supported", "unsupported", "ambiguous", "unassessed"]
     prior_probability: FiniteFloat = Field(ge=0, le=1)
     fitted_probability: FiniteFloat | None = Field(default=None, ge=0, le=1)
@@ -110,6 +110,39 @@ class OperationEventFitResult(EventContract):
     fitted_brier: FiniteFloat | None = None
     prior_log_loss: FiniteFloat | None = None
     fitted_log_loss: FiniteFloat | None = None
+
+    @model_validator(mode="after")
+    def result_invariants(self) -> Self:
+        if (
+            min(self.observations, self.labeled, self.positive, self.negative) < 0
+            or self.labeled != self.positive + self.negative
+            or self.labeled > self.observations
+        ):
+            raise ValueError("operation fit class counts differ from observation population")
+        if self.predictions and (
+            len(self.predictions) != self.observations
+            or len({p.event_id for p in self.predictions}) != len(self.predictions)
+            or sum(p.judgment == "supported" for p in self.predictions) != self.positive
+            or sum(p.judgment == "unsupported" for p in self.predictions) != self.negative
+        ):
+            raise ValueError("operation fit predictions differ from declared event population")
+        if self.status == "fitted":
+            if (
+                self.parameters is None
+                or not self.positive
+                or not self.negative
+                or len(self.predictions) != self.observations
+                or any(p.fitted_probability is None for p in self.predictions)
+                or self.parameters.frame_digest != self.frame_digest
+            ):
+                raise ValueError("fitted operation result requires complete parameters/predictions")
+        elif self.parameters is not None or any(
+            p.fitted_probability is not None for p in self.predictions
+        ):
+            raise ValueError(
+                "nonfitted operation result cannot carry fitted parameters/probabilities"
+            )
+        return self
 
 
 def _fit_operation_event(

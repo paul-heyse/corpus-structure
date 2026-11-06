@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from corpus_structure.evaluate.operation_fitting import (
     OperationEventAlgorithm,
+    OperationEventFitResult,
     OperationEventFrame,
     OperationEventObservation,
     fit_operation_event,
@@ -132,3 +133,29 @@ def test_runtime_score_refuses_other_corpus_and_event():
             event_version="defined-by-correct-1",
             producer_version="2",
         )
+
+
+@pytest.mark.parametrize(
+    "case",
+    (
+        "missing_probability",
+        "unavailable_probability",
+        "missing_parameters",
+        "duplicate_event",
+        "count",
+    ),
+)
+def test_result_status_and_population_invariants_refuse(case):
+    actual = fit_operation_event(frame()).model_dump(mode="json")
+    if case == "missing_probability":
+        actual["predictions"][0]["fitted_probability"] = None
+    if case == "unavailable_probability":
+        actual.update(status="unavailable", parameters=None)
+    if case == "missing_parameters":
+        actual["parameters"] = None
+    if case == "duplicate_event":
+        actual["predictions"][1]["event_id"] = actual["predictions"][0]["event_id"]
+    if case == "count":
+        actual["positive"] += 1
+    with pytest.raises(ValueError):
+        OperationEventFitResult.model_validate_json(__import__("json").dumps(actual))

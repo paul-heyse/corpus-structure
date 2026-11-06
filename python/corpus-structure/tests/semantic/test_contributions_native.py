@@ -482,6 +482,58 @@ def test_native_local_question_refuses_omitted_consumed_dependencies(private_sou
         )
 
 
+def test_native_local_question_refuses_resealed_invalid_numerical_products(private_source):
+    from copy import deepcopy
+    from dataclasses import replace
+
+    from corpus_structure.methods.local_interpretation import local_question_operation
+    from corpus_structure.methods.record_readings import _digest
+    from corpus_structure.semantic.observations import source_python, source_value
+    from corpus_structure.semantic.record_interpretation import CandidateSelection
+    from semantic.test_local_interpretation import local_request
+
+    case = private_source
+    result = drafts(case)
+    assert result.contributions is not None and result.contribution_operations is not None
+    arguments = dict(
+        question="numerical result forgery controls",
+        contributions=result.contributions,
+        dependency_ids=("source",),
+    )
+    scope = local_question_operation(**arguments)["operation_key"]
+    request = replace(local_request(), selection=CandidateSelection(scope, ("source",)))
+    operation = local_question_operation(**arguments, request=request)
+    result = replace(result, contribution_operations=(*result.contribution_operations, operation))
+    original = envelope(case, result)
+    with case.writer.begin() as conn:
+        for mutation in (
+            "probability",
+            "marginal_decision",
+            "normalization",
+            "assignment",
+            "factor_size",
+        ):
+            raw = deepcopy(original)
+            report = raw["contribution_operations"][-1]["local_interpretation"]
+            req, output = source_python(report["request"]), source_python(report["result"])
+            if mutation == "probability":
+                output["marginals"][0]["probability"] = 2
+            if mutation == "marginal_decision":
+                output["marginals"][0]["decision"] = "foreign"
+            if mutation == "normalization":
+                output["marginals"][0]["probability"] = 0
+            if mutation == "assignment":
+                output["alternatives"][0]["choices"][0]["candidate"] = "foreign"
+            if mutation == "factor_size":
+                req["potentials"][0]["values"].pop()
+            for key, value in (("request", req), ("result", output)):
+                report[key] = source_value(value)
+                report[key + "_digest"] = _digest(report[key])
+            report["seal"] = _digest({k: v for k, v in report.items() if k != "seal"})
+            with pytest.raises(DBAPIError, match="local interpretation"), conn.begin_nested():
+                bypass(case, conn, raw)
+
+
 def test_native_located_component_custody_and_basis_refusal(private_source):
     from copy import deepcopy
     from dataclasses import replace

@@ -203,6 +203,170 @@ BEGIN
       OR jsonb_array_length(COALESCE(local_result->'alternatives','[]'))>0
       OR COALESCE(local_result->'log_partition','null')<>'null')) THEN
      RAISE EXCEPTION 'local interpretation scope/outcome differs from actual result' USING ERRCODE='23514'; END IF;
+    DECLARE axes_ jsonb:='{}'; d_ jsonb; c_ jsonb; t_ jsonb; v_ jsonb; key_ text; candidate_ text;
+     scope_ jsonb; size_ numeric; retained_ numeric:=1; tables_ jsonb:='[]'; covered_ jsonb:='[]';
+     selected_ jsonb; expected_ jsonb:='[]'; events_ jsonb:='[]'; choices_ jsonb; binding_ jsonb;
+     seen_ jsonb:='[]'; index_ integer; position_ integer; table_index_ integer; mass_ numeric; positive_ numeric; displayed_ numeric;
+    BEGIN
+     IF local_result->>'outcome' NOT IN ('completed','invalid_input','infeasible','numerical_failure','resource_limit','cancelled')
+      OR local_result->>'omitted_candidate_mass' IS DISTINCT FROM 'unknown'
+      OR local_result->'dependencies' IS DISTINCT FROM local_request->'dependencies'
+      OR local_result->'selection' IS DISTINCT FROM local_request->'selection'
+      OR (local_result->>'outcome'<>'completed' AND local_result->'exact_retained_support' IS DISTINCT FROM 'false'::jsonb) THEN
+      RAISE EXCEPTION 'local interpretation result claim/provenance invalid' USING ERRCODE='23514'; END IF;
+     IF local_result->>'outcome'='completed' THEN
+      IF NOT local_request ?& ARRAY['decisions','dependencies','selection','potentials','constraints','events','marginal_decisions','dependence_scopes','limits','model_dependency_id','ontology_dependency_id','policy_dependency_id']
+       OR EXISTS(SELECT FROM unnest(ARRAY['decisions','dependencies','potentials','constraints','events','dependence_scopes']) k WHERE jsonb_typeof(local_request->k) IS DISTINCT FROM 'array')
+       OR EXISTS(SELECT FROM unnest(ARRAY['marginals','event_probabilities','alternatives']) k WHERE jsonb_typeof(local_result->k) IS DISTINCT FROM 'array') THEN
+       RAISE EXCEPTION 'local interpretation completed request/result shape invalid' USING ERRCODE='23514'; END IF;
+      IF local_result->'exact_retained_support' IS DISTINCT FROM 'true'::jsonb
+       OR jsonb_typeof(local_result->'log_partition') IS DISTINCT FROM 'number'
+       OR abs((local_result->>'log_partition')::numeric)>1.7976931348623157e308
+       OR jsonb_array_length(local_request->'decisions')=0 THEN
+       RAISE EXCEPTION 'completed local interpretation requires finite exact support' USING ERRCODE='23514'; END IF;
+      FOR d_ IN SELECT value FROM jsonb_array_elements(local_request->'decisions') LOOP
+       key_:=d_->>'key';
+       IF jsonb_typeof(d_->'key') IS DISTINCT FROM 'string' OR COALESCE(key_,'')='' OR axes_ ? key_ OR jsonb_array_length(d_->'candidates')=0
+        OR jsonb_array_length(d_->'candidates')<>(SELECT count(DISTINCT c->>'key') FROM jsonb_array_elements(d_->'candidates') c)
+        OR EXISTS(SELECT FROM jsonb_array_elements(d_->'candidates') c WHERE jsonb_typeof(c->'key') IS DISTINCT FROM 'string' OR COALESCE(c->>'key','')=''
+         OR COALESCE(c->>'kind','') NOT IN ('resolved','unresolved','local_new')
+         OR (c->>'kind'='unresolved' AND COALESCE(c->>'reason','')='')) THEN
+        RAISE EXCEPTION 'local interpretation decision/candidate population invalid' USING ERRCODE='23514'; END IF;
+       SELECT jsonb_agg(c->'key' ORDER BY n) INTO v_ FROM jsonb_array_elements(d_->'candidates') WITH ORDINALITY x(c,n);
+       axes_:=axes_||jsonb_build_object(key_,v_);retained_:=retained_*jsonb_array_length(v_);
+      END LOOP;
+      IF jsonb_array_length(local_request->'dependencies')<>(SELECT count(DISTINCT d->>'key') FROM jsonb_array_elements(local_request->'dependencies') d)
+       OR EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d WHERE COALESCE(d->>'key','')='' OR COALESCE(d->>'revision','')=''
+        OR COALESCE(d->>'kind','') NOT IN ('observation','counterevidence','rejected_alternative','retrieval','context','selection','model','ontology','policy')) THEN
+       RAISE EXCEPTION 'local interpretation dependencies invalid' USING ERRCODE='23514'; END IF;
+      FOREACH key_ IN ARRAY ARRAY['model','ontology','policy'] LOOP
+       IF NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d
+        WHERE d->>'key'=local_request->>(key_||'_dependency_id') AND d->>'kind'=key_) THEN
+        RAISE EXCEPTION 'local interpretation required dependency kind differs' USING ERRCODE='23514'; END IF;
+      END LOOP;
+      IF jsonb_array_length(local_request->'selection'->'dependency_ids')=0
+       OR jsonb_array_length(local_request->'selection'->'dependency_ids')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(local_request->'selection'->'dependency_ids'))
+       OR EXISTS(SELECT FROM jsonb_array_elements_text(local_request->'selection'->'dependency_ids') id WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d WHERE d->>'key'=id)) THEN
+       RAISE EXCEPTION 'local interpretation selection dependency unavailable' USING ERRCODE='23514'; END IF;
+      FOR d_ IN SELECT value FROM jsonb_array_elements(local_request->'dependence_scopes') LOOP
+       IF jsonb_typeof(d_->'scope') IS DISTINCT FROM 'array' OR jsonb_array_length(d_->'scope')=0 OR btrim(COALESCE(d_->>'reason',''))=''
+        OR jsonb_array_length(d_->'scope')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(d_->'scope'))
+        OR EXISTS(SELECT FROM jsonb_array_elements_text(d_->'scope') k WHERE NOT axes_ ? k)
+        OR jsonb_array_length(d_->'dependency_ids')=0
+        OR jsonb_array_length(d_->'dependency_ids')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(d_->'dependency_ids'))
+        OR EXISTS(SELECT FROM jsonb_array_elements_text(d_->'dependency_ids') id WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d WHERE d->>'key'=id)) THEN
+        RAISE EXCEPTION 'local interpretation dependence scope invalid' USING ERRCODE='23514'; END IF;
+      END LOOP;
+      FOR t_,table_index_ IN SELECT value,n::integer FROM jsonb_array_elements((local_request->'potentials')||(local_request->'constraints')) WITH ORDINALITY x(value,n) LOOP
+       scope_:=t_->'scope';size_:=1;
+       IF (table_index_<=jsonb_array_length(local_request->'potentials') AND (NOT t_ ? 'values' OR t_ ? 'allowed'))
+        OR (table_index_>jsonb_array_length(local_request->'potentials') AND (NOT t_ ? 'allowed' OR t_ ? 'values'))
+        OR jsonb_typeof(COALESCE(t_->'values',t_->'allowed')) IS DISTINCT FROM 'array' THEN
+        RAISE EXCEPTION 'local interpretation factor kind/array invalid' USING ERRCODE='23514'; END IF;
+       IF COALESCE(t_->>'key','')='' OR tables_ ? (t_->>'key') OR jsonb_typeof(scope_) IS DISTINCT FROM 'array' OR jsonb_array_length(scope_)=0
+        OR jsonb_array_length(scope_)<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(scope_)) THEN
+        RAISE EXCEPTION 'local interpretation factor scope/key invalid' USING ERRCODE='23514'; END IF;
+       tables_:=tables_||jsonb_build_array(t_->>'key');
+       FOR key_ IN SELECT value FROM jsonb_array_elements_text(scope_) LOOP
+        IF NOT axes_ ? key_ THEN RAISE EXCEPTION 'local interpretation factor axis unavailable' USING ERRCODE='23514'; END IF;
+        size_:=size_*jsonb_array_length(axes_->key_);
+       END LOOP;
+       IF jsonb_array_length(t_->'dependency_ids')=0
+        OR jsonb_array_length(t_->'dependency_ids')<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(t_->'dependency_ids'))
+        OR EXISTS(SELECT FROM jsonb_array_elements_text(t_->'dependency_ids') id
+        WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(local_request->'dependencies') d WHERE d->>'key'=id)) THEN
+        RAISE EXCEPTION 'local interpretation factor dependency unavailable' USING ERRCODE='23514'; END IF;
+       IF jsonb_array_length(COALESCE(t_->'values',t_->'allowed'))<>size_ THEN
+        RAISE EXCEPTION 'local interpretation factor cardinality differs from axes' USING ERRCODE='23514'; END IF;
+       IF t_ ? 'values' THEN
+        covered_:=covered_||scope_;
+        FOR v_ IN SELECT value FROM jsonb_array_elements(t_->'values') LOOP
+         IF v_='{"nonfinite_float":"-inf"}'::jsonb THEN CONTINUE; END IF;
+         IF jsonb_typeof(v_) IS DISTINCT FROM 'number' THEN RAISE EXCEPTION 'local interpretation log potential invalid' USING ERRCODE='23514'; END IF;
+         IF abs((v_#>>'{}')::numeric)>1.7976931348623157e308 THEN RAISE EXCEPTION 'local interpretation log potential nonfinite' USING ERRCODE='23514'; END IF;
+        END LOOP;
+       ELSIF EXISTS(SELECT FROM jsonb_array_elements(t_->'allowed') v WHERE jsonb_typeof(v) IS DISTINCT FROM 'boolean') THEN
+        RAISE EXCEPTION 'local interpretation constraint support must be boolean' USING ERRCODE='23514'; END IF;
+      END LOOP;
+      IF EXISTS(SELECT FROM jsonb_object_keys(axes_) k WHERE NOT covered_ ? k) THEN
+       RAISE EXCEPTION 'completed local interpretation lacks explicit axis support' USING ERRCODE='23514'; END IF;
+      selected_:=local_request->'marginal_decisions';
+      IF selected_='null'::jsonb THEN SELECT jsonb_agg(k) INTO selected_ FROM jsonb_object_keys(axes_) k;END IF;
+      IF jsonb_array_length(selected_)<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(selected_)) THEN
+       RAISE EXCEPTION 'local interpretation marginal selection repeats' USING ERRCODE='23514'; END IF;
+      FOR key_ IN SELECT value FROM jsonb_array_elements_text(selected_) LOOP
+       IF NOT axes_ ? key_ THEN RAISE EXCEPTION 'local interpretation marginal axis unavailable' USING ERRCODE='23514'; END IF;
+       FOR candidate_ IN SELECT value FROM jsonb_array_elements_text(axes_->key_) LOOP
+        expected_:=expected_||jsonb_build_array(jsonb_build_array(key_,candidate_));
+       END LOOP;
+      END LOOP;
+      IF jsonb_array_length(local_result->'marginals')<>jsonb_array_length(expected_)
+       OR EXISTS(SELECT FROM jsonb_array_elements(local_result->'marginals') m GROUP BY m->>'decision',m->>'candidate' HAVING count(*)>1)
+       OR EXISTS(SELECT FROM jsonb_array_elements(local_result->'marginals') m WHERE NOT expected_ @> jsonb_build_array(jsonb_build_array(m->>'decision',m->>'candidate'))) THEN
+       RAISE EXCEPTION 'local interpretation marginal membership invalid' USING ERRCODE='23514'; END IF;
+      FOR v_ IN SELECT value FROM jsonb_array_elements((local_result->'marginals')||(local_result->'event_probabilities')||(local_result->'alternatives')) LOOP
+       IF jsonb_typeof(v_->'probability') IS DISTINCT FROM 'number' THEN RAISE EXCEPTION 'local interpretation probability invalid' USING ERRCODE='23514'; END IF;
+       IF NOT(0<=(v_->>'probability')::numeric AND (v_->>'probability')::numeric<=1) THEN RAISE EXCEPTION 'local interpretation probability outside unit interval' USING ERRCODE='23514'; END IF;
+      END LOOP;
+      FOR key_ IN SELECT value FROM jsonb_array_elements_text(selected_) LOOP
+       SELECT sum((m->>'probability')::numeric) INTO mass_ FROM jsonb_array_elements(local_result->'marginals') m WHERE m->>'decision'=key_;
+       IF abs(mass_-1)>1e-9 THEN RAISE EXCEPTION 'local interpretation marginal normalization invalid' USING ERRCODE='23514'; END IF;
+      END LOOP;
+      FOR d_ IN SELECT value FROM jsonb_array_elements(local_request->'events') LOOP
+       IF COALESCE(d_->>'key','')='' OR events_ ? (d_->>'key') OR btrim(COALESCE(d_->>'question',''))='' OR jsonb_array_length(d_->'derivations')=0 THEN
+        RAISE EXCEPTION 'local interpretation event identity/question invalid' USING ERRCODE='23514'; END IF;
+       events_:=events_||jsonb_build_array(d_->>'key');
+       FOR choices_ IN SELECT value FROM jsonb_array_elements(d_->'derivations') LOOP
+        IF jsonb_array_length(choices_)=0 OR jsonb_array_length(choices_)<>(SELECT count(DISTINCT c->>'decision') FROM jsonb_array_elements(choices_) c)
+         OR EXISTS(SELECT FROM jsonb_array_elements(choices_) c WHERE NOT axes_ ? (c->>'decision') OR NOT (axes_->(c->>'decision')) ? (c->>'candidate')) THEN
+         RAISE EXCEPTION 'local interpretation event assignment membership invalid' USING ERRCODE='23514'; END IF;
+       END LOOP;
+      END LOOP;
+      IF (jsonb_array_length(selected_)=0 AND jsonb_array_length(events_)=0)
+       OR jsonb_array_length(local_result->'event_probabilities')<>jsonb_array_length(events_)
+       OR EXISTS(SELECT FROM jsonb_array_elements(local_result->'event_probabilities') e GROUP BY e->>'event' HAVING count(*)>1)
+       OR EXISTS(SELECT FROM jsonb_array_elements(local_result->'event_probabilities') e WHERE NOT events_ ? (e->>'event')) THEN
+       RAISE EXCEPTION 'local interpretation event membership invalid' USING ERRCODE='23514'; END IF;
+      FOR d_ IN SELECT value FROM jsonb_array_elements(local_result->'alternatives') LOOP
+       choices_:=d_->'choices';
+       IF jsonb_array_length(choices_)<>(SELECT count(*) FROM jsonb_object_keys(axes_))
+        OR jsonb_array_length(choices_)<>(SELECT count(DISTINCT c->>'decision') FROM jsonb_array_elements(choices_) c)
+        OR EXISTS(SELECT FROM jsonb_array_elements(choices_) c WHERE NOT axes_ ? (c->>'decision') OR NOT (axes_->(c->>'decision')) ? (c->>'candidate')) THEN
+        RAISE EXCEPTION 'local interpretation complete assignment membership invalid' USING ERRCODE='23514'; END IF;
+       SELECT jsonb_object_agg(c->>'decision',c->>'candidate') INTO binding_ FROM jsonb_array_elements(choices_) c;
+       IF seen_ @> jsonb_build_array(binding_) THEN RAISE EXCEPTION 'local interpretation repeats assignment' USING ERRCODE='23514'; END IF;
+       seen_:=seen_||jsonb_build_array(binding_);
+       FOR t_ IN SELECT value FROM jsonb_array_elements((local_request->'constraints')||(local_request->'potentials')) LOOP
+        index_:=0;
+        FOR key_ IN SELECT value FROM jsonb_array_elements_text(t_->'scope') LOOP
+         SELECT n::integer-1 INTO STRICT position_ FROM jsonb_array_elements_text(axes_->key_) WITH ORDINALITY x(c,n) WHERE c=binding_->>key_;
+         index_:=index_*jsonb_array_length(axes_->key_)+position_;
+        END LOOP;
+        IF (t_ ? 'allowed' AND t_->'allowed'->index_ IS DISTINCT FROM 'true'::jsonb)
+         OR (t_ ? 'values' AND t_->'values'->index_='{"nonfinite_float":"-inf"}'::jsonb) THEN
+         RAISE EXCEPTION 'local interpretation assignment violates hard support' USING ERRCODE='23514'; END IF;
+       END LOOP;
+      END LOOP;
+      positive_:=(local_result->'search'->>'positive_states')::numeric;
+      IF local_result->'search'->'limits' IS DISTINCT FROM local_request->'limits'
+       OR EXISTS(SELECT FROM unnest(ARRAY['max_states','block_states','max_workspace_bytes']) k WHERE jsonb_typeof(local_request->'limits'->k) IS DISTINCT FROM 'number' OR COALESCE(local_request->'limits'->>k,'') !~ '^[1-9][0-9]*$')
+       OR retained_>(local_request->'limits'->>'max_states')::numeric
+       OR jsonb_typeof(local_request->'limits'->'max_seconds') IS DISTINCT FROM 'number'
+       OR (local_request->'limits'->>'max_seconds')::numeric<0 OR (local_request->'limits'->>'max_seconds')::numeric>1.7976931348623157e308 THEN
+       RAISE EXCEPTION 'local interpretation limits invalid or substituted' USING ERRCODE='23514'; END IF;
+      IF EXISTS(SELECT FROM unnest(ARRAY['retained_states','examined_states','positive_states']) k WHERE jsonb_typeof(local_result->'search'->k) IS DISTINCT FROM 'number' OR COALESCE(local_result->'search'->>k,'') !~ '^[0-9]+$')
+       OR (local_result->'search'->>'retained_states')::numeric<>retained_ OR (local_result->'search'->>'examined_states')::numeric<>retained_
+       OR positive_<=0 OR positive_>retained_ OR jsonb_typeof(local_request->'limits'->'displayed_alternatives') IS DISTINCT FROM 'number'
+       OR COALESCE(local_request->'limits'->>'displayed_alternatives','') !~ '^[0-9]+$' THEN
+       RAISE EXCEPTION 'local interpretation completed support/count invalid' USING ERRCODE='23514'; END IF;
+      displayed_:=(local_request->'limits'->>'displayed_alternatives')::numeric;
+      IF jsonb_array_length(local_result->'alternatives')<>least(displayed_,positive_) THEN
+       RAISE EXCEPTION 'local interpretation displayed support count invalid' USING ERRCODE='23514'; END IF;
+      SELECT COALESCE(sum((a->>'probability')::numeric),0) INTO mass_ FROM jsonb_array_elements(local_result->'alternatives') a;
+      IF mass_>1+1e-9 OR (jsonb_array_length(local_result->'alternatives')=positive_ AND abs(mass_-1)>1e-9) THEN
+       RAISE EXCEPTION 'local interpretation displayed support probability mass invalid' USING ERRCODE='23514'; END IF;
+     END IF;
+    END;
    END IF;
   END IF;
   actual:=COALESCE((output_counts->>(op->>'operation_key'))::bigint,0);

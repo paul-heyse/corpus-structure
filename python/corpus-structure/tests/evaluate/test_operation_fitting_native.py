@@ -288,6 +288,19 @@ def test_native_operation_event_fit_retains_exact_frame_and_blocks_forgery(
         wrong = deepcopy(result)
         wrong["predictions"][0]["event_id"] = "foreign-event"
         mutations.append(("event identity", native, wrong))
+        for field in ("regularization_c", "tolerance", "max_iterations"):
+            wrong = deepcopy(result)
+            wrong["parameters"]["algorithm"][field] = None
+            mutations.append(("null algorithm " + field, native, wrong))
+        for field, value in (
+            ("prior_probability", 2),
+            ("prior_probability", None),
+            ("fitted_probability", -1),
+            ("fitted_probability", None),
+        ):
+            wrong = deepcopy(result)
+            wrong["predictions"][0][field] = value
+            mutations.append(("prediction " + field, native, wrong))
         for _label, captured, product in mutations:
             with pytest.raises(DBAPIError), conn.begin_nested():
                 conn.execute(
