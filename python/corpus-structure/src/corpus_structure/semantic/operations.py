@@ -1074,6 +1074,25 @@ class BoundReader:
             read_budget=self._read_budget or read_budget,
         )
 
+    def resolve_definition_component(self, reference):
+        """Resolve original retained component content for a selected applicability edge."""
+        import json
+
+        result = self.conn.execute(
+            text("SELECT ops.resolve_retained_component(CAST(:reference AS jsonb))"),
+            {"reference": json.dumps(reference.model_dump(mode="json"))},
+        ).scalar_one()
+        return result["component"]
+
+    def retained_relationship_decision(self, reference):
+        """Read one exact completed selected edge through the native custody owner."""
+        import json
+
+        return self.conn.execute(
+            text("SELECT ops.resolve_retained_relationship_decision(CAST(:reference AS jsonb))"),
+            {"reference": json.dumps(reference.model_dump(mode="json"))},
+        ).scalar_one()
+
     def validate_component_targets(self, targets):
         """Resolve retained component descriptions before provider work in a short read."""
         import json

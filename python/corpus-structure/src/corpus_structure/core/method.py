@@ -418,6 +418,14 @@ class SourcePreparationReader(Protocol):
         """Explicit historical input; authenticate archived task and exact source closure."""
         ...
 
+    def resolve_definition_component(self, reference: Any) -> Mapping[str, Any]:
+        """Read an authenticated retained definition component with original source custody."""
+        ...
+
+    def retained_relationship_decision(self, reference: Any) -> Mapping[str, Any]:
+        """Authenticate an actual retained relationship selection and its source endpoints."""
+        ...
+
     def validate_component_targets(self, targets: Sequence[Any]) -> None:
         """Authenticate retained target content and original custody before model execution."""
         ...

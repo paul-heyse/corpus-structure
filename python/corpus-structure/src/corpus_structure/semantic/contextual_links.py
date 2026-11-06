@@ -8,10 +8,32 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
-from typing import Literal
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.contextual_embeddings import identity
 from corpus_structure.semantic.contextual_retrieval import CandidateList, FrozenInventory
+
+class RetainedRelationshipDecisionRef(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    """Original custody of one selected edge, without caller-authored semantic premises."""
+
+    project_id: Annotated[str, Field(min_length=1)]
+    run_id: Annotated[int, Field(strict=True, gt=0)]
+    cut_id: Annotated[int, Field(strict=True, gt=0)]
+    release_id: Annotated[str, Field(min_length=1)]
+    result_revision: int = Field(strict=True, ge=0)
+    selected_task_id: Annotated[int, Field(strict=True, gt=0)]
+    origin_task_id: Annotated[int, Field(strict=True, gt=0)]
+    runtime_fingerprint: Annotated[str, Field(min_length=1)]
+    operation_key: Annotated[str, Field(min_length=1)]
+    decision_id: Annotated[str, Field(min_length=1)]
+    edge_id: Annotated[str, Field(min_length=1)]
+    occurrence_contribution_id: Annotated[str, Field(min_length=1)]
+
+
 
 RelationKind = Literal[
     "denotes", "alias-of", "defined-by", "specializes", "compared-with", "participates-in"
