@@ -251,7 +251,7 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         rendered = page.model_dump_json()
         assert "contextual-enrichment-2" in rendered and "compared-with" in rendered
         assert page.standing == "retained_private"
-        exported = export_contribution_selection(conn, ContributionRequest(run_id=outcome.run_id, method="retrieve.contextual"), tmp_path / "current-links")
+        exported = export_contribution_selection(conn, ContributionRequest(run_id=outcome.run_id, method="retrieve.contextual", include_interpretation=True), tmp_path / "current-links")
         assert exported
     exported_text = "\n".join(path.read_text() for path in (tmp_path / "current-links").rglob("*.jsonl"))
     assert "compared-with" in exported_text and "denotes" in exported_text
