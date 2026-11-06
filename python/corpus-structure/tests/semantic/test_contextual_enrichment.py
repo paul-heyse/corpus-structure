@@ -342,9 +342,9 @@ def test_exclusive_senses_do_not_hide_compatible_comparison():
                                    witness("sense-b", "b", "denotes"),
                                    witness("compare", "a", "compared-with")))
     assert decision.outcome == "partial"
-    assert [(e.target_id, e.relation) for e in decision.selected_edges] == [("a", "compared-with")]
+    assert [(e.member_target_ids, e.relation) for e in decision.selected_edges] == [(("a",), "compared-with")]
     assert len(decision.alternative_groups) == 1
-    assert {(e.target_id, e.relation) for e in decision.alternative_groups[0].edges} == {("a", "denotes"), ("b", "denotes")}
+    assert {(e.member_target_ids, e.relation) for e in decision.alternative_groups[0].edges} == {(("a",), "denotes"), (("b",), "denotes")}
     assert decision.alternative_groups[0].constraint_id == "sense"
 
 
@@ -406,7 +406,100 @@ def test_report_replays_complete_constraints_witnesses_and_selected_edges():
     report = enrichment_report(profiles=(E5,), vectors=vectors, inventories=(inv,), candidate_lists=(candidate_list,), relationship_decisions=(decision,))
     stored = report["relationship_decisions"][0]
     assert {w["witness_id"] for w in stored["witnesses"]} == {"supported", "refused"}
-    assert stored["selected_edges"][0]["target_id"] == "a"
+    assert stored["selected_edges"][0]["member_target_ids"] == ("a",)
     assert "alternatives" not in stored
     with pytest.raises(ValueError, match="selection semantics"):
         enrichment_report(profiles=(E5,), vectors=vectors, inventories=(inv,), candidate_lists=(candidate_list,), relationship_decisions=(replace(decision, selected_edges=()),))
+
+
+def semantic_definition_meaning():
+    source = dict(project_id="book", native_content_digest="a" * 64,
+                  native_product_key="native", projection_digest="b" * 64,
+                  recipe_digest="c" * 64, coordinate_version=2)
+    return dict(term=dict(source=source, start=0, end=4, text="Mean", scope="chapter5", parent="distribution"),
+                content=dict(source=source, start=8, end=15, text="average", scope="chapter5", parent="distribution"),
+                interpretation="definition", scope="chapter5")
+
+
+def definition_inventory(meanings, *, versions=None):
+    targets = tuple(target_representation(key, "definition-component:" + key,
+                    "Mean", "average", scope="chapter5",
+                    effective_version=(versions or {}).get(key)) for key in meanings)
+    return freeze_inventory(targets, source_selection="all-original-component-proposals", scope="chapter5", semantic_targets=meanings)
+
+
+def select_definition_origins(inv, witnesses):
+    return select_relationships(candidates=candidates(inv), inventory=inv,
+        source_binding="source", scope="chapter5", effective_version=None,
+        constraints=(RelationshipConstraint("definition-binding", ("defined-by",), "term", "definition", "one"),),
+        witnesses=witnesses)
+
+
+def test_same_source_meaning_different_producer_bases_corroborate_one_edge():
+    from copy import deepcopy
+
+    meaning = semantic_definition_meaning()
+    inv = definition_inventory({"a": meaning, "b": deepcopy(meaning)})
+    assert len(inv.semantic_groups) == 1
+    assert inv.semantic_groups[0].member_target_ids == ("a", "b")
+    a = witness("rule", "a")
+    b = replace(witness("model", "b"), basis="model_reading")
+    result = select_definition_origins(inv, (a, b))
+    assert result.outcome == "selected" and not result.alternative_groups
+    (edge,) = result.selected_edges
+    assert edge.member_target_ids == ("a", "b")
+    assert {w.basis for w in edge.witnesses} == {"explicit_source_cue", "model_reading"}
+    assert edge.target_id == inv.semantic_groups[0].target_id
+    assert select_definition_origins(inv, (b, a)) == result
+    single = select_definition_origins(inv, (a,))
+    assert single.selected_edges[0].edge_id == edge.edge_id
+    assert single.decision_id != result.decision_id
+    from corpus_structure.methods.contextual_candidates import relationship_contributions
+    source = dict(contribution_id="located-role", item_key="retained-source-term",
+                  pin={}, anchors=(), occurrence_id="occ")
+    (single_observation,) = relationship_contributions(single, source, inv, "selection-operation")
+    (corroborated_observation,) = relationship_contributions(result, source, inv, "selection-operation")
+    assert single_observation["value"] == corroborated_observation["value"]
+    assert single_observation["contribution_id"] != corroborated_observation["contribution_id"]
+    assert single_observation["computation_dependencies"][2] == single.decision_id
+    assert corroborated_observation["computation_dependencies"][2] == result.decision_id
+    denied = select_definition_origins(inv, (a, replace(b, support_state="unsupported")))
+    assert denied.selected_edges[0].member_target_ids == ("a",)
+    assert len(denied.selected_edges[0].witnesses) == 1
+    assert len(denied.witnesses) == 2
+
+
+@pytest.mark.parametrize("difference", ["source", "content", "parent", "interpretation", "scope"])
+def test_distinct_source_meanings_remain_competing_definition_edges(difference):
+    from copy import deepcopy
+
+    first = semantic_definition_meaning()
+    second = deepcopy(first)
+    if difference == "source":
+        second["term"]["source"]["project_id"] = "another-book"
+    elif difference == "content":
+        second["content"].update(text="total", end=13)
+    elif difference == "parent":
+        second["term"]["parent"] = "another-parent"
+    elif difference == "scope":
+        second["term"]["scope"] = "another-scope"
+    else:
+        second["interpretation"] = "explanation"
+    inv = definition_inventory({"a": first, "b": second})
+    assert len(inv.semantic_groups) == 2
+    result = select_definition_origins(inv, (witness("first", "a"), witness("second", "b")))
+    assert result.outcome == "ambiguous" and not result.selected_edges
+    assert len(result.alternative_groups[0].edges) == 2
+
+
+def test_different_versions_keep_distinct_groups_and_unknown_version_withholds_selection():
+    from copy import deepcopy
+
+    first = semantic_definition_meaning() | {"effective_version": "v1"}
+    second = deepcopy(first) | {"effective_version": "v2"}
+    inv = definition_inventory({"a": first, "b": second}, versions={"a": "v1", "b": "v2"})
+    assert len(inv.semantic_groups) == 2
+    result = select_definition_origins(inv, (witness("first", "a"), witness("second", "b")))
+    assert result.outcome == "insufficient_evidence"
+    assert not result.selected_edges
+    assert "version is unestablished" in result.reason

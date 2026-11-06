@@ -71,11 +71,11 @@ def _propagate_cancellation(error, check_active):
     check_active()
 
 
-def relationship_contributions(decision, source_product, inventory, operation_key, semantic_targets):
+def relationship_contributions(decision, source_product, inventory, operation_key):
     """Project each explicitly selected scoped edge without selecting from alternatives."""
     rows = []
     for edge in decision.selected_edges:
-        target = next(t for t in inventory.targets if t.target_id == edge.target_id)
+        target = next(group for group in inventory.semantic_groups if group.target_id == edge.target_id)
         row = dict(
             contract="RetainedContributionSemantics", kind="proposal",
             semantic_type="contextual.relationship", operation_key=operation_key,
@@ -86,7 +86,7 @@ def relationship_contributions(decision, source_product, inventory, operation_ke
             standing="retained_private", score_state="missing",
             computation_dependencies=(source_product["contribution_id"], decision.candidate_list_id,
                                       decision.decision_id, inventory.source_selection, edge.edge_id),
-            value=source_value(json.loads(canonical_bytes(dict(target=semantic_targets[target.target_id],
+            value=source_value(json.loads(canonical_bytes(dict(target=target.meaning,
                                     relation=edge.relation, scope=decision.scope,
                                     effective_version=decision.effective_version)))),
         )
@@ -279,6 +279,7 @@ class ContextualCandidates:
             source_selection=registry_id,
             scope=cfg.scope,
             effective_version=cfg.effective_version,
+            semantic_targets=semantic_targets,
         )
         
         results = []
@@ -445,7 +446,7 @@ class ContextualCandidates:
                     (candidate_list.list_id,),
                     result_id=decision.decision_id,
                 )
-                proposals = relationship_contributions(decision, product, inventory, phase["operation_key"], semantic_targets)
+                proposals = relationship_contributions(decision, product, inventory, phase["operation_key"])
                 products.extend(proposals)
                 phase["emitted_count"] = len(proposals)
                 phase["computation_dependencies"] = tuple(dict.fromkeys(

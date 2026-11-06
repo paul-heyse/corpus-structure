@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import any_, func, literal, select
 from sqlalchemy.dialects.postgresql import REGCONFIG
@@ -86,6 +86,40 @@ def target_representation(
 
 
 @dataclass(frozen=True)
+class SemanticTargetGroup:
+    """Inventory-local equality of authenticated target meaning, retaining every origin."""
+
+    target_id: str
+    member_target_ids: tuple[str, ...]
+    meaning: dict[str, Any]
+
+
+def _meaning(value):
+    if isinstance(value, dict):
+        return {key: _meaning(item) for key, item in value.items() if item is not None}
+    if isinstance(value, (tuple, list)):
+        return tuple(_meaning(item) for item in value)
+    return value
+
+
+def semantic_target_groups(targets, semantic_targets):
+    groups = {}
+    for target in targets:
+        if target.source_binding.startswith("definition-component:"):
+            if target.target_id not in semantic_targets:
+                raise ValueError("component inventory requires authenticated semantic target meaning")
+            meaning = _meaning(dict(semantic_targets[target.target_id]))
+        else:
+            meaning = _meaning(dict(curated_target=asdict(target)))
+        target_id = identity("semantic-target", meaning)
+        if target_id not in groups:
+            groups[target_id] = (meaning, [])
+        groups[target_id][1].append(target.target_id)
+    return tuple(SemanticTargetGroup(target_id, tuple(sorted(members)), meaning)
+                 for target_id, (meaning, members) in sorted(groups.items()))
+
+
+@dataclass(frozen=True)
 class FrozenInventory:
     inventory_id: str
     source_selection: str
@@ -94,6 +128,7 @@ class FrozenInventory:
     targets: tuple[TargetRepresentation, ...]
     reliable_type: str | None = None
     parent: str | None = None
+    semantic_groups: tuple[SemanticTargetGroup, ...] = ()
 
     @property
     def target_ids(self) -> tuple[str, ...]:
@@ -108,6 +143,7 @@ def freeze_inventory(
     effective_version: str | None = None,
     reliable_type: str | None = None,
     parent: str | None = None,
+    semantic_targets: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> FrozenInventory:
     if not source_selection or not scope:
         raise ValueError("inventory requires exact source selection and scope")
@@ -129,6 +165,7 @@ def freeze_inventory(
             key=lambda target: target.target_id,
         )
     )
+    groups = semantic_target_groups(eligible, semantic_targets or {})
     dimensions = dict(
         source_selection=source_selection,
         scope=scope,
@@ -136,7 +173,8 @@ def freeze_inventory(
         reliable_type=reliable_type,
         parent=parent,
         targets=[asdict(target) for target in eligible],
-        policy="eligible-concepts-1",
+        policy="eligible-concepts-2",
+        semantic_groups=[asdict(group) for group in groups],
     )
     return FrozenInventory(
         identity("concept-inventory", dimensions),
@@ -146,6 +184,7 @@ def freeze_inventory(
         eligible,
         reliable_type,
         parent,
+        groups,
     )
 
 

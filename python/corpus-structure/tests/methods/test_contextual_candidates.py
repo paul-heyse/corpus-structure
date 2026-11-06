@@ -98,50 +98,27 @@ def test_supplied_mention_and_registry_production_bridge_removed():
 def test_projection_preserves_all_selected_kinds_without_first_alternative():
     from corpus_structure.methods.contextual_embeddings import EncodedVector
 
-    target = target_representation(
-        "concept", "component-source", "Mean", "average", scope="chapter"
-    )
-    inventory = freeze_inventory((target,), source_selection="component-inventory", scope="chapter")
-    candidates = fuse_candidates(
-        occurrence_id="occ",
-        query=EncodedVector("v", "occ", "source", "p", "digest", (1.0, 0.0)),
-        inventory=inventory,
-        channels={"dense": (ChannelHit("concept", 1.0),)},
-    )
-    original = RelationshipWitness(
-        "d", "occ", "concept", "denotes", "source", "chapter", None, ("raw",), "producer_group"
-    )
-    decision = select_relationships(
-        candidates=candidates,
-        inventory=inventory,
-        source_binding="source",
-        scope="chapter",
-        effective_version=None,
-        constraints=(
-            RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),
-            RelationshipConstraint(
-                "comparison", ("compared-with",), "subject", "comparator", "many"
-            ),
-        ),
-        witnesses=(original, replace(original, witness_id="c", relation="compared-with")),
-    )
+    target = target_representation("concept", "definition-component:source", "Mean", "average", scope="chapter")
+    semantic = {"term": {"text": "Mean", "start": 0}, "content": {"text": "average", "start": 8}}
+    inventory = freeze_inventory((target,), source_selection="component-inventory", scope="chapter", semantic_targets={"concept": semantic})
+    candidates = fuse_candidates(occurrence_id="occ", query=EncodedVector("v", "occ", "source", "p", "digest", (1., 0.)), inventory=inventory,
+                                 channels={"dense": (ChannelHit("concept", 1.),)})
+    original = RelationshipWitness("d", "occ", "concept", "denotes", "source", "chapter", None, ("raw",), "producer_group")
+    decision = select_relationships(candidates=candidates, inventory=inventory, source_binding="source", scope="chapter", effective_version=None,
+                                    constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),
+                                                 RelationshipConstraint("comparison", ("compared-with",), "subject", "comparator", "many")),
+                                    witnesses=(original, replace(original, witness_id="c", relation="compared-with")))
     source = located()
-    rows = relationship_contributions(decision, source, inventory, "edge-op", {"concept": {"term": {"text": "Mean"}, "content": {"text": "average"}}})
+    rows = relationship_contributions(decision, source, inventory, "edge-op")
     assert {source_python(row["value"])["relation"] for row in rows} == {"denotes", "compared-with"}
     assert len({row["computation_dependencies"][4] for row in rows}) == 2
     assert all("edge_id" not in source_python(row["value"]) and "constraint_id" not in source_python(row["value"]) for row in rows)
     assert all(row["members"] == (source["contribution_id"],) for row in rows)
-    assert len(decision.selected_edges) == 2
-    first = relationship_contributions(decision, source, inventory, "edge-op", {
-        "concept": {"term": {"text": "Mean", "start": 0}, "content": {"text": "average", "start": 8}}
-    })
-    reordered = relationship_contributions(decision, source, inventory, "edge-op", {
+    reordered = freeze_inventory((target,), source_selection="component-inventory", scope="chapter", semantic_targets={
         "concept": {"content": {"start": 8, "text": "average"}, "term": {"start": 0, "text": "Mean"}}
     })
-    assert first == reordered
-    assert source_python(first[0]["value"])["target"] == {
-        "term": {"text": "Mean", "start": 0}, "content": {"text": "average", "start": 8}
-    }
+    assert relationship_contributions(decision, source, reordered, "edge-op") == rows
+    assert source_python(rows[0]["value"])["target"] == semantic
 
 
 @pytest.mark.parametrize(

@@ -113,6 +113,7 @@ def enrichment_report(
             effective_version=inventory.effective_version,
             reliable_type=inventory.reliable_type,
             parent=inventory.parent,
+            semantic_targets={member: group.meaning for group in inventory.semantic_groups for member in group.member_target_ids},
         )
         if expected != inventory:
             raise ValueError("frozen inventory identity or eligibility differs")

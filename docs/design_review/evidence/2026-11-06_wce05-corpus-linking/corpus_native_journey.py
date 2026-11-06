@@ -121,7 +121,7 @@ def main():
         report = operation['contextual_enrichment']
         decisions = report['relationship_decisions']
         selected = [(decision, edge) for decision in decisions for edge in decision['selected_edges'] if edge['relation'] == 'defined-by']
-        summary = dict(outcome='passed' if selected else 'partial', run_id=result.run_id, cut_id=completed['cut_id'], release_id=prepared.release_id, physical_source=source.model_dump(mode='json'), profile='real E5', query_population='actual retained definition-term occurrences', counts=report['product_counts'], selected_defined_by=len(selected), independent_assessment='not_run', public_admission='not_run')
+        summary = dict(outcome='passed' if selected else 'partial', run_id=result.run_id, cut_id=completed['cut_id'], release_id=prepared.release_id, physical_source=source.model_dump(mode='json'), profile='real E5', query_population='actual retained definition-term occurrences', counts=report['product_counts'], private_target_representations=sum(len(inv['targets']) for inv in report['inventories']), semantic_target_meanings=sum(len(inv['semantic_groups']) for inv in report['inventories']), nomination_budget_unit='distinct private target representations; equivalent origins can consume separate vector/candidate budget', selected_defined_by=len(selected), independent_assessment='not_run', public_admission='not_run')
         save(output, 'result.json', summary)
         if selected:
             decision, edge = selected[0]
@@ -129,7 +129,7 @@ def main():
             link_ref = RetainedRelationshipDecisionRef(project_id=source.project_id, run_id=result.run_id, cut_id=completed['cut_id'], release_id=prepared.release_id, result_revision=linked_revision, selected_task_id=row['id'], origin_task_id=row['id'], runtime_fingerprint=runtime, operation_key=operation['operation_key'], decision_id=decision['decision_id'], edge_id=edge['edge_id'], occurrence_contribution_id=occurrence['contribution_id'])
             save(output, 'relationship-reference.json', link_ref.model_dump(mode='json'))
             passage = dict(term_passage, passage_id='actual-defined-term', start=component['term']['start'], end=component['term']['end'], text=component['term']['text'])
-            inputs = StructuralInput(question='Assess scope of actual retained defining occurrence', scope=component['scope'], inventory_id='actual-normal-definition-terms', policy_id='definition-introduction-1', sources=(source,), passages=(passage,), dependencies=(reference.product_id, decision['decision_id']))
+            inputs = StructuralInput(question='Assess scope of actual retained defining occurrence', scope=component['scope'], inventory_id='actual-normal-definition-terms', policy_id='definition-introduction-1', sources=(source,), passages=(term_passage, passage), dependencies=(reference.product_id, decision['decision_id']))
             app = DefinitionApplicabilityMethod()
             app_cfg = dict(inputs=inputs.model_dump(mode='json'), structural_input_digest=inputs.identity, usage_id='actual-defined-term', selection_refs=[link_ref.model_dump(mode='json')], applicability_scope='defining_occurrence')
             save(output, 'applicability-configuration.json', app_cfg)
