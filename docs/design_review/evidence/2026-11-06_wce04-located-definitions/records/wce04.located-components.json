@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "wce04.located-components",
+  "title": "Registered located definitions and independent narrow component publication",
+  "group": "WCE",
+  "package": "WCE04",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can current located components survive model attachment gaps, support independent narrow publication, and preserve the exposed fixed-cohort comparison?",
+  "answers": [
+    "WCE04",
+    "ADR-0067"
+  ],
+  "method": "Actual pinned GLiNER span/attribute execution plus authenticated named linguistic/native geometry production; independent original A/B/C source/output import, common native publication/refusals, retained reference and portable export; fixed eleven-target comparison with fresh bounded annotations and registered constructive rule-only generation.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce04-located-definitions/provider_check.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/compare_routes.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native_production_journey.py",
+      "role": null,
+      "sha256": "0da4a044df1c1dfd164fd13c7d8edfdd38604f78c33c3597f153b2dff5adbf0c"
+    },
+    {
+      "path": "import_independent_publication.py",
+      "role": null,
+      "sha256": "b71ae203c760ae56f0afe60f2665035f61110b6f468e200ff27788edbe02a69d"
+    },
+    {
+      "path": "fixed-f37/retain_constructive.py",
+      "role": null,
+      "sha256": "0f98d87412e133a0bde3a1ac666147f582b5af8c81fc67e91abfabe4a083d13f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native005",
+      "role": null,
+      "sha256": "7ed95f420f3dd0ec801bdb7f3d4173efeaaba7dab1689c572103f5941e7aa68d"
+    },
+    {
+      "path": "publication001",
+      "role": null,
+      "sha256": "c45f15ebabddc0f67e103c3a2ac01ac0004c67060a230a84d2c4dca30d43d263"
+    },
+    {
+      "path": "fixed-f37",
+      "role": null,
+      "sha256": "4ccafe5af20aea4265643bdb46f71e14c14806306825785b9d751c5cc43742b0"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Selected producer/native/read/publication mechanisms pass. Run120 retains one normal-density term/formula attachment; publication121 admits only that independently supported exact component. Model raw spans survive zero model attachments. Current method4 adds explicit linguistic-only choice; run136 privately retains the mean verbal definition on the same exposed fixed targets. All20 old comparison cells remain, no old wrong whole-app judgments are counted corrected, and ten targets plus the known explanatory gap remain. New mean independent support, source-wide recall, transfer/scientific truth and full-series benefit are unestablished.",
+  "consumed_by": [
+    "WCE04",
+    "WCE12"
+  ]
+}

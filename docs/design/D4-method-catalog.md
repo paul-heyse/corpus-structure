@@ -839,12 +839,14 @@ or with a math token are diagnostics only, not quality measures.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| exact located occurrence; immutable curated target descriptor | source context and profile-specific rendered input | typed contextual vectors and frozen inventory | owned CPU encoder |
+| exact located occurrence; authenticated component or curated target descriptor | source context and profile-specific rendered input | typed contextual vectors and frozen inventory | owned CPU encoder |
 
-**Implemented; bounded provider/native controls Tested,2026-11-05.** Registered
-`retrieve.contextual` composes occurrence/target encoding, owned PostgreSQL retrieval and scoped
-link proposals. Vectors are independently retained derived products; they require no accepted
-record. Source-supplied mention frames are explicit inputs and do not measure discovery.
+**Implemented; bounded provider/native controls Tested,2026-11-06.** Registered
+`retrieve.contextual` consumes authenticated selected occurrence contributions and retained component
+targets, composes owned encoding/PostgreSQL retrieval and retains constraint-governed relationship
+decisions. `locate.definition_terms` projects actual retained term roles under their original source
+closure; this projection does not count as new discovery. Vectors are independently retained derived
+products and require no accepted record. Curated targets remain a separate explicit control.
 General segment example selection remains a separate proposed consumer.
 
 **Library realization.** Sentence Transformers6.2.0 uses pinned E5-small-v2 (384 dimensions,
@@ -1357,19 +1359,30 @@ canonical-form fusion only, status from agent proposals and M19 rules.
 
 ## Cross-source structural RUN operations
 
-**Implemented; bounded provider/native behavior Tested, 2026-11-05.**
-`structure.definitions` validates explicit original source inputs, settles readers, performs
-owned E5 nomination under a frozen target inventory and applies owned GLiNER six-way
-usage–passage classification. Raw preparation/profile/request/reply/stage data remains in the
-immutable `UnitResult.parse_detail`; partial failure preserves completed upstream outcomes.
-The method takes no supplied readings or protected reference values. Actual semantic errors
-remain recorded by the [PCE coordinator](../plans/progressive-corpus-enrichment_2026-11-04.md).
+**Implemented; bounded provider/native behavior Tested, 2026-11-06.**
+`structure.definition_components` method4 authenticates original source and annotation custody,
+settles its read snapshot, and retains source-located term/content/attachment proposals from
+complementary named linguistic/native-geometry and bounded GLiNER span/attribute paths. Location,
+attachment, unavailable inputs, failures and retained raw model replies remain separate outcomes.
+Runtime window repairs do not add resource budgets to the semantic configuration ABI. An explicit
+linguistic-only configuration requires named candidates and no model profile; default model mode
+is preserved. Constructive quantity copulas require content/operation witnesses and exclude local
+explicit dependency negation while retaining the raw match.
 
-`structure.products` separately binds supplied typed definition/comparison/dossier reports.
-Its deterministic import is not automatic semantic discovery. Both are finite RUN operations
-under the existing task/release/native completion owner. A graph permits one effective config
-per method; conflicting defaults refuse before DB/model work, while equivalent aliases/global
-overrides remain valid. Separate single-config executions can be explicitly composed without
-bypassing dependency/reuse checks. No new per-dossier scheduler or model framework is introduced.
+`structure.definitions` method2 consumes an actual retained selected relationship reference and
+its retained component. It assesses sense, parameterization, convention, scope, effective version
+and parent independently. Unknown transfer premises withhold applicability. Same defining-occurrence
+introduction has its explicit limited policy; it establishes neither transfer applicability nor
+independent semantic support. The old six-way pair classifier and supplied definition bridge
+have been removed.
 
+`structure.products` method2 imports only the remaining typed comparison/dossier reports;
+definitions require their owned automatic producers. Supplied typed imports are not automatic
+semantic discovery. Finite RUN operations retain the existing task/release/native completion owner.
+A graph permits one effective config per method; conflicting defaults refuse before DB/model work,
+while equivalent aliases/global overrides remain valid. Separate executions can be explicitly
+composed without bypassing dependency/reuse checks. The [WCE coordinator](../plans/witnessed-corpus-enrichment_2026-11-05.md)
+owns current verification boundaries and remaining assessment.
+
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 > Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)

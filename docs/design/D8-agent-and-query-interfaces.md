@@ -2,7 +2,7 @@
 
 ## Witnessed component target
 
-**Proposed target, adopted2026-11-06.** Ordinary inspection and export preserve component roles, operation versions, source/runtime pins and partial/unavailable outcomes. Protected reference labels remain protected. Retained candidates do not gain public standing from syntax or a score.
+**Implemented; bounded Tested,2026-11-06.** Ordinary Reader, CLI, fresh stdio MCP and portable export preserve component roles, operation versions, source/runtime pins and partial/unavailable outcomes. Public assertions/support appear as separate facets; retained proposals do not acquire their standing. Independent read captures retain distinct capture IDs while their stable binding/content agrees. Protected reference labels remain protected.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
 consumers to current contracts. Historical semantic decoders and replaced decision paths are

@@ -2,10 +2,11 @@
 
 > Execution reading route,2026-11-06: The baseline table below describes the pre-WCE source. Current named recipes use M1v8 and retained-annotation-rules-2; token-only authoring and unnamed-only adaptation have been retired. WCE04 consumes these named products.
 
-**Proposed target and execution design · 2026-11-05.** This companion develops WCE03–WCE05.
+**Accepted target; selected implementation Tested · 2026-11-06.** This companion develops WCE03–WCE05.
 The [WCE coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns all package state,
 finding disposition, rule decisions, evidence and completion. This document owns the bounded
-design explanation; its acceptance requirements are planned obligations, not passing results.
+design explanation; selected realized behavior and its evidence limits are described at the end.
+Target requirements alone do not establish verification or corpus-wide benefits.
 
 The input is the integrated [production-enrichment review](../../design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md),
 consumed at `6487c486` (542 lines), especially §§2–4.2, 7–12 and F01–F03. The
@@ -27,7 +28,7 @@ definition-applicability statement.
 
 WCE03 prepares named linguistic candidates; WCE04 constructs definition components and separate
 usage-applicability judgments; WCE05 composes actual mentions with contextual retrieval and
-question-relative relationship selection. [Typed composition and dossiers](typed-relations-comparison-and-dossiers.md)
+domain-constraint relationship selection. [Typed composition and dossiers](typed-relations-comparison-and-dossiers.md)
 consume their qualified products. WCE08 consumes real ambiguous attachments, without making
 candidate-relative probabilities a new source of authority. WCE11 assembles journeys after
 each package has migrated its actual consumers; it is not a place to postpone those migrations.
@@ -89,7 +90,7 @@ not establish either prerequisite's implemented readiness.
 | Located role | Bind released role identifier to token head and declared expansion, retaining rule/variant, annotation/provider and source dependencies. | Separate correct location from correct role; syntax is a proposal basis. |
 | Attachment | Name participants, kind/direction, source basis, scope/version and operation identity; retain unresolved alternatives. | Do not infer attachment from proximity, shared strings or a generic passage rationale. |
 | Definition component | Bind term/expression to defining content with witnessed attachment; track component support separately from usage applicability. | May inspect or independently admit only the exact component claim its policy supports. |
-| Relationship selection | Preserve question, compatibility policy/version, candidate inventory/list, exclusions, selected edges and unresolved groups. | Do not flatten several compatible edges into one alternative or choose the first edge as denotation. |
+| Relationship selection | Preserve domain relationship constraints, compatibility policy/version, candidate inventory/list, exclusions, selected edges and unresolved groups. | Do not flatten several compatible edges into one alternative or choose the first edge as denotation. |
 | Operation coverage | Retain selected/inspected opportunity population and failed, empty, limited, unavailable or uninspected execution as distinct meanings. | Emission count and filtered candidates do not define source opportunity or absence. |
 
 These are required semantics, not a demand for a class, table or transaction per row. Use typed,
@@ -292,7 +293,7 @@ qualification; no provider execution is authorized by writing this plan.
 ## WCE05 — Actual mentions and compatible scoped relationships
 
 **Contribution:** F03, with F01/F02 consumers. **Consumes:** actual WCE03/WCE04 located products,
-WCE01 question-relative relationship contracts and native compatibility lowerings, and WCE02
+WCE01 domain relationship-constraint contracts and native compatibility lowerings, and WCE02
 relationship/source opportunities. **Delivers:** discovered occurrence → candidate list → typed
 selection → retained contribution/publication/read journey without a supplied-mention prerequisite.
 
@@ -327,14 +328,14 @@ separately. A correct target outside the returned budget is retrieval loss; a wr
 the target present is interpretation loss. The historical 14 additional independently identified
 relationships are development leads, not a fresh efficacy population.
 
-### Question-relative selection
+### Relationship-constraint selection
 
-Replace blanket singleton interpretation under a new policy/version. The released question and
-participant roles declare which choices compete. A denotation question may have one selected
+Replace blanket singleton interpretation under a new policy/version. The released relationship constraint and
+participant roles declare which choices compete. A denotation constraint may have one selected
 sense or an unresolved alternative group; “specializes” and “compared-with” may both be supported
 for the same occurrence. Return compatible selected edges separately from unresolved groups,
 with edge-specific endpoints, kind/direction, qualifiers, basis and reason. A decision may retain
-useful compatible selections while another question remains unresolved. Duplicated evidence for
+useful compatible selections while another constraint remains unresolved. Duplicated evidence for
 one edge is corroborating provenance, not another relationship or an independent likelihood.
 
 Apply exact source/scope/version and candidate-membership checks before selection. Preserve
@@ -354,7 +355,7 @@ transitive truth nor identity-merging authority.
 
 Change `semantic/contextual_links.py` policy and its released preparation/native realization;
 update `semantic/contextual_storage.py` to reconstruct only the go-forward report contract.
-Store enough declared candidates, questions, selected edges, alternatives and exclusions for exact
+Store enough declared candidates, relationship constraints, selected edges, alternatives and exclusions for exact
 replay. Identity binds the complete semantic decision. Do not regenerate a multi-edge decision by
 feeding only selected edges through the historical singleton policy.
 
@@ -403,3 +404,40 @@ framework or duplicate validator is scheduled.
 Plan-authoring execution, 2026-11-05: read-only source/documentation inspection and Context7 lookup
 performed. Product tests, probes, model/provider/database execution, training, benchmarks and
 integrated qualification: **not_run**. The root owns publication checks and `just turn-end`.
+
+
+## Selected WCE04–05 realization — 2026-11-06
+
+The coordinator owns completion and unresolved findings. [Final scoped evidence](../../design_review/evidence/2026-11-06_wce-definition-linking/records/wce04-05.final-union.json)
+covers the current-only implementation. Method4 `structure.definition_components` composes named
+rules/native geometry and optional located GLiNER extraction. Its explicit linguistic-only mode
+requires named candidates and no model profile; default model mode is preserved. This is a genuine
+producer-mode configuration change, separate from runtime-only window budgets. The statistics
+`witnessed` recipe adds constructive copula + content constructor + operation descendant. Shared
+attachment construction excludes explicit local dependency negation while retaining raw matches
+and negation extents. Controlled and actual mean cases establish construction, not scientific truth.
+
+Original annotation lookup authenticates selected original cut, method/version, input/configuration,
+release and native source before reading current columns. Missing or authenticated unsupported
+annotations yield typed unavailability; no historical decoder runs. Per-variant availability and
+per-window location/attachment outcomes remain visible. Models execute outside owned read snapshots.
+
+Source-role projection and authenticated component inventories feed relationship constraints.
+Equivalent source-resolved target meanings share an inventory-local semantic group; every original
+component/vector/candidate/witness remains retained. Different content/source/parent/scope/version
+continues to compete. Physical occurrence dedup saves query work without merging contextual roles;
+each edge chooses its own deterministic qualified carrier. Private vector/candidate budgets still
+count private representations, so no unique-meaning capacity or speed benefit is claimed.
+
+Current component/edge public statements contain source-resolved meaning and qualifiers, excluding
+query wording, retrieval diagnostics and opaque private IDs. Complete decision identity retains
+provenance. Native replay binds selected relationships, exact original source/dependencies and all
+six applicability dimensions. Same defining-occurrence introduction is distinct from transfer;
+unknown material premises withhold transfer applicability. Common independent eligibility qualifies
+only the exact component/edge statement, leaving private report standing unchanged.
+
+Actual normal component120/publication121, relationship127/applicability130 and mean136 have scoped
+native/read/export evidence. Fresh CLI/MCP validates the first three selected retained populations.
+The fixed exposed F37 source comparison preserves all20 old cells and reports one new private mean
+component, zero model attachments and remaining gaps; it does not count missing whole-app outputs
+as corrected old judgments. Fresh efficacy and assembled multi-package qualification remain WCE02/12.

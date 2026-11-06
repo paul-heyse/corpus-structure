@@ -2,7 +2,7 @@
 
 ## Witnessed component target
 
-**Proposed target, adopted2026-11-06.** Executable released declarations own component variants, role bindings and operation contracts. Generated boundaries and native validators consume that same meaning; no parallel witness store or independently authored role vocabulary is introduced.
+**Implemented; bounded Tested,2026-11-06.** Executable released declarations own component variants, role bindings and operation contracts. Current structural-product-2/contextual-enrichment-2 and structural evaluation frame3 have one go-forward decoder. Generated boundaries and native validators consume the declared meaning. Optional unsupported annotation versions retain custody and explicit unavailability without historical semantic decoding.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
 consumers to current contracts. Historical semantic decoders and replaced decision paths are

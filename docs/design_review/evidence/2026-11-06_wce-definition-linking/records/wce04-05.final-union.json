@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "id": "wce04-05.final-union",
+  "title": "Final selected witnessed definition and relationship functional union",
+  "group": "WCE",
+  "package": "WCE04/05",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the integrated current-only WCE04–05 selected implementation pass its applicable functional and hygiene union after final source maintenance?",
+  "answers": [
+    "WCE04",
+    "WCE05",
+    "ADR-0067"
+  ],
+  "method": "Final source maintenance followed by classified selected pytest-xdist auto functional/native/consumer checks and applicable full hygiene; actual provider/corpus journeys and independent assessment retain their separate original scopes. Final tested product formatting carried into cd7a57a5 without further product changes.",
+  "commands": [
+    "just test-all -n auto python/corpus-structure/tests/methods/test_definition_applicability.py python/corpus-structure/tests/methods/test_definition_terms.py python/corpus-structure/tests/methods/test_contextual_candidates.py python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/tests/methods/test_m1_annotation_selection.py python/corpus-structure/tests/semantic/test_contextual_enrichment.py python/corpus-structure/tests/semantic/test_contextual_enrichment_native.py python/corpus-structure/tests/semantic/test_contextual_groups_native.py python/corpus-structure/tests/semantic/test_contextual_workflow_native.py python/corpus-structure/tests/semantic/test_witnessed_applicability_native.py python/corpus-structure/tests/semantic/test_witnessed_publication_native.py python/corpus-structure/tests/semantic/test_local_semantic_admission_native.py python/corpus-structure/tests/semantic/test_structural_products.py python/corpus-structure/tests/semantic/test_structural_source_annotations.py python/corpus-structure/tests/semantic/test_structural_reader.py python/corpus-structure/tests/semantic/test_structural_queries.py python/corpus-structure/tests/semantic/test_structural_admission.py python/corpus-structure/tests/evaluate/test_structural_assessment.py python/corpus-structure/tests/semantic/test_operation_reporting.py python/corpus-structure/tests/semantic/test_operation_reporting_native.py python/corpus-structure/tests/semantic/test_review_bundle.py python/corpus-structure/tests/semantic/test_companion_export.py python/corpus-structure/tests/semantic/test_companion_export_native.py python/corpus-structure/tests/semantic/test_retained_source_budgets.py python/corpus-structure/tests/semantic/test_execution_release.py",
+    "just hygiene",
+    "just model check",
+    "just ready"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/final-functional-001/invocation.json",
+      "role": null,
+      "sha256": "2d91cc96bd8b965da39708d14163ffb799ee3be1798adafa98942fc5943fd765"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/final-functional-001",
+      "role": null,
+      "sha256": "7d2ba51325c04472b75fb5355b683875f5201262439cdb8a35b9df5de14d05e7"
+    },
+    {
+      "path": "raw/final-functional-001.log",
+      "role": null,
+      "sha256": "f5756b84d2c97391d597e54f7be2375de5962daefa7de0920109038797533a03"
+    },
+    {
+      "path": "raw/final-hygiene-001.log",
+      "role": null,
+      "sha256": "f905ff79d3b3a9302c9d5a67ed937076beeeff6bf3415d6307a6fef49d63d391"
+    },
+    {
+      "path": "raw/final-model-001.log",
+      "role": null,
+      "sha256": "c842de187ab6c7580605486b41337bf2518dcc0c9a0fc5870871077a391f0f94"
+    },
+    {
+      "path": "raw/final-ready-001.log",
+      "role": null,
+      "sha256": "ec0ae26c0e40bb618224161d2fbe14371c45d8f8669b8a52addbcfa367d5b97d"
+    },
+    {
+      "path": "raw/final-source-maintenance-001.log",
+      "role": null,
+      "sha256": "965a4865ae348f5eb6ea54b248373e9a7957ea1a4fc8a12becb0c48551268407"
+    },
+    {
+      "path": "raw/final-docs-first-failed.log",
+      "role": null,
+      "sha256": "3f4cc755e4e87d8f91bae8b2da8ec29e2885007ac0d1c47e8c3be377aec1ccaa"
+    },
+    {
+      "path": "raw/final-docs-passed.log",
+      "role": null,
+      "sha256": "a2d79bc7cb58fd74e7f697f0e77c3206e9222ed0aa007ef33cfeb0f0dc1d4da3"
+    },
+    {
+      "path": "raw/final-mean-bundle-verification.json",
+      "role": null,
+      "sha256": "690eba91846ae312c823257dc0b52b72ff50e5a0df5c166ad00ace6681c00cb2"
+    },
+    {
+      "path": "raw/final-evidence-catalog.log",
+      "role": null,
+      "sha256": "e414bcf89ab55623b416e77a118fd5f268a395c60ef9b358d417278a1ae0ecbd"
+    },
+    {
+      "path": "raw/final-adr-lint.log",
+      "role": null,
+      "sha256": "9eb771f8b0b45005c4855303ebe80542c9b37688e7382b79dcf33513eb687a08"
+    },
+    {
+      "path": "raw/final-turn-end.log",
+      "role": null,
+      "sha256": "b53e0e8624a4967a1d12c1c4ff55348f1f7b9357b6269d3ca77b7910bb7c9a6c"
+    }
+  ],
+  "depends_on": [
+    "wce.current-native-cutover",
+    "wce.current-derived-retirement",
+    "wce04.source-output-footprint",
+    "2026-11-06_wce04-located-definitions/wce04.located-components",
+    "2026-11-06_wce05-corpus-linking/wce05.scoped-relationships"
+  ],
+  "results": [
+    {
+      "name": "Selected Python functional union",
+      "value": 322,
+      "of": null,
+      "unit": "tests",
+      "note": "All selected tests passed with auto workers; overlapping earlier counts are not added."
+    },
+    {
+      "name": "Rust functional tests",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "No Rust tests in this workspace scope; rustc1.101.0-nightly(2d20b42b8 2026-11-04) recorded; Clippy passed."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected WCE04–05 functional union322 passed, model consistency0.6.5 passed, ready and all hygiene passed. Earlier failed attempts are retained. Current contract/native/read/export/provider and independent narrow component-publication obligations have scoped evidence; obsolete derived rows and replaced runtime paths are retired, native cutover fresh/deployed state agrees. Source-first full capture, held-out efficacy, remaining producer gaps, transfer/scientific truth, later WCE packages and WCE12 assembled qualification remain open. Separate test-resolution campaign was not resumed. Final documentation publication passed after hydrating71 merged LFS captures; the actual mean portable bundle reverified on main. Evidence catalog has0 errors and40 warnings in older out-of-scope records/citations.",
+  "consumed_by": [
+    "WCE04",
+    "WCE05",
+    "WCE12",
+    "ADR-0067"
+  ]
+}

@@ -2,7 +2,7 @@
 
 ## Witnessed component target
 
-**Proposed target, adopted2026-11-06.** Located components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Question-relative compatible edges remain distinct from exclusive alternatives.
+**Implemented; bounded Tested,2026-11-06.** Located definition components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Domain relationship constraints distinguish compatible selected edges from exclusive alternatives. Logical relationship identity binds source-resolved target meaning and qualifiers; opaque retrieval IDs, evidence-basis IDs and assessment wording remain provenance. Inventory-local semantic groups retain every qualifying origin without establishing global concept identity.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
 consumers to current contracts. Historical semantic decoders and replaced decision paths are

@@ -1,9 +1,9 @@
 # Witnessed corpus enrichment
 
-**Status: Proposed; implementation not started. Created 2026-11-05.** This coordinator owns
+**Status: WCE00–03 selected foundation delivered; WCE04–05 selected implementation complete and Tested. Updated 2026-11-06.** This coordinator owns
 combined scope, package state, scheduled review-finding disposition and completion. Supporting
-plans own detailed realization; DESIGN/ADRs remain architectural authority. Creating this series
-implements no product changes, activates no defaults and establishes no new product qualification.
+plans own detailed realization; DESIGN/ADRs remain architectural authority. Package state below distinguishes implemented scope from remaining assessment and qualification.
+No defaults are activated by this plan.
 
 ## Outcome, inputs and baseline
 
@@ -65,7 +65,7 @@ ADR-0066 adopts the target on2026-11-06; RC05 is replaced by the operator direct
 | Review impact | Decision and adoption route |
 |---|---|
 | RC01 | Accept: additive witnessed components and independent narrow policies. Additive ADR-0066 beside existing ADR-0065 scope, with D1/D2/D5/D8 owner edits. Preserve whole-report rules. |
-| RC02 | Accept: question-relative compatibility and qualified bases. Version observations/selector policy and amend D1/D5/D8; publish rationale through the same ADR route. |
+| RC02 | Accept: domain relationship constraints, compatibility and qualified bases; questions remain assessment metadata. Version observations/selector policy and amend D1/D5/D8; publish rationale through the same ADR route. |
 | RC03 | Accept: typed/revision comparison beside lexical baseline. Version operation/policy and revise affected ADR-0065/D1/D4/D5 owners. |
 | RC04 | Accept: supported-facet dossier selection as versioned bounded display projection. D1/D8 representation policy; no stronger admitted coverage claim. |
 | RC05 | Replaced2026-11-06: qualify on statistics, with domain-owned contracts and extension scenarios. No enterprise acquisition/qualification prerequisite; DESIGN §1.2 remains statistics-first. |
@@ -76,16 +76,16 @@ before using changed rules. Planning acceptance is not native deployment or a me
 
 ## Execution queue
 
-WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obligations remain open. WCE04–05 execution is authorized with ADR-0067 current-only cutover; later packages remain Proposed. This table owns state.
+WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obligations remain open. WCE04–05 selected implementation and current-only cutover are Tested under ADR-0067; later packages remain Proposed. Corpus-wide benefits and assembled qualification remain open. This table owns state.
 
 | ID | State | Prerequisite capability | Delivered behavior and completion boundary |
 |---|---|---|---|
 | WCE00 | Complete: ADR-0066 adopted; docs passed | Current source/review/rule decisions | Reconcile source and test-foundation receipts; adopt RC01–06 through existing decision owners; identify required verification union. |
-| WCE01 | Selected retention/read/frame foundation Tested; native155; positive public policies remain with their producers | WCE00 | Released component/question/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
+| WCE01 | Selected retention/read/frame foundation Tested; native155; positive public policies remain with their producers | WCE00 | Released component/relationship-constraint/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
 | WCE02 | Early statistics source/output slice Tested; later frames, exposure-limited references and parameter/header coverage remain open | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
 | WCE03 | Tested selected named-candidate increment; actual native/read/export and independent output assessment delivered | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
-| WCE04 | In progress; current-only cutover authorized2026-11-06 | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; pair-only classifier and historical reader paths retired after current-contract migration. |
-| WCE05 | In progress; current-only cutover authorized2026-11-06 | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
+| WCE04 | Complete selected functional scope; Tested2026-11-06, efficacy limits below | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; pair-only classifier and historical reader paths retired after current-contract migration. |
+| WCE05 | Complete selected functional scope; Tested2026-11-06, wider WCE11/12 qualification open | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
 | WCE06 | Proposed | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
 | WCE07 | Proposed | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
 | WCE08 | Proposed | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
@@ -124,9 +124,9 @@ Each is captured even when inactive. No dependency is added simply because it is
 
 | Source item | Responsible scope and disposition | Closure evidence |
 |---|---|---|
-| review#F01 | Open; WCE01/04/02/11 | Located definition components and applicability separately assessed, fixed F37 then fresh cases; support never promotes whole report |
+| review#F01 | WCE04 mechanism delivered; broader assessment remains open with WCE02/11/12 | Current component/applicability and exact independent publication pass. Exposed F37 comparison retains all20 cells and recovers mean source facet; ten targets/explanation gap and held-out benefit remain. See execution evidence below. |
 | review#F02 | Open; WCE03 | Pattern-variant role identity, overlapping raw groups, passive/coordinated cases and exact source reconstruction |
-| review#F03 | Open; WCE05 | Actual occurrences, compatible edges and exclusive alternatives; all singleton consumers migrated |
+| review#F03 | WCE05 mechanism delivered; assembled/efficacy obligations remain with WCE02/11/12 | Actual source occurrence/extracted target/E5/native relationship/applicability and Reader/CLI/MCP/export pass. Singleton paths retired; same-span role-carrier defect closed as WCE-R04. No corpus relationship quality estimate follows. |
 | review#F04 | Open; WCE06 | Independent lexical/typed/applicability outcomes, exact threshold endpoints/units/exceptions and source versions |
 | review#F05 | Open; WCE07 | Supported membership independent of display selection; equal-budget facets, conflicts and overflow |
 | review#F06 | Open; WCE08 | Genuine declared factors/support with no duplicate likelihoods; independent comparison establishes benefit or simpler sufficiency |
@@ -200,9 +200,10 @@ qualification and the separately stopped test-resolution campaign were not resum
 
 | Item | Responsible scope and disposition | Settling evidence |
 |---|---|---|
-| WCE-R01: actual normal-source σ misidentified as defined term | Open; WCE04 target-local component interpretation and recipe refinement | Independent output A/B/C distinguish supported source location from wrong term role. Correct the defining subject/component under the exact source scope; preserve the raw matched basis and assess fresh cases. |
+| WCE-R01: actual normal-source σ misidentified as defined term | Concrete normal-density attachment corrected and independently supported; fresh-case generalization remains with WCE02/04 | Current method3 run120 retains the nominal subject and exact native formula; output A/B/C and narrow publication121 support that attachment only. Raw model role proposals remain unassessed; exposed source does not establish held-out benefit. |
 | WCE-R02: exposed original final/calibration source families | Open; WCE02/09 reference/exposure composition | Preserve original origin partitions and authorized exposure; settle usable question-specific reference delivery without relabelling old exposed families as fresh held-out or copying raw author files into eligible passes. |
 | WCE-R03: remaining parameterization/header reference coverage | Open; WCE02 with WCE06 producer questions | Source and independently reference alternate parameterizations and nested/merged-header/note questions under their actual source scopes; current normal-source intake does not establish these facets. |
+| WCE-R04: overlapping role aliases projected from arbitrary first occurrence product | Closed scoped manifestation; WCE05 carrier repair Tested2026-11-06 | Main6143fb2c chooses a deterministic carrier from each edge's own qualified witness evidence. Actual native forward/reversed source-order controls passed2; unit coverage includes distinct per-edge carriers and missing-carrier refusal. Independent static re-review found no remaining defect; physical query dedup is unchanged. |
 
 A located syntactic proposal is useful retained structure even when its role is independently
 unsupported. The new source/output assessment must not promote that proposal to a supported
@@ -231,8 +232,9 @@ opportunities remain visible even when minimal linguistic cues do not capture th
 
 Replacement inventory: current `annotation_token_rules` authoring and unnamed-only adaptation
 were deleted, M1v8/op2 is the only new writer, and all current call sites use named recipes.
-Raw match proposals, archived result readers, frozen migrations and evidence remain intentionally.
-The WCE03 production worktree was integrated and removed; no parallel worktree remains.
+Raw source proposals and recorded evidence remain; ADR-0067 now removes superseded semantic
+readers and control paths. Required earlier migration history remains; this increment consolidates
+its own temporary migration chain. The WCE03 production worktree was integrated and removed.
 
 ## WCE04–WCE05 execution boundary — 2026-11-06
 
@@ -254,9 +256,57 @@ and E5 routes; independent source/output assessment; positive exact component/ed
 and whole-statement refusal; current Reader/query/CLI/MCP/continuation/export reconstruction;
 dependency-aware migration and fresh-install agreement; cancellation/partial-state retention.
 All pytest selections use `uv run pytest -n auto`. Original exposed families remain development
-inputs with unchanged origin/exposure. Product results for this increment are not yet claimed.
+inputs with unchanged origin/exposure. Selected product results are recorded below; full-series qualification is not claimed.
 
 The operator clarified during execution that the corpus is a progressively structured domain
 representation, not a question/answer model. Production relationship constraints own kind, roles,
 multiplicity and competition. Assessment questions and query intent remain separate; query wording
 is excluded from public statement identity. Partial unresolved constraints remain explicit.
+
+
+### WCE04–WCE05 selected acceptance and remaining gaps
+
+**Tested,2026-11-06.** [Final selected union](../design_review/evidence/2026-11-06_wce-definition-linking/records/wce04-05.final-union.json)
+records `just test-all -n auto` with the exact25-file Python selection:322 passed. Rust had no
+functional tests; recorded rustc1.101.0-nightly(2d20b42b8 2026-11-04), Clippy passed. All
+`just hygiene`, `just model check`(0.6.5) and `just ready` passed. Earlier failures remain;
+earlier overlapping counts are not summed. Final tested product source is committed in cd7a57a5.
+Documentation-only handoff changes do not alter that product/harness source.
+
+[Definitions](../design_review/evidence/2026-11-06_wce04-located-definitions/records/wce04.located-components.json)
+retain actual model spans despite zero model attachments, construct the normal-density term/formula
+component120 and admit only its independently supported attachment121. Current method4 adds an
+explicit linguistic-only mode and constructive-copula recipe with negation exclusion. Actual136
+privately retains the mean verbal definition; ordinary read/reference/export passed. This mode ABI
+change is distinct from the earlier budget repair, which remains runtime-only.
+
+[Fixed F37 comparison](../design_review/evidence/2026-11-06_wce04-located-definitions/fixed-f37/README.md)
+preserves six original source sections, eleven exact excerpts and all20 historical cells. Only
+current annotations were regenerated, with exact text/piece equivalence and new provenance.
+Linguistic/model/composed arms retain1/0/1 component. Eight old wrong whole-app judgments are
+not counted corrected; all20 current whole-app questions are not_run. Ten target attachment
+operations are empty; the known normal explanatory facet is still uncaptured. New mean independent
+support, formula attachment, held-out efficacy and complete source coverage remain unestablished.
+Missing model content endpoints retain the I01 discovery/span question; they do not justify JointIE.
+
+[Relationships](../design_review/evidence/2026-11-06_wce05-corpus-linking/records/wce05.scoped-relationships.json)
+carry actual source occurrence → real E5 → extracted component target → canonical defined-by127,
+then private defining-occurrence applicability130. Fresh CLI/MCP and portable export pass; stable
+binding/content agrees while independent capture IDs remain distinct. Each edge retains its own
+qualified role carrier and full decision provenance. Exact controlled edge-publication/refusal
+mechanisms pass, but corpus127/130 remain private and independently unassessed. Transfer applicability,
+scientific truth, global concept identity and calibration are not established.
+
+[Native cutover](../design_review/evidence/2026-11-06_wce-definition-linking/records/wce.current-native-cutover.json)
+replaces this increment's temporary156–162 chain with one155→current156 transition. Fresh and
+persistent state agree on218 native objects and zero native/physical differences. Existing release
+identities and retained data are preserved. [Derived retirement](../design_review/evidence/2026-11-06_wce-definition-linking/records/wce.current-derived-retirement.json)
+removed obsolete26 runs/81 tasks/52 results and dependency closure without deleting authenticated
+sources. Replaced pair/singleton/manual definition bridges and historical semantic decoders are gone.
+All task worktrees are integrated and removed; plans/evidence remain.
+
+[Granular source/output account](../design_review/evidence/2026-11-06_wce-definition-linking/capture-footprint.md)
+retains all44 normal-source C cases/144 quoted spans with physical intersections and explicit gaps.
+Physical overlap is not semantic credit. Full source-first capture grading and fresh held-out frames
+remain WCE02/12 obligations. WCE06–12, parameter/header expansion, independent efficacy and the
+separately stopped test-resolution campaign are not closed by this increment.

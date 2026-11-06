@@ -2,7 +2,7 @@
 
 ## Witnessed component target
 
-**Proposed target, adopted2026-11-06.** Exact operation-specific eligibility qualifies only the assessed component statement. Whole-report policies remain unchanged. Typed comparison and supported-facet display are accepted later targets, independently of canonical identity.
+**Implemented; bounded Tested,2026-11-06.** Exact operation-specific eligibility qualifies only the independently assessed component or relationship statement. Whole-report applicability policies require their own evidence. Native completion replays selected relationship constraints and six applicability dimensions against actual retained bindings; private proposals and preferred selections alone confer no public standing. Typed comparison and supported-facet display remain accepted later targets, independently of canonical identity.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
 consumers to current contracts. Historical semantic decoders and replaced decision paths are

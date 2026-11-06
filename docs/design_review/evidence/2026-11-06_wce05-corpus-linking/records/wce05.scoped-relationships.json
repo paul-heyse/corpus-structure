@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "id": "wce05.scoped-relationships",
+  "title": "Actual retained occurrences through scoped relationships and applicability consumers",
+  "group": "WCE",
+  "package": "WCE05",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do actual authenticated source occurrences and component targets produce replayable constraint-governed relationships without question-centric claim identity or arbitrary role carriers?",
+  "answers": [
+    "WCE05",
+    "ADR-0067"
+  ],
+  "method": "Actual registered source-role projection, E5 encoding and native linking/applicability followed by ordinary read/export; fresh CLI and stdio MCP parity; scoped native/common-publication forgery controls and exact same-span role-carrier regression.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce05-corpus-linking/consumer_check.py consumer003",
+    "uv run pytest -n auto python/corpus-structure/tests/semantic/test_contextual_workflow_native.py -k same_span_roles"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "corpus_native_journey.py",
+      "role": null,
+      "sha256": "783c19dad2f14cbed6f0f4e1f1626de43f733d5807ff2f4764040afc8264e36c"
+    },
+    {
+      "path": "consumer_check.py",
+      "role": null,
+      "sha256": "b73b00a5b8982e3ae37023f0341732bedbfea0113db191892e1c22031ec27b05"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "actual002",
+      "role": null,
+      "sha256": "a214505b3746bb814437a9b7f42935f344d44c589b8ecac3c732e1f3662b116b"
+    },
+    {
+      "path": "actual003",
+      "role": null,
+      "sha256": "6485581089e7e65dfdca1765ed7501df529d642c91cc13cc605d5bbe39cdd7c3"
+    },
+    {
+      "path": "actual004",
+      "role": null,
+      "sha256": "cc18aeadb585c9139020f180e11106dbfbfc184a7b49d281a78f76306cb27ee5"
+    },
+    {
+      "path": "actual005",
+      "role": null,
+      "sha256": "70655552a4b6fcc5049bba5c799cb2c4433a15aa7a32f43e99b0e694a6457d5d"
+    },
+    {
+      "path": "actual006",
+      "role": null,
+      "sha256": "24cb47394eb1f42ddb047fe2f05005dc1f6409cbaa5a6e8145e897710e19063d"
+    },
+    {
+      "path": "consumer001",
+      "role": null,
+      "sha256": "bc9f48493270deded01df718f188b6890c85c5ba5a3a8252d8add992b8d7fcac"
+    },
+    {
+      "path": "consumer002",
+      "role": null,
+      "sha256": "74bfce6536d4a9c960b352fdadbe37368166b60342f124f47e6b11c811b29d80"
+    },
+    {
+      "path": "consumer003",
+      "role": null,
+      "sha256": "28309cac053bf6f0a2380d340bd6608fda04372a6937297f220f937d9679425b"
+    },
+    {
+      "path": "carrier001-functional.log",
+      "role": null,
+      "sha256": "c77847a7f4ce61d447e9924ef35a5275ee134dd947b99b217e1b51b8fedb12b7"
+    },
+    {
+      "path": "carrier001-native-rerun.log",
+      "role": null,
+      "sha256": "124043625e8bc4a8b3f69f74e34d50444da12f01fad3198069c86ddabeb32f69"
+    },
+    {
+      "path": "carrier001-types.log",
+      "role": null,
+      "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Actual run127 retains two384D vectors, one source occurrence and canonical defined-by edge from an authenticated component; run130 retains private exact defining-occurrence applicability, with unknown transfer premises withheld. Reader/export and fresh CLI/MCP pass, comparing all stable binding/content and retaining separate capture IDs. Each edge uses its own qualified occurrence carrier, order-independent; native forward/reverse controls pass. Independent corpus relationship/applicability support, public corpus applicability, held-out efficacy, calibration and full WCE qualification are not established.",
+  "consumed_by": [
+    "WCE05",
+    "WCE12"
+  ]
+}
