@@ -267,6 +267,13 @@ uses its frozen claim form until scheduled consumer migration.
 
 <a id="section-b2"></a>
 
+
+**Accepted target,2026-11-06.** Remaining WCE producers and consumers pivot to current
+contracts; preserve source custody and regenerate insufficient derived data, with no historical
+semantic decoder fallback.
+
+> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
+
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
 **Accepted target; implementation tracked separately,2026-11-06.** Witnessed components
@@ -780,6 +787,14 @@ qualification concerns a frozen held-out source cut, using exhaustive source ref
 census or exact finite-population sampling bounds; unseen-origin performance is unestablished.
 
 > Decision: [ADR-0062](../adr/0062-progressive-contributions.md)
+
+
+**Accepted method-development target,2026-11-06.** One shared Grinstead–Snell120-page corpus
+supplies development, fitting, debugging, regression and repeated assessment. Single-origin
+in-sample event fitting is permitted; independent source labels and numerical validity remain.
+Separate held-out/calibration populations are later generalization work, not readiness gates.
+
+> Decision: [ADR-0068](../adr/0068-single-corpus-method-development.md)
 
 ### §B6 Escalation is routed by versioned policies over measurements
 
