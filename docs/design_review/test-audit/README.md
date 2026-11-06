@@ -1,10 +1,10 @@
 # Test code design principle audit
 
 The separate living diagnostic account for test code, test evidence and shared infrastructure.
-The [skill](../../../.claude/skills/design-principle-audit-tests/SKILL.md) owns method; the
+The [skill](../../../.claude/skills/design-principle-audit-tests/SKILL.md) owns method and the
 [binding](../design_principles/binding/corpus-structure.md#test-code-design-principle-audit)
-owns applicability and identities. This account diagnoses; reviews own alternatives and plans
-own scheduled disposition. No product repairs or qualification follow from publication.
+owns applicability and identities. This account diagnoses; reviews compare solutions and plans
+own scheduled disposition. Publication authorizes no product repairs or qualification.
 
 <a id="baseline"></a>
 
@@ -12,145 +12,174 @@ own scheduled disposition. No product repairs or qualification follow from publi
 
 | Item | Inspected state |
 |---|---|
-| Date | 2026-11-02 |
-| Audited source | `2495baae074b69ed3c4fc562b052fe1dbb6180fe`; source citations use this revision unless stated |
-| Included dirty context | `STATUS.md`, UM coordinator and eight companions; forward94 evidence README, evidence index and untracked runtime-login-94/records. These are contextual evidence, not newly qualified source |
-| Source/config changes in the dirty tree at acquisition | None under product source, tests, scripts, manifests or lockfile |
-| Standard | core 3.3; heuristics 1.0; test-assessment 1.2; code-intelligence 1.4 where its fidelity, evidence and evaluation obligations apply by analogy; repository binding |
-| Reconciled source | through `25a23118`: inference/agent-hold/operation/packet method contracts, child-graph scope, retired-span assertion, stale-pin reason and serving composed dependencies; only these intervening test changes were adopted |
-| Previous account | source `599d479`, reconciled `1efd4fe`, 2026-10-30. Its observations and timings are not refreshed by inheritance |
-| Kind | Full repository test-responsibility refresh; static architectural assessment |
-| Publication | The commit publishing these account changes, distinct from audited source |
+| Date | 2026-11-05 |
+| Audited source | `bc2208f9d6a12d3ad9cf71575fa1c6df388d885b` |
+| Included dirty source/configuration | None; clean acquisition. Concurrent broad-audit/STATUS documentation edits are excluded from this test-source baseline |
+| Standard | core3.3; heuristics1.0; test-assessment1.2; code-intelligence1.4 where applicable; repository binding |
+| Previous account | 2026-11-02, source2495baae reconciled through25a23118; superseded as a current baseline, retained in Git |
+| Kind | Full authored test-responsibility refresh; static architectural assessment |
+| Publication | The commit publishing this account, distinct from the audited source |
 
-Paths in topic pages are relative to `python/corpus-structure/` unless prefixed by a repository
-root such as `scripts/`, `tests/scripts/`, `fixtures/`, `domains/`, `ops/` or `docs/`.
+Paths in topic pages are relative to `python/corpus-structure/` unless explicitly prefixed
+with repository-root `scripts/`, `fixtures/`, `domains/`, `ops/`, `docs/`, or described as root tests.
+Bare `test_*.py` module names designate semantic tests unless another family is named; shortened
+production module paths designate `src/corpus_structure/`. All current source observations below
+are **Interface-checked by source inspection,2026-11-05**;
+no product behavior is freshly labelled Tested or Measured by this audit.
 
-## Scope and reading coverage
+## Scope and method
 
-Primary reading covers root/package Python tests and their support, native database lifecycle,
-collection and qualification, reference provenance and consumers, Rust and execution configuration.
-Current maintained testing responsibilities outside test directories are followed as dependencies.
-Historical standalone probe programs without a current assurance consumer are excluded; tests
-that consume retained evidence remain included. Generated reference data is assessed through
-provenance, builders and selected contents rather than a claim to read every JSON value or binary.
+The selected scope is all current authored Python under root/package test trees, plus shared
+execution, prerequisite, ownership and qualification infrastructure. Production dependencies are
+read far enough to understand the tested contract and assurance mechanism. Inline/doctest searches
+of crates, product source, scripts, tools, services and domains found no additional maintained
+inline test body. The Rust starter and nextest configuration remain included, with no Rust
+functional coverage inferred.
 
-The coordinator reconciled the tracked Python inventory with contributor partitions:
+The complete authored reading union is28root Python files/7,800lines and390package Python
+files/107,101lines, all read in full. The reconciled package partitions are13core/5,401lines,
+8schema/2,180lines,256semantic/72,226lines,112remaining/26,990lines and shared conftest/304lines.
+The root reads the26root modules not assigned to infrastructure; the native contributor reads
+test_native_auth and test_test_receipts. All five shared native/qualification scripts were read
+completely; process-script and product dependencies were followed selectively. Output-truncated
+source chunks were reread before declaring completion. Semantic coverage reconciles to82a–m
+modules/22,152lines,84n–p modules/25,782lines (including36PDF modules/11,510lines),76q–z
+modules/21,559lines and14support modules/2,733lines. Confirmed cross-partition reads fill named
+skips; overlaps are not added.
+These are source files and physical lines, not executable-node or test-pass counts. Authored
+reference builders are included; JSON/binary references are assessed through provenance,
+consumers and selected contents, without claiming every retained value was independently verified.
+Historical standalone probes without a current assurance consumer remain excluded.
 
-| Primary reading | Python files | Lines | Depth |
-|---|---:|---:|---|
-| Package tests/support excluding semantic | 94 | 20,304 | All authored Python |
-| Semantic tests/support, including conftest | 171 | 46,800 | All authored Python; 129-file semantic remainder, 41-file native slice, conftest |
-| Root tests/support | 27 | 6,408 | All authored Python; coordinator read18 top-level test modules/4,492lines; contributor read8 nested modules and shared conftest inspected |
+Reading is partitioned by responsibility: non-semantic product tests; schema/core and semantic
+contracts; native/PDF infrastructure and receipt lifecycles. Semantic reading is further split
+alphabetically to complete the large current scope. The root owns root/process tests, criteria,
+source integration and publication. Contributors return exact coverage and limits; overlaps do
+not increase the union. A fresh reviewer independently challenged material conclusions and source evidence before
+publication. It confirmed the new local diagnoses, strengthened the ten-case rejection shortcut,
+and narrowed the numerical perturbation observation to a local evidence limit under DTA-001;
+it did not independently reread the complete source union.
 
-Counts come from tracked existing *.py files and physical lines at reconciliation, not collected
-test cases. The native contributor's43-file return included two additional/context files; it is
-not added to the171-file primary union. Shared qualification/plugin/prerequisite scripts, native
-lifecycle support, ops shell scripts, pytest/nextest/just configuration, manifests and starter Rust
-were also read. The Rust crate has no test body; no Rust command was executed. Reference builders,
-provenance and consumer searches were inspected; no whole-JSON validation or fresh fixture
-re-derivation is claimed. No fresh executable-node count or test pass is inferred.
-
-## Method
-
-Three read-only contributors cover model/semantic evidence, native infrastructure, and remaining
-product/process tests. The coordinator reads qualification infrastructure and decisive sources,
-reconciles overlapping claims, and publishes. All contributors apply FP-01–FP-07 rather than only
-the companion topics. A separate reviewer challenged consequential conclusions and omissions. Its main correction
-was adopted: missing runtime callers alone do not invalidate the frozen key vector or the
-current scientific machinery reached by a legacy-shaped adapter (DTA-014). It also confirmed
-the production large-Unicode serializer counterevidence in DTA-016.
-
-Change scenarios include a model parameter/result change; reordered catalog definitions; a genuine
-native guard failure versus an unrelated refusal; current-only retirement with preserved independent
-expectations; a changed provider/validator; early reader close or cancellation; a process killed
-during cluster setup; and a focused test under concurrent shared capacity. These are inquiry
-techniques, not a fixed matrix or a mandatory execution campaign.
+Changes from the previous account, production-contract changes and completed TA packages are
+investigation leads. Existing closures are checked in current source rather than inherited as
+fresh passes. Representative scenarios include focused test selection, changed helper imports,
+a tool failing before it reports violations, empty observations, wrong crop location, changed
+compiler/schema inputs, early close/cancellation, actual-purpose authentication and interrupted
+shared-cluster effects. No exhaustive trace or mandatory mutation campaign is imposed.
 
 ## How the foundations were assessed
 
-- **FP-01/03:** locate scenario, lifecycle and observation owners; examine cross-test imports and
-  whether composed journeys exercise the product composer. Shared realistic setup has value even
-  where its module ownership and repeated preparation create propagation (DTA-005/009/018).
-- **FP-02:** distinguish consumed behavior from incidental internals, and the precise guarantees
-  discharged by native clients, in-process MCP/CLI and stand-ins (DTA-010/016).
-- **FP-04:** judge independent semantic expectations separately from generated conformance.
-  Retained hand-authored vectors, exact values and source-derived references are strengths;
-  counterpart reachability and predicate completeness remain material (DTA-004/011/014/019).
-- **FP-05:** examine explicit rejection, lifecycle and outcome distinctions. A generic error or
-  truthy container can conceal the particular obligation a test names (DTA-001/006/013).
-- **FP-06:** follow case-defining defaults, cache state, ambient targets and provenance so the
-  scope needed to understand a test is visible (DTA-007/009/012/017).
-- **FP-07/A4:** assess preparation lifetime, necessary versus repeated construction, representation
-  movement, teardown and shared capacity using H5/H12/H18–H27 where relevant. Independent checks,
-  fresh committed isolation and actual restricted logins remain necessary assurance, not presumed
-  waste. Static repetition does not establish a dominant bottleneck or a measured speedup.
-- **Profile:** CI-04/06/10/11/12/13 inform unknown versus absent, bounded claims, pinned inputs,
-  evidence closure, non-circular evaluation and realization lifetime where applicable. Code-analysis
-  specific obligations are not imposed on unrelated process tests.
+- **FP-01/03:** follow scenario and lifecycle ownership, production composition versus synthetic
+  kernel setup, and change propagation through helper imports. The six TA support extractions
+  remain useful corrections; new private test-host specialization extends DTA-009's footprint.
+- **FP-02:** distinguish consumed contracts from incidental implementations and identify which
+  boundaries are actually exercised by doubles, native clients, CLI and SDK transports.
+- **FP-04:** inspect independent canonical bytes, geometry, finite combinatorics, source readings,
+  reference partitions and compiler identities separately from generated conformance. Shared
+  validators are useful downstream setup; their own correctness needs independent expectations.
+- **FP-05:** inspect invalid-input reachability, intended refusals, empty/partial/unknown states,
+  process outcomes, resource acquisition and publication. LinkML invocation failure and a blank
+  rendering fixture expose concrete discriminating-evidence limits.
+- **FP-06:** examine case-defining defaults, mutable state, ambient targets and independent
+  selection. The application sentinel is a substantial improvement; DTA-021 isolates controls
+  that still depend on another test having run.
+- **FP-07/A4:** assess cold/warm preparation, data movement, focused prerequisites, physical
+  connection events, publication/reader lifetimes and recovery. DTA-018/022 explain unnecessary
+  work structurally. Fresh committed clones, independent expectations and actual native
+  authentication remain justified assurance. No timing shares or speedups are claimed.
+- **Profile:** attributed evidence, unknown versus absent, pinned realizations and non-circular
+  evaluation constrain applicable scientific/serving claims. Code-analysis-specific obligations
+  are not imposed on unrelated process tests.
 
-## Synthesis and finding navigation
+## Current diagnostic navigation
 
-The current-only transition substantially changes the previous audit's premises. Removed historical
-runtime formats are not missing supported readers; retained current custody and frozen migrations
-still need discriminating controls. The old 585/2,429 dormant-node count and elapsed-time shares
-are not current conclusions. The account preserves narrower surviving causes and contrary evidence. DTA-008's descriptor
-manifestation is corrected; DTA-014's broad dormancy diagnosis is withdrawn after challenge;
-DTA-020's historical-success premise is superseded. DTA-016 adds the concrete chunk-bound
-substitution gap under its existing boundary-fidelity cause. No new finding identity is needed.
-
-| Topic | Primary diagnoses |
+| Topic | Current concerns and retained identities |
 |---|---|
-| [Evidence and discrimination](evidence-and-discrimination.md) | DTA-001/006/007/010/011/013/015/019/020 |
-| [Execution and qualification](execution-and-qualification.md) | DTA-002/003/017/018 |
-| [Support structure](support-structure.md) | DTA-005/008/009/012/016 |
-| [Retirement and transfer](retirement-transfer.md) | DTA-004/014 |
+| [Evidence and discrimination](evidence-and-discrimination.md) | DTA-001; DTA-023; reconciliation of006/007/010/011/013/015/019/020 |
+| [Execution and qualification](execution-and-qualification.md) | DTA-018/021/022; narrowed003 question; reconciliation of002/017 |
+| [Support structure](support-structure.md) | DTA-009; reconciliation of005/008/012/016 |
+| [Retirement and transfer](retirement-transfer.md) | DTA-004/014 scoped correction and withdrawn broad diagnosis |
 
-## PostgreSQL library lens
+The [test architecture coordinator](../../plans/test-architecture-and-evidence_2026-11-02.md)
+continues to own its completed packages and scoped DTA dispositions. Renewed manifestations do
+not erase those corrections or broaden their qualification. Unscheduled observations remain
+here with their revisit triggers; no new execution ledger is created.
 
-The local PostgreSQL, data-model, analytical-infrastructure and primary-intake references supply
-questions about deployment/cloning, restricted principals, exact transport, prepared validators,
-generator exclusions, lazy ownership and provider fidelity. They are not adoption requirements.
-ADR-0032's existing clone/policy-replay contract and ADR-0047's current-only boundary govern their
-actual consumers. A plugin name, parser acceptance or generated metadata cannot replace independent
-semantic or native evidence. No new library selection or version change is made by this audit.
+## Library and system-tooling assessment
 
-## Coverage limits and open questions
+Research connected actual test methods with pertinent local overviews under docs/libraries,
+Context7 and exact installed sources. Installed pytest9.2.0, Hypothesis6.170.12, PyArrow26.0.0
+and FastMCP4.1.3 agree with the pins. Current online documentation sometimes targets a later
+patch; installed sources resolve consequential version details.
 
-- No product tests, collection, provider calls, database queries, mutations or benchmarks were run
-  for the audit. Source reasoning is labelled as inspection, not Tested or Measured behavior.
-- Reference payload inspection is bounded; no general claim about every frozen value is made.
-- Existing failed/interrupted qualification records retain their dates/source and scope. UM-CA10
-  and UM-15 at the [UM coordinator](../../plans/unified-domain-model_2026-11-01.md) own current
-  migration and required-union acceptance. This account does not close those obligations.
-- Production dependencies are inspected to understand assurance, not as a broad production audit.
-  Existing DA identities retain their broad-account homes, including DA-002/009/014 and retired
-  DA-018/019. This refresh establishes no new baseline for that account.
-- Concurrent work continued during publication. The named reconciliation is the applicability
-  cutoff; later source changes are outside this account unless individually recorded. Contextual
-  UM/evidence edits are not promoted to audit-authorized product or provider results.
-- Static absence claims are bounded by their named searches. Unsettled wider footprints stay
-  uncertain; a full source read does not certify complete alignment or fault detection.
+- **pytest:** fixture scope/finalization, monkeypatch restoration and hooks already provide
+  useful mechanisms. Context7's version9.2.0 fixture documentation confirms pre-yield cleanup
+  limits. DTA-021 concerns how assurance is composed across tests, not missing fixture features.
+  [Fixture contract](https://docs.pytest.org/en/stable/how-to/fixtures.html#safe-teardowns).
+- **LinkML:** DTA-001 identifies actual neglect of the linter's explicit process outcomes;
+  JSON reports and exit-status semantics are available. Warning policy remains distinct from
+  an unsuccessful invocation. Context7 plus installed1.12.1 CLI source settle the mechanism.
+- **Hypothesis:** recursive/composite/schema-derived and grammar-aware generation are already
+  used. Stateful rules/bundles can serve complex histories, but their absence alone is no
+  defect. Broad suppressions and per-example cleanup are judged against each claim; the native
+  codec explicitly rolls back each example. No blanket state-machine or fuzzing adoption follows.
+  [Stateful capabilities](https://hypothesis.readthedocs.io/en/latest/stateful.html).
+- **Arrow/model/scientific libraries:** native equality, metadata and validity operations do
+  not replace independent semantics. Existing metadata-aware schema comparisons, precision/
+  null controls, independent vectors and selective readers are strengths. Installed Arrow
+  table/types source confirms equality excludes metadata by default and full validation may
+  scan data; no blanket full-validation requirement follows.
+- **FastMCP/AnyIO/Typer:** SDK clients, explicit stdio environment/lifetime, runner capture and
+  actual child settlement are already leveraged. In-memory and wire claims retain separate
+  scopes; test doubles do not establish provider execution.
+- **SQLAlchemy/Psycopg/Alembic/PostgreSQL:** native clone preparation, NullPool where appropriate,
+  savepoints, actual principals, parser/metadata inspection and SQLSTATE controls are useful
+  established composition. DTA-022 concerns observation without a consumer, not lack of another
+  database fixture plugin. Reusable validators and preparation are assessed under complete
+  dependencies; cold-compiler and actual committed-isolation controls stay independent.
 
-## Finding ownership and history
+Read-only `pg_lsclusters` and `dpkg-query -W` inventory on2026-11-05 confirms PostgreSQL18.6,
+pgTAP1.3.4, plpgsql_check2.10.16, pgBackRest2.60.0 and pgBadger13.3. Executable/source inventory
+also finds pg_prove, pg_virtualenv, pg_regress and isolationtester/pg_isolation_regress. Tool
+installation is distinct from database extension activation or successful end-to-end operation;
+those were not exercised here. Dedicated18/corpus:5434 remains the normal owner; unrelated
+18/main:5432 and18/tktest:5433 were untouched.
 
-Scheduled DTA disposition and correction/investigation packages now have one owner in the
-[test architecture and evidence coordinator](../../plans/test-architecture-and-evidence_2026-11-02.md).
-Its Proposed execution state does not upgrade this account's source baseline or close findings.
+The [local system-tooling overview](../../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md)
+identifies alternatives worth retaining: pgTAP for repeated SQL assertions; PostgreSQL's explicit
+sessions/steps/permutations for SQL-only interleavings; pg_virtualenv for claims that require
+cluster-level configuration isolation. They cannot substitute for Python retry behavior or actual
+restricted authentication. No direct wiring was found in the bounded tests/scripts/ops/justfile
+search, but this is not itself neglect. Existing lifecycle guarantees and integration burden
+matter. No additional installation was justified and no tool was installed.
+[Isolation-test contract](https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/test/isolation/README),
+[pgTAP assertions](https://pgtap.org/documentation.html).
 
-Each structural cause has one primary home. DTA identities and existing anchors are preserved,
-including compact closure explanations where a source premise has changed. IDs are never reused.
-Changes to assessment preserve their prior evidence recoverably in Git. Scheduled disposition is
-linked to its existing plan, not maintained as a duplicate execution ledger. Ordinary test editing
-does not refresh this account or initiate a recurring audit gate.
+## Limits and follow-through
 
-## Publication checks — 2026-11-02
+No product tests, collection, provider calls, database operations or benchmarks were run for this
+audit. Source-established unnecessary work is not a measured bottleneck. Existing failed and
+interrupted qualification receipts retain their original dates, source/context and scope; this
+audit closes no PCE, UM, provider, adoption or full-union acceptance obligation. Production causes
+are followed only to judge test evidence, not to refresh the broad audit's DA baseline.
 
-- **passed:** `git diff --check -- docs/design_review/test-audit`;20 unique DTA anchors preserved
-  by a read-only identity check. No new alignment checker was added.
-- **failed, external to this account:** `just docs-check`, at
-  `build/test-audit-refresh-docs-check.log`, reports existing library-reorganization targets.
-  No test-audit path is reported. Those unrelated links were preserved.
-- **passed:** root `just turn-end`, at `build/test-audit-refresh-turn-end.log`. It also formatted
-  concurrent `test_runtime_entrypoints.py` assertions; that formatting is outside this audit commit.
-- **not_run:** product tests, collection, provider/DB controls, full qualification and benchmarks;
-  source inspection settled these diagnostic questions. No Tested/Measured product claim follows.
+Each finding has one primary home. Stable IDs/anchors remain; removed diagnoses and their
+supporting evidence are recoverable in Git. New or expanded observations are unscheduled and
+revisited when their component is selected for correction or when a solution review consumes this
+account. Accepted architectural decisions do not establish implemented or tested correction.
+
+## Publication checks — 2026-11-05
+
+- **passed:** tracked-file/physical-line reconciliation via `uv run python` using `git ls-files`;
+ 418test/support Python files fully read, with duplicate contributor reading counted once.
+- **passed:** `git diff --name-only bc2208f9 -- python scripts tests crates pyproject.toml
+ Cargo.toml uv.lock Cargo.lock .config ops` is empty after concurrent broad-audit commit8d4d9e91;
+ the captured test-source baseline remains applicable. Concurrent documentation is excluded.
+- **not_run:** product tests, collection, provider/native controls, benchmarks, installations,
+ `just test-all` and integrated hygiene; this diagnostic publication changes no product behavior.
+- **passed:** `just docs-check`, log `build/test-audit-20261105-docs-check.log`; documentation
+ publication only. No publisher/resolver implementation changed, so `just docs-test` is not_run.
+- **passed:** `git diff --check -- docs/design_review/test-audit`; an ephemeral read-only anchor
+ reconciliation accounts for23unique DTA identities, preserving001–020 and adding021–023.
+- Root maintenance uses `just turn-end`; its result is reported with the publication commit.
+ No design-alignment checker, process gate, library catalog or additional dependency was added.

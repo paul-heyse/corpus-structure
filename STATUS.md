@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-05; broad production audit refreshed; selected PCE scope remains qualified nondefault._
+_Updated 2026-11-05; production and test audits refreshed; selected PCE scope remains qualified nondefault._
 
 ## Current scope and authority
 
@@ -13,13 +13,13 @@ _Updated 2026-11-05; broad production audit refreshed; selected PCE scope remain
 - CLI/named queries/MCP expose private reports and public assertions; portable review retains
   raw outputs, configurations, source context, contracts, passes, grades and granular gaps.
 
-## Current audit — 2026-11-05
+## Current audits — 2026-11-05
 
-- [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/relations/actions/
-  states, native custody, consumers and library boundaries refreshed; stale diagnoses corrected.
-  No new established violation in inspected paths; unresolved questions and limits remain explicit.
-- `just docs-check`, `git diff --check`, `just turn-end`: passed. Product checks: not_run for audit.
-  Separate test-audit edits retain their own ownership; prior PCE receipts below keep their scope.
+- [Production audit](docs/design_review/audit/README.md), source bc2208f9: model/relations/actions/states,
+  native custody, consumers and library boundaries refreshed; unresolved questions remain explicit.
+- [Test audit](docs/design_review/test-audit/README.md), same source: full authored reading and independent
+  challenge; renewed discrimination, scenario ownership and execution-fit concerns. No repairs selected.
+- `just docs-check`, `git diff --check`, `just turn-end`: passed for audit publication; product tests not_run. Neither alignment certification nor fresh product qualification follows.
 
 ## Last verified — 2026-11-05
 

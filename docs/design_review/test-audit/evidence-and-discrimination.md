@@ -1,6 +1,44 @@
 # Evidence and discrimination
 
-**Interface-checked by source inspection, 2026-11-02.** See the [baseline](README.md#baseline).
+## Refresh observations — 2026-11-05
+
+**Interface-checked by source inspection.** These observations use the current source baseline
+in the account README. The November2 manifestations below are reconciled against their scoped TA corrections;
+prior qualification receipts retain their original dates and applicability.
+
+**DTA-001, additional current manifestation — CLI failures can count as clean lint.**
+`tests/schema/test_packs.py:131–142` and `tests/schema/test_model.py:43–58` run `linkml-lint`
+with `check=False`, inspect only stdout lines beginning with `error`, and ignore process status
+and stderr. A failed invocation with stderr-only diagnostics and empty stdout satisfies those
+clean-lint predicates. The metamodel-error positive control in test_model lines62–68 challenges
+ordinary reported violations, but not an individual invocation failure.
+
+This is a concrete DP-14/15/23 library-boundary weakness under the existing rejection/outcome
+discrimination cause. Context7's LinkML linter documentation and installed LinkML1.12.1
+`linkml/linter/cli.py:131–152` expose explicit exit outcomes and structured report formats;
+terminal-text absence is a weaker observation. Warning-only status has its own policy and must
+not be confused with invocation failure. No new linter or generic assertion framework is selected.
+[Upstream linter contract](https://linkml.io/linkml/schemas/linter.html).
+
+<a id="dta-023"></a>
+
+## DTA-023 — Uniform PDF rendering fixtures cannot discriminate crop location
+
+**Interface-checked by source inspection, 2026-11-05; FP-02/05, DP-08/15/23;
+companion §1/4/7.** Repository-root `tests/test_native_region_render.py:13–40` creates a blank
+PDF page, compares two coordinate-origin renderings and checks their dimensions. A same-sized
+crop at another position on that page has the same uniform pixels. Thus an incorrect crop
+translation can preserve both assertions, despite the test's stated coordinate-origin claim.
+Production `serve/native_regions.py:36–45` contains the distinct origin-dependent crop formulas.
+
+`tests/semantic/test_published_region_artifact.py:178–180` exercises the real renderer and checks
+dimensions, then tests artifact custody against the bytes just produced. That provides real
+provider, size and custody evidence; it does not independently establish which source pixels
+were selected. Coordinate-mapping controls elsewhere independently constrain points but do not
+by themselves judge the rendered region. No incorrect production image was observed. A patterned
+native fixture is a solution lead, not a requirement for every rendering/transport test.
+
+**Interface-checked by source inspection, 2026-11-05.** See the [baseline](README.md#baseline).
 Positive evidence includes hand-authored exact native tuples, malformed inputs, explicit
 SQL-null/JSON-null/absence distinctions, graph closure and report failures, scientific uncertainty
 and definedness controls, independent geometric expectations and actual owned-child cancellation.
@@ -9,144 +47,135 @@ judging the validator itself requires a separate expected result.
 
 <a id="dta-001"></a>
 
-## DTA-001 — Some negative assertions do not distinguish the intended rejection
+## DTA-001 — Some rejection and external-tool assertions do not distinguish the intended outcome
 
-**FP-05, DP-03/23; H20; companion §1/4.** Current examples include `test_publication.py:234–275`,
-`test_arrow_publication.py:176–195` and `test_pdf_record_native.py:195–204`. They accept any
-DBAPIError, so the assertion cannot distinguish the guard named by the scenario from a foreign
-key, privilege, lifecycle or unrelated preparation rejection. In the record case, multiple
-binding fields are varied on a header naming a different product; no reason is observed.
-The source-established weakness is limited to assertion discrimination, not a demonstrated
-bypass of each guard. The previous count of32 bare catches and guard-message coverage estimates
-are withdrawn. A bare catch alone does not establish that an alternative cause actually fires.
+**FP-05, DP-03/14/15/23; companion §1/4/5.** TA-07's selected native controls now
+assert independent SQLSTATE/constraint identities. For example, `test_pdf_record_native.py:196–221`
+corrects the old mismatched-header manifestation. That scoped correction is preserved.
 
-Counterevidence includes successful sibling baselines, one-field perturbations and reason-specific
-matches in `test_pdf_record_native.py:218–233` and `test_native_closure.py:83–131`. The current child
-graph cases now explicitly distinguish construction IndexError from hierarchy ValidationError;
-they claim preparation, not native publication. This audit does not infer native correctness
-from matching deployment bytes or parser acceptance, nor demand a test for every guard.
+Current source still contains different weak controls. `test_pdf_publication.py:108` submits
+`{"conversion_status":"failed"}` to an already finalized product and accepts any DBAPIError;
+the payload is also noncanonical, so malformed-input refusal can satisfy the named late-append
+claim. Its seal-without-validation control likewise accepts an unspecified database refusal.
+`test_native_fixtures.py:154–183` uses constrained `INSERT ... DEFAULT VALUES` statements and
+accepts any DBAPIError for actual-purpose denial claims. A privilege regression can expose an
+unrelated missing-value/relational error while preserving those assertions. These are local
+fault-discrimination gaps, not observations of an existing bypass.
+
+A stronger current reach failure is `test_local_semantic_admission_native.py:477–505`:
+all ten forged-witness cases catch DBAPIError around a direct writer `UPDATE ops.run SET
+status=...` before `stage_arrow` and protected publication. The fixture's `case.writer` is an
+actual write-purpose engine (`test_private_records.py:185,363`), and
+`semantic/sql/execution_guards.sql:104` revokes that status update. Independent
+`test_execution_native.py:482–490` expects SQLSTATE42501 for direct writer status updates.
+Thus setup refusal can satisfy every corruption case before any forged witness reaches the
+claimed publication guard. This conclusion follows from current source; it is not a fresh
+native execution or a production bypass observation.
+
+`test_private_records.py:548–585` additionally mutates already-identified candidates and accepts
+DBAPIError or InvariantViolation without observing the intended custody/standing guard; changing
+identity-bearing content can supply a separate identity refusal. Positive controls elsewhere
+recompute identities when the changed input is meant to remain valid.
+
+The LinkML manifestation above is another concrete outcome-discrimination weakness: failed
+invocation and clean lint can be observationally identical. Existing exact native SQLSTATE42501,
+constraint names, successful siblings, malformed controls and rollback/state preservation are
+substantial contrary evidence. A generic exception assertion alone is not a diagnosis; the
+confounding outcome here is tied to the specific input and claimed refusal.
+
+A separate **local scoring evidence limit** is
+`tests/semantic/test_record_reading_closure_native.py:180–189`: changing center to0.25 and
+scale to0.5 for raw signal0.5 preserves `(0.5-0.25)/0.5 = 0.5`. Ignoring both operations
+preserves all three expected native scores, including the subsequent coefficient change.
+The zero-scale negative case tests validation, not normalization. Independent sklearn evidence
+in `test_record_policy.py:202–216` challenges Python scoring, while production SQL has separate
+arithmetic (`semantic/sql/record_publication.sql:88–98,170–172`). This names the local oracle's
+blind spot; it establishes no erroneous production score or suite-wide normalization absence.
+FP-04/05 and DP-11/15/23, companion §1/3/4/7 govern this boundary. Revisit with native scoring.
 
 <a id="dta-006"></a>
 
-## DTA-006 — Some assembled evidence assertions establish presence, not preservation
+## DTA-006 — Some assembled support assertions still establish presence rather than preservation
 
-**FP-04/05, DP-23; companion §4.** `test_composed_journey.py:72–78` checks nonempty support,
-evidence and source observations. It now checks exactly one Alice fact, so the former broader
-row-cardinality criticism is removed for that case. `test_serving.py:254–262,501–523` and
-`test_domain_operations.py:550–557,581–583,623–625,920` retain presence or lower-bound assertions
-on particular preservation claims. Extra or wrong supporting rows can satisfy those predicates.
-This is not an objection to presence checks where existence is the whole contract.
-
-Exact fact/occurrence sets, qualifications, alternatives, source addresses and CLI continuation
-checks in the same modules provide substantial contrary evidence. No suite-wide assertion
-weakness or complete set-equivalence failure is inferred.
+**FP-04/05, DP-23; companion §4.** The TA-07 selected exact support/member assertions
+are corrected and retain their scope. `test_composed_journey.py:76–85` still checks truthy
+inventory supports, evidence and source-observation reports while claiming composed evidence.
+An additional or wrong support member can preserve those predicates. The same case independently
+requires exactly one Alice fact, which constrains a different part of the result. This is a
+bounded limitation of preservation evidence, not a blanket objection to existence assertions
+or a demonstration that the served support is wrong.
 
 <a id="dta-007"></a>
 
-## DTA-007 — Some load/prepare comparisons share the preparation cache
+## DTA-007 — Cold compilation now has independent controls
 
-**FP-06, DP-09/23; H14/19/20; companion §1/3/5/6.** `prepare.py:529–536` keeps an eight-entry
-cache; full verification calls it (`releases.py:558–560`). Comparisons of `load_release(...)`
-with already prepared products in `test_execution_release.py:118,179,220`, `test_releases.py:167,
-434,460` and `test_inference.py:426` can agree without independently recompiling cold inputs.
-They establish the comparison/read path; alone they do not establish cold compiler determinism.
-
-The old proposal-boundary cache allegation is removed: proposal_inputs now uses preview_schema.
-Archive/current/lazy/runtime-refusal controls and fresh-interpreter checks in
-`test_statistics_model.py:100–125` provide independent coverage. `test_pack_acquisition.py` also
-positively counts composed preparation and forbids reacquisition. No stale-correctness defect,
-cache thrashing or measured performance claim follows from these self-comparison sites.
+**FP-06, DP-09/23; companion §1/3/6.** The old load/prepare comparisons remain useful
+read/agreement checks but no longer stand alone for cold determinism. `test_prepare.py` includes
+fresh-interpreter preparation controls alongside warm reuse, archive and changed-runtime cases;
+`test_statistics_model.py` independently exercises frozen artifacts. These source corrections
+support the scoped TA-06 disposition. This audit executed neither compiler nor qualification
+and makes no cache-thrashing or speedup claim.
 
 <a id="dta-010"></a>
 
-## DTA-010 — Positional mutations and generic diagnostics weaken catalog refusal claims
+## DTA-010 — Selected catalog mutations now identify stable subjects and expected diagnostics
 
-**FP-02/06, DP-24; companion §4/5.** `test_contracts.py:213–241` retains fourteen positional
-catalog mutations and observes the first diagnostic code. Reordering a declaration can retarget
-an invalid case while preserving that generic code. `test_execution_projection.py:106–123`
-accepts any of five codes across different mutations, then checks diagnostic-field truthiness;
-`test_effective_bindings.py:105` accepts statement-or-locator for several defects. These predicates
-cannot establish the particular diagnostic correspondence implied by each case.
-The complete expected diagnostic in `test_effective_bindings.py:145–155` is counterevidence and
-shows the stronger contract can be tested without another validation framework.
+**FP-02/06, DP-24; companion §4/5.** Current `test_contracts.py` and
+`test_execution_projection.py` use stable contract identities and independently specified
+subject/diagnostic correspondence for the TA-07 cases. The previous positional-mutation cause
+is corrected in that scope. It is not retained as a current allegation merely because some
+other tests accept several legitimate errors.
 
 <a id="dta-011"></a>
 
-## DTA-011 — Semantic fact/occurrence key assembly lacks independent full-key vectors
+## DTA-011 — Independent full semantic identity vectors now challenge assembly
 
-**FP-04, DP-04/23; CI-12 by analogy; companion §1.** A search of semantic tests finds no literal
-fact:/occ: digest vector establishing the complete semantic key assembly independently. Current
-value meanings are hand-pinned (`test_value_codec.py`), and alternative groups assemble canonical
-bytes independently. Those controls constrain components without fixing every full assembly
-contract. Producer/native agreement alone can preserve a shared assembly mistake.
-
-The footprint excludes PDF identity: `test_pdf_record_identity.py:34–95,239–279` has independent
-bytes, fixed scalar/record/fold digests and native parity. Do not describe identity generally as
-unexamined or impose a second implementation for every key.
+**FP-04, DP-04/23; CI-12 where applicable; companion §1.**
+`test_identity_vectors.py` supplies independently authored full-key preimages/digests and
+scope/value/qualification distinctions. Existing value meanings, PDF scalar/record/fold vectors
+and native identity journeys retain separate assurance. The former absence claim is corrected;
+current producer/native agreement is not presented as the sole identity oracle.
 
 <a id="dta-013"></a>
 
-## DTA-013 — Some universal or work-observation assertions can pass vacuously
+## DTA-013 — Selected vacuous work assertions corrected; restricted properties retain their meaning
 
-**FP-05, DP-23; companion §4/6.** `tests/math/test_property.py:125–144` returns for generated
-strings yielding no tree, suppresses all health checks and finally requires only one read.
-A shrink in the exercised generated cases is therefore not discriminated. The module explicitly
-claims equivalence only for values the grammar reads; no parser-admission floor is inferred or
-required here. This is an evidence limit, not by itself a demonstrated violation of that claim.
-`test_statistics_model.py:57–66` retains all over a filtered generator without establishing that
-the intended subset is nonempty. The hydration spy in `test_domain_operations.py:1224–1233`
-lacks a positive loaded assertion. Later checks correctly establish lineage and omission of a
-note, but not that the observed hydration route was exercised.
-
-The 78-page coverage test explicitly reports parse-status rather than promising a status floor;
-timeout jitter is documented. That policy alone is not a current defect. Independent fixed math
-cases, a spike-page read floor, exact semantic outputs and explicit demand-forbidden-call tests
-are strengths. The retired legacy parity assertion and old runtime shares are not current evidence.
+**FP-05, DP-23; companion §4/6.** TA-07 added positive workset and hydration
+observations in `test_statistics_model.py` and `test_domain_operations.py`. The generated
+math property still checks values successfully read, with `read > 0`; that is its explicitly
+restricted equivalence claim, not a promise of parser-admission coverage. Independent fixed
+printer cases and a nonempty corpus reading floor provide other protection. This refresh
+requires no arbitrary parser floor and does not revive the retired runtime-share allegations.
 
 <a id="dta-015"></a>
 
-## DTA-015 — Product aliases and the normalizer still disagree on class-key spelling
+## DTA-015 — Released alias policy and composed product controls correct the spelling mismatch
 
-**FP-02/04, DP-01/23; CI-12 by analogy; companion §1/4.** `regeneration.py:106` passes aliases
-unchanged; `domain_operations.py:781` validates them and `:855,927` passes compact prefixed class
-names. `domains/statistics/methods.yaml:35–36` keys head_words by local DistributionFamily, while
-`core/keys.py:205` performs exact lookup. Thus the selected product head-word rule is not found
-for that class. Semantic test searches found no head_words control. The independent core vector
-instead supplies a prefixed key, so it does not challenge this composition mismatch.
-
-This production cause is reported only to explain an evidential blind spot; repairs are outside
-the audit. No current corpus merge count or newly executed normalization result is claimed.
-Identity-slot mapping and declared rewrite behavior retain their independent protection.
+**FP-02/04, DP-01/23; companion §1/4.** Current `test_alias_policy.py`,
+`test_identity_vectors.py` and product/native statistics controls challenge the released full-IRI
+alias policy, collisions and affected identity. The former local-versus-prefixed lookup mismatch
+is corrected in the scoped TA-08 source. The wider phase0 X2-01 obligation remains at its owner;
+this source audit does not claim new corpus merges or qualified normalization outcomes.
 
 <a id="dta-019"></a>
 
-## DTA-019 — Frozen reference provenance is stronger, but deliberate update ownership is incomplete
+## DTA-019 — Retained references now declare authority and deliberate evolution
 
-**FP-04/05, DP-22/24; companion §4/6/7.** The math, LLM, ingest and locator builders now cite
-frozen source paths and, for math/LLM/ingest, evidence record IDs
-(`tests/{math,llm,ingest}/data/build.py` and `tests/data/locators/build.py`). The earlier origin ambiguity is corrected. They still describe
-committed outputs as authority and scripts as provenance without a general adjudication rule for
-a deliberate changed reference. `fixtures/tex/README.md` does name D1 §6.2 as its disagreement
-owner. Exact manifest pins prevent accidental movement; parity-oracle holds and revisit reasons
-in docs/pins.md do not cover all sentence-model/offset dependencies.
-
-Whether each retained fixture is a lasting oracle or a completed port comparison remains material;
-absence of a hold is not itself a semantic correctness failure. The current compiler14 boundary
-explicitly refuses old compiler formats. Removed compiler10–13 support is not a missing current
-reader. `tests/fixtures/semantic/README.md` still promises historical opening/answer journeys that
-current tests removed; it is stale evidence guidance, not proof of runtime support.
+**FP-04/05, DP-22/24; companion §4/6/7.** Current math/LLM/ingest/locator builders
+state frozen source provenance, independent adjudication and selected successor-reference
+updates while preserving original witnesses. Math and LLM helpers explicitly name historical
+macro ownership. Current semantic reference guidance separates supported current counterparts
+from historical evidence. These corrections support the scoped TA-09 disposition; a pin or
+builder alone still cannot establish semantic truth or full-corpus coverage.
 
 <a id="dta-020"></a>
 
-## DTA-020 — Historical producer/decoder premises superseded by current-only support
+## DTA-020 — Historical relabelling diagnosis remains superseded; supported archives keep their meaning
 
-**FP-04/05, DP-23/24; companion §1/4/6.** The old compiler7/8 capture acceptance and historical
-fact reconstruction cases are removed; `test_release_compatibility.py:38–47` explicitly refuses
-retired compilers10–13/future. Current capture and archive tests use current prepared products;
-synthetic obsolete products test rejection. ADR-0047 changes the obligation, so the earlier
-historical-success diagnosis is withdrawn rather than pretending those readers were repaired.
-
-Empty-predecessor upgrade controls do not alone establish populated current migration behavior;
-actual frozen forward replay has its own evidence and UM owner. This audit neither rewrites
-frozen artifacts nor upgrades retained receipts to fresh qualification. DTA-019 separately
-records the stale fixture README support promise.
+**FP-04/05, DP-23/24; companion §1/4/6.** `test_release_compatibility.py` explicitly refuses unsupported compiler contracts. Current
+`test_archive_reader.py:465–496` also exercises genuine supported compiler14/15 fixtures,
+forbids recompilation and independently checks Decimal value/exponent and comparison policy.
+Those archived successes keep their original meaning; they are not current-output relabelling.
+The old historical-success diagnosis remains withdrawn. Current migrations, custody and protected
+reference consumers retain their own obligations and evidence; frozen bytes and earlier failed
+or interrupted records are not changed or freshly qualified here.
