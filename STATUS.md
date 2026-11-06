@@ -17,6 +17,8 @@ _Updated 2026-11-06; test execution stopped at operator request; WCE planned; hi
 - [Production audit](docs/design_review/audit/README.md) and [test audit](docs/design_review/test-audit/README.md)
   retain their bc2208f9 diagnostic baseline; neither is a fresh alignment certificate.
 
+- [PostgreSQL tool inventory](docs/libraries/postgresql/system-tool-usage.md): operational/test-only use, extensions and installed candidates; verified 2026-11-06, documentation-only.
+
 ## Test checkpoint — 2026-11-06
 
 - Initial serial `CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all` interrupted by operator:

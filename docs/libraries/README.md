@@ -14,3 +14,10 @@ library types and additional patterns persist after current codebase matches ret
 
 | Library | Overview |
 |---|---|
+
+## Repository usage inventories
+
+These describe this repository's actual integration, rather than repository-agnostic capabilities.
+
+- [PostgreSQL system-tool usage](postgresql/system-tool-usage.md): application/operational tools,
+  testing-only tooling, server extensions, operator options and installed-but-unadopted utilities.
