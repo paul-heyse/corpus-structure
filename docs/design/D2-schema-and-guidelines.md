@@ -4,7 +4,11 @@
 
 **Proposed target, adopted2026-11-06.** Executable released declarations own component variants, role bindings and operation contracts. Generated boundaries and native validators consume that same meaning; no parallel witness store or independently authored role vocabulary is introduced.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+**Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
+consumers to current contracts. Historical semantic decoders and replaced decision paths are
+retired; valid source custody remains an input to regeneration.
+
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 ## Progressive enrichment target
 

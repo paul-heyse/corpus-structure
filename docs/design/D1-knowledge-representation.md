@@ -4,7 +4,11 @@
 
 **Proposed target, adopted2026-11-06.** Located components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Question-relative compatible edges remain distinct from exclusive alternatives.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+**Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
+consumers to current contracts. Historical semantic decoders and replaced decision paths are
+retired; valid source custody remains an input to regeneration.
+
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 ## Progressive enrichment target
 

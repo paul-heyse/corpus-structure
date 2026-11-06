@@ -43,8 +43,8 @@ Its historical execution receipts retain their original scope and dates.
 | [M1 source producer](../../../python/corpus-structure/src/corpus_structure/methods/m1_source.py) | `M1Config.annotation_token_rules` is the only configured rule family; the caller prepares only token rules. | Wire versioned phrase/dependency configuration and declared bindings through this existing producer. |
 | [Contribution adapter](../../../python/corpus-structure/src/corpus_structure/methods/contribution_adapter.py) | `adapt_annotation_matches` emits located `source_rule.*` proposals; dependency extents remain noncontiguous. | Extend this lowering to named roles and attachment proposals while preserving raw match provenance. |
 | [Definition producer](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py) | `pair_input` and `decode_applicability` classify a fixed usage/passage pair, returning a category, passage evidence and generic reason. | Retain the classifier as a control. Produce located target components before evaluating usage compatibility. |
-| [Contextual candidates](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py) | `SuppliedMention` isolates retrieval. `denotation_contribution` takes `alternatives[0]` after singleton selection. | Compose actual located contributions; preserve supplied mentions as the isolation control; replace singleton projection deliberately. |
-| [Contextual links](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) and [storage](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_storage.py) | `source-supported-scoped-links-1` accepts explicit-source-cue witnesses; more than one distinct target/relation is ambiguous. Storage reconstructs that exact policy. | Add a versioned compatibility/selection meaning and reconstruct it through its own policy; historical version 1 remains readable. |
+| [Contextual candidates](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py) | `SuppliedMention` isolates retrieval. `denotation_contribution` takes `alternatives[0]` after singleton selection. | Compose actual located contributions; migrate to authenticated actual occurrences and retire the supplied-input production bridge. |
+| [Contextual links](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py) and [storage](../../../python/corpus-structure/src/corpus_structure/semantic/contextual_storage.py) | `source-supported-scoped-links-1` accepts explicit-source-cue witnesses; more than one distinct target/relation is ambiguous. Storage reconstructs that exact policy. | Add a versioned compatibility/selection meaning and reconstruct it through its own policy; retire historical singleton decoding after the current-only data cutover. |
 | [Structural products](../../../python/corpus-structure/src/corpus_structure/semantic/structural_products.py), [admission](../../../python/corpus-structure/src/corpus_structure/semantic/structural_admission.py) | Finite private reports have exact original source closure; existing policies assess complete structural statements. | Reuse common native lifecycle, source binding and atomic publication. New independently admitted components need their own exact question and eligibility contract. |
 
 The architectural owners are [D1](../../design/D1-knowledge-representation.md),
@@ -265,12 +265,12 @@ native structural validation/publication and `serve/structural_products.py` for 
 Move actual definition readers, named `structural_definitions`, `ci structure list`, registered MCP
 and review-bundle/export decoding with it. They must show private components, their partial support
 and any separate admitted assertion without upgrading the report standing. Follow returned evidence
-and continuations under the same producing source/runtime pins. Existing immutable report versions
-remain supported; current v1 results are not rewritten into newly witnessed results.
+and continuations under the same producing source/runtime pins. Only the go-forward report contract remains supported. Faithfully migrate sufficient existing
+data; remove and regenerate derived products that lack required witnessed evidence.
 
-Keep the old pair classifier as an explicit development/regression control. After replacement
-qualification, remove its pair-only category/generic rationale as the production semantic basis,
-not its useful control, old result readers, original evidence or PCE's historical conclusion.
+Remove the old pair classifier, its registration, pair-only rationale and old result readers.
+Recorded outputs may supply development comparisons; executable legacy controls do not survive
+the operator-directed cutover. Original evidence and PCE conclusions retain their recorded limits.
 
 ### Verification that can distinguish the target
 
@@ -320,7 +320,8 @@ not wait for stronger whole usage-applicability success. Keep curated targets as
 Verify source substitution, stale component, foreign origin and missing dependency refusal as well
 as a real retained component → target inventory → actual mention → relationship journey.
 
-Retain `SuppliedMention` as an isolation control for retrieval and selection. Grade actual discovery
+Remove the supplied-mention production bridge; exercise retrieval isolation with current-contract
+fixtures. Grade actual discovery
 boundary/type errors, inventory gaps, retrieval misses, relation interpretation and admission
 separately. A correct target outside the returned budget is retrieval loss; a wrong relation with
 the target present is interpretation loss. The historical 14 additional independently identified
@@ -352,7 +353,7 @@ transitive truth nor identity-merging authority.
 ### Implement and migrate together
 
 Change `semantic/contextual_links.py` policy and its released preparation/native realization;
-update `semantic/contextual_storage.py` to reconstruct each report under its original version.
+update `semantic/contextual_storage.py` to reconstruct only the go-forward report contract.
 Store enough declared candidates, questions, selected edges, alternatives and exclusions for exact
 replay. Identity binds the complete semantic decision. Do not regenerate a multi-edge decision by
 feeding only selected edges through the historical singleton policy.
@@ -390,7 +391,7 @@ accounts for final assembled qualification and production retirement.
 
 Package readiness and F01–F03 disposition exist only in the coordinator. WCE03–WCE05 contribute
 implemented semantics, migrated producers/consumers, truthful partial-state behavior, focused native/
-provider results where required and preserved historical reader/control paths. They do not establish
+provider results where required and current-only consumer paths with obsolete readers and controls removed. They do not establish
 all WCE efficacy, released-corpus support, default activation or broad model capacity.
 
 For implementation, use relevant targeted Python method/semantic/native tests and actual provider

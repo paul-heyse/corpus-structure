@@ -79,8 +79,8 @@ public effects activate only after their corresponding narrow policy and protect
 Each independently publishable statement gets its own scoped policy/event and exact expected
 statement projection. A target-local definition policy establishes only the located term/defining
 content attachment under its rubric, not universal definition validity or usage applicability.
-A stronger applicability policy requires supported usage/component/scope premises. Keep existing
-whole-report ADR-0065 policies unchanged for existing reports. Deterministic source quotation still
+A stronger applicability policy requires supported usage/component/scope premises. Keep unchanged whole-statement meanings distinct; retire replaced definition policies and their
+legacy report decoders at the current-only cutover. Deterministic source quotation still
 requires actual source proof, not a fabricated independent semantic judgment.
 
 Use existing SERIALIZABLE common batches with prepared source/grade/case collections. Logical
@@ -106,8 +106,8 @@ Evidence: source-inspected foundation; new contracts/guards Proposed, not Tested
 Every producer package migrates its direct retention/native/read consumers. This package assembles
 compatible relationship reconstruction, combined ordinary queries, CLI/MCP and portable review.
 Update `contextual_storage.py` decision reconstruction and `contextual_candidates.py` first-alternative
-projection when singleton semantics change. Version requests/cursors and query bindings where
-interpretation changes; refuse unsupported versions rather than reinterpret old outcomes.
+projection when singleton semantics change. Move requests/cursors and query bindings to the current interpretation; refuse obsolete versions
+after dependency-aware data migration rather than retaining fallback readers.
 
 Export raw/native outputs, recipes/model identity, candidate population, component bases, independent
 passes/grades and public witnesses with bounded source closure. Private grades remain protected;
@@ -117,9 +117,10 @@ versioned projection, not a newly admitted population-truth assertion.
 
 After replacements and callers work, remove obsolete production pair-only decision routes,
 independently authored role dictionaries, unnamed-only adaptation and replaced singleton branches.
-Keep old classifier/supplied inputs where they remain useful controls, supported archived readers,
-original outputs, frozen migrations, plans and evidence. Inventory callers and compatibility
-before deletion; do not keep an unused compatibility bridge by default.
+Remove old classifier/supplied production bridges, historical semantic readers and replaced
+schema/validator assets. Current-contract fixtures retain useful independent cases. Preserve
+valid source products, plans and recorded evidence; migrate sufficient derived data and regenerate
+insufficient populations. Inventory callers and installation paths before deletion.
 
 ## Discriminating checks and completion
 

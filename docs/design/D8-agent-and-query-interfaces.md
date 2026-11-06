@@ -4,7 +4,11 @@
 
 **Proposed target, adopted2026-11-06.** Ordinary inspection and export preserve component roles, operation versions, source/runtime pins and partial/unavailable outcomes. Protected reference labels remain protected. Retained candidates do not gain public standing from syntax or a score.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+**Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
+consumers to current contracts. Historical semantic decoders and replaced decision paths are
+retired; valid source custody remains an input to regeneration.
+
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 ## Progressive enrichment target
 

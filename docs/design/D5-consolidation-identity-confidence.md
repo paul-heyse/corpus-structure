@@ -4,7 +4,11 @@
 
 **Proposed target, adopted2026-11-06.** Exact operation-specific eligibility qualifies only the assessed component statement. Whole-report policies remain unchanged. Typed comparison and supported-facet display are accepted later targets, independently of canonical identity.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+**Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and
+consumers to current contracts. Historical semantic decoders and replaced decision paths are
+retired; valid source custody remains an input to regeneration.
+
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 ## Independent local admission
 

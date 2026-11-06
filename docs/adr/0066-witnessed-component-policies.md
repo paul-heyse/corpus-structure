@@ -1,10 +1,10 @@
 ---
 id: ADR-0066
 title: Retain witnessed components and assess exact operation questions independently
-status: accepted
+status: superseded
 date: 2026-11-06
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0067
 design: [§B1, §B2, §B5]
 evidence: Proposed
 revisit: A component cannot preserve its exact source, independent question or eligibility through existing custody.

@@ -192,8 +192,11 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 retain exact operation questions and source bases. Independent component assessment and scoped
 eligibility remain separate from private production and whole-report standing. WCE owns adoption;
 statistics qualification uses domain-owned contracts, without an enterprise corpus prerequisite.
+The operator-directed WCE04–WCE05 cutover uses current-only semantic contracts; affected historical
+readers and legacy decision routes are removed. Insufficient derived evidence is regenerated from
+authenticated sources rather than converted into invented witnesses.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 
 **Implemented; bounded native/publication Tested, 2026-11-05.** Cross-source structural
@@ -263,8 +266,11 @@ uses its frozen claim form until scheduled consumer migration.
 retain exact operation questions and source bases. Independent component assessment and scoped
 eligibility remain separate from private production and whole-report standing. WCE owns adoption;
 statistics qualification uses domain-owned contracts, without an enterprise corpus prerequisite.
+The operator-directed WCE04–WCE05 cutover uses current-only semantic contracts; affected historical
+readers and legacy decision routes are removed. Insufficient derived evidence is regenerated from
+authenticated sources rather than converted into invented witnesses.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 
 **Implemented; bounded native/publication Tested, 2026-11-05.** Original-project source guards
@@ -535,8 +541,11 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 retain exact operation questions and source bases. Independent component assessment and scoped
 eligibility remain separate from private production and whole-report standing. WCE owns adoption;
 statistics qualification uses domain-owned contracts, without an enterprise corpus prerequisite.
+The operator-directed WCE04–WCE05 cutover uses current-only semantic contracts; affected historical
+readers and legacy decision routes are removed. Insufficient derived evidence is regenerated from
+authenticated sources rather than converted into invented witnesses.
 
-> Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
+> Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 
 **Implemented; bounded native/consumer controls Tested, 2026-11-05.** Finite released

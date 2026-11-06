@@ -76,7 +76,7 @@ before using changed rules. Planning acceptance is not native deployment or a me
 
 ## Execution queue
 
-WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obligations remain open. Later packages remain Proposed. This table owns state.
+WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obligations remain open. WCE04–05 execution is authorized with ADR-0067 current-only cutover; later packages remain Proposed. This table owns state.
 
 | ID | State | Prerequisite capability | Delivered behavior and completion boundary |
 |---|---|---|---|
@@ -84,8 +84,8 @@ WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obliga
 | WCE01 | Selected retention/read/frame foundation Tested; native155; positive public policies remain with their producers | WCE00 | Released component/question/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
 | WCE02 | Early statistics source/output slice Tested; later frames, exposure-limited references and parameter/header coverage remain open | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
 | WCE03 | Tested selected named-candidate increment; actual native/read/export and independent output assessment delivered | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
-| WCE04 | Proposed | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; current whole-pair classifier retained as control. |
-| WCE05 | Proposed | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
+| WCE04 | In progress; current-only cutover authorized2026-11-06 | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; pair-only classifier and historical reader paths retired after current-contract migration. |
+| WCE05 | In progress; current-only cutover authorized2026-11-06 | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
 | WCE06 | Proposed | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
 | WCE07 | Proposed | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
 | WCE08 | Proposed | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
@@ -233,3 +233,25 @@ Replacement inventory: current `annotation_token_rules` authoring and unnamed-on
 were deleted, M1v8/op2 is the only new writer, and all current call sites use named recipes.
 Raw match proposals, archived result readers, frozen migrations and evidence remain intentionally.
 The WCE03 production worktree was integrated and removed; no parallel worktree remains.
+
+## WCE04–WCE05 execution boundary — 2026-11-06
+
+ADR-0067 supersedes historical-reader/control retention for this increment. Root owns shared
+contracts, integration and disposition; definition, contextual-link and native/evaluation owners
+implement against the same current contracts. Cross-source retained references, source-resolved
+component/edge projections and protected positive eligibility are shared prerequisites. Private
+component retention does not wait for public grades. Target-local definition production precedes
+extracted-target inventories; usage applicability then consumes actual bindings.
+
+Data migration removes obsolete derived dependency closures, preserving reusable authenticated
+source products. No pair label or old singleton decision is converted into invented evidence.
+Comparison/dossier shared consumers migrate without pulling forward their later enhancements.
+Legacy decoders, first-alternative projection, replaced policies and production/control bridges
+are removed. Plans and recorded evidence remain; full-series qualification stays with WCE12.
+
+Required selected verification: current contract/model/native agreement; actual bounded GLiNER
+and E5 routes; independent source/output assessment; positive exact component/edge publication
+and whole-statement refusal; current Reader/query/CLI/MCP/continuation/export reconstruction;
+dependency-aware migration and fresh-install agreement; cancellation/partial-state retention.
+All pytest selections use `uv run pytest -n auto`. Original exposed families remain development
+inputs with unchanged origin/exposure. Product results for this increment are not yet claimed.
