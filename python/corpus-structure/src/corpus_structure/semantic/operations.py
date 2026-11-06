@@ -1111,12 +1111,13 @@ class BoundReader:
             text("SELECT ops.validate_component_targets(CAST(:targets AS jsonb))"),
             {"targets": payload},
         ).scalar_one()
-        return dict(self.conn.execute(
+        rows = self.conn.execute(
             text("SELECT target->'reference'->>'component_id', "
                  "ops.component_semantic_target(target->'reference') "
                  "FROM jsonb_array_elements(CAST(:targets AS jsonb)) target"),
             {"targets": payload},
-        ).tuples().all())
+        )
+        return {row[0]: row[1] for row in rows}
 
     def cached_contextual_vectors(self, *, profile_id, targets):
         from .contextual_storage import cached_target_vectors

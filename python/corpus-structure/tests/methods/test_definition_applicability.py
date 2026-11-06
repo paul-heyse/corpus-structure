@@ -438,3 +438,19 @@ def test_parent_context_is_a_required_applicability_distinction():
     undecided = assess_applicability(unavailable, "usage", candidate)
     assert undecided.outcome == "unresolved"
     assert next(p.state for p in undecided.premises if p.dimension == "parent") == "unknown"
+
+
+def test_introduction_policy_label_is_not_an_actual_introduction_binding():
+    value = inputs()
+    defined = component()
+    target = value.passages[0].model_copy(update={"parent": None})
+    usage = StructuralPassage(passage_id="usage", source_ref=target.source_ref,
+        start=defined.term.start, end=defined.term.end, text=defined.term.text,
+        scope=defined.scope)
+    value = value.model_copy(update={"policy_id": "definition-introduction-1", "passages": (target, usage)})
+    candidate = ApplicabilityCandidate(target_id=defined.component_id, reference=reference(),
+        link_ref=link_reference(), component=defined, premises=premises("unknown"))
+    contextual = assess_applicability(value, "usage", candidate)
+    assert next(p.state for p in contextual.premises if p.dimension == "parent") == "unknown"
+    introduction = assess_applicability(value, "usage", candidate, defining_occurrence=True)
+    assert next(p.state for p in introduction.premises if p.dimension == "parent") == "inapplicable"

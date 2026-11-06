@@ -33,6 +33,7 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
         retained_definition_component=lambda _: retained), check_active=lambda: None)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source_view.ref.id, source_view.ref.key))
     (result,) = DefinitionTermsMethod().run((unit,), cfg, ctx)
+    assert result.contributions is not None
     (product,) = result.contributions
     assert product["anchors"][0]["source_piece"] == "Mean"
     assert product["anchors"][0]["start"] == 0 and product["anchors"][0]["end"] == 4

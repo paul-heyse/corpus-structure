@@ -53,7 +53,8 @@ def structural_statement(
         }
 
     def citations(values):
-        return sorted((citation(v) for v in values), key=canonical_bytes)
+        resolved = {canonical_bytes(citation(value)): citation(value) for value in values}
+        return [resolved[key] for key in sorted(resolved)]
 
     statement: dict[str, Any] = {
         "version": "structural-public-statement-2",

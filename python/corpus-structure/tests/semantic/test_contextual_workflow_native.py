@@ -6,6 +6,7 @@ this test makes no model/provider or semantic-quality claim.
 """
 
 from dataclasses import replace
+from typing import Any
 import json
 
 import pytest
@@ -170,12 +171,14 @@ def completed_relationship_case(case, monkeypatch, tmp_path):
                 draft = contribution_drafts(case)
                 pin = record_source_pin(native_source_frame(ctx.reader.source_view(unit.ref.unit_id), ()))
                 products = []
+                assert draft.contributions is not None
                 for original in draft.contributions:
                     anchors = []
                     for anchor in original["anchors"]:
-                        anchor = dict(anchor, pin=pin)
-                        anchor["anchor_id"] = anchor_identity(anchor)
-                        anchors.append(anchor)
+                        located: dict[str, Any] = dict(anchor)
+                        located["pin"] = pin
+                        located["anchor_id"] = anchor_identity(located)
+                        anchors.append(located)
                     product = dict(original, pin=pin, anchors=tuple(anchors), occurrence_id=occurrence_identity(anchors))
                     product["contribution_id"] = contribution_identity(product)
                     products.append(product)

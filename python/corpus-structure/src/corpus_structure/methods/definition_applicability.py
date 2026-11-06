@@ -693,7 +693,8 @@ def is_defining_occurrence(inputs, usage, component, relation):
 
 
 def assess_applicability(
-    inputs: StructuralInput, usage_id: str, candidate: ApplicabilityCandidate
+    inputs: StructuralInput, usage_id: str, candidate: ApplicabilityCandidate,
+    *, defining_occurrence: bool = False,
 ) -> StructuralDefinitionReading:
     usage = next(p for p in inputs.passages if p.passage_id == usage_id)
     component = candidate.component
@@ -703,7 +704,7 @@ def assess_applicability(
             "usage binding requires explicit sense, parameterization and convention premises"
         )
     target = next(p for p in inputs.passages if p.passage_id == component.term.passage_id)
-    same_introduction = inputs.policy_id == "definition-introduction-1" and is_defining_occurrence(
+    same_introduction = defining_occurrence and is_defining_occurrence(
         inputs, usage, component, "defined-by"
     )
     parent_state: Literal["compatible", "incompatible", "unknown", "inapplicable"] = (
@@ -823,8 +824,10 @@ class DefinitionApplicabilityMethod:
             component = LocatedDefinitionComponent.model_validate(
                 ctx.reader.resolve_definition_component(component_ref)
             )
-            if edge["target_id"] != component.component_id:
-                raise ValueError("selected relationship substitutes its target component")
+            from corpus_structure.methods.contextual_embeddings import identity
+
+            if component_ref.component_id not in edge["member_target_ids"] or edge["target_id"] != identity("semantic-target", selected["semantic_target"]):
+                raise ValueError("selected relationship substitutes its semantic target or proof carrier")
             introduction = (
                 cfg.applicability_scope == "defining_occurrence"
                 and is_defining_occurrence(cfg.inputs, usage, component, edge["relation"])
@@ -867,7 +870,7 @@ class DefinitionApplicabilityMethod:
                     ),
                 ),
             )
-            readings.append(assess_applicability(cfg.inputs, cfg.usage_id, candidate))
+            readings.append(assess_applicability(cfg.inputs, cfg.usage_id, candidate, defining_occurrence=introduction))
         if len(candidate_lists) != 1:
             raise ValueError(
                 "applicability bindings must share the exact usage candidate population"

@@ -321,3 +321,15 @@ def test_applicability_claim_excludes_nomination_and_component_derivation():
     assert original.product_id != after.product_id
     assert structural_statement(original) == structural_statement(after)
     assert set(structural_statement(after)["definition"]) == {"usage", "readings"}
+
+
+def test_physical_citation_aliases_do_not_duplicate_applicability_evidence():
+    original = definition()
+    changed = original.model_dump(mode="json")
+    alias = dict(changed["inputs"]["passages"][1], passage_id="same-physical-target")
+    changed["inputs"]["passages"].append(alias)
+    changed["definition"]["readings"][0]["evidence"] = ["target", "target", "same-physical-target"]
+    for premise in changed["definition"]["readings"][0]["premises"]:
+        premise["evidence"] = ["target", "same-physical-target", "target"]
+    after = StructuralProductReport.model_validate(changed)
+    assert structural_statement(original) == structural_statement(after)

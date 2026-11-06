@@ -35,8 +35,12 @@ def test_structural_questions_are_registered_with_typed_results():
         "qualified_comparison",
         "dossier",
     }
-    assert registry["structural_definitions"].kind == "definition_components"
-    assert registry["structural_applicability"].kind == "definition_applicability"
+    definitions = registry["structural_definitions"]
+    applicability = registry["structural_applicability"]
+    assert isinstance(definitions, StructuralProducts)
+    assert isinstance(applicability, StructuralProducts)
+    assert definitions.kind == "definition_components"
+    assert applicability.kind == "definition_applicability"
 
 
 @pytest.mark.parametrize("position", [True, -1, "", "-1", "1.0", "\u0661"])
