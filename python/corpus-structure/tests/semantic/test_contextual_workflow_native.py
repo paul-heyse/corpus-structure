@@ -245,7 +245,8 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         ContributionRequest, export_contribution_selection, serve_contributions,
     )
 
-    with case.writer.connect() as conn:
+    from corpus_structure.semantic.query import read_snapshot
+    with read_snapshot(case.writer) as conn:
         page = serve_contributions(conn, ContributionRequest(run_id=outcome.run_id, method="retrieve.contextual", include_details=True))
         rendered = page.model_dump_json()
         assert "contextual-enrichment-2" in rendered and "compared-with" in rendered

@@ -222,7 +222,8 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
             )
             case.semantic_grades.append((additional.id, additional_digest))
     with case.writer.begin() as conn:
-        manifest = {
+        origin_run = conn.execute(select(table("ops.run")).where(table("ops.run").c.id == case.run)).mappings().one()
+        manifest = json.loads(bytes(origin_run["dependencies"])) | {
             "local_semantic_admission": [
                 dict(evaluation_id=identity, evaluation_digest=content)
                 for identity, content in case.semantic_grades
@@ -232,7 +233,7 @@ def judged_source(private_source, request, semantic_evaluator_engine, monkeypatc
             conn,
             project_id="private-records",
             binding=OperationBinding(
-                case.prepared.release_id, "private-input", 0, canonical_bytes(manifest)
+                case.prepared.release_id, origin_run["input_realization_id"], origin_run["input_revision"], canonical_bytes(manifest)
             ),
             kind="full",
             options={},
