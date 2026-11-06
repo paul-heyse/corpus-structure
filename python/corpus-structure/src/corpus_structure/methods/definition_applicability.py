@@ -327,12 +327,27 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
         )
         result = prepared.match(restored)
         matches = result.matches
-        for rule,variant,state in result.availability:
-            selected = [match for match in matches if (match.rule,match.variant)==(rule,variant)]
-            operations.append(dict(passage_id=passage.passage_id,source_ref=passage.source_ref,
-                annotation_task_id=retained.annotation_task_id,block_id=product.block_id,
-                rule=rule,variant=variant,availability=state,matched_count=len(selected),
-                role_outcomes=[dict(role=role.role,outcome=role.status) for match in selected for role in match.roles]))
+        for rule, variant, state in result.availability:
+            selected = [
+                match for match in matches if (match.rule, match.variant) == (rule, variant)
+            ]
+            operations.append(
+                dict(
+                    passage_id=passage.passage_id,
+                    source_ref=passage.source_ref,
+                    annotation_task_id=retained.annotation_task_id,
+                    block_id=product.block_id,
+                    rule=rule,
+                    variant=variant,
+                    availability=state,
+                    matched_count=len(selected),
+                    role_outcomes=[
+                        dict(role=role.role, outcome=role.status)
+                        for match in selected
+                        for role in match.roles
+                    ],
+                )
+            )
         found.extend(
             components_from_named_matches(
                 passage, matches, term_role=cfg.term_role, content_role=cfg.content_role
@@ -349,10 +364,16 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                 passage, matches, display_spans, term_role=cfg.term_role
             )
         )
-    available=any(operation["availability"]=="available" for operation in operations)
-    return NamedDefinitionResult(tuple(found),available,tuple(operations),
+    available = any(operation["availability"] == "available" for operation in operations)
+    return NamedDefinitionResult(
+        tuple(found),
+        available,
+        tuple(operations),
         "Current named rules executed on authenticated retained annotation columns."
-        if available else "No selected retained linguistic rule operation is executable; no source absence is established.")
+        if available
+        else ("No selected retained linguistic rule operation is executable; "
+              "no source absence is established."),
+    )
 
 
 def retained_named_components(
@@ -394,11 +415,18 @@ def retained_named_components(
             for role in match["roles"]
         )
         matches.append(SimpleNamespace(**{**match, "roles": roles}))
-    operations=tuple(dict(operation) for operation in result.get("contribution_operations",()))
-    available=any(operation.get("outcome") in {"succeeded","empty","limited"} for operation in operations)
-    return NamedDefinitionResult(components_from_named_matches(passage,matches,
-        term_role=cfg.term_role,content_role=cfg.content_role),available,operations,
-        "Consumed selected source-authenticated named candidates.")
+    operations = tuple(dict(operation) for operation in result.get("contribution_operations", ()))
+    available = any(
+        operation.get("outcome") in {"succeeded", "empty", "limited"} for operation in operations
+    )
+    return NamedDefinitionResult(
+        components_from_named_matches(
+            passage, matches, term_role=cfg.term_role, content_role=cfg.content_role
+        ),
+        available,
+        operations,
+        "Consumed selected source-authenticated named candidates.",
+    )
 
 
 _DEFINITION_WINDOW_CHARS = 1536
@@ -516,7 +544,11 @@ class DefinitionComponentsMethod:
                     DefinitionStage(
                         passage_id=passage_id,
                         operation="attachment",
-                        outcome="succeeded" if named.components else "empty" if named.available else "unavailable",
+                        outcome="succeeded"
+                        if named.components
+                        else "empty"
+                        if named.available
+                        else "unavailable",
                         reason=named.reason,
                     )
                 )

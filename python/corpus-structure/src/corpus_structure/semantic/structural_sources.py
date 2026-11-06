@@ -224,19 +224,29 @@ def load_structural_annotations(conn, inputs, source_ref, profile, *, read_budge
     row = rows[0]
     body = row["body"]
     budget.value(body)
-    if (row["release_id"] != source.release_id
-            or body.get("release_id") != row["release_id"]
-            or body.get("source") != frame.unit_ref
-            or body.get("method") != "extract.m1_annotations"
-            or body.get("operation_version") != row["version"]
-            or body.get("unit_key") != row["unit_key"]
-            or body.get("input_hash") != row["input_hash"]
-            or body.get("configuration_hash") != row["config_hash"]):
+    if (
+        row["release_id"] != source.release_id
+        or body.get("release_id") != row["release_id"]
+        or body.get("source") != frame.unit_ref
+        or body.get("method") != "extract.m1_annotations"
+        or body.get("operation_version") != row["version"]
+        or body.get("unit_key") != row["unit_key"]
+        or body.get("input_hash") != row["input_hash"]
+        or body.get("configuration_hash") != row["config_hash"]
+    ):
         raise ValueError("original annotation result differs from its native task custody")
     if row["version"] != "2":
-        return PreparedStructuralAnnotations(frame, (),
-            (f"Authenticated retained annotation operation version {row['version']} is unsupported; current annotation contract is version2. No historical decoder executed.",),
-            row["origin_task_id"], row["input_hash"])
+        return PreparedStructuralAnnotations(
+            frame,
+            (),
+            (
+                f"Authenticated retained annotation operation version {row['version']} "
+                "is unsupported; current annotation contract is version2. "
+                "No historical decoder executed.",
+            ),
+            row["origin_task_id"],
+            row["input_hash"],
+        )
     details = source_python(body["parse_detail"])
     if details.get("recipe") != "m1-owned-linguistic-product-1" or details.get(
         "source_pin"
