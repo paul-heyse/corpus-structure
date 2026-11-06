@@ -27,6 +27,17 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION data.structural_definition_component(jsonb,jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION data.retained_definition_citations(reading jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE retained jsonb; component jsonb;
+BEGIN
+ retained:=ops.resolve_retained_component(reading->'component_ref');
+ IF retained->'component' IS DISTINCT FROM reading->'component' THEN RAISE EXCEPTION 'dossier definition component differs from its actual origin' USING ERRCODE='23514'; END IF;
+ component:=data.structural_definition_component(retained->'report',retained->'component');
+ RETURN jsonb_build_array(component->'term',component->'content');
+END $$;
+REVOKE ALL ON FUNCTION data.retained_definition_citations(jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb,component_id text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb;
@@ -44,14 +55,13 @@ BEGIN
   result:=(result-'inventory_id'-'input_policy_id')||jsonb_build_object('definition_component',data.structural_definition_component(report,value));
  ELSIF component_id IS NOT NULL THEN RAISE EXCEPTION 'component selector requires component report' USING ERRCODE='23514';
  ELSIF report->>'kind'='definition_applicability' THEN
+  result:=result-'inventory_id'-'input_policy_id';
   value:=report->'definition';
   SELECT COALESCE(jsonb_agg(v ORDER BY data.canonical_json(v)),'[]') INTO items FROM (
    SELECT jsonb_build_object('component',data.structural_definition_component(report,r->'component'),'outcome',r->'outcome',
     'premises',(SELECT COALESCE(jsonb_agg(jsonb_build_object('dimension',p->'dimension','state',p->'state','evidence',data.structural_citations(report,p->'evidence')) ORDER BY n),'[]') FROM jsonb_array_elements(r->'premises') WITH ORDINALITY premise(p,n)),'evidence',data.structural_citations(report,r->'evidence')) v FROM jsonb_array_elements(value->'readings') r) x;
   result:=result||jsonb_build_object('definition',jsonb_build_object('usage',data.structural_citation(report,value->>'usage_id'),
-   'eligible_targets',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'eligible_targets') v),'[]'),
-   'candidate_targets',COALESCE((SELECT jsonb_agg(v ORDER BY v) FROM jsonb_array_elements(value->'candidate_targets') v),'[]'),'readings',items,
-   'inventory_coverage',value->>'inventory_coverage','retrieval_diagnosis',value->>'retrieval_diagnosis'));
+   'readings',items));
  ELSIF report->>'kind'='qualified_comparison' THEN
   value:=report->'comparison'; items:='[]';
   FOR item IN SELECT v FROM jsonb_array_elements(value->'dimensions') v LOOP
@@ -159,11 +169,11 @@ BEGIN
      IF member->>'role'='definition' THEN
       IF NOT EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'definition'->'readings') reading
        WHERE reading->>'outcome'='applicable_definition'
-       AND data.structural_citation(upstream.product,reading->>'target_id')=data.structural_citation(report,member->>'passage_id')) THEN
+       AND data.retained_definition_citations(reading) @> jsonb_build_array(data.structural_citation(report,member->>'passage_id'))) THEN
        RAISE EXCEPTION 'definition member is not an applicable definition output of its predecessor' USING ERRCODE='23514'; END IF;
      ELSIF data.structural_citation(upstream.product,upstream.product->'definition'->>'usage_id') IS DISTINCT FROM data.structural_citation(report,member->>'passage_id')
       AND NOT EXISTS(SELECT FROM jsonb_array_elements(upstream.product->'definition'->'readings') reading
-       WHERE data.structural_citation(upstream.product,reading->>'target_id')=data.structural_citation(report,member->>'passage_id')) THEN
+       WHERE data.retained_definition_citations(reading) @> jsonb_build_array(data.structural_citation(report,member->>'passage_id'))) THEN
       RAISE EXCEPTION 'dossier member did not participate in its definition predecessor output' USING ERRCODE='23514'; END IF;
     ELSE
      IF member->>'role'='definition' OR NOT EXISTS(

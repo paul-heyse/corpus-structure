@@ -53,7 +53,7 @@ BEGIN
   ) SELECT COALESCE(jsonb_agg(meaning||jsonb_build_object('edge_id','scoped-edge:'||encode(sha256(convert_to(data.canonical_json(ops.contextual_nullable_value(meaning)),'UTF8')),'hex')) ORDER BY target_id,relation),'[]') INTO edges FROM meanings;
   IF jsonb_array_length(edges)=0 OR (question->>'multiplicity'='one' AND jsonb_array_length(edges)>1) THEN unresolved:=unresolved||jsonb_build_array(question->>'constraint_id'); END IF;
   IF question->>'multiplicity'='one' AND jsonb_array_length(edges)>1 THEN
-   groups:=groups||jsonb_build_array(jsonb_build_object('constraint_id',question->>'constraint_id','edges',edges,'reason','competing senses under declared exclusive question'));
+   groups:=groups||jsonb_build_array(jsonb_build_object('constraint_id',question->>'constraint_id','edges',edges,'reason','competing senses under declared exclusive constraint'));
   ELSE selected:=selected||edges; END IF;
  END LOOP;
  IF d->'unresolved_constraints' IS DISTINCT FROM unresolved THEN RAISE EXCEPTION 'unresolved constraints differ from eligible edge population' USING ERRCODE='23514'; END IF;
@@ -202,6 +202,29 @@ BEGIN
   IF actual<>(op->>'emitted_count')::bigint OR (actual>0 AND op->>'outcome' IN ('empty','failed','skipped','unsupported','not_run'))
    OR (op->>'outcome' IN ('failed','skipped','unsupported','limited','not_run') AND COALESCE(op->>'reason','')='') THEN
    RAISE EXCEPTION 'operation outcome or cardinality differs from actual contribution population' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ -- Projected definition terms retain exactly their authenticated component role/location.
+ FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions') WHERE value->>'semantic_type'='definition.term' LOOP
+  DECLARE meaning jsonb:=data.record_source_json(contribution->'value'); original jsonb; component jsonb; passage jsonb; expected_anchors jsonb; observed_anchors jsonb;
+  BEGIN
+   binding:=meaning->'component_reference'; original:=ops.resolve_retained_component(binding); component:=original->'component';
+   SELECT p INTO STRICT passage FROM jsonb_array_elements(original->'report'->'inputs'->'passages') p WHERE p->>'passage_id'=component->'term'->>'passage_id';
+   IF p_envelope->>'method'<>'locate.definition_terms' OR contribution->>'kind'<>'occurrence' OR meaning->>'role'<>'defined_term'
+    OR meaning-ARRAY['role','component_reference']<>'{}' OR NOT EXISTS(SELECT FROM ops.method_config cfg WHERE cfg.id=t.method_config_id AND cfg.params->'component_refs' @> jsonb_build_array(binding)
+     AND cfg.params->>'source_product_digest'=v.native_content_digest AND cfg.params->>'source_projection_digest'=v.projection_digest)
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(original->'report'->'inputs'->'sources') src WHERE (src->>'source_view_id')::bigint=v.id AND encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex')=passage->>'source_ref')
+    OR contribution->'computation_dependencies' IS DISTINCT FROM jsonb_build_array(binding->>'product_id',binding->>'component_id','retained-component:'||encode(sha256(convert_to(data.canonical_json(binding),'UTF8')),'hex')) THEN
+    RAISE EXCEPTION 'definition term differs from retained component and producing configuration' USING ERRCODE='23514'; END IF;
+   SELECT jsonb_agg(jsonb_build_object('pointer',p->>'item_ref'||CASE WHEN p->>'source_field'='cell_text' THEN '/data/table_cells/'||(p->>'cell_index') ELSE '' END,
+    'start',greatest((component->'term'->>'start')::bigint,(p->>'start')::bigint)-(p->>'start')::bigint,
+    'end',least((component->'term'->>'end')::bigint,(p->>'end')::bigint)-(p->>'start')::bigint,
+    'source_piece',substring(v.projection->>'text' FROM greatest((component->'term'->>'start')::integer,(p->>'start')::integer)+1 FOR least((component->'term'->>'end')::integer,(p->>'end')::integer)-greatest((component->'term'->>'start')::integer,(p->>'start')::integer))) ORDER BY p->>'item_ref',greatest((component->'term'->>'start')::bigint,(p->>'start')::bigint)-(p->>'start')::bigint)
+    INTO expected_anchors FROM jsonb_array_elements(v.projection->'pieces') p WHERE p->>'kind'='native_text' AND (p->>'start')::bigint<(component->'term'->>'end')::bigint AND (p->>'end')::bigint>(component->'term'->>'start')::bigint;
+   SELECT jsonb_agg(jsonb_build_object('pointer',a->'pointer','start',a->'start','end',a->'end','source_piece',a->'source_piece') ORDER BY a->>'pointer',(a->>'start')::bigint,(a->>'end')::bigint)
+    INTO observed_anchors FROM jsonb_array_elements(contribution->'anchors') a;
+   IF expected_anchors IS NULL OR expected_anchors IS DISTINCT FROM observed_anchors THEN
+    RAISE EXCEPTION 'definition term location differs from original component source pieces' USING ERRCODE='23514'; END IF;
+  END;
  END LOOP;
  -- Located mentions preserve the selected producer's source anchors and semantic role.
  FOR contribution IN SELECT value FROM jsonb_array_elements(p_envelope->'contributions') WHERE value->>'semantic_type'='contextual.located_mention' LOOP

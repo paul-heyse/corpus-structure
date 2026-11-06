@@ -907,6 +907,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "structural_citation",
         "structural_citations",
         "structural_definition_component",
+        "retained_definition_citations",
         "structural_public_statement",
         "structural_publication_candidates",
         "validate_structural_assertions",

@@ -1161,31 +1161,8 @@ classes:
         inlined_as_list: true
   StructuralPublicDefinition:
     attributes:
-      usage:
-        range: StructuralPublicCitation
-        required: true
-        inlined: true
-      eligible_targets:
-        range: string
-        multivalued: true
-        required: false
-      candidate_targets:
-        range: string
-        multivalued: true
-        required: false
-      readings:
-        range: StructuralPublicDefinitionReading
-        multivalued: true
-        inlined: true
-        inlined_as_list: true
-        required: false
-      inventory_coverage:
-        range: StructuralDefinitionProductInventoryCoverageValue
-        required: true
-      retrieval_diagnosis:
-        range: string
-        required: true
-        equals_string: not_independently_assessed
+      usage: {range: StructuralPublicCitation, required: true, inlined: true}
+      readings: {range: StructuralPublicDefinitionReading, multivalued: true, inlined: true, inlined_as_list: true}
   StructuralPublicClauseField:
     attributes:
       dimension:

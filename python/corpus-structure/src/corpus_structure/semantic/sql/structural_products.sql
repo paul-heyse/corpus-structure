@@ -172,7 +172,7 @@ GRANT EXECUTE ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) TO c
 
 CREATE OR REPLACE FUNCTION ops.validate_structural_product_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text;
+DECLARE t ops.task; shape json; product jsonb; inputs jsonb; source_ jsonb; source_map jsonb:='{}'; passage jsonb; passage_map jsonb:='{}'; ref jsonb; v kb.source_view; identifier text; cited text; item jsonb; dimension jsonb; member jsonb; actual text[]; expected text[]; config_ jsonb; method_ text; introduction boolean; premise jsonb; expected_state text; expected_outcome text; states text[];
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -195,6 +195,7 @@ BEGIN
  SELECT cfg.params,m.name INTO STRICT config_,method_ FROM ops.method_config cfg
  JOIN ops.method m ON m.id=cfg.method_id WHERE cfg.id=t.method_config_id;
  IF method_='structure.products' THEN
+  IF product->>'kind' NOT IN ('qualified_comparison','dossier') THEN RAISE EXCEPTION 'supplied structural definitions have been retired' USING ERRCODE='23514'; END IF;
   -- Registry configuration numbers use canonical decimal strings. Preserve exact
   -- semantic fields and all raw derivation values while accounting for that
   -- representation at numeric derivation leaves only.
@@ -287,17 +288,36 @@ BEGIN
      RAISE EXCEPTION 'usage differs from exact linked occurrence original source pieces' USING ERRCODE='23514'; END IF;
    ref:=ops.resolve_retained_component(dimension->'component_ref');
    IF dimension->'component' IS DISTINCT FROM ref->'component' THEN RAISE EXCEPTION 'applicability component differs from authenticated origin' USING ERRCODE='23514'; END IF;
-   IF inputs->>'policy_id'='definition-introduction-1' OR EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'dimension' IN ('parameterization','convention') AND premise->>'state'='inapplicable') THEN
-    IF inputs->>'policy_id' IS DISTINCT FROM 'definition-introduction-1'
-     OR source_->'edge'->>'relation' IS DISTINCT FROM 'defined-by'
-     OR passage->>'start' IS DISTINCT FROM ref->'component'->'term'->>'start'
-     OR passage->>'end' IS DISTINCT FROM ref->'component'->'term'->>'end'
-     OR passage->>'text' IS DISTINCT FROM ref->'component'->'term'->>'text'
-     OR passage->>'scope' IS DISTINCT FROM ref->'component'->>'scope'
-     OR passage->>'effective_version' IS DISTINCT FROM ref->'component'->>'effective_version'
-     OR passage->>'source_ref' IS DISTINCT FROM (SELECT p->>'source_ref' FROM jsonb_array_elements(ref->'report'->'inputs'->'passages') p WHERE p->>'passage_id'=ref->'component'->'term'->>'passage_id') THEN
-     RAISE EXCEPTION 'inapplicable convention or parameterization requires exact defining occurrence policy' USING ERRCODE='23514'; END IF;
-   END IF;
+   IF source_->'edge'->>'relation' NOT IN ('denotes','defined-by')
+    OR source_->'decision'->>'scope' IS DISTINCT FROM passage->>'scope'
+    OR source_->'decision'->>'effective_version' IS DISTINCT FROM passage->>'effective_version' THEN
+    RAISE EXCEPTION 'applicability requires actual usage-sense selection under the usage scope/version' USING ERRCODE='23514'; END IF;
+   introduction:=config_->>'applicability_scope'='defining_occurrence'
+    AND inputs->>'policy_id'='definition-introduction-1'
+    AND source_->'edge'->>'relation'='defined-by'
+    AND passage->>'start'=ref->'component'->'term'->>'start' AND passage->>'end'=ref->'component'->'term'->>'end'
+    AND passage->>'text'=ref->'component'->'term'->>'text' AND passage->>'scope'=ref->'component'->>'scope'
+    AND passage->>'effective_version' IS NOT DISTINCT FROM ref->'component'->>'effective_version'
+    AND passage->>'source_ref'=(SELECT p->>'source_ref' FROM jsonb_array_elements(ref->'report'->'inputs'->'passages') p WHERE p->>'passage_id'=ref->'component'->'term'->>'passage_id');
+   IF jsonb_array_length(dimension->'premises')<>5 OR
+    (SELECT array_agg(p->>'dimension' ORDER BY p->>'dimension') FROM jsonb_array_elements(dimension->'premises') p)
+     IS DISTINCT FROM ARRAY['convention','parameterization','scope','sense','version'] THEN
+    RAISE EXCEPTION 'applicability requires the exact five independent dimensions' USING ERRCODE='23514'; END IF;
+   states:=ARRAY[]::text[];
+   FOR premise IN SELECT value FROM jsonb_array_elements(dimension->'premises') LOOP
+    expected_state:=CASE premise->>'dimension'
+     WHEN 'sense' THEN 'compatible'
+     WHEN 'scope' THEN CASE WHEN passage->>'scope'=ref->'component'->>'scope' THEN 'compatible' ELSE 'incompatible' END
+     WHEN 'version' THEN CASE WHEN passage->>'effective_version' IS NULL AND ref->'component'->>'effective_version' IS NOT NULL THEN 'unknown'
+      WHEN passage->>'effective_version' IS NOT DISTINCT FROM ref->'component'->>'effective_version' THEN 'compatible' ELSE 'incompatible' END
+     ELSE CASE WHEN COALESCE(introduction,false) THEN 'inapplicable' ELSE 'unknown' END END;
+    IF premise->>'state' IS DISTINCT FROM expected_state OR premise->'evidence' IS DISTINCT FROM jsonb_build_array(item->>'usage_id',ref->'component'->'term'->>'passage_id') THEN
+     RAISE EXCEPTION 'applicability premise differs from actual source-bound operation' USING ERRCODE='23514'; END IF;
+    states:=array_append(states,expected_state);
+   END LOOP;
+   expected_outcome:=CASE WHEN 'incompatible'=ANY(states) THEN 'incompatible' WHEN 'unknown'=ANY(states) OR ref->'component'->>'interpretation'='unresolved' THEN 'unresolved'
+    WHEN ref->'component'->>'interpretation'='definition' THEN 'applicable_definition' ELSE 'applicable_explanation' END;
+   IF dimension->>'outcome' IS DISTINCT FROM expected_outcome THEN RAISE EXCEPTION 'applicability outcome differs from authenticated premises' USING ERRCODE='23514'; END IF;
    IF NOT inputs->'dependencies' ? (dimension->'component_ref'->>'product_id') THEN
     RAISE EXCEPTION 'applicability lacks frozen component dependency' USING ERRCODE='23514'; END IF;
    IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'state' IN ('unknown','incompatible')) THEN
