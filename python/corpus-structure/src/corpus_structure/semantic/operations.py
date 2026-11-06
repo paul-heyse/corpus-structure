@@ -1093,6 +1093,14 @@ class BoundReader:
         ).scalar_one()
         return result["component"]
 
+    def retained_structural_report(self, reference):
+        """Authenticate one completed original report and its separately published support."""
+        import json
+        return self.conn.execute(
+            text("SELECT ops.resolve_retained_structural_report(CAST(:reference AS jsonb))"),
+            {"reference": json.dumps(reference.model_dump(mode="json"))},
+        ).scalar_one()
+
     def retained_relationship_decision(self, reference):
         """Read one exact completed selected edge through the native custody owner."""
         import json

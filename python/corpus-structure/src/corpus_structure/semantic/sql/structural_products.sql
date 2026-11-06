@@ -78,6 +78,46 @@ REVOKE ALL ON FUNCTION ops.validate_structural_input(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.validate_structural_input(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
 -- Resolve a component through its actual selected completed producer, never an alias.
+CREATE OR REPLACE FUNCTION ops.resolve_retained_structural_report(ref jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected record; assertions jsonb;
+BEGIN
+ IF ref-ARRAY['product_id','project_id','run_id','cut_id','release_id','result_revision','selected_task_id','origin_task_id','runtime_fingerprint']<>'{}'::jsonb THEN
+  RAISE EXCEPTION 'invalid retained structural reference fields' USING ERRCODE='23514'; END IF;
+ SELECT origin.id, result.body->'structural_product' report, batch.data_revision,
+  origin_job.runtime_id, completed.batch_id, completed.release_id, completed.output_realization_id
+ INTO STRICT selected
+ FROM ops.run job JOIN ops.completed_result completed ON completed.run_id=job.id
+ JOIN data.batch batch ON batch.release_id=completed.release_id AND batch.realization_id=completed.output_realization_id AND batch.batch_id=completed.batch_id
+ JOIN ops.cut_task member ON member.cut_id=completed.cut_id
+ JOIN ops.task task ON task.id=member.task_id
+ JOIN ops.task origin ON origin.id=COALESCE(task.reused_task_id,task.id)
+ JOIN ops.run origin_job ON origin_job.id=origin.run_id
+ JOIN ops.task_result result ON result.task_id=origin.id
+ WHERE job.id=(ref->>'run_id')::bigint AND job.project_id=ref->>'project_id'
+ AND job.release_id=ref->>'release_id' AND job.sealed AND job.status='finished'
+ AND completed.cut_id=(ref->>'cut_id')::bigint AND task.id=(ref->>'selected_task_id')::bigint
+ AND origin.id=(ref->>'origin_task_id')::bigint AND member.origin_task_id=origin.id
+ AND origin.release_id=ref->>'release_id' AND task.status IN ('done','reused');
+ IF selected.report->>'version' IS DISTINCT FROM 'structural-product-3'
+ OR 'structural:'||encode(sha256(convert_to(data.canonical_json(selected.report-'retrieval_report'),'UTF8')),'hex') IS DISTINCT FROM ref->>'product_id'
+ OR selected.data_revision IS DISTINCT FROM (ref->>'result_revision')::bigint
+ OR selected.runtime_id IS DISTINCT FROM ref->>'runtime_fingerprint' THEN
+  RAISE EXCEPTION 'retained report differs from exact original producer custody' USING ERRCODE='23514'; END IF;
+ -- Public eligibility is obtained from the authoritative published rows below; the private
+ -- report contains no self-declared support flag that a dossier may trust.
+ SELECT COALESCE(jsonb_agg(jsonb_build_object('assessment_id',s.assertion_id,'statement',s.statement_json::jsonb)),'[]') INTO assertions
+ FROM data.structural_assertion s WHERE s.release_id=selected.release_id
+ AND s.realization_id=selected.output_realization_id AND s.cut_id=(ref->>'cut_id')::bigint
+ AND s.selected_task_id=(ref->>'selected_task_id')::bigint AND s.origin_task_id=selected.id
+ AND s.product_id=ref->>'product_id';
+ RETURN jsonb_build_object('report',selected.report,'public_assertions',assertions);
+EXCEPTION WHEN no_data_found OR too_many_rows OR numeric_value_out_of_range THEN
+ RAISE EXCEPTION 'retained report cannot resolve exact selected origin' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.resolve_retained_structural_report(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.resolve_retained_structural_report(jsonb) TO corpus_sem_reader,corpus_sem_writer;
+
 CREATE OR REPLACE FUNCTION ops.resolve_retained_component(ref jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE selected record; component jsonb;

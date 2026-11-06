@@ -94,6 +94,9 @@ class ScopedSourceReader:
     def retained_relationship_decision(self, reference):
         return self._read(lambda reader: reader.retained_relationship_decision(reference))
 
+    def retained_structural_report(self, reference):
+        return self._read(lambda reader: reader.retained_structural_report(reference))
+
     def component_semantic_targets(self, targets):
         return self._read(lambda reader: reader.component_semantic_targets(targets))
 
