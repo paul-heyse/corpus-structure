@@ -15,6 +15,7 @@ from corpus_structure.semantic._operation_ids import CutId, DocumentId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
+from corpus_structure.semantic.structural_products import ExternalSourceRef
 from corpus_structure.semantic.operations import (
     BoundReader,
     OperationBinding,
@@ -83,6 +84,7 @@ def run_source_methods(
     record_acceptance: Sequence[Mapping[str, Any]] = (),
     local_semantic_admission: Sequence[Mapping[str, Any]] = (),
     structural_admission: Sequence[Mapping[str, Any]] = (),
+    selected_sources: Sequence[ExternalSourceRef] = (),
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
@@ -181,6 +183,11 @@ def run_source_methods(
             scope_record = boundary.validate_json(
                 "PdfNativeSourceScope", canonical_bytes(dict(scope_record))
             ).model_dump(mode="json")
+    selected_sources = tuple(selected_sources)
+    if len({(source.run_id, source.source_view_id) for source in selected_sources}) != len(selected_sources):
+        raise OperationConflict("retained source selection contains duplicate original views")
+    if any(source.project_id != project_id for source in selected_sources):
+        raise OperationConflict("retained source selection belongs to another project")
     fresh = tuple(sorted(set(fresh)))
     unknown = set(fresh) - {method.name for method in registry.methods()}
     if unknown:
@@ -309,6 +316,7 @@ def run_source_methods(
                 }
                 for d in docs
             ],
+            "selected_sources": [source.model_dump(mode="json") for source in selected_sources],
             "operations": {
                 name: {
                     "version": registry.method(name).version,
@@ -370,6 +378,16 @@ def run_source_methods(
             guideline=guideline,
         )
         start_run(conn, rid)
+        if selected_sources:
+            from sqlalchemy import text
+            from corpus_structure.semantic._operation_calls import select_source_view
+            from corpus_structure.semantic._operation_ids import SourceViewId
+
+            for source in selected_sources:
+                conn.execute(text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+                             {"source": canonical_bytes(source.model_dump(mode="json")).decode()}).scalar_one()
+                select_source_view(conn, run_id=rid, source_run_id=RunId(source.run_id),
+                                   source_view_id=SourceViewId(source.source_view_id), projection_context=prepared)
     holder = f"semantic-source:{rid}"
     try:
         try:

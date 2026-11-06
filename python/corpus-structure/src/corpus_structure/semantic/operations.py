@@ -1074,6 +1074,15 @@ class BoundReader:
             read_budget=self._read_budget or read_budget,
         )
 
+    def retained_definition_component(self, reference):
+        """Read original component and source manifest through their native custody owner."""
+        import json
+
+        return self.conn.execute(
+            text("SELECT ops.resolve_retained_component(CAST(:reference AS jsonb))"),
+            {"reference": json.dumps(reference.model_dump(mode="json"))},
+        ).scalar_one()
+
     def resolve_definition_component(self, reference):
         """Resolve original retained component content for a selected applicability edge."""
         import json

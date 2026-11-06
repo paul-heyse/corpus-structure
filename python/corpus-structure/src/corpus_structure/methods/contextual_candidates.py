@@ -22,7 +22,7 @@ from corpus_structure.semantic.contributions import (
     operation_identity,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
 
@@ -93,6 +93,36 @@ def relationship_contributions(decision, source_product, inventory, operation_ke
         row["contribution_id"] = contribution_identity(row)
         rows.append(row)
     return tuple(rows)
+
+
+def retained_definition_witnesses(upstream, products, occurrence, inventory, available,
+                                  source_binding, scope, effective_version):
+    """A retained term role binds its own component without comparing target labels."""
+    from corpus_structure.semantic.structural_products import RetainedComponentRef
+
+    originals = {row["contribution_id"]: row for row in upstream.get("contributions", ())}
+    found = []
+    for product in products:
+        if product["occurrence_id"] != occurrence:
+            continue
+        original = originals[product["computation_dependencies"][0]]
+        if original["semantic_type"] != "definition.term":
+            continue
+        value = source_python(original["value"])
+        if value.get("role") != "defined_term":
+            continue
+        reference = RetainedComponentRef.model_validate(value["component_reference"])
+        for target in inventory.targets:
+            if target.target_id not in available or target.target_id != reference.component_id:
+                continue
+            if target.source_binding != "definition-component:" + reference.identity:
+                raise ValueError("definition term substitutes a different component origin")
+            found.append(RelationshipWitness(
+                "retained-definition-term:" + operation_identity(product["contribution_id"], reference.identity),
+                occurrence, target.target_id, "defined-by", source_binding, scope,
+                effective_version, (product["contribution_id"],), "producer_group", "unassessed",
+            ))
+    return tuple(found)
 
 
 class ProducerRelationshipRecipe(BaseModel):
@@ -382,6 +412,11 @@ class ContextualCandidates:
                         upstream, source_products, occurrence, inventory, available,
                         cfg.relationship_recipes, frame.unit_ref, cfg.scope, cfg.effective_version,
                     )
+                    if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
+                        witnesses += retained_definition_witnesses(
+                            upstream, source_products, occurrence, inventory, available,
+                            frame.unit_ref, cfg.scope, cfg.effective_version,
+                        )
                     decision = select_relationships(
                         candidates=candidate_list,
                         inventory=inventory,

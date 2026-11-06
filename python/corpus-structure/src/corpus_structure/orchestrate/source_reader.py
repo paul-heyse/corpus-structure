@@ -85,6 +85,9 @@ class ScopedSourceReader:
             lambda reader: reader.retained_source_result(source_view_id, task_id, method)
         )
 
+    def retained_definition_component(self, reference):
+        return self._read(lambda reader: reader.retained_definition_component(reference))
+
     def resolve_definition_component(self, reference):
         return self._read(lambda reader: reader.resolve_definition_component(reference))
 

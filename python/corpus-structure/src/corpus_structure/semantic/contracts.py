@@ -153,6 +153,8 @@ M1_IMPLEMENTATION_SOURCES = (
     ("records/m1-source.py", "methods/m1_source.py"),
     ("records/m1-annotations.py", "methods/m1_annotations.py"),
     ("records/m1-readings.py", "methods/m1_readings.py"),
+    ("records/definition-terms.py", "methods/definition_terms.py"),
+    ("records/contextual-candidates.py", "methods/contextual_candidates.py"),
     ("records/contribution-adapter.py", "methods/contribution_adapter.py"),
     ("records/assembly.py", "methods/record_assembly.py"),
     ("records/packs.py", "methods/record_packs.py"),
