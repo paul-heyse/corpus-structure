@@ -90,11 +90,11 @@ def definition():
         definition=DefinitionProduct(
             usage_id="usage",
             candidate_list_id="list1",
-            eligible_targets=("target",),
-            candidate_targets=("target",),
+            eligible_targets=(fixture_component().component_id,),
+            candidate_targets=(fixture_component().component_id,),
             readings=(
                 StructuralDefinitionReading(
-                    target_id="target",
+                    target_id=fixture_component().component_id,
                     component_ref=RetainedComponentRef(
                         product_id="component-product",
                         component_id=fixture_component().component_id,
@@ -125,15 +125,25 @@ def definition():
                         occurrence_contribution_id="occurrence",
                     ),
                     component=fixture_component(),
-                    premises=(
+                    premises=tuple(
                         ApplicabilityPremise(
-                            dimension="sense",
-                            state="compatible",
+                            dimension=dimension,
+                            state="unknown"
+                            if dimension in {"parent", "parameterization", "convention"}
+                            else "compatible",
                             evidence=("target",),
-                            reason="Literal fixture binding",
-                        ),
+                            reason="Independent explicit fixture premise",
+                        )
+                        for dimension in (
+                            "sense",
+                            "parameterization",
+                            "convention",
+                            "scope",
+                            "version",
+                            "parent",
+                        )
                     ),
-                    outcome="applicable_definition",
+                    outcome="unresolved",
                     evidence=("target",),
                     reason="supplied reading",
                 ),
@@ -145,7 +155,7 @@ def definition():
 def test_definition_projection_preserves_meaning_without_derivation():
     value = structural_statement(definition())
     assert value["definition"]["usage"]["text"] == "mean"
-    assert value["definition"]["readings"][0]["outcome"] == "applicable_definition"
+    assert value["definition"]["readings"][0]["outcome"] == "unresolved"
     assert value["definition"]["readings"][0]["evidence"][0]["start"] == 5
     physical = value["definition"]["usage"]["source"]
     assert physical["native_content_digest"] == "a" * 64
@@ -262,11 +272,52 @@ def test_numeric_retrieval_is_raw_task_provenance_not_envelope_identity():
 
 def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_retrieval():
     from corpus_structure.semantic.structural_products import DefinitionComponentsProduct
-    component=fixture_component()
-    report=StructuralProductReport(kind='definition_components',inputs=inputs(),definition_components=DefinitionComponentsProduct(components=(component,),stages=()))
-    meaning=component.model_dump(exclude={'component_id'})
-    meaning.update(basis='matched_cue',alternatives=('another-private-proposal',))
-    revised=definition_component(**meaning)
-    after=report.model_copy(update={'inputs':report.inputs.model_copy(update={'inventory_id':'new-inventory','policy_id':'new-nomination-policy'}),'definition_components':DefinitionComponentsProduct(components=(revised,),stages=())})
+
+    component = fixture_component()
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=inputs(),
+        definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
+    )
+    meaning = component.model_dump(exclude={"component_id"})
+    meaning.update(basis="matched_cue", alternatives=("another-private-proposal",))
+    revised = definition_component(**meaning)
+    after = report.model_copy(
+        update={
+            "inputs": report.inputs.model_copy(
+                update={"inventory_id": "new-inventory", "policy_id": "new-nomination-policy"}
+            ),
+            "definition_components": DefinitionComponentsProduct(components=(revised,), stages=()),
+        }
+    )
     assert report.product_id != after.product_id
-    assert structural_statement(report,component.component_id) == structural_statement(after,revised.component_id)
+    assert structural_statement(report, component.component_id) == structural_statement(
+        after, revised.component_id
+    )
+
+
+def test_applicability_claim_excludes_nomination_and_component_derivation():
+    original = definition()
+    changed = original.model_dump(mode="json")
+    first = changed["definition"]["readings"][0]
+    meaning = {key: value for key, value in first["component"].items() if key != "component_id"}
+    meaning.update(basis="matched_cue", reason="Separate source-supported producer basis")
+    revised = definition_component(**meaning)
+    first["component"] = revised.model_dump(mode="json")
+    first["component_ref"]["component_id"] = revised.component_id
+    first["target_id"] = revised.component_id
+    changed["definition"].update(
+        candidate_targets=[revised.component_id],
+        eligible_targets=[revised.component_id, "another-candidate"],
+        candidate_list_id="different-list",
+        inventory_coverage="known_gap",
+    )
+    changed["inputs"].update(
+        inventory_id="different-inventory",
+        policy_id="different-nomination",
+        question="Different request wording",
+    )
+    after = StructuralProductReport.model_validate(changed)
+    assert original.product_id != after.product_id
+    assert structural_statement(original) == structural_statement(after)
+    assert set(structural_statement(after)["definition"]) == {"usage", "readings"}

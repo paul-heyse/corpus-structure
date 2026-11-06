@@ -60,6 +60,7 @@ def inputs(text="We call the expected squared deviation variance."):
                 end=10 + len(text),
                 text=text,
                 scope="s",
+                parent="test-parent",
             ),
             StructuralPassage(
                 passage_id="usage",
@@ -68,6 +69,7 @@ def inputs(text="We call the expected squared deviation variance."):
                 end=108,
                 text="variance",
                 scope="s",
+                parent="test-parent",
             ),
         ),
         dependencies=("source", "structural:component-report"),
@@ -321,6 +323,7 @@ def test_definition_introduction_does_not_transfer_to_other_occurrences():
         text=defined.term.text,
         scope=defined.scope,
         effective_version=defined.effective_version,
+        parent=target.parent,
     )
     assert is_defining_occurrence(value, introduction, defined, "defined-by")
     assert not is_defining_occurrence(value, introduction, defined, "denotes")
@@ -354,33 +357,84 @@ def test_definition_introduction_scope_requires_the_domain_policy():
 
 def test_definition_windows_bound_model_work_and_preserve_original_coordinates(monkeypatch):
     from corpus_structure.methods.definition_applicability import definition_windows
-    text=' '.join('concept'+str(i) for i in range(120))
-    passage=inputs(text).passages[0]
+
+    text = " ".join("concept" + str(i) for i in range(120))
+    passage = inputs(text).passages[0]
     from pathlib import Path
     from corpus_structure.methods.gliner import GlinerProfile
     from corpus_structure.methods import definition_applicability as owner
-    profile=GlinerProfile(Path('/model'),'checkpoint','revision',tuple((name,'a'*64) for name in ('config.json','encoder_config/config.json','model.safetensors','tokenizer.json','tokenizer_config.json')),max_input_bytes=1200)
-    value=inputs(text)
-    cfg=DefinitionComponentsConfig(inputs=value,structural_input_digest=value.identity,target_ids=('target',),profile=profile)
-    windows=definition_windows(passage,cfg)
-    assert len(windows)>1 and windows[0].start==passage.start and windows[-1].end==passage.end
+
+    profile = GlinerProfile(
+        Path("/model"),
+        "checkpoint",
+        "revision",
+        tuple(
+            (name, "a" * 64)
+            for name in (
+                "config.json",
+                "encoder_config/config.json",
+                "model.safetensors",
+                "tokenizer.json",
+                "tokenizer_config.json",
+            )
+        ),
+        max_input_bytes=1200,
+    )
+    value = inputs(text)
+    cfg = DefinitionComponentsConfig(
+        inputs=value,
+        structural_input_digest=value.identity,
+        target_ids=("target",),
+        profile=profile,
+    )
+    windows = definition_windows(passage, cfg)
+    assert len(windows) > 1 and windows[0].start == passage.start and windows[-1].end == passage.end
     for window in windows:
-        assert window.text==text[window.start-passage.start:window.end-passage.start]
-        assert len(window.text)<=300
-    assert all(left.end >= right.start for left,right in zip(windows,windows[1:]))
-    monkeypatch.setattr(owner,'_DEFINITION_MAX_WINDOWS',1)
-    limited=definition_windows(passage,cfg)
-    assert 'max_window_chars' not in DefinitionComponentsConfig.model_json_schema()['properties']
-    assert len(limited)==1 and limited[-1].end < passage.end
+        assert window.text == text[window.start - passage.start : window.end - passage.start]
+        assert len(window.text) <= 300
+    assert all(left.end >= right.start for left, right in zip(windows, windows[1:]))
+    monkeypatch.setattr(owner, "_DEFINITION_MAX_WINDOWS", 1)
+    limited = definition_windows(passage, cfg)
+    assert "max_window_chars" not in DefinitionComponentsConfig.model_json_schema()["properties"]
+    assert len(limited) == 1 and limited[-1].end < passage.end
 
 
 def test_located_span_success_survives_empty_or_failed_attachment():
     from corpus_structure.methods.definition_applicability import located_entity_count
-    value=inputs();passage=value.passages[0];returned=raw(passage.text)
-    returned['relation_extraction']={}
-    assert located_entity_count(returned,passage,DefinitionComponentsConfig())==2
-    assert decode_definition_components(returned,passage,DefinitionComponentsConfig())==()
-    del returned['entities']['defined term or expression'][0]['interpretation']
-    assert located_entity_count(returned,passage,DefinitionComponentsConfig())==2
-    with pytest.raises(GlinerRefused,match='interpretation'):
-        decode_definition_components(returned,passage,DefinitionComponentsConfig())
+
+    value = inputs()
+    passage = value.passages[0]
+    returned = raw(passage.text)
+    returned["relation_extraction"] = {}
+    assert located_entity_count(returned, passage, DefinitionComponentsConfig()) == 2
+    assert decode_definition_components(returned, passage, DefinitionComponentsConfig()) == ()
+    del returned["entities"]["defined term or expression"][0]["interpretation"]
+    assert located_entity_count(returned, passage, DefinitionComponentsConfig()) == 2
+    with pytest.raises(GlinerRefused, match="interpretation"):
+        decode_definition_components(returned, passage, DefinitionComponentsConfig())
+
+
+def test_parent_context_is_a_required_applicability_distinction():
+    value = inputs()
+    candidate = ApplicabilityCandidate(
+        target_id=component().component_id,
+        reference=reference(),
+        link_ref=link_reference(),
+        component=component(),
+        premises=premises(),
+    )
+    usage = value.passages[1]
+    mismatched = value.model_copy(
+        update={
+            "passages": (value.passages[0], usage.model_copy(update={"parent": "different-parent"}))
+        }
+    )
+    decision = assess_applicability(mismatched, "usage", candidate)
+    assert decision.outcome == "incompatible"
+    assert next(p.state for p in decision.premises if p.dimension == "parent") == "incompatible"
+    unavailable = value.model_copy(
+        update={"passages": (value.passages[0], usage.model_copy(update={"parent": None}))}
+    )
+    undecided = assess_applicability(unavailable, "usage", candidate)
+    assert undecided.outcome == "unresolved"
+    assert next(p.state for p in undecided.premises if p.dimension == "parent") == "unknown"

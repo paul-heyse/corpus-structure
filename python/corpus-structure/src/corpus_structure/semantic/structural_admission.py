@@ -106,8 +106,6 @@ def structural_statement(
         value = report.definition
         statement["definition"] = {
             "usage": citation(value.usage_id),
-            "eligible_targets": sorted(value.eligible_targets),
-            "candidate_targets": sorted(value.candidate_targets),
             "readings": sorted(
                 (
                     {
@@ -137,8 +135,6 @@ def structural_statement(
                 ),
                 key=canonical_bytes,
             ),
-            "inventory_coverage": value.inventory_coverage,
-            "retrieval_diagnosis": value.retrieval_diagnosis,
         }
     if report.comparison is not None:
         value = report.comparison

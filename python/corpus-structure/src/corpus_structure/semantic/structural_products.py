@@ -239,8 +239,15 @@ class StructuralDefinitionReading(StructuralValue):
     def supported_premises(self) -> Self:
         if self.component_ref.component_id != self.component.component_id:
             raise ValueError("applicability reading substitutes its component")
-        if len({p.dimension for p in self.premises}) != len(self.premises):
-            raise ValueError("duplicate applicability premise")
+        if {p.dimension for p in self.premises} != {
+            "sense",
+            "parameterization",
+            "convention",
+            "scope",
+            "version",
+            "parent",
+        } or len(self.premises) != 6:
+            raise ValueError("applicability requires exactly six distinct declared dimensions")
         states = {p.state for p in self.premises}
         if self.outcome.startswith("applicable_") and (
             "unknown" in states or "incompatible" in states

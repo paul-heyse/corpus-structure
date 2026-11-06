@@ -14,7 +14,12 @@ from corpus_structure.serve.registry import build_registry
 
 def test_structural_questions_are_registered_with_typed_results():
     registry = build_registry(GENERIC)
-    names = {"structural_definitions", "structural_comparisons", "structural_dossiers"}
+    names = {
+        "structural_definitions",
+        "structural_applicability",
+        "structural_comparisons",
+        "structural_dossiers",
+    }
     assert names <= registry.keys()
     kinds = set()
     for name in names:
@@ -24,7 +29,14 @@ def test_structural_questions_are_registered_with_typed_results():
         assert query.result is StructuralAnswer and query.params is StructuralParams
         assert query.scope(None, StructuralParams()).kind == "run"
         assert "StructuralProductReport" in query.result.model_json_schema()["$defs"]
-    assert kinds == {"definition_applicability", "qualified_comparison", "dossier"}
+    assert kinds == {
+        "definition_components",
+        "definition_applicability",
+        "qualified_comparison",
+        "dossier",
+    }
+    assert registry["structural_definitions"].kind == "definition_components"
+    assert registry["structural_applicability"].kind == "definition_applicability"
 
 
 @pytest.mark.parametrize("position", [True, -1, "", "-1", "1.0", "\u0661"])

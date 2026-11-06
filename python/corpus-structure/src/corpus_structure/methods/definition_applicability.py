@@ -166,14 +166,14 @@ def decode_definition_components(
 
 def located_entity_count(raw, passage, cfg):
     """Count actual source-validated entity proposals independently of attachments."""
-    if not isinstance(raw,dict) or not isinstance(raw.get("entities"),dict):
+    if not isinstance(raw, dict) or not isinstance(raw.get("entities"), dict):
         raise GlinerRefused("located extraction returned no declared entity channel")
-    located=set()
-    for role,values in raw["entities"].items():
-        if role not in {cfg.term_entity,cfg.content_entity} or not isinstance(values,list):
+    located = set()
+    for role, values in raw["entities"].items():
+        if role not in {cfg.term_entity, cfg.content_entity} or not isinstance(values, list):
             raise GlinerRefused("located extraction returned an undeclared entity population")
         for value in values:
-            located.add((role,_located(passage,value).identity))
+            located.add((role, _located(passage, value).identity))
     return len(located)
 
 
@@ -299,7 +299,9 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
     from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
 
     if retained is None:
-        retained = reader.structural_source_annotations(inputs, passage.source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",))))
+        retained = reader.structural_source_annotations(
+            inputs, passage.source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",)))
+        )
     frame, products, errors = retained.source, retained.annotations, retained.errors
     if errors:
         return (), "; ".join(errors)
@@ -390,8 +392,12 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
     """Bound model contexts while preserving original offsets and overlap provenance."""
     # Operational resource choices belong to the archived runtime, not the semantic
     # configuration ABI. Tuning these bounds does not redefine the output data model.
-    max_chars = min(_DEFINITION_WINDOW_CHARS, max(1,cfg.profile.max_input_bytes//4)) if cfg.profile is not None else _DEFINITION_WINDOW_CHARS
-    overlap = min(_DEFINITION_WINDOW_OVERLAP, max_chars//4)
+    max_chars = (
+        min(_DEFINITION_WINDOW_CHARS, max(1, cfg.profile.max_input_bytes // 4))
+        if cfg.profile is not None
+        else _DEFINITION_WINDOW_CHARS
+    )
+    overlap = min(_DEFINITION_WINDOW_OVERLAP, max_chars // 4)
     start = 0
     windows = []
     while start < len(passage.text) and len(windows) < _DEFINITION_MAX_WINDOWS:
@@ -400,13 +406,22 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
             boundary = passage.text.rfind(" ", start + max_chars // 2, end)
             if boundary > start:
                 end = boundary
-        windows.append(StructuralPassage(passage_id=passage.passage_id, source_ref=passage.source_ref,
-            start=passage.start+start,end=passage.start+end,text=passage.text[start:end],
-            scope=passage.scope,effective_version=passage.effective_version,parent=passage.parent))
+        windows.append(
+            StructuralPassage(
+                passage_id=passage.passage_id,
+                source_ref=passage.source_ref,
+                start=passage.start + start,
+                end=passage.start + end,
+                text=passage.text[start:end],
+                scope=passage.scope,
+                effective_version=passage.effective_version,
+                parent=passage.parent,
+            )
+        )
         if end == len(passage.text):
             break
-        start = max(start+1,end-overlap)
-        while start < end and not passage.text[start-1].isspace():
+        start = max(start + 1, end - overlap)
+        while start < end and not passage.text[start - 1].isspace():
             start += 1
     return tuple(windows)
 
@@ -465,7 +480,11 @@ class DefinitionComponentsMethod:
             for passage_id in cfg.target_ids:
                 named, reason = (
                     retained_annotation_components(
-                        ctx.reader, cfg.inputs, passages[passage_id], cfg, retained=annotation_sources[passages[passage_id].source_ref]
+                        ctx.reader,
+                        cfg.inputs,
+                        passages[passage_id],
+                        cfg,
+                        retained=annotation_sources[passages[passage_id].source_ref],
                     )
                     if cfg.annotation_rules
                     else retained_named_components(
@@ -487,30 +506,93 @@ class DefinitionComponentsMethod:
                 )
         for passage_id in cfg.target_ids:
             passage = passages[passage_id]
-            windows = definition_windows(passage,cfg)
+            windows = definition_windows(passage, cfg)
             for window in windows:
                 ctx.check_active()
-                request = GlinerInput("definition-target:"+window.identity,window.identity,window.text)
+                request = GlinerInput(
+                    "definition-target:" + window.identity, window.identity, window.text
+                )
                 try:
-                    reply, = self._worker.extract(pack,(request,),threshold=cfg.threshold,overlap_policy="flat",check_active=ctx.check_active)
-                    raw_reports.append(dict(passage_id=passage_id,window_start=window.start,window_end=window.end,**asdict(reply)))
-                    locations=located_entity_count(reply.raw,window,cfg)
-                except (GlinerRefused,GlinerWorkerError,ValueError,TimeoutError,OSError) as error:
-                    stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="failed",reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}"))
-                    stages.append(DefinitionStage(passage_id=passage_id,operation="attachment",outcome="not_run",reason=f"Window {window.start}:{window.end}: located extraction unavailable."))
+                    (reply,) = self._worker.extract(
+                        pack,
+                        (request,),
+                        threshold=cfg.threshold,
+                        overlap_policy="flat",
+                        check_active=ctx.check_active,
+                    )
+                    raw_reports.append(
+                        dict(
+                            passage_id=passage_id,
+                            window_start=window.start,
+                            window_end=window.end,
+                            **asdict(reply),
+                        )
+                    )
+                    locations = located_entity_count(reply.raw, window, cfg)
+                except (
+                    GlinerRefused,
+                    GlinerWorkerError,
+                    ValueError,
+                    TimeoutError,
+                    OSError,
+                ) as error:
+                    stages.append(
+                        DefinitionStage(
+                            passage_id=passage_id,
+                            operation="located_extraction",
+                            outcome="failed",
+                            reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}",
+                        )
+                    )
+                    stages.append(
+                        DefinitionStage(
+                            passage_id=passage_id,
+                            operation="attachment",
+                            outcome="not_run",
+                            reason=f"Window {window.start}:{window.end}: located extraction unavailable.",
+                        )
+                    )
                     continue
-                raw_reports[-1]["located_proposal_count"]=locations
-                stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="succeeded" if locations else "empty",reason=f"Window {window.start}:{window.end}: {locations} source-validated entity proposals retained; role/support remains unassessed."))
+                raw_reports[-1]["located_proposal_count"] = locations
+                stages.append(
+                    DefinitionStage(
+                        passage_id=passage_id,
+                        operation="located_extraction",
+                        outcome="succeeded" if locations else "empty",
+                        reason=f"Window {window.start}:{window.end}: {locations} source-validated entity proposals retained; role/support remains unassessed.",
+                    )
+                )
                 try:
-                    decoded=decode_definition_components(reply.raw,window,cfg)
-                except (GlinerRefused,ValueError) as error:
-                    stages.append(DefinitionStage(passage_id=passage_id,operation="attachment",outcome="failed",reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}; located proposals retained."))
+                    decoded = decode_definition_components(reply.raw, window, cfg)
+                except (GlinerRefused, ValueError) as error:
+                    stages.append(
+                        DefinitionStage(
+                            passage_id=passage_id,
+                            operation="attachment",
+                            outcome="failed",
+                            reason=f"Window {window.start}:{window.end}: {type(error).__name__}: {error}; located proposals retained.",
+                        )
+                    )
                     continue
                 components.extend(decoded)
-                stages.append(DefinitionStage(passage_id=passage_id,operation="attachment",outcome="succeeded" if decoded else "empty",reason=f"Window {window.start}:{window.end}: {len(decoded)} decoded role-and-attachment components; no absence or semantic correctness claim."))
+                stages.append(
+                    DefinitionStage(
+                        passage_id=passage_id,
+                        operation="attachment",
+                        outcome="succeeded" if decoded else "empty",
+                        reason=f"Window {window.start}:{window.end}: {len(decoded)} decoded role-and-attachment components; no absence or semantic correctness claim.",
+                    )
+                )
             if windows and windows[-1].end < passage.end:
-                stages.append(DefinitionStage(passage_id=passage_id,operation="located_extraction",outcome="not_run",reason=f"Model window bound reached; original source tail {windows[-1].end}:{passage.end} uninspected by this producer."))
-        components=list({component.component_id:component for component in components}.values())
+                stages.append(
+                    DefinitionStage(
+                        passage_id=passage_id,
+                        operation="located_extraction",
+                        outcome="not_run",
+                        reason=f"Model window bound reached; original source tail {windows[-1].end}:{passage.end} uninspected by this producer.",
+                    )
+                )
+        components = list({component.component_id: component for component in components}.values())
         ctx.check_active()
         report = StructuralProductReport(
             kind="definition_components",
@@ -526,7 +608,15 @@ class DefinitionComponentsMethod:
                     dict(
                         version="located-definition-extraction-1",
                         raw_reports=raw_reports,
-                    annotation_inputs=[dict(source_ref=source_ref,task_id=retained.annotation_task_id,input_hash=retained.annotation_input_hash,errors=retained.errors) for source_ref,retained in annotation_sources.items()],
+                        annotation_inputs=[
+                            dict(
+                                source_ref=source_ref,
+                                task_id=retained.annotation_task_id,
+                                input_hash=retained.annotation_input_hash,
+                                errors=retained.errors,
+                            )
+                            for source_ref, retained in annotation_sources.items()
+                        ],
                         pack_fingerprint=pack.fingerprint,
                         schema_declaration=pack.declaration_json,
                         profile_fingerprint=cfg.profile.fingerprint,
@@ -596,6 +686,7 @@ def is_defining_occurrence(inputs, usage, component, relation):
         relation == "defined-by"
         and usage.source_ref == target.source_ref
         and (usage.start, usage.end, usage.text) == (term.start, term.end, term.text)
+        and usage.parent == target.parent
         and usage.scope == component.scope
         and usage.effective_version == component.effective_version
     )
@@ -611,8 +702,27 @@ def assess_applicability(
         raise ValueError(
             "usage binding requires explicit sense, parameterization and convention premises"
         )
+    target = next(p for p in inputs.passages if p.passage_id == component.term.passage_id)
+    same_introduction = inputs.policy_id == "definition-introduction-1" and is_defining_occurrence(
+        inputs, usage, component, "defined-by"
+    )
+    parent_state: Literal["compatible", "incompatible", "unknown", "inapplicable"] = (
+        "inapplicable"
+        if same_introduction and usage.parent is None and target.parent is None
+        else "unknown"
+        if usage.parent is None or target.parent is None
+        else "compatible"
+        if usage.parent == target.parent
+        else "incompatible"
+    )
     premises = (
         *candidate.premises,
+        ApplicabilityPremise(
+            dimension="parent",
+            state=parent_state,
+            evidence=(usage_id, component.term.passage_id),
+            reason="Compare declared parent contexts; missing transfer premises remain unknown.",
+        ),
         ApplicabilityPremise(
             dimension="scope",
             state="compatible" if usage.scope == component.scope else "incompatible",
