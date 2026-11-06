@@ -279,13 +279,23 @@ GRANT EXECUTE ON FUNCTION ops.capture_native_source_frame(bigint,text,jsonb) TO 
 
 CREATE OR REPLACE FUNCTION ops.select_source_view(p_run bigint,p_source_run bigint,p_view bigint) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $select$
-DECLARE target ops.run; origin ops.run;
+DECLARE target ops.run; origin ops.run; source_ref jsonb;
 BEGIN
  SELECT * INTO STRICT target FROM ops.run WHERE id=p_run FOR SHARE;
  SELECT * INTO STRICT origin FROM ops.run WHERE id=p_source_run;
  PERFORM sem.require_execution_operation(target.release_id,'publish_source_view');
- IF target.sealed OR target.project_id<>origin.project_id OR target.release_id<>origin.release_id OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=p_source_run AND source_view_id=p_view) THEN
+ IF target.sealed OR target.project_id<>origin.project_id OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=p_source_run AND source_view_id=p_view) THEN
  RAISE EXCEPTION 'source request selection differs from qualified origin' USING ERRCODE='23514'; END IF;
+ IF target.release_id<>origin.release_id THEN
+  SELECT jsonb_build_object('project_id',origin.project_id,'run_id',origin.id,'cut_id',completed.cut_id,'release_id',origin.release_id,
+   'result_revision',batch.data_revision,'source_view_id',v.id,'native_task_id',v.native_task_id,'native_product_key',v.native_product_key,
+   'native_content_digest',v.native_content_digest,'projection_digest',v.projection_digest,'recipe_digest',v.recipe_digest,
+   'coordinate_version',CASE WHEN product.kind='integrated' THEN 3 ELSE 2 END) INTO STRICT source_ref
+  FROM ops.completed_result completed JOIN data.batch batch ON batch.release_id=completed.release_id AND batch.realization_id=completed.output_realization_id AND batch.batch_id=completed.batch_id
+  JOIN kb.source_view v ON v.id=p_view JOIN ops.pdf_product product ON product.task_id=v.native_task_id AND product.product_key=v.native_product_key AND product.content_digest=v.native_content_digest
+  WHERE completed.run_id=origin.id;
+  PERFORM ops.validate_structural_source(source_ref);
+ END IF;
  INSERT INTO ops.run_source_view(run_id,source_view_id,position) VALUES(p_run,p_view,0) ON CONFLICT DO NOTHING;
 END $select$;
 REVOKE ALL ON FUNCTION ops.select_source_view(bigint,bigint,bigint) FROM PUBLIC;
