@@ -73,8 +73,12 @@ def test_renderer_qualifies_the_explicit_runtime_binding(renderer_archive, monke
         renderer_connection(libraries), prepared, runtime_binding=binding
     )
     qualify.assert_called_once_with(prepared, binding)
-    assert renderer["runtime_id"] == binding.runtime_id
-    assert renderer["implementation_digest"] == binding.input("pdf/regions.py").digest
+    archived = json.loads(binding.input("libraries.json").content)
+    assert renderer == {
+        "implementation_digest": binding.input("pdf/regions.py").digest,
+        "pypdfium2": archived["pypdfium2"],
+        "Pillow": archived["Pillow"],
+    }
 
 
 def test_renderer_refuses_unqualified_runtime(renderer_archive, monkeypatch):
