@@ -26,7 +26,7 @@ CLASSIFIED_GROUP = "wce_classified_candidates"
 class RoleBinding(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     node: str = Field(min_length=1)
-    expansion: Literal["exact", "subtree", "conjuncts"] = "exact"
+    expansion: Literal["exact", "subtree", "conjuncts", "noun_chunk"] = "exact"
     max_tokens: int = Field(default=64, ge=1, le=256)
     stop_words: tuple[str, ...] = ("if", "unless", "except")
 
@@ -159,6 +159,13 @@ class PreparedAnnotationRules:
             for key, rule in self.variants.items()
         )
         results, spans = [], []
+        noun_chunks = {}
+        if "DEP" in columns and any(binding.expansion == "noun_chunk" for rule in self.variants.values() for binding in rule.bindings.values()):
+            try:
+                noun_chunks = {chunk.root.i: set(range(chunk.start, chunk.end)) for chunk in doc.noun_chunks}
+            except NotImplementedError:
+                # A language without a declared syntax iterator has no such expansion.
+                noun_chunks = {}
 
         def add(label: int, nodes: tuple[int, ...]) -> None:
             if label not in available:
@@ -190,7 +197,10 @@ class PreparedAnnotationRules:
                             "expansion requires retained DEP and sentence ownership",
                         )
                     else:
+                        if binding.expansion == "noun_chunk" and head not in noun_chunks:
+                            status, reason = "unavailable", "no retained base noun phrase for this head"
                         expanded = (
+                            noun_chunks.get(head, {head}) if binding.expansion == "noun_chunk" else
                             {t.i for t in doc[head].subtree}
                             if binding.expansion == "subtree"
                             else {head, *(t.i for t in doc[head].conjuncts)}

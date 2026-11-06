@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .identity import canonical_bytes
+from .contextual_links import RetainedRelationshipDecisionRef
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -176,17 +177,8 @@ class LocatedDefinitionComponent(StructuralValue):
 def definition_component(**meaning) -> LocatedDefinitionComponent:
     wire = {key: value for key, value in meaning.items() if value is not None}
     wire.setdefault("alternatives", ())
-    wire = {
-        key: (
-            value.model_dump(mode="json", exclude_none=True)
-            if isinstance(value, StructuralValue)
-            else value
-        )
-        for key, value in wire.items()
-    }
-    return LocatedDefinitionComponent(
-        component_id=sha256(canonical_bytes(wire)).hexdigest(), **wire
-    )
+    wire = {key: (value.model_dump(mode="json", exclude_none=True) if isinstance(value, StructuralValue) else value) for key, value in wire.items()}
+    return LocatedDefinitionComponent.model_validate(dict(component_id=sha256(canonical_bytes(wire)).hexdigest(), **wire))
 
 
 class DefinitionStage(StructuralValue):
@@ -227,6 +219,7 @@ DefinitionOutcome = Literal[
 class StructuralDefinitionReading(StructuralValue):
     target_id: Nonempty
     component_ref: RetainedComponentRef
+    link_ref: RetainedRelationshipDecisionRef
     component: LocatedDefinitionComponent
     outcome: DefinitionOutcome
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
@@ -446,23 +439,3 @@ class StructuralProductReport(StructuralValue):
                 )
             ).hexdigest()
         )
-
-
-def source_target(passage: StructuralPassage):
-    """A source quotation target, distinct from a curator-authored descriptor."""
-    from .contextual_retrieval import target_representation
-
-    return target_representation(
-        passage.passage_id,
-        "source-passage:" + passage.identity,
-        passage.text,
-        passage.text,
-        parent=passage.parent,
-        scope=passage.scope,
-        effective_version=passage.effective_version,
-        type_name="source_backed_passage",
-    )
-
-
-# Private producer API alias; released class name cannot collide with graph readings.
-DefinitionReading = StructuralDefinitionReading

@@ -33,31 +33,51 @@ configs:
       <<: *baseline
       annotation_rules:
       - rule: defining
-        variant: active
+        variant: active_as
         mechanism: dependency
         pattern:
-        - RIGHT_ID: cue
-          RIGHT_ATTRS: {LEMMA: {IN: [define, call]}}
-        - LEFT_ID: cue
-          REL_OP: '>'
-          RIGHT_ID: term
-          RIGHT_ATTRS: {DEP: {IN: [dobj, obj, attr]}}
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: as, RIGHT_ATTRS: {LOWER: as}}
+        - {LEFT_ID: as, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: pobj}}
         bindings:
           defining_cue: {node: cue}
-          defined_term: {node: term, expansion: subtree, max_tokens: 32}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
       - rule: defining
-        variant: passive
+        variant: passive_as
         mechanism: dependency
         pattern:
-        - RIGHT_ID: term
-          RIGHT_ATTRS: {DEP: nsubjpass}
-        - LEFT_ID: term
-          REL_OP: '<'
-          RIGHT_ID: cue
-          RIGHT_ATTRS: {LEMMA: {IN: [define, call]}}
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: nsubjpass}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: as, RIGHT_ATTRS: {LOWER: as}}
+        - {LEFT_ID: as, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: pobj}}
         bindings:
-          defined_term: {node: term, expansion: subtree, max_tokens: 32}
           defining_cue: {node: cue}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+      - rule: defining
+        variant: call_reversed
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: call}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}}}
+        - {LEFT_ID: term, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: compound}}
+        bindings:
+          defining_cue: {node: cue}
+          defined_term: {node: term}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+      - rule: defining
+        variant: nominal_follows
+        mechanism: dependency
+        pattern:
+        - {RIGHT_ID: term, RIGHT_ATTRS: {POS: NOUN, DEP: ROOT}}
+        - {LEFT_ID: term, REL_OP: '>', RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, DEP: conj}}
+        - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: follows, RIGHT_ATTRS: {LEMMA: follow}}
+        bindings:
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+          defining_cue: {node: cue}
+          following_content_cue: {node: follows}
       - rule: symbol_declaration
         variant: denotes
         mechanism: dependency

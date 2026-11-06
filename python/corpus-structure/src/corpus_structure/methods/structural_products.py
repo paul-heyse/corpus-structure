@@ -18,8 +18,6 @@ from corpus_structure.semantic.structural_products import (
     MANDATORY_ROLES,
     ClauseReading,
     ComparisonProduct,
-    DefinitionProduct,
-    DefinitionReading,
     DimensionComparison,
     DossierMember,
     DossierProduct,
@@ -27,30 +25,6 @@ from corpus_structure.semantic.structural_products import (
     StructuralProductReport,
     StructuralValue,
 )
-
-
-def definition_applicability(
-    inputs: StructuralInput,
-    *,
-    usage_id: str,
-    candidate_list_id: str,
-    eligible_targets: Sequence[str],
-    candidate_targets: Sequence[str],
-    readings: Sequence[DefinitionReading],
-    inventory_gap: bool = False,
-) -> StructuralProductReport:
-    return StructuralProductReport(
-        kind="definition_applicability",
-        inputs=inputs,
-        definition=DefinitionProduct(
-            usage_id=usage_id,
-            candidate_list_id=candidate_list_id,
-            eligible_targets=tuple(eligible_targets),
-            candidate_targets=tuple(candidate_targets),
-            readings=tuple(readings),
-            inventory_coverage="known_gap" if inventory_gap else "declared_selection",
-        ),
-    )
 
 
 def compare_clauses(
@@ -166,6 +140,8 @@ class StructuralProductsConfig(StructuralValue):
 
     @model_validator(mode="after")
     def bound_input(self) -> Self:
+        if self.report is not None and self.report.kind in {"definition_components", "definition_applicability"}:
+            raise ValueError("definition products require their owned automatic producers")
         expected = self.report.inputs.identity if self.report else None
         if self.structural_input_digest != expected:
             raise ValueError("structural configuration must name exact input manifest digest")

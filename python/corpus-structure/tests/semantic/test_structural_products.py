@@ -10,18 +10,17 @@ from corpus_structure.methods.structural_products import (
     StructuralProductsMethod,
     assemble_dossier,
     compare_clauses,
-    definition_applicability,
 )
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     ClauseField,
     ClauseReading,
-    DefinitionReading,
+    LocatedDefinitionSpan,
+    definition_component,
     DossierMember,
     ExternalSourceRef,
     StructuralInput,
     StructuralPassage,
-    source_target,
 )
 
 
@@ -54,51 +53,28 @@ def inputs():
         policy_id="literal-fields-1",
         sources=(a, b),
         passages=(pa, pb),
-        dependencies=("input-policy:1",),
+        dependencies=("input-policy:1", "component-product"),
     )
 
 
-def test_original_projects_do_not_collapse_equal_text_and_source_targets_are_attributed():
+def fixture_component():
+    passage=inputs().passages[1]
+    span=LocatedDefinitionSpan(passage_id=passage.passage_id,start=passage.start,end=passage.end,text=passage.text)
+    return definition_component(term=span,content=span,interpretation="definition",basis="model_reading",scope=passage.scope,evidence=(passage.passage_id,),reason="Literal shape fixture")
+
+
+def test_original_projects_do_not_collapse_equal_text():
     value = inputs()
     assert value.sources[0].identity != value.sources[1].identity
-    target = source_target(value.passages[0])
-    assert target.type_name == "source_backed_passage"
-    assert target.description == "hello"
-    assert target.source_binding.startswith("source-passage:")
     with pytest.raises(ValueError, match="project_id"):
         ExternalSourceRef.model_validate({**value.sources[0].model_dump(), "project_id": 1})
 
 
-def test_definition_candidates_do_not_imply_support_or_retrieval_miss():
-    value = inputs()
-    report = definition_applicability(
-        value,
-        usage_id="a",
-        candidate_list_id="list",
-        eligible_targets=("b",),
-        candidate_targets=("b",),
-        readings=(
-            DefinitionReading(
-                target_id="b",
-                outcome="mention",
-                evidence=("b",),
-                reason="merely mentions the expression",
-            ),
-        ),
-    )
-    assert report.definition is not None
-    assert report.definition.readings[0].outcome == "mention"
-    assert report.definition.retrieval_diagnosis == "not_independently_assessed"
-    assert report.standing == "private_proposal"
-    with pytest.raises(ValueError, match="outside fixed candidate"):
-        definition_applicability(
-            value,
-            usage_id="a",
-            candidate_list_id="list",
-            eligible_targets=("b",),
-            candidate_targets=(),
-            readings=report.definition.readings,
-        )
+def test_generic_structural_writer_cannot_bypass_owned_definition_producer():
+    from corpus_structure.semantic.structural_products import DefinitionComponentsProduct, StructuralProductReport
+    report=StructuralProductReport(kind="definition_components",inputs=inputs(),definition_components=DefinitionComponentsProduct(components=(),stages=()))
+    with pytest.raises(ValueError,match="owned automatic"):
+        StructuralProductsConfig(report=report,structural_input_digest=report.inputs.identity)
 
 
 def test_clause_comparison_preserves_ten_dimensions_and_no_equivalence():
@@ -217,96 +193,3 @@ def test_run_method_and_released_report_roundtrip():
     assert method.select(None, StructuralProductsConfig()) == []
 
 
-def test_retained_numeric_retrieval_json_binds_through_released_adapter():
-    import json
-
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import TaskUnitType
-    from corpus_structure.methods.contextual_embeddings import E5, EncodedVector, identity
-    from corpus_structure.methods.structural_retrieval import source_definition_inventory
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.contextual_retrieval import ChannelHit, fuse_candidates
-    from corpus_structure.semantic.contextual_storage import enrichment_report
-    from corpus_structure.semantic.observations import bind_result, observation_inputs
-    from corpus_structure.semantic.structural_products import StructuralProductReport
-
-    value = inputs()
-    inventory = source_definition_inventory(value, target_ids=("b",))
-    value = value.model_copy(update={"inventory_id": inventory.inventory_id})
-    target = inventory.targets[0]
-
-    def vector(object_id, source, representation=""):
-        arguments = [object_id, source, E5.profile_id, "d" * 64, representation]
-        return EncodedVector(
-            identity("context-vector", arguments),
-            object_id,
-            source,
-            E5.profile_id,
-            "d" * 64,
-            (1.0,) + (0.0,) * (E5.dimension - 1),
-            representation,
-        )
-
-    query = vector("a", "source-a")
-    tv = vector("b", target.source_binding, target.representation_digest)
-    candidates = fuse_candidates(
-        occurrence_id="a",
-        query=query,
-        inventory=inventory,
-        channels={"dense": (ChannelHit("b", 0.5),), "lexical": (), "alias": ()},
-        budget=1,
-        channel_budget=1,
-        lexical_query="hello",
-    )
-    raw = enrichment_report(
-        profiles=(E5,), vectors=(query, tv), inventories=(inventory,), candidate_lists=(candidates,)
-    )
-    report = definition_applicability(
-        value,
-        usage_id="a",
-        candidate_list_id=candidates.list_id,
-        eligible_targets=("b",),
-        candidate_targets=("b",),
-        readings=(),
-    )
-    report = StructuralProductReport.model_validate_json(
-        json.dumps({**report.model_dump(mode="json", exclude_none=True), "retrieval_report": raw})
-    )
-    cfg = StructuralProductsConfig(report=report, structural_input_digest=value.identity)
-    ref = UnitRef(TaskUnitType.RUN, unit_key="run")
-    result = StructuralProductsMethod().run((SimpleNamespace(ref=ref),), cfg, None)[0]
-    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    prepared = prepare_release(
-        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
-    )
-    bound = bind_result(
-        prepared,
-        source="run",
-        method="structure.products",
-        operation_version="1",
-        configuration_hash="config",
-        input_hash="input",
-        invocation_key="invocation",
-        result=result,
-    )
-    reopened = StructuralProductReport.model_validate(
-        bound.model_dump(mode="json")["structural_product"]
-    )
-    assert reopened.product_id == report.product_id
-    assert reopened.retrieval_report is not None
-    assert reopened.retrieval_report["vectors"][0]["values"][:2] == [1.0, 0.0]
-    assert reopened.definition is not None and reopened.definition.candidate_targets == ("b",)
-    from copy import deepcopy
-
-    from corpus_structure.methods.structural_retrieval import replay_source_definition_candidates
-
-    replayed = replay_source_definition_candidates(reopened, budget=1)
-    assert replayed.product_id == reopened.product_id
-    tampered = deepcopy(reopened.model_dump(mode="python"))
-    tampered["retrieval_report"]["candidate_lists"][0]["channel_results"][1]["hits"][0]["score"] = (
-        0.25
-    )
-    with pytest.raises(ValueError, match="reconstruct predecessor"):
-        replay_source_definition_candidates(
-            StructuralProductReport.model_validate(tampered), budget=1
-        )

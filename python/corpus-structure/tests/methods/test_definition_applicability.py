@@ -1,213 +1,134 @@
-"""Independent automatic-selector controls; mocked models do not qualify providers."""
+"""Independent endpoint, role and compatibility controls; no mocked efficacy claims."""
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from corpus_structure.methods.annotation_rules import AnnotationRuleMatch, LocatedRole
 from corpus_structure.methods.definition_applicability import (
-    DefinitionApplicabilityConfig,
-    DefinitionApplicabilityMethod,
-    decode_applicability,
-    pair_input,
+    ApplicabilityCandidate, DefinitionApplicabilityConfig, DefinitionApplicabilityMethod,
+    DefinitionComponentsConfig, DefinitionComponentsMethod, assess_applicability,
+    components_from_named_matches, decode_definition_components, definition_pack,
 )
-from corpus_structure.methods.gliner import GlinerPack, GlinerProfile, GlinerRefused
-from corpus_structure.methods.structural_retrieval import source_definition_inventory
+from corpus_structure.methods.gliner import GlinerProfile, GlinerRefused
+from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
+from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import (
-    ExternalSourceRef,
-    StructuralInput,
-    StructuralPassage,
+    ApplicabilityPremise, DefinitionComponentsProduct, ExternalSourceRef,
+    RetainedComponentRef, StructuralInput, StructuralPassage, StructuralProductReport,
 )
 
 
-def inputs():
-    source = ExternalSourceRef(
-        project_id="book",
-        run_id=1,
-        cut_id=1,
-        release_id="r",
-        result_revision=1,
-        source_view_id=1,
-        native_task_id=1,
-        native_product_key="native",
-        native_content_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        coordinate_version=3,
-    )
-    passages = (
-        StructuralPassage(
-            passage_id="usage", source_ref=source.identity, start=0, end=4, text="mean", scope="s"
-        ),
-        StructuralPassage(
-            passage_id="target",
-            source_ref=source.identity,
-            start=10,
-            end=17,
-            text="average",
-            scope="s",
-        ),
-    )
-    base = StructuralInput(
-        question="What defines mean?",
-        scope="s",
-        inventory_id="pending",
-        policy_id="p",
-        sources=(source,),
-        passages=passages,
-        dependencies=("source",),
-    )
-    inventory = source_definition_inventory(base, target_ids=("target",))
-    return base.model_copy(update={"inventory_id": inventory.inventory_id})
+def inputs(text="We call the expected squared deviation variance."):
+    source = ExternalSourceRef(project_id="book",run_id=1,cut_id=1,release_id="r",result_revision=1,source_view_id=1,native_task_id=1,native_product_key="native",native_content_digest="a"*64,projection_digest="b"*64,recipe_digest="c"*64,coordinate_version=3)
+    return StructuralInput(question="What is defined?",scope="s",inventory_id="i",policy_id="p",sources=(source,),passages=(StructuralPassage(passage_id="target",source_ref=source.identity,start=10,end=10+len(text),text=text,scope="s"),StructuralPassage(passage_id="usage",source_ref=source.identity,start=100,end=108,text="variance",scope="s")),dependencies=("source","structural:component-report"))
 
 
-def profile():
-    return GlinerProfile(
-        Path("/model"),
-        "checkpoint",
-        "revision",
-        tuple(
-            (name, "a" * 64)
-            for name in (
-                "config.json",
-                "encoder_config/config.json",
-                "model.safetensors",
-                "tokenizer.json",
-                "tokenizer_config.json",
-            )
-        ),
-    )
+def raw(text):
+    term = {"start":text.index("variance"),"end":text.index("variance")+8,"text":"variance","interpretation":"definition"}
+    content = {"start":text.index("expected"),"end":text.index(" deviation")+10,"text":"expected squared deviation"}
+    return {"entities":{"defined term or expression":[term],"defining text or formula":[content]},"relation_extraction":{"term is defined or explained by":[{"head":{k:v for k,v in term.items() if k != "interpretation"},"tail":content}]}}
 
 
-def test_default_is_unrequested_and_cannot_smuggle_partial_inputs():
-    method = DefinitionApplicabilityMethod()
-    assert method.select(None, DefinitionApplicabilityConfig()) == ()
-    with pytest.raises(ValueError, match="partial inputs"):
-        DefinitionApplicabilityConfig(usage_id="usage")
+def component():
+    value=inputs()
+    return decode_definition_components(raw(value.passages[0].text),value.passages[0],DefinitionComponentsConfig())[0]
 
 
-def test_source_inventory_is_frozen_before_any_model_work():
-    value = inputs()
-    kwargs = dict(
-        inputs=value,
-        structural_input_digest=value.identity,
-        usage_id="usage",
-        target_ids=("target",),
-        profile=profile(),
-    )
-    DefinitionApplicabilityConfig(**kwargs)
-    selected_units = DefinitionApplicabilityMethod().select(
-        None, DefinitionApplicabilityConfig(**kwargs)
-    )
-    assert len(selected_units) == 1
-    assert next(iter(selected_units)).unit_key == "definition:" + value.identity + ":usage"
-    with pytest.raises(ValueError, match="digest"):
-        DefinitionApplicabilityConfig(**{**kwargs, "structural_input_digest": "foreign"})
-    with pytest.raises(ValueError, match="frozen"):
-        changed = value.model_copy(update={"inventory_id": "foreign"})
-        DefinitionApplicabilityConfig(
-            **{**kwargs, "inputs": changed, "structural_input_digest": changed.identity}
-        )
+def reference():
+    return RetainedComponentRef(product_id="structural:component-report",component_id=component().component_id,operation_id="structure.definition_components",operation_version="1",project_id="book",run_id=1,cut_id=1,release_id="r",result_revision=1,selected_task_id=1,origin_task_id=1,runtime_fingerprint="runtime",dependencies=("source",))
 
 
-def test_pair_classification_has_distinct_virtual_context_and_no_fabricated_native_offsets():
-    pack = GlinerPack("release", "{}", version="native-combined-v2")
-    value = inputs()
-    pair = pair_input(value, "usage", "target", pack)
-    assert pair.text.index("mean") < pair.text.index("average")
-    assert pair.context_id.startswith("definition-pair:") and len(pair.context_digest) == 64
-    changed = pair_input(
-        value.model_copy(update={"question": "different question"}), "usage", "target", pack
-    )
-    assert changed.context_digest != pair.context_digest
+def link_reference():
+    return RetainedRelationshipDecisionRef(project_id="book",run_id=1,cut_id=1,release_id="r",result_revision=1,selected_task_id=2,origin_task_id=2,runtime_fingerprint="runtime",operation_key="operation",decision_id="decision",edge_id="edge",occurrence_contribution_id="occurrence")
 
 
-def test_raw_confidence_is_not_public_authority_or_literal_evidence():
-    reading = decode_applicability(
-        {"applicability": {"label": "mention", "confidence": 0.999}},
-        usage_id="usage",
-        target_id="target",
-        allowed=frozenset({"mention"}),
-    )
-    assert reading.outcome == "mention" and reading.evidence == ("usage", "target")
-    assert "confidence" not in reading.model_dump()
-    for bad in ({}, {"applicability": []}, {"applicability": {"label": "invented"}}):
-        with pytest.raises(GlinerRefused):
-            decode_applicability(
-                bad, usage_id="usage", target_id="target", allowed=frozenset({"mention"})
-            )
+def premises(state="compatible"):
+    return tuple(ApplicabilityPremise(dimension=d,state=state if d=="sense" else "inapplicable",evidence=("usage","target"),reason="Independently specified literal compatibility test.") for d in ("sense","parameterization","convention"))
 
 
-def test_classifier_failure_retains_successful_nomination_and_truthful_stage(monkeypatch):
-    from corpus_structure.core.method import UnitRef
-    from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-    from corpus_structure.methods import definition_applicability as operation
-    from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
+def test_absent_operations_cannot_smuggle_partial_inputs():
+    assert DefinitionComponentsMethod().select(None,DefinitionComponentsConfig()) == ()
+    assert DefinitionApplicabilityMethod().select(None,DefinitionApplicabilityConfig()) == ()
+    with pytest.raises(ValueError,match="partial"):
+        DefinitionComponentsConfig(target_ids=("target",))
 
-    value = inputs()
-    cfg = DefinitionApplicabilityConfig(
-        inputs=value,
-        structural_input_digest=value.identity,
-        usage_id="usage",
-        target_ids=("target",),
-        profile=profile(),
-    )
-    order = []
 
-    class Reader:
-        prepared = SimpleNamespace(enum_members=lambda *_: frozenset({"mention"}))
+def test_target_local_pack_qualifies_attributes_without_whole_pair_labels():
+    schema=definition_pack("r",DefinitionComponentsConfig()).compile().to_dict()
+    assert schema["entity_attributes"]["interpretation"]["applies_to"] == ["defined term or expression"]
+    assert "classifications" not in schema
 
-        def validate_structural_inputs(self, actual):
-            assert actual == value
-            order.append("validated")
 
-        def contextual_candidates(self, **kwargs):
-            order.append("nominated")
-            return SimpleNamespace(
-                list_id="list", candidates=(SimpleNamespace(target_id="target"),)
-            )
+def test_reversed_surface_order_retains_correct_original_endpoints():
+    c=component()
+    assert (c.term.text,c.content.text)==("variance","expected squared deviation")
+    assert c.content.start < c.term.start
+    assert c.term.start==49 and c.content.start==22
+    assert c.basis=="model_reading"
 
-    def encode(*args, **kwargs):
-        order.append("encoded")
-        return SimpleNamespace(
-            vectors=(SimpleNamespace(object_id="usage"), SimpleNamespace(object_id="target")),
-            implementation={"test": "not_provider"},
-            inputs=(),
-        )
 
-    class FailedWorker(GlinerWorker):
-        def __init__(self):
-            super().__init__(profile())
+def test_unattached_span_does_not_invent_definition_or_role():
+    value=inputs(); returned=raw(value.passages[0].text)
+    returned["relation_extraction"]={}
+    assert decode_definition_components(returned,value.passages[0],DefinitionComponentsConfig()) == ()
+    returned=raw(value.passages[0].text); returned["entities"]["defined term or expression"][0]["text"]="sigma"
+    with pytest.raises(GlinerRefused,match="slice"):
+        decode_definition_components(returned,value.passages[0],DefinitionComponentsConfig())
 
-        @property
-        def closed(self):
-            return True
 
-        def extract(self, *args, **kwargs):
-            raise GlinerWorkerError("controlled model failure")
+def test_missing_span_attribute_is_unavailable_not_a_default_definition():
+    value=inputs(); returned=raw(value.passages[0].text)
+    del returned["entities"]["defined term or expression"][0]["interpretation"]
+    with pytest.raises(GlinerRefused,match="interpretation"):
+        decode_definition_components(returned,value.passages[0],DefinitionComponentsConfig())
 
-    monkeypatch.setattr(GlinerProfile, "verify_artifacts", lambda *_: None)
-    monkeypatch.setattr(operation, "encode_contexts", encode)
-    monkeypatch.setattr(operation, "enrichment_report", lambda **_: {"retained_nomination": True})
-    monkeypatch.setattr(
-        operation,
-        "applicability_pack",
-        lambda _: GlinerPack("release", "{}", version="native-combined-v2"),
-    )
-    method = DefinitionApplicabilityMethod()
-    method._worker = FailedWorker()
-    (result,) = method.run(
-        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN)),),
-        cfg,
-        SimpleNamespace(reader=Reader(), check_active=lambda: None),
-    )
-    assert order == ["validated", "encoded", "nominated"]
-    assert result.outcome is ObservationOutcome.PRODUCED
-    assert result.structural_product is not None and result.parse_detail is not None
-    assert result.structural_product["definition"]["readings"] == []
-    assert result.structural_product["retrieval_report"] == {"retained_nomination": True}
-    stages = result.parse_detail["classification_stages"]
-    assert isinstance(stages, list) and stages
-    first = stages[0]
-    assert isinstance(first, dict) and first["outcome"] == "failed"
-    assert result.parse_detail["raw_reports"] == []
+
+def test_component_closure_rejects_relocated_text_and_old_report_protocol():
+    value=inputs(); c=component()
+    report=StructuralProductReport(kind="definition_components",inputs=value,definition_components=DefinitionComponentsProduct(components=(c,),stages=()))
+    with pytest.raises(ValueError):
+        StructuralProductReport.model_validate({**report.model_dump(),"version":"structural-product-1"})
+    with pytest.raises(ValueError,match="original passage"):
+        StructuralProductReport(kind="definition_components",inputs=value.model_copy(update={"passages":(value.passages[0].model_copy(update={"text":"X"*len(value.passages[0].text)}),value.passages[1])}),definition_components=report.definition_components)
+    with pytest.raises(ValueError,match="selector"):
+        structural_statement(report)
+    statement=structural_statement(report,c.component_id)
+    assert statement["definition_component"]["term"]["text"]=="variance"
+    assert statement["definition_component"]["content"]["start"]==22
+
+
+def test_applicability_is_separate_and_unknown_premises_preserve_component():
+    candidate=ApplicabilityCandidate(target_id="target",reference=reference(),link_ref=link_reference(),component=component(),premises=premises("unknown"))
+    assert assess_applicability(inputs(),"usage",candidate).outcome=="unresolved"
+    assert candidate.component.term.text=="variance"
+    assert assess_applicability(inputs(),"usage",candidate.model_copy(update={"premises":premises()})).outcome=="applicable_definition"
+    assert assess_applicability(inputs(),"usage",candidate.model_copy(update={"premises":premises("incompatible")})).outcome=="incompatible"
+
+
+def test_named_roles_use_bindings_not_surface_order():
+    passage=inputs().passages[0]
+    term=LocatedRole("term","last",5,"exact",(5,),((49,57),),"complete")
+    content=LocatedRole("content","first",2,"subtree",(2,3,4),((22,30),(31,38),(39,48)),"complete")
+    match=AnnotationRuleMatch("call","reversed","dependency",(5,2),((22,56),),(),(),"d",(content,term))
+    found=components_from_named_matches(passage,(match,),term_role="term",content_role="content")
+    assert len(found)==1 and found[0].term.text=="variance"
+    unavailable=replace(match,roles=(replace(term,status="unavailable"),content))
+    assert components_from_named_matches(passage,(unavailable,),term_role="term",content_role="content")==()
+
+
+def test_following_display_requires_explicit_cue_and_direct_native_element():
+    from corpus_structure.methods.definition_applicability import components_from_following_display
+    value=inputs("Density is defined as follows:\nf(x)=x.")
+    passage=value.passages[0]
+    term=LocatedRole("defined_term","term",0,"noun_chunk",(0,),((10,17),),"complete")
+    cue=LocatedRole("following_content_cue","cue",4,"exact",(4,),((32,39),),"complete")
+    match=AnnotationRuleMatch("defining","follows","dependency",(0,4),((10,39),),(),(),"d",(term,cue))
+    found=components_from_following_display(passage,(match,),((41,48),),term_role="defined_term")
+    assert len(found)==1 and found[0].term.text=="Density" and found[0].content.text=="f(x)=x."
+    assert found[0].basis=="native_geometry"
+    assert components_from_following_display(passage,(replace(match,roles=(term,)),),((41,48),),term_role="defined_term")==()
+    # A non-adjacent display cannot be attached across intervening prose.
+    assert components_from_following_display(passage,(match,),((43,48),),term_role="defined_term")==()

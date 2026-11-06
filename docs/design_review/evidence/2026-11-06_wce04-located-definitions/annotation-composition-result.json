@@ -1,0 +1,37 @@
+{
+  "outcome": "passed",
+  "source_annotation_task": 285,
+  "original_run": 113,
+  "original_cut": 141,
+  "source_view_id": 53,
+  "reason": "Current named rules executed on authenticated retained annotation columns.",
+  "component_count": 1,
+  "components": [
+    {
+      "component_id": "cd98966cf00d2aa2410e5ded6750a69ad39febd95761614e58c73e64907204bb",
+      "term": {
+        "passage_id": "normal-native-53",
+        "start": 743,
+        "end": 770,
+        "text": "The normal density function"
+      },
+      "content": {
+        "passage_id": "normal-native-53",
+        "start": 818,
+        "end": 927,
+        "text": "f _ { X } ( x ) = \\frac { 1 } { \\sqrt { 2 \\pi } \\sigma } e ^ { - ( x - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\ ."
+      },
+      "interpretation": "definition",
+      "basis": "native_geometry",
+      "scope": "wce-statistics-normal-002",
+      "effective_version": null,
+      "alternatives": [],
+      "evidence": [
+        "normal-native-53"
+      ],
+      "reason": "Named rule defining/nominal_follows following-content cue joined to the adjacent source-owned display element; semantic support unassessed."
+    }
+  ],
+  "independent_semantic_assessment": "not_run",
+  "native_component_completion": "not_run"
+}

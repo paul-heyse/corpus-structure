@@ -15,9 +15,11 @@ from pydantic import Field, JsonValue, RootModel, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
+from corpus_structure.methods.annotation_rules import AnnotationRule
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionComponentsProduct,
@@ -44,9 +46,10 @@ class DefinitionComponentsConfig(StructuralValue):
     content_entity: str = Field(default="defining text or formula", min_length=1)
     attachment_relation: str = Field(default="term is defined or explained by", min_length=1)
     threshold: float = Field(default=0.5, gt=0, lt=1)
-    term_role: str = Field(default="term", min_length=1)
-    content_role: str = Field(default="content", min_length=1)
+    term_role: str = Field(default="defined_term", min_length=1)
+    content_role: str = Field(default="defining_content", min_length=1)
     use_named_candidates: bool = True
+    annotation_rules: tuple[AnnotationRule, ...] = ()
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
@@ -140,6 +143,69 @@ def components_from_named_matches(passage: StructuralPassage, matches, *, term_r
     return tuple(components[key] for key in sorted(components))
 
 
+def components_from_following_display(passage, matches, display_spans, *, term_role):
+    """Join an explicit named following-content cue to its adjacent native display.
+
+    Source-owned display geometry supplies the defining element, not a model score.
+    Only punctuation/whitespace may separate the cue from that exact element.
+    """
+    found = []
+    for match in matches:
+        roles = {role.role:role for role in match.roles}
+        term = roles.get(term_role)
+        cue = roles.get("following_content_cue")
+        if term is None or cue is None or term.status != "complete" or cue.status != "complete" or not term.extents or not cue.extents:
+            continue
+        if term.nodes != tuple(range(term.nodes[0],term.nodes[-1]+1)):
+            continue
+        term_start,term_end=term.extents[0][0],term.extents[-1][1]
+        cue_end=cue.extents[-1][1]
+        if not passage.start <= term_start < term_end <= cue_end <= passage.end:
+            continue
+        for start,end in sorted(set(display_spans)):
+            if not cue_end <= start < end <= passage.end:
+                continue
+            gap=passage.text[cue_end-passage.start:start-passage.start]
+            if any(character not in ": \t\r\n" for character in gap):
+                continue
+            def span(a,b):
+                return LocatedDefinitionSpan(passage_id=passage.passage_id,start=a,end=b,text=passage.text[a-passage.start:b-passage.start])
+            found.append(definition_component(term=span(term_start,term_end),content=span(start,end),interpretation="definition",basis="native_geometry",scope=passage.scope,effective_version=passage.effective_version,evidence=(passage.passage_id,),reason=f"Named rule {match.rule}/{match.variant} following-content cue joined to the adjacent source-owned display element; semantic support unassessed."))
+            break
+    return tuple(found)
+
+
+def retained_annotation_components(reader, inputs, passage, cfg):
+    from spacy.lang.en import English
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+    from corpus_structure.methods.m1_annotations import consume_annotations
+    from corpus_structure.semantic.proposals import native_source_frame
+
+    source = next(ref for ref in inputs.sources if ref.identity == passage.source_ref)
+    view = reader.source_view(source.source_view_id)
+    frame = native_source_frame(view, ())
+    if frame.projection_digest != source.projection_digest or frame.native_product.content_digest != source.native_content_digest:
+        raise ValueError("retained annotation source differs from original target")
+    products, errors, _ = consume_annotations(reader, view, AnnotationProfile(SentenceConfig(exclude=("ner",))))
+    if errors:
+        return (), "; ".join(errors)
+    rules = tuple(AnnotationRule.model_validate(rule) for rule in cfg.annotation_rules)
+    prepared = PreparedAnnotationRules(English().vocab, rules=rules)
+    found = []
+    for product in products:
+        if product.block_start >= passage.end or product.block_end <= passage.start:
+            continue
+        restored = annotation_view(product, frame.text[product.block_start:product.block_end], prepared.vocab, required=())
+        matches = prepared.match(restored).matches
+        found.extend(components_from_named_matches(passage, matches, term_role=cfg.term_role, content_role=cfg.content_role))
+        display_spans = tuple(span for retained in products for span in retained.display_spans if passage.start <= span[0] < span[1] <= passage.end)
+        found.extend(components_from_following_display(passage, matches, display_spans, term_role=cfg.term_role))
+    return tuple(found), "Current named rules executed on authenticated retained annotation columns."
+
+
 def retained_named_components(reader, inputs: StructuralInput, passage: StructuralPassage, cfg: DefinitionComponentsConfig):
     """Consume the selected actual WCE03 producer, never caller-supplied role labels."""
     from corpus_structure.semantic.observations import source_python
@@ -203,7 +269,7 @@ class DefinitionComponentsMethod:
         # Detach all selected source products before the owned encoder starts.
         if cfg.use_named_candidates:
             for passage_id in cfg.target_ids:
-                named, reason = retained_named_components(ctx.reader, cfg.inputs, passages[passage_id], cfg)
+                named, reason = (retained_annotation_components(ctx.reader, cfg.inputs, passages[passage_id], cfg) if cfg.annotation_rules else retained_named_components(ctx.reader, cfg.inputs, passages[passage_id], cfg))
                 components.extend(named)
                 stages.append(DefinitionStage(passage_id=passage_id, operation="attachment", outcome="succeeded" if named else "unavailable" if "unavailable" in reason else "empty", reason=reason))
         for passage_id in cfg.target_ids:
@@ -228,6 +294,7 @@ class DefinitionComponentsMethod:
 class ApplicabilityCandidate(StructuralValue):
     target_id: str = Field(min_length=1)
     reference: RetainedComponentRef
+    link_ref: RetainedRelationshipDecisionRef
     component: LocatedDefinitionComponent
     premises: tuple[ApplicabilityPremise, ...] = Field(min_length=1)
 
@@ -242,16 +309,15 @@ class DefinitionApplicabilityConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     usage_id: str | None = None
-    candidate_list_id: str | None = None
-    candidates: tuple[ApplicabilityCandidate, ...] = ()
+    selection_refs: tuple[RetainedRelationshipDecisionRef, ...] = ()
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
         if self.inputs is None:
-            if self.structural_input_digest or self.usage_id or self.candidate_list_id or self.candidates:
+            if self.structural_input_digest or self.usage_id or self.selection_refs:
                 raise ValueError("absent applicability cannot carry partial inputs")
             return self
-        if self.structural_input_digest != self.inputs.identity or not self.candidate_list_id or self.usage_id not in {p.passage_id for p in self.inputs.passages}:
+        if self.structural_input_digest != self.inputs.identity or not self.selection_refs or self.usage_id not in {p.passage_id for p in self.inputs.passages}:
             raise ValueError("applicability requires exact inputs and usage/candidate selection")
         return self
 
@@ -272,7 +338,7 @@ def assess_applicability(inputs: StructuralInput, usage_id: str, candidate: Appl
         outcome = "unresolved"
     else:
         outcome = "applicable_definition" if component.interpretation == "definition" else "applicable_explanation"
-    return StructuralDefinitionReading(target_id=candidate.target_id, component_ref=candidate.reference, component=component, outcome=outcome, evidence=(usage_id, component.term.passage_id, component.content.passage_id), premises=premises, reason="Applicability derived from explicit usage binding and compatibility premises; independent support unassessed.")
+    return StructuralDefinitionReading(target_id=candidate.target_id, component_ref=candidate.reference, link_ref=candidate.link_ref, component=component, outcome=outcome, evidence=(usage_id, component.term.passage_id, component.content.passage_id), premises=premises, reason="Applicability derived from explicit usage binding and compatibility premises; independent support unassessed.")
 
 
 class DefinitionApplicabilityMethod:
@@ -292,14 +358,52 @@ class DefinitionApplicabilityMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
 
     def run(self, units, cfg, ctx):
-        if cfg.inputs is None or cfg.usage_id is None or cfg.candidate_list_id is None:
-            raise ValueError("applicability requires complete configured inputs")
+        if cfg.inputs is None or cfg.usage_id is None or not cfg.selection_refs:
+            raise ValueError("applicability requires selected retained relationship bindings")
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
-        readings = []
-        for candidate in cfg.candidates:
+        usage=next(p for p in cfg.inputs.passages if p.passage_id == cfg.usage_id)
+        readings, candidate_lists = [], set()
+        for reference in cfg.selection_refs:
             ctx.check_active()
-            readings.append(assess_applicability(cfg.inputs, cfg.usage_id, candidate))
-        targets = tuple(dict.fromkeys(c.target_id for c in cfg.candidates))
-        report = StructuralProductReport(kind="definition_applicability", inputs=cfg.inputs, definition=DefinitionProduct(usage_id=cfg.usage_id, candidate_list_id=cfg.candidate_list_id, eligible_targets=targets, candidate_targets=targets, readings=tuple(readings)))
-        return tuple(UnitResult(ref=unit.ref, outcome=ObservationOutcome.PRODUCED, structural_product=report.model_dump(mode="json")) for unit in units)
+            selected=ctx.reader.retained_relationship_decision(reference)
+            decision, edge, occurrence = selected["decision"],selected["edge"],selected["occurrence"]
+            if edge["relation"] not in {"denotes", "defined-by"}:
+                raise ValueError("applicability requires a selected usage-sense or defining relationship")
+            if decision["scope"] != usage.scope or decision.get("effective_version") != usage.effective_version:
+                raise ValueError("selected usage relationship differs from scope/version")
+            _validate_usage_occurrence(ctx.reader,cfg.inputs,usage,occurrence)
+            target=selected["component_target"]
+            component_ref=RetainedComponentRef.model_validate(target["reference"])
+            component=LocatedDefinitionComponent.model_validate(ctx.reader.resolve_definition_component(component_ref))
+            if edge["target_id"] != component.component_id:
+                raise ValueError("selected relationship substitutes its target component")
+            candidate_lists.add(decision["candidate_list_id"])
+            candidate=ApplicabilityCandidate(target_id=edge["target_id"],reference=component_ref,link_ref=reference,component=component,premises=(
+                ApplicabilityPremise(dimension="sense",state="compatible",evidence=(usage.passage_id,component.term.passage_id),reason="Actual selected usage relationship; independent semantic support remains separate."),
+                ApplicabilityPremise(dimension="parameterization",state="unknown",evidence=(usage.passage_id,component.term.passage_id),reason="No authenticated parameter correspondence has been established."),
+                ApplicabilityPremise(dimension="convention",state="unknown",evidence=(usage.passage_id,component.term.passage_id),reason="No authenticated convention correspondence has been established."),
+            ))
+            readings.append(assess_applicability(cfg.inputs,cfg.usage_id,candidate))
+        if len(candidate_lists) != 1:
+            raise ValueError("applicability bindings must share the exact usage candidate population")
+        targets=tuple(dict.fromkeys(r.target_id for r in readings))
+        report=StructuralProductReport(kind="definition_applicability",inputs=cfg.inputs,definition=DefinitionProduct(usage_id=cfg.usage_id,candidate_list_id=next(iter(candidate_lists)),eligible_targets=targets,candidate_targets=targets,readings=tuple(readings)))
+        return tuple(UnitResult(ref=unit.ref,outcome=ObservationOutcome.PRODUCED,structural_product=report.model_dump(mode="json")) for unit in units)
+
+
+def _validate_usage_occurrence(reader, inputs, usage, occurrence):
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice, evidence_anchor
+
+    source=next(ref for ref in inputs.sources if ref.identity==usage.source_ref)
+    view=reader.source_view(source.source_view_id)
+    frame=native_source_frame(view,())
+    if frame.projection_digest != source.projection_digest or frame.native_product.content_digest != source.native_content_digest:
+        raise ValueError("usage occurrence source differs from original projection")
+    context=NativeSourceContext(frame,(),(SourceSlice(source.source_view_id,usage.start,usage.end),),"usage occurrence","witnessed-applicability-1","exact selected physical occurrence",max_chars=len(usage.text),max_pieces=256)
+    mapped=tuple(evidence_anchor(context,piece,native=True)[0] for piece in context.map_span(0,len(usage.text),literal=usage.text,allow_multiple=True))
+    def physical(anchor):
+        return canonical_bytes({key:anchor[key] for key in ("pin","pointer","start","end","source_piece")})
+    if {physical(anchor) for anchor in mapped} != {physical(anchor) for anchor in occurrence["anchors"]}:
+        raise ValueError("usage passage is not the exact selected physical occurrence")
