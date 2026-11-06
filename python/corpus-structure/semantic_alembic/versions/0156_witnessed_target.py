@@ -1,4 +1,4 @@
-"""Enforce reviewed applicability, ambiguity, original-source selection and dossier semantics."""
+"""Install the current witnessed component, relationship and applicability design."""
 import json
 from hashlib import sha256
 from pathlib import Path
@@ -7,16 +7,16 @@ from alembic import op
 
 from corpus_structure.semantic.native_objects import NativeObject, admit_native
 
-revision = "semantic_wce_reviewed_20261106"
-down_revision = "semantic_wce_facts_20261106"
+revision = "semantic_wce_target_20261106"
+down_revision = "semantic_wce_roles_20261106"
 branch_labels = None
 depends_on = None
-NATIVE_STATE_FILE = "semantic_wce_reviewed_20261106_native.json"
-NATIVE_STATE_SHA256 = "32db94d809a78bdb94e841bbe4b3ec65cadea69a86602ccd3d57defa5db901a3"
-NATIVE_ADMISSION_FILE = "semantic_wce_reviewed_20261106_admission.sql"
-NATIVE_ADMISSION_SHA256 = "7577af125071995c5f74f554e4f7985955b8a01a8b03c4f974dbd89ec1d0b55f"
-NATIVE_UPGRADE_FILE = "semantic_wce_reviewed_20261106_upgrade.txt"
-NATIVE_UPGRADE_SHA256 = "57b6ea180d9c09b1831e94430dd85a3be842c1696ff42ad80e166f71caf20260"
+NATIVE_STATE_FILE = "semantic_wce_target_20261106_native.json"
+NATIVE_STATE_SHA256 = "f288880ae03211bddeb1e81a9c3392fcab25b6d55a279d8854794f9822121949"
+NATIVE_ADMISSION_FILE = "semantic_wce_target_20261106_admission.sql"
+NATIVE_ADMISSION_SHA256 = "cad18457c2a669b370c4798ccd2cb41b3d085f07baf3dbf3d6279c372aec6339"
+NATIVE_UPGRADE_FILE = "semantic_wce_target_20261106_upgrade.txt"
+NATIVE_UPGRADE_SHA256 = "4d90b9fdad01ad6c8a10085c2d5048ad55867349ff1faf4ecabcd1b712763d5e"
 
 
 def _read(name, digest):
