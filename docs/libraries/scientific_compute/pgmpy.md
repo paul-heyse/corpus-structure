@@ -1190,3 +1190,960 @@ Its greatest strengths are not restricted to any single Bayesian-network algorit
 The areas especially worth understanding beyond introductory usage are mixed causal graph representations, conditional-independence testing, equivalence-class discovery, expert-constrained search, inference treewidth, functional Pyro CPDs, dynamic Bayesian networks, DoubleML estimation, structural equation models, and the model-agnostic evaluation infrastructure.
 
 The essential constraint is that these capabilities inhabit different statistical and computational regimes. The library provides substantial common infrastructure, but there is no single distribution family or universal inference algorithm that covers them all.
+
+# pgmpy 1.1.2 — Advanced Capabilities Addendum
+
+Research date: November 5, 2026\
+Target version: pgmpy 1.1.2 (stable; released April 30, 2026)\
+Scope: Additional functionality, advanced mechanisms, and behavioral qualifications supplementing the existing comprehensive library reference.
+
+This addendum extends the original reference without repeating its existing treatment of model families, structure learning, causal estimation, and probabilistic inference. It focuses on capabilities whose significance becomes clearer when their underlying mechanisms, interactions, and limitations are examined. All version-specific descriptions target the released 1.1.2 implementation rather than unreleased development functionality.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI
+
+
+
+## 1. Symbolic independence reasoning and distribution-to-graph validation
+
+Extends original sections 2.1, 2.3, and 8.1.
+
+### 1.1 Independence assertions as first-class mathematical objects
+
+The `pgmpy.independencies` package provides a symbolic reasoning layer distinct from both graphical separation algorithms and statistical conditional-independence tests.
+
+`IndependenceAssertion` represents relationships such as
+
+\\[ X\perp Y\mid Z \\]
+
+where the independent variable groups and conditioning variables can each contain multiple variables. `Independencies` stores collections of these assertions and supports logical operations over the relationships they encode.
+
+The distinction is important: graphical separation derives independencies from a specified graph, whereas symbolic reasoning determines which independence statements follow from other independence statements without requiring a graph or numerical probability distribution.
+
+The supported operations include:
+
+| Operation              | API                                  | Mathematical or analytical purpose                                       |
+| ---------------------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| Assertion construction | `IndependenceAssertion`              | Represents unconditional or conditional independence                     |
+| Assertion collection   | `Independencies`, `add_assertions()` | Maintains sets of independence constraints                               |
+| Logical closure        | `closure()`                          | Derives additional independencies using semigraphoid axioms              |
+| Logical implication    | `entails()`                          | Determines whether one collection implies another                        |
+| Equivalence            | `is_equivalent()`                    | Tests whether two collections have the same implied independence content |
+| Redundancy elimination | `reduce()`                           | Removes redundant or less informative assertions                         |
+| Assertion membership   | `contains()`, `get_assertions()`     | Inspects explicitly represented assertions                               |
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+### 1.2 Semigraphoid closure and entailment
+
+The implementation's logical foundation is the set of semigraphoid properties satisfied by probabilistic conditional independence.
+
+For disjoint variable sets \\(X,Y,Z,W\\), these include:
+
+Symmetry
+
+\\[ X\perp Y\mid Z\implies Y\perp X\mid Z \\]
+
+Decomposition
+
+\\[ X\perp(Y,W)\mid Z\implies X\perp Y\mid Z \\]
+
+Weak union
+
+\\[ X\perp(Y,W)\mid Z\implies X\perp Y\mid(Z,W) \\]
+
+Contraction
+
+\\[ \begin{aligned} X&\perp Y\mid Z\\\ X&\perp W\mid(Y,Z) \end{aligned} \implies X\perp(Y,W)\mid Z \\]
+
+These rules allow a collection of independence assertions to function as a constraint system. Rather than manually constructing every logically related independence statement, an application can use `closure()` or `entails()` to establish consequences of the statements it already possesses.
+
+For example, a collection asserting \\(X\perp(Y,W)\mid Z\\) entails both \\(X\perp Y\mid Z\\) and \\(X\perp W\mid Z\\). Conversely, two separately asserted pairwise independencies do not necessarily establish joint independence of \\(X\\) from \\((Y,W)\\).
+
+`is_equivalent()` performs a stronger comparison than textual or set equality: collections with different explicitly stored assertions may nevertheless represent the same independence theory.
+
+Computational and logical boundaries. The official documentation warns that closure and entailment may become very slow with more than approximately six variables. The expansion of possible conditioning sets makes exhaustive symbolic reasoning combinatorially expensive.
+
+Furthermore, semigraphoid closure is not a universally complete characterization of every conditional-independence implication across arbitrary probability distributions. Failure to derive an assertion through these rules should not automatically be interpreted as a demonstration that the assertion is probabilistically impossible.
+
+Primary sources:
+
+`https://pgmpy.org/api/generated/independencies/pgmpy.independencies.Independencies.html`
+
+`https://pgmpy.org/api/generated/independencies/pgmpy.independencies.IndependenceAssertion.html`
+
+### 1.3 Deriving graphical structure from a known joint distribution
+
+`JointProbabilityDistribution` provides an additional direction of reasoning: rather than starting with a graph and determining its implied independencies, it can start with an explicit joint probability distribution and derive or validate graphical representations.
+
+The relevant methods are `check_independence()`, `get_independencies()`, `is_imap()`, and `minimal_imap(order)`.
+
+`check_independence()` evaluates whether a specified independence relationship holds under the represented probability distribution. It distinguishes conditioning on particular variable states from testing conditional independence given a random variable itself through `condition_random_variable`.
+
+`get_independencies()` extracts independence relationships from the distribution, with optional conditioning variables.
+
+An independence map, or I-map, is a graph whose implied conditional independencies hold in the represented distribution. Formally, for graph \\(G\\) and distribution \\(P\\),
+
+\\[ \mathcal I(G)\subseteq\mathcal I(P). \\]
+
+`is_imap(model)` checks whether a supplied discrete Bayesian network is an independence map for the distribution.
+
+This is not the same as requiring the graph to encode every independence in the distribution. An I-map may contain additional edges and consequently make fewer independence assertions than a more compact representation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 1.4 Minimal I-map construction
+
+`minimal_imap(order)` constructs a minimal independence-map Bayesian network relative to a supplied variable ordering.
+
+For an ordering \\(X_1,\ldots,X_n\\), the construction seeks parent sets from the variables preceding each node such that the required local Markov independencies are satisfied. Conceptually, for each \\(X_i\\), the remaining predecessors should be independent of \\(X_i\\) once its selected parents are conditioned upon.
+
+This provides a programmatic route from an explicit probability distribution to a factorized graphical representation.
+
+The ordering is consequential. Different orders can produce different minimal I-maps, including graphs with different numbers of edges. Minimal means that unnecessary edges cannot be removed while retaining the relevant independence-map property; it does not imply the globally sparsest possible graph.
+
+These operations enable several distinct forms of validation:
+
+- Comparing a proposed graph's independence claims against a known distribution.
+- Deriving alternative minimal factorizations from different variable orderings.
+- Testing whether structure-learning algorithms recover a graph compatible with a synthetic ground-truth distribution.
+- Distinguishing graphical model representation errors from statistical estimation errors.
+
+These are general analytical possibilities enabled by the native operations, not guarantees that recovered edges describe causality.
+
+Explicit joint distributions are practical primarily for small or otherwise tractable discrete systems. Their storage requirements grow with the product of variable cardinalities, and independence checks can require expensive marginalization or conditioning.
+
+`conditional_distribution()` and `marginal_distribution()` also default to in-place modification. Callers preserving an original distribution for later comparisons should use their non-mutating options or an explicit copy.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/factors/pgmpy.factors.discrete.JointProbabilityDistribution.html`
+
+### 1.5 Combining the three independence layers
+
+These capabilities establish three distinct levels of independence analysis within pgmpy:
+
+| Level          | Starting representation                          | Question answered                                                |
+| -------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| Graphical      | DAG, Bayesian network, or compatible mixed graph | What independencies does the graph imply?                        |
+| Symbolic       | `Independencies` assertions                      | What additional independencies follow logically?                 |
+| Distributional | `JointProbabilityDistribution`                   | Which independencies hold under these actual probability values? |
+
+Statistical CI testing adds a fourth, empirically estimated level: whether a finite observational dataset provides evidence for or against a particular independence relationship.
+
+The distinction is architecturally useful because discrepancies have different interpretations. A failure of graphical and distributional agreement can expose an incorrect factorization. A failure of a statistical test to support a graph-implied independence may arise from misspecification, sampling variability, inadequate statistical power, or inappropriate test assumptions.
+
+No single one of these checks establishes that a directed relationship is causal.
+
+## 2. Analytical inference in linear Gaussian Bayesian networks
+
+Extends original sections 2.2, 4.2, and 5.
+
+The original reference explains linear Gaussian models primarily through their conditional distributions and parameter-estimation capabilities. A further important capability is native multivariate Gaussian inference, which allows uncertainty to be propagated and conditioned analytically.
+
+### 2.1 Converting a directed model to a joint Gaussian
+
+A parameterized `LinearGaussianBayesianNetwork` represents linear structural relationships with Gaussian disturbances.
+
+Its `to_joint_gaussian()` method derives the implied joint mean vector and covariance matrix:
+
+\\[ X\sim\mathcal N(\mu,\Sigma). \\]
+
+For a linear structural model written as
+
+\\[ X=BX+a+\varepsilon, \qquad \varepsilon\sim\mathcal N(0,\Omega), \\]
+
+the implied distribution, under a nonsingular \\(I-B\\), is
+
+\\[ \mu=(I-B)^{-1}a \\]
+
+and
+
+\\[ \Sigma=(I-B)^{-1}\Omega(I-B)^{-T}. \\]
+
+These equations describe the mathematical relationship underlying the conversion; they do not assert that pgmpy computes the quantities using this exact matrix algorithm.
+
+The native API returns a tuple of NumPy arrays containing the joint mean vector and covariance matrix. This makes the compact graphical parameterization available to conventional numerical linear algebra without manually expanding all paths through the directed graph.
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+### 2.2 Conditional posterior means and covariance
+
+The more consequential functionality is `predict_probability(data)`.
+
+Suppose the model's joint Gaussian is partitioned into missing variables \\(X_M\\) and observed variables \\(X_O\\):
+
+\\[ \begin{bmatrix} X_M\\\X_O \end{bmatrix} \sim \mathcal N\left( \begin{bmatrix} \mu_M\\\\\mu_O \end{bmatrix}, \begin{bmatrix} \Sigma\_{MM}&\Sigma\_{MO}\\\ \Sigma\_{OM}&\Sigma\_{OO} \end{bmatrix} \right). \\]
+
+When \\(\Sigma\_{OO}\\) is invertible, conditioning on \\(X_O=x_O\\) gives
+
+\\[ \mu\_{M\mid O} = \mu_M+ \Sigma\_{MO}\Sigma\_{OO}^{-1}(x_O-\mu_O) \\]
+
+and
+
+\\[ \Sigma\_{M\mid O} = \Sigma\_{MM}- \Sigma\_{MO}\Sigma\_{OO}^{-1}\Sigma\_{OM}. \\]
+
+The posterior mean depends on the observed values, but the conditional covariance does not. For a fixed model and partition of observed versus missing variables, the covariance can therefore be reused across many observations.
+
+`predict_probability(data)` exposes this structure directly by returning:
+
+`(missing_variables, posterior_means, posterior_covariance)`
+
+The posterior means are computed for the supplied data rows, while the covariance describes their conditional uncertainty. The covariance depends on the fitted parameters and observed-variable set, not merely the graph topology.
+
+`predict(data)` provides the corresponding point estimates. In a Gaussian model, the conditional mean is also a posterior mode, so this method supplies the MAP estimates without separately implementing Gaussian optimization.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 2.3 Architectural significance and limitations
+
+The combination of graphical factorization, joint Gaussian construction, and analytic conditioning creates a distinct alternative to discretization or general probabilistic programming.
+
+It supports multivariate uncertainty propagation, prediction under partial observation, conditional covariance analysis, and calculation of correlations implied by a fitted directed model.
+
+The analytical result is exact relative to the assumed linear-Gaussian probability model, apart from floating-point numerical error. It is not an approximation produced by sampling or stochastic variational inference.
+
+This distinction has important limits.
+
+Nonlinear or non-Gaussian mechanisms generally cannot be represented faithfully by these equations. The covariance structure also inherits assumptions about the disturbances used in the graphical parameterization. Dense covariance calculations and factorizations can be costly for large models, even when their directed representations are sparse.
+
+The API also does not imply arbitrary inference interoperability. In particular, `LinearGaussianBayesianNetwork.to_markov_model()` is explicitly unimplemented in the documented version. A joint covariance representation is therefore not equivalent to native support for every Markov-network transformation or discrete variable-elimination mechanism.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.LinearGaussianBayesianNetwork.html`
+
+## 3. Graph-based instrumental-variable identification
+
+Extends original sections 7.1–7.4.
+
+### 3.1 Discovering candidate instruments from causal structure
+
+The original reference covers instrumental-variable regression through `NaiveIVRegressor` and `IVEstimator`. A separate, important capability is pgmpy's ability to identify candidate instruments from the structure of a causal graph.
+
+`CausalInference` exposes `get_ivs(X, Y)` and `get_conditional_ivs(X, Y)`, together with the more specialized `get_total_conditional_ivs(X, Y)`.
+
+For a treatment \\(X\\), outcome \\(Y\\), and candidate instrument \\(Z\\), instrumental-variable identification relies on assumptions such as instrument relevance, exclusion of direct effects on the outcome, and independence from the disturbances that confound the treatment–outcome relationship.
+
+In an elementary linear setting,
+
+\\[ X=\pi Z+U_X \\]
+
+\\[ Y=\beta X+U_Y, \\]
+
+a valid instrument can identify \\(\beta\\) despite correlation between \\(U_X\\) and \\(U_Y\\), provided the required restrictions hold and \\(\pi\neq0\\).
+
+Graph-based instrument discovery provides a means of investigating whether those restrictions are compatible with a specified causal structure.
+
+`get_ivs()` identifies candidate instruments using graph transformations and graphical connectivity. Rather than testing arbitrary combinations of variables through regression, it reasons about the paths connecting instrument candidates, treatments, outcomes, and confounding structures.
+
+The official documentation illustrates this with an `SEMGraph` containing an instrument affecting treatment, treatment affecting outcome, and correlated treatment–outcome disturbances.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 3.2 Conditional instrumental variables
+
+Ordinary IV validity can be too restrictive when a candidate instrument becomes valid only after conditioning on additional variables.
+
+`get_conditional_ivs()` extends the search to pairs \\((Z,W)\\), where \\(Z\\) is an instrument conditional on a set \\(W\\).
+
+For example, the documented `SEMGraph` example identifies instrument `I` conditional on `W`:
+
+```
+from pgmpy.models import SEMGraphfrom pgmpy.inference import CausalInferencemodel = SEMGraph(    ebunch=[("I", "X"), ("X", "Y"), ("W", "I")],    latents=[],    err_corr=[("W", "Y")],)c_infer = CausalInference(model)conditional_ivs = c_infer.get_conditional_ivs("X", "Y")# [('I', {'W'})]
+```
+
+The underlying algorithm searches for conditioning sets capable of blocking problematic paths while preserving the relationship needed for the candidate instrument to inform the treatment.
+
+`get_total_conditional_ivs()` is another released method, implemented separately in `CausalInference.py`. Its handling of nodes on causal paths distinguishes it from the ordinary conditional-IV search. Its public documentation is sparse, so the tagged implementation should be treated as the authoritative source for its exact behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 3.3 Latent-variable measurement models and scaling indicators
+
+Instrument identification also interacts with pgmpy's structural equation modeling capabilities.
+
+When an SEM contains latent constructs measured by observed indicators, `get_scaling_indicators()` selects an observed measurement variable for each latent variable. The instrumental-variable identification methods accept an explicit `scaling_indicators` mapping.
+
+This supplies an implementation mechanism for reasoning about identifiable structural relationships involving latent measurement models.
+
+An important qualification is that pgmpy's default indicator selection can be random. Explicitly supplying measurement indicators avoids introducing uncontrolled selection into otherwise reproducible identification workflows.
+
+An indicator's suitability for scaling is a substantive measurement-model assumption, not something established merely by the function returning a variable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 3.4 Identification-method discovery and estimator composition
+
+`CausalInference.identification_method(X, Y)` provides another useful coordination mechanism. It attempts several identification routes and returns a dictionary describing methods for which candidate identification results were found.
+
+The source includes backdoor adjustment, frontdoor adjustment, ordinary IVs, conditional IVs, and total conditional IVs.
+
+This means pgmpy can provide a structural exploration layer before selecting a numerical estimation method.
+
+The distinction between structural identification and numerical estimation remains essential. A graphically admissible instrument can be statistically weak. Instrument validity depends on the assumed graph, exclusion restrictions, and other causal assumptions. Finite-sample properties and estimator consistency additionally depend on the statistical model.
+
+The identification-method helper is therefore a means of discovering candidate identification strategies, not an automatic proof that an effect has been reliably identified and estimated. Its implementation also catches exceptions from individual search routines, so an absent candidate in its result should not be treated as a universal impossibility theorem.
+
+Primary sources:
+
+`https://pgmpy.org/api/generated/causal_inference/pgmpy.inference.CausalInference.CausalInference.html`
+
+`https://github.com/pgmpy/pgmpy/blob/v1.1.2/pgmpy/inference/CausalInference.py`
+
+## 4. Advanced discrete parameter estimation and EM behavior
+
+Extends original section 4.1 and qualifies its missing-data discussion.
+
+### 4.1 Configurable M-step estimation
+
+The newer `pgmpy.parameter_estimator.DiscreteEM` implementation exposes substantially more control than a conventional fixed maximum-likelihood EM routine.
+
+Its `m_step_estimator` argument accepts a discrete parameter estimator implementing weighted-data support.
+
+The default is `DiscreteMLE()`, but `DiscreteBayesianEstimator` can also be supplied.
+
+The E-step estimates posterior weights for possible latent-state assignments. In the M-step, those weights are used to fit the complete-data conditional distributions.
+
+For a latent variable \\(H\\) and observation \\(x_i\\), the E-step constructs weights proportional to
+
+\\[ w\_{ih}=P(H=h\mid x_i,\theta^{(t)}). \\]
+
+An ordinary M-step updates parameters using the resulting expected sufficient statistics. A prior-regularized M-step can instead combine the weighted observations with pseudo-counts supplied by a Bayesian estimator.
+
+The architecture separates latent-state responsibility computation from parameter estimation, allowing the same EM machinery to reuse alternative local parameter-fitting methods.
+
+The supplied estimator must advertise weighted-data support; otherwise, `DiscreteEM` raises an error. This is a concrete extension boundary rather than unrestricted interchangeability with arbitrary estimators.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 4.2 Bayesian priors and regularization
+
+`DiscreteBayesianEstimator` supports three prior specifications:
+
+| Prior       | Mechanism                                                              | Consequence                                                     |
+| ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `BDeu`      | Uniform Dirichlet pseudo-counts derived from an equivalent sample size | Distributes prior strength over state and parent configurations |
+| `K2`        | Unit pseudo-count for each CPD cell                                    | Provides a fixed additive prior contribution                    |
+| `dirichlet` | Explicit pseudo-counts, including node-specific arrays                 | Permits asymmetric and domain-informed prior information        |
+
+For node \\(X_i\\) with \\(r_i\\) states and \\(q_i\\) parent configurations, BDeu assigns a pseudo-count of
+
+\\[ \alpha\_{ijk}=\frac{\alpha_i}{r_iq_i} \\]
+
+to each cell, where \\(\alpha_i\\) is the node's equivalent sample size.
+
+With empirical counts \\(N\_{ijk}\\), the resulting local probability estimate is
+
+\\[ \hat P(X_i=k\mid\mathrm{Pa}\_i=j) = \frac{N\_{ijk}+\alpha\_{ijk}} {\sum\_{\ell}(N\_{ij\ell}+\alpha\_{ij\ell})}. \\]
+
+The estimator supports per-node equivalent sample sizes, explicit Dirichlet pseudo-count arrays, sample weights, and parallel estimation of local CPDs.
+
+These options are significant where some parent-state combinations are rare, because the estimator can regularize locally without requiring a separate custom CPD-fitting implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 4.3 Latent-state configuration, initialization, and convergence
+
+`DiscreteEM` exposes the following consequential controls:
+
+| Parameter          | Function                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `latent_card`      | Cardinality of each latent variable; unspecified latent cardinalities default to two |
+| `init_cpds`        | Initial CPDs supplied explicitly or generated using `random` or `uniform`            |
+| `m_step_estimator` | Weighted parameter estimator used during each M-step                                 |
+| `max_iter`         | Maximum number of EM iterations                                                      |
+| `atol`             | Parameter-change convergence tolerance                                               |
+| `n_jobs`           | Parallel processing of E-step weight computations                                    |
+| `batch_size`       | Batch size for computing latent-assignment weights                                   |
+| `seed`             | Random initialization control                                                        |
+
+The implementation also distinguishes CPDs requiring iterative updates from those that can be estimated once without latent-variable involvement. In particular, CPDs for observed variables that are neither latent nor children of latent variables can be initialized and held fixed when no explicit initialization requires updating them.
+
+This avoids repeatedly estimating parameters that do not depend on the posterior distribution of the latent variables.
+
+The implementation deduplicates observed data patterns before E-step processing and accounts for their occurrence counts when generating weighted completed observations. These optimizations can reduce repeated work when datasets contain many identical rows.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 4.4 Computational implications of explicit latent-state enumeration
+
+The 1.1.2 E-step constructs assignments over the Cartesian product of latent-variable states.
+
+For latent variables \\(H_1,\ldots,H_m\\), the number of latent combinations per distinct observed pattern is
+
+\\[ K=\prod\_{j=1}^{m}|\mathcal S(H_j)|. \\]
+
+Consequently, a rough lower-level driver of E-step work is the number of distinct observed records multiplied by \\(K\\), together with the cost of evaluating model probabilities for each completed assignment.
+
+This explains why parallel processing and batching can improve execution in some cases without eliminating the exponential dependence on the number and cardinality of latent variables.
+
+EM is also sensitive to initialization. Different starting CPDs may converge to different local optima, particularly in latent-variable models with weak identifiability or symmetry between latent states.
+
+The `atol` convergence condition concerns numerical changes in estimated parameters. Convergence is not evidence of a unique optimum, and an arbitrary alternative M-step does not automatically preserve every theoretical monotonic-likelihood property associated with classical maximum-likelihood EM.
+
+### 4.5 Critical missing-data limitation in pgmpy 1.1.2
+
+The newer `DiscreteEM` implementation has a narrower missing-data capability than a generic description of EM might suggest.
+
+The tagged source explicitly:
+
+1. Removes columns containing only missing values and promotes the corresponding variables to latent status.
+2. Drops rows containing missing values in otherwise partially observed columns.
+3. Performs EM over the remaining observed data and modeled latent variables.
+
+This means partially missing observed cells are not generally imputed through the E-step of this implementation. Their rows are excluded before parameter estimation.
+
+The distinction is substantial. Suppose observations contain variables \\(A,B,C\\), and some rows have observed \\(A,C\\) but missing \\(B\\). The newer estimator does not automatically preserve those rows and integrate over the unknown value of \\(B\\); it drops them.
+
+By contrast, if a column representing \\(B\\) is entirely missing, the estimator can treat \\(B\\) as latent, subject to the specified graphical structure and latent cardinality.
+
+Dropping partially observed records can reduce statistical efficiency and introduce selection effects when missingness is not completely random.
+
+This behavior is verified from the v1.1.2 implementation and must be distinguished from the older `pgmpy.estimators.ExpectationMaximization` interface, whose algorithms and options require separate treatment.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary tagged sources:
+
+`https://github.com/pgmpy/pgmpy/blob/v1.1.2/pgmpy/parameter_estimator/discrete_em.py`
+
+`https://github.com/pgmpy/pgmpy/blob/v1.1.2/pgmpy/parameter_estimator/discrete_bayesian.py`
+
+## 5. Batch probabilistic prediction
+
+Extends original sections 5.1–5.3.
+
+### 5.1 Prediction as repeated graphical inference
+
+`DiscreteBayesianNetwork.predict()` provides a higher-level interface for applying probabilistic inference across multiple records.
+
+The input is a pandas DataFrame containing observed model variables. Variables omitted from the input are predicted from the fitted network.
+
+The method defaults to `VariableElimination`, but the `algo` argument can select compatible alternatives, including `BeliefPropagation` and `ApproxInference`.
+
+This functionality is distinct from parameter fitting and from directly invoking an inference engine for one evidence assignment. It coordinates inference over the supplied observations and converts the results into a tabular representation.
+
+The API exposes `n_jobs` for parallel processing and forwards algorithm-specific options, including elimination-order controls for variable elimination and sample-count controls for approximate inference.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 5.2 MAP predictions versus stochastic predictions
+
+`predict()` supports two different predictive operations through `stochastic`.
+
+With `stochastic=False`, it produces highest-probability assignments for the missing variables. This corresponds to the relevant MAP assignment under the model and selected inference algorithm.
+
+With `stochastic=True`, the predictions are sampled from the inferred conditional distributions.
+
+The distinction is consequential. A MAP prediction selects a representative high-probability outcome, whereas stochastic prediction preserves variability across possible outcomes.
+
+For example, if a target variable has posterior probabilities \\(0.45\\), \\(0.35\\), and \\(0.20\\), deterministic prediction repeatedly selects the first state. Stochastic prediction instead generates outcomes according to the three-state distribution.
+
+The latter can be useful for uncertainty-aware synthetic completions, although it inherits any approximation or sampling error of the selected inference method.
+
+### 5.3 Per-state probability output
+
+`predict_probability(data)` returns probabilities for the states of the missing variables, rather than committing to a single predicted state.
+
+This enables subsequent calculations involving expected values, uncertainty measures, threshold decisions, or comparisons between predictive distributions.
+
+For a discrete variable \\(X\\), the entropy
+
+\\[ H(X\mid e) = -\sum_x P(x\mid e)\log P(x\mid e) \\]
+
+can be calculated directly from its returned posterior state probabilities.
+
+However, per-variable marginal probabilities are not necessarily sufficient to reconstruct a joint posterior over multiple missing variables. Correlations between the predicted variables can matter, particularly for decisions involving their combined states.
+
+Batch prediction is also not a new inference algorithm. Its runtime and exactness remain dependent on the underlying inference engine and the network's structure.
+
+The documented examples primarily express missing variables as omitted DataFrame columns; this should not be confused with general support for arbitrary patterns of missing cells inside otherwise present columns.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.DiscreteBayesianNetwork.html`
+
+## 6. Advanced maximal ancestral graph operations
+
+Extends original sections 2.1 and 7.1.
+
+### 6.1 Inducing paths and maximality
+
+The `MAG` representation includes operations that are not available merely by treating the graph as a conventional DAG.
+
+`has_inducing_path(u, v, W)` checks whether an inducing path exists between two nodes relative to a specified set \\(W\\).
+
+The implementation characterizes such a path through collider intermediates that satisfy specified ancestry or membership conditions.
+
+Inducing paths matter because maximal ancestral graphs encode conditional-independence relationships after accounting for latent or selection-related structure.
+
+A central property of a maximal ancestral graph is that nonadjacent vertices can be separated by an appropriate conditioning set. The existence of certain inducing paths explains why an adjacency may need to appear in a marginalized or conditioned representation even when there is no direct causal relationship between the corresponding observed variables.
+
+This provides a structural operation for reasoning about the effects of hidden variables on the graphical relationships among observed variables.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 6.2 Visible versus invisible directed edges
+
+`is_visible_edge(u, v)` distinguishes two different interpretations of a directed edge in a MAG.
+
+A visible edge \\(X\rightarrow Y\\) has graphical evidence ruling out certain forms of latent confounding between the endpoints under the MAG semantics.
+
+An invisible directed edge lacks that graphical guarantee. Its arrow direction alone does not establish that the relationship can be treated as unconfounded.
+
+The implementation checks specific graphical configurations involving vertices not adjacent to the destination and appropriate directed or collider paths into the source.
+
+This distinction is easily overlooked because the same arrow notation is used in ordinary DAGs and MAGs, even though the representational assumptions differ.
+
+Edge visibility is therefore relevant to causal identification and graphical manipulation. It should not be interpreted as an empirical causal-effect strength or an independently verified statement that no hidden confounder exists.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 6.3 Upper and lower graph manipulations
+
+`MAG` exposes `upper_manipulation(X)` and `lower_manipulation(X)`.
+
+`upper_manipulation()` removes edges with arrowheads pointing into the manipulated variables.
+
+`lower_manipulation()` removes visible edges originating from the manipulated variables and performs additional transformations involving invisible edges to preserve relevant independence relationships.
+
+Both operations accept `inplace=False`, allowing transformed graphs to be produced without changing the original object.
+
+These mechanisms support the graphical transformations required by certain causal-identification arguments in mixed ancestral graphs.
+
+However, the transformations should not be confused with automatically identifying and evaluating arbitrary causal interventions. Their validity and interpretation depend on the graph semantics and the causal assumptions of the surrounding analysis.
+
+Likewise, the availability of these operations does not establish that pgmpy implements complete general-purpose identification for every effect represented by an arbitrary mixed graph.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/base/pgmpy.base.MAG.html`
+
+## 7. Marginal-constrained graphical-model estimation through mirror descent
+
+Extends original sections 4.2 and 5.4.
+
+### 7.1 Fitting an undirected distribution to empirical marginals
+
+`MirrorDescentEstimator` provides a specialized optimization approach for discrete undirected graphical models.
+
+It accepts a `DiscreteMarkovNetwork`, `FactorGraph`, or `JunctionTree` together with a tabular dataset, and estimates graphical-model potentials to reproduce selected empirical marginal distributions.
+
+This is different from ordinary directed Bayesian-network MLE. Rather than fitting one normalized conditional distribution per node, the estimator adjusts the potentials of an undirected factorization so that the model's implied marginals agree with observed marginal statistics.
+
+The optimization operates on a probability representation using entropic mirror descent and computes updates in log space.
+
+The estimator returns an optimized `JunctionTree`, allowing its fitted factors to participate in the library's existing inference machinery.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 7.2 Optimization objective and controls
+
+Conceptually, for selected variable subsets \\(\mathcal S\\), the objective is to reduce discrepancies between empirical marginals \\(\hat P_S\\) and model-implied marginals \\(P\_{\theta,S}\\):
+
+\\[ \min\_\theta \sum\_{S\in\mathcal S} D\left(\hat P_S,P\_{\theta,S}\right). \\]
+
+Here \\(D\\) represents the configured marginal-discrepancy measure. This is a conceptual expression of the fitting problem, not a transcription of the implementation's exact objective.
+
+The public method
+
+`estimate(marginals, metric="L2", iterations=100, stepsize=None, show_progress=True)`
+
+allows callers to specify variable subsets and choose `L1` or `L2` discrepancy metrics.
+
+The `stepsize` option controls optimization updates. When it is omitted, the estimator uses a default step-size rule together with line search.
+
+The optimization also uses the model's graphical inference structure to evaluate the marginals implied by its current potentials.
+
+These components enable iterative fitting without requiring a bespoke marginal-to-factor optimization algorithm.
+
+### 7.3 Relationship to maximum-entropy modeling
+
+There is a useful conceptual connection between matching marginal constraints and maximum-entropy probabilistic modeling.
+
+For a set of compatible marginal constraints, a maximum-entropy distribution selects the least additionally committed joint distribution satisfying those constraints.
+
+Undirected exponential-family models provide a natural parameterization for such problems because their factor potentials represent interactions over subsets of variables.
+
+Mirror descent can exploit this structure when estimating potentials that reproduce empirical marginal information.
+
+The connection is particularly valuable when the desired representation is a factorized joint distribution, rather than a collection of unrelated marginal probability tables.
+
+The pgmpy implementation is based on work involving graphical-model estimation for differential privacy, but using `MirrorDescentEstimator` does not by itself provide differential privacy. Privacy guarantees would require an appropriate upstream mechanism and analysis of the complete workflow.
+
+### 7.4 Limitations and integration boundaries
+
+The estimator is specialized for discrete graphical models and empirical marginals obtained from a supplied dataset.
+
+It should not be described as a general API for arbitrary externally supplied marginal arrays without considering how those values are introduced into the implementation.
+
+Its usefulness also depends on the selected graph's expressiveness. A factorization that cannot represent the relevant interactions may fail to match all observed marginals adequately.
+
+The junction-tree representation and associated belief-propagation computations retain the usual clique-size and treewidth limitations. Mirror descent changes the parameter-estimation approach; it does not remove the computational cost of the model's underlying inference operations.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/parameter_estimation/pgmpy.estimators.MirrorDescentEstimator.html`
+
+## 8. MPLP relaxation, tightening, and MAP solution diagnostics
+
+Extends original section 5.2.
+
+### 8.1 MAP inference as an optimization problem
+
+`Mplp` implements max-product linear programming for approximate MAP inference in discrete Markov networks.
+
+For factor potentials \\(\psi\_\alpha\\), the MAP problem can be written as
+
+\\[ x^\* = \arg\max_x \sum\_\alpha \log\psi\_\alpha(x\_\alpha). \\]
+
+This is a global optimization problem over variable assignments.
+
+MPLP approximates it through a linear-programming relaxation expressed in terms of locally consistent marginal quantities. Message-passing updates optimize the dual formulation of that relaxation.
+
+This is different from Gibbs sampling or approximate posterior marginal inference. Its purpose is to find a high-scoring global assignment, not to estimate a normalized distribution over states.
+
+### 8.2 Integrality gap as a solution-quality diagnostic
+
+`Mplp.get_integrality_gap()` exposes a particularly useful diagnostic.
+
+The LP relaxation can provide an upper bound on the best achievable MAP objective, while an integral assignment supplies a feasible objective value.
+
+For a maximization formulation, the corresponding gap is conceptually
+
+\\[ \Delta\_{\mathrm{int}} = U\_{\mathrm{LP}}-L\_{\mathrm{feasible}} \geq0. \\]
+
+A small gap indicates that the relaxation's bound and the feasible assignment are close under the objective being optimized.
+
+A zero gap, when the computed bounds are valid and numerical tolerances are satisfied, can establish that the assignment attains the relaxed bound and therefore solves the original MAP problem.
+
+A nonzero gap does not, by itself, quantify the probability that the assignment is correct or show that the returned solution is globally optimal.
+
+This gives MPLP a form of optimization diagnostics that ordinary sampling-based approximate inference does not provide.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+### 8.3 Tightening the relaxation with triplet clusters
+
+`Mplp.map_query()` exposes controls for progressively tightening the optimization relaxation.
+
+These include `tighten_triplet`, `max_triplets`, `max_iterations`, and `prolong`, alongside the initial and later iteration limits.
+
+Triplet tightening introduces additional cluster constraints intended to strengthen the relaxation where pairwise or existing local constraints are insufficient.
+
+The method also exposes `dual_threshold` and `integrality_gap_threshold` as stopping controls.
+
+The implementation's message updates are designed to decrease the dual objective, and the relaxation-tightening process can improve the relationship between the relaxed solution and an integral assignment.
+
+This creates a tradeoff between computational effort and solution quality: additional clusters and message updates may yield tighter bounds, but they increase the work and state maintained during optimization.
+
+### 8.4 Practical boundaries
+
+MPLP is particularly relevant when the desired result is a high-scoring joint assignment under discrete undirected factor potentials.
+
+It is not an automatic substitute for posterior inference. Even an exactly solved MAP problem does not provide normalized marginal probabilities, posterior uncertainty, or evidence likelihoods.
+
+The documented `Mplp` implementation is specialized for `DiscreteMarkovNetwork`, so compatibility with arbitrary Bayesian networks or functional distributions should not be assumed.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/inference/pgmpy.inference.Mplp.html`
+
+## 9. Graph-native statistical diagnostics and structural characterization
+
+Extends original sections 2.1, 8.1, and 9.4.
+
+### 9.1 Empirical edge-strength estimation
+
+`DAG.edge_strength(data, edges=None)` computes a data-dependent measure of association for specified graph edges.
+
+It uses a conditional-independence testing approach, with conditioning based on the graph's parent relationships.
+
+The documented effect-size calculation uses a residualization-based method associated with Pillai's trace. It accommodates categorical and continuous variables under the supported testing method and produces strength values between zero and one.
+
+For an edge \\(X\rightarrow Y\\), the quantity is intended to summarize the association between the variables after adjusting for the relevant parent variables.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+This has a different interpretation from either the existence of an edge or its numerical causal effect.
+
+An edge represents an assumed or learned graphical dependency. An edge-strength statistic measures an empirical relationship under a particular conditioning and modeling procedure.
+
+The statistic does not automatically identify an intervention effect. Residual confounding, incorrect graphical structure, nonlinear dependence, and misspecified conditional models can all affect the interpretation.
+
+It is also not equivalent to a standardized regression coefficient or a universal unit of causal influence.
+
+### 9.2 Structural graph statistics
+
+`DAG.get_stats()` returns a dictionary containing structural characteristics such as node and edge counts, edge density, numbers of roots and leaves, weakly connected components, v-structures, average and maximum parent counts, and latent-node counts.
+
+This provides a native structural characterization mechanism that can be used without separately traversing the graph for every elementary statistic.
+
+Several outputs are directly relevant to probabilistic modeling.
+
+A high maximum parent count may indicate expensive local conditional distributions in a discrete Bayesian network. V-structures influence conditional-independence relationships and help distinguish Markov-equivalence classes. Weak connectivity can identify graph components that may admit separate analysis, depending on model semantics.
+
+However, simple graph statistics are not substitutes for inference-complexity measures. Maximum indegree and edge density do not uniquely determine treewidth or the size of the intermediate factors created during elimination.
+
+### 9.3 Annotated graphical representations
+
+The graph visualization interfaces also support edge-strength annotations.
+
+`to_graphviz(plot_edge_strength=True)` and `to_daft(plot_edge_strength=True)` can include previously computed strength values in rendered graph representations.
+
+This enables graphical structure and empirical dependency information to be presented together without implementing a separate annotation layer.
+
+The resulting diagrams must still preserve the distinction between edge orientation and edge strength: an annotated causal hypothesis is not an empirically proven causal mechanism.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/base/pgmpy.base.DAG.html`
+
+## 10. Factored Markov-chain transitions and sample-based diagnostics
+
+Extends original section 6.2.
+
+### 10.1 Multiple transition kernels
+
+`MarkovChain` supports a state represented by multiple discrete variables, with separate transition kernels attached through `add_transition_model()`.
+
+Each variable's transition matrix can be provided as a nested dictionary or a two-dimensional array.
+
+The model therefore need not be expressed manually as a single transition table over every combination of component states.
+
+For state components \\(X_1,\ldots,X_m\\), a factorized transition representation can avoid explicitly storing a full transition matrix over the composite state space.
+
+However, the implemented per-variable transition kernels do not imply general support for cross-variable conditional dependencies. A dynamic Bayesian network is the more expressive representation when the next state of one variable depends on the previous or current state of other variables.
+
+### 10.2 Streaming samples and empirical state probabilities
+
+`generate_sample()` exposes trajectory generation through an iterator, rather than requiring every simulated observation to be materialized immediately as a DataFrame.
+
+`sample()` provides the corresponding tabular simulation interface.
+
+`prob_from_sample()` estimates probabilities of specified partial or complete states over generated or supplied samples, with an optional window-size parameter.
+
+`is_stationarity()` provides a stationarity-related check based on the model's state probabilities and supplied or generated sample information.
+
+These utilities can support empirical characterization of finite-state transition behavior without requiring a separate generic simulation framework.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy
+
+
+
+The stationarity method should not be interpreted as a general-purpose numerical solver for stationary distributions of arbitrary structured transition systems. Its documented behavior is a consistency check with specified tolerance, and sample-derived probabilities remain subject to finite-sample variability and mixing effects.
+
+Primary source:
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.MarkovChain.html`
+
+## 11. Simulation API compatibility across model families
+
+Clarifies original section 6.3.
+
+The original guide correctly distinguishes evidence, hard interventions, virtual evidence, and soft interventions. However, those concepts should not be presented as uniformly implemented options of every model family's `simulate()` method.
+
+The following table reflects the documented 1.1.2 interfaces.
+
+| Simulation capability                | Discrete BN           | Linear Gaussian BN              | Functional BN   | Dynamic BN   |
+| ------------------------------------ | --------------------- | ------------------------------- | --------------- | ------------ |
+| Ordinary forward simulation          | Yes                   | Yes                             | Yes             | Yes          |
+| Hard intervention (`do`)             | Yes                   | Yes                             | Yes             | Yes          |
+| Conditioning on observed evidence    | Yes                   | Yes                             | Not exposed     | Yes          |
+| Virtual evidence                     | Yes                   | Not exposed                     | Not exposed     | Yes          |
+| Virtual/stochastic intervention      | `TabularCPD`          | `LinearGaussianCPD`             | `FunctionalCPD` | `TabularCPD` |
+| Simulated missingness                | CPD-defined mechanism | Per-variable MCAR probabilities | Not exposed     | Not exposed  |
+| Partial sample constraints           | Yes                   | Not exposed                     | Not exposed     | Not exposed  |
+| Latent-value inclusion flag          | Yes                   | Yes                             | Not exposed     | Yes          |
+| Time-indexed intervention/evidence   | Not applicable        | Not applicable                  | Not applicable  | Yes          |
+| Configurable temporal return layouts | Not applicable        | Not applicable                  | Not applicable  | Yes          |
+
+[image](https://www.google.com/s2/favicons?domain=https://pgmpy.org\&sz=32)
+
+pgmpy+3
+
+### 11.1 Discrete missingness generation
+
+For `DiscreteBayesianNetwork.simulate()`, the `missing_prob` argument accepts one or more `TabularCPD` objects defining probabilities of missingness.
+
+The missingness mechanism can depend on specified model variables, providing considerably more expressiveness than simply deleting a fixed proportion of values at random.
+
+This makes it possible to generate datasets with different missingness patterns under explicitly specified assumptions.
+
+The implementation also exposes `return_full`, allowing both the generated complete data and its missingness-affected representation to be retained when applicable.
+
+This can be valuable for evaluating missing-data methods because the complete simulated values are known relative to the generating model.
+
+### 11.2 Linear Gaussian missingness is narrower
+
+For `LinearGaussianBayesianNetwork.simulate()`, `missing_prob` is a mapping from variable names to probabilities.
+
+Each generated value is independently replaced with `NaN` according to the supplied probability. This implements a missing-completely-at-random mechanism.
+
+It is not equivalent to the conditional missingness distributions available through discrete CPDs.
+
+The linear-Gaussian simulator additionally supports interventions, evidence conditioning, and soft interventions specified using `LinearGaussianCPD`.
+
+### 11.3 Functional interventions replace generating mechanisms
+
+`FunctionalBayesianNetwork.simulate()` exposes hard interventions and stochastic interventions specified through replacement `FunctionalCPD` objects.
+
+The documented soft-intervention mechanism requires unconditional replacement CPDs. This means a replacement mechanism supplies a distribution without retaining dependencies on the intervened node's original parents.
+
+The API should not be confused with unrestricted modification of arbitrary conditional generating functions while preserving their existing dependence structure.
+
+The method does not expose the same conditional-evidence or missingness-generation options as the discrete simulator.
+
+### 11.4 Temporal simulation adds a different dimension
+
+`DynamicBayesianNetwork.simulate()` supports time-indexed evidence and interventions, using variable/time pairs to identify the affected states.
+
+It also exposes multiple output layouts, including wide DataFrames, three-dimensional NumPy arrays, multi-indexed DataFrames, and lists of per-trace DataFrames.
+
+These are temporal data-representation capabilities rather than generic simulation options available to every Bayesian-network class.
+
+Architectural implication: A system using multiple pgmpy model families can share high-level concepts such as interventions and probabilistic evidence, but it must preserve the model-specific CPD types, semantics, accepted parameters, and output representations.
+
+Primary sources:
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.DiscreteBayesianNetwork.html`
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.LinearGaussianBayesianNetwork.html`
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.FunctionalBayesianNetwork.html`
+
+`https://pgmpy.org/api/generated/models/pgmpy.models.DynamicBayesianNetwork.html`
+
+## 12. Additional capability interactions and boundaries
+
+The newly detailed functionality reveals several connections that are important when treating pgmpy as a composable probabilistic modeling framework.
+
+### 12.1 From mathematical independence specifications to fitted models
+
+Symbolic independence assertions, graphical separation, joint-distribution validation, and empirical CI testing form complementary validation mechanisms.
+
+A model's graph can encode independence constraints; those constraints can be investigated through symbolic entailment; a known joint distribution can validate their probabilistic consistency; and observed data can test whether the implications are statistically plausible.
+
+This supports richer model validation than relying solely on a structure score or on successful CPD normalization.
+
+These checks do not become equivalent when composed. Symbolic consistency does not establish empirical truth, and distributional consistency does not establish causal direction.
+
+### 12.2 From graphical causal assumptions to identifiable estimation problems
+
+Instrument discovery, conditional adjustment, and regression-based estimation occupy different stages of causal reasoning.
+
+Graphical algorithms can identify candidate variables and conditioning sets. Estimators then use observed data to compute effect estimates under those assumptions.
+
+This makes it possible to keep causal-identification logic separate from numerical prediction machinery, while still connecting them through explicit graph structure and variable roles.
+
+The resulting numerical estimates require their own statistical diagnostics, including checks of instrument relevance, model adequacy, and estimator uncertainty.
+
+### 12.3 From local distributions to analytical uncertainty propagation
+
+Linear-Gaussian CPDs provide an example of a model-specific capability combination that can be substantially simpler than a generic probabilistic program.
+
+Local structural equations determine a joint Gaussian distribution, whose conditional posterior parameters can be calculated analytically.
+
+This yields conditional estimates and covariance information with no Monte Carlo error under the assumed model.
+
+The advantage is conditional on the model remaining within the linear-Gaussian family. Moving to arbitrary nonlinear functional CPDs generally changes both the computational machinery and the available guarantees.
+
+### 12.4 From empirical marginals to graphical models
+
+Mirror-descent estimation provides an alternative to constructing all CPDs or factor potentials independently.
+
+A selected set of empirical marginal relationships can inform the parameters of an undirected model, whose fitted junction-tree representation can then participate in graphical inference.
+
+This interaction is useful when the relevant statistical information is naturally represented through overlapping marginal relationships rather than directed local regressions.
+
+Its limitations are determined jointly by the sufficiency of the selected marginals, the model's factorization, the optimization method, and the inference cost of the junction tree.
+
+### 12.5 From approximate optimization to solution-quality evidence
+
+MPLP illustrates a different form of approximation from Monte Carlo inference.
+
+Sampling approximates expectations or distributions through random draws. MPLP approximates a MAP optimization problem through a relaxation, with an integrality-gap diagnostic that can reveal how tightly the computed solution is bounded.
+
+These approaches therefore provide different kinds of evidence about result quality.
+
+A well-mixed sampler does not necessarily provide an optimal assignment certificate, and a tightly bounded MAP solution does not characterize the full posterior distribution.
+
+The capability distinction matters whenever a system must represent not only a probabilistic answer but also what can and cannot be established about its reliability.
+
+End of pgmpy 1.1.2 advanced capabilities addendum.

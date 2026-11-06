@@ -1114,3 +1114,1111 @@ The most consequential architectural distinctions are therefore:
 For advanced parsing workloads, the greatest opportunity is often to combine Lark's grammar, lexer, parser, and semantic-processing facilities so that one declarative language specification supplies several kinds of structural intelligence—rather than independently reimplementing tokenization, grammar matching, syntactic validation, and transformation logic.
 
 The most important remaining caution is that these facilities do not all compose without restrictions. Lark's practical capability is determined by the specific parser engine, lexer strategy, tree representation, and transformation stage selected together.
+
+# Lark 1.3.1 — Capability Reference Addendum
+
+Research date: November 5, 2026\
+Target version: Lark 1.3.1 (stable)\
+Companion document: Lark — Comprehensive Python Library Capability Reference
+
+This addendum supplements the existing reference with additional capabilities, implementation mechanisms, consequential behavioral distinctions, and corrections identified through examination of the official documentation and version-tagged source.
+
+It focuses on capabilities not already adequately developed in the original guide. In particular, it expands the treatment of parser configuration, lexical processing, source-coordinate preservation, structural transformations, ambiguity prioritization, and deployment tooling.
+
+Lark 1.3.1 remains the latest stable release listed on PyPI as of the research date. Features identified only in the development branch are explicitly distinguished from released functionality.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI
+
+
+
+## 1. Advanced parser configuration and ambiguity policy
+
+Extends original sections 2, 3.1, 5, and 12.1.
+
+### 1.1 Explicit control over grammar priorities
+
+Lark's `priority` constructor option provides a global mechanism for changing how declared rule and terminal priorities are applied.
+
+This is distinct from assigning numeric priorities within grammar definitions. Rather than requiring the grammar to be rewritten, the same grammar can be compiled under different priority policies.
+
+| Configuration       | Behavior                                                       |
+| ------------------- | -------------------------------------------------------------- |
+| `priority="auto"`   | Default; resolves to `"normal"` in 1.3.1                       |
+| `priority="normal"` | Applies declared priorities without modifying them             |
+| `priority="invert"` | Negates rule and terminal priorities                           |
+| `priority=None`     | Removes rule priorities and resets terminal priorities to zero |
+
+`priority="invert"` operates during grammar compilation. Every explicitly prioritized rule has its priority negated, and every terminal has its priority negated, including terminals with zero priority, which remain unchanged.
+
+Consequently, inversion affects both grammatical derivation ranking and lexical precedence. It is not equivalent to reversing only the order of alternatives in an EBNF production.
+
+`priority=None` is also more consequential than merely ignoring priority when returning the final tree. The compiled representation no longer carries the original rule priorities, and terminal matching uses zero priorities.
+
+This allows the same language definition to be evaluated under different precedence assumptions, but does not make all interpretations equally likely to be selected: lexer match-length rules, Earley's ambiguity-resolution policy, and deterministic parser decisions still apply.
+
+#### Performance interaction with Earley
+
+Lark's Earley implementation performs additional forest processing when explicit rule priorities require propagation through ambiguous derivations.
+
+Disabling priorities can avoid that additional prioritization pass. The upstream source explicitly identifies this as a potential performance benefit.
+
+The reduction in work depends on the grammar and whether priority analysis would otherwise be necessary; it is not a general guarantee that disabling priorities improves overall parsing throughput.
+
+Architectural significance: Global priority control enables comparison of competing interpretation policies without duplicating grammars. It also separates the question of whether a sentence is syntactically recognizable from the policy for preferring one of its derivations.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lark.py`
+
+`https://lark-parser.readthedocs.io/en/stable/classes.html`
+
+### 1.2 Deterministic Earley ordering with `ordered_sets`
+
+Earley exposes an additional configuration option:
+
+```
+parser = Lark(    grammar,    parser="earley",    ordered_sets=True,)
+```
+
+When enabled, the Earley implementation uses ordered collections for parser-state bookkeeping and stable ordering of relevant results.
+
+The 1.3.1 implementation makes this choice through its internal collection and forest-node types, using `OrderedSet` and `StableSymbolNode` instead of ordinary sets and `SymbolNode` where applicable.
+
+The default is `True`.
+
+Disabling ordered sets can reduce collection-management overhead, but means output ordering is no longer maintained through the same stable-ordering mechanisms. This matters particularly when ambiguous derivations are exposed for downstream processing.
+
+The official API documentation estimates an approximately 10% performance cost for ordered sets compared with ordinary sets. That is an upstream characterization of this implementation choice, not an application-independent benchmark.
+
+Stable output ordering and semantic determinism should be distinguished:
+
+- Stable ordering helps make repeated parser results reproducible.
+- It does not establish that the chosen interpretation is uniquely correct.
+- It does not remove grammatical or lexical ambiguity.
+- It does not replace explicit rule priorities or an application-defined ranking policy.
+
+This distinction is valuable for reproducible parsing experiments, regression analysis, and ambiguity-aware processing.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://lark-parser.readthedocs.io\&sz=32)
+
+Lark documentation+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/parsers/earley.py`
+
+### 1.3 Parser and lexer defaults are consequential
+
+Lark's defaults are not equivalent to choosing the fastest deterministic configuration.
+
+Without an explicit parser selection, Lark 1.3.1 uses:
+
+```
+parser="earley"lexer="auto"ambiguity="auto"priority="auto"ordered_sets=True
+```
+
+The automatic settings are resolved during construction:
+
+| Parser configuration      | Automatic lexer | Ambiguity behavior                              |
+| ------------------------- | --------------- | ----------------------------------------------- |
+| Earley, without postlexer | `dynamic`       | `"resolve"`                                     |
+| LALR                      | `contextual`    | Deterministic parsing; no Earley ambiguity mode |
+| Earley, with postlexer    | `basic`         | `"resolve"` unless explicitly changed           |
+| Legacy CYK                | `basic`         | Backend-specific limitations                    |
+
+The Earley-with-postlexer exception is especially important and is developed further below.
+
+An unspecified parser therefore normally selects the generalized parsing engine, not LALR. This is a material consideration when interpreting the runtime characteristics of an otherwise identical grammar.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lark.py`
+
+## 2. Lexer-only processing and deeper lexical extensibility
+
+Extends original sections 4.5–4.7 and 10.1.
+
+### 2.1 Standalone lexical compilation with `parser=None`
+
+Lark can compile a grammar's lexical definitions without constructing any syntactic parser.
+
+This uses `parser=None` together with an explicit basic lexer.
+
+```
+from lark import Larklexer = Lark(    r"""    NAME: /[a-zA-Z_][a-zA-Z0-9_]*/    NUMBER: /[0-9]+/    WS: /[ \t]+/    %ignore WS    """,    parser=None,    lexer="basic",)tokens = list(lexer.lex("alpha 123"))
+```
+
+The output consists of `Token` objects carrying their recognized terminal types, values, and source metadata.
+
+The distinctive implementation behavior is that lexer-only compilation retains all declared terminals rather than pruning definitions that cannot be reached from the parser's start symbol.
+
+When a complete parser is constructed, Lark normally analyzes which grammar rules and terminals are relevant to the selected entry points. In lexer-only mode, retaining all terminals allows the grammar to function as an independently usable lexical specification.
+
+This provides several capabilities without requiring a syntactic start rule:
+
+- Lexical normalization and token classification over structured text.
+- Reuse of a common terminal vocabulary across multiple grammars.
+- Tokenization of input intended for another structural or semantic processing system.
+- Independent analysis of token boundaries and lexical precedence.
+- Grammar-defined token processing without maintaining a separate tokenizer implementation.
+
+The main boundary is that lexical recognition does not establish that the resulting token sequence conforms to a context-free grammar.
+
+LALR parser states, Earley alternatives, and ordinary syntax-tree construction are absent from this mode.
+
+An explicit `lexer="basic"` is important because 1.3.1's `lexer="auto"` resolution does not define a special automatic strategy for `parser=None`.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lark.py`
+
+### 2.2 Exposing otherwise ignored tokens with `Lark.lex(dont_ignore=True)`
+
+`Lark.lex()` accepts a `dont_ignore` argument that changes how `%ignore` declarations are treated during standalone lexing.
+
+```
+all_tokens = list(    lexer.lex(        "alpha 123",        dont_ignore=True,    ))
+```
+
+With the grammar in the previous example, the resulting sequence includes the `WS` token between `NAME` and `NUMBER`.
+
+By contrast, ordinary lexing omits it.
+
+This provides a direct mechanism for recovering lexical material that the syntactic parser would otherwise discard.
+
+The capability is useful when token-level information must include whitespace, comments, or other syntactically insignificant material.
+
+However, it has important boundaries.
+
+`Lark.lex()` is documented principally for the basic lexer. It should not be treated as a way of reproducing the exact state-dependent decisions made by a contextual lexer during LALR parsing.
+
+Also, recovering ignored tokens does not automatically attach them to corresponding syntax-tree nodes or preserve every original formatting distinction.
+
+A source-preserving representation must still define how the complete token sequence relates to the syntactic structure produced by the parser.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://lark-parser.readthedocs.io/en/stable/classes.html`
+
+### 2.3 Metadata-preserving token transformations
+
+Lark provides two token-construction utilities that are particularly relevant when modifying lexical values while maintaining source alignment.
+
+`Token.update()` constructs a replacement token while preserving the original token's positional attributes.
+
+`Token.new_borrow_pos()` constructs a token with a specified type and value while borrowing positional information from another token.
+
+For example:
+
+```
+original = Token(    "NAME",    "Alpha",    start_pos=10,    line=2,    column=4,    end_line=2,    end_column=9,    end_pos=15,)normalized = original.update(value="alpha")replacement = Token.new_borrow_pos(    "IDENTIFIER",    "alpha",    original,)
+```
+
+Both replacement tokens preserve the source coordinates of `original`.
+
+This is useful for lexical canonicalization, token-type rewriting, and other transformations where the processed representation differs from the original spelling.
+
+There is an important semantic limitation: the borrowed source span is not recalculated to match the replacement value.
+
+If `"Alpha"` is replaced with a string of a different length, the token's positions still describe the original source. This is appropriate for provenance-oriented transformations, but not necessarily for describing offsets in regenerated output.
+
+The preferred approach depends on which coordinate system the token is intended to represent.
+
+The 1.3.1 implementation also deprecates the `type_` keyword of `Token.update()` in favor of `type`. This deprecation concerns that method's keyword argument; the separate `Token.new_borrow_pos(type_, ...)` signature retains its own parameter naming.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lexer.py`
+
+### 2.4 `postlex.always_accept` and contextual lexical visibility
+
+A postlexer can provide an `always_accept` iterable containing terminal names that must remain visible to lexical processing regardless of the current parser state's ordinary expected terminals.
+
+The 1.3.1 implementation uses this information in two distinct places:
+
+1. During grammar compilation, the named terminals are preserved even if they would otherwise be removed as unreachable from the selected syntax.
+2. During contextual lexing, the named terminals are included in the terminal set considered at each parser state.
+
+The second mechanism is particularly important.
+
+Ordinary contextual lexing restricts lexical candidates based on the parser's current state. That restriction improves efficiency and resolves many token conflicts, but a postlexer may need to observe tokens that are not directly expected by the grammar at that position.
+
+For example, indentation processing needs to inspect physical newline tokens to determine indentation changes. These newlines may not be the same tokens ultimately consumed by the grammar after the postlexer inserts indentation or dedentation markers.
+
+`Indenter.always_accept` supplies its configured newline terminal type, allowing the postlexer to observe those tokens.
+
+The interaction is therefore:
+
+Grammar terminal retention + parser-state lexical visibility + postlexer transformation.
+
+This is more capable than a simple token-stream filter, because it provides the postlexer with tokens that contextual lexing might otherwise suppress.
+
+The tradeoff is that universally accepted lexical candidates can weaken contextual lexing's ability to restrict matching to the precise syntactic context. Such tokens should therefore be selected deliberately.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lark.py`
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lexer.py`
+
+### 2.5 A postlexer can silently change the Earley lexer strategy
+
+A particularly consequential configuration interaction occurs when Earley parsing uses automatic lexer selection.
+
+Ordinarily:
+
+```
+Lark(grammar, parser="earley")
+```
+
+selects the dynamic lexer.
+
+However:
+
+```
+Lark(    grammar,    parser="earley",    postlex=custom_postlexer,)
+```
+
+selects the basic lexer when `lexer="auto"` is retained.
+
+This behavior exists because Lark does not support postlex processing with its dynamic or exhaustive dynamic lexer strategies.
+
+The change is not merely an implementation optimization.
+
+With a dynamic lexer, tokenization can remain integrated with Earley's syntactic exploration. With a basic lexer, token boundaries and terminal choices are resolved before parsing according to the basic lexer's precedence rules.
+
+Consequently, a grammar that relies on dynamic lexical ambiguity may produce different behavior when a postlexer is introduced, even if that postlexer appears to perform only a minor transformation.
+
+If `lexer="dynamic"` or `"dynamic_complete"` is specified explicitly alongside `postlex`, Lark raises a configuration error rather than silently changing the selected lexer.
+
+This distinction matters for any design combining ambiguity-aware parsing with preprocessing that modifies the token stream.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lark.py`
+
+## 3. Original-source coordinates and specialized metadata propagation
+
+Extends original sections 4.7, 6.3, and 7.4.
+
+### 3.1 `TextSlice` retains original-document positions
+
+The original reference correctly identifies `TextSlice` as a zero-copy mechanism for parsing a region of an existing string or byte buffer. An additional property is that its parsing positions remain anchored to the underlying original input.
+
+For supported basic and contextual lexers, a token matched within a `TextSlice` receives source coordinates corresponding to its position in the complete input, rather than coordinates reset to the beginning of the slice.
+
+This applies to character offsets and line/column information.
+
+For example, a token beginning at character 1,000 of the original text continues to report `start_pos=1000` when parsed through a slice beginning at that offset.
+
+This creates a useful distinction between two types of region processing:
+
+- Substring parsing: Construct a new string from part of the original document, then parse it. Position offsets are relative to that new string.
+- `TextSlice` parsing: Parse a view of the original document while retaining the original coordinate system.
+
+The second representation can avoid an additional coordinate-translation layer when processing extracted regions independently.
+
+#### Zero-copy does not mean constant-time initialization
+
+The underlying implementation contains another important detail.
+
+When parsing a slice that starts after offset zero, Lark's `LexerState` initializes its line counter by processing the original input preceding the slice.
+
+This allows it to establish the correct line and column coordinates at the slice's starting position.
+
+Consequently, `TextSlice` avoids constructing an independent substring, but creating a new lexical state can still involve work proportional to the preceding input's length.
+
+For workloads involving many independently parsed slices of a large document, avoiding string allocation does not necessarily eliminate repeated source-position bookkeeping.
+
+An existing `LineCounter` can be supplied to lower-level `LexerState` construction, but that is an implementation-level facility rather than an exposed incremental-document parsing API.
+
+The resulting distinction is:
+
+Zero-copy input selection, original-source coordinate preservation, and incremental parsing-state reuse are three separate capabilities.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lexer.py`
+
+`https://lark-parser.readthedocs.io/en/stable/classes.html`
+
+### 3.2 The `__lark_meta__()` extension protocol
+
+Lark's position-propagation implementation supports source metadata supplied by certain user-defined objects.
+
+When calculating the source span of a tree node from its children, it recognizes three categories:
+
+1. `Tree` instances with nonempty metadata.
+2. `Token` instances carrying lexical positions.
+3. Other objects exposing a `__lark_meta__()` method.
+
+For the third category, Lark invokes the method and uses the returned object as the source of positional information.
+
+This allows custom semantic objects to participate in the position calculations of surrounding syntax-tree nodes.
+
+A custom object may therefore retain source-location semantics even after a transformer has replaced its original `Tree` or `Token` representation.
+
+An illustrative implementation could expose:
+
+```
+class SemanticNode:    def __init__(self, value, meta):        self.value = value        self.meta = meta    def __lark_meta__(self):        return self.meta
+```
+
+The returned metadata object must expose the relevant positional attributes expected by Lark's position-propagation implementation.
+
+This is especially relevant to hybrid parsing representations in which some grammatical productions are immediately transformed into domain objects, while other productions remain represented as ordinary syntax trees.
+
+However, the scope of the mechanism is limited:
+
+- It participates in `PropagatePositions` processing when the node builder returns a `Tree`.
+- It does not automatically propagate metadata throughout arbitrary application object graphs.
+- It does not replace the documented `WithMeta` mechanism for AST construction.
+- It is a source-supported protocol, but not a prominently documented stable public interface.
+
+The last distinction matters because reliance on internal implementation behavior carries greater compatibility risk than reliance on an explicitly documented API.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/parse_tree_builder.py`
+
+## 4. Structural pattern matching, tree manipulation, and ownership semantics
+
+Extends original sections 6.2, 6.3, 7.2, and 12.4.
+
+### 4.1 Correction: structural matching uses Python's `match` statement, not `Tree.match()`
+
+The original reference identifies `Tree.match()` as an available method. This is incorrect for Lark 1.3.1.
+
+Lark 1.3.0 introduced support for Python structural pattern matching on `Tree` objects. The capability is implemented through:
+
+```
+Tree.__match_args__ = ("data", "children")
+```
+
+Likewise, token objects support matching through:
+
+```
+Token.__match_args__ = ("type", "value")
+```
+
+These attributes let Python's structural pattern-matching mechanism inspect tree and token structure directly.
+
+For example:
+
+```
+from lark import Tree, Tokenmatch node:    case Tree(        "assignment",        [Token("NAME", name), expression]    ):        process_assignment(name, expression)    case Tree("number", [value]):        process_number(value)
+```
+
+This enables concise, declarative structural dispatch without creating a custom visitor or transformer for every localized pattern.
+
+It is particularly useful for matching known structural forms, inspecting particular productions, and implementing targeted syntax transformations.
+
+Important distinctions:
+
+- Structural pattern matching is provided by Python 3.10+, not by a separate Lark pattern-matching engine.
+- Patterns operate on the structure and objects actually present in the tree.
+- They do not automatically provide variable binding across arbitrary grammar derivations, recursive grammar validation, or subtree rewriting.
+- Python class-pattern matching should not be confused with Lark's grammar-aware tree-template translation facilities.
+
+The correction applies to the original guide's sections 6.2 and 14. Both should describe structural pattern matching rather than `Tree.match()`.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tree.py`
+
+`https://github.com/lark-parser/lark/releases/tag/1.3.0`
+
+### 4.2 Selective structural flattening with `Tree.expand_kids_by_data()`
+
+Lark includes a narrowly targeted tree-rewriting method:
+
+```
+tree.expand_kids_by_data(*data_values)
+```
+
+It examines the immediate child nodes of the selected tree.
+
+Whenever a child is itself a `Tree` whose `data` matches one of the requested values, the method replaces that child with its own children.
+
+For example, the structural representation:
+
+```
+root
+  wrapper
+    item_a
+    item_b
+  item_c
+```
+
+can become:
+
+```
+root
+  item_a
+  item_b
+  item_c
+```
+
+by executing:
+
+```
+tree.expand_kids_by_data("wrapper")
+```
+
+The operation returns `True` when at least one child was expanded, and `False` otherwise.
+
+This is useful for removing intermediate grouping nodes introduced by grammar construction or for normalizing selected tree shapes before subsequent processing.
+
+Its implementation characteristics are important:
+
+- The operation mutates the parent tree in place.
+- It processes immediate children rather than performing arbitrary recursive flattening.
+- It reuses the expanded child's existing child objects.
+- It does not automatically repair or recalculate the parent's positional metadata.
+
+The method therefore provides a convenient structural primitive, but not a fully provenance-aware rewrite operation.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tree.py`
+
+### 4.3 Traversal ordering and shared-subtree behavior
+
+The distinction between `Tree.iter_subtrees()` and `Tree.iter_subtrees_topdown()` is more consequential than their names suggest.
+
+`iter_subtrees()` returns subtrees in a bottom-up order and avoids returning the same object more than once when nodes are structurally shared.
+
+`iter_subtrees_topdown()` instead performs a preorder depth-first traversal using an explicit stack.
+
+There is a discrepancy between its documentation and implementation: the method's docstring calls this breadth-first iteration, but the 1.3.1 implementation uses last-in-first-out traversal.
+
+It also does not maintain a visited-node identity set.
+
+Consequently, if two parent references point to the same subtree object, `iter_subtrees_topdown()` may visit that object more than once.
+
+This creates two distinct traversal behaviors:
+
+| Operation                 | Ordering             | Shared-node treatment                   |
+| ------------------------- | -------------------- | --------------------------------------- |
+| `iter_subtrees()`         | Bottom-up            | Avoids repeated visits to the same node |
+| `iter_subtrees_topdown()` | Preorder depth-first | May revisit shared nodes                |
+
+These differences can materially affect semantic analyses that accumulate information, mutate nodes, or assume that each structural object receives exactly one callback.
+
+In a graph-shaped tree representation, repeated traversal of shared nodes is not equivalent to visiting each independently owned syntax node.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tree.py`
+
+### 4.4 `Tree.copy()` is shallow and does not preserve root metadata
+
+Lark's `Tree.copy()` is a shallow operation with unusually important implications for metadata and object ownership.
+
+The 1.3.1 implementation is effectively:
+
+```
+def copy(self):    return type(self)(self.data, self.children)
+```
+
+This creates a new `Tree` instance but passes the original `children` list without copying it.
+
+It also does not pass the original tree's `meta` object.
+
+Consequently:
+
+- The original and copied trees initially reference the same children list.
+- Mutating that list through one tree can affect the other.
+- Child objects remain shared.
+- The root's original metadata is not carried into the copied tree.
+- Accessing the copied tree's metadata produces a new, initially empty metadata object.
+
+This differs from a conventional expectation that copying a structured object might at least retain its scalar metadata while creating an independent container.
+
+For immutable inspection, the shared children may be harmless. For transformation pipelines that modify the tree, the ownership behavior can lead to unexpected side effects.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tree.py`
+
+### 4.5 Deep copying and serialization have separate metadata losses
+
+The behavior of `copy.deepcopy()` is also important.
+
+In 1.3.1, `Tree.__deepcopy__()` recursively copies the children but passes the original `Meta` object to the new tree.
+
+Therefore, deep copying does not necessarily create an independent provenance representation.
+
+The original and copied trees can share the same metadata object despite having independently copied child lists.
+
+An additional issue occurs with tokens.
+
+`Token.__deepcopy__()` constructs a new token with its type, value, starting position, line, and column, but omits the original token's ending positional fields.
+
+Those omitted fields include:
+
+- `end_pos`
+- `end_line`
+- `end_column`
+
+Token pickling has a similar limitation. The tagged implementation's `Token.__reduce__()` also supplies only the starting positional fields for reconstruction.
+
+I verified the resulting behavior against Lark 1.3.1: both deep copying and pickling a position-annotated token can produce a token whose end-position attributes are `None`.
+
+| Operation                    | Child independence             | Source metadata consequences                 |
+| ---------------------------- | ------------------------------ | -------------------------------------------- |
+| `Tree.copy()`                | No; shares the children list   | Root metadata omitted                        |
+| `copy.deepcopy(Tree)`        | Recursively copies children    | Existing root metadata object shared         |
+| `copy.deepcopy(Token)`       | Produces a new token           | End-position attributes lost                 |
+| Pickle round-trip of `Token` | Produces a reconstructed token | End-position attributes lost                 |
+| `Token.update()`             | Produces a new token           | Original start and end positions retained    |
+| `Token.new_borrow_pos()`     | Produces a new token           | Explicitly borrows another token's positions |
+
+These distinctions matter for systems that treat source offsets as data invariants.
+
+A copied or deserialized syntax representation should not automatically be considered position-equivalent to the original representation.
+
+Where preservation of complete provenance is required, custom copying or serialization logic may be needed.
+
+This is separate from the serialization of compiled `Lark` parser instances. The observations here concern `Tree` and `Token` object behavior, not a claim that all Lark serialization facilities lose positional information.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tree.py`
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/lexer.py`
+
+## 5. Additional Earley forest mechanisms
+
+Extends original sections 5.3–5.6.
+
+### 5.1 `ForestSumVisitor`: priority propagation through derivations
+
+Lark's `ForestSumVisitor` performs priority aggregation over shared packed parse forests.
+
+This is a meaningful part of the native ambiguity-resolution mechanism, beyond the externally visible concepts of rule priorities and prioritized forest alternatives.
+
+The visitor uses bottom-up processing.
+
+For each packed derivation, it calculates a priority from:
+
+- The priority of the applicable completed grammar rule, when present.
+- The priority of its left child, when present.
+- The priority of its right child, when present.
+
+Conceptually:
+
+\\[ P\_{\mathrm{packed}} = P\_{\mathrm{rule}} + P\_{\mathrm{left}} + P\_{\mathrm{right}} \\]
+
+For each symbol node, the propagated priority is then the maximum of its packed alternatives:
+
+\\[ P\_{\mathrm{symbol}} = \max\_{p\in\mathrm{alternatives}} P_p \\]
+
+Intermediate nodes require special treatment to avoid counting a rule's priority repeatedly while traversing its partial derivation representation.
+
+This explains why priority-based ambiguity resolution is not simply a local selection of the production with the highest numeric annotation.
+
+Priorities can accumulate through nested grammatical structures, allowing the ranking of a complete derivation to reflect several contributing productions.
+
+The mechanism also explains why Lark may perform a separate forest traversal for priority propagation.
+
+It would be possible in principle to maintain such information during chart construction, but Lark's implementation documents the potential cost of repeatedly processing Earley items.
+
+The separate forest pass reuses the more compact final representation rather than repeatedly propagating priority information through every intermediate Earley item.
+
+Architectural significance: Lark already supplies a native form of cumulative structural preference. Custom disambiguation machinery can be reserved for ranking policies that are not adequately expressed by additive grammar priorities.
+
+The caveat is that `ForestSumVisitor` is an implementation-level component. Its semantics are useful to understand, but its specific internal interface should not be treated as a broader public ranking framework with independent compatibility guarantees.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/parsers/earley_forest.py`
+
+### 5.2 `ForestToParseTree`: converting ambiguity into conventional trees
+
+The internal `ForestToParseTree` class is responsible for converting an Earley SPPF into ordinary parse-tree results when ambiguity is configured for resolution or explicit tree representation.
+
+It is built on `ForestTransformer` and provides several important behaviors:
+
+| Mechanism                    | Purpose                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| Configurable prioritizer     | Establishes derivation rankings before tree construction                           |
+| `resolve_ambiguity`          | Selects preferred derivations or retains alternatives                              |
+| Rule callbacks               | Applies grammar-specific tree construction                                         |
+| `use_cache`                  | Reuses selected results of packed-node transformation                              |
+| Cycle detection and retreat  | Prevents cyclic derivations from requiring infinite tree expansion                 |
+| Intermediate-node processing | Reconstructs ordinary tree structure from the forest's partial-rule representation |
+
+The treatment of cycles deserves particular attention.
+
+An SPPF may represent grammatically valid cycles corresponding to infinitely many derivations. A finite conventional tree cannot directly represent that infinite family.
+
+`ForestToParseTree` therefore detects cyclic paths and can discard those derivation families while constructing finite tree results.
+
+This is an information-representation boundary, not merely an efficiency optimization.
+
+The original forest can express relationships that a finite tree cannot fully preserve.
+
+Likewise, cached packed-node transformations can preserve computational sharing, but their correctness depends on the semantics of the transformations and whether reusing their results is appropriate.
+
+The internal implementation assumes a particular transformation lifecycle; arbitrary stateful callbacks can invalidate the assumptions behind cached results.
+
+The broader architectural implication is that forest-to-tree conversion involves decisions about ambiguity, cycles, sharing, and semantic evaluation. It should not be viewed as a purely representational conversion with no potential loss of information.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/parsers/earley_forest.py`
+
+### 5.3 Explicit tree and SPPF visualization utilities
+
+Lark includes additional visualization functions beyond its ordinary tree pretty-printing support.
+
+For conventional trees, the `lark.tree` module includes:
+
+| Function                 | Output               |
+| ------------------------ | -------------------- |
+| `pydot__tree_to_graph()` | A pydot graph object |
+| `pydot__tree_to_dot()`   | A Graphviz DOT file  |
+| `pydot__tree_to_png()`   | A PNG image          |
+
+These functions support options such as graph direction and selected Graphviz graph attributes.
+
+They visualize tree structure, rather than providing a visual representation of every source metadata field.
+
+For parse forests, `ForestToPyDotVisitor` traverses an SPPF and generates a PNG representation through pydot.
+
+Unlike conventional tree visualization, the forest representation exposes relationships between symbol nodes, packed derivations, intermediate nodes, and token nodes.
+
+This can be useful for understanding how ambiguity is shared and how different derivations occupy common substructures.
+
+The upstream source explicitly cautions that forest visualizations can become very large. Accordingly, the facility is most appropriate for small diagnostic examples and investigation of grammar behavior.
+
+The required visualization dependency is the separate pydot/Graphviz tooling, not a new parsing backend.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/parsers/earley_forest.py`
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tree.py`
+
+## 6. Further AST generation and grammar-inspection extension points
+
+Extends original sections 7.6 and 10.1.
+
+### 6.1 Custom callback decoration in `ast_utils.create_transformer()`
+
+The original guide describes automatic AST transformer generation through `lark.ast_utils.create_transformer()`.
+
+A further extension point is its `decorator_factory` argument.
+
+The API signature is:
+
+```
+create_transformer(    ast_module,    transformer=None,    decorator_factory=v_args,)
+```
+
+The factory accepts two boolean arguments, `inline` and `meta`, and returns a decorator applied to the generated transformation callback.
+
+The default `v_args` factory provides Lark's standard calling conventions.
+
+A custom factory can alter how generated callbacks are wrapped while retaining the class-discovery and AST-constructor generation mechanism.
+
+This creates an extension point for behavior that should apply consistently across automatically generated AST callbacks.
+
+Potential applications include instrumentation, validation wrappers, standardized exception handling, and callback adaptation.
+
+These are architectural possibilities enabled by the callback-decoration mechanism, not features automatically implemented by `ast_utils`.
+
+The distinction is important because automatic AST synthesis is not limited to the default `v_args` calling convention.
+
+Another behavior worth noting is that `create_transformer()` assigns generated methods onto the supplied transformer instance. Existing methods with the same generated names may therefore be overwritten.
+
+This makes name collisions and the order in which custom behavior is supplied relevant to composition.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://lark-parser.readthedocs.io\&sz=32)
+
+Lark documentation
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/ast_utils.py`
+
+### 6.2 Compiled terminal inspection
+
+`Lark.get_terminal(name)` returns the compiled `TerminalDef` associated with a terminal name.
+
+The definition exposes information such as its name, lexical pattern, and priority.
+
+The pattern object also provides its underlying regular-expression representation through `to_regexp()`.
+
+For example:
+
+```
+terminal = parser.get_terminal("NAME")pattern = terminal.pattern.to_regexp()priority = terminal.priority
+```
+
+This allows inspection of the compiled lexical definition rather than reconstructing its properties from the original grammar text.
+
+It can be useful for grammar diagnostics, lexical introspection, and examining the effects of configured terminal priorities.
+
+However, a terminal definition is not itself a complete representation of contextual lexical behavior. A contextual lexer also considers the parser state's allowable terminals.
+
+Likewise, inspecting the terminal pattern does not reproduce Earley's dynamic lexical exploration or ambiguity-handling behavior.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://lark-parser.readthedocs.io/en/stable/classes.html`
+
+## 7. Additional deployment tooling and ecosystem boundaries
+
+Extends original sections 10.4, 11, and 14.
+
+### 7.1 Standalone parser generation with compression
+
+The standalone generator supports a `--compress` or `-c` option.
+
+For example:
+
+```
+python -m lark.tools.standalone \
+    --compress \
+    -o generated_parser.py \
+    grammar.lark
+```
+
+The option compresses the serialized parser data embedded in the generated Python module.
+
+The 1.3.1 implementation uses pickle serialization, zlib compression, and Base64 encoding to embed the compressed data as Python source.
+
+The generated module reconstructs the serialized parser data when loaded.
+
+This is principally a generated-artifact size optimization. It does not change the underlying grammar or transform LALR into another parsing algorithm.
+
+Compression can reduce the size of the embedded parser data, although its effectiveness depends on the grammar and generated tables. The decompression and deserialization work may also affect module initialization.
+
+The standalone generator includes code from Lark's interactive LALR parser implementation.
+
+Consequently, generated standalone parsers can retain interactive parsing facilities, subject to the reduced API and fixed-grammar limitations of standalone deployment.
+
+These mechanisms are distinct from `Lark.save()` and `Lark.load()`, which operate on prepared parser instances.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+`https://github.com/lark-parser/lark/blob/1.3.1/lark/tools/standalone.py`
+
+### 7.2 Optional dependency families
+
+Lark 1.3.1 publishes four optional dependency extras.
+
+| Extra          | Additional functionality                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| `regex`        | Enables use of the third-party `regex` engine and its enhanced regular-expression functionality |
+| `interegular`  | Enables supported static analysis of overlapping terminal regular expressions                   |
+| `nearley`      | Provides dependencies used by Nearley.js grammar conversion                                     |
+| `atomic-cache` | Supplies optional cache-handling support                                                        |
+
+These extras enable different supplementary capabilities rather than providing alternate implementations of one common facility.
+
+In particular:
+
+- The `regex` extra is associated with regex-engine selection and matching functionality.
+- `interegular` addresses analysis of terminal-pattern collisions, not runtime disambiguation of arbitrary grammars.
+- `nearley` is a grammar-conversion integration, including JavaScript postprocessing concerns.
+- `atomic-cache` affects cache-related handling, rather than the parser's recognition algorithm.
+
+The distinction between parsing behavior and tooling support should remain explicit when describing optional installations.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI
+
+
+
+`https://pypi.org/project/lark/`
+
+### 7.3 Julia interoperability through Lerche.jl
+
+The broader Lark ecosystem also includes Lerche.jl, a partial Julia port of Lark.
+
+Lerche accepts Lark-style EBNF grammars and provides Julia-native parsing and transformation facilities.
+
+However, its own documentation identifies substantial differences from the Python library.
+
+In particular, the repository describes the implementation as based on Lark 0.11.1 and documents the absence of Earley, CYK, and dynamic lexing.
+
+Therefore, Lerche provides partial grammar portability rather than a general equivalent of the Lark 1.3.1 runtime.
+
+This is especially consequential for grammars depending on generalized parsing, dynamic lexical ambiguity, or newer language features introduced after the implementation version on which Lerche was based.
+
+Lerche should be understood as a separate language implementation with its own API, limitations, and compatibility requirements.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/jamesrhester/Lerche.jl`
+
+## 8. Release-specific corrections and capability boundaries
+
+Extends original section 14.
+
+### 8.1 Custom-input support restored in 1.3.1
+
+The 1.3.1 release notes identify a specific correction:
+
+Support for custom input types was restored alongside ordinary text and `TextSlice` inputs.
+
+This is particularly relevant when using a custom lexer that consumes an application-defined input object rather than a string or byte sequence.
+
+The correction should be understood as a compatibility restoration, not the introduction of an entirely new lexer abstraction.
+
+The main Lark API documentation explicitly allows arbitrary input-object types when an appropriate custom lexer has been configured.
+
+This preserves the distinction between conventional text parsing and grammatical processing over externally structured input.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/lark-parser/lark/releases/tag/1.3.1`
+
+### 8.2 Development-only grammar scanning remains excluded
+
+The original guide correctly identifies `Lark.scan()` as a capability documented in the development branch but absent from the 1.3.1 release.
+
+This distinction should be retained.
+
+The development implementation supports searching a larger input for nonoverlapping grammar matches, with restrictions involving parser configuration and associated lexical processing.
+
+However, the tagged 1.3.1 implementation does not expose that method.
+
+It is therefore not a released 1.3.1 capability and should not be presented as an available alternative to ordinary parsing or `TextSlice`-based region processing.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Stable tagged source: `https://github.com/lark-parser/lark/blob/1.3.1/lark/lark.py`
+
+Development source: `https://github.com/lark-parser/lark/blob/master/lark/lark.py`
+
+### 8.3 Corrected and supplemented version-specific findings
+
+| Capability or distinction                                | Lark 1.3.1 status                 | Significance                                                         |
+| -------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------- |
+| Python structural pattern matching on `Tree` and `Token` | Supported                         | Use Python `match` syntax; `Tree.match()` is not available           |
+| `parser=None` with basic lexer                           | Supported                         | Lexer-only compilation retaining all terminals                       |
+| `priority="invert"` / `priority=None`                    | Supported                         | Global priority-policy modification                                  |
+| `ordered_sets`                                           | Supported                         | Stable Earley ordering versus collection overhead                    |
+| `postlex.always_accept`                                  | Supported                         | Terminal retention and contextual lexer visibility                   |
+| `Lark.lex(dont_ignore=True)`                             | Supported                         | Access to otherwise ignored lexical material                         |
+| `Token.update()` / `new_borrow_pos()`                    | Supported                         | Position-preserving token replacement                                |
+| `TextSlice` original-source coordinates                  | Supported                         | Zero-copy region parsing with original coordinate alignment          |
+| `Tree.expand_kids_by_data()`                             | Supported                         | Selective in-place structural flattening                             |
+| `__lark_meta__()`                                        | Internal implementation mechanism | Custom-object metadata participation in position propagation         |
+| `ForestSumVisitor`                                       | Internal component                | Cumulative Earley derivation prioritization                          |
+| `ForestToParseTree`                                      | Internal component                | Forest conversion, ambiguity handling, caching, and cycle processing |
+| Standalone `--compress`                                  | Supported                         | Compressed embedded parser representation                            |
+| Standalone interactive LALR parsing                      | Supported                         | Interactive parsing in generated Python parsers                      |
+| Restored custom-input support                            | 1.3.1 fix                         | Compatibility for custom lexer inputs                                |
+| `Lark.scan()`                                            | Not available in 1.3.1            | Development functionality only                                       |
+
+## 9. Combined architectural implications
+
+Several of these mechanisms become more significant when considered together.
+
+### 9.1 Independent lexical analysis and provenance-preserving transformation
+
+Combining lexer-only compilation, `dont_ignore=True`, token-position borrowing, and original-coordinate `TextSlice` parsing creates a useful foundation for source-aligned lexical processing.
+
+The components support different responsibilities:
+
+- The grammar defines the lexical vocabulary.
+- Lexer-only processing emits typed tokens without syntactic parsing.
+- Ignored-token recovery exposes additional source material.
+- Token replacement permits normalization while retaining original coordinates.
+- `TextSlice` supports independent region processing in the original coordinate system.
+
+The combination can reduce the need for independently implemented tokenizers, token metadata classes, and coordinate-translation logic.
+
+However, it does not automatically provide lossless concrete syntax trees or persistent incremental reparsing.
+
+### 9.2 Ambiguity ranking as a configurable processing layer
+
+Combining Earley parsing, explicit priority policies, `ForestSumVisitor`, and direct forest transformation exposes several levels of interpretation control.
+
+A grammar can recognize alternatives, a priority policy can supply structural preferences, and forest-processing callbacks can implement more specialized evaluation.
+
+This makes it possible to distinguish grammatical feasibility, structural preference, and application-level semantic evaluation without duplicating the grammar.
+
+The strongest limitation remains that cumulative numeric priorities cannot generally express every form of semantic constraint, contextual dependency, or ranking function.
+
+More complex policies require explicit application logic, and forest processing remains subject to the cost of maintaining ambiguity.
+
+### 9.3 Structural processing with explicit provenance guarantees
+
+The interactions between Python structural pattern matching, tree flattening, source metadata, and copying behavior establish an important distinction between structural convenience and information preservation.
+
+Lark offers lightweight primitives for analyzing and modifying syntax trees, but these operations do not all preserve positional metadata, object independence, or source fidelity.
+
+A transformation that is correct at the level of tree structure may not preserve the invariants required for source mapping or later reconstruction.
+
+That distinction is particularly important when structural representations become persistent data rather than temporary intermediate results.
+
+### 9.4 Compile-time specialization versus runtime interpretation
+
+Lexer-only compilation, configurable priority policies, prepared LALR parsers, and standalone generation expose several ways to specialize Lark for different responsibilities.
+
+These mechanisms permit separate compilation and deployment choices for lexical recognition, deterministic syntax processing, and general ambiguity-aware parsing.
+
+They do not all share the same runtime capabilities.
+
+For example, standalone generation remains tied to LALR, while Earley's shared forest processing retains functionality that cannot simply be transferred into an equivalent standalone deterministic parser.
+
+The architectural benefit comes from selecting a consistent combination of capabilities for a given language-processing requirement, rather than assuming that every Lark facility is available under every parser or deployment configuration.
+
+## 10. Addendum scope and verification notes
+
+The material above is intended to be incorporated into the original reference without replacing its descriptions of the primary parsing algorithms, grammar-composition system, transformer families, or interactive parser.
+
+The most important corrections concern `Tree.match()`, tree-copying semantics, token metadata loss during copying and pickling, and the actual traversal behavior of `iter_subtrees_topdown()`.
+
+The most consequential additional capabilities concern global priority control, independent lexer compilation, postlexer interaction with contextual and dynamic lexing, original-source coordinate preservation, and the internal mechanisms governing forest prioritization and conversion.
+
+The statements concerning lower-level implementation behavior were checked against the tagged 1.3.1 source. Selected behaviors—including lexer-only processing, ignored-token recovery, `TextSlice` offsets, structural matching, traversal behavior, copying, and token serialization—were also verified using Lark 1.3.1 in the research environment.
+
+Internal implementation mechanisms have been distinguished from documented public API capabilities, and development-only behavior has not been represented as released functionality.

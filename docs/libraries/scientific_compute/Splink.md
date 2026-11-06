@@ -1381,3 +1381,1235 @@ For deeper investigation beyond the specific API pages cited throughout:
 - Source and test suite: [https://github.com/moj-analytical-services/splink](https://github.com/moj-analytical-services/splink?utm_source=chatgpt.com)
 - Package metadata and optional dependencies: [https://pypi.org/project/splink/5.0.0/](https://pypi.org/project/splink/5.0.0/?utm_source=chatgpt.com)
 - Original Splink research publication: [https://ijpds.org/article/view/1794](https://ijpds.org/article/view/1794?utm_source=chatgpt.com)
+
+# Splink 5.0.0 — Advanced Capabilities Addendum
+
+Research date: November 5, 2026\
+Target version: Splink 5.0.0, released September 28, 2026\
+Companion reference: Splink 5.0.0 — Comprehensive Python Library Capability Reference
+
+## Scope
+
+This addendum documents capabilities, configuration mechanisms, and behavioral distinctions that are absent from or insufficiently developed in the companion reference. It is intended to be read alongside that document rather than replace its explanations of Splink's statistical model, principal APIs, execution architecture, and clustering functionality.
+
+The additions concentrate on multivalued candidate generation, missing-data semantics, compound and phonetic comparisons, probabilistic parameter control, evaluation outputs, and less obvious SQL execution mechanisms.
+
+All described Splink functionality is verified against the version 5 documentation and associated upstream sources. Functionality provided by companion extensions or underlying database engines is distinguished from Splink's own interfaces.
+
+## 1. Multivalued blocking through array explosion
+
+Splink supports blocking directly on individual elements of array-valued attributes. This extends candidate generation beyond scalar equality and makes it possible to discover record pairs sharing any value in a multivalued field without permanently normalizing each source record into multiple records.
+
+### 1.1 The `arrays_to_explode` mechanism
+
+The interfaces are:
+
+```
+block_on(*col_names_or_exprs, arrays_to_explode=None)CustomRule(    blocking_rule,    sql_dialect=None,    arrays_to_explode=None,)
+```
+
+Both accept a list of array-valued input columns whose elements should participate individually in blocking.
+
+For example:
+
+```
+from splink import block_onalias_rule = block_on(    "aliases",    arrays_to_explode=["aliases"],)
+```
+
+If record A contains `["Robert", "Bob"]` and record B contains `["Bob", "Bobby"]`, the rule can generate the pair because the arrays share `"Bob"`.
+
+The underlying candidate-generation operation conceptually expands array elements into join keys, applies equality joins, and maps resulting matches back to original record pairs.
+
+This differs from a conventional scalar blocking rule, which compares complete column values, and from an array-intersection comparison, which evaluates similarity only after the candidate pair has been generated.
+
+Splink's current cookbook explicitly demonstrates array-exploding blocking in conjunction with `ArrayIntersectAtSizes`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 1.2 Combining array blocking with compound conditions
+
+Array expansion can participate in compound blocking expressions.
+
+For instance, records might contain multiple historical postal codes and a scalar country field:
+
+```
+blocking_rule = block_on(    "historical_postcodes",    "country",    arrays_to_explode=["historical_postcodes"],)
+```
+
+The intended semantics are that a pair must share an individual historical postcode and agree on country.
+
+This permits selective matching over multivalued attributes without requiring a general array-overlap predicate across every potential pair.
+
+`CustomRule` supplies a complementary route when the blocking condition requires more elaborate SQL.
+
+### 1.3 Interactions with comparison modeling
+
+Array explosion creates candidates; it does not determine the probabilistic evidence associated with the shared array elements.
+
+After candidate generation, Splink can apply an array-aware comparison such as:
+
+```
+import splink.comparison_library as clcomparison = cl.ArrayIntersectAtSizes(    "historical_postcodes",    [2, 1],)
+```
+
+A candidate found because of one shared value can therefore receive different comparison evidence from a candidate whose arrays share multiple values.
+
+This separation is valuable because blocking does not need to encode the complete strength or structure of a match. A relatively permissive array-based candidate rule can be combined with a more discriminating probabilistic comparison.
+
+### 1.4 Performance and semantic limitations
+
+Array-exploding blocking introduces several considerations.
+
+Intermediate cardinality. A record with many array elements contributes multiple candidate join keys. The computational benefit depends on whether the resulting equality joins are sufficiently selective.
+
+Skewed elements. Common aliases, generic identifiers, or frequently occurring classifications can generate disproportionately large candidate groups. Frequency-based evidence weighting does not itself reduce the candidate-generation cost.
+
+Overlapping candidates. Two records might share several array values or satisfy multiple blocking rules. Splink handles candidate deduplication, so duplicated candidate-generation paths do not need to become separate probabilistic predictions.
+
+Element semantics. Exact equality of individual array elements is still subject to normalization. Array explosion does not introduce fuzzy matching between different elements unless the blocking predicate explicitly supplies that behavior.
+
+The mechanism is particularly consequential when source records contain multiple aliases, addresses, associated identifiers, classifications, or other alternative representations.
+
+Primary sources
+
+Blocking API:\
+[https://moj-analytical-services.github.io/splink/api_docs/blocking.html](https://moj-analytical-services.github.io/splink/api_docs/blocking.html?utm_source=chatgpt.com)
+
+Official array-blocking example:\
+[https://moj-analytical-services.github.io/splink/demos/examples/duckdb_no_test/cookbook.html](https://moj-analytical-services.github.io/splink/demos/examples/duckdb_no_test/cookbook.html?utm_source=chatgpt.com)
+
+## 2. Missing-value semantics, invalid data, and neutral evidence
+
+Splink's treatment of missing comparison values is a substantive statistical modeling choice, not simply an implementation detail of SQL `NULL` handling.
+
+### 2.1 Null comparison levels contribute zero evidence
+
+A comparison level marked with:
+
+```
+is_null_level=True
+```
+
+has two special behaviors:
+
+- Its \\(m\\) and \\(u\\) probabilities are not estimated.
+- Its contribution to the pairwise match weight is zero.
+
+If a comparison observes missing data and enters its null level, it neither increases nor decreases the evidence for a match.
+
+In the base-2 log-likelihood formulation, this is equivalent to assigning a neutral likelihood ratio of one:
+
+\\[ W\_{\mathrm{null}}=0,\qquad 2^{W\_{\mathrm{null}}}=1 \\]
+
+For example, suppose a pair has evidence weights of \\(+5\\) from one comparison and \\(-2\\) from another. If a third comparison is null, its contribution is zero; the evidence sum remains \\(+3\\), before incorporating the model prior and other adjustments.
+
+The absence of a value is therefore distinguished from disagreement between two observed values.
+
+Splink's settings documentation explicitly associates this treatment with an assumption that missing information can be ignored for linkage evidence under a missing-at-random model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 2.2 When neutral missingness can be misleading
+
+The distinction becomes important when missingness is statistically informative.
+
+For example:
+
+- One source systematically omits secondary identifiers.
+- Certain records contain missing addresses because of a particular collection process.
+- Some identifiers are absent specifically when they could not be validated.
+- Missing information is correlated with the identity of the entity or its source.
+
+Under these conditions, treating every missing observation as neutral may discard relevant information. It can also interact with Splink's conditional-independence assumptions and the representativeness of its parameter estimates.
+
+Splink does not automatically estimate a separate probabilistic missingness model.
+
+If missingness itself should contribute evidence, it can instead be represented using suitable derived attributes or custom comparison conditions, with their probabilities estimated or otherwise justified explicitly.
+
+That is a modeling extension, rather than the default meaning of `NullLevel`.
+
+### 2.3 Invalid-value detection using `NullLevel`
+
+The comparison-level library exposes:
+
+```
+NullLevel(    col_name,    valid_string_pattern=None,)
+```
+
+The `valid_string_pattern` argument allows validation to be incorporated into null handling.
+
+Splink applies regular-expression extraction and then evaluates whether the resulting value is null. Consequently, strings that do not contain a valid extractable representation can be directed into the null comparison level.
+
+This provides a way to treat malformed input as unavailable evidence rather than allowing two identically malformed values to count as an exact match.
+
+The mechanism does not perform general schema validation or repair malformed values. It determines how such values participate in the comparison model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 2.4 Specialized invalid-value behavior
+
+Several built-in comparisons incorporate related controls:
+
+| Comparison                           | Configuration               | Behavior                                                                                          |
+| ------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------- |
+| `PostcodeComparison`                 | `invalid_postcodes_as_null` | Treats invalid UK postcode representations as missing evidence                                    |
+| `DateOfBirthComparison`              | `invalid_dates_as_null`     | When using string inputs, prevents malformed dates from being treated as ordinary matching values |
+| `AbsoluteTimeDifferenceAtThresholds` | `invalid_dates_as_null`     | Supports null treatment for invalid date/time strings                                             |
+
+These are comparison-specific facilities rather than one universal data-validation mechanism.
+
+For instance, `PostcodeComparison` defaults `invalid_postcodes_as_null` to `False`, while the documented date-comparison defaults differ.
+
+The interaction between validation and evidence is consequential: identifying a value as invalid can change a potentially positive or negative comparison result into a neutral contribution.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 2.5 Architectural significance
+
+Splink can distinguish three states that a simplistic matching implementation may collapse:
+
+1. Agreement between valid observed values.
+2. Disagreement between valid observed values.
+3. Unavailable or invalid evidence that should not contribute to the score.
+
+These states have different statistical implications.
+
+Native null-level handling avoids the need for every caller to construct separate missing-value scoring rules, while custom levels permit other assumptions when the missingness process itself requires modeling.
+
+Primary sources
+
+Settings and null-weight semantics:\
+[https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html](https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html?utm_source=chatgpt.com)
+
+Comparison-level API:\
+[https://moj-analytical-services.github.io/splink/api_docs/comparison_level_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_level_library.html?utm_source=chatgpt.com)
+
+Comparison templates:\
+[https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html?utm_source=chatgpt.com)
+
+## 3. Phonetic feature engineering and native comparison integration
+
+Splink can incorporate phonetic similarity into its ordinary probabilistic comparison model. Its `NameComparison` template specifically supports Double Metaphone representations, while the companion DuckDB `splink_udfs` extension supplies SQL functions for generating those representations.
+
+This combination allows phonetic matching to participate in both candidate generation and evidence scoring without requiring a separate Python matching subsystem.
+
+### 3.1 Double Metaphone in `NameComparison`
+
+The template exposes:
+
+```
+NameComparison(    col_name,    *,    jaro_winkler_thresholds=[0.92, 0.88, 0.7],    dmeta_col_name=None,)
+```
+
+When `dmeta_col_name` is supplied, Splink introduces a phonetic comparison level based on the intersection of two arrays of Double Metaphone codes.
+
+The input column must already exist and contain arrays of one or two phonetic codes. Splink does not automatically compute those codes when the comparison is instantiated.
+
+For example:
+
+```
+import splink.comparison_library as clcomparison = cl.NameComparison(    "person_name",    dmeta_col_name="person_name_phonetic",)
+```
+
+The documented default ordering places the phonetic-intersection condition between stronger and weaker Jaro–Winkler similarity thresholds.
+
+This produces an important distinction: phonetic agreement is not simply appended to an existing string-similarity score. It becomes its own mutually exclusive comparison level, with an estimable likelihood ratio.
+
+A pair might therefore fail stronger character-similarity thresholds but receive evidence from phonetic agreement.
+
+As with other comparison levels, its statistical contribution depends on the estimated matching and nonmatching distributions. Phonetic agreement is not inherently proof of identity.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 3.2 The `splink_udfs` DuckDB extension
+
+The DuckDB community extension `splink_udfs` provides functions that complement Splink's SQL comparison architecture.
+
+Its published functionality includes:
+
+| Function                                  | Capability                                                    |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| `double_metaphone(str)`                   | Generate primary and alternative phonetic codes               |
+| `soundex(str)`                            | Generate a Soundex phonetic representation                    |
+| `strip_diacritics(str)` / `unaccent(str)` | Normalize accented text                                       |
+| `ngrams(list, n)`                         | Generate n-grams from lists                                   |
+| `levenshtein`                             | Alternative implementation of edit distance                   |
+| `damerau_levenshtein`                     | Alternative implementation supporting adjacent transpositions |
+
+The extension also exposes additional functions, including address-related functionality, whose behavior is maintained separately from Splink's core comparison API.
+
+The documented installation and loading interface is:
+
+```
+INSTALL splink_udfs FROM community;
+LOAD splink_udfs;
+```
+
+These statements are executed against a DuckDB connection. That same connection can subsequently be supplied to `DuckDBAPI` so derived features and Splink's relational operations share an execution environment.
+
+The extension is optional. Its function availability and binary compatibility depend on the DuckDB version and supported platform, rather than solely on the installed Splink version.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB Community Extensions
+
+
+
+### 3.3 Combining phonetic generation, blocking, and scoring
+
+A SQL-centered workflow can compose these capabilities as follows:
+
+1. Normalize source strings using DuckDB expressions or compatible extension functions.
+2. Generate Double Metaphone arrays as derived columns.
+3. Use the arrays in `NameComparison`.
+4. Optionally generate candidate pairs through phonetic-code equality, including array-exploding blocking.
+5. Estimate the corresponding probabilistic evidence from training data.
+
+The fourth and fifth operations should be distinguished.
+
+Phonetic blocking increases candidate coverage for differently spelled values with matching phonetic codes. Phonetic comparison levels determine how much evidence those matches contribute.
+
+A phonetic blocking rule can also be highly permissive. Different names may collapse to the same phonetic representation, creating large candidate groups. Such rules are often more effective when combined with additional selective attributes.
+
+The `splink_udfs` implementation is specific to DuckDB. Other Splink backends require compatible functions or separately generated phonetic columns.
+
+Primary sources
+
+Phonetic algorithms and name comparison:\
+[https://moj-analytical-services.github.io/splink/topic_guides/comparisons/phonetic.html](https://moj-analytical-services.github.io/splink/topic_guides/comparisons/phonetic.html?utm_source=chatgpt.com)
+
+Feature-engineering guide:\
+[https://moj-analytical-services.github.io/splink/topic_guides/data_preparation/feature_engineering.html](https://moj-analytical-services.github.io/splink/topic_guides/data_preparation/feature_engineering.html?utm_source=chatgpt.com)
+
+DuckDB extension documentation:\
+[https://duckdb.org/community_extensions/extensions/splink_udfs](https://duckdb.org/community_extensions/extensions/splink_udfs?utm_source=chatgpt.com)
+
+## 4. Advanced compound comparisons and evidence interactions
+
+Splink's specialized comparison templates encode more than collections of independent similarity thresholds. Some model relationships among multiple attributes, alternative matching patterns, and the frequency of compound identifiers.
+
+These structures can reduce the need for custom comparison logic and, more importantly, avoid some of the statistical problems associated with treating highly related observations as separate evidence.
+
+### 4.1 `ForenameSurnameComparison`: joint identity evidence
+
+The template accepts:
+
+```
+ForenameSurnameComparison(    forename_col_name,    surname_col_name,    *,    jaro_winkler_thresholds=[0.92, 0.88],    forename_surname_concat_col_name=None,)
+```
+
+Its comparison hierarchy distinguishes:
+
+- Both names agreeing exactly.
+- Forename and surname appearing in reversed positions.
+- Both names meeting stronger approximate-similarity thresholds.
+- Both names meeting weaker approximate-similarity thresholds.
+- Surname-only exact agreement.
+- Forename-only exact agreement.
+- Remaining disagreements.
+
+The template also has a special null condition for the compound comparison. Its documented generated form treats the joint evidence as null when both name components are unavailable, rather than automatically discarding every pair in which either individual name is absent.
+
+This permits partial name evidence to remain usable where appropriate.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+#### Compound-name term-frequency adjustments
+
+The `forename_surname_concat_col_name` parameter is particularly consequential.
+
+Consider two common names, John and Smith. The frequencies of the individual components do not necessarily describe the empirical frequency of the full name John Smith.
+
+Likewise, some individually common names form comparatively uncommon combinations.
+
+If a precomputed column contains the canonical full-name representation, the template can use that column for term-frequency adjustment when the full name agrees.
+
+```
+import splink.comparison_library as clcomparison = cl.ForenameSurnameComparison(    "first_name",    "surname",    forename_surname_concat_col_name="full_name",)
+```
+
+This allows the evidence for complete-name agreement to reflect the observed frequency of the complete name, rather than relying exclusively on separate component frequencies.
+
+It also avoids automatically counting forename and surname as two independent probabilistic comparisons in the manner of a naïve field-by-field model.
+
+The compound comparison still has modeling assumptions: it does not learn an unrestricted joint probability distribution over every possible name transformation or error pattern.
+
+Source: [https://moj-analytical-services.github.io/splink/topic_guides/data_preparation/feature_engineering.html](https://moj-analytical-services.github.io/splink/topic_guides/data_preparation/feature_engineering.html?utm_source=chatgpt.com)
+
+### 4.2 `EmailComparison`: full identifiers versus partial identifiers
+
+`EmailComparison` distinguishes several forms of agreement:
+
+| Level                        | Evidence represented                                     |
+| ---------------------------- | -------------------------------------------------------- |
+| Exact full-email match       | Identical complete address                               |
+| Exact username match         | Same local part, potentially different domains           |
+| Approximate full-email match | String similarity across complete addresses              |
+| Approximate username match   | Similar local parts across potentially different domains |
+| Other                        | Remaining combinations                                   |
+
+The distinction is useful because a complete email address and its username component have different identity semantics.
+
+Agreement on an entire address is generally more discriminating than agreement on a short or commonly used username.
+
+Conversely, users can retain a username while moving between organizations or email providers.
+
+By representing these cases as separate levels, Splink can learn different \\(m/u\\) ratios rather than assigning the same weight to every apparent email agreement.
+
+The template is not a comprehensive email-identity normalization engine. Provider-specific aliasing, plus-address handling, domain equivalence, and mailbox ownership semantics require separate treatment where relevant.
+
+Source: [https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html?utm_source=chatgpt.com)
+
+### 4.3 `PostcodeComparison`: hierarchical and geographic agreement
+
+`PostcodeComparison` is specialized for UK postcode structure. It does not provide a universal model for all national postal-code systems.
+
+Its hierarchy includes agreement at the full-postcode, sector, district, and area levels.
+
+This provides graduated evidence rather than treating every nonidentical postcode as complete disagreement.
+
+The template can additionally incorporate geographic distance using precomputed latitude and longitude columns:
+
+```
+comparison = cl.PostcodeComparison(    "postcode",    lat_col="latitude",    long_col="longitude",    km_thresholds=[1, 10],)
+```
+
+When coordinates are provided, the comparison can distinguish postal-code disagreement from geographic proximity.
+
+The coordinates must be supplied beforehand. Splink does not automatically geocode arbitrary postal addresses as part of this comparison.
+
+#### Evidence dependence
+
+Postcode hierarchy and geographic distance are strongly related signals.
+
+Modeling them inside one compound comparison reduces the risk of separately counting full-postcode agreement, postcode-sector agreement, and geographic proximity as independent evidence.
+
+This is useful, but does not eliminate every dependence. A separate city comparison, for example, may still be highly correlated with postcode evidence.
+
+Source: [https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html?utm_source=chatgpt.com)
+
+### 4.4 Term-frequency configuration at comparison and level scope
+
+The existing reference describes term-frequency adjustments in detail. An additional distinction concerns where they are enabled.
+
+At the comparison level, the convenience configuration:
+
+```
+cl.ExactMatch("surname").configure(    term_frequency_adjustments=True)
+```
+
+applies to exact-match comparison levels.
+
+More specialized behavior is available through comparison-level configuration, including:
+
+`tf_adjustment_column`, `tf_adjustment_weight`, `tf_minimum_u_value`, and `disable_tf_exact_match_detection`.
+
+The last setting changes an important detail: it allows the adjustment to use the current level's \\(u\\) value rather than automatically using the \\(u\\) value associated with the exact-match level.
+
+This matters for custom fuzzy or compound levels where the appropriate nonmatch frequency is not the ordinary exact-agreement frequency.
+
+The distinction is between enabling a convenient default frequency adjustment and explicitly defining the statistical baseline for a specialized comparison outcome.
+
+Primary sources
+
+Comparison library and configuration:\
+[https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_library.html?utm_source=chatgpt.com)
+
+Comparison-level configuration:\
+[https://moj-analytical-services.github.io/splink/api_docs/comparison_level_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_level_library.html?utm_source=chatgpt.com)
+
+## 5. Marginal blocking-rule analysis and candidate provenance
+
+Splink's blocking analysis provides more information than the total number of candidates generated by a rule set.
+
+It can distinguish the independent computational contribution of each rule, account for overlap between rules, and identify unusually expensive blocking values.
+
+### 5.1 Marginal versus cumulative comparisons
+
+`count_comparisons_from_blocking_rules()` returns one record per supplied blocking rule.
+
+Two output fields are particularly important:
+
+- `marginal_comparison_count`: additional candidate pairs introduced by the rule, excluding pairs generated by earlier rules.
+- `cumulative_comparison_count`: total distinct candidate pairs generated through the current rule.
+
+Suppose three blocking rules produce the following illustrative counts:
+
+| Rule                      | Marginal pairs | Cumulative pairs |
+| ------------------------- | -------------- | ---------------- |
+| Exact name and birth year | 12,000         | 12,000           |
+| Email username            | 4,000          | 16,000           |
+| Postcode and surname      | 2,500          | 18,500           |
+
+The third rule may generate many raw pair occurrences, but contributes only 2,500 previously unseen candidates.
+
+This distinguishes the computational cost of executing a rule from its contribution to candidate coverage.
+
+It also illustrates why overlapping blocking rules cannot be assessed solely from their independent candidate counts.
+
+### 5.2 Sampling behavior and estimation uncertainty
+
+In version 5, blocking analysis defaults to `record_sample_proportion=0.05`.
+
+The implementation samples records on both sides of the blocking join, calculates the resulting candidate counts, and scales the results to estimate full-dataset counts.
+
+For a sampling proportion \\(p\\), the approximate reduction in candidate comparisons is proportional to \\(p^2\\), assuming the sampled pairs are representative.
+
+This makes blocking analysis substantially less expensive on large datasets, but introduces uncertainty, particularly for rare matching patterns.
+
+The documented API supports:
+
+```
+linker.blocking_analysis.count_comparisons_from_blocking_rules(    record_sample_proportion=1.0)
+```
+
+to request exact counts.
+
+Small sampled pair counts can produce unstable estimates even when the sampled record population appears reasonably large. Splink's scaling tutorial demonstrates this issue and the associated warnings.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 5.3 The `match_key` output
+
+Prediction results can include a `match_key` column identifying the blocking-rule path associated with candidate generation.
+
+Its meaning is operational rather than statistical.
+
+A candidate may satisfy several blocking rules, but Splink avoids generating separate scored copies of the same pair. Consequently, its recorded blocking-rule attribution should not be interpreted as an exhaustive list of all rules the pair satisfies.
+
+It is also not a measure of confidence, similarity, or relative rule quality.
+
+Changing rule order can affect marginal candidate counts and attribution, even when the union of generated candidates remains unchanged.
+
+This distinction matters when inspecting which blocking rules appear to contribute useful matches. Observed match-key frequencies are not equivalent to a controlled measurement of the independent recall provided by each rule.
+
+### 5.4 Pre-filter block sizes versus actual candidate counts
+
+`n_largest_blocks()` identifies large groups associated with blocking values.
+
+Its documented analysis occurs before non-equality filtering conditions are applied. By contrast, `count_comparisons_from_blocking_rules()` calculates candidate counts after the relevant filters.
+
+A large block identified by the first method may therefore generate fewer actual scored pairs if the blocking rule contains additional filtering predicates.
+
+The methods answer different questions:
+
+- Where are potentially expensive groups concentrated?
+- How many candidates survive the complete blocking rule?
+- How much additional candidate coverage does a rule provide?
+
+Together, they provide a more useful basis for analyzing blocking workloads than raw block cardinality alone.
+
+Primary sources
+
+Blocking analysis API:\
+[https://moj-analytical-services.github.io/splink/api_docs/blocking_analysis.html](https://moj-analytical-services.github.io/splink/api_docs/blocking_analysis.html?utm_source=chatgpt.com)
+
+Large-scale blocking analysis:\
+[https://moj-analytical-services.github.io/splink/demos/tutorials/09_scaling_up_techniques.html](https://moj-analytical-services.github.io/splink/demos/tutorials/09_scaling_up_techniques.html?utm_source=chatgpt.com)
+
+## 6. Prediction output structure and retention controls
+
+Splink's prediction tables are not limited to record identifiers and final match probabilities. They can retain comparison outcomes, individual evidence contributions, term-frequency information, and source attributes.
+
+The model settings determine which information remains available for downstream relational analysis.
+
+### 6.1 Output fields and evidence representation
+
+A prediction may expose several distinct classes of columns.
+
+| Field or prefix                        | Interpretation                                   |
+| -------------------------------------- | ------------------------------------------------ |
+| `unique_id_l`, `unique_id_r`           | Source-record identifiers                        |
+| `source_dataset_l`, `source_dataset_r` | Source identities for linkage workflows          |
+| `match_weight`                         | Aggregated log-base-2 match weight               |
+| `match_probability`                    | Model-derived match probability                  |
+| `match_key`                            | Blocking-rule attribution                        |
+| `gamma_*`                              | Discrete comparison-level outcome identifiers    |
+| `mw_*`                                 | Individual comparison match-weight contributions |
+| `tf_*`                                 | Term-frequency information used in scoring       |
+| `*_l`, `*_r`                           | Retained source attributes from the two records  |
+
+The generated prefixes are configurable.
+
+The distinction between `gamma_*` and `mw_*` is particularly useful.
+
+A gamma value identifies the categorical outcome of a comparison. It says which comparison level was selected.
+
+An individual match-weight value represents the statistical evidence associated with that outcome, potentially including its configured term-frequency adjustment.
+
+Two pairs can therefore occupy the same nominal comparison category but receive different final evidence when their frequency adjustments differ.
+
+This makes structured prediction outputs useful for analyzing why apparently similar pairs receive different scores.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 6.2 Retaining source attributes and intermediate calculations
+
+The relevant settings include:
+
+```
+retain_matching_columns=Trueretain_intermediate_calculation_columns=Falseadditional_columns_to_retain=[]
+```
+
+These are the documented defaults.
+
+`retain_matching_columns` preserves original attributes used in the comparison expressions. Disabling it can reduce the amount of data carried through prediction operations.
+
+`retain_intermediate_calculation_columns` controls retention of detailed scoring calculations, including individual evidence contributions. Enabling it increases observability at the cost of larger intermediate or output relations.
+
+`additional_columns_to_retain` preserves fields that would otherwise be excluded because they are not required by the comparison model.
+
+The settings operate independently of whether Splink can compute the relevant comparisons. A source field may be necessary during scoring without needing to remain in the final prediction table.
+
+Retaining extra fields can increase I/O, materialized table size, and the volume of identifying information present in downstream artifacts.
+
+A related interaction is that some interactive diagnostics require more information than minimal prediction outputs provide. The comparison-viewer dashboard, for example, requires matching columns and intermediate calculations to be retained.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+2
+
+
+
+### 6.3 Filtering predictions at materialization time
+
+The principal prediction interfaces accept:
+
+```
+threshold_match_probability=...threshold_match_weight=...
+```
+
+These thresholds filter the scored pairs returned by inference.
+
+Their performance benefit comes primarily from retaining and writing fewer low-scoring results, especially when the prediction output would otherwise be very large.
+
+They should not be understood as reducing the candidate-generation workload. Candidates must still be generated and evaluated sufficiently to determine whether they satisfy the threshold.
+
+Retaining only high-confidence links can also discard evidence useful for subsequent calibration, review, or threshold sensitivity analysis.
+
+The relevant distinction is between reducing the output relation and reducing the number of candidate comparisons performed.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+Primary sources
+
+Settings reference:\
+[https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html](https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html?utm_source=chatgpt.com)
+
+Inference API:\
+[https://moj-analytical-services.github.io/splink/api_docs/inference.html](https://moj-analytical-services.github.io/splink/api_docs/inference.html?utm_source=chatgpt.com)
+
+Performance drivers:\
+[https://moj-analytical-services.github.io/splink/topic_guides/performance/drivers_of_performance.html](https://moj-analytical-services.github.io/splink/topic_guides/performance/drivers_of_performance.html?utm_source=chatgpt.com)
+
+## 7. Fine-grained training controls and statistical parameter lifecycle
+
+Splink provides additional parameter-control functionality beyond selecting EM training rules, fixing whole parameter families, or estimating \\(m\\) and \\(u\\) probabilities.
+
+These controls determine when estimation stops, which individual probabilities can change, and how custom statistical assumptions interact with learned parameters.
+
+### 7.1 EM convergence and iteration limits
+
+The model settings include:
+
+| Setting          | Default  | Meaning                                            |
+| ---------------- | -------- | -------------------------------------------------- |
+| `em_convergence` | `0.0001` | Maximum permitted parameter change for convergence |
+| `max_iterations` | `25`     | Upper bound on EM iterations                       |
+
+`em_convergence` applies to the maximum parameter change between iterations.
+
+`max_iterations` terminates training after the configured number of iterations, even if the convergence criterion has not been met.
+
+These controls address a different dimension from `max_pairs`, which approximately constrains the size of the training workload.
+
+For example, reducing the number of training pairs does not guarantee convergence in fewer iterations. Likewise, increasing the iteration limit cannot correct inadequate training coverage or unidentifiable parameters.
+
+The interaction is important when interpreting EM training histories: training can terminate because it converged, or because it reached an iteration limit.
+
+Source: [https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html](https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html?utm_source=chatgpt.com)
+
+### 7.2 Fixing individual comparison-level probabilities
+
+Comparison-level creators support:
+
+`m_probability`, `u_probability`, `fix_m_probability`, and `fix_u_probability`.
+
+This allows fixed statistical assumptions to be applied at a finer granularity than an entire comparison or complete EM session.
+
+For example, an individual level can be configured to preserve a supplied \\(m\\) estimate:
+
+```
+import splink.comparison_level_library as clllevel = cll.ExactMatchLevel("external_identifier").configure(    m_probability=0.99,    fix_m_probability=True,)
+```
+
+This is an illustrative comparison-level configuration, not an assertion that `0.99` is appropriate for a particular identifier.
+
+The key distinction is between supplying a numerical value and freezing that value during training.
+
+An explicitly initialized probability may otherwise be eligible for estimation. Setting the corresponding `fix_*` option expresses the stronger requirement that training should preserve it.
+
+The mechanism supports mixed models in which some comparison outcomes are learned and others remain constrained by expert knowledge, labeled evidence, or externally estimated parameters.
+
+It does not establish that the manually specified probabilities are statistically consistent with the remaining estimated parameters.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 7.3 Comparison-level versus training-session controls
+
+There are two different scopes of parameter control.
+
+At the comparison-level scope, `fix_m_probability` and `fix_u_probability` constrain individual outcomes.
+
+At the EM-session scope, `fix_m_probabilities` and `fix_u_probabilities` determine whether whole parameter families are updated during that training operation.
+
+The latter controls are broader and can override the practical ability to estimate a family even when individual levels are otherwise trainable.
+
+A related distinction concerns the match prior. An EM session can estimate an internal prior while not automatically propagating that estimate back into the overall linkage model.
+
+Consequently, convergence of an EM session does not necessarily imply that every estimated quantity becomes part of the subsequently applied prediction model.
+
+These behaviors are important when interpreting multiple EM training passes as a coherent final parameter set.
+
+### 7.4 Training assumptions and term-frequency adjustments
+
+EM training can use the `estimate_without_term_frequencies` option to skip term-frequency adjustments during its iterations.
+
+That can reduce computational cost, but changes the statistical calculation used during training. It should not be described as a numerically identical optimization.
+
+There are therefore distinct choices concerning:
+
+- Which observations enter an EM session.
+- Which probability parameters are fixed.
+- Whether term-frequency adjustments participate in estimation.
+- When iterative estimation stops.
+- Which estimated prior is propagated into the final model.
+
+Splink exposes these controls without requiring callers to implement a separate EM algorithm, but their composition determines the statistical model actually fitted.
+
+Primary sources
+
+Training API:\
+[https://moj-analytical-services.github.io/splink/api_docs/training.html](https://moj-analytical-services.github.io/splink/api_docs/training.html?utm_source=chatgpt.com)
+
+Comparison-level configuration:\
+[https://moj-analytical-services.github.io/splink/api_docs/comparison_level_library.html](https://moj-analytical-services.github.io/splink/api_docs/comparison_level_library.html?utm_source=chatgpt.com)
+
+Model settings:\
+[https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html](https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html?utm_source=chatgpt.com)
+
+## 8. Structured evaluation outputs and clerical-label semantics
+
+Splink's evaluation functions are capable of producing relational accuracy tables, not only charts. They also distinguish thresholding probabilistic ground-truth labels from thresholding predicted match probabilities.
+
+These distinctions are particularly relevant when evaluation outputs need to be analyzed programmatically rather than only inspected visually.
+
+### 8.1 Accessing the underlying evaluation tables
+
+The accuracy-analysis methods support an `output_type` parameter.
+
+Documented values include:
+
+| `output_type`           | Result                                                              |
+| ----------------------- | ------------------------------------------------------------------- |
+| `"threshold_selection"` | Interactive threshold-selection visualization                       |
+| `"accuracy"`            | Accuracy metrics visualization                                      |
+| `"roc"`                 | Receiver operating characteristic chart                             |
+| `"precision_recall"`    | Precision–recall chart                                              |
+| `"table"`               | `SplinkDataFrame` containing threshold-dependent evaluation results |
+
+The table output is especially useful because it exposes the data underlying the visualizations.
+
+For example:
+
+```
+accuracy_table = linker.evaluation.accuracy_analysis_from_labels_table(    labels_table,    output_type="table",    add_metrics=["f1", "phi"],)
+```
+
+The resulting relation includes threshold values, confusion-matrix counts, and derived evaluation metrics.
+
+This enables threshold analysis, comparisons across model variants, and more specialized statistical calculations using the same relational interfaces as other Splink outputs.
+
+The returned `SplinkDataFrame` can also be queried directly with SQL, avoiding conversion of the entire accuracy table into pandas.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 8.2 Threshold rounding and evaluation-table cardinality
+
+Accuracy analysis accepts:
+
+```
+match_weight_round_to_nearest=0.1
+```
+
+The parameter controls rounding of match-weight thresholds when constructing evaluation results.
+
+Without rounding, a large labeled dataset containing many distinct match weights can produce a very large set of threshold points.
+
+Rounding consolidates nearby thresholds, reducing the number of distinct evaluation rows or chart points.
+
+This improves tractability at the cost of threshold resolution.
+
+It should therefore be understood as an evaluation-output granularity control, not a change to the model's underlying pairwise scoring function.
+
+### 8.3 Probabilistic clerical scores versus prediction thresholds
+
+Splink's labeled-pair evaluation supports a `clerical_match_score` column.
+
+This can represent a probability-like assessment supplied by a reviewer or another labeling process, rather than only a binary match indicator.
+
+In `accuracy_analysis_from_labels_table()`, `threshold_match_probability` controls how such scores are converted into binary ground-truth labels.
+
+For example, a clerical score of `0.8` may be considered a positive label when the truth-label threshold is `0.5`, but not when the threshold is `0.9`.
+
+This ground-truth threshold is distinct from the model-decision threshold used to accept predicted record pairs.
+
+The distinction is especially important because the parameter name `threshold_match_probability` also appears in other interfaces.
+
+In `prediction_errors_from_labels_table()`, the parameter determines the match-probability threshold used to classify predictions for false-positive and false-negative analysis.
+
+Consequently, the meaning of the threshold must be interpreted in the context of the particular evaluation API.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 8.4 Training labels and evaluation labels are not interchangeable
+
+There is an additional asymmetry between supervised parameter estimation and evaluation.
+
+`estimate_m_from_pairwise_labels()` treats supplied record pairs as positive matches for estimating the match distribution.
+
+It does not interpret every supplied clerical score as a fractional positive contribution to the \\(m\\)-probability estimates.
+
+Evaluation can instead use clerical-score thresholds to distinguish positive and negative labels.
+
+This means that probabilistic or uncertain annotations cannot automatically be reused with identical semantics across the two operations.
+
+A probabilistic labeling workflow and supervised model estimation may therefore require different transformations of the same source annotations.
+
+Primary sources
+
+Evaluation API:\
+[https://moj-analytical-services.github.io/splink/api_docs/evaluation.html](https://moj-analytical-services.github.io/splink/api_docs/evaluation.html?utm_source=chatgpt.com)
+
+Evaluation tutorial:\
+[https://moj-analytical-services.github.io/splink/demos/tutorials/07_Evaluation.html](https://moj-analytical-services.github.io/splink/demos/tutorials/07_Evaluation.html?utm_source=chatgpt.com)
+
+Accuracy-table examples:\
+[https://moj-analytical-services.github.io/splink/charts/accuracy_analysis_from_labels_table.html](https://moj-analytical-services.github.io/splink/charts/accuracy_analysis_from_labels_table.html?utm_source=chatgpt.com)
+
+## 9. Advanced DuckDB execution and optimization
+
+Splink's DuckDB backend provides additional optimization opportunities associated with SQL expression evaluation, materialization strategy, and prediction partitioning.
+
+These mechanisms are largely orthogonal to the statistical model: they concern how comparisons are executed and how relational intermediate results are retained.
+
+### 9.1 Eliminating repeated fuzzy-function evaluation
+
+A comparison containing several thresholds can generate SQL resembling:
+
+```
+CASE
+    WHEN value_l IS NULL OR value_r IS NULL THEN -1
+    WHEN value_l = value_r THEN 3
+    WHEN jaro_winkler_similarity(value_l, value_r) >= 0.9 THEN 2
+    WHEN jaro_winkler_similarity(value_l, value_r) >= 0.8 THEN 1
+    ELSE 0
+END
+```
+
+The similarity function appears twice in this example.
+
+Although DuckDB can perform common-subexpression elimination, the presence of a preceding null-handling branch can prevent the optimizer from moving the similarity calculation outside the `CASE` expression.
+
+This restriction preserves SQL evaluation semantics.
+
+For example, a similarity function might raise an exception on certain invalid inputs. An early branch could intentionally prevent that function from being evaluated for those rows.
+
+Moving the function outside the conditional structure could invalidate that protection.
+
+### 9.2 Conditional function-hoisting optimization
+
+Splink's official DuckDB performance guide documents a workaround for functions known to be safe to evaluate on every row.
+
+The technique adds a logically impossible function comparison to the first comparison level.
+
+Because the function then appears in the first branch, DuckDB can recognize that evaluating it once and reusing the result does not violate the protection provided by earlier branches.
+
+An illustrative comparison is:
+
+```
+import splink.comparison_library as climport splink.comparison_level_library as cllcomparison = cl.CustomComparison(    output_column_name="label",    comparison_levels=[        cll.CustomLevel(            "jaro_winkler_similarity(label_l, label_r) = -1 "            "OR label_l IS NULL OR label_r IS NULL"        ).configure(is_null_level=True),        cll.ExactMatchLevel("label"),        cll.JaroWinklerLevel("label", 0.93),        cll.JaroWinklerLevel("label", 0.82),        cll.ElseLevel(),    ],)
+```
+
+Jaro–Winkler similarity is bounded between zero and one, so comparison with `-1` cannot be true for a valid similarity result.
+
+The sentinel condition introduces the function into the first branch without changing which rows the null branch selects.
+
+The `is_null_level=True` configuration is essential. It preserves Splink's special statistical treatment of that level, including its zero match-weight contribution.
+
+For safe functions and eligible query plans, the optimization can reduce repeated similarity calculations across thresholds.
+
+It is not appropriate for arbitrary user-defined functions or functions that might raise errors on data normally excluded by earlier conditions.
+
+This technique is documented by Splink rather than inferred solely from general SQL optimization principles.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 9.3 Direct Parquet materialization configuration
+
+The DuckDB backend accepts:
+
+```
+DuckDBAPI(    connection=...,    materialisation="parquet",    materialisation_dir="...",)
+```
+
+For example:
+
+```
+import duckdbfrom splink import DuckDBAPIconnection = duckdb.connect(":memory:")db_api = DuckDBAPI(    connection=connection,    materialisation="parquet",    materialisation_dir="splink_work",)
+```
+
+Splink can materialize intermediate relational results directly to local Parquet files and access them through DuckDB views.
+
+The important distinction is that this is not simply exporting finished predictions to Parquet.
+
+It changes how Splink stores materialized intermediate relations during execution.
+
+The approach can reduce memory requirements for retained intermediate tables and avoid some durability-related database writes associated with persistent DuckDB tables.
+
+However, it does not eliminate the working memory required by joins, sorting, and Parquet writing.
+
+The materialization directory must be local, and it must remain available while dependent relations are in use.
+
+It is not a transparent durable-object-store abstraction. In particular, the documented `materialisation_dir` is not an S3 URL.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 9.4 Chunking is a resource-management mechanism, not an inherent speedup
+
+Splink 5 supports partitioned prediction, but chunking introduces additional work.
+
+The official performance documentation explicitly cautions that chunking may be slower than unchunked execution when the workload already fits comfortably in memory.
+
+This is because some calculations are repeated across chunks and their outputs subsequently need to be assembled.
+
+Chunking is therefore best understood as providing:
+
+- Smaller peak candidate-generation working sets.
+- Incrementally executable prediction partitions.
+- More granular progress information.
+- Opportunities to distribute independently identified chunks across machines.
+
+The native `predict()` chunking workflow processes partitions and unions their outputs.
+
+Earlier scored chunks must still be retained until the combined result is available. For very large prediction outputs, chunking and Parquet materialization can consequently address different parts of the memory problem.
+
+The first controls the size of the work performed at one time; the second controls how retained results occupy memory and storage.
+
+### 9.5 Precomputed candidate pairs and chunked inference
+
+The model's externally supplied candidate-pair workflow has an important compatibility restriction.
+
+After calling:
+
+```
+linker.table_management.register_blocked_pairs_for_predict(    blocked_pairs)
+```
+
+the registered candidates can be scored using:
+
+```
+predictions = linker.inference.predict()
+```
+
+However, this registration is not compatible with `predict_chunk()` or with `predict()` arguments requesting automatic chunking.
+
+The intended alternative is to generate individual candidate chunks through `compute_blocked_pairs_for_predict_chunk()`, register each resulting candidate table, and score it through the ordinary prediction interface.
+
+This permits external orchestration of chunks, but it is not equivalent to activating Splink's automatic chunking over one previously registered candidate table.
+
+The distinction is important for evaluating how far Splink's modular candidate-generation and scoring interfaces can be composed without additional coordination logic.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 9.6 Additional DuckDB configuration considerations
+
+The performance documentation also discusses several backend-level considerations:
+
+In-memory connections. These avoid persistent database durability overhead for intermediate workloads, although DuckDB may still spill working data to disk.
+
+Explicit memory limits. In environments where DuckDB cannot accurately determine available memory, a configured `memory_limit` can help avoid exhaustion of system memory. Headroom must remain for Python and allocations outside DuckDB's buffer manager.
+
+Local storage. Storage performance can materially affect Parquet-backed execution and spill behavior.
+
+CPU utilization. Sustained underutilization during major blocking and scoring operations may indicate execution bottlenecks that are not visible from Python-level timing alone.
+
+These are DuckDB execution characteristics. Splink exposes the opportunity to benefit from them but does not guarantee particular speedups for arbitrary configurations.
+
+Primary source
+
+DuckDB performance and function-hoisting guide:\
+[https://moj-analytical-services.github.io/splink/topic_guides/performance/optimising_duckdb.html](https://moj-analytical-services.github.io/splink/topic_guides/performance/optimising_duckdb.html?utm_source=chatgpt.com)
+
+## 10. Additional SQL extension, inspection, and lifecycle interfaces
+
+Several smaller interfaces complete the picture of how Splink can be extended or integrated into relational processing workflows.
+
+### 10.1 Backend-defined similarity functions
+
+`DistanceFunctionAtThresholds` allows a custom SQL similarity or distance function to participate in Splink's standard comparison hierarchy.
+
+Its signature is:
+
+```
+DistanceFunctionAtThresholds(    col_name,    distance_function_name,    distance_threshold_or_thresholds,    higher_is_more_similar=True,)
+```
+
+The `higher_is_more_similar` argument determines threshold direction.
+
+This matters because different comparison functions have opposite interpretations:
+
+- Jaro–Winkler: larger values indicate greater similarity.
+- Levenshtein: smaller values indicate greater similarity.
+
+A custom SQL function can therefore be incorporated into ordinary comparison levels without manually constructing every `CASE` branch.
+
+Splink does not automatically create the underlying SQL function. It must already be available through the selected database backend.
+
+The same backend-dependent constraints apply to data types, null handling, and execution cost.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+### 10.2 SQL-dialect translation in custom blocking rules
+
+`CustomRule` supports an optional `sql_dialect` argument.
+
+When provided, Splink attempts to translate the supplied blocking predicate into the dialect associated with the execution backend.
+
+For example:
+
+```
+from splink.blocking_rule_library import CustomRulerule = CustomRule(    "SUBSTR(l.surname, 1, 3) = SUBSTR(r.surname, 1, 3)",    sql_dialect="sqlite",)
+```
+
+This can improve portability of custom blocking specifications.
+
+However, successful SQL syntax translation does not imply semantic equivalence of every function, nor does it supply functions unavailable in the destination database.
+
+Consequently, custom SQL can be syntactically portable while still depending on backend-specific behavior.
+
+Source: [https://moj-analytical-services.github.io/splink/api_docs/blocking.html](https://moj-analytical-services.github.io/splink/api_docs/blocking.html?utm_source=chatgpt.com)
+
+### 10.3 Direct relational querying
+
+Two related interfaces support database-side analysis:
+
+```
+linker.misc.query_sql(sql)
+```
+
+and:
+
+```
+splink_dataframe.query_sql(sql)
+```
+
+The `SplinkDataFrame` method supports a `{this}` placeholder referencing its underlying relation.
+
+For example:
+
+```
+filtered = predictions.query_sql(    """    SELECT unique_id_l, unique_id_r, match_weight    FROM {this}    WHERE match_weight > 8    """)
+```
+
+This preserves a relational workflow and avoids converting large prediction tables into Python objects simply to filter or aggregate them.
+
+`linker.misc.query_sql()` provides the more general interface for querying the backend database. Its documented default output type is `splink_df`.
+
+Both methods are useful extension points for SQL operations not explicitly exposed by Splink's higher-level APIs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink+1
+
+
+
+### 10.4 Explicit table cleanup
+
+`SplinkDataFrame` provides:
+
+```
+drop_table_from_database_and_remove_from_cache(    force_non_splink_table=False)
+```
+
+The method drops the underlying database table and removes its corresponding cache entry.
+
+By default, it refuses to delete tables that were not created by Splink. The `force_non_splink_table` argument can override this protection.
+
+This distinguishes explicit resource deletion from cache invalidation.
+
+Invalidating cached computations affects how results are reused or recomputed; dropping a physical relation affects the underlying database resource itself.
+
+The distinction is particularly important when intermediate results are large, are retained across analytical stages, or share a database environment with user-managed tables.
+
+Source: [https://moj-analytical-services.github.io/splink/api_docs/splink_dataframe.html](https://moj-analytical-services.github.io/splink/api_docs/splink_dataframe.html?utm_source=chatgpt.com)
+
+### 10.5 Internal debug execution mode
+
+In addition to logging, Splink documents an internal debugging mechanism:
+
+```
+linker._debug_mode = True
+```
+
+The documented effects include executing SQL pipeline stages individually, showing generated SQL, and displaying intermediate tabular results.
+
+This can expose the relational transformations that are ordinarily hidden by Splink's pipelining optimizations.
+
+However, this is a private interface, indicated by its leading underscore. It should not be treated as a stable, supported public API.
+
+The documentation also warns that the mode can dramatically reduce performance.
+
+For routine observability, the documented logging and profiling interfaces are preferable. The private debug mode is more appropriately understood as an implementation-inspection aid whose behavior may change between releases.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://moj-analytical-services.github.io\&sz=32)
+
+Splink
+
+
+
+Primary source:\
+[https://moj-analytical-services.github.io/splink/dev_guides/debug_modes.html](https://moj-analytical-services.github.io/splink/dev_guides/debug_modes.html?utm_source=chatgpt.com)
+
+## 11. Additional semantic qualifications for the companion reference
+
+### 11.1 Record identifiers and source identity
+
+For multi-dataset linkage, Splink requires record identifiers to be unique within their source datasets, not necessarily globally unique across every participating dataset.
+
+The documented model distinguishes:
+
+`unique_id_column_name` — identifies a record within its source.
+
+`source_dataset_column_name` — identifies the source dataset.
+
+The combination provides the relevant cross-source record identity.
+
+This matters for linkage systems in which several datasets independently use integer primary keys beginning at one. Duplicate numeric IDs across different source datasets do not inherently violate Splink's input identity model.
+
+Source: [https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html](https://moj-analytical-services.github.io/splink/api_docs/settings_dict_guide.html?utm_source=chatgpt.com)
+
+### 11.2 Comparison retention versus visualization requirements
+
+A minimal prediction output is not automatically sufficient for every Splink visualization.
+
+Certain explainability interfaces depend on retained matching columns or intermediate calculations.
+
+Consequently, choosing to omit these columns is not exclusively a storage optimization. It also changes which analyses can be performed directly from the retained result without recomputing or restoring additional evidence.
+
+This is a cross-cutting interaction between execution efficiency, observability, and the availability of source-record information.
+
+### 11.3 Version-specific API stability
+
+The addendum targets the released Splink 5.0.0 public interfaces.
+
+Version-specific examples should use the v5 model in which input data is registered through the backend and then supplied to `Linker` as `SplinkDataFrame` objects.
+
+Some upstream topic and developer guides retain older examples or internal implementation references. Those should not be interpreted as evidence that older constructor signatures remain supported in version 5.
+
+Similarly, private interfaces and implementation optimizations should not be treated as part of Splink's stable public API merely because they are described in developer documentation.
+
+The companion reference's illustrative Python snippets should also retain proper line breaks and executable statement separation. In particular, its compact example should be formatted consistently with the version 5 registration and linker-construction model.
+
+Primary sources
+
+Version 5 release and migration information:\
+[https://moj-analytical-services.github.io/splink/blog/2026/09/28/splink-500-released.html](https://moj-analytical-services.github.io/splink/blog/2026/09/28/splink-500-released.html?utm_source=chatgpt.com)
+
+Version 5 API index:\
+[https://moj-analytical-services.github.io/splink/api_docs/api_docs_index.html](https://moj-analytical-services.github.io/splink/api_docs/api_docs_index.html?utm_source=chatgpt.com)
+
+Tagged source:\
+[https://github.com/moj-analytical-services/splink/releases/tag/v5.0.0](https://github.com/moj-analytical-services/splink/releases/tag/v5.0.0?utm_source=chatgpt.com)
+
+## 12. Architectural implications of the additional functionality
+
+Taken together, these mechanisms extend the architectural options exposed by Splink beyond those apparent from the major APIs alone.
+
+Multivalued entity representations can participate directly in SQL-based resolution. Array-exploding blocking, array comparisons, phonetic-code arrays, and database-side feature generation allow systems to represent alternative identifiers and names without requiring a separate custom candidate-generation engine for every multivalued attribute.
+
+Compound comparison templates provide more expressive evidence models. Joint name comparisons, full-name term-frequency adjustments, hierarchical postcode agreement, and partial email matching can capture relationships between attributes that a collection of independent fuzzy-string comparisons would represent less accurately.
+
+Missingness and invalidity are explicit statistical decisions. The distinction between neutral null evidence, negative disagreement, and invalid source values affects what the model is estimating. Splink exposes mechanisms to manage that distinction rather than treating all nonagreement as equivalent.
+
+Training and evaluation can be controlled at finer granularity. Individual probability constraints, EM convergence settings, structured accuracy tables, and clerical-label threshold semantics allow more precise control over the estimation and evaluation of probabilistic linkage models.
+
+The relational execution architecture exposes substantial optimization opportunities. Precomputed candidates, output-retention settings, Parquet materialization, chunking, and carefully controlled SQL expression reuse can reduce different kinds of computational work. Their advantages depend on how the mechanisms are composed, and some combinations carry explicit API restrictions.
+
+The common theme is that Splink's higher-level abstractions do not entirely conceal its SQL execution and statistical foundations. They expose enough of both to support specialized entity-resolution behavior without requiring developers to reimplement the entire record-linkage pipeline.
+
+These additions complete the consequential gaps identified in the companion reference while preserving its existing coverage of the main functionality.

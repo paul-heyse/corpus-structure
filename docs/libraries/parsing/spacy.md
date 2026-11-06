@@ -1654,3 +1654,1130 @@ Together, these capabilities make it possible to construct sophisticated hybrid 
 The most easily overlooked opportunities lie in treating candidate generation, span classification, entity normalization, shared neural representations, and structured document annotations as composable concerns. Conversely, the most important design risks arise when their boundaries are blurred—for example, treating non-overlapping NER as arbitrary span extraction, lexical similarity as semantic retrieval, or serialized configuration as a fully self-contained implementation.
 
 Within those distinctions, spaCy 3.8 provides a mature and unusually broad foundation for structured language understanding and information extraction.
+
+# Addendum to the spaCy 3.8 Comprehensive Python Library Overview
+
+Advanced annotation semantics, structured extraction, linguistic rules, document interoperability, model extensibility, training infrastructure, and ecosystem integration
+
+Research date: November 5, 2026\
+Target release: spaCy 3.8.18\
+Python compatibility: 3.10–3.15\
+Scope: Supplement to the existing comprehensive overview of spaCy 3.8.16
+
+This addendum documents advanced capabilities and consequential implementation distinctions not fully developed in the original reference. It is intended to be read alongside that document; established explanations of spaCy's core architecture, standard pipeline components, and primary inference mechanisms are not repeated.
+
+The additions emphasize functionality that enables more expressive representations of linguistic knowledge, more sophisticated combinations of deterministic and learned processing, and greater reuse of spaCy's native infrastructure.
+
+## 1. Release and compatibility update
+
+As of November 5, 2026, the latest stable spaCy release is 3.8.18, published October 26, 2026. PyPI declares `Requires-Python: >=3.10,<3.16` and distributes CPython 3.15 wheels alongside wheels for Python 3.10–3.14.
+
+This supersedes the original document's identification of 3.8.16 as the latest stable release and its introductory Python 3.9–3.14 compatibility statement. Python 3.9 is no longer supported by the current distribution.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI
+
+
+
+The functionality documented below is available within the spaCy 3.8 series unless explicitly identified as experimental or belonging to a separately distributed package. The existence of spaCy 4.0 development releases does not make them part of the stable API contract.
+
+Primary source: [https://pypi.org/project/spacy/](https://pypi.org/project/spacy/?utm_source=chatgpt.com)
+
+## 2. Fine-grained entity annotation and supervision
+
+### 2.1 Entity annotations express more than positive spans
+
+spaCy's named entity representation includes distinctions between confirmed entities, confirmed non-entities, deliberately blocked entity predictions, and regions whose annotation is unknown.
+
+The `Doc.set_ents()` method provides explicit controls over these states:
+
+| Argument   | Semantics                                                                 |
+| ---------- | ------------------------------------------------------------------------- |
+| `entities` | Confirmed labeled entity spans                                            |
+| `blocked`  | Regions that the built-in NER component should never treat as entities    |
+| `missing`  | Regions for which entity annotation is unknown or unavailable             |
+| `outside`  | Regions explicitly known to be outside named entities                     |
+| `default`  | Determines the state assigned to tokens not covered by the supplied spans |
+
+The `default` argument accepts `"blocked"`, `"missing"`, `"outside"`, or `"unmodified"`. Its default is `"outside"`.
+
+This is significant because an annotation system must often distinguish the absence of evidence from evidence of absence. A document whose labels are only partially complete should not necessarily treat all unannotated tokens as negative examples.
+
+For instance, a technical corpus may contain verified organization entities while the presence of other entity classes has never been assessed. Treating those unassessed regions as `missing` preserves a different supervision signal from labeling them `outside`.
+
+The distinction also matters when combining multiple annotation providers. A rule-based system might establish certain entity boundaries confidently while leaving the remaining text unresolved.
+
+Important limitation: `blocked` is specifically documented for spaCy's built-in NER component. Other pipeline components may disregard blocked spans. These states do not constitute a universal constraint or truth-maintenance system across all spaCy components.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/doc](https://spacy.io/api/doc?utm_source=chatgpt.com)
+
+### 2.2 Explicit negative entity examples
+
+The trainable `EntityRecognizer` exposes an additional supervision mechanism through its `incorrect_spans_key` configuration setting.
+
+When configured, the component reads a named `SpanGroup` containing entity spans known to be incorrect. During training, the recognizer learns not to reproduce those exact annotations.
+
+This differs from marking all unannotated tokens as negative. It allows supervision to target specific false-positive hypotheses, including boundaries or entity mentions that a previous recognizer proposed incorrectly.
+
+The mechanism is useful in settings where an annotation process produces reliable corrections, but not necessarily exhaustive positive annotations across every document.
+
+Its scope is narrower than arbitrary negative-label supervision: it discourages prediction of the specified incorrect spans, rather than proving that every overlapping, nested, or alternative entity hypothesis is false.
+
+One consequence is that positive entity annotations, explicitly incorrect candidate spans, and unresolved text can coexist as distinct training information, subject to the recognizer's supported supervision semantics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/entityrecognizer](https://spacy.io/api/entityrecognizer?utm_source=chatgpt.com)
+
+### 2.3 Annotation completeness and validation
+
+`Doc.has_annotation()` provides a native way to determine whether a document contains a particular token annotation.
+
+The `require_complete` option distinguishes two conditions:
+
+- The document contains at least some annotation for the requested attribute.
+- Every token has the requested annotation.
+
+This distinction is useful when a downstream operation requires complete POS tagging, dependency annotation, or morphological information, rather than merely checking whether the relevant component ran.
+
+For example, partial annotation can result from manual construction, imported corpora, or pipelines that selectively modify documents. Component presence alone does not establish annotation completeness.
+
+`Doc.has_annotation()` is therefore a useful structural prerequisite check before invoking algorithms whose correctness depends on complete token attributes. It does not assess whether the annotations are linguistically correct.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/doc](https://spacy.io/api/doc?utm_source=chatgpt.com)
+
+### 2.4 Tokenization-aware evaluation and the measurable entity universe
+
+A particularly consequential limitation of spaCy's NER evaluation arises when gold-standard entity boundaries cannot be represented by the tokenizer used during prediction.
+
+spaCy's training documentation explicitly notes that gold entities which cannot be aligned to predicted tokenization may be excluded from NER evaluation.
+
+Consider an annotated dataset with 1,000 reference entities. Suppose the tokenizer makes 150 entity boundaries impossible to represent, leaving 850 alignable entities. An evaluation calculated over alignable entities alone can report a strong F-score even though the system could never recover the excluded 150.
+
+The numbers are illustrative, but the underlying effect is documented.
+
+This introduces two materially different evaluation questions:
+
+1. How accurately does the model recognize entities whose boundaries its tokenizer can express?
+2. How completely does the end-to-end system recover entities in the original annotated corpus?
+
+The first measures conditional recognition quality; the second includes tokenization-related coverage losses.
+
+A robust evaluation methodology should therefore retain the original reference-entity count, determine the fraction of reference spans representable under the predicted tokenization, and distinguish unalignable reference annotations from ordinary model false negatives.
+
+An end-to-end measure can then count such coverage failures explicitly, rather than relying only on the built-in NER F-score.
+
+This concern is particularly important for specialized terminology containing punctuation, identifiers, units, chemical nomenclature, abbreviations, or other constructions that may not conform to a general-purpose tokenizer.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy Usage Documentation
+
+
+
+Primary source: [https://spacy.io/usage/training](https://spacy.io/usage/training?utm_source=chatgpt.com)
+
+## 3. Programmable span generation and multi-stage extraction
+
+### 3.1 Span proposal is a configurable operation
+
+The `SpanCategorizer` architecture separates candidate generation from the classification model. The original overview establishes this distinction, but the candidate-generation interface itself provides additional architectural flexibility.
+
+The suggester is a registered function that receives a batch of `Doc` objects and an optional Thinc `Ops` instance. It returns a `Ragged` array containing candidate `(start, end)` token indices.
+
+spaCy provides several native suggesters:
+
+| Registered function                    | Candidate-generation behavior                                           |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| `spacy.ngram_suggester.v1`             | Generates spans of explicitly selected token lengths                    |
+| `spacy.ngram_range_suggester.v1`       | Generates spans over an inclusive minimum-to-maximum token-length range |
+| `spacy.preset_spans_suggester.v1`      | Reuses spans already stored under a specified `Doc.spans` key           |
+| Custom `@spacy.registry.misc` function | Allows alternative, task-specific candidate-generation strategies       |
+
+The distinction between the two n-gram suggesters is useful. One allows noncontiguous selections of span lengths, such as lengths 1, 2, and 5. The other generates every length in a continuous interval.
+
+The preset-span suggester is more architecturally significant: candidate generation can be delegated to an upstream rule engine or learned span finder without requiring the span classifier itself to enumerate every possible text interval.
+
+A custom registered suggester can similarly encode structural restrictions, combine proposals from different mechanisms, or exclude candidates known to be invalid. The resulting candidate-generation logic participates directly in spaCy's configuration-driven model architecture.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/spancategorizer](https://spacy.io/api/spancategorizer?utm_source=chatgpt.com)
+
+### 3.2 Composition with rule-based and learned candidate producers
+
+A useful capability combination is to distinguish candidate discovery, candidate classification, and final annotation acceptance.
+
+For example, a `SpanRuler` can populate `Doc.spans["candidates"]` with terminology-based matches, including overlapping or nested spans. `SpanCategorizer` can subsequently consume that group using the preset-span suggester and produce learned classifications in a separate output group.
+
+An illustrative configuration excerpt is:
+
+```
+[components.spancat.suggester]
+@misc = "spacy.preset_spans_suggester.v1"
+spans_key = "candidates"
+```
+
+The corresponding categorizer output can be configured with a different `spans_key`, such as `"classified"`.
+
+This separation is essential because `SpanCategorizer` overwrites the span group identified by its own output key. Using the same key indiscriminately for candidate input and classified output may discard the original candidate set.
+
+The design is especially useful when a system needs to preserve both raw candidates and accepted predictions for subsequent scoring, comparison, or reconciliation.
+
+The component also exposes `SpanCategorizer.set_candidates(docs, candidates_key)`, which materializes the suggester's proposals into a selected span group. The API is specifically intended for debugging candidate-generation behavior.
+
+Candidate inspection matters because classification quality is bounded by proposal recall. A classifier cannot recover a relevant span that its suggester never produces, regardless of how accurate the classification model might otherwise be.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+2
+
+
+
+Primary sources:
+
+[https://spacy.io/api/spancategorizer](https://spacy.io/api/spancategorizer?utm_source=chatgpt.com)
+
+[https://spacy.io/api/spanruler](https://spacy.io/api/spanruler?utm_source=chatgpt.com)
+
+### 3.3 `SpanRuler` as a configurable candidate-reconciliation component
+
+`SpanRuler` offers more control over preserving, merging, and filtering span annotations than its basic rule-matching role might suggest.
+
+Its relevant configuration settings include:
+
+| Setting                 | Function                                                                   |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `spans_key`             | Selects the named span group receiving rule matches                        |
+| `spans_filter`          | Applies custom filtering before writing to `Doc.spans`                     |
+| `annotate_ents`         | Optionally writes a non-overlapping entity representation to `Doc.ents`    |
+| `ents_filter`           | Controls which spans survive when producing entity annotations             |
+| `overwrite`             | Controls replacement of preexisting annotations at configured destinations |
+| `phrase_matcher_attr`   | Chooses the token attribute used for phrase matching                       |
+| `matcher_fuzzy_compare` | Supplies the comparison function for fuzzy token-pattern matching          |
+
+The default `spans_filter` is `None`, allowing overlapping spans to be retained. The default `ents_filter` is `util.filter_chain_spans`, because `Doc.ents` cannot represent arbitrary overlaps.
+
+Thus, the same underlying pattern definitions can support two different data products: a broad overlapping candidate inventory and a filtered non-overlapping entity annotation.
+
+Custom filters can implement different reconciliation policies for those destinations. These may use label priorities, existing annotations, span lengths, or other information available to the filtering function.
+
+There is an important distinction between preserving spans and preserving all evidence about them. A `SpanGroup` can contain overlapping candidates, but spaCy does not automatically create a calibrated probabilistic model of their mutual compatibility. A custom filter may implement deterministic policy, while probabilistic reconciliation remains a separate task.
+
+The component's output behavior also makes configuration important: `overwrite=True` is the default, and preexisting annotations can be removed from the configured destination.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/spanruler](https://spacy.io/api/spanruler?utm_source=chatgpt.com)
+
+### 3.4 Training dependencies between candidate generation and classification
+
+A pipeline that uses predicted upstream spans during inference should make the corresponding training dependencies explicit.
+
+For example, a span classifier trained only with reference candidate spans may see materially different inputs at inference time if its actual candidate producer occasionally misses boundaries or proposes additional false positives.
+
+spaCy's `training.annotating_components` mechanism, described in the original guide, can be used to generate selected upstream annotations during training. In combination with a preset-span suggester, this provides a way to train a downstream classifier with inputs closer to those it will encounter during inference.
+
+The distinction is between optimizing classification on ideal reference candidates and optimizing classification on realistically generated candidates.
+
+This does not eliminate the need for gold labels or guarantee that the resulting pipeline will improve. It provides a native mechanism for controlling a common source of train–inference mismatch.
+
+Primary source: [https://spacy.io/usage/training](https://spacy.io/usage/training?utm_source=chatgpt.com)
+
+## 4. Deterministic linguistic annotation and entity normalization
+
+### 4.1 `AttributeRuler` supports contextual token annotation
+
+The `AttributeRuler` is not limited to ordinary POS tag mapping. It is a reusable rule engine for assigning supported token attributes to selected tokens identified by `Matcher` patterns.
+
+Its central method is:
+
+```
+AttributeRuler.add(patterns, attrs, index=0)
+```
+
+The `patterns` argument provides token-pattern conditions, `attrs` specifies the attributes to assign, and `index` identifies which token within a matched sequence receives those assignments.
+
+The index may be negative, allowing selection relative to the end of a match.
+
+This enables a useful form of contextual deterministic annotation. A multi-token pattern can recognize a construction while modifying only one token's lemma, POS, tag, or morphological attributes.
+
+For example, a domain-specific abbreviation may have a grammatical interpretation that differs from its general-purpose use. A rule can recognize the relevant context and assign an appropriate analysis without changing the tokenizer or retraining an entire linguistic model.
+
+`AttributeRuler.add_patterns()` additionally supports loading declarative collections of such rules, while `load_from_tag_map()` and `load_from_morph_rules()` adapt established linguistic mapping data into its rule representation.
+
+The component supports initialization and serialization through spaCy's standard pipeline lifecycle.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+1
+
+
+
+The principal architectural benefit is that deterministic correction can be expressed through the same token-pattern vocabulary as other spaCy rule-based processing.
+
+Its limitation is that the assignments mutate annotations rather than establish separate, competing analyses. If multiple rules or components write the same attribute, execution order and applicable rule behavior determine the final value. Alternative interpretations requiring preservation should be represented separately.
+
+Primary source: [https://spacy.io/api/attributeruler](https://spacy.io/api/attributeruler?utm_source=chatgpt.com)
+
+### 4.2 Rule-based canonical identifiers
+
+`EntityRuler` patterns can contain an optional `id` field in addition to `label` and `pattern`.
+
+When a pattern with an ID matches an entity, spaCy populates that entity's `ent_id` / `ent_id_` annotation.
+
+Multiple distinct surface forms can share the same ID, allowing deterministic alias normalization.
+
+For example, the following rules associate two surface forms with one identifier:
+
+```
+patterns = [    {        "label": "ORG",        "pattern": "Acme Corporation",        "id": "org:acme",    },    {        "label": "ORG",        "pattern": "Acme Corp.",        "id": "org:acme",    },]ruler.add_patterns(patterns)
+```
+
+Here, `ruler` represents an already configured `EntityRuler`. The example is illustrative and has not been executed.
+
+This provides a direct path from terminology matching to canonical identifiers without requiring every recognized alias to pass through a learned entity linker.
+
+spaCy exposes the known pattern IDs through `EntityRuler.ent_ids`. It also provides `EntityRuler.remove(id)` to remove patterns associated with a supplied identifier.
+
+A crucial distinction is that `ent_id` and `kb_id` are separate annotations.
+
+`ent_id` can represent an ID assigned by a deterministic matching rule. `kb_id` is the knowledge-base identifier used by the entity-linking interface. An application can choose to use compatible identifier schemes, but spaCy does not automatically equate their meanings or establish that a rule-assigned ID has been statistically disambiguated.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy Usage Documentation+2
+
+
+
+Primary sources:
+
+[https://spacy.io/usage/rule-based-matching](https://spacy.io/usage/rule-based-matching?utm_source=chatgpt.com)
+
+[https://spacy.io/api/entityruler](https://spacy.io/api/entityruler?utm_source=chatgpt.com)
+
+[https://spacy.io/api/span](https://spacy.io/api/span?utm_source=chatgpt.com)
+
+### 4.3 Entity linking has independently configurable evidence sources
+
+The `EntityLinker` configuration exposes several controls that affect how a mention is resolved against a knowledge base.
+
+| Configuration          | Consequential behavior                                              |
+| ---------------------- | ------------------------------------------------------------------- |
+| `incl_prior`           | Determines whether KB prior probabilities contribute to predictions |
+| `incl_context`         | Determines whether local contextual information contributes         |
+| `n_sents`              | Sets the number of neighboring sentences considered                 |
+| `get_candidates`       | Supplies candidates for an individual entity mention                |
+| `get_candidates_batch` | Supplies candidates through a batched interface                     |
+| `labels_discard`       | Sends selected entity labels directly to `NIL`                      |
+| `threshold`            | Rejects predictions below a specified confidence threshold          |
+| `overwrite`            | Controls whether existing linking annotations may be replaced       |
+| `use_gold_ents`        | Controls use of reference entities during training                  |
+
+These controls make the linker more flexible than a fixed alias lookup followed by a single hardcoded classification policy.
+
+For example, the model can incorporate knowledge-base priors, contextual evidence, or both. Candidate generation can be replaced independently of the prediction architecture, including through batch-oriented retrieval.
+
+The `threshold` option, added in spaCy 3.4, permits predictions below a confidence cutoff to be rejected. If no candidate exceeds the threshold, the result is `NIL`.
+
+`labels_discard` provides a different kind of exclusion: selected entity types can be assigned `NIL` without ordinary linking.
+
+The defaults are meaningful. `incl_prior` and `incl_context` are both enabled, the default candidate generators use exact case-sensitive aliases, and `threshold=None` means confidence filtering is not applied.
+
+Candidate generation, evidence selection, and acceptance thresholds therefore form separate architectural decisions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+The resulting flexibility does not imply that spaCy supplies a complete external knowledge-base management system. Candidate coverage, identity stability, vector quality, and knowledge-base maintenance remain consequential requirements.
+
+Primary source: [https://spacy.io/api/entitylinker](https://spacy.io/api/entitylinker?utm_source=chatgpt.com)
+
+## 5. Advanced syntactic queries and dependency-structure analysis
+
+### 5.1 Native dependency-tree traversal
+
+spaCy provides direct structural operations on the parsed dependency tree through `Token`, `Span`, and `Doc` interfaces. These can eliminate the need to construct a second graph representation merely to answer basic syntactic-relationship queries.
+
+Important operations include:
+
+| API                        | Structural information                                    |
+| -------------------------- | --------------------------------------------------------- |
+| `Token.children`           | Immediate syntactic dependents                            |
+| `Token.ancestors`          | Successive syntactic heads                                |
+| `Token.is_ancestor(other)` | Whether one token is an ancestor of another               |
+| `Token.subtree`            | Token and all syntactic descendants                       |
+| `Token.lefts` / `rights`   | Immediate dependents on either side                       |
+| `Token.conjuncts`          | Tokens participating in coordination with the given token |
+| `Span.root`                | Syntactic root of a span                                  |
+| `Span.conjuncts`           | Tokens coordinated with the span's root                   |
+| `Doc.get_lca_matrix()`     | Lowest common ancestors for token pairs                   |
+| `Span.get_lca_matrix()`    | Lowest common ancestors within a selected span            |
+
+These functions support several categories of analysis beyond basic dependency inspection.
+
+Phrase expansion. An identified head token can serve as the starting point for exploring its syntactic dependents and reconstructing a larger linguistic expression.
+
+Argument discovery. Given a verb, the dependency tree can be traversed to identify candidate subjects, objects, and associated modifiers.
+
+Coordination expansion. `Token.conjuncts` can expose coordinated expressions that should be analyzed together. This can help avoid losing additional participants when several nouns or predicates are joined syntactically.
+
+Structural proximity. Lowest-common-ancestor operations provide information about the point at which two tokens' dependency paths meet.
+
+These operations are particularly useful in relation extraction, linguistic normalization, semantic-role approximations, and deterministic syntactic feature engineering.
+
+A significant boundary is that the available tree reflects a syntactic parser's predictions. A shared syntactic ancestor does not itself establish a semantic relationship, causal connection, or valid knowledge-graph edge.
+
+The lowest-common-ancestor matrix is also a dense pairwise representation. Its memory footprint grows quadratically with the number of tokens, so constructing it for long documents has different costs from traversing individual dependency paths.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+2
+
+
+
+Primary sources:
+
+[https://spacy.io/api/token](https://spacy.io/api/token?utm_source=chatgpt.com)
+
+[https://spacy.io/api/span](https://spacy.io/api/span?utm_source=chatgpt.com)
+
+[https://spacy.io/api/doc](https://spacy.io/api/doc?utm_source=chatgpt.com)
+
+### 5.2 Full structural expressiveness of `DependencyMatcher`
+
+`DependencyMatcher` supports a broader set of structural relations than immediate parent-child matching.
+
+Its operators express dependency ancestry, sibling relationships, and token-order relationships. Several representative families are:
+
+| Operator  | Meaning                                                      |
+| --------- | ------------------------------------------------------------ |
+| `A > B`   | A is the immediate syntactic head of B                       |
+| `A < B`   | A is the immediate dependent of B                            |
+| `A >> B`  | A is an ancestor of B through a dependency chain             |
+| `A << B`  | A is a descendant of B through a dependency chain            |
+| `A . B`   | A immediately precedes B in token order within the same tree |
+| `A .* B`  | A precedes B, not necessarily immediately                    |
+| `A $+ B`  | B is an immediate right sibling of A                         |
+| `A $++ B` | B is a right sibling of A, not necessarily immediately       |
+| `A >+ B`  | A immediately precedes B and is B's parent                   |
+| `A >++ B` | B occurs to the right of A and is a child of A               |
+
+Complementary operators express following-token relationships, left siblings, and leftward parent-child relationships.
+
+The operator set was extended in spaCy 3.5.1 with additional relationships combining dependency direction and immediate token ordering.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+These operators permit declarative patterns that would otherwise require procedural traversal and multiple nested conditions.
+
+For example, a rule can constrain an action token to have a particular dependent while separately requiring a second matched token to have a specified ancestral relationship or relative position.
+
+The essential distinction is between syntactic distance and surface-token distance. `>>` follows dependency ancestry, whereas `.*` expresses token-order precedence. Conflating them can produce materially different matches.
+
+A `DependencyMatcher` pattern consists of an anchor node followed by named nodes with `LEFT_ID`, `REL_OP`, `RIGHT_ID`, and `RIGHT_ATTRS`. `RIGHT_ATTRS` uses the same general attribute-predicate language as the regular token matcher.
+
+This makes it possible to combine structural relations with lexical, morphological, and other available token annotations.
+
+Primary sources:
+
+[https://spacy.io/api/dependencymatcher](https://spacy.io/api/dependencymatcher?utm_source=chatgpt.com)
+
+[https://spacy.io/usage/rule-based-matching](https://spacy.io/usage/rule-based-matching?utm_source=chatgpt.com)
+
+### 5.3 Experimental learned token merging in dependency parsing
+
+The `DependencyParser` exposes a less commonly discussed option:
+
+`learn_tokens=True`
+
+This experimental setting allows the transition-based parser to learn merging of subtokens that were split relative to the gold-standard tokenization.
+
+The mechanism addresses a specific mismatch between predicted and reference token segmentation. It is not a general replacement for tokenizer configuration or a universal learned tokenizer.
+
+Its importance lies in the interaction between token boundaries and syntactic parsing: under certain conditions, the parser can participate in correcting token segmentation rather than treating every initial token boundary as immutable.
+
+Because tokenization changes can affect offsets and previously constructed token-index annotations, the option should be understood as an experimental parsing-and-segmentation mechanism with downstream consequences.
+
+The option defaults to `False`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/dependencyparser](https://spacy.io/api/dependencyparser?utm_source=chatgpt.com)
+
+## 6. Document transformation and structured annotation interchange
+
+### 6.1 Column-oriented numerical access through `Doc.to_array()`
+
+`Doc.to_array()` exports selected token attributes as a NumPy array.
+
+For a document containing \\(N\\) tokens and a request for \\(M\\) attributes, the method returns an \\(N \times M\\) array. Requesting a single attribute returns a one-dimensional array.
+
+Attributes can be specified by their numeric spaCy IDs or their string names.
+
+An illustrative example is:
+
+```
+import spacynlp = spacy.load("en_core_web_sm")doc = nlp("The researchers developed a new model.")attributes = ["ORTH", "LEMMA", "POS", "DEP", "HEAD"]array = doc.to_array(attributes)
+```
+
+The resulting array contains compact numeric attribute representations, rather than independently materialized Python objects for every property.
+
+The corresponding `Doc.from_array()` method writes supported token attributes from a NumPy array into an existing document.
+
+This permits native interoperability with numerical analysis and data-transformation systems. It is also useful when a downstream consumer only requires selected linguistic features rather than complete `Token` objects.
+
+Important constraints:
+
+- Lexical strings and many linguistic labels are represented through integer identifiers, which depend on spaCy's attribute and vocabulary machinery.
+- Array export does not automatically include arbitrary custom extension objects or the complete semantic structure of a document.
+- A document reconstructed from numeric attributes still requires valid token boundaries and compatible vocabulary information.
+- `from_array()` mutates an existing `Doc`; it is not a complete document-deserialization facility.
+
+A particularly important distinction is that numerical annotation interchange is different from directly obtaining neural representations. `Doc.to_array()` provides selected token attributes, not arbitrary transformer hidden states or embedding tensors.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/doc](https://spacy.io/api/doc?utm_source=chatgpt.com)
+
+### 6.2 Individual-document binary and JSON serialization
+
+In addition to the corpus-oriented `DocBin` format, spaCy supports serialization of individual documents.
+
+| Operation                       | Representation and purpose                                         |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `Doc.to_bytes()`                | Serializes an individual document to binary data                   |
+| `Doc.from_bytes()`              | Restores a document from its binary representation                 |
+| `Doc.to_disk()` / `from_disk()` | Persists and restores individual documents through directories     |
+| `Doc.to_json()`                 | Exports a document as structured JSON-compatible data              |
+| `Doc.from_json()`               | Reconstructs a document from the corresponding JSON representation |
+
+`Doc.to_bytes()` supports lossless serialization of the document's native annotations, subject to any explicitly excluded fields. Unlike `DocBin`, it does not primarily target compact storage of large collections with shared serialization overhead.
+
+`Doc.to_json()` serves a different purpose: it exports an inspectable structured representation suitable for interchange with systems that do not consume spaCy's binary format.
+
+The `underscore` argument to `Doc.to_json()` allows selected custom document extension attributes to be included, provided their values are JSON-serializable.
+
+This is opt-in rather than automatic export of every custom extension. A consumer must also distinguish the resulting JSON structure from spaCy's deprecated legacy JSON training format.
+
+`Doc.from_json()` was added in spaCy 3.3.1 and supports an optional `validate` setting for checking the input against the expected schema.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+1
+
+
+
+These mechanisms make spaCy suitable for several different interchange requirements without forcing all annotated documents into a single persistence format.
+
+Primary source: [https://spacy.io/api/doc](https://spacy.io/api/doc?utm_source=chatgpt.com)
+
+### 6.3 Creating documents from spans and concatenating documents
+
+Two document-transformation APIs provide complementary operations.
+
+`Span.as_doc()` creates a new, independently owned `Doc` containing the span's content and copied annotation data.
+
+It can optionally copy the original document's user data. When extracting many spans from the same document, precomputed array representations can be supplied to reduce repeated preparation work.
+
+This is useful when a selected passage must subsequently be processed as an independent document.
+
+However, the newly created `Doc` is not an automatically maintained view of the original document. Its token indices are local to the extracted text, and annotations whose meaning depends on surrounding context may require reinterpretation.
+
+`Doc.from_docs()` performs the reverse operation: concatenating a sequence of documents into a new `Doc`.
+
+The source documents must share the same `Vocab`. The method provides options for controlling copied attributes and excluding fields such as spans, tensor data, and user data.
+
+Its `ensure_whitespace` option can insert whitespace between source documents where necessary.
+
+This is particularly consequential for offset preservation. Concatenating separately processed documents can produce a representation whose character offsets differ from offsets in the original source system.
+
+The two operations therefore support document segmentation and recomposition, but they do not provide automatic preservation of every cross-document relationship, source offset, or provenance link.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+1
+
+
+
+Primary sources:
+
+[https://spacy.io/api/span](https://spacy.io/api/span?utm_source=chatgpt.com)
+
+[https://spacy.io/api/doc](https://spacy.io/api/doc?utm_source=chatgpt.com)
+
+## 7. Custom trainable components and model lifecycle integration
+
+### 7.1 `TrainablePipe` is the interface between prediction models and spaCy's training system
+
+spaCy's extensibility extends beyond custom inference components and registered Thinc architectures.
+
+`TrainablePipe` defines the contract through which a custom statistical or neural prediction task participates in the pipeline's training lifecycle.
+
+This separates three architectural responsibilities:
+
+| Responsibility                                       | Relevant mechanism       |
+| ---------------------------------------------------- | ------------------------ |
+| Construction and configuration                       | `@Language.factory`      |
+| Neural computation and differentiation               | Thinc `Model`            |
+| Task-specific inference, supervision, and annotation | `TrainablePipe` subclass |
+
+A custom trainable component can therefore replace the prediction task while continuing to use spaCy's training, optimization, evaluation, and packaging machinery.
+
+Important methods include:
+
+| Method               | Role                                                            |
+| -------------------- | --------------------------------------------------------------- |
+| `initialize()`       | Initialize the component and model using training examples      |
+| `predict()`          | Produce scores from a batch of documents without modifying them |
+| `set_annotations()`  | Write predictions into the corresponding documents              |
+| `get_loss()`         | Calculate task-specific loss and gradients                      |
+| `update()`           | Perform supervised model updates                                |
+| `score()`            | Evaluate the component against reference examples               |
+| `create_optimizer()` | Construct an optimizer for parameter updates                    |
+| `finish_update()`    | Apply the optimizer to current gradients                        |
+| `use_params()`       | Temporarily substitute model parameters                         |
+
+The basic custom-component implementation requires a model, a `TrainablePipe` subclass implementing the prediction and annotation interfaces, and a registered factory. A fully trainable task must additionally supply suitable supervision and loss behavior.
+
+The distinction between `predict()` and `set_annotations()` is particularly useful. It separates score production from mutation of spaCy's document model, allowing inference, training, and evaluation to invoke the appropriate operations.
+
+A custom component can consequently produce conventional spaCy annotations, custom extension attributes, or other supported document-level outputs without rewriting the entire NLP execution system.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy Usage Documentation+2
+
+
+
+Primary sources:
+
+[https://spacy.io/api/pipe](https://spacy.io/api/pipe?utm_source=chatgpt.com)
+
+[https://spacy.io/usage/processing-pipelines](https://spacy.io/usage/processing-pipelines?utm_source=chatgpt.com)
+
+### 7.2 Dependency injection of neural architectures
+
+spaCy's custom trainable-component guidance explicitly recommends that component factories accept a constructed Thinc model rather than instantiate the neural architecture internally.
+
+The configuration system resolves nested registered functions and architectures before passing the model to the component.
+
+This means the prediction task and its neural implementation can evolve independently.
+
+A custom task could, in principle, use a lightweight lexical encoder, a shared contextual representation, or a wrapped external neural architecture while retaining the same document-level annotation semantics.
+
+The important benefit is not that every architecture can be substituted without modification. Model input/output contracts, backpropagation behavior, and supervision requirements still need to agree.
+
+Rather, spaCy supplies a native separation between task logic, model construction, parameter initialization, and configuration.
+
+This can significantly reduce custom training infrastructure when the desired prediction task can be represented through spaCy's document and example abstractions.
+
+Primary source: [https://spacy.io/usage/processing-pipelines](https://spacy.io/usage/processing-pipelines?utm_source=chatgpt.com)
+
+### 7.3 Experimental model rehearsal
+
+`TrainablePipe.rehearse()` is an experimental method intended to reduce catastrophic forgetting during model updates.
+
+Rehearsal updates teach the current model to produce predictions resembling those of an earlier model. The objective is to preserve previously learned behavior while the model is being adapted.
+
+This is conceptually distinct from ordinary supervised training:
+
+- Supervised updates optimize predictions against annotated reference data.
+- Rehearsal updates attempt to preserve agreement with a previous model's behavior.
+
+Rehearsal therefore provides an interface for knowledge-preservation strategies during continued training.
+
+Its effectiveness and exact behavior depend on the particular component and implementation. The existence of the base method does not guarantee that arbitrary custom trainable components automatically provide a complete rehearsal algorithm.
+
+The capability is explicitly marked experimental and should not be treated as a stable, universally applicable continual-learning solution.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/pipe](https://spacy.io/api/pipe?utm_source=chatgpt.com)
+
+## 8. Advanced training-data management and runtime operations
+
+### 8.1 `Corpus` as an extensible training-data interface
+
+spaCy's `Corpus` class manages collections of annotated documents and produces `Example` objects for training and evaluation.
+
+The registered `spacy.Corpus.v1` reader supports `.spacy` files and directories, while the `@readers` registry allows alternative data sources and streaming behavior.
+
+Its options include:
+
+| Setting        | Effect                                                                |
+| -------------- | --------------------------------------------------------------------- |
+| `path`         | Source of annotated `.spacy` documents                                |
+| `gold_preproc` | Constructs examples using reference token and sentence boundaries     |
+| `max_length`   | Limits document length, with sentence-based splitting where available |
+| `limit`        | Restricts the number of examples                                      |
+| `augmenter`    | Transforms examples during corpus iteration                           |
+| `shuffle`      | Controls example ordering                                             |
+
+The `gold_preproc` setting is especially consequential.
+
+It allows predicted documents to be prepared using gold-standard segmentation, improving alignment and sometimes producing more consistent training sequences.
+
+However, spaCy explicitly warns that gold preprocessing can reduce runtime accuracy through train–test mismatch. A model trained or evaluated with reference segmentation may behave differently when the actual tokenizer and sentence segmenter must operate without that privileged information.
+
+The broader implication is that corpus readers are part of the model's effective data contract. Changing token preparation, segmentation, augmentation, or sampling can materially alter the learning problem without changing the model architecture itself.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+1
+
+
+
+spaCy also provides `JsonlCorpus` for reading newline-delimited raw-text datasets, notably for its pretraining workflows. This is distinct from the annotated `.spacy` corpus reader.
+
+Primary source: [https://spacy.io/api/corpus](https://spacy.io/api/corpus?utm_source=chatgpt.com)
+
+### 8.2 Registered data augmentation
+
+The training system supports augmentation through registered callbacks operating on `Example` objects.
+
+The built-in `spacy.orth_variants.v1` augmenter can substitute orthographic variants, including punctuation and capitalization variations. Its configuration can reference dictionaries containing single-token and paired-token replacement rules.
+
+Custom augmentation functions can be registered through spaCy's augmenter registry.
+
+An augmentation callback receives the current language pipeline and an example, and yields one or more examples.
+
+This makes augmentation part of the training-data pipeline rather than a necessarily separate preprocessing stage.
+
+A significant detail is that the callback must yield every example that should appear in the resulting training stream. If the original example must remain available alongside augmented variants, the callback needs to yield the original explicitly.
+
+Another important constraint concerns annotation consistency.
+
+Changing token text without modifying token boundaries can be relatively straightforward. Adding or removing tokens may invalidate entity boundaries, dependency relations, and other annotations. In those cases, the corresponding reference `Example` must be reconstructed or adjusted appropriately.
+
+Thus, augmentation needs to preserve the semantic relationship between the transformed text and the training labels, not merely produce plausible new text.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy Usage Documentation
+
+
+
+Primary source: [https://spacy.io/usage/training](https://spacy.io/usage/training?utm_source=chatgpt.com)
+
+### 8.3 Pipeline error handling
+
+spaCy provides configurable error-handling hooks for processing failures.
+
+`Language.set_error_handler()` applies a callback to pipeline components supporting the corresponding error-handler interface. Trainable components expose `set_error_handler()` and `get_error_handler()` directly.
+
+The callback receives information about the failing component, the affected documents, and the original exception.
+
+This allows custom behavior such as diagnostic recording, error classification, or controlled continuation when a batch encounters an exception.
+
+The default trainable-component error handler reraises the exception.
+
+The scope of the mechanism is important. It is a pipeline-processing exception hook, not a complete transactional execution or recovery framework. A component may already have modified some documents before an error occurs. Installing a handler does not automatically roll back those modifications, retry safely, or guarantee exactly-once processing.
+
+Custom recovery policies must therefore account for possible partial effects and the semantics of the affected batch.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation+1
+
+
+
+Primary sources:
+
+[https://spacy.io/api/language](https://spacy.io/api/language?utm_source=chatgpt.com)
+
+[https://spacy.io/api/pipe](https://spacy.io/api/pipe?utm_source=chatgpt.com)
+
+### 8.4 Experiment tracking through `spacy-loggers`
+
+The `spacy-loggers` package supplies independently maintained logging integrations for spaCy's training system.
+
+It includes integrations for Weights & Biases, MLflow, ClearML, PyTorch, and CuPy, together with utilities for composing multiple loggers.
+
+These integrations use spaCy's registered logger configuration rather than requiring training-loop instrumentation to be implemented independently.
+
+For example, `spacy.WandbLogger.v5` can publish training metrics, configuration information, system diagnostics, and selected model artifacts to Weights & Biases.
+
+The package's `ChainLogger` can combine logging behaviors, allowing console reporting and external experiment tracking to coexist.
+
+A relevant operational distinction is that the package is separately versioned even though it is normally installed alongside modern spaCy distributions. External logging providers may still require their own packages, credentials, and configuration.
+
+External experiment tracking also creates a data-disclosure boundary. The W&B integration documents that configuration information and system details may be transmitted to the external service, and it supports exclusion of selected configuration values.
+
+This is important when training configurations contain sensitive paths, infrastructure details, or information that should not be included in external experiment records.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary source: [https://github.com/explosion/spacy-loggers](https://github.com/explosion/spacy-loggers?utm_source=chatgpt.com)
+
+## 9. Extensible vector storage and representation backends
+
+### 9.1 `BaseVectors`: custom lexical-vector implementations
+
+spaCy 3.7 introduced the `BaseVectors` abstraction, allowing developers to implement alternative vector-storage and retrieval mechanisms.
+
+This extends spaCy's vocabulary-vector architecture beyond its built-in dense vector tables and floret representations.
+
+`BaseVectors` defines an interface for accessing vectors through lexical keys while permitting custom implementations to control how those vectors are generated, stored, batched, and serialized.
+
+Important extension points include:
+
+| Method                        | Responsibility                                                          |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| `__getitem__()`               | Retrieve a vector using an integer or string key                        |
+| `get_batch()`                 | Retrieve vectors for multiple keys efficiently                          |
+| `to_ops()`                    | Transfer or adapt vector storage to a selected Thinc operations backend |
+| `to_disk()` / `from_disk()`   | Implement persistent vector serialization                               |
+| `to_bytes()` / `from_bytes()` | Implement binary vector serialization                                   |
+
+The official documentation identifies BPEmb subword embeddings as an example of a custom implementation.
+
+The architectural opportunity is that a vocabulary's vector representation need not be limited to a conventional mapping from complete words to stored dense vectors.
+
+A custom backend might construct representations from subword units, use alternative storage arrangements, or implement specialized lookup behavior, provided it satisfies the required interface.
+
+The `get_batch()` method is especially important: spaCy requires it for training models using the `StaticVectors` architecture. A custom implementation that only provides individual vector access is therefore insufficient for that training use case.
+
+Similarly, `to_ops()` matters when vector operations need to use a different Thinc computational backend.
+
+Serialization is another explicit responsibility. The abstract interface provides methods for persistence, but a custom backend must implement the necessary behavior for its data to survive pipeline saving and loading.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/basevectors](https://spacy.io/api/basevectors?utm_source=chatgpt.com)
+
+### 9.2 Relationship to model architecture and embedding systems
+
+Custom vector storage and custom contextual representation models solve different problems.
+
+`BaseVectors` changes how lexical vectors are supplied to spaCy's vocabulary and compatible model layers.
+
+A Thinc architecture or transformer integration changes how representations are computed and combined during neural inference.
+
+The distinction permits several implementation combinations. A custom lexical-vector backend can supply inputs to a neural encoder, while a contextual model transforms token representations using surrounding text.
+
+However, replacing a vector backend does not automatically make its outputs suitable for semantic retrieval, nor does it establish that the representation is compatible with arbitrary downstream model architectures.
+
+The integration contract must account for vector dimensions, expected key semantics, batching, numerical types, device operations, and persistence.
+
+This separation makes custom vector storage a useful lower-level extension point without conflating lexical lookup with contextual encoding or retrieval-oriented embedding generation.
+
+### 9.3 Importing external word vectors
+
+The CLI provides `spacy init vectors`, which converts supported external word-vector files into a spaCy-compatible representation.
+
+The command supports text-based Word2Vec-style vector tables, including supported compressed text archives.
+
+It generates a spaCy pipeline artifact that can subsequently be referenced during model initialization.
+
+This is distinct from implementing `BaseVectors`. `spacy init vectors` imports an existing vector resource into spaCy's standard vector infrastructure, whereas `BaseVectors` permits the underlying vector implementation itself to be customized.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy API Documentation
+
+
+
+Primary source: [https://spacy.io/api/cli](https://spacy.io/api/cli?utm_source=chatgpt.com)
+
+## 10. Additional tooling and ecosystem interoperability
+
+### 10.1 Registry introspection with `spacy find-function`
+
+spaCy 3.7 introduced the `find-function` CLI command.
+
+It locates the source module, file path, and line number associated with a registered function.
+
+For example, configuration files may refer to model architectures, data readers, training callbacks, and other components through registry identifiers rather than direct Python imports.
+
+`spacy find-function` helps determine which concrete implementation corresponds to such a configuration entry.
+
+This is useful for understanding externally supplied pipelines, investigating configuration behavior, diagnosing dependency interactions, and inspecting implementations provided by installed companion packages.
+
+Unlike ordinary Python symbol lookup, the command is specifically designed around spaCy's registry-based configuration system.
+
+Primary source: [https://spacy.io/api/cli](https://spacy.io/api/cli?utm_source=chatgpt.com)
+
+### 10.2 Hugging Face Hub pipeline distribution
+
+The separately distributed `spacy-huggingface-hub` package adds Hugging Face Hub publishing capabilities to spaCy's CLI.
+
+The integration accepts a trained spaCy pipeline packaged as a wheel and publishes the corresponding package, metadata, and documentation to the Hub.
+
+A representative command is:
+
+```
+python -m spacy huggingface-hub push model.whl
+```
+
+This command requires the companion package and a previously built pipeline wheel.
+
+The package can also be used programmatically through its `push()` function.
+
+This extends spaCy's native pipeline-packaging functionality with an external model-distribution mechanism. The distinction matters because packaging a pipeline and publishing it to a remotely hosted model registry are separate operations.
+
+The integration does not eliminate the need for compatible spaCy versions, custom component implementations, or other dependencies required to load the packaged pipeline.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary sources:
+
+[https://github.com/explosion/spacy-huggingface-hub](https://github.com/explosion/spacy-huggingface-hub?utm_source=chatgpt.com)
+
+[https://spacy.io/api/cli](https://spacy.io/api/cli?utm_source=chatgpt.com)
+
+### 10.3 Stanza model interoperability through `spacy-stanza`
+
+The `spacy-stanza` companion package wraps Stanford's Stanza NLP framework and exposes its linguistic annotations through spaCy's `Doc` interface.
+
+The integration can provide:
+
+- Statistical tokenization.
+- Sentence segmentation.
+- Fine-grained and coarse-grained POS tags.
+- Morphological annotations.
+- Lemmatization.
+- Dependency parsing.
+- Named entity recognition, where supported by the selected Stanza model.
+
+A critical distinction is that the linguistic predictions originate from Stanza, not from spaCy's own trained models.
+
+`spacy-stanza` adapts the resulting annotations into spaCy-compatible document structures, making them accessible to downstream components that consume `Token`, `Span`, and `Doc` attributes.
+
+The integration consequently provides an alternative source of linguistic analysis while preserving much of spaCy's processing interface.
+
+This can be valuable when a Stanza model offers suitable linguistic coverage or annotation behavior for a particular language or domain.
+
+There are still important boundaries.
+
+Stanza's tokenization and pipeline structure may differ from those of native spaCy models. Downstream components must be compatible with the annotations and token boundaries produced by the wrapper.
+
+The package also has its own release and dependency compatibility requirements. Support for a particular Python or spaCy version should be established from the companion package rather than inferred from spaCy core.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy Universe+1
+
+
+
+Primary sources:
+
+[https://github.com/explosion/spacy-stanza](https://github.com/explosion/spacy-stanza?utm_source=chatgpt.com)
+
+[https://spacy.io/universe/project/spacy-stanza](https://spacy.io/universe/project/spacy-stanza?utm_source=chatgpt.com)
+
+### 10.4 Experimental components and spaCy 3.8 compatibility
+
+`spacy-experimental` remains relevant to functionality such as experimental coreference resolution, span resolution, and trainable character-level tokenization.
+
+However, these capabilities must not be presented as automatically available in a standard spaCy 3.8 installation.
+
+The published upstream package configuration for `spacy-experimental` 0.6.4 declares:
+
+```
+spacy>=3.3.0,<3.8.0
+```
+
+This is incompatible with spaCy 3.8.18 under ordinary dependency resolution.
+
+Consequently, the package's experimental components should be classified as version-constrained ecosystem capabilities, not supported spaCy 3.8 core features.
+
+The dependency constraint also prevents assuming that the documented experimental coreference and tokenization interfaces are directly usable with the current stable release.
+
+A compatible future release, fork, or separately validated adaptation could change that assessment. The upstream package metadata, rather than the presence of API documentation alone, determines the published compatibility boundary.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Primary source: [https://github.com/explosion/spacy-experimental](https://github.com/explosion/spacy-experimental?utm_source=chatgpt.com)
+
+## 11. Installation-dependent functionality and compatibility boundaries
+
+spaCy exposes optional dependencies that determine which companion functionality and hardware integrations are available.
+
+For the 3.8 series, relevant installation extras include:
+
+| Extra                             | Added capability or dependency                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------- |
+| `lookups`                         | Linguistic lookup data for applicable normalization and lemmatization workflows |
+| `transformers`                    | Integration with the separately distributed `spacy-transformers` package        |
+| `cuda` and CUDA-specific variants | GPU support through compatible CuPy installations                               |
+| `apple`                           | Apple-specific Thinc operations acceleration                                    |
+| `ja`                              | Additional Japanese tokenization dependencies                                   |
+| `ko`                              | Additional Korean tokenization dependencies                                     |
+| `th`                              | Additional Thai tokenization dependencies                                       |
+
+The current distribution also advertises CUDA-specific extras such as `cuda11x` and `cuda12x`, alongside more specific CUDA version selectors.
+
+These extras are not all equivalent kinds of dependency.
+
+Language-specific extras provide functionality required for particular tokenization implementations. Lookup data supports specific linguistic components. GPU extras change available numerical execution backends. Transformer extras introduce additional model integration infrastructure.
+
+A critical distinction is that support for a Python interpreter version in spaCy core does not guarantee compatibility across its ecosystem.
+
+A Python 3.15 installation of spaCy 3.8.18, for example, does not by itself establish that every optional companion package, trained model, or GPU dependency supports the same interpreter and platform combination.
+
+Likewise, installing an optional dependency does not automatically add a trained prediction component to every pipeline.
+
+The actual functionality of a pipeline depends jointly on core spaCy, installed companion packages, configured factories, model packages, and underlying numerical dependencies.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://spacy.io\&sz=32)
+
+spaCy Usage Documentation+1
+
+
+
+Primary sources:
+
+[https://spacy.io/usage](https://spacy.io/usage?utm_source=chatgpt.com)
+
+[https://pypi.org/project/spacy/](https://pypi.org/project/spacy/?utm_source=chatgpt.com)
+
+## 12. Cross-cutting architectural implications
+
+The capabilities documented in this addendum expose several additional distinctions that are particularly relevant to the design of sophisticated NLP systems.
+
+### 12.1 Annotations can represent different epistemic states
+
+spaCy distinguishes known entity annotations, explicitly incorrect candidates, missing information, and rule-produced or statistically predicted outputs.
+
+These representations are not interchangeable.
+
+A confirmed entity, an unverified candidate, a known false positive, and a missing annotation carry different information.
+
+Preserving those distinctions can support richer downstream processing than reducing every extraction to a single accepted label.
+
+However, spaCy does not automatically supply a general uncertainty calculus, probabilistic evidence-fusion model, or truth-maintenance engine over those annotations.
+
+The library provides expressive representations and component interfaces from which such systems may be constructed.
+
+### 12.2 Candidate generation can be shared across multiple prediction mechanisms
+
+`SpanRuler`, `SpanFinder`, custom suggesters, and `SpanCategorizer` can participate in architectures that preserve candidate discovery as a distinct operation.
+
+This provides an important opportunity for reducing duplicated extraction logic.
+
+For example, a shared candidate inventory might be examined by several classifiers, normalized through deterministic rules, or evaluated under different acceptance policies.
+
+The gain arises from preserving common span identities and boundaries, not merely placing more components into one pipeline.
+
+A candidate should remain traceable to its source and the scoring or filtering operations that subsequently processed it. spaCy permits custom annotations and named span groups that can support such tracking, but the application must define the corresponding provenance conventions.
+
+### 12.3 Linguistic annotations can support structural analysis without immediate graph conversion
+
+Token-level dependency relationships, syntactic traversal, dependency matching, and lowest-common-ancestor operations collectively permit many linguistic analyses to remain within spaCy's native representation.
+
+This can simplify systems whose immediate objective is to identify grammatical relationships or generate structurally constrained candidates.
+
+External graph representations become more important when the objective requires arbitrary non-tree relationships, persistent entity identity across documents, graph algorithms, or complex knowledge-graph reasoning.
+
+The distinction is between processing a sentence's syntactic dependency tree and maintaining a broader semantic graph of entities and relationships.
+
+### 12.4 Annotation transformation is not equivalent to provenance preservation
+
+`Doc.to_array()`, individual document serialization, `Span.as_doc()`, and `Doc.from_docs()` support useful representation transformations.
+
+Nevertheless, these operations have different preservation guarantees.
+
+A copied span becomes a new document. A concatenation can alter whitespace and offsets. Numerical attribute arrays omit parts of the richer document model. JSON export requires deliberate handling of custom extension values.
+
+Systems requiring exact document provenance, original-source offsets, or stable identity across transformations therefore need to maintain those relationships explicitly.
+
+### 12.5 Native training integration can extend beyond spaCy's predefined tasks
+
+`TrainablePipe`, registered architectures, custom corpora, augmenters, scorers, and external logging integrations collectively provide a reusable training environment.
+
+The resulting opportunity is broader than customizing an existing NER or classification model.
+
+A new prediction task can potentially reuse spaCy's document lifecycle, configuration framework, training orchestration, and model distribution while defining its own outputs and supervision.
+
+The corresponding cost is adherence to spaCy's model and annotation contracts. A task whose natural representation is fundamentally incompatible with those contracts may be better implemented outside the framework or through a specialized integration.
+
+### 12.6 Evaluation must account for the entire prediction chain
+
+The combination of tokenizer-dependent entity coverage, upstream span proposal, downstream classification, and optional entity linking creates several potential sources of end-to-end error.
+
+A useful evaluation can distinguish failures in:
+
+- Representing reference boundaries under the selected tokenization.
+- Proposing relevant candidate spans.
+- Assigning correct categories to proposed candidates.
+- Mapping recognized mentions to the correct identifiers.
+- Accepting or rejecting predictions under the configured threshold and filtering policy.
+
+Component-level metrics remain useful, but they do not automatically establish complete system-level extraction quality.
+
+spaCy provides many of the underlying annotation and scoring interfaces needed to examine these stages. The meaning and completeness of a broader evaluation remain dependent on the task definition and reference data.
+
+## Concluding capability perspective
+
+This addendum expands the original spaCy reference in several directions that are consequential for advanced engineering work.
+
+The newly detailed capabilities show that spaCy provides more than a common interface to NLP models. Its underlying representation and extension mechanisms support partially known annotations, explicit negative supervision, programmable candidate discovery, syntactic tree queries, deterministic normalization, custom trainable prediction tasks, alternative vector backends, and several forms of structured interchange.
+
+The most significant architectural distinction is the separation of concerns within a shared processing environment: annotation storage, candidate generation, linguistic analysis, supervised prediction, entity resolution, and training-data management can be independently configured while retaining common document and pipeline interfaces.
+
+That separation allows functionality to be composed without requiring every component to implement its own tokenization, annotation storage, execution orchestration, and training lifecycle.
+
+The boundaries are equally important. spaCy does not automatically provide general probabilistic reasoning, arbitrary semantic graphs, guaranteed preservation of external provenance, or compatibility among every separately distributed model and extension.
+
+Within those boundaries, the additional capabilities documented here substantially extend the expressive and architectural range of the spaCy 3.8 framework without changing the core conceptual model established in the original guide.
