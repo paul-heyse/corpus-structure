@@ -134,7 +134,8 @@ def test_native_contextual_refusal_is_atomic(private_source, corruption):
             t | {k: t.get(k) for k in ("type_name", "parent", "effective_version")}
             for t in inv["targets"]
         ]
-        meaning["policy"] = "eligible-concepts-1"
+        meaning["semantic_groups"] = inv["semantic_groups"]
+    meaning["policy"] = "eligible-concepts-2"
         inv["inventory_id"] = identity("concept-inventory", meaning)
     if corruption in {
         "wrong_occurrence",
@@ -233,7 +234,8 @@ def test_native_known_version_excludes_conflicting_target_version(private_source
         t | {k: t.get(k) for k in ("type_name", "parent", "effective_version")}
         for t in inv["targets"]
     ]
-    meaning["policy"] = "eligible-concepts-1"
+    meaning["semantic_groups"] = inv["semantic_groups"]
+    meaning["policy"] = "eligible-concepts-2"
     inv["inventory_id"] = identity("concept-inventory", meaning)
     with (
         case.writer.begin() as conn,
@@ -249,7 +251,7 @@ def test_genuine_competing_senses_are_retained_natively(private_source):
     result, _, _ = contextual_result(case, competing=True)
     decision=result.contribution_operations[0]["contextual_enrichment"]["relationship_decisions"][0]
     assert decision["outcome"] == "ambiguous"
-    assert decision["selected_edges"] == []
+    assert not decision["selected_edges"]
     assert len(decision["alternative_groups"][0]["edges"]) == 2
     with case.writer.begin() as conn:
         complete(case,conn,result)

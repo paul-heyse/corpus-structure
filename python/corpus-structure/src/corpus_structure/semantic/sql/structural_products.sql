@@ -273,7 +273,7 @@ BEGIN
   IF item IS NULL OR NOT passage_map ? (item->>'usage_id') OR item->>'retrieval_diagnosis' IS DISTINCT FROM 'not_independently_assessed' THEN
    RAISE EXCEPTION 'invalid definition usage or unsupported retrieval diagnosis' USING ERRCODE='23514'; END IF;
   IF method_='structure.definitions' AND (
-   (SELECT jsonb_agg(v ORDER BY data.canonical_json(v)) FROM jsonb_array_elements(config_->'selection_refs') v)
+   (SELECT jsonb_agg(selected_ref.value ORDER BY data.canonical_json(selected_ref.value)) FROM jsonb_array_elements(config_->'selection_refs') AS selected_ref(value))
    IS DISTINCT FROM (SELECT jsonb_agg(r->'link_ref' ORDER BY data.canonical_json(r->'link_ref')) FROM jsonb_array_elements(item->'readings') r)) THEN
    RAISE EXCEPTION 'applicability differs from frozen actual relationship selection' USING ERRCODE='23514'; END IF;
   IF EXISTS(SELECT FROM jsonb_array_elements_text(item->'candidate_targets') c WHERE NOT item->'eligible_targets' ? c)

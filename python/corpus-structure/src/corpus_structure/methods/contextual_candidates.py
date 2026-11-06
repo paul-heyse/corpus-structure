@@ -292,6 +292,12 @@ class ContextualCandidates:
                 node.get("self_ref", node.get("pointer")): node
                 for node in json.loads(frame.native_context)["items"]
             }
+            # Native table-cell evidence names a physical field within its parent item.
+            # Retain that exact field coordinate rather than treating the parent text
+            # or the selected projection as the asserted occurrence.
+            for pointer, node in tuple(nodes.items()):
+                for index, cell in enumerate(node.get("data", {}).get("table_cells", ())):
+                    nodes[f"{pointer}/data/table_cells/{index}"] = cell
             operation_key = operation_identity(
                 self.name, self.version, cfg.model_dump(mode="json"), pin
             )
