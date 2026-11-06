@@ -47,6 +47,7 @@ EXCEPTION WHEN no_data_found OR too_many_rows OR numeric_value_out_of_range THEN
  RAISE EXCEPTION 'structural source reference cannot resolve exact original custody' USING ERRCODE='23514';
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_structural_source(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.validate_structural_source(jsonb) TO corpus_sem_reader,corpus_sem_writer;
 
 
 CREATE OR REPLACE FUNCTION ops.validate_structural_input(p_inputs jsonb)
