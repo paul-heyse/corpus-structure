@@ -1,6 +1,14 @@
 """Independent source/role and selected-edge projection controls for actual occurrence linking."""
 
 from dataclasses import replace
+from types import SimpleNamespace
+
+from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+from corpus_structure.core.method import UnitRef
+from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.methods.contextual_candidates import ContextualCandidates
+from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
+from methods.test_m1_producer import view
 
 import pytest
 
@@ -79,3 +87,142 @@ def test_projection_preserves_all_selected_kinds_without_first_alternative():
     assert len({source_python(row["value"])["edge_id"] for row in rows}) == 2
     assert all(row["members"] == (source["contribution_id"],) for row in rows)
     assert len(decision.selected_edges) == 2
+
+
+@pytest.mark.parametrize(
+    "failure", [OSError("controlled late read failure"), DatabaseOperationCancelled("cancelled")]
+)
+def test_later_operation_failure_preserves_encoder_and_completed_products(monkeypatch, failure):
+    source = view()
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import record_source_pin
+    from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
+
+    pin = record_source_pin(native_source_frame(source, ()))
+    products = []
+    for index, (start, end) in enumerate(((0, 4), (8, 15))):
+        anchor = dict(pin=pin, space="native", pointer="#/texts/1", precision="exact", start=start, end=end, source_piece=source.text[start:end])
+        anchor["anchor_id"] = anchor_identity(anchor)
+        product = dict(kind="occurrence", semantic_type="source_rule.term", operation_key="producer", item_key=str(index), pin=pin, anchors=(anchor,), occurrence_id=occurrence_identity((anchor,)))
+        product["contribution_id"] = contribution_identity(product)
+        products.append(product)
+    cfg = ContextualCandidateConfig(
+        target_components=(ExtractedComponentTarget.model_validate(dict(
+            reference=dict(product_id="structural:source", component_id="a" * 64,
+                           operation_id="components", operation_version="1", project_id="source", run_id=1,
+                           cut_id=1, release_id="release", result_revision=0, selected_task_id=1,
+                           origin_task_id=1, runtime_fingerprint="runtime", dependencies=("source",)),
+            label="Mean", description="An average", scope="chapter5",
+        )),),
+        relationship_constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "sense", "one"),),
+        source_product_digest=source.ref.native_product.content_digest,
+        source_projection_digest=source.ref.projection_digest,
+        scope="chapter5",
+    )
+
+    def encoded(inputs, profile, **kwargs):
+        vectors = []
+        for item in inputs:
+            digest = "a" * 64
+            vector_id = identity(
+                "context-vector",
+                [
+                    item.object_id,
+                    item.source_binding,
+                    profile.profile_id,
+                    digest,
+                    item.representation_digest,
+                ],
+            )
+            vectors.append(
+                EncodedVector(
+                    vector_id,
+                    item.object_id,
+                    item.source_binding,
+                    profile.profile_id,
+                    digest,
+                    (1.0,) + (0.0,) * (profile.dimension - 1),
+                    item.representation_digest,
+                )
+            )
+        return EncoderResult(profile.profile_id, (), tuple(vectors), ())
+
+    calls = []
+
+    def retrieve(**request):
+        calls.append(request)
+        if len(calls) == 2:
+            raise failure
+        return fuse_candidates(
+            occurrence_id=request["occurrence_id"],
+            query=request["query"],
+            inventory=request["inventory"],
+            channels={"dense": (ChannelHit("a" * 64, 1.0),)},
+        )
+
+    reader = SimpleNamespace(
+        source_view=lambda _: source,
+        source_result=lambda *_: dict(contributions=products),
+        validate_component_targets=lambda _: None,
+        cached_contextual_vectors=lambda **_: (),
+        contextual_candidates=retrieve,
+    )
+    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
+    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
+    monkeypatch.setattr(
+        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
+    )
+    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
+    if isinstance(failure, DatabaseOperationCancelled):
+        with pytest.raises(DatabaseOperationCancelled):
+            ContextualCandidates().run((unit,), cfg, ctx)
+        return
+    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
+    assert result.contribution_operations is not None
+    first, *phases = result.contribution_operations
+    report = first["contextual_enrichment"]
+    assert first["outcome"] == "succeeded" and "encoder products" in first["question"]
+    assert report["product_counts"]["vectors"] == 3
+    assert report["product_counts"]["candidate_lists"] == 1
+    assert report["product_counts"]["relationship_decisions"] == 1
+    assert [p["outcome"] for p in phases] == ["succeeded", "succeeded", "failed", "not_run"]
+    assert [p["emitted_count"] for p in phases] == [0, 1, 0, 0]
+    assert result.contributions is not None
+    proposal = next(
+        c for c in result.contributions if c["semantic_type"] == "contextual.relationship"
+    )
+    source_product = result.contributions[0]
+    assert proposal["members"] == (source_product["contribution_id"],)
+    assert proposal["anchors"] == source_product["anchors"]
+    statement = source_python(proposal["value"])
+    assert statement["target_id"] == "a" * 64 and statement["relation"] == "denotes"
+    assert statement["scope"] == "chapter5" and statement["effective_version"] is None
+    assert proposal["score_state"] == "missing" and "score" not in proposal
+    assert first["emitted_count"] == 2
+    assert "controlled late read failure" in phases[-2]["reason"]
+
+
+def test_actual_named_role_group_proposes_multiple_compatible_kinds():
+    from corpus_structure.methods.contextual_candidates import (
+        ProducerRelationshipRecipe,
+        producer_relationship_witnesses,
+    )
+
+    originals = []
+    for role, start, end in (("subject", 0, 4), ("object", 8, 15)):
+        original = located(role, start, end)
+        original["item_key"] = "actual-group/role/" + role
+        original["component"] = dict(kind="located_role", rule="typed-comparison",
+                                     roles=(dict(role=role, outcome="complete"),))
+        original["contribution_id"] = contribution_identity(original)
+        originals.append(original)
+    upstream = {"contributions": originals}
+    products, _, _ = retained_occurrences(upstream, {"#/texts/1": {"text": "Mean is average."}}, PIN, "current")
+    target = target_representation("average-concept", "definition-source", "average", "an average", scope="chapter")
+    inventory = freeze_inventory((target,), source_selection="components", scope="chapter")
+    witnesses = producer_relationship_witnesses(upstream, products, products[0]["occurrence_id"], inventory, {"average-concept"},
+        tuple(ProducerRelationshipRecipe(rule="typed-comparison", occurrence_role="subject", target_role="object", relation=relation)
+              for relation in ("compared-with", "specializes")), "source", "chapter", None)
+    assert {w.relation for w in witnesses} == {"compared-with", "specializes"}
+    assert all(w.evidence_ids == (products[0]["contribution_id"], products[1]["contribution_id"]) for w in witnesses)
+    assert all(w.basis == "producer_group" and w.support_state == "unassessed" for w in witnesses)

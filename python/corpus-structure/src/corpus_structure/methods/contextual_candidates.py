@@ -12,7 +12,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
+from corpus_structure.semantic.contextual_links import RelationKind, RelationshipConstraint, RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget, component_target_input
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory
 from corpus_structure.semantic.contextual_storage import enrichment_report
@@ -96,6 +96,55 @@ def relationship_contributions(decision, source_product, inventory, operation_ke
     return tuple(rows)
 
 
+class ProducerRelationshipRecipe(BaseModel):
+    """Domain-authored mapping from named producer roles to a scoped relationship."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    rule: str = Field(min_length=1)
+    occurrence_role: str = Field(min_length=1)
+    target_role: str = Field(min_length=1)
+    relation: RelationKind
+
+
+def producer_relationship_witnesses(upstream, products, occurrence, inventory, available,
+                                    recipes, source_binding, scope, effective_version):
+    originals = {p["contribution_id"]: p for p in upstream.get("contributions", ())}
+    pairs = tuple((p, originals[p["computation_dependencies"][0]]) for p in products)
+    witnesses = []
+    for recipe in recipes:
+        for product, original in pairs:
+            if product["occurrence_id"] != occurrence:
+                continue
+            component = original.get("component", {})
+            roles = component.get("roles", ())
+            if component.get("kind") != "located_role" or component.get("rule") != recipe.rule:
+                continue
+            if not any(r["role"] == recipe.occurrence_role and r["outcome"] == "complete" for r in roles):
+                continue
+            group = original["item_key"].rsplit("/role/", 1)[0]
+            for target_product, target_original in pairs:
+                target_component = target_original.get("component", {})
+                if target_original["item_key"].rsplit("/role/", 1)[0] != group:
+                    continue
+                if target_component.get("rule") != recipe.rule or not any(
+                    r["role"] == recipe.target_role and r["outcome"] == "complete"
+                    for r in target_component.get("roles", ())
+                ):
+                    continue
+                label = " ".join(a["source_piece"] for a in target_product["anchors"])
+                for target in inventory.targets:
+                    if target.target_id not in available or target.label.casefold() != label.casefold():
+                        continue
+                    witness_id = "producer-group:" + operation_identity(recipe.model_dump(mode="json"), product["contribution_id"], target_product["contribution_id"], target.target_id)
+                    witnesses.append(RelationshipWitness(
+                        witness_id, occurrence, target.target_id, recipe.relation,
+                        source_binding, scope, effective_version,
+                        (product["contribution_id"], target_product["contribution_id"]),
+                        "producer_group", "unassessed",
+                    ))
+    return tuple(witnesses)
+
+
 class ContextualCandidateConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     profile: Literal["e5", "qwen"] = "e5"
@@ -104,6 +153,7 @@ class ContextualCandidateConfig(BaseModel):
     semantic_types: tuple[str, ...] = ()
     target_components: tuple[ExtractedComponentTarget, ...] = Field(min_length=1, max_length=256)
     relationship_constraints: tuple[RelationshipConstraint, ...] = Field(min_length=1)
+    relationship_recipes: tuple[ProducerRelationshipRecipe, ...] = ()
     source_product_digest: str = Field(pattern="^[0-9a-f]{64}$")
     source_projection_digest: str = Field(pattern="^[0-9a-f]{64}$")
     scope: str = Field(min_length=1)
@@ -259,6 +309,11 @@ class ContextualCandidates:
             vectors = {v.object_id: v for v in all_vectors}
             target_vectors = tuple(v for v in all_vectors if v.object_id in inventory.target_ids)
             lists, decisions, phases = [], [], []
+            for occurrence in sorted({p["occurrence_id"] for p in source_products} - contexts.keys()):
+                phase = _phase_operation("candidate retrieval", occurrence, (inventory.inventory_id,))
+                phase.update(outcome="not_run", reason="multi-item occurrence has no single owned encoder context")
+                phases.append(phase)
+                phases.append(_phase_operation("relationship selection", occurrence, (inventory.inventory_id,), skipped=True))
             for occurrence, (text, start, end, mention) in contexts.items():
                 product = next(p for p in source_products if p["occurrence_id"] == occurrence)
                 ctx.check_active()
@@ -305,21 +360,28 @@ class ContextualCandidates:
                     available = {c.target_id for c in candidate_list.candidates}
                     witnesses = tuple(
                         RelationshipWitness(
-                            "registry-label:" + product["contribution_id"] + ":" + target.target_id,
+                            "component-label:" + source_product["contribution_id"] + ":" + target.target_id,
                             occurrence,
                             target.target_id,
                             "denotes",
                             frame.unit_ref,
                             cfg.scope,
                             cfg.effective_version,
-                            (product["contribution_id"],),
+                            (source_product["contribution_id"],),
                             "producer_group",
                             "unassessed",
                         )
+                        for source_product in source_products
                         for target in inventory.targets
-                        if target.target_id in available
+                        if source_product["occurrence_id"] == occurrence
+                        and any("denotes" in c.relation_kinds for c in cfg.relationship_constraints)
+                        and target.target_id in available
                         and mention.lower()
                         in {target.label.lower(), *(a.lower() for a in target.aliases)}
+                    )
+                    witnesses += producer_relationship_witnesses(
+                        upstream, source_products, occurrence, inventory, available,
+                        cfg.relationship_recipes, frame.unit_ref, cfg.scope, cfg.effective_version,
                     )
                     decision = select_relationships(
                         candidates=candidate_list,

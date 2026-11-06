@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.contextual_embeddings import identity
 from corpus_structure.semantic.contextual_retrieval import target_representation
+from corpus_structure.semantic.structural_products import RetainedComponentRef
 
 
 class RegistryTarget(BaseModel):
@@ -41,7 +42,7 @@ class ExtractedComponentTarget(BaseModel):
     """Located component description; native completion authenticates its original custody."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
-    reference: dict
+    reference: RetainedComponentRef
     label: str = Field(min_length=1)
     description: str = Field(min_length=1)
     scope: str = Field(min_length=1)
@@ -49,9 +50,7 @@ class ExtractedComponentTarget(BaseModel):
     parent: str | None = None
 
     def authenticated_reference(self):
-        from .structural_products import RetainedComponentRef
-
-        return RetainedComponentRef.model_validate(self.reference)
+        return self.reference
 
 
 def component_target_input(targets: Sequence[ExtractedComponentTarget]):
