@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "id": "wce02.gs120-source",
+  "title": "Authenticated shared Grinstead–Snell120-page source and neutral packets",
+  "group": "WCE",
+  "package": "WCE02",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are120 original physical pages retained in actual native source custody and neutral packets for one shared development/assessment corpus?",
+  "answers": [
+    "WCE02"
+  ],
+  "method": "Authenticate parent hash, copy twelve exact ten-page inputs, compare every page geometry/pixels, execute registered Standard source/current annotations and freeze all native views without semantic predictions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/prepare_corpus.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/intake_corpus.py 001",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-gs120/freeze_corpus.py --run 137"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "prepare_corpus.py",
+      "role": null,
+      "sha256": "c1772da1ee364d10f281baec714355bb082a81880f13c22bbd1c5edff419c162"
+    },
+    {
+      "path": "intake_corpus.py",
+      "role": null,
+      "sha256": "c55886fb4cc7645ba5ab2a3ed2a572325b1e9350d3d460fac6420590df1a8d79"
+    },
+    {
+      "path": "freeze_corpus.py",
+      "role": null,
+      "sha256": "ba949c381363de57bda93a29a2457ae09769a555b6717bee182c882b89c427e8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "source-manifest.json",
+      "role": null,
+      "sha256": "5c26959a59514e491527bb61821de0d42c7e4682338b63e2918b43767da6abec"
+    },
+    {
+      "path": "corpus",
+      "role": null,
+      "sha256": "72725121798c5cbbabe65518f5694d3427df35df877c369e4901bf6c8d543124"
+    },
+    {
+      "path": "source-packets",
+      "role": null,
+      "sha256": "574ea6c50acbb3cd4bbab1d0dfc16404d0714ded35f328c49d7d3cb0411101ae"
+    },
+    {
+      "path": "prepare-corpus.log",
+      "role": null,
+      "sha256": "6c87d737764c968137eaa55cca594d8ec54af1542259bd7cfb6395daf1464b83"
+    },
+    {
+      "path": "intake001.log",
+      "role": null,
+      "sha256": "388501050521fac06ade1491b89983f6d74d370ef17ba74e61b49d5d77c1f29f"
+    },
+    {
+      "path": "intake001/run.json",
+      "role": null,
+      "sha256": "8b14de6125c7fefd3ef955ddca3edc2b27f0b76954a0d1c4416b51156abe1048"
+    },
+    {
+      "path": "intake001/result.json",
+      "role": null,
+      "sha256": "81e1f22de8f02f3cb03836c1fdff3349e9d08b93022378a86d78d244723f5918"
+    },
+    {
+      "path": "freeze-corpus.log",
+      "role": null,
+      "sha256": "a16078868a7b55171a51f40ba3811a9bb8d09e014159c0dc18c86bc1f02edf76"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Original physical191–310 are faithfully copied and retained in source137/cut176 plus40 current annotation tasks. All40 native views include three short views absent from the initial broad filter. Twelve neutral packets retain native geometry/custody and parent mapping. One source origin supplies all uses. Baseline138 remains running; semantic quality, source-opportunity completeness, fitted efficacy and final WCE qualification are unestablished.",
+  "consumed_by": [
+    "WCE02",
+    "WCE12"
+  ]
+}
