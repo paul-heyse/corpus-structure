@@ -1,0 +1,133 @@
+{
+  "database": "corpus_structure_dev",
+  "mode": "dry_run",
+  "plan": [
+    {
+      "rel": 27789354,
+      "schema": "data",
+      "name": "local_assertion",
+      "rows": 231
+    },
+    {
+      "rel": 27844815,
+      "schema": "data",
+      "name": "local_semantic_assertion",
+      "rows": 32
+    },
+    {
+      "rel": 25922485,
+      "schema": "data",
+      "name": "record_report",
+      "rows": 73
+    },
+    {
+      "rel": 28678604,
+      "schema": "data",
+      "name": "structural_assertion",
+      "rows": 12
+    },
+    {
+      "rel": 28674707,
+      "schema": "eval",
+      "name": "review_exposure",
+      "rows": 42
+    },
+    {
+      "rel": 28674739,
+      "schema": "eval",
+      "name": "structural_reference_pass",
+      "rows": 18
+    },
+    {
+      "rel": 28674684,
+      "schema": "eval",
+      "name": "structural_reference_set",
+      "rows": 6
+    },
+    {
+      "rel": 27595900,
+      "schema": "kb",
+      "name": "contextual_inventory",
+      "rows": 5
+    },
+    {
+      "rel": 27595915,
+      "schema": "kb",
+      "name": "contextual_profile",
+      "rows": 5
+    },
+    {
+      "rel": 27595951,
+      "schema": "kb",
+      "name": "contextual_target_vector",
+      "rows": 101
+    },
+    {
+      "rel": 27595932,
+      "schema": "kb",
+      "name": "contextual_vector",
+      "rows": 186
+    },
+    {
+      "rel": 27065035,
+      "schema": "kb",
+      "name": "source_contribution",
+      "rows": 165
+    },
+    {
+      "rel": 27065072,
+      "schema": "kb",
+      "name": "source_contribution_anchor",
+      "rows": 165
+    },
+    {
+      "rel": 27065013,
+      "schema": "kb",
+      "name": "source_contribution_operation",
+      "rows": 175
+    },
+    {
+      "rel": 25922935,
+      "schema": "ops",
+      "name": "completed_result",
+      "rows": 24
+    },
+    {
+      "rel": 25922948,
+      "schema": "ops",
+      "name": "cut_task",
+      "rows": 122
+    },
+    {
+      "rel": 25922954,
+      "schema": "ops",
+      "name": "input_cut",
+      "rows": 45
+    },
+    {
+      "rel": 25921659,
+      "schema": "ops",
+      "name": "run",
+      "rows": 26
+    },
+    {
+      "rel": 25921606,
+      "schema": "ops",
+      "name": "task",
+      "rows": 81
+    },
+    {
+      "rel": 25923394,
+      "schema": "ops",
+      "name": "task_result",
+      "rows": 52
+    }
+  ],
+  "foreign_keys_enforced": true,
+  "protected_source_counts": {
+    "ops.source_build": 52,
+    "ops.native_source_frame": 0,
+    "kb.source_view": 62,
+    "kb.source_artifact": 380
+  }
+}

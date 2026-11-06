@@ -1,0 +1,13 @@
+{
+  "method": "ingest.pdf",
+  "source": "doc:c7fba4b0188fc7c7c51927e9d71426fd",
+  "outcome": "empty",
+  "coverage": [],
+  "unit_key": "doc:c7fba4b0188fc7c7c51927e9d71426fd",
+  "input_hash": "40c23ff49e54374bbbe67b924d319304aaee2e6030568e7dfeafdd925480fa7b",
+  "release_id": "release:84f106f3bb87c4cc6414f232b55b45edd0cdab67f2411d38355dd7e6e50ae2ac",
+  "measurements": [],
+  "invocation_key": "a6befd69-d918-4c57-b865-7cc86e9691cf",
+  "operation_version": "2",
+  "configuration_hash": "cfg:118f433fe3d864b80cd9b89cdbc29c01"
+}

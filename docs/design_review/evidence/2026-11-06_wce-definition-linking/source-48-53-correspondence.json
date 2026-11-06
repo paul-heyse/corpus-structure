@@ -1,0 +1,40 @@
+{
+  "outcome": "passed",
+  "checks": {
+    "text": true,
+    "native_task": true,
+    "native_digest": true,
+    "projection": true,
+    "recipe": true
+  },
+  "original_source": {
+    "coordinate_version": 2,
+    "cut_id": 139,
+    "native_content_digest": "de2c777006d3e9b6cc69bb3d65664b8b2575cf2d0ffe15929b3517ce3f473f5d",
+    "native_product_key": "organized",
+    "native_task_id": 260,
+    "project_id": "wce-statistics-normal-20261106",
+    "projection_digest": "e2a22b2f7fe70c36dbbdc9e302d13d7375af2125e5dc208c49e0447fbbcaffcd",
+    "recipe_digest": "7bc882ae9383a0bf620f9aa749694afdcf0af4096062fe350f7bbdd1e7ae0dda",
+    "release_id": "release:84f106f3bb87c4cc6414f232b55b45edd0cdab67f2411d38355dd7e6e50ae2ac",
+    "result_revision": 1,
+    "run_id": 105,
+    "source_view_id": 48
+  },
+  "retained_annotation_view": {
+    "id": 53,
+    "key": "source-view:ebf228227ba8caeaad0aad01cebc281bda5895389a1dc146d75d2e97c976a8c8",
+    "document_id": 4,
+    "native_product": {
+      "task_id": 260,
+      "product_key": "organized",
+      "content_digest": "de2c777006d3e9b6cc69bb3d65664b8b2575cf2d0ffe15929b3517ce3f473f5d"
+    },
+    "section_pointer": "#/groups/0",
+    "membership": "descendants",
+    "projection_digest": "e2a22b2f7fe70c36dbbdc9e302d13d7375af2125e5dc208c49e0447fbbcaffcd",
+    "recipe_digest": "7bc882ae9383a0bf620f9aa749694afdcf0af4096062fe350f7bbdd1e7ae0dda",
+    "analysis_eligible": true
+  },
+  "meaning": "Exact physical/projection correspondence only; original selection provenance and exposure remain distinct. No reference pass or semantic assessment is manufactured."
+}

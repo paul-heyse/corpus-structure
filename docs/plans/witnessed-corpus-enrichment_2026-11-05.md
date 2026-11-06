@@ -255,3 +255,8 @@ and whole-statement refusal; current Reader/query/CLI/MCP/continuation/export re
 dependency-aware migration and fresh-install agreement; cancellation/partial-state retention.
 All pytest selections use `uv run pytest -n auto`. Original exposed families remain development
 inputs with unchanged origin/exposure. Product results for this increment are not yet claimed.
+
+The operator clarified during execution that the corpus is a progressively structured domain
+representation, not a question/answer model. Production relationship constraints own kind, roles,
+multiplicity and competition. Assessment questions and query intent remain separate; query wording
+is excluded from public statement identity. Partial unresolved constraints remain explicit.

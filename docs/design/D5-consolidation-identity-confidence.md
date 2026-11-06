@@ -8,6 +8,11 @@
 consumers to current contracts. Historical semantic decoders and replaced decision paths are
 retired; valid source custody remains an input to regeneration.
 
+**Accepted target,2026-11-06.** Corpus structure represents source-grounded domain objects,
+claims, typed relationships, conditions and scope. Released relationship constraints govern
+endpoint roles, multiplicity and competing interpretations. Assessment questions evaluate exact
+facets; query wording is request context and does not define knowledge claim identity.
+
 > Decision: [ADR-0067](../adr/0067-witnessed-current-only-cutover.md)
 
 ## Independent local admission

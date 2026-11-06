@@ -1,0 +1,403 @@
+{
+  "date": "2026-11-06",
+  "outcome": "partial",
+  "database": "corpus_structure_dev",
+  "structural_outputs": [
+    {
+      "task_id": 133,
+      "run_id": 46,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 134,
+      "run_id": 46,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 135,
+      "run_id": 46,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 136,
+      "run_id": 46,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 137,
+      "run_id": 47,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 138,
+      "run_id": 47,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 139,
+      "run_id": 47,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 140,
+      "run_id": 47,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 143,
+      "run_id": 51,
+      "status": "done",
+      "method": "structure.definitions",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 144,
+      "run_id": 52,
+      "status": "done",
+      "method": "structure.definitions",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 145,
+      "run_id": 53,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 154,
+      "run_id": 56,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 155,
+      "run_id": 57,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 156,
+      "run_id": 58,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 157,
+      "run_id": 59,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 168,
+      "run_id": 70,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 169,
+      "run_id": 70,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 170,
+      "run_id": 70,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 171,
+      "run_id": 70,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 172,
+      "run_id": 71,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 173,
+      "run_id": 71,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 174,
+      "run_id": 71,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 175,
+      "run_id": 71,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 176,
+      "run_id": 72,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 177,
+      "run_id": 73,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 178,
+      "run_id": 74,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 179,
+      "run_id": 75,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 180,
+      "run_id": 76,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 181,
+      "run_id": 76,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 182,
+      "run_id": 76,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 183,
+      "run_id": 76,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 201,
+      "run_id": 82,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 202,
+      "run_id": 83,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 203,
+      "run_id": 84,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 204,
+      "run_id": 85,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 205,
+      "run_id": 86,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 206,
+      "run_id": 86,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 207,
+      "run_id": 86,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 208,
+      "run_id": 86,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 230,
+      "run_id": 93,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 231,
+      "run_id": 94,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 232,
+      "run_id": 95,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 233,
+      "run_id": 96,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    },
+    {
+      "task_id": 234,
+      "run_id": 97,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 235,
+      "run_id": 97,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "definition_applicability"
+    },
+    {
+      "task_id": 236,
+      "run_id": 97,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "qualified_comparison"
+    },
+    {
+      "task_id": 237,
+      "run_id": 97,
+      "status": "done",
+      "method": "structure.products",
+      "version": "structural-product-1",
+      "kind": "dossier"
+    }
+  ],
+  "relevant_tables": [
+    {
+      "table_schema": "data",
+      "table_name": "occurrence_context"
+    },
+    {
+      "table_schema": "data",
+      "table_name": "structural_assertion"
+    },
+    {
+      "table_schema": "eval",
+      "table_name": "structural_reference_pass"
+    },
+    {
+      "table_schema": "eval",
+      "table_name": "structural_reference_set"
+    }
+  ],
+  "action": "read_only_inventory_no_deletion",
+  "remaining": "Authenticated-source and dependent publication/reference closure must be resolved before derived data deletion."
+}

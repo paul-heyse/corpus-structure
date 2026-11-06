@@ -1,0 +1,1844 @@
+{
+  "ref": {
+    "id": 53,
+    "key": "source-view:ebf228227ba8caeaad0aad01cebc281bda5895389a1dc146d75d2e97c976a8c8",
+    "document_id": 4,
+    "native_product": {
+      "task_id": 260,
+      "product_key": "organized",
+      "content_digest": "de2c777006d3e9b6cc69bb3d65664b8b2575cf2d0ffe15929b3517ce3f473f5d"
+    },
+    "section_pointer": "#/groups/0",
+    "membership": "descendants",
+    "projection_digest": "e2a22b2f7fe70c36dbbdc9e302d13d7375af2125e5dc208c49e0447fbbcaffcd",
+    "recipe_digest": "7bc882ae9383a0bf620f9aa749694afdcf0af4096062fe350f7bbdd1e7ae0dda",
+    "analysis_eligible": true
+  },
+  "text": "Normal Density\nWe now come to the most important density function, the normal density function. We have seen in Chapter 3 that the binomial distribution functions are bell-shaped, even for moderate size values of n. We recall that a binomially-distributed random variable with parameters n and p can be considered to be the sum of n mutually independent 0-1 random variables. A very important theorem in probability theory, called the Central Limit Theorem, states that under very general conditions, if we sum a large number of mutually independent random variables, then the distribution of the sum can be closely approximated by a certain specific continuous density, called the normal density. This theorem will be discussed in Chapter 9.\nThe normal density function with parameters µ and σ is defined as follows:\nf _ { X } ( x ) = \\frac { 1 } { \\sqrt { 2 \\pi } \\sigma } e ^ { - ( x - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\ .\nThe parameter µ represents the \"center\" of the density (and in Chapter 6, we will show that it is the average, or expected, value of the density). The parameter σ is a measure of the \"spread\" of the density, and thus it is assumed to be positive. (In Chapter 6, we will show that σ is the standard deviation of the density.) We note that it is not at all obvious that the above function is a density, i.e., that its integral over the real line equals 1. The cumulative distribution function is given by the formula In Figure 5.10 we have included for comparison a plot of the normal density for the cases µ = 0 and σ = 1, and µ = 0 and σ = 2.\nFigure 5.10: Normal density for two sets of parameter values.\n-4\n-2\n2\n4\n0.1\n0.2\n0.3\n0.4\ns = 1\ns = 2\nF _ { X } ( x ) = \\int _ { - \\infty } ^ { x } \\frac { 1 } { \\sqrt { 2 \\pi \\sigma } } e ^ { - ( u - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\, d u \\ . \\\\ 0 \\, w e h a v e i n c l u d e d \\, f o r \\, c o m p a r i s o n \\, a \\, p l o t \\, o f \\, the \\, n o r\nOne cannot write FX in terms of simple functions. This leads to several problems. First of all, values of FX must be computed using numerical integration. Extensive tables exist containing values of this function (see Appendix A). Secondly, we cannot write F -1 X in closed form, so we cannot use Corollary 5.2 to help us simulate a normal random variable. For this reason, special methods have been developed for simulating a normal distribution. One such method relies on the fact that if U and V are independent random variables with uniform densities on [0, 1], then the random variables\nand\nX & = \\sqrt { - 2 \\log U } \\cos 2 \\pi V \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\\nY & = \\sqrt { - 2 \\log U } \\sin 2 \\pi V \\\\ \\text {we normal density functions with}\nare independent, and have normal density functions with parameters µ = 0 and σ = 1. (This is not obvious, nor shall we prove it here. See Box and Muller.9 )\nLet Z be a normal random variable with parameters µ = 0 and σ = 1. A normal random variable with these parameters is said to be a standard normal random variable. It is an important and useful fact that if we write\nX = \\sigma Z + \\mu \\ ,\nthen X is a normal random variable with parameters µ and σ. To show this, we will use Theorem 5.1. We have φ(z) = σz + µ, φ-1 (x) = (x - µ)/σ, and\nF _ { X } ( x ) \\ = \\ F _ { Z } \\left ( \\frac { x - \\mu } { \\sigma } \\right ) , \\\\ F _ { \\ } M a l _ { 1 }\n9G. E. P. Box and M. E. Muller, A Note on the Generation of Random Normal Deviates, Ann. of Math. Stat. 29 (1958), pgs. 610-611.\n\\begin{array} { r l } { f _ { X } ( x ) } & { = } & { f _ { Z } \\left ( \\frac { x - \\mu } { \\sigma } \\right ) \\cdot \\frac { 1 } { \\sigma } } \\\\ & { = } & { \\frac { 1 } { \\sqrt { 2 \\pi } \\sigma } e ^ { - ( x - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\, . } \\end{array}\nThe reader will note that this last expression is the density function with parameters µ and σ, as claimed.\nWe have seen above that it is possible to simulate a standard normal random variable Z. If we wish to simulate a normal random variable X with parameters µ and σ, then we need only transform the simulated values for Z using the equation X = σZ + µ.\nSuppose that we wish to calculate the value of a cumulative distribution function for the normal random variable X, with parameters µ and σ. We can reduce this calculation to one concerning the standard normal random variable Z as follows:\n\\ F _ { X } ( x ) \\ & = \\ P ( X \\leq x ) \\\\ & = \\ P \\left ( Z \\leq \\frac { x - \\mu } { \\sigma } \\right ) \\\\ & = \\ F _ { Z } \\left ( \\frac { x - \\mu } { \\sigma } \\right ) \\, .\nThis last expression can be found in a table of values of the cumulative distribution function for a standard normal random variable. Thus, we see that it is unnecessary to make tables of normal distribution functions with arbitrary µ and σ.\nThe process of changing a normal random variable to a standard normal random variable is known as standardization. If X has a normal distribution with parameters µ and σ and if\nZ = \\frac { X - \\mu } { \\sigma } \\ ,\nthen Z is said to be the standardized version of X.\nThe following example shows how we use the standardized version of a normal random variable X to compute specific probabilities relating to X.\nExample 5.8 Suppose that X is a normally distributed random variable with parameters µ = 10 and σ = 3. Find the probability that X is between 4 and 16.\nTo solve this problem, we note that Z = (X-10)/3 is the standardized version of X. So, we have\n\\begin{array} { r c l } P ( 4 \\leq X \\leq 1 6 ) & = & P ( X \\leq 1 6 ) - P ( X \\leq 4 ) \\\\ & = & F _ { X } ( 1 6 ) - F _ { X } ( 4 ) \\\\ & = & F _ { Z } \\left ( \\frac { 1 6 - 1 0 } { 3 } \\right ) - F _ { Z } \\left ( \\frac { 4 - 1 0 } { 3 } \\right ) \\\\ & = & F _ { Z } ( 2 ) - F _ { Z } ( - 2 ) \\, . \\end{array}",
+  "pieces": [
+    {
+      "end": 14,
+      "kind": "native_text",
+      "start": 0,
+      "item_ref": "#/texts/16",
+      "source_field": "text"
+    },
+    {
+      "end": 15,
+      "kind": "synthetic_separator",
+      "start": 14
+    },
+    {
+      "end": 742,
+      "kind": "native_text",
+      "start": 15,
+      "item_ref": "#/texts/17",
+      "source_field": "text"
+    },
+    {
+      "end": 743,
+      "kind": "synthetic_separator",
+      "start": 742
+    },
+    {
+      "end": 817,
+      "kind": "native_text",
+      "start": 743,
+      "item_ref": "#/texts/18",
+      "source_field": "text"
+    },
+    {
+      "end": 818,
+      "kind": "synthetic_separator",
+      "start": 817
+    },
+    {
+      "end": 927,
+      "kind": "native_text",
+      "start": 818,
+      "item_ref": "#/texts/19",
+      "source_field": "text"
+    },
+    {
+      "end": 928,
+      "kind": "synthetic_separator",
+      "start": 927
+    },
+    {
+      "end": 1570,
+      "kind": "native_text",
+      "start": 928,
+      "item_ref": "#/texts/20",
+      "source_field": "text"
+    },
+    {
+      "end": 1571,
+      "kind": "synthetic_separator",
+      "start": 1570
+    },
+    {
+      "end": 1632,
+      "kind": "native_text",
+      "start": 1571,
+      "item_ref": "#/texts/23",
+      "source_field": "text"
+    },
+    {
+      "end": 1633,
+      "kind": "synthetic_separator",
+      "start": 1632
+    },
+    {
+      "end": 1635,
+      "kind": "native_text",
+      "start": 1633,
+      "item_ref": "#/texts/24",
+      "source_field": "text"
+    },
+    {
+      "end": 1636,
+      "kind": "synthetic_separator",
+      "start": 1635
+    },
+    {
+      "end": 1638,
+      "kind": "native_text",
+      "start": 1636,
+      "item_ref": "#/texts/25",
+      "source_field": "text"
+    },
+    {
+      "end": 1639,
+      "kind": "synthetic_separator",
+      "start": 1638
+    },
+    {
+      "end": 1640,
+      "kind": "native_text",
+      "start": 1639,
+      "item_ref": "#/texts/26",
+      "source_field": "text"
+    },
+    {
+      "end": 1641,
+      "kind": "synthetic_separator",
+      "start": 1640
+    },
+    {
+      "end": 1642,
+      "kind": "native_text",
+      "start": 1641,
+      "item_ref": "#/texts/27",
+      "source_field": "text"
+    },
+    {
+      "end": 1643,
+      "kind": "synthetic_separator",
+      "start": 1642
+    },
+    {
+      "end": 1646,
+      "kind": "native_text",
+      "start": 1643,
+      "item_ref": "#/texts/28",
+      "source_field": "text"
+    },
+    {
+      "end": 1647,
+      "kind": "synthetic_separator",
+      "start": 1646
+    },
+    {
+      "end": 1650,
+      "kind": "native_text",
+      "start": 1647,
+      "item_ref": "#/texts/29",
+      "source_field": "text"
+    },
+    {
+      "end": 1651,
+      "kind": "synthetic_separator",
+      "start": 1650
+    },
+    {
+      "end": 1654,
+      "kind": "native_text",
+      "start": 1651,
+      "item_ref": "#/texts/30",
+      "source_field": "text"
+    },
+    {
+      "end": 1655,
+      "kind": "synthetic_separator",
+      "start": 1654
+    },
+    {
+      "end": 1658,
+      "kind": "native_text",
+      "start": 1655,
+      "item_ref": "#/texts/31",
+      "source_field": "text"
+    },
+    {
+      "end": 1659,
+      "kind": "synthetic_separator",
+      "start": 1658
+    },
+    {
+      "end": 1664,
+      "kind": "native_text",
+      "start": 1659,
+      "item_ref": "#/texts/32",
+      "source_field": "text"
+    },
+    {
+      "end": 1665,
+      "kind": "synthetic_separator",
+      "start": 1664
+    },
+    {
+      "end": 1670,
+      "kind": "native_text",
+      "start": 1665,
+      "item_ref": "#/texts/33",
+      "source_field": "text"
+    },
+    {
+      "end": 1671,
+      "kind": "synthetic_separator",
+      "start": 1670
+    },
+    {
+      "end": 1922,
+      "kind": "native_text",
+      "start": 1671,
+      "item_ref": "#/texts/34",
+      "source_field": "text"
+    },
+    {
+      "end": 1923,
+      "kind": "synthetic_separator",
+      "start": 1922
+    },
+    {
+      "end": 2514,
+      "kind": "native_text",
+      "start": 1923,
+      "item_ref": "#/texts/35",
+      "source_field": "text"
+    },
+    {
+      "end": 2515,
+      "kind": "synthetic_separator",
+      "start": 2514
+    },
+    {
+      "end": 2518,
+      "kind": "native_text",
+      "start": 2515,
+      "item_ref": "#/texts/36",
+      "source_field": "text"
+    },
+    {
+      "end": 2519,
+      "kind": "synthetic_separator",
+      "start": 2518
+    },
+    {
+      "end": 2579,
+      "kind": "native_text",
+      "start": 2519,
+      "item_ref": "#/texts/37",
+      "source_field": "text"
+    },
+    {
+      "end": 2580,
+      "kind": "synthetic_separator",
+      "start": 2579
+    },
+    {
+      "end": 2663,
+      "kind": "native_text",
+      "start": 2580,
+      "item_ref": "#/texts/38",
+      "source_field": "text"
+    },
+    {
+      "end": 2664,
+      "kind": "synthetic_separator",
+      "start": 2663
+    },
+    {
+      "end": 2820,
+      "kind": "native_text",
+      "start": 2664,
+      "item_ref": "#/texts/39",
+      "source_field": "text"
+    },
+    {
+      "end": 2821,
+      "kind": "synthetic_separator",
+      "start": 2820
+    },
+    {
+      "end": 3035,
+      "kind": "native_text",
+      "start": 2821,
+      "item_ref": "#/texts/40",
+      "source_field": "text"
+    },
+    {
+      "end": 3036,
+      "kind": "synthetic_separator",
+      "start": 3035
+    },
+    {
+      "end": 3058,
+      "kind": "native_text",
+      "start": 3036,
+      "item_ref": "#/texts/41",
+      "source_field": "text"
+    },
+    {
+      "end": 3059,
+      "kind": "synthetic_separator",
+      "start": 3058
+    },
+    {
+      "end": 3205,
+      "kind": "native_text",
+      "start": 3059,
+      "item_ref": "#/texts/42",
+      "source_field": "text"
+    },
+    {
+      "end": 3206,
+      "kind": "synthetic_separator",
+      "start": 3205
+    },
+    {
+      "end": 3312,
+      "kind": "native_text",
+      "start": 3206,
+      "item_ref": "#/texts/43",
+      "source_field": "text"
+    },
+    {
+      "end": 3313,
+      "kind": "synthetic_separator",
+      "start": 3312
+    },
+    {
+      "end": 3441,
+      "kind": "native_text",
+      "start": 3313,
+      "item_ref": "#/texts/44",
+      "source_field": "text"
+    },
+    {
+      "end": 3442,
+      "kind": "synthetic_separator",
+      "start": 3441
+    },
+    {
+      "end": 3704,
+      "kind": "native_text",
+      "start": 3442,
+      "item_ref": "#/texts/47",
+      "source_field": "text"
+    },
+    {
+      "end": 3705,
+      "kind": "synthetic_separator",
+      "start": 3704
+    },
+    {
+      "end": 3812,
+      "kind": "native_text",
+      "start": 3705,
+      "item_ref": "#/texts/48",
+      "source_field": "text"
+    },
+    {
+      "end": 3813,
+      "kind": "synthetic_separator",
+      "start": 3812
+    },
+    {
+      "end": 4061,
+      "kind": "native_text",
+      "start": 3813,
+      "item_ref": "#/texts/49",
+      "source_field": "text"
+    },
+    {
+      "end": 4062,
+      "kind": "synthetic_separator",
+      "start": 4061
+    },
+    {
+      "end": 4301,
+      "kind": "native_text",
+      "start": 4062,
+      "item_ref": "#/texts/50",
+      "source_field": "text"
+    },
+    {
+      "end": 4302,
+      "kind": "synthetic_separator",
+      "start": 4301
+    },
+    {
+      "end": 4476,
+      "kind": "native_text",
+      "start": 4302,
+      "item_ref": "#/texts/51",
+      "source_field": "text"
+    },
+    {
+      "end": 4477,
+      "kind": "synthetic_separator",
+      "start": 4476
+    },
+    {
+      "end": 4718,
+      "kind": "native_text",
+      "start": 4477,
+      "item_ref": "#/texts/52",
+      "source_field": "text"
+    },
+    {
+      "end": 4719,
+      "kind": "synthetic_separator",
+      "start": 4718
+    },
+    {
+      "end": 4895,
+      "kind": "native_text",
+      "start": 4719,
+      "item_ref": "#/texts/53",
+      "source_field": "text"
+    },
+    {
+      "end": 4896,
+      "kind": "synthetic_separator",
+      "start": 4895
+    },
+    {
+      "end": 4932,
+      "kind": "native_text",
+      "start": 4896,
+      "item_ref": "#/texts/54",
+      "source_field": "text"
+    },
+    {
+      "end": 4933,
+      "kind": "synthetic_separator",
+      "start": 4932
+    },
+    {
+      "end": 4984,
+      "kind": "native_text",
+      "start": 4933,
+      "item_ref": "#/texts/55",
+      "source_field": "text"
+    },
+    {
+      "end": 4985,
+      "kind": "synthetic_separator",
+      "start": 4984
+    },
+    {
+      "end": 5127,
+      "kind": "native_text",
+      "start": 4985,
+      "item_ref": "#/texts/56",
+      "source_field": "text"
+    },
+    {
+      "end": 5128,
+      "kind": "synthetic_separator",
+      "start": 5127
+    },
+    {
+      "end": 5279,
+      "kind": "native_text",
+      "start": 5128,
+      "item_ref": "#/texts/57",
+      "source_field": "text"
+    },
+    {
+      "end": 5280,
+      "kind": "synthetic_separator",
+      "start": 5279
+    },
+    {
+      "end": 5374,
+      "kind": "native_text",
+      "start": 5280,
+      "item_ref": "#/texts/58",
+      "source_field": "text"
+    },
+    {
+      "end": 5375,
+      "kind": "synthetic_separator",
+      "start": 5374
+    },
+    {
+      "end": 5684,
+      "kind": "native_text",
+      "start": 5375,
+      "item_ref": "#/texts/59",
+      "source_field": "text"
+    }
+  ],
+  "items": [
+    {
+      "name": "Normal Density",
+      "label": "section",
+      "parent": {
+        "$ref": "#/body"
+      },
+      "children": [
+        {
+          "$ref": "#/texts/16"
+        },
+        {
+          "$ref": "#/texts/17"
+        },
+        {
+          "$ref": "#/texts/18"
+        },
+        {
+          "$ref": "#/texts/19"
+        },
+        {
+          "$ref": "#/texts/20"
+        },
+        {
+          "$ref": "#/texts/21"
+        },
+        {
+          "$ref": "#/texts/22"
+        },
+        {
+          "$ref": "#/pictures/1"
+        },
+        {
+          "$ref": "#/texts/34"
+        },
+        {
+          "$ref": "#/texts/35"
+        },
+        {
+          "$ref": "#/texts/36"
+        },
+        {
+          "$ref": "#/texts/37"
+        },
+        {
+          "$ref": "#/texts/38"
+        },
+        {
+          "$ref": "#/texts/39"
+        },
+        {
+          "$ref": "#/texts/40"
+        },
+        {
+          "$ref": "#/texts/41"
+        },
+        {
+          "$ref": "#/texts/42"
+        },
+        {
+          "$ref": "#/texts/43"
+        },
+        {
+          "$ref": "#/texts/44"
+        },
+        {
+          "$ref": "#/texts/45"
+        },
+        {
+          "$ref": "#/texts/46"
+        },
+        {
+          "$ref": "#/texts/47"
+        },
+        {
+          "$ref": "#/texts/48"
+        },
+        {
+          "$ref": "#/texts/49"
+        },
+        {
+          "$ref": "#/texts/50"
+        },
+        {
+          "$ref": "#/texts/51"
+        },
+        {
+          "$ref": "#/texts/52"
+        },
+        {
+          "$ref": "#/texts/53"
+        },
+        {
+          "$ref": "#/texts/54"
+        },
+        {
+          "$ref": "#/texts/55"
+        },
+        {
+          "$ref": "#/texts/56"
+        },
+        {
+          "$ref": "#/texts/57"
+        },
+        {
+          "$ref": "#/texts/58"
+        },
+        {
+          "$ref": "#/texts/59"
+        }
+      ],
+      "self_ref": "#/groups/0",
+      "content_layer": "body"
+    },
+    {
+      "orig": "Normal Density",
+      "prov": [
+        {
+          "bbox": {
+            "b": 330.7170048,
+            "l": 125.99851000000001,
+            "r": 219.5394884,
+            "t": 341.48864000000003,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 1,
+          "charspan": [
+            0,
+            14
+          ]
+        }
+      ],
+      "text": "Normal Density",
+      "label": "section_header",
+      "level": 1,
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/16",
+      "content_layer": "body"
+    },
+    {
+      "orig": "We now come to the most important density function, the normal density function. We have seen in Chapter 3 that the binomial distribution functions are bell-shaped, even for moderate size values of n. We recall that a binomially-distributed random variable with parameters n and p can be considered to be the sum of n mutually independent 0-1 random variables. A very important theorem in probability theory, called the Central Limit Theorem, states that under very general conditions, if we sum a large number of mutually independent random variables, then the distribution of the sum can be closely approximated by a certain specific continuous density, called the normal density. This theorem will be discussed in Chapter 9.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 206.90934000000004,
+            "l": 125.99831,
+            "r": 485.8181334400001,
+            "t": 320.55197999999996,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 1,
+          "charspan": [
+            0,
+            727
+          ]
+        }
+      ],
+      "text": "We now come to the most important density function, the normal density function. We have seen in Chapter 3 that the binomial distribution functions are bell-shaped, even for moderate size values of n. We recall that a binomially-distributed random variable with parameters n and p can be considered to be the sum of n mutually independent 0-1 random variables. A very important theorem in probability theory, called the Central Limit Theorem, states that under very general conditions, if we sum a large number of mutually independent random variables, then the distribution of the sum can be closely approximated by a certain specific continuous density, called the normal density. This theorem will be discussed in Chapter 9.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/17",
+      "content_layer": "body"
+    },
+    {
+      "orig": "The normal density function with parameters µ and σ is defined as follows:",
+      "prov": [
+        {
+          "bbox": {
+            "b": 193.58934,
+            "l": 140.9995300000001,
+            "r": 469.56467544000014,
+            "t": 203.55198000000007,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 1,
+          "charspan": [
+            0,
+            74
+          ]
+        }
+      ],
+      "text": "The normal density function with parameters µ and σ is defined as follows:",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/18",
+      "content_layer": "body"
+    },
+    {
+      "orig": "fX(x) = 1 √2πσ e-(x-µ)2 /2σ2 .",
+      "prov": [
+        {
+          "bbox": {
+            "b": 158.78934000000004,
+            "l": 242.51983000000013,
+            "r": 369.47971128000006,
+            "t": 183.3919800000001,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 1,
+          "charspan": [
+            0,
+            30
+          ]
+        }
+      ],
+      "text": "f _ { X } ( x ) = \\frac { 1 } { \\sqrt { 2 \\pi } \\sigma } e ^ { - ( x - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\ .",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/19",
+      "content_layer": "body"
+    },
+    {
+      "orig": "The parameter µ represents the \"center\" of the density (and in Chapter 6, we will show that it is the average, or expected, value of the density). The parameter σ is a measure of the \"spread\" of the density, and thus it is assumed to be positive. (In Chapter 6, we will show that σ is the standard deviation of the density.) We note that it is not at all obvious that the above function is a density, i.e., that its integral over the real line equals 1. The cumulative distribution function is given by the formula In Figure 5.10 we have included for comparison a plot of the normal density for the cases µ = 0 and σ = 1, and µ = 0 and σ = 2.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 86.3093399999999,
+            "l": 126.00006000000005,
+            "r": 485.72704479999993,
+            "t": 148.11198000000002,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 1,
+          "charspan": [
+            0,
+            415
+          ]
+        },
+        {
+          "bbox": {
+            "b": 469.34934000000004,
+            "l": 126.0001200000001,
+            "r": 485.83416736000015,
+            "t": 492.27198,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            416,
+            514
+          ]
+        },
+        {
+          "bbox": {
+            "b": 417.86926000000005,
+            "l": 126.0000300000001,
+            "r": 485.8340859200001,
+            "t": 440.7919,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            515,
+            642
+          ]
+        }
+      ],
+      "text": "The parameter µ represents the \"center\" of the density (and in Chapter 6, we will show that it is the average, or expected, value of the density). The parameter σ is a measure of the \"spread\" of the density, and thus it is assumed to be positive. (In Chapter 6, we will show that σ is the standard deviation of the density.) We note that it is not at all obvious that the above function is a density, i.e., that its integral over the real line equals 1. The cumulative distribution function is given by the formula In Figure 5.10 we have included for comparison a plot of the normal density for the cases µ = 0 and σ = 1, and µ = 0 and σ = 2.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/20",
+      "content_layer": "body"
+    },
+    {
+      "prov": [
+        {
+          "bbox": {
+            "b": 536.0392456054688,
+            "l": 201.64566040039062,
+            "r": 413.17437744140625,
+            "t": 672.4923782348633,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            0
+          ]
+        }
+      ],
+      "label": "picture",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "captions": [
+        {
+          "$ref": "#/texts/23"
+        }
+      ],
+      "children": [
+        {
+          "$ref": "#/texts/23"
+        },
+        {
+          "$ref": "#/texts/24"
+        },
+        {
+          "$ref": "#/texts/25"
+        },
+        {
+          "$ref": "#/texts/26"
+        },
+        {
+          "$ref": "#/texts/27"
+        },
+        {
+          "$ref": "#/texts/28"
+        },
+        {
+          "$ref": "#/texts/29"
+        },
+        {
+          "$ref": "#/texts/30"
+        },
+        {
+          "$ref": "#/texts/31"
+        },
+        {
+          "$ref": "#/texts/32"
+        },
+        {
+          "$ref": "#/texts/33"
+        }
+      ],
+      "self_ref": "#/pictures/1",
+      "footnotes": [],
+      "references": [],
+      "annotations": [],
+      "content_layer": "body"
+    },
+    {
+      "orig": "Figure 5.10: Normal density for two sets of parameter values.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 511.10934000000003,
+            "l": 171.96,
+            "r": 439.7834012000002,
+            "t": 521.07198,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            61
+          ]
+        }
+      ],
+      "text": "Figure 5.10: Normal density for two sets of parameter values.",
+      "label": "caption",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/23",
+      "content_layer": "body"
+    },
+    {
+      "orig": "-4",
+      "prov": [
+        {
+          "bbox": {
+            "b": 536.0208653992686,
+            "l": 202.804,
+            "r": 212.06114799999997,
+            "t": 541.4384309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            2
+          ]
+        }
+      ],
+      "text": "-4",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/24",
+      "content_layer": "body"
+    },
+    {
+      "orig": "-2",
+      "prov": [
+        {
+          "bbox": {
+            "b": 536.0208653992686,
+            "l": 252.964,
+            "r": 262.221148,
+            "t": 541.4384309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            2
+          ]
+        }
+      ],
+      "text": "-2",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/25",
+      "content_layer": "body"
+    },
+    {
+      "orig": "2",
+      "prov": [
+        {
+          "bbox": {
+            "b": 536.0208653992686,
+            "l": 355.506,
+            "r": 360.134574,
+            "t": 541.4384309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            1
+          ]
+        }
+      ],
+      "text": "2",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/26",
+      "content_layer": "body"
+    },
+    {
+      "orig": "4",
+      "prov": [
+        {
+          "bbox": {
+            "b": 536.0208653992686,
+            "l": 405.412,
+            "r": 410.040574,
+            "t": 541.4384309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            1
+          ]
+        }
+      ],
+      "text": "4",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/27",
+      "content_layer": "body"
+    },
+    {
+      "orig": "0.1",
+      "prov": [
+        {
+          "bbox": {
+            "b": 571.8908653992686,
+            "l": 291.762,
+            "r": 305.64772200000004,
+            "t": 577.3084309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            3
+          ]
+        }
+      ],
+      "text": "0.1",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/28",
+      "content_layer": "body"
+    },
+    {
+      "orig": "0.2",
+      "prov": [
+        {
+          "bbox": {
+            "b": 602.9048653992686,
+            "l": 292.025,
+            "r": 305.910722,
+            "t": 608.3224309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            3
+          ]
+        }
+      ],
+      "text": "0.2",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/29",
+      "content_layer": "body"
+    },
+    {
+      "orig": "0.3",
+      "prov": [
+        {
+          "bbox": {
+            "b": 633.9188653992686,
+            "l": 292.063,
+            "r": 305.94872200000003,
+            "t": 639.3364309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            3
+          ]
+        }
+      ],
+      "text": "0.3",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/30",
+      "content_layer": "body"
+    },
+    {
+      "orig": "0.4",
+      "prov": [
+        {
+          "bbox": {
+            "b": 664.9328653992686,
+            "l": 291.801,
+            "r": 305.68672200000003,
+            "t": 670.3504309799999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            3
+          ]
+        }
+      ],
+      "text": "0.4",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/31",
+      "content_layer": "body"
+    },
+    {
+      "orig": "s = 1",
+      "prov": [
+        {
+          "bbox": {
+            "b": 629.66165798,
+            "l": 336.471,
+            "r": 356.39236528000004,
+            "t": 641.7237114000001,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            5
+          ]
+        }
+      ],
+      "text": "s = 1",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/32",
+      "content_layer": "body"
+    },
+    {
+      "orig": "s = 2",
+      "prov": [
+        {
+          "bbox": {
+            "b": 573.34735798,
+            "l": 378.8996,
+            "r": 398.82096528000005,
+            "t": 585.4094114000001,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            5
+          ]
+        }
+      ],
+      "text": "s = 2",
+      "label": "text",
+      "parent": {
+        "$ref": "#/pictures/1"
+      },
+      "children": [],
+      "self_ref": "#/texts/33",
+      "content_layer": "body"
+    },
+    {
+      "orig": "FX(x) = ∫ x -∞ 1 √2πσ e-(u-µ)2 /2σ2 du .",
+      "prov": [
+        {
+          "bbox": {
+            "b": 438.88064823999997,
+            "l": 224.52050000000014,
+            "r": 387.4688212800001,
+            "t": 471.1904875,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            40
+          ]
+        }
+      ],
+      "text": "F _ { X } ( x ) = \\int _ { - \\infty } ^ { x } \\frac { 1 } { \\sqrt { 2 \\pi \\sigma } } e ^ { - ( u - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\, d u \\ . \\\\ 0 \\, w e h a v e i n c l u d e d \\, f o r \\, c o m p a r i s o n \\, a \\, p l o t \\, o f \\, the \\, n o r",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/34",
+      "content_layer": "body"
+    },
+    {
+      "orig": "One cannot write FX in terms of simple functions. This leads to several problems. First of all, values of FX must be computed using numerical integration. Extensive tables exist containing values of this function (see Appendix A). Secondly, we cannot write F -1 X in closed form, so we cannot use Corollary 5.2 to help us simulate a normal random variable. For this reason, special methods have been developed for simulating a normal distribution. One such method relies on the fact that if U and V are independent random variables with uniform densities on [0, 1], then the random variables",
+      "prov": [
+        {
+          "bbox": {
+            "b": 314.3092600000002,
+            "l": 126.00032000000022,
+            "r": 485.9775804000002,
+            "t": 414.87190000000004,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            591
+          ]
+        }
+      ],
+      "text": "One cannot write FX in terms of simple functions. This leads to several problems. First of all, values of FX must be computed using numerical integration. Extensive tables exist containing values of this function (see Appendix A). Secondly, we cannot write F -1 X in closed form, so we cannot use Corollary 5.2 to help us simulate a normal random variable. For this reason, special methods have been developed for simulating a normal distribution. One such method relies on the fact that if U and V are independent random variables with uniform densities on [0, 1], then the random variables",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/35",
+      "content_layer": "body"
+    },
+    {
+      "orig": "and",
+      "prov": [
+        {
+          "bbox": {
+            "b": 276.02934000000005,
+            "l": 126.00068000000005,
+            "r": 142.07041832000004,
+            "t": 285.99198,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            3
+          ]
+        }
+      ],
+      "text": "and",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/36",
+      "content_layer": "body"
+    },
+    {
+      "orig": "X = √-2 log U cos 2πV",
+      "prov": [
+        {
+          "bbox": {
+            "b": 277.12046824000026,
+            "l": 253.56091999999984,
+            "r": 356.07908592,
+            "t": 307.0980520000002,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            21
+          ]
+        }
+      ],
+      "text": "X & = \\sqrt { - 2 \\log U } \\cos 2 \\pi V \\\\ \\\\ \\\\ \\\\ \\\\ \\\\ \\\\",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/37",
+      "content_layer": "body"
+    },
+    {
+      "orig": "Y = √-2 logU sin2πV",
+      "prov": [
+        {
+          "bbox": {
+            "b": 245.0805482400001,
+            "l": 254.64068000000003,
+            "r": 355.01358591999997,
+            "t": 275.0581320000001,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            19
+          ]
+        }
+      ],
+      "text": "Y & = \\sqrt { - 2 \\log U } \\sin 2 \\pi V \\\\ \\text {we normal density functions with}",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/38",
+      "content_layer": "body"
+    },
+    {
+      "orig": "are independent, and have normal density functions with parameters µ = 0 and σ = 1. (This is not obvious, nor shall we prove it here. See Box and Muller.9 )",
+      "prov": [
+        {
+          "bbox": {
+            "b": 233.54934000000003,
+            "l": 125.99998999999991,
+            "r": 485.73872831999995,
+            "t": 256.3519799999999,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            156
+          ]
+        }
+      ],
+      "text": "are independent, and have normal density functions with parameters µ = 0 and σ = 1. (This is not obvious, nor shall we prove it here. See Box and Muller.9 )",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/39",
+      "content_layer": "body"
+    },
+    {
+      "orig": "Let Z be a normal random variable with parameters µ = 0 and σ = 1. A normal random variable with these parameters is said to be a standard normal random variable. It is an important and useful fact that if we write",
+      "prov": [
+        {
+          "bbox": {
+            "b": 194.66933999999992,
+            "l": 125.9998799999999,
+            "r": 485.81822215999995,
+            "t": 230.55197999999996,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            214
+          ]
+        }
+      ],
+      "text": "Let Z be a normal random variable with parameters µ = 0 and σ = 1. A normal random variable with these parameters is said to be a standard normal random variable. It is an important and useful fact that if we write",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/40",
+      "content_layer": "body"
+    },
+    {
+      "orig": "X = σZ +µ ,",
+      "prov": [
+        {
+          "bbox": {
+            "b": 175.58934,
+            "l": 275.87967,
+            "r": 336.09041127999996,
+            "t": 185.55197999999996,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            11
+          ]
+        }
+      ],
+      "text": "X = \\sigma Z + \\mu \\ ,",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/41",
+      "content_layer": "body"
+    },
+    {
+      "orig": "then X is a normal random variable with parameters µ and σ. To show this, we will use Theorem 5.1. We have φ(z) = σz + µ, φ-1 (x) = (x - µ)/σ, and",
+      "prov": [
+        {
+          "bbox": {
+            "b": 136.35586560000002,
+            "l": 125.99975999999995,
+            "r": 485.7423448,
+            "t": 166.35198000000003,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            146
+          ]
+        }
+      ],
+      "text": "then X is a normal random variable with parameters µ and σ. To show this, we will use Theorem 5.1. We have φ(z) = σz + µ, φ-1 (x) = (x - µ)/σ, and",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/42",
+      "content_layer": "body"
+    },
+    {
+      "orig": "FX(x) = FZ ( x-µ σ ) ,",
+      "prov": [
+        {
+          "bbox": {
+            "b": 106.48054823999996,
+            "l": 234.60001999999994,
+            "r": 349.55965128,
+            "t": 136.45814199999995,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            22
+          ]
+        }
+      ],
+      "text": "F _ { X } ( x ) \\ = \\ F _ { Z } \\left ( \\frac { x - \\mu } { \\sigma } \\right ) , \\\\ F _ { \\ } M a l _ { 1 }",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/43",
+      "content_layer": "body"
+    },
+    {
+      "orig": "9G. E. P. Box and M. E. Muller, A Note on the Generation of Random Normal Deviates, Ann. of Math. Stat. 29 (1958), pgs. 610-611.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 86.80747250000002,
+            "l": 125.99973999999997,
+            "r": 485.78582991999997,
+            "t": 105.20084408000002,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 2,
+          "charspan": [
+            0,
+            128
+          ]
+        }
+      ],
+      "text": "9G. E. P. Box and M. E. Muller, A Note on the Generation of Random Normal Deviates, Ann. of Math. Stat. 29 (1958), pgs. 610-611.",
+      "label": "footnote",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/44",
+      "content_layer": "body"
+    },
+    {
+      "orig": "fX(x) = fZ ( x-µ σ ) · 1σ = 1 √2πσ e-(x-µ)2 /2σ2 .",
+      "prov": [
+        {
+          "bbox": {
+            "b": 620.5493399999999,
+            "l": 236.1592,
+            "r": 377.3997112800001,
+            "t": 672.1381420000001,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            50
+          ]
+        }
+      ],
+      "text": "\\begin{array} { r l } { f _ { X } ( x ) } & { = } & { f _ { Z } \\left ( \\frac { x - \\mu } { \\sigma } \\right ) \\cdot \\frac { 1 } { \\sigma } } \\\\ & { = } & { \\frac { 1 } { \\sqrt { 2 \\pi } \\sigma } e ^ { - ( x - \\mu ) ^ { 2 } / 2 \\sigma ^ { 2 } } \\, . } \\end{array}",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/47",
+      "content_layer": "body"
+    },
+    {
+      "orig": "The reader will note that this last expression is the density function with parameters µ and σ, as claimed.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 576.6293099999999,
+            "l": 126.00002000000006,
+            "r": 485.9374130400002,
+            "t": 599.55195,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            107
+          ]
+        }
+      ],
+      "text": "The reader will note that this last expression is the density function with parameters µ and σ, as claimed.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/48",
+      "content_layer": "body"
+    },
+    {
+      "orig": "We have seen above that it is possible to simulate a standard normal random variable Z. If we wish to simulate a normal random variable X with parameters µ and σ, then we need only transform the simulated values for Z using the equation X = σZ + µ.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 524.7893099999998,
+            "l": 125.99984,
+            "r": 485.84907056000014,
+            "t": 573.63195,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            248
+          ]
+        }
+      ],
+      "text": "We have seen above that it is possible to simulate a standard normal random variable Z. If we wish to simulate a normal random variable X with parameters µ and σ, then we need only transform the simulated values for Z using the equation X = σZ + µ.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/49",
+      "content_layer": "body"
+    },
+    {
+      "orig": "Suppose that we wish to calculate the value of a cumulative distribution function for the normal random variable X, with parameters µ and σ. We can reduce this calculation to one concerning the standard normal random variable Z as follows:",
+      "prov": [
+        {
+          "bbox": {
+            "b": 485.9092099999998,
+            "l": 126.00004000000007,
+            "r": 485.7358183200001,
+            "t": 521.7919499999998,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            239
+          ]
+        }
+      ],
+      "text": "Suppose that we wish to calculate the value of a cumulative distribution function for the normal random variable X, with parameters µ and σ. We can reduce this calculation to one concerning the standard normal random variable Z as follows:",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/50",
+      "content_layer": "body"
+    },
+    {
+      "orig": "FX(x) = P(X ≤ x) = P (Z ≤ x-µ σ ) = FZ ( x-µ σ ) .",
+      "prov": [
+        {
+          "bbox": {
+            "b": 401.20050824,
+            "l": 242.04022,
+            "r": 368.27257776,
+            "t": 473.0511280799998,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            50
+          ]
+        }
+      ],
+      "text": "\\ F _ { X } ( x ) \\ & = \\ P ( X \\leq x ) \\\\ & = \\ P \\left ( Z \\leq \\frac { x - \\mu } { \\sigma } \\right ) \\\\ & = \\ F _ { Z } \\left ( \\frac { x - \\mu } { \\sigma } \\right ) \\, .",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/51",
+      "content_layer": "body"
+    },
+    {
+      "orig": "This last expression can be found in a table of values of the cumulative distribution function for a standard normal random variable. Thus, we see that it is unnecessary to make tables of normal distribution functions with arbitrary µ and σ.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 349.34934000000004,
+            "l": 125.99966999999998,
+            "r": 485.9395760800002,
+            "t": 385.11197999999996,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            241
+          ]
+        }
+      ],
+      "text": "This last expression can be found in a table of values of the cumulative distribution function for a standard normal random variable. Thus, we see that it is unnecessary to make tables of normal distribution functions with arbitrary µ and σ.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/52",
+      "content_layer": "body"
+    },
+    {
+      "orig": "The process of changing a normal random variable to a standard normal random variable is known as standardization. If X has a normal distribution with parameters µ and σ and if",
+      "prov": [
+        {
+          "bbox": {
+            "b": 310.3493400000001,
+            "l": 125.99967999999996,
+            "r": 485.8259335200001,
+            "t": 346.23198,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            176
+          ]
+        }
+      ],
+      "text": "The process of changing a normal random variable to a standard normal random variable is known as standardization. If X has a normal distribution with parameters µ and σ and if",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/53",
+      "content_layer": "body"
+    },
+    {
+      "orig": "Z = X -µ σ ,",
+      "prov": [
+        {
+          "bbox": {
+            "b": 286.94934,
+            "l": 277.79968999999994,
+            "r": 334.19965128,
+            "t": 310.69117808000004,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            12
+          ]
+        }
+      ],
+      "text": "Z = \\frac { X - \\mu } { \\sigma } \\ ,",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/54",
+      "content_layer": "body"
+    },
+    {
+      "orig": "then Z is said to be the standardized version of X.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 273.0293300000001,
+            "l": 126.0,
+            "r": 348.67383128,
+            "t": 282.99197,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            51
+          ]
+        }
+      ],
+      "text": "then Z is said to be the standardized version of X.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/55",
+      "content_layer": "body"
+    },
+    {
+      "orig": "The following example shows how we use the standardized version of a normal random variable X to compute specific probabilities relating to X.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 247.10933,
+            "l": 126.00077000000005,
+            "r": 485.82711216000007,
+            "t": 270.03197,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            142
+          ]
+        }
+      ],
+      "text": "The following example shows how we use the standardized version of a normal random variable X to compute specific probabilities relating to X.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/56",
+      "content_layer": "body"
+    },
+    {
+      "orig": "Example 5.8 Suppose that X is a normally distributed random variable with parameters µ = 10 and σ = 3. Find the probability that X is between 4 and 16.",
+      "prov": [
+        {
+          "bbox": {
+            "b": 208.94933000000003,
+            "l": 125.99975999999998,
+            "r": 485.87160544,
+            "t": 231.87197000000003,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            151
+          ]
+        }
+      ],
+      "text": "Example 5.8 Suppose that X is a normally distributed random variable with parameters µ = 10 and σ = 3. Find the probability that X is between 4 and 16.",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/57",
+      "content_layer": "body"
+    },
+    {
+      "orig": "To solve this problem, we note that Z = (X-10)/3 is the standardized version of X. So, we have",
+      "prov": [
+        {
+          "bbox": {
+            "b": 183.02933000000007,
+            "l": 126.00002999999992,
+            "r": 485.93682800000005,
+            "t": 206.17114807999997,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            94
+          ]
+        }
+      ],
+      "text": "To solve this problem, we note that Z = (X-10)/3 is the standardized version of X. So, we have",
+      "label": "text",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/58",
+      "content_layer": "body"
+    },
+    {
+      "orig": "P(4 ≤X ≤ 16) = P(X ≤ 16) -P(X ≤ 4) = FX(16) -FX(4) = FZ ( 16-10 3 ) -FZ ( 4-10 3 ) = FZ(2) -FZ(-2) .",
+      "prov": [
+        {
+          "bbox": {
+            "b": 95.19586560000005,
+            "l": 191.04007,
+            "r": 419.27257776000005,
+            "t": 170.29114807999997,
+            "coord_origin": "BOTTOMLEFT"
+          },
+          "page_no": 3,
+          "charspan": [
+            0,
+            100
+          ]
+        }
+      ],
+      "text": "\\begin{array} { r c l } P ( 4 \\leq X \\leq 1 6 ) & = & P ( X \\leq 1 6 ) - P ( X \\leq 4 ) \\\\ & = & F _ { X } ( 1 6 ) - F _ { X } ( 4 ) \\\\ & = & F _ { Z } \\left ( \\frac { 1 6 - 1 0 } { 3 } \\right ) - F _ { Z } \\left ( \\frac { 4 - 1 0 } { 3 } \\right ) \\\\ & = & F _ { Z } ( 2 ) - F _ { Z } ( - 2 ) \\, . \\end{array}",
+      "label": "formula",
+      "parent": {
+        "$ref": "#/groups/0"
+      },
+      "children": [],
+      "self_ref": "#/texts/59",
+      "content_layer": "body"
+    }
+  ],
+  "ancestors": [],
+  "health": {
+    "issues": [],
+    "conversion": "success",
+    "cell_coverage": "unknown",
+    "inline_coverage": "unknown",
+    "display_coverage": "complete",
+    "formula_outcomes": [
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/54"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/59"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/19"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/34"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/37"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/38"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/41"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/43"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/47"
+      },
+      {
+        "outcome": "succeeded",
+        "pointer": "#/texts/51"
+      }
+    ]
+  },
+  "text_policy": {
+    "recipe": "canonical-token-layout-1",
+    "offsets": "codepoints",
+    "atoms": "math-reference",
+    "segmentation": "configured-spacy"
+  },
+  "analysis_enabled": true,
+  "integrated_context": null
+}
