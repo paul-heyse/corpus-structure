@@ -76,23 +76,23 @@ before using changed rules. Planning acceptance is not native deployment or a me
 
 ## Execution queue
 
-WCE00–03 are executing2026-11-06; later packages remain Proposed. This table owns state.
+WCE00–03 selected foundation increment delivered2026-11-06; WCE02 later obligations remain open. Later packages remain Proposed. This table owns state.
 
-| ID | Prerequisite capability | Delivered behavior and completion boundary |
-|---|---|---|
-| WCE00 | Current source/review/rule decisions | Reconcile source and test-foundation receipts; adopt RC01–06 through existing decision owners; identify required verification union. |
-| WCE01 | WCE00 | Released component/question/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
-| WCE02 | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
-| WCE03 | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
-| WCE04 | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; current whole-pair classifier retained as control. |
-| WCE05 | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
-| WCE06 | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
-| WCE07 | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
-| WCE08 | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
-| WCE09 | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
-| WCE10 | WCE01/02/05; relevant WCE06 artifact slice; identity/cohort definition | Concrete scoped identity pilot with exact/lexical/external-pair/alias-block controls, field reasons, held-out pair and blocking assessment. Cohort gates execution. |
-| WCE11 | Available delivered capabilities03–10 | Assemble native policies and selected Reader/CLI/MCP/export/continuations, verify partial-component versus whole-report standing and retire migrated production branches. |
-| WCE12 | All required core functionality and affected consumers | Assembled design review at required cadence, final-source qualification, independent benefit account, retirement/caller inventory and handoff. |
+| ID | State | Prerequisite capability | Delivered behavior and completion boundary |
+|---|---|---|---|
+| WCE00 | Complete: ADR-0066 adopted; docs passed | Current source/review/rule decisions | Reconcile source and test-foundation receipts; adopt RC01–06 through existing decision owners; identify required verification union. |
+| WCE01 | Selected retention/read/frame foundation Tested; native155; positive public policies remain with their producers | WCE00 | Released component/question/basis/outcome contracts and shared native/read groundwork; exact component assessment/admission schema. No generic witness store. |
+| WCE02 | Early statistics source/output slice Tested; later frames, exposure-limited references and parameter/header coverage remain open | WCE01 question/source/frame definitions | Frozen exposed-regression and fresh source/output frames, representative statistics packet and independent references. Can proceed alongside producers once questions settle. |
+| WCE03 | Tested selected named-candidate increment; actual native/read/export and independent output assessment delivered | WCE01; retained annotation inputs | Named pattern variants, overlap-preserving candidates and explicit linguistic expansion; read/export full evidence and operation inventory. |
+| WCE04 | Proposed | WCE03; WCE02 development questions | Located definition/usage components plus separately justified applicability; current whole-pair classifier retained as control. |
+| WCE05 | Proposed | WCE01/03; WCE04 target-local slice for extracted targets | Actual located mentions into linking; compatible selected edges versus exclusive alternatives; reconstruct/read/admission consumers migrated together. |
+| WCE06 | Proposed | WCE01; relevant03–05 products | Scoped table/unit/note and formula/declaration joins; routed lexical/grammar products; additive typed revision comparison through native/read boundaries. |
+| WCE07 | Proposed | WCE05/06 qualified products | Automatic qualified dossier membership and greedy supported-facet display, mandatory overflow and equal-budget control. |
+| WCE08 | Proposed | WCE01/02; one relevant06 ambiguity | Real factor-policy experiment using current exact executor; feasibility/independent/coupled outcomes compared with independent meanings. |
+| WCE09 | Proposed | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
+| WCE10 | Proposed | WCE01/02/05; relevant WCE06 artifact slice; identity/cohort definition | Concrete scoped identity pilot with exact/lexical/external-pair/alias-block controls, field reasons, held-out pair and blocking assessment. Cohort gates execution. |
+| WCE11 | Proposed | Available delivered capabilities03–10 | Assemble native policies and selected Reader/CLI/MCP/export/continuations, verify partial-component versus whole-report standing and retire migrated production branches. |
+| WCE12 | Proposed | All required core functionality and affected consumers | Assembled design review at required cadence, final-source qualification, independent benefit account, retirement/caller inventory and handoff. |
 
 WCE02 has an early source/question/rubric slice, available without new outputs; later output-first
 freezes and grades follow each producer. Dependencies on WCE02 mean that named early slice or
@@ -172,3 +172,64 @@ The selected verification union covers generated/typed component contracts, nati
 refusals, protected frame/partition/exposure controls, named matcher/M1 behavior and bounded
 Reader/CLI/MCP/export preservation. WCE12 retains full-series qualification. WCE02 later-producer
 output frames remain open after the early source/reference and WCE03 assessment slices.
+
+## Implemented foundation and current limits — 2026-11-06
+
+ADR-0066 is adopted; `eaf1750a` implements the named producer and `0194fc43` integrates the
+released/native/frame foundation. Native153–155 preserve failed candidates and forward repairs.
+New components remain private. Exact component projection is an assessment input, not a positive
+publication policy. Automatic cross-source component producers and their admission policies remain
+WCE04 onward; this foundation does not claim those algorithms or public effects implemented.
+
+The actual bounded statistics addition is Grinstead–Snell physical220–222, authenticated as
+source run105/cut139/view48. Native source-first feature-fit frame2 uses set24/unit34 with distinct
+A/B/C passes97–99. Original source groups preserve their actual calibration/final/feature-fit
+partitions: exposed source-only review files are not fresh held-out or eligible public evidence.
+The [source/production evidence](../design_review/evidence/2026-11-06_wce-candidate-foundation/README.md)
+retains all author populations, their disagreements, source cuts, successful and failed runs.
+
+[Contract and parallel evidence](../design_review/evidence/2026-11-06_wce-contracts/README.md)
+records native155, positive and refused frame2 controls, source opportunity reconciliation,
+independent implementation review fixes and final focused checks. Pytest defaults to `-n auto`
+(32 workers on this host), preserving loadgroup and exclusive fault-control semantics. The
+23-case native selection passed unchanged after dedicated18/corpus lock capacity was corrected;
+75 producer/adapter cases and42 operation-assessment cases passed with auto. Full WCE12
+qualification and the separately stopped test-resolution campaign were not resumed.
+
+### Additional refinement at the existing finding owner
+
+| Item | Responsible scope and disposition | Settling evidence |
+|---|---|---|
+| WCE-R01: actual normal-source σ misidentified as defined term | Open; WCE04 target-local component interpretation and recipe refinement | Independent output A/B/C distinguish supported source location from wrong term role. Correct the defining subject/component under the exact source scope; preserve the raw matched basis and assess fresh cases. |
+| WCE-R02: exposed original final/calibration source families | Open; WCE02/09 reference/exposure composition | Preserve original origin partitions and authorized exposure; settle usable question-specific reference delivery without relabelling old exposed families as fresh held-out or copying raw author files into eligible passes. |
+| WCE-R03: remaining parameterization/header reference coverage | Open; WCE02 with WCE06 producer questions | Source and independently reference alternate parameterizations and nested/merged-header/note questions under their actual source scopes; current normal-source intake does not establish these facets. |
+
+A located syntactic proposal is useful retained structure even when its role is independently
+unsupported. The new source/output assessment must not promote that proposal to a supported
+semantic component or count shared physical spans as independent source facts. Output-first
+correctness evaluates each frozen contribution ID; source-first quantity retains physical dedup.
+
+### Actual independent output assessment
+
+Normal run113 retains23 contributions and280 operation rows, including empty questions.
+Protected output-first set26/unit36/evaluation33 freezes those exact23 output IDs and distinct
+A/B/C passes100–102. Of23 source-location judgments,23 are supported under the stated projection
+rubric. Linguistic-role judgments retain11 supported,1 unsupported and11 unassessed raw matches.
+The unsupported role selects σ as defined term; WCE-R01 owns refinement. Native pointer mapping,
+attachment, applicability and scientific truth are not established by these independent judgments.
+The result retains `quality_claim=not_established`: no calibrated or corpus-general claim follows.
+
+### Acceptance of the selected increment
+
+All four bounded named runs112–115 completed:172 private contribution rows and3157 operation
+rows including empty questions. These are output-row counts, not independent facts or supported
+whole records. Ordinary bounded read/export passed; the combined original-source portable bundle
+and normal/indexed-normal bundles verified. Normal source/output protected assessment is retained
+under exact frame/pass/grade IDs; ordinary portable exports include identifiers, not private labels.
+No full M1/GLiNER rerun or full-series qualification is claimed. Original33 source-fragment
+opportunities remain visible even when minimal linguistic cues do not capture their entire text.
+
+Replacement inventory: current `annotation_token_rules` authoring and unnamed-only adaptation
+were deleted, M1v8/op2 is the only new writer, and all current call sites use named recipes.
+Raw match proposals, archived result readers, frozen migrations and evidence remain intentionally.
+The WCE03 production worktree was integrated and removed; no parallel worktree remains.

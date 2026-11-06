@@ -1,5 +1,7 @@
 # Source opportunities, independent assessment and qualification
 
+> Execution reading route,2026-11-06: Current early source/output evidence, protected frame IDs and remaining exposure/reference gaps are linked at the coordinator. Later producer frames remain open; original source partitions are not relabelled.
+
 **Proposed,2026-11-05.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns package
 state and combined acceptance. This companion owns WCE02/12 and cross-package new assessment
 requirements. Consume review6487c486 F07/RC05/RC06, §10 and its audited source-opportunity corrections.

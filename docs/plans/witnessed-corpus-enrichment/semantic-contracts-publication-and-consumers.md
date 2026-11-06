@@ -1,5 +1,7 @@
 # Witnessed components: semantic contracts, publication and consumers
 
+> Execution reading route,2026-11-06: ADR-0066 adopts the target. Current retention/frame/native groundwork is recorded at the coordinator; positive component publication policies remain with their owning producers.
+
 **Proposed,2026-11-05.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns state,
 F/RC decisions and combined acceptance. This companion owns WCE00/01/11 target and cross-capability
 contracts, consuming review6487c486 §§2–4/7/11. No product change is claimed.

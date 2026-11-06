@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "id": "wce.native-foundation",
+  "title": "Witnessed component and frame native foundation with auto parallel tests",
+  "group": "WCE",
+  "package": "WCE01",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do retained components and versioned frames preserve source custody and independent assessment under intended parallel native validation?",
+  "answers": [
+    "WCE01",
+    "WCE02",
+    "WCE03",
+    "ADR-0066"
+  ],
+  "method": "Released declarations, native source/endpoint refusal controls, actual-role frame checks and unchanged native pytest selection at auto32 after dedicated lock-table correction.",
+  "commands": [
+    "uv run pytest -n auto python/corpus-structure/tests/semantic/test_contributions_native.py python/corpus-structure/tests/evaluate/test_operation_assessment_native.py",
+    "uv run pytest -n auto python/corpus-structure/tests/methods/test_contribution_adapter.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/ingest/test_annotations.py",
+    "uv run pytest -n auto python/corpus-structure/tests/evaluate/test_operation_assessment.py",
+    "just db-provision"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native-candidate-005/native_operations.json",
+      "role": "frozen native155 candidate",
+      "sha256": "d7f6cf82a3eb5831bc7bb0714b80df45d4d584e84b3a89a43d7939ca64537baa"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "parallel-native-003.log",
+      "role": "scoped verification",
+      "sha256": "e478946da1c00cef78dd4a44b4bb5ffd3a6780e8696d2a949f195ec1f4c32286"
+    },
+    {
+      "path": "root-final-producer-auto.log",
+      "role": "scoped verification",
+      "sha256": "51571e79710c43df725f0f1fcd9e269444831d44edbf87c8bbb01bbb87b7d639"
+    },
+    {
+      "path": "output-grain-auto.log",
+      "role": "scoped verification",
+      "sha256": "6c5cf03e58f5cbe5f3035543071b181b56941932890034a3aa597a8cefdb51cd"
+    },
+    {
+      "path": "structural-frame-native-receipt-001.json",
+      "role": "scoped verification",
+      "sha256": "0fa2593514ce9521e1f78fead71843e14b367a46ad747cb97d611b3aca28e438"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native cases passed under auto",
+      "value": 23,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Final producer cases passed under auto",
+      "value": 75,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Operation assessment cases passed under auto",
+      "value": 42,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Actual-role structural frame controls",
+      "value": 5,
+      "of": null,
+      "unit": "controls",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected retention/frame/native/read groundwork passes targeted controls. Output-first assessment uses frozen contribution identity; source-first quantity retains physical deduplication. Dedicated cluster capacity supports the unchanged tested auto32 selection. Positive component-publication policies, later automatic cross-source producers and full-series qualification are outside this result.",
+  "consumed_by": [
+    "WCE01",
+    "WCE02",
+    "WCE03"
+  ]
+}

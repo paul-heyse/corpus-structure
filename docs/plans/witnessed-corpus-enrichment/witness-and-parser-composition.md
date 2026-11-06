@@ -1,5 +1,7 @@
 # Witnesses, definitions and actual-mention composition
 
+> Execution reading route,2026-11-06: The baseline table below describes the pre-WCE source. Current named recipes use M1v8 and retained-annotation-rules-2; token-only authoring and unnamed-only adaptation have been retired. WCE04 consumes these named products.
+
 **Proposed target and execution design · 2026-11-05.** This companion develops WCE03–WCE05.
 The [WCE coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns all package state,
 finding disposition, rule decisions, evidence and completion. This document owns the bounded

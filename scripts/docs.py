@@ -182,7 +182,10 @@ def stage(root: Path, candidate: Path, pages: list[Page], settings: dict) -> lis
             collection = page.collection
             summary += ["", f"# {collection}", ""]
         title = re.sub(r"[\[\]`*]", "", page.title)
-        summary.append(f"- [{title}]({page.path.as_posix()})")
+        target = page.path.as_posix()
+        if any(character.isspace() for character in target):
+            target = f"<{target}>"
+        summary.append(f"- [{title}]({target})")
     (src / "SUMMARY.md").write_text("\n".join(summary) + "\n")
     book = (root / "docs/book.toml").read_text()
     site = settings["site"]

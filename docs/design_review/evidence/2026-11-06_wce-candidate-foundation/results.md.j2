@@ -1,0 +1,20 @@
+# Scoped witnessed enrichment results
+
+Generated from finalized records. Counts describe separate verification and assessment scopes;
+they are not an overall accuracy or full-series qualification claim.
+
+{% for gid in ['2026-11-06_wce-contracts/wce.native-foundation', '2026-11-06_wce-candidate-foundation/wce.source-output-assessment'] %}
+{% set r = record(gid) %}
+## {{ r.title }}
+
+Outcome: **{{ r.outcome }}**. Record: `{{ gid }}`.
+
+| Observation | Value | Unit | Scope |
+|---|---:|---|---|
+{% for row in query('SELECT name, value_num, value_text, "of", unit, note FROM record_results WHERE gid=$g', g=gid) %}
+| {{ row.name }} | {% if row.value_num is not none %}{{ num(row.value_num, 0) }}{% else %}{{ row.value_text }}{% endif %}{% if row.of is not none %}/{{ row.of }}{% endif %} | {{ row.unit or '' }} | {{ row.note or '' }} |
+{% endfor %}
+
+{{ r.conclusion }}
+
+{% endfor %}

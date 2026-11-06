@@ -1,60 +1,59 @@
 # Status
-_Updated 2026-11-06; test execution stopped at operator request; WCE planned; historical PCE qualified nondefault._
+_Updated 2026-11-06; WCE candidate foundation delivered; statistics qualification; historical test campaign stopped._
 
-## Current scope and owners
+## Current authority and scope
 
-- [Test resolution](docs/plans/test-audit-resolution_2026-11-05.md) owns TR-00–10 and all 23 DTA dispositions.
-  Implementation and assembled review are delivered; full qualification remains incomplete. Do not resume automatically.
-- [Witnessed enrichment](docs/plans/witnessed-corpus-enrichment_2026-11-05.md) owns WCE00–12 and scheduled findings:
-  Proposed, implementation not started. RC01–06 accepted for planning; WCE00 routes formal adoption.
-- [Enrichment review](docs/design_review/reviews/design_review_production-enrichment-improvements_2026-11-05.md)
-  is recommendation-audited: native witnesses, factor policies, evaluation/reuse and identity pilot;
-  F01–07/RC01–06 remain at their owner. Its target assumption does not establish test qualification.
-- Six WCE companions retain semantic/native/read, parser, composition, factor/event, identity and qualification contracts.
-- [PCE coordinator](docs/plans/progressive-corpus-enrichment_2026-11-04.md) retains PCE acceptance/F01–F43/qualification.
-  ADR-0062/0063 preserve progressive products/runtime separation,0064 local admission and0065 cross-source custody.
-  Complete records remain stronger; source isolation and independent judgments remain; no default was activated.
-- [Production audit](docs/design_review/audit/README.md) and [test audit](docs/design_review/test-audit/README.md)
-  retain their bc2208f9 diagnostic baseline; neither is a fresh alignment certificate.
+- [WCE coordinator](docs/plans/witnessed-corpus-enrichment_2026-11-05.md) owns WCE00–12 and scheduled findings.
+  WCE00 adopted; WCE01 retention/read/frame foundation and WCE03 named candidates are implemented and tested.
+  WCE02 early statistics references and assessment are delivered; later-producer frames remain open.
+- [ADR-0066](docs/adr/0066-witnessed-component-policies.md) adopts witnessed components and exact questions.
+  Operator replaced RC05: qualify on statistics, keep domain-owned contracts; no enterprise corpus prerequisite.
+- New components remain private. Positive component publication policies and cross-source semantic producers
+  remain with WCE04 onward; whole-report policies, source isolation and stronger record standing remain.
+- [PCE](docs/plans/progressive-corpus-enrichment_2026-11-04.md) retains its selected nondefault acceptance and F37/F39 triggers.
+- [Test resolution](docs/plans/test-audit-resolution_2026-11-05.md) remains separately stopped at operator request;
+  its full qualification is incomplete. This WCE increment does not resume or close that campaign.
 
-- [PostgreSQL tool inventory](docs/libraries/postgresql/system-tool-usage.md): operational/test-only use, extensions and installed candidates; verified 2026-11-06, documentation-only.
+## Delivered and verified — 2026-11-06
 
-## Test checkpoint — 2026-11-06
+- WCE03 uses named rule/variant roles, bounded expansions and overlapping raw groups from retained annotations;
+  missing DEP does not suppress usable token/phrase work. M1v8/op2 replace the token-only/unnamed-only writer.
+- Released component endpoint/basis contracts and native153–155 enforce actual source/dependency closure.
+  Frame2 preserves original origin partitions, exposure, source opportunities and exact emitted output IDs.
+  Source-first scoring deduplicates physical facts; output-first correctness assesses each frozen contribution.
+- [Contract/parallel evidence](docs/design_review/evidence/2026-11-06_wce-contracts/README.md):
+  `uv run pytest -n auto` selected native suite passed23; final producer suite passed75; operation assessment passed42.
+  Earlier156 focused cases and consumer controls retain their source limits; stale report artifact was regenerated
+  and its exact failed CLI/MCP transport case passed. Counts overlap and are not a full-series qualification union.
+- Pytest defaults to auto32 on this host with loadgroup; exclusive shared-cluster fault controls remain separate.
+  Reproduced native parallel failures were PostgreSQL shared-lock exhaustion, repaired through dedicated18/corpus
+  configuration: max_connections256/max_locks_per_transaction1024; live values verified after provision/restart.
+  Primary18/main5432 was untouched. Existing psycopg-pool/SQLAlchemy NullPool integration remains.
+- `just docs-test` passed42 publisher/resolver controls under auto; navigation now supports guide filenames with spaces.
+- Actual-role structural-frame2 positive/forged-origin/mixed-partition/exposure/reader-denial controls passed5.
+  No labels exposed or origin partitions relabelled; the diagnostic evaluator transaction rolled back.
+- `just types`, `uv run ruff check`, `just model check`, `just ready`, `just docs-check` and `just turn-end` passed
+  at their recorded source. Final-source handoff checks remain scoped; full WCE12 qualification is not_run.
 
-- Initial serial `CORPUS_TEST_NATIVE_AUTH_CRASH=1 just test-all` interrupted by operator:
-  3371 passed, 1 failed, 1 incomplete, 1389 not_run of 4762;504 completed native claims have item-bound context.
-  All 8 auth fault controls passed. Owned process group drained with no survivors; Rust not_run after cancellation.
-- The sole renderer assertion failure was corrected; only that exact failed node was rerun and passed.
-  3372 original nodes now have successful results;1390 remain pending. Receipts/selection are at the coordinator.
-- Default pytest now uses 16 xdist workers; shared math preparation is grouped; `just test-native-faults` is exclusive serial.
-  Compatible pytest 9.1.1 / xdist 3.8.0 is held in [pins](docs/pins.md) ; 9.2 silently broke grouping.
-- [New parallel evidence](docs/design_review/evidence/2026-11-06_parallel-test-execution/README.md): 40 new cases passed,
-  16 concurrent worker PIDs, one worker for 8 grouped cases, 2 overlapping real bare clones with complete native context.
-  This is not complete 16-worker application-template/capacity qualification. Existing successful product cases were not replayed.
-- Development DB migrated 151→152 only ; 158 table counts, 4 project defaults and 404 relation/ACL fingerprints unchanged.
-  Only the semantic validator/descriptor changed; no release/default activation. Native 152 fixes temporary-rowtype caching.
-- Earlier focused math 28 / native 39 / classifier 24 / native-152 guards 18 and CLI/render controls passed at their recorded sources.
-  Full qualification/hygiene remain unfinished; source changes and failed/interrupted attempts retain their real limits.
-- Stop-checkpoint `just turn-end`, `just docs-check`, `just types`, `uv run ruff check`, `just deps` and `just evidence` passed.
-  Evidence retains 40 existing repository warnings; no full hygiene or runtime-qualification closure is claimed.
+## Source products and assessment limits
 
-## Earlier verified scope and limits
-
-- WCE documentation publication: `just docs-check`, `just turn-end`, scoped `git diff --check` passed; product tests not_run.
-- [PCE evidence](docs/design_review/evidence/2026-11-05_pce-structural-products/README.md),2026-11-05:
-  broad attempted 4722; focused repairs established 4714 selected required cases including 829 native. Broad failures remain failed.
-  PCE excluded 8 auth controls; the new test attempt ran them. Historical Rust empty selection supplied no functional coverage.
-- PCE render/provenance/replay/budget, 18 typed/metadata and 130 runtime/consumer controls passed with compiler 17 / execution 27.
-  Types/Ruff/ready/model/applicable hygiene and its assembled review passed for that historical source.
-- Public98/cut132 and reviewed supplied statements retain original receipts. Logicalbf5e216e…/native151 and
-  producer98/runtimed86238… keep their archived meaning; prior installed7b2bc478… is not retagged as current qualification.
-- [Portable006/MCP002](docs/design_review/evidence/2026-11-05_pce-portable-review/README.md) retain 14 relations versus 005.
-  Four project defaults remain null/null/generation0. Automatic 51/52 retain raw outputs: 20 pairs judged 12 supported / 8 wrong;
-  whole automatic statements unsupported. Manual 005 is separate. Source 92 / output 24 gaps and partial products remain bounded.
-- No full-corpus scientific truth, unseen-origin, calibration, transfer, inference/training/ANN or broader adoption claim follows.
+- [Source/production evidence](docs/design_review/evidence/2026-11-06_wce-candidate-foundation/README.md) retains
+  bounded original Grinstead–Snell physical220–222 intake: finished run105/cut139/view48, authentic native source.
+  Normal density, standard normal, parameters and transformations are now available with recognition caveats.
+- Actual named composition completed on GS112, normal113, Forbes114 and NIST115; native/read captures are retained.
+  These are production matcher/adapter composition journeys, not full M1/GLiNER provider qualification.
+- Normal source-first set24/unit34/passes97–99 and grade32 retain11 opportunities and independent author populations.
+  Output-first set26/unit36/passes100–102/evaluation33 bind23 outputs:23 supported projection locations;
+  linguistic roles11 supported/1 unsupported/11 unassessed raw matches. No attachment or scientific-truth claim.
+- σ is misidentified as defined term; WCE-R01 at the coordinator owns the next component/recipe refinement.
+  Original22 and new11 source-fragment ledgers retain overlaps/misses; they are not semantic accuracy estimates.
+  Exposed original calibration/final source families are not fresh held-out evidence or reusable fitting labels.
+- Failed/interrupted attempts and original raw outputs remain. Whole automatic51/52 remain unsupported;
+  manual005 and historical public98/cut132 retain their separate prior evidence. No default adoption follows.
 
 ## Next
 
-- Stop test work here. A separately authorized resumption uses only remaining/failing nodes; successful cases are retained.
-- Next enrichment execution, when authorized: WCE00 reconciliation/RC adoption, then WCE01 shared contracts and WCE02 early slice.
-- Historical PCE has no required execution remaining; F37/F39 retain their triggers at the PCE owner.
+- Execute WCE04 from the witnessed components and new statistics sources; settle target-local defining content
+  separately from usage applicability, using WCE-R01 and independent source/output judgments.
+- Continue WCE02 references with each actual later producer; preserve exposure and unavailable source facets.
+- Keep test-resolution stopped; any separately authorized resumption uses its remaining/failing-node owner.

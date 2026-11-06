@@ -430,10 +430,14 @@ def score_cases(
         for case in cases
     }
     assignments = {}
-    # Repeated producer observations retain their IDs, but one physical occurrence
-    # supplies at most one answer to one facet. Competing readings share that slot.
+    # Source-first quantity counts physical occurrences. Output-first correctness
+    # assesses each frozen emitted ID, including distinct observations of one occurrence.
     occurrence_groups: dict[bytes, list[Mapping[str, Any]]] = {}
     for value in selected:
+        if frame.direction == "output_first":
+            key = canonical_bytes(["contribution", value["contribution_id"]])
+            occurrence_groups.setdefault(key, []).append(value)
+            continue
         anchors = value.get("anchors", ())
         occurrence = value.get("occurrence_id") or (
             sorted(anchor["anchor_id"] for anchor in anchors)

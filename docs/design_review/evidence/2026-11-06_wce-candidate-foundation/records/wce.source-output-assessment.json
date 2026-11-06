@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "id": "wce.source-output-assessment",
+  "title": "Authentic statistics named candidates and granular independent assessment",
+  "group": "WCE",
+  "package": "WCE02",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can useful private candidates and source/output gaps be retained and independently assessed on authenticated statistics material?",
+  "answers": [
+    "WCE02",
+    "WCE03",
+    "WCE-R01"
+  ],
+  "method": "Bounded native source intake, source-only independent A/B/C, actual production matcher/adapter native completion, protected exact output assessment and verified portable review.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-candidate-foundation/freeze_sources.py",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-candidate-foundation/capture_completed_candidates.py candidates009",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-candidate-foundation/export_named_review.py candidates008 --additional-dir candidates010 --additional-dir candidates011",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-candidate-foundation/bind_output_references.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/source-author-input-001.json",
+      "role": "original source-only input",
+      "sha256": "67211421ea5e0dcf7ea8e9ff91e0c63878c4e7d5735e078f02d47ae54a984bb7"
+    },
+    {
+      "path": "raw/source-author-input-002.json",
+      "role": "bounded new normal source-only input",
+      "sha256": "ac1d4c6f7501fe8f844aa34bbab0051026c32292dfe83baa1db83f6e31ba49d6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "summary.json",
+      "role": "scoped actual source/output evidence",
+      "sha256": "f4da3ed45e6099097fb39e8f0cbec891272ecbcb11f32a2b3acc5cdc42a95278"
+    },
+    {
+      "path": "normal-native-references003/result.json",
+      "role": "scoped actual source/output evidence",
+      "sha256": "7c46126ac1fd4a7e8b41efdec46f56e746c3b72ba0404912a4aea89790932153"
+    },
+    {
+      "path": "normal-native-output001/grade.json",
+      "role": "scoped actual source/output evidence",
+      "sha256": "8d74c3830063054040993f84c0124343de92914c3b5d65e64622087a761d0c89"
+    },
+    {
+      "path": "candidates008/portable-review-receipt.json",
+      "role": "scoped actual source/output evidence",
+      "sha256": "f6c004ebd0adad38c1f6fad37d3a146d391741f697a3853f265a369d8c639eea"
+    },
+    {
+      "path": "candidates009/portable-review-indexed-receipt.json",
+      "role": "scoped actual source/output evidence",
+      "sha256": "e74495f914f5cb4ee4e4469645672ba2b71c4bf100b3b37eadcc426e5a7eb5a9"
+    }
+  ],
+  "depends_on": [
+    "2026-11-06_wce-contracts/wce.native-foundation"
+  ],
+  "results": [
+    {
+      "name": "Retained private candidate rows",
+      "value": 172,
+      "of": null,
+      "unit": "contributions",
+      "note": "Four runs; not independent facts or admitted records."
+    },
+    {
+      "name": "Retained operation rows",
+      "value": 3157,
+      "of": null,
+      "unit": "operations",
+      "note": "Includes zero-output questions."
+    },
+    {
+      "name": "Independently assessed normal output population",
+      "value": 23,
+      "of": null,
+      "unit": "outputs",
+      "note": null
+    },
+    {
+      "name": "Supported normal source projection locations",
+      "value": 23,
+      "of": 23,
+      "unit": "outputs",
+      "note": null
+    },
+    {
+      "name": "Supported normal linguistic roles",
+      "value": 11,
+      "of": null,
+      "unit": "roles",
+      "note": null
+    },
+    {
+      "name": "Unsupported normal linguistic roles",
+      "value": 1,
+      "of": null,
+      "unit": "roles",
+      "note": "Sigma wrongly selected as defined term."
+    },
+    {
+      "name": "Unassessed raw-match role questions",
+      "value": 11,
+      "of": null,
+      "unit": "questions",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native production, custody, bounded read/export and protected independent assessment are established for the selected increment. Location and role are distinct: one sigma role is unsupported; larger source-fragment questions remain mostly uncaptured by minimal cues. Exposed source families are not fresh held-out evidence; pointer, attachment, applicability, scientific truth and broader efficacy remain unestablished. WCE02 later references and WCE-R01 remain open.",
+  "consumed_by": [
+    "WCE02",
+    "WCE03",
+    "WCE04"
+  ]
+}

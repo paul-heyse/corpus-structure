@@ -610,3 +610,16 @@ def test_v2_coverage_distinguishes_permissible_alternative_from_unresolved_no_ou
     assert present["source_coverage"]["opportunities"][0]["judgment"] == "ambiguous"
     assert missing["source_coverage"]["opportunities"][0]["assessment_status"] == "unresolved"
     assert missing["source_coverage"]["opportunities"][0]["error_category"] == "unresolved"
+
+
+def test_output_first_scores_each_frozen_observation_at_a_shared_occurrence(frame):
+    output = replace(frame, direction="output_first", contribution_ids=("p1", "p2"))
+    cases = (case("first", contribution_id="p1"), case("second", contribution_id="p2"))
+    predictions = (prediction("p1", origin_task_id=1), prediction("p2", origin_task_id=2))
+    assessed = score_cases(output, cases, predictions)
+    assert [
+        (c["contribution_id"], c["judgment"], c["error_category"]) for c in assessed["cases"]
+    ] == [("p1", "supported", None), ("p2", "supported", None)]
+    source = score_cases(frame, (case("first"), case("second")), predictions)
+    assert source["facets"]["value"]["supported"] == 1
+    assert source["cases"][1]["error_category"] == "duplicate_occurrence"

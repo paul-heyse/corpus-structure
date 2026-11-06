@@ -84,5 +84,13 @@ python/corpus-structure/semantic_alembic/versions/semantic_pce_exposure_20261105
 # WCE native authoring and parallel diagnostic outputs preserve exact raw bytes.
 docs/design_review/evidence/2026-11-06_wce-contracts/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/*.json filter=lfs diff=lfs merge=lfs -text
-docs/design_review/evidence/2026-11-06_wce-contracts/candidate*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-contracts/native-candidate*/** filter=lfs diff=lfs merge=lfs -text
 python/corpus-structure/semantic_alembic/versions/semantic_wce_* filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-contracts/*.jsonl filter=lfs diff=lfs merge=lfs -text
+
+# Frozen WCE source intake, candidate captures and protected-reference receipts.
+docs/design_review/evidence/2026-11-06_wce-candidate-foundation/candidates*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-candidate-foundation/intake*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-candidate-foundation/normal-excerpt*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-candidate-foundation/normal-native-*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-06_wce-candidate-foundation/*.json filter=lfs diff=lfs merge=lfs -text
