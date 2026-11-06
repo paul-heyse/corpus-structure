@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from types import SimpleNamespace
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
 
@@ -155,8 +155,10 @@ def decode_definition_components(
             scope=passage.scope,
             effective_version=passage.effective_version,
             evidence=(passage.passage_id,),
-            reason=("Target-local decoded span roles and directed attachment; "
-                    "independent support unassessed."),
+            reason=(
+                "Target-local decoded span roles and directed attachment; "
+                "independent support unassessed."
+            ),
         )
         components[component.component_id] = component
     return tuple(components[key] for key in sorted(components))
@@ -204,9 +206,11 @@ def components_from_named_matches(
             scope=passage.scope,
             effective_version=passage.effective_version,
             evidence=(passage.passage_id,),
-            reason=(f"Named rule {match.rule}/{match.variant} binds explicit "
-                    f"{term_role}/{content_role} roles; semantic attachment remains "
-                    "independently unassessed."),
+            reason=(
+                f"Named rule {match.rule}/{match.variant} binds explicit "
+                f"{term_role}/{content_role} roles; semantic attachment remains "
+                "independently unassessed."
+            ),
         )
         components[component.component_id] = component
     return tuple(components[key] for key in sorted(components))
@@ -262,9 +266,11 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
                     scope=passage.scope,
                     effective_version=passage.effective_version,
                     evidence=(passage.passage_id,),
-                    reason=(f"Named rule {match.rule}/{match.variant} following-content cue "
-                            "joined to the adjacent source-owned display element; "
-                            "semantic support unassessed."),
+                    reason=(
+                        f"Named rule {match.rule}/{match.variant} following-content cue "
+                        "joined to the adjacent source-owned display element; "
+                        "semantic support unassessed."
+                    ),
                 )
             )
             break
@@ -469,8 +475,10 @@ class DefinitionComponentsMethod:
                     passage_id=passage_id,
                     operation="located_extraction",
                     outcome="succeeded" if decoded else "empty",
-                    reason=("Retained exact target-local output; "
-                            "no absence or semantic correctness claim."),
+                    reason=(
+                        "Retained exact target-local output; "
+                        "no absence or semantic correctness claim."
+                    ),
                 )
             )
         ctx.check_active()
@@ -527,6 +535,7 @@ class DefinitionApplicabilityConfig(StructuralValue):
     structural_input_digest: str | None = None
     usage_id: str | None = None
     selection_refs: tuple[RetainedRelationshipDecisionRef, ...] = ()
+    applicability_scope: Literal["contextual_usage", "defining_occurrence"] = "contextual_usage"
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
@@ -540,7 +549,25 @@ class DefinitionApplicabilityConfig(StructuralValue):
             or self.usage_id not in {p.passage_id for p in self.inputs.passages}
         ):
             raise ValueError("applicability requires exact inputs and usage/candidate selection")
+        if (
+            self.applicability_scope == "defining_occurrence"
+            and self.inputs.policy_id != "definition-introduction-1"
+        ):
+            raise ValueError("defining-occurrence scope requires its declared introduction policy")
         return self
+
+
+def is_defining_occurrence(inputs, usage, component, relation):
+    """An introduction is not a transfer to another occurrence or parameter context."""
+    term = component.term
+    target = next(p for p in inputs.passages if p.passage_id == term.passage_id)
+    return (
+        relation == "defined-by"
+        and usage.source_ref == target.source_ref
+        and (usage.start, usage.end, usage.text) == (term.start, term.end, term.text)
+        and usage.scope == component.scope
+        and usage.effective_version == component.effective_version
+    )
 
 
 def assess_applicability(
@@ -593,8 +620,10 @@ def assess_applicability(
         outcome=outcome,
         evidence=(usage_id, component.term.passage_id, component.content.passage_id),
         premises=premises,
-        reason=("Applicability derived from explicit usage binding and compatibility "
-                "premises; independent support unassessed."),
+        reason=(
+            "Applicability derived from explicit usage binding and compatibility "
+            "premises; independent support unassessed."
+        ),
     )
 
 
@@ -655,6 +684,10 @@ class DefinitionApplicabilityMethod:
             )
             if edge["target_id"] != component.component_id:
                 raise ValueError("selected relationship substitutes its target component")
+            introduction = (
+                cfg.applicability_scope == "defining_occurrence"
+                and is_defining_occurrence(cfg.inputs, usage, component, edge["relation"])
+            )
             candidate_lists.add(decision["candidate_list_id"])
             candidate = ApplicabilityCandidate(
                 target_id=edge["target_id"],
@@ -666,20 +699,30 @@ class DefinitionApplicabilityMethod:
                         dimension="sense",
                         state="compatible",
                         evidence=(usage.passage_id, component.term.passage_id),
-                        reason=("Actual selected usage relationship; "
-                                "independent semantic support remains separate."),
+                        reason=(
+                            "Actual selected usage relationship; "
+                            "independent semantic support remains separate."
+                        ),
                     ),
                     ApplicabilityPremise(
                         dimension="parameterization",
-                        state="unknown",
+                        state="inapplicable" if introduction else "unknown",
                         evidence=(usage.passage_id, component.term.passage_id),
-                        reason="No authenticated parameter correspondence has been established.",
+                        reason=(
+                            "Same defining occurrence under the introduction policy; no parameter transfer is asserted."
+                            if introduction
+                            else "No authenticated parameter correspondence has been established."
+                        ),
                     ),
                     ApplicabilityPremise(
                         dimension="convention",
-                        state="unknown",
+                        state="inapplicable" if introduction else "unknown",
                         evidence=(usage.passage_id, component.term.passage_id),
-                        reason="No authenticated convention correspondence has been established.",
+                        reason=(
+                            "Same defining occurrence under the introduction policy; no convention transfer is asserted."
+                            if introduction
+                            else "No authenticated convention correspondence has been established."
+                        ),
                     ),
                 ),
             )

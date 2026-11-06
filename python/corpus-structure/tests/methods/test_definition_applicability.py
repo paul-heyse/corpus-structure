@@ -305,3 +305,48 @@ def test_following_display_requires_explicit_cue_and_direct_native_element():
         components_from_following_display(passage, (match,), ((43, 48),), term_role="defined_term")
         == ()
     )
+
+
+def test_definition_introduction_does_not_transfer_to_other_occurrences():
+    from corpus_structure.methods.definition_applicability import is_defining_occurrence
+
+    value = inputs()
+    defined = component()
+    target = value.passages[0]
+    introduction = StructuralPassage(
+        passage_id="intro",
+        source_ref=target.source_ref,
+        start=defined.term.start,
+        end=defined.term.end,
+        text=defined.term.text,
+        scope=defined.scope,
+        effective_version=defined.effective_version,
+    )
+    assert is_defining_occurrence(value, introduction, defined, "defined-by")
+    assert not is_defining_occurrence(value, introduction, defined, "denotes")
+    assert not is_defining_occurrence(
+        value,
+        introduction.model_copy(
+            update={"start": introduction.start + 1, "end": introduction.end + 1}
+        ),
+        defined,
+        "defined-by",
+    )
+    assert not is_defining_occurrence(
+        value,
+        introduction.model_copy(update={"effective_version": "different"}),
+        defined,
+        "defined-by",
+    )
+
+
+def test_definition_introduction_scope_requires_the_domain_policy():
+    value = inputs()
+    with pytest.raises(ValueError, match="introduction policy"):
+        DefinitionApplicabilityConfig(
+            inputs=value,
+            structural_input_digest=value.identity,
+            usage_id="usage",
+            selection_refs=(link_reference(),),
+            applicability_scope="defining_occurrence",
+        )
