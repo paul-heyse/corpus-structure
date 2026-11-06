@@ -2301,6 +2301,61 @@ concepts:
   relationships:
   - reference_pass_item
   - reference_item_frame
+- id: OperationEventFit
+  family: result
+  scope: run
+  meaning: Immutable operation-event development fit, with exact independently graded
+    event frame, finite parameters or explicit failed fit; never a whole-reading grade
+    or source truth
+  identity: Project/evaluation plus immutable frame and result content digest
+  attributes:
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: evaluation_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: run_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: cut_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: set_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: source_frame_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: reference_snapshot_json
+    range: text
+    required: true
+    multivalued: false
+  - name: frame_json
+    range: text
+    required: true
+    multivalued: false
+  - name: result_json
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - operation_fit_grade
+  - operation_fit_result
 - id: ReferenceEvaluation
   family: result
   scope: run
@@ -4640,12 +4695,74 @@ relationships:
   reference_scope: execution
   invariants:
   - reference_binding
+- id: operation_fit_grade
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: OperationEventFit
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceEvaluation
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
 - id: reference_grade_result
   kind: provenance
   direction: directed
   endpoints:
   - role: subject
     concept: ReferenceEvaluation
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: EvaluationResult
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: operation_fit_result
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: OperationEventFit
     minimum: 1
     maximum: 1
     ordered: false
@@ -5635,13 +5752,40 @@ operations:
   - id: agent.general/observation.confidence_source
     field: observations.confidence_source
     outcome_domain: confidence_provenance_agent
-  - id: structure.products/family
+  - id: structure.compare/family
     field: family
     outcome_domain: method_family_consolidate
-  - id: structure.products/tier
+  - id: structure.compare/tier
     field: tier
     outcome_domain: method_tier_deterministic
-  - id: structure.products/result.outcome
+  - id: structure.compare/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: structure.dossier/family
+    field: family
+    outcome_domain: method_family_consolidate
+  - id: structure.dossier/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: structure.dossier/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: structure.scoped_relations/family
+    field: family
+    outcome_domain: method_family_resolve
+  - id: structure.scoped_relations/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: structure.scoped_relations/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
+  - id: structure.artifact_identity/family
+    field: family
+    outcome_domain: method_family_consolidate
+  - id: structure.artifact_identity/tier
+    field: tier
+    outcome_domain: method_tier_deterministic
+  - id: structure.artifact_identity/result.outcome
     field: outcome
     outcome_domain: source_result_outcome
   - id: locate.definition_terms/family
@@ -10236,6 +10380,31 @@ operations:
   implementation: reference_operation_grade
   transitions: []
   projections: []
+- id: reference_operation_fit
+  inputs:
+  - EvaluationResult
+  - ReferenceSet
+  results:
+  - OperationEventFit
+  applicability:
+  - reference_binding
+  universe: Immutable independently graded emitted operation events on the same development corpus; in-sample diagnostics and finite runtime parameters confer no source truth or publication authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_operation_fit
+  transitions: []
+  projections: []
 - id: reference_record_calibrate
   inputs:
   - EvaluationResult
@@ -11671,6 +11840,23 @@ implementations:
   - ReferenceSet
   result_concepts:
   - ReferenceEvaluation
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_operation_fit
+  owner: evaluate.operation_fitting
+  symbol: fit_native_operation_event
+  version: '1'
+  placement: python
+  input_concepts:
+  - EvaluationResult
+  - ReferenceSet
+  result_concepts:
+  - OperationEventFit
   features:
   - typed_bound_inputs
   - explicit_outcomes

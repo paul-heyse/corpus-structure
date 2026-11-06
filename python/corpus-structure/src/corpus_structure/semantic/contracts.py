@@ -115,6 +115,15 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("contributions/contracts.py", "semantic/contributions.py"),
     ("operations/assessment.py", "evaluate/operation_assessment.py"),
     ("operations/assessment.sql", "semantic/sql/operation_assessment.sql"),
+    ("operations/event-fitting.py", "evaluate/operation_fitting.py"),
+    ("operations/event-policy.py", "semantic/operation_policy.py"),
+    ("operations/event-fitting.sql", "semantic/sql/operation_event_fitting.sql"),
+    ("operations/structural-base.py", "semantic/structural_base.py"),
+    ("operations/artifact-identity.py", "semantic/artifact_identity.py"),
+    ("operations/artifact-producer.py", "methods/artifact_identity.py"),
+    ("operations/scoped-relations.py", "methods/scoped_relations.py"),
+    ("operations/structural-producers.py", "methods/structural_products.py"),
+    ("operations/structural-parsing.py", "semantic/structural_parsing.py"),
     ("operations/review-assessments.sql", "semantic/sql/review_assessments.sql"),
     ("operations/review-assessments.py", "evaluate/review_assessments.py"),
     ("operations/structural-assessment.py", "evaluate/structural_assessment.py"),
@@ -177,7 +186,12 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
-    from corpus_structure.evaluate import operation_assessment, record_policy, record_references
+    from corpus_structure.evaluate import (
+        operation_assessment,
+        operation_fitting,
+        record_policy,
+        record_references,
+    )
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
@@ -308,6 +322,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_operation_set": operation_assessment.create_reference_set,
             "reference_operation_pass": operation_assessment.record_pass,
             "reference_operation_grade": operation_assessment.reference_evaluate,
+            "reference_operation_fit": operation_fitting.fit_native_operation_event,
             "read_source_contributions": contribution_queries.read_source_contributions,
             "reference_record_set": record_references.create_reference_set,
             "reference_record_pass": record_references.record_pass,

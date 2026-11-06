@@ -36,6 +36,12 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
+    "reference_operation_fit": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_operation_fit",
+        "transitions": {},
+        "version": "1",
+    },
     "reference_record_set": {
         "effects": ("protected_independent_reference_operation",),
         "implementation": "reference_record_set",

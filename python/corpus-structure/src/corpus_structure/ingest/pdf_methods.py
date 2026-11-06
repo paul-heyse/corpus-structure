@@ -98,7 +98,7 @@ class PdfIngestConfig(PdfRuntimeConfig):
 
 class IngestPdf:
     name = "ingest.pdf"
-    version = "2"
+    version = "3"
     family = MethodFamily.INGEST
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.ENCODER
