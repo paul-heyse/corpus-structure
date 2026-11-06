@@ -12,7 +12,8 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.evaluate.operation_assessment import (
     PROTOCOL,
     OperationCase,
-    OperationEvaluationFrame,
+    OperationEvaluationFrameV2,
+    OperationSourceOpportunity,
     create_reference_set,
     record_pass,
     reference_evaluate,
@@ -37,11 +38,9 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.operations import OperationBinding, create_run, create_task, seal_cut
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
-from semantic.native_record_fixtures import complete_contributions as complete
 from semantic.reference_scenarios import expected_reading
 
-from . import native_record_fixtures as source_fixture
-from .native_record_fixtures import contextual_result, curated_case
+from .test_contextual_workflow_native import completed_relationship_case
 from .native_record_fixtures import private_source as private_source
 
 
@@ -51,18 +50,26 @@ def private_source_options():
 
 
 @pytest.fixture
-def judged_source(private_source, request, semantic_evaluator_engine):
+def judged_source(private_source, request, semantic_evaluator_engine, monkeypatch, tmp_path):
     selected = getattr(request, "param", {})
     partition = selected.get("partition", "development")
     original_case = private_source
-    with original_case.writer.begin() as conn:
-        source_fixture.complete(original_case, conn, ())
-    case = curated_case(original_case)
-    result, _, inventory = contextual_result(case, denotation=True)
-    with case.writer.begin() as conn:
-        complete(case, conn, result)
-        cut = seal_cut(conn, case.run, "semantic-source-final", final=True)
-    consolidate_cut(case.writer, cut, "semantic-source-private")
+    linked = completed_relationship_case(original_case, monkeypatch, tmp_path)
+    from types import SimpleNamespace
+    from corpus_structure.orchestrate.commands import finalize_bound_run
+    finalize_bound_run(original_case.writer, linked.outcome.run_id, "semantic-source-private")
+    case=SimpleNamespace(**vars(original_case))
+    case.run=linked.outcome.run_id
+    with case.writer.connect() as conn:
+        tasks,configs,methods=(table(n) for n in ("ops.task","ops.method_config","ops.method"))
+        case.task_row=dict(conn.execute(select(tasks).join(configs,configs.c.id==tasks.c.method_config_id).join(methods,methods.c.id==configs.c.method_id).where(tasks.c.run_id==case.run,methods.c.name=="retrieve.contextual")).mappings().one())
+        case.task=case.task_row["id"]
+        cut=conn.scalar(select(table("ops.completed_result").c.cut_id).where(table("ops.completed_result").c.run_id==case.run))
+    source=linked.completed.source
+    citation=dict(source=dict(project_id="private-records",native_product_key=source.native_product_key,
+        native_content_digest=source.native_content_digest,projection_digest=source.projection_digest,
+        recipe_digest=source.recipe_digest,coordinate_version=2),start=0,end=2,text="12",scope="controlled-source")
+    target_meaning=dict(term=citation,content=citation,interpretation="definition",scope="controlled-source")
     with semantic_evaluator_engine.begin() as conn:
         uri = conn.scalar(
             select(table("kb.document").c.source_uri).where(
@@ -72,7 +79,7 @@ def judged_source(private_source, request, semantic_evaluator_engine):
         assign_origin(
             conn,
             project_id="private-records",
-            origin_group="denotation-control",
+            origin_group="relationship-control",
             partition=partition,
             source_uris=(uri,),
             provenance={"source": "controlled native12"},
@@ -88,14 +95,16 @@ def judged_source(private_source, request, semantic_evaluator_engine):
         )
         reading, old_frame = expected_reading(case, logical)
         anchor = reading["anchors"][0]
-        frame = OperationEvaluationFrame(
+        frame = OperationEvaluationFrameV2(
+            source_group="relationship-control", partition=partition, inspected_scope=case.table+"/data/table_cells/0",
+            opportunities=(OperationSourceOpportunity("relationship",case.view,0,2,"relationship","stated"),),
             unit=old_frame.unit,
             release_id=case.prepared.release_id,
-            guideline_version="denotation-control-1",
+            guideline_version="relationship-control-2",
             rubric_version=RUBRIC,
             context_policy=CONTEXT_POLICY,
             operation_question=QUESTION,
-            operation_version="1",
+            operation_version="2",
             domain="scientific-source",
             direction="source_first",
             pin=old_frame.pin,
@@ -107,7 +116,7 @@ def judged_source(private_source, request, semantic_evaluator_engine):
             project_id="private-records",
             source_run_id=case.run,
             source_cut_id=cut,
-            label="controlled-denotation",
+            label="controlled-relationship",
             legacy_split="dev",
             guideline=frame.guideline_version,
             guideline_text="Resolve only numeral12 to declared target12.",
@@ -118,7 +127,7 @@ def judged_source(private_source, request, semantic_evaluator_engine):
                 strata={frame.unit: "controlled"},
                 inclusion_probabilities={frame.unit: 1},
                 provenance={"selection": "controlled native12"},
-                cohort="native-denotation-control",
+                cohort="native-relationship-control",
             ),
         )
         unit = conn.scalar(
@@ -126,35 +135,26 @@ def judged_source(private_source, request, semantic_evaluator_engine):
                 table("eval.reference_unit").c.set_id == created["set_id"]
             )
         )
-        target = next(t for t in inventory.targets if t.target_id == "t1")
         expected = OperationCase(
             case_id="numeral12-denotation",
-            facet="denotation",
+            facet="relationship",
             anchor_ids=(anchor["anchor_id"],),
             inspected_scope=case.table + "/data/table_cells/0",
             source_state="stated",
             judgment="supported",
             alternatives=(
                 dict(
-                    semantic_type="contextual.denotation",
-                    value=source_value(
-                        dict(
-                            target_id="t1",
-                            target_source_binding=target.source_binding,
-                            relation="denotes",
-                            scope="chapter5",
-                            effective_version=None,
-                        )
-                    ),
+                    semantic_type="contextual.relationship",
+                    value=source_value(json.loads(canonical_bytes(dict(relation="denotes",scope="controlled-source",effective_version=None,target=target_meaning)))),
                 ),
             ),
-            explanation="Controlled source cell12 denotes supplied numeral12.",
+            explanation="Controlled source cell12 denotes the independently specified source-backed numeral attachment.",
             assessor_provenance={"assistance": "none; independent fixed expectation"},
         )
         if "judgment" in selected:
             expected = replace(expected, judgment=selected["judgment"])
         if selected.get("partial"):
-            expected = replace(expected, alternatives=({"semantic_type": "contextual.denotation"},))
+            expected = replace(expected, alternatives=({"semantic_type": "contextual.relationship"},))
         payload = dict(
             protocol=PROTOCOL,
             release_id=frame.release_id,
@@ -163,7 +163,7 @@ def judged_source(private_source, request, semantic_evaluator_engine):
             rubric_version=RUBRIC,
             context_policy=CONTEXT_POLICY,
             operation_question=QUESTION,
-            operation_version="1",
+            operation_version="2",
             domain=frame.domain,
             direction="source_first",
             reason="Independent controlled source expectation",
@@ -249,8 +249,8 @@ def judged_source(private_source, request, semantic_evaluator_engine):
             stage="record",
             unit_type="source_view",
             unit_id=case.view,
-            unit_key="private-unit",
-            input_hash="private-input-hash",
+            unit_key=case.task_row["unit_key"],
+            input_hash=case.task_row["input_hash"],
         )
         assert conn.execute(
             select(table("ops.task").c.status, table("ops.task").c.reused_task_id).where(
@@ -291,7 +291,7 @@ def test_common_v3_facets_select_exact_products_and_public_assessment_only(judge
                 run_id=run,
                 include_interpretation=True,
                 include_assessment=True,
-                operation_version="1",
+                operation_version="2",
             ),
         )
         assert page.version == "contribution-inspection-3" and page.publication == "not_included"
@@ -430,7 +430,7 @@ def test_independent_denotation_uses_common_publication(judged_source):
         assert isinstance(semantic[0], dict)
         assert isinstance(semantic[0]["statement"], dict)
         assert semantic[0]["assessment"] == "independently_adjudicated_exact_case"
-        assert semantic[0]["statement"]["target_id"] == "t1"
+        assert semantic[0]["statement"]["target"]["term"]["text"] == "12"
         assert semantic[0]["canonical_identity"] == "not_established"
 
 

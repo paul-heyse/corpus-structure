@@ -130,8 +130,7 @@ def completed_component_case(case, tmp_path):
                            produce_component=produce_component, component_config=component_cfg)
 
 
-def test_registered_actual_occurrences_resolve_component_and_retain_compatible_edges(private_source, monkeypatch, tmp_path):
-    case = private_source
+def completed_relationship_case(case, monkeypatch, tmp_path):
     completed = completed_component_case(case, tmp_path)
     target, reference, component_revision, v, task = (completed.target, completed.reference,
         completed.component_revision, completed.view, completed.selected_task)
@@ -209,12 +208,14 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
     monkeypatch.setattr("corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ())
     monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", controlled_encoder)
     monkeypatch.setattr("corpus_structure.methods.contextual_candidates.select_relationships", controlled_interpretation)
-    outcome = semantic.run_source_methods(case.writer, project_id="private-records", prepared=case.prepared,
+    def produce_relationship(*, local_semantic_admission=()):
+        return semantic.run_source_methods(case.writer, project_id="private-records", prepared=case.prepared,
         binding=OperationBinding(case.prepared.release_id, "wce-components", component_revision, b"{}"),
         registry=MethodRegistry([ActualOccurrenceProducer(), ContextualCandidates()], MethodsFile(configs={
             "private.records": {"default": {}}, "retrieve.contextual": {"default": cfg.model_dump(mode="json")}})),
         graph=Graph(((Stage.EXTRACT, (Step("private.records/default"),)), (Stage.ASSEMBLE, (Step("retrieve.contextual/default"),))), policy_propose=False),
-        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path))
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path), local_semantic_admission=local_semantic_admission)
+    outcome = produce_relationship()
     assert outcome.status == "source_ready"
     with case.writer.connect() as conn:
         tasks, results, configs, methods = (table(n) for n in ("ops.task", "ops.task_result", "ops.method_config", "ops.method"))
@@ -227,6 +228,15 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         assert payload["component_targets"][0]["reference"]["origin_task_id"] == task["id"]
         assert {c["semantic_type"] for c in body["contributions"]} == {"contextual.located_mention", "contextual.relationship"}
         assert all(w["support_state"] == "unassessed" for w in payload["relationship_decisions"][0]["witnesses"])
+    return SimpleNamespace(completed=completed, outcome=outcome, body=body, payload=payload,
+                           cfg=cfg, produce_relationship=produce_relationship)
+
+
+def test_registered_actual_occurrences_resolve_component_and_retain_compatible_edges(private_source, monkeypatch, tmp_path):
+    case = private_source
+    linked = completed_relationship_case(case, monkeypatch, tmp_path)
+    completed, outcome, body, payload = linked.completed, linked.outcome, linked.body, linked.payload
+    tasks, configs, methods = (table(n) for n in ("ops.task", "ops.method_config", "ops.method"))
     finalize_bound_run(case.writer, outcome.run_id, "wce-links")
     from corpus_structure.serve.contributions import (
         ContributionRequest, export_contribution_selection, serve_contributions,

@@ -21,10 +21,6 @@ from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_health import FormulaOutcome
 from corpus_structure.ingest.pdf_hierarchy import snapshot
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.methods.contextual_candidates import (
-    _phase_operation,
-    relationship_contributions,
-)
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
     EncoderProfile,
@@ -39,11 +35,7 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contextual_links import (
-    RelationshipConstraint,
-    RelationshipWitness,
-    select_relationships,
-)
+from corpus_structure.semantic.contextual_links import RelationshipConstraint, RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
 from corpus_structure.semantic.contextual_retrieval import (
     ChannelHit,
@@ -834,7 +826,7 @@ def curated_case(original, *, extra_targets=(), config_hash="private-config", ta
     )
 
 
-def contextual_result(case, *, cached=(), effective_version=None, denotation=False):
+def contextual_result(case, *, cached=(), effective_version=None, competing=False):
     result = contribution_drafts(case)
     assert result.contributions is not None
     assert result.contribution_operations is not None
@@ -899,7 +891,7 @@ def contextual_result(case, *, cached=(), effective_version=None, denotation=Fal
         source_binding="private-unit",
         scope="chapter5",
         effective_version=effective_version,
-        witnesses=(witness,),
+        witnesses=(witness, replace(witness,witness_id="competing-sense",target_id=inv.targets[1].target_id)) if competing else (witness,),
         constraints=(RelationshipConstraint("sense", ("denotes",), "usage", "concept", "one"),),
     )
     report = enrichment_report(
@@ -916,22 +908,6 @@ def contextual_result(case, *, cached=(), effective_version=None, denotation=Fal
         for i, op in enumerate(result.contribution_operations)
     )
     contributions = result.contributions
-    if denotation:
-        phase = _phase_operation(
-            "relationship selection",
-            occurrence_id,
-            (lists.list_id,),
-            result_id=decision.decision_id,
-        )
-        proposals = relationship_contributions(
-            decision, contributions[0], inv, phase["operation_key"]
-        )
-        proposal = proposals[0]
-        assert proposal is not None
-        phase["emitted_count"] = 1
-        phase["computation_dependencies"] = proposal["computation_dependencies"]
-        operations = (*operations, phase)
-        contributions = (*contributions, proposal)
     return (
         replace(result, contribution_operations=operations, contributions=contributions),
         query,

@@ -38,58 +38,6 @@ from .native_record_fixtures import (
 @pytest.mark.parametrize(
     "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
 )
-def test_selected_denotation_is_independently_addressable(private_source):
-    case = curated_case(private_source)
-    result, _, _ = contextual_result(case, denotation=True)
-    with case.writer.begin() as conn:
-        complete(case, conn, result)
-        body = conn.scalar(
-            select(table("ops.task_result").c.body).where(
-                table("ops.task_result").c.task_id == case.task
-            )
-        )
-        proposals = [
-            c for c in body["contributions"] if c["semantic_type"] == "contextual.relationship"
-        ]
-        assert len(proposals) == 1
-        assert proposals[0]["score_state"] == "missing"
-
-
-@pytest.mark.parametrize(
-    "corruption", ["target_id", "scope", "effective_version", "decision", "members"]
-)
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
-def test_native_denotation_cannot_relabel_its_retained_decision(private_source, corruption):
-    from corpus_structure.semantic.contributions import contribution_identity
-
-    case = curated_case(private_source)
-    result, _, _ = contextual_result(case, denotation=True)
-    raw = envelope(case, result)
-    proposal = next(
-        c for c in raw["contributions"] if c["semantic_type"] == "contextual.relationship"
-    )
-    if corruption == "members":
-        proposal["members"] = [raw["contributions"][1]["contribution_id"]]
-    elif corruption == "decision":
-        proposal["computation_dependencies"][2] = "forged"
-    else:
-        key = corruption
-        field = next(f for f in proposal["value"]["fields"] if f["name"] == key)
-        field["value"] = {"kind": "text", "text": "forged"}
-    proposal["contribution_id"] = contribution_identity(proposal)
-    with (
-        case.writer.begin() as conn,
-        pytest.raises(DBAPIError, match="denotation proposal"),
-        conn.begin_nested(),
-    ):
-        bypass(case, conn, raw)
-
-
-@pytest.mark.parametrize(
-    "private_source", [{"additional_methods": ("private.contextual",)}], indirect=True
-)
 def test_native_contextual_report_projection_and_exact_pgvector(private_source):
     case = curated_case(private_source)
     result, query, inv = contextual_result(case)
@@ -293,3 +241,17 @@ def test_native_known_version_excludes_conflicting_target_version(private_source
         conn.begin_nested(),
     ):
         bypass(case, conn, raw)
+
+
+@pytest.mark.parametrize("private_source", [{"additional_methods": ("private.contextual",)}], indirect=True)
+def test_genuine_competing_senses_are_retained_natively(private_source):
+    case = curated_case(private_source)
+    result, _, _ = contextual_result(case, competing=True)
+    decision=result.contribution_operations[0]["contextual_enrichment"]["relationship_decisions"][0]
+    assert decision["outcome"] == "ambiguous"
+    assert decision["selected_edges"] == []
+    assert len(decision["alternative_groups"][0]["edges"]) == 2
+    with case.writer.begin() as conn:
+        complete(case,conn,result)
+        body=conn.scalar(select(table("ops.task_result").c.body).where(table("ops.task_result").c.task_id==case.task))
+    assert body["contribution_operations"][0]["contextual_enrichment"]["relationship_decisions"][0] == decision
