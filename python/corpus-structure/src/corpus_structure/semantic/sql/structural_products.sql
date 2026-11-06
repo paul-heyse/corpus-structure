@@ -277,6 +277,17 @@ BEGIN
      RAISE EXCEPTION 'usage differs from exact linked occurrence original source pieces' USING ERRCODE='23514'; END IF;
    ref:=ops.resolve_retained_component(dimension->'component_ref');
    IF dimension->'component' IS DISTINCT FROM ref->'component' THEN RAISE EXCEPTION 'applicability component differs from authenticated origin' USING ERRCODE='23514'; END IF;
+   IF EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'dimension' IN ('parameterization','convention') AND premise->>'state'='inapplicable') THEN
+    IF inputs->>'policy_id' IS DISTINCT FROM 'definition-introduction-1'
+     OR source_->'edge'->>'relation' IS DISTINCT FROM 'defined-by'
+     OR passage->>'start' IS DISTINCT FROM ref->'component'->'term'->>'start'
+     OR passage->>'end' IS DISTINCT FROM ref->'component'->'term'->>'end'
+     OR passage->>'text' IS DISTINCT FROM ref->'component'->'term'->>'text'
+     OR passage->>'scope' IS DISTINCT FROM ref->'component'->>'scope'
+     OR passage->>'effective_version' IS DISTINCT FROM ref->'component'->>'effective_version'
+     OR passage->>'source_ref' IS DISTINCT FROM (SELECT p->>'source_ref' FROM jsonb_array_elements(ref->'report'->'inputs'->'passages') p WHERE p->>'passage_id'=ref->'component'->'term'->>'passage_id') THEN
+     RAISE EXCEPTION 'inapplicable convention or parameterization requires exact defining occurrence policy' USING ERRCODE='23514'; END IF;
+   END IF;
    IF NOT inputs->'dependencies' ? (dimension->'component_ref'->>'product_id') THEN
     RAISE EXCEPTION 'applicability lacks frozen component dependency' USING ERRCODE='23514'; END IF;
    IF dimension->>'outcome' LIKE 'applicable_%' AND EXISTS(SELECT FROM jsonb_array_elements(dimension->'premises') premise WHERE premise->>'state' IN ('unknown','incompatible')) THEN
