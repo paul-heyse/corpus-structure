@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "id": "wce04.source-output-footprint",
+  "title": "Independent normal-source references and granular retained-output footprint",
+  "group": "WCE",
+  "package": "WCE02/04",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What independently specified source facets and output facets are retained, physically touched, supported or still unassessed in the frozen normal-density slice?",
+  "answers": [
+    "WCE02",
+    "WCE04"
+  ],
+  "method": "Separate source-only A/B and C adjudication and frozen-output A/B/C, retaining each author original literals, free-form judgments and exposure. Deterministic literal/parent integrity and exhaustive case-to-raw-span physical correspondence; physical overlap supplies no semantic credit.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-definition-linking/capture_account.py --check"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-author-input.json",
+      "role": null,
+      "sha256": "c7b40afa0e803c6d93fbef7d7ac412751abd7b5eb90871e81b647f2f51fabfe5"
+    },
+    {
+      "path": "source-48-53-correspondence.json",
+      "role": null,
+      "sha256": "477c23bdffd073dc3ec719e4796dc1deee54c366e94ab1e7b4556e10752d2e67"
+    },
+    {
+      "path": "normal-native-view-53.json",
+      "role": null,
+      "sha256": "5ee0409071844c5987c081590cae20fbbcc334ac1236772ddf82b3bfdbb37149"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "author-a.json",
+      "role": null,
+      "sha256": "879d6701fcda428c114d400822f0eda191b99631ee2f1f389961043ecf64f967"
+    },
+    {
+      "path": "author-b.json",
+      "role": null,
+      "sha256": "1a05a639861530a0adcfee18c56b15394b98448434ba279a78744ea67a28e4c2"
+    },
+    {
+      "path": "author-c.json",
+      "role": null,
+      "sha256": "eab42d253976ca013b509a0d012a795a8feeb511d8b0ec9dee46a26b70f6959a"
+    },
+    {
+      "path": "output-author-a.json",
+      "role": null,
+      "sha256": "68fc4ba3861ea5b1183be7ddfbc929b35a32b060c5dc9608855fd0965e3c2330"
+    },
+    {
+      "path": "output-author-b.json",
+      "role": null,
+      "sha256": "6f1994d6e48d1599ae2d558b6a5405104caa88e234b9dd8ee6cc4caa213c8cb4"
+    },
+    {
+      "path": "output-author-c.json",
+      "role": null,
+      "sha256": "1d2cd7c0a05e6feb3510250a73e0dd7fe5fbcd340252381d5f97aaa1beb3364d"
+    },
+    {
+      "path": "capture-account.json",
+      "role": null,
+      "sha256": "f603bec3cbf52aa21a64fd27b79fc037718d30396873fcbf0a6a5da1022f46e3"
+    },
+    {
+      "path": "capture-footprint.md",
+      "role": null,
+      "sha256": "f7cd497c23b1fb3d4925aba9ecb7f54eeabdec4ef9a2fbc91510e97ae0687fd6"
+    },
+    {
+      "path": "raw/integration-checks/wce-capture-check-final.log",
+      "role": null,
+      "sha256": "36cd40ff0e4efd15129db7dccee7faf6431c00013cb065f6c0cda94d73cc273a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Source-C cases",
+      "value": 44,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "Source-C quoted spans",
+      "value": 144,
+      "of": null,
+      "unit": "span occurrences",
+      "note": null
+    },
+    {
+      "name": "Raw model entity occurrences",
+      "value": 72,
+      "of": null,
+      "unit": "observations",
+      "note": null
+    },
+    {
+      "name": "Distinct model physical spans",
+      "value": 63,
+      "of": null,
+      "unit": "spans",
+      "note": null
+    },
+    {
+      "name": "Raw model relations",
+      "value": 0,
+      "of": null,
+      "unit": "proposals",
+      "note": null
+    },
+    {
+      "name": "Independently supported attachment output",
+      "value": 1,
+      "of": null,
+      "unit": "exact source case",
+      "note": "C07 only; no exhaustive operation-applicability denominator established."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "All44 source cases and original A/B/C output judgments are retained with exact quotations and granular gaps. C07 supports one normal-density term/formula attachment. Source-first native capture grading, other cases operation applicability, role correctness of raw model spans and held-out efficacy remain unestablished. The original feature-fit/exposed status is preserved. No recall, scientific-truth, whole-report applicability or full-WCE claim follows.",
+  "consumed_by": [
+    "WCE02",
+    "WCE04",
+    "WCE12"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "wce.current-derived-retirement",
+  "title": "Dependency-aware retirement of obsolete witnessed derived populations",
+  "group": "WCE",
+  "package": "WCE04/05",
+  "finalized": "2026-11-06",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can obsolete structural/contextual/reference rows be removed completely while preserving authenticated source custody and current replacement journeys?",
+  "answers": [
+    "WCE04",
+    "WCE05",
+    "ADR-0067"
+  ],
+  "method": "Reviewed repeatable-read catalog-FK closure restricted to corpus_structure_dev, with protected source refusal, foreign keys enforced, original user-trigger modes restored and source counts checked in the committing transaction; separate current-protocol/result verification.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-definition-linking/retire_derived_runs.py --commit --receipt docs/design_review/evidence/2026-11-06_wce-definition-linking/retirement-committed.json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "retire_derived_runs.py",
+      "role": null,
+      "sha256": "5ee1e2021fa8181305f7d51db444d8128795f6e715b1c3175696607e9e65b311"
+    },
+    {
+      "path": "pre-cutover-inventory.json",
+      "role": null,
+      "sha256": "529babbdbe90424df8652fa2a09e889e1b6a8f7fc0f07c845af8dde83f1bd19a"
+    },
+    {
+      "path": "retirement-dry-run.json",
+      "role": null,
+      "sha256": "ef08df7eb8c0c2cd7ff0db09b00b3eaa940615653e92baf8b9c0216febfe2332"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "retirement-committed.json",
+      "role": null,
+      "sha256": "ff43fe54480756fcc5c26c8617d08b3f8c17c6e4e6eb5c337bccda70f1efdac4"
+    },
+    {
+      "path": "retirement-committed.log",
+      "role": null,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "retirement-verification.json",
+      "role": null,
+      "sha256": "e47a77dab9987570e8e5c81fc561bc71ca05702f7beec122be5f701868930449"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Removed26 obsolete runs/81 tasks/52 results and dependent obsolete contextual, reference and publication rows across20 tables. Protected source counts52builds/62views/380artifacts were unchanged. Only current structural/frame protocols remain; current completed120/121/127/130 survive. This establishes bounded data retirement, not full WCE qualification or deletion of authenticated source evidence.",
+  "consumed_by": [
+    "WCE04",
+    "WCE05",
+    "ADR-0067"
+  ]
+}

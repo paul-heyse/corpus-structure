@@ -1,0 +1,38 @@
+{
+  "structural_versions": [
+    {
+      "version": "structural-product-2",
+      "count": 5
+    }
+  ],
+  "old_contextual_results": [
+    {
+      "count": 0
+    }
+  ],
+  "reference_protocols": [
+    {
+      "protocol": "structural-evaluation-frame-3",
+      "count": 2
+    }
+  ],
+  "current_completed_runs": [
+    {
+      "run_id": 120,
+      "cut_id": 155
+    },
+    {
+      "run_id": 121,
+      "cut_id": 156
+    },
+    {
+      "run_id": 127,
+      "cut_id": 162
+    },
+    {
+      "run_id": 130,
+      "cut_id": 164
+    }
+  ],
+  "outcome": "passed"
+}
