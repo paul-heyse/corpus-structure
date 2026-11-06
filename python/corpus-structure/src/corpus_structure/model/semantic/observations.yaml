@@ -163,6 +163,8 @@ classes:
       independent_baseline: {required: true, equals_string: retained_independent_contributions}
       probability_standing: {required: true}
       coupling_enabled: {required: true, range: boolean}
+      policy_mode: {required: true, range: LocalInterpretationPolicyMode}
+      policy_version: {required: true}
       outcome: {required: true, range: LocalInterpretationOutcome}
       reason: {required: true}
       request: {range: SourceObject, inlined: true}
@@ -768,9 +770,70 @@ classes:
       inventories: {range: ContextualInventory, inlined: true, multivalued: true}
       candidate_lists: {range: ContextualCandidateList, inlined: true, multivalued: true}
       relationship_decisions: {range: ContextualRelationshipDecision, inlined: true, multivalued: true}
+  RetainedStructuralRef:
+    is_a: SourceRecordProduct
+    attributes:
+      product_id: {required: true}
+      project_id: {required: true}
+      run_id: {required: true, range: integer, minimum_value: 1}
+      cut_id: {required: true, range: integer, minimum_value: 1}
+      release_id: {required: true}
+      result_revision: {required: true, range: integer, minimum_value: 0}
+      selected_task_id: {required: true, range: integer, minimum_value: 1}
+      origin_task_id: {required: true, range: integer, minimum_value: 1}
+      runtime_fingerprint: {required: true}
+  TypedPremise:
+    is_a: SourceRecordProduct
+    attributes:
+      span: {range: LocatedDefinitionSpan, required: true, inlined: true}
+      grammar: {required: true}
+      state: {range: StructuralParseState, required: true}
+      value: {}
+      comparator: {range: StructuralComparator}
+      quantity: {}
+      unit: {}
+      basis: {}
+  StructuralPublicTypedPremise:
+    attributes:
+      span: {range: StructuralPublicCitation, required: true, inlined: true}
+      grammar: {required: true}
+      state: {range: StructuralParseState, required: true}
+      value: {}
+      comparator: {range: StructuralComparator}
+      quantity: {}
+      unit: {}
+      basis: {}
+  TriggerInterval:
+    attributes:
+      lower: {}
+      upper: {}
+      lower_closed: {range: boolean, required: true}
+      upper_closed: {range: boolean, required: true}
+  DossierFacet:
+    is_a: SourceRecordProduct
+    attributes:
+      facet_id: {required: true}
+      kind: {required: true}
+      scope: {required: true}
+      member_id: {required: true}
+      assessment_id: {required: true}
+      evidence: {multivalued: true, required: true, minimum_cardinality: 1}
+  DossierRepresentation:
+    is_a: SourceRecordProduct
+    attributes:
+      policy: {range: DossierRepresentationPolicy, required: true}
+      member_budget: {range: integer, minimum_value: 1, required: true}
+      selected: {multivalued: true}
+      omitted: {multivalued: true}
+      represented_facets: {multivalued: true}
+      missing_facets: {multivalued: true}
+      mandatory_overflow: {range: boolean, required: true}
+      membership_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      facet_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
   ClauseField:
     is_a: SourceRecordProduct
     attributes:
+      typed: {range: TypedPremise, inlined: true}
       dimension:
         required: true
         range: StructuralClauseFieldDimensionValue
@@ -783,6 +846,8 @@ classes:
   ComparisonProduct:
     is_a: SourceRecordProduct
     attributes:
+      applicability: {required: true, range: StructuralApplicability}
+      applicability_reason: {required: true}
       left_id:
         required: true
       right_id:
@@ -905,6 +970,11 @@ classes:
   DimensionComparison:
     is_a: SourceRecordProduct
     attributes:
+      typed_outcome: {required: true, range: StructuralTypedOutcome}
+      removed_interval: {range: TriggerInterval, inlined: true}
+      added_interval: {range: TriggerInterval, inlined: true}
+      assumptions: {multivalued: true}
+      reason: {required: true}
       dimension:
         required: true
         range: StructuralDimensionComparisonDimensionValue
@@ -920,6 +990,7 @@ classes:
   DossierMember:
     is_a: SourceRecordProduct
     attributes:
+      citation: {required: true, range: LocatedDefinitionSpan, inlined: true}
       member_id:
         required: true
       passage_id:
@@ -940,6 +1011,9 @@ classes:
   DossierProduct:
     is_a: SourceRecordProduct
     attributes:
+      predecessors: {range: RetainedStructuralRef, multivalued: true, inlined: true}
+      supported_facets: {range: DossierFacet, multivalued: true, inlined: true}
+      representation: {range: DossierRepresentation, required: true, inlined: true}
       root_id:
         required: true
       members:
@@ -1062,7 +1136,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       version:
-        equals_string: structural-product-2
+        equals_string: structural-product-3
       kind:
         required: true
         range: StructuralStructuralProductReportKindValue
@@ -1183,6 +1257,7 @@ classes:
       readings: {range: StructuralPublicDefinitionReading, multivalued: true, inlined: true, inlined_as_list: true}
   StructuralPublicClauseField:
     attributes:
+      typed: {range: StructuralPublicTypedPremise, inlined: true}
       dimension:
         range: StructuralClauseFieldDimensionValue
         required: true
@@ -1197,6 +1272,10 @@ classes:
         inlined_as_list: true
   StructuralPublicDimension:
     attributes:
+      typed_outcome: {required: true, range: StructuralTypedOutcome}
+      removed_interval: {range: TriggerInterval, inlined: true}
+      added_interval: {range: TriggerInterval, inlined: true}
+      assumptions: {multivalued: true}
       dimension:
         range: StructuralClauseFieldDimensionValue
         required: true
@@ -1211,6 +1290,7 @@ classes:
         inlined: true
   StructuralPublicComparison:
     attributes:
+      applicability: {required: true, range: StructuralApplicability}
       left:
         range: StructuralPublicCitation
         required: true
@@ -1283,7 +1363,7 @@ classes:
       version:
         range: string
         required: true
-        equals_string: structural-public-statement-2
+        equals_string: structural-public-statement-3
       kind:
         range: StructuralStructuralProductReportKindValue
         required: true
@@ -1315,6 +1395,16 @@ classes:
         inlined: true
 
 enums:
+  StructuralParseState:
+    permissible_values: {parsed: {}, unsupported: {}, ambiguous: {}}
+  StructuralComparator:
+    permissible_values: {'>': {}, '>=': {}, '<': {}, '<=': {}, '=': {}}
+  StructuralApplicability:
+    permissible_values: {co_applicable: {}, successive_revisions: {}, differently_scoped: {}, unestablished: {}}
+  StructuralTypedOutcome:
+    permissible_values: {equivalent: {}, different: {}, unknown: {}, unsupported: {}, ambiguous: {}}
+  DossierRepresentationPolicy:
+    permissible_values: {supported-facet-greedy-1: {}, source-order-control-1: {}}
   StructuralDefinitionInterpretationValue:
     permissible_values: {definition: {}, explanation: {}, unresolved: {}}
   StructuralApplicabilityDimensionValue:
@@ -1341,6 +1431,8 @@ enums:
       unsupported: {}
       limited: {}
       not_run: {}
+  LocalInterpretationPolicyMode:
+    permissible_values: {not_run: {}, feasibility: {}, independent: {}, coupled: {}}
   LocalInterpretationOutcome:
     permissible_values:
       not_run: {}

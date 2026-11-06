@@ -135,6 +135,18 @@ class RetainedComponentRef(StructuralValue):
         return self
 
 
+class RetainedStructuralRef(StructuralValue):
+    product_id: Nonempty
+    project_id: Nonempty
+    run_id: Positive
+    cut_id: Positive
+    release_id: Nonempty
+    result_revision: Annotated[int, Field(strict=True, ge=0)]
+    selected_task_id: Positive
+    origin_task_id: Positive
+    runtime_fingerprint: Nonempty
+
+
 class LocatedDefinitionSpan(StructuralValue):
     passage_id: Nonempty
     start: Annotated[int, Field(strict=True, ge=0)]
@@ -284,10 +296,58 @@ class DefinitionProduct(StructuralValue):
         return self
 
 
+class TypedPremise(StructuralValue):
+    """Exact source field and a separately qualified numerical reading."""
+    span: LocatedDefinitionSpan
+    grammar: Nonempty
+    state: Literal["parsed", "unsupported", "ambiguous"]
+    value: str | None = None
+    comparator: Literal[">", ">=", "<", "<=", "="] | None = None
+    quantity: str | None = None
+    unit: str | None = None
+    basis: str | None = None
+
+    @model_validator(mode="after")
+    def faithful_parse(self) -> Self:
+        if self.state == "parsed":
+            from .structural_parsing import parse_threshold
+            actual = parse_threshold(self.span.text)
+            expected = dict(value=self.value, comparator=self.comparator, quantity=self.quantity, unit=self.unit)
+            if actual is None or self.grammar != actual["grammar"] or any(actual[key] != value for key, value in expected.items()):
+                raise ValueError("typed premise differs from its source grammar")
+        elif self.value is not None or self.comparator is not None:
+            raise ValueError("unparsed premise cannot carry interpreted numeric values")
+        return self
+
+
+class TriggerInterval(StructuralValue):
+    lower: str | None = None
+    upper: str | None = None
+    lower_closed: bool = False
+    upper_closed: bool = False
+
+    @model_validator(mode="after")
+    def finite_extent(self) -> Self:
+        from decimal import Decimal, InvalidOperation
+        try:
+            lo = Decimal(self.lower) if self.lower is not None else None
+            hi = Decimal(self.upper) if self.upper is not None else None
+            if any(value is not None and not value.is_finite() for value in (lo, hi)):
+                raise ValueError("interval endpoints must be finite")
+            if lo is not None and hi is not None and (lo > hi or (lo == hi and not (self.lower_closed and self.upper_closed))):
+                raise ValueError("empty or reversed interval")
+            if (lo is None and self.lower_closed) or (hi is None and self.upper_closed):
+                raise ValueError("infinite endpoint cannot be closed")
+        except InvalidOperation as error:
+            raise ValueError("invalid decimal endpoint") from error
+        return self
+
+
 class ClauseField(StructuralValue):
     dimension: Dimension
     lexical_value: Nonempty
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
+    typed: TypedPremise | None = None
 
 
 class ClauseReading(StructuralValue):
@@ -308,6 +368,11 @@ class DimensionComparison(StructuralValue):
     ]
     left: ClauseField | None = None
     right: ClauseField | None = None
+    typed_outcome: Literal["equivalent", "different", "unknown", "unsupported", "ambiguous"] = "unknown"
+    removed_interval: TriggerInterval | None = None
+    added_interval: TriggerInterval | None = None
+    assumptions: tuple[Nonempty, ...] = ()
+    reason: Nonempty = "No source-qualified typed comparison has been established."
 
 
 class ComparisonProduct(StructuralValue):
@@ -316,6 +381,8 @@ class ComparisonProduct(StructuralValue):
     dimensions: tuple[DimensionComparison, ...]
     equivalence: Literal["not_asserted"] = "not_asserted"
     identity_standing: Literal["not_asserted"] = "not_asserted"
+    applicability: Literal["co_applicable", "successive_revisions", "differently_scoped", "unestablished"] = "unestablished"
+    applicability_reason: Nonempty = "No complete applicability premises have been established."
 
 
 MemberRole = Literal[
@@ -336,6 +403,7 @@ MANDATORY_ROLES = frozenset({"exception", "revision", "conflict"})
 class DossierMember(StructuralValue):
     member_id: Nonempty
     passage_id: Nonempty
+    citation: LocatedDefinitionSpan
     role: MemberRole
     sense: Nonempty
     scope: Nonempty
@@ -353,11 +421,35 @@ class DossierMember(StructuralValue):
         return self
 
 
+class DossierFacet(StructuralValue):
+    facet_id: Nonempty
+    kind: Nonempty
+    scope: Nonempty
+    member_id: Nonempty
+    assessment_id: Nonempty
+    evidence: tuple[Nonempty, ...] = Field(min_length=1)
+
+
+class DossierRepresentation(StructuralValue):
+    policy: Literal["supported-facet-greedy-1", "source-order-control-1"]
+    member_budget: Positive
+    selected: tuple[Nonempty, ...]
+    omitted: tuple[Nonempty, ...]
+    represented_facets: tuple[Nonempty, ...]
+    missing_facets: tuple[Nonempty, ...]
+    mandatory_overflow: bool
+    membership_digest: Digest
+    facet_digest: Digest
+
+
 class DossierProduct(StructuralValue):
     root_id: Nonempty
     members: tuple[DossierMember, ...]
+    predecessors: tuple[RetainedStructuralRef, ...] = ()
     representatives: tuple[Nonempty, ...]
     missing_sections: tuple[MemberRole, ...]
+    supported_facets: tuple[DossierFacet, ...] = ()
+    representation: DossierRepresentation
     membership_completeness: Literal["declared_selection"] = "declared_selection"
 
     @model_validator(mode="after")
@@ -370,11 +462,30 @@ class DossierProduct(StructuralValue):
             or not set(self.representatives) <= ids
         ):
             raise ValueError("invalid representative membership")
+        if self.representatives != self.representation.selected or set(self.representation.omitted) != ids - set(self.representatives):
+            raise ValueError("dossier representation differs from its full membership")
+        if any(f.member_id not in ids for f in self.supported_facets):
+            raise ValueError("dossier facet refers outside full membership")
+        facets = {f.facet_id for f in self.supported_facets if f.member_id in self.representatives}
+        if set(self.representation.represented_facets) != facets:
+            raise ValueError("represented facet lacks its selected supported member")
+        all_facets = {f.facet_id for f in self.supported_facets}
+        if len(all_facets) != len(self.supported_facets) or set(self.representation.missing_facets) != all_facets-facets:
+            raise ValueError("facet representation is incomplete or duplicated")
+        if self.representation.membership_digest != sha256(canonical_bytes([m.model_dump(mode="json", exclude_none=True) for m in self.members])).hexdigest():
+            raise ValueError("membership digest differs from full membership")
+        if self.representation.facet_digest != sha256(canonical_bytes([f.model_dump(mode="json", exclude_none=True) for f in self.supported_facets])).hexdigest():
+            raise ValueError("facet digest differs from supported facets")
+        mandatory = {m.member_id for m in self.members if m.role in MANDATORY_ROLES}
+        if not mandatory <= set(self.representatives) or self.representation.mandatory_overflow != (len(mandatory)>self.representation.member_budget):
+            raise ValueError("mandatory dossier members must be retained")
+        if len(self.representatives)>max(self.representation.member_budget,len(mandatory)):
+            raise ValueError("representation exceeds declared member budget")
         return self
 
 
 class StructuralProductReport(StructuralValue):
-    version: Literal["structural-product-2"] = "structural-product-2"
+    version: Literal["structural-product-3"] = "structural-product-3"
     kind: Literal[
         "definition_components", "definition_applicability", "qualified_comparison", "dossier"
     ]
@@ -439,8 +550,19 @@ class StructuralProductReport(StructuralValue):
                 for side in (dimension.left, dimension.right):
                     if side:
                         cited.update(side.evidence)
+                        if side.typed is not None:
+                            span = side.typed.span
+                            selected = next((p for p in self.inputs.passages if p.passage_id == span.passage_id),None)
+                            if selected is None or not selected.start <= span.start < span.end <= selected.end or selected.text[span.start-selected.start:span.end-selected.start] != span.text:
+                                raise ValueError("typed field differs from its exact original source")
+                            cited.add(span.passage_id)
         if self.dossier:
             cited.update(m.passage_id for m in self.dossier.members)
+            for member in self.dossier.members:
+                span=member.citation
+                passage=next((p for p in self.inputs.passages if p.passage_id==member.passage_id),None)
+                if passage is None or span.passage_id!=member.passage_id or not passage.start<=span.start<span.end<=passage.end or passage.text[span.start-passage.start:span.end-passage.start]!=span.text:
+                    raise ValueError("dossier member citation differs from original source")
         if not cited <= passages:
             raise ValueError("structural evidence lies outside declared passage closure")
         return self

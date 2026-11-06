@@ -114,6 +114,9 @@ class ScopedSourceReader:
             lambda reader: reader.structural_source_annotations(inputs, source_ref, profile)
         )
 
+    def retained_structural_report(self, reference):
+        return self._read(lambda reader: reader.retained_structural_report(reference))
+
     def source_context_membership(self, source_view_id):
         return self._read(lambda reader: reader.source_context_membership(source_view_id))
 
