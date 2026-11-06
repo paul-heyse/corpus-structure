@@ -739,6 +739,9 @@ def series_native_definitions(connection, *, include_selected=True):
     for name in (
         "validate_structural_source",
         "validate_structural_input",
+        "resolve_retained_component",
+        "resolve_retained_relationship_decision",
+        "validate_component_targets",
         "validate_structural_product_report",
     ):
         definitions.extend(
@@ -751,7 +754,7 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple(
                     (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
                 )
-                if name == "validate_structural_input"
+                if name in {"validate_structural_input", "resolve_retained_component", "resolve_retained_relationship_decision", "validate_component_targets"}
                 else (),
             )
         )
@@ -761,6 +764,8 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_source_contribution_report",
         "project_source_contributions",
         "contextual_identity_value",
+        "contextual_nullable_value",
+        "validate_contextual_selection",
     ):
         definitions.extend(
             _task_call_definitions(
@@ -900,6 +905,7 @@ def series_native_definitions(connection, *, include_selected=True):
     for name in (
         "structural_citation",
         "structural_citations",
+        "structural_definition_component",
         "structural_public_statement",
         "structural_publication_candidates",
         "validate_structural_assertions",
