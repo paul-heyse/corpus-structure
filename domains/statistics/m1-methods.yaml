@@ -205,4 +205,6 @@ configs:
     default:
       feature_instances: []
 
+  structure.definition_components: {}
+  structure.definitions: {}
   retrieve.contextual: {}
