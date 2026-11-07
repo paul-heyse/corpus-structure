@@ -1,16 +1,14 @@
 # Status
 
-_Updated 2026-11-07. NCE-06 witnessed links are verified on the selected development frame. Live qualification and WCE12 remain open._
+_Updated 2026-11-07. NCE-07 through NCE-12 are implemented in development with bounded qualification. Live qualification and WCE12 remain open._
 
 ## Current authority
 
 - The [WCE repair disposition](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0068 selects Grinstead–Snell physical pages 191–310 as the shared frame.
-- The WCE product baseline `07d25b840` includes native165 `semantic_wce_lineage_20261107` and
-  `retrieve.contextual/5`. The dedicated PostgreSQL cluster contains archived release
-  `aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847` on port5434.
-  The contextual-only correction has its own runtime binding under that release.
+- WCE baseline `07d25b840` includes `semantic_wce_lineage_20261107` and `retrieve.contextual/5`.
+  Its original release and contextual repair runtime are retained in the WCE repair account.
 
 ## Delivered and assessed
 
@@ -47,13 +45,16 @@ _Updated 2026-11-07. NCE-06 witnessed links are verified on the selected develop
   covers 5,119 required nodes with zero unresolved after the affected checks and exact retry.
   Rust was `not_run` with an empty selection. `uv run ci check --json` passed.
 
-## Next
+## NCE development and next work
 
-- The [NCE-06 closeout](docs/plans/next-corpus-enrichment_2026-11-07.md#nce-06-closeout)
-  owns the cross-view heading, retained cue and inheritance results. Revision
-  `semantic_nce06_heading_release` is installed. NCE-07 can use these witnessed
-  endpoints under the [artifact nomination plan](docs/plans/next-corpus-enrichment/witnessed-links-and-artifact-identity.md#NCE-07).
-- Settle the remaining source opportunities and exact native table factor reconstruction in
-  the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
-  Fitting remains `not_run` pending compatible events and protected evaluations.
-- Live CLI qualification needs a configured production target, purpose roles and effect authority.
+- The [NCE coordinator](docs/plans/next-corpus-enrichment_2026-11-07.md#nce-07-through-nce-12-development-execution)
+  owns implementation, affected verification and open acceptance. Development revision
+  `semantic_nce07_12_replay` is installed on port 5434.
+- Table correspondence runs 261/cut 361 and 260/cut 363 passed native and Reader/CLI/MCP
+  delivery and detached verification. Attachment development fit 1 passed on protected
+  evaluation 34 with eleven events from one source origin.
+- The artifact score challenger awaits protected same-lineage assessment. Rooted assembly
+  retains the selected comparison and scope limitations recorded by the NCE coordinator.
+- Settle the remaining source opportunities and unrelated factor reconstruction in the WCE
+  plan. Live CLI qualification needs a configured production target, purpose roles and
+  effect authority.

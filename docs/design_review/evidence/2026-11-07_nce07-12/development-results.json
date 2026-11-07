@@ -1,0 +1,157 @@
+{
+  "date": "2026-11-07",
+  "development": {
+    "base_revision": "semantic_nce07_12",
+    "base_deploy": "3a6e5eac1a1a4d508be3a7cfedc5cb5c",
+    "replay_revision": "semantic_nce07_12_replay",
+    "replay_deploy": "ec5499ea273d4908a5e06feb5365f41d",
+    "release": "release:e7d4b9c4a3c607a6f41590674092d8ee2f84e6b70f84f0442a463e80bb6ee09d",
+    "failed_candidates": [
+      "e0faa71bb11d441eac86fc9a42867fdc",
+      "37c9c4fa03824fadb0a9f5da89eb9b93"
+    ],
+    "diagnosis_deploy": "a430a9a5f7b148779704d5084761100e",
+    "diagnosis_release": "release:96cf72d4391c0f9914e2bae9d0c5d0c3e8880b1ccf05b40fecaa188f67a0322a"
+  },
+  "nce08": {
+    "mechanism": "passed",
+    "controlled_pairs": 10,
+    "same_lineage_assessment": "blocked",
+    "prerequisite": "Independently judged eligible same-lineage pairs with authenticated names on both sides."
+  },
+  "nce09": {
+    "transport": "passed",
+    "controls": [
+      {
+        "run": 207,
+        "cut": 287,
+        "gap": "unresolved_binding",
+        "status": "mixed"
+      },
+      {
+        "run": 130,
+        "cut": 164,
+        "gap": "unknown_applicability_premise",
+        "status": "unavailable"
+      },
+      {
+        "run": 197,
+        "cut": 263,
+        "gap": "unconnected_supported_comparison",
+        "status": "unavailable"
+      }
+    ],
+    "focused_tests": [
+      "636c87d6e46940de96dcb6df1fb0c0f0",
+      "a8a39f8812724c3f8663763835847da0",
+      "b9a69d207d634b388b374b6fbeba0bc1",
+      "d66689b6d1bc45a981c7ed1ce390dedb"
+    ]
+  },
+  "nce10": {
+    "rollback_mechanism": "passed",
+    "controlled_mutual_edges": 17,
+    "near_tie_detached_edges": 3,
+    "affine_x": {
+      "run": 258,
+      "cut": 359,
+      "outcome": "passed",
+      "bundle": "126aed0b1e824d309d4fc77c5e1cd77e"
+    },
+    "neighborhood": {
+      "run": 264,
+      "cut": 367,
+      "task": 1293,
+      "target": "semantic-target:ed0321329164772de5188524b7cbcba54ed2df83fcb26bb30dc0e02ac6b25797",
+      "neighbor_edges": 16,
+      "selected_neighbors": 3,
+      "witnessed": 1,
+      "bundle": "27a92cf825534d5bbbd3aeba84860c9c"
+    },
+    "table_6_1_diagnosis": {
+      "run": 265,
+      "cut": 369,
+      "task": 1294,
+      "bundle": "d028e782fe654b66b5d27aefaf60cebb",
+      "outcome": "passed"
+    }
+  },
+  "nce11": {
+    "outcome": "passed",
+    "table_5_2_5_3": {
+      "run": 261,
+      "cut": 361,
+      "bands": 9,
+      "fixed_premises": 3,
+      "bundle": "3c0928bc560943349812db1f25648275"
+    },
+    "table_6_1": {
+      "run": 260,
+      "cut": 363,
+      "bands": 20,
+      "bundle": "cd5932f82fa5404d8b8c16a4b24c2eaf"
+    },
+    "failed_exports": [
+      "cf4de710cfd6496287976da1129f65c6",
+      "f5425fac20a34c02b28932537d7b34e5"
+    ],
+    "interpretation_gain": "blocked",
+    "prerequisite": "Independently judged authentic correspondence ambiguity."
+  },
+  "nce12": {
+    "outcome": "passed",
+    "run": 161,
+    "cut": 245,
+    "eligible_features": 82,
+    "reference_set": 27,
+    "source_views": [
+      113,
+      124
+    ],
+    "split_decision": "split-decision:fff5bd1b36b0940a71216972f233fabd91c09014e8a201592c9444afc25938d0",
+    "evaluation": 34,
+    "fit": 1,
+    "aggregate": {
+      "observations": 11,
+      "positive": 1,
+      "negative": 10,
+      "origin_groups": 1,
+      "iterations": 9,
+      "prior_brier": 0.08264462809917356,
+      "fitted_brier": 0.042935902491601806,
+      "prior_log_loss": 0.30463609734923813,
+      "fitted_log_loss": 0.15750149960711518
+    }
+  },
+  "tests": {
+    "affected_initial": "cb5e71cbb2974a7d84db49184a66d944",
+    "exact_retry": "f8923e9093cf4f42b974b2ce6ffbcdef",
+    "full_suite": "not_run",
+    "affected_initial_passed": 272,
+    "affected_initial_failed": 8,
+    "exact_retry_passed": 8,
+    "observed_required_nodes": 280,
+    "observed_unresolved_nodes": 0,
+    "replay_selection": "bd331647a4b347d5ba709fb154ebb6c8",
+    "replay_passed": 106,
+    "diagnosis_selection": "c144011d84434acaa31e9a591232d83f",
+    "diagnosis_passed": 6,
+    "check": "passed",
+    "rustc": "rustc 1.101.0-nightly (2d20b42b8 2026-11-04)"
+  },
+  "code_commit": "ec45d70fc",
+  "nce07": {
+    "outcome": "passed",
+    "run": 263,
+    "cut": 365,
+    "physical_records": 20,
+    "pairs": 14,
+    "complete_reference_opportunities": 10,
+    "outside_selected_capture": 57,
+    "supported_nominations": 4,
+    "unsupported_nominations": 0,
+    "supported_witnessed": 1,
+    "receipt": "raw/artifact-replay-002/result.json",
+    "first_native_attempt": "failed: ambiguous citations in native coalescence"
+  }
+}

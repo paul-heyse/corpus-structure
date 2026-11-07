@@ -1,6 +1,6 @@
 # Next corpus enrichment
 
-**Status:** NCE-01 delivered in development. NCE-02 delivered in development. **Revised:** 2026-11-07. This coordinator owns the series,
+**Status:** NCE-01 through NCE-06 have bounded development evidence. NCE-07 through NCE-12 are implemented in development with the qualification and evidence boundaries below. **Revised:** 2026-11-07. This coordinator owns the series,
 its source dispositions and combined completion. The scope comes from the
 [Next corpus enrichment review](../functional_reviews/next-corpus-enrichment_2026-11-07.md)
 at `8277b7445`, including its integrated corrections and conditional opportunities. Existing
@@ -167,8 +167,8 @@ the review.
   and spurious results explicitly. Development results describe the shared frame. Additional
   transfer, calibration or performance claims need their own evidence.
 - **Current checkpoint.** NCE-01 and NCE-02 are delivered in development. The operator selected
-  NCE-03 through NCE-06 next, with affected-test qualification. NCE-07 through NCE-12 retain
-  their proposed dispositions and acceptance boundaries.
+  NCE-03 through NCE-06 next, followed by NCE-07 through NCE-12 with affected-test
+  qualification. The dated execution sections own each increment’s results and remaining work.
 
 ## Selected execution · 2026-11-07
 
@@ -319,3 +319,33 @@ The final affected application selection passed 145 tests in
 on exact retry in `e21abbf96f504b388ef8a1b050e01bcb`. The full suite was `not_run`
 under the selected affected-test scope.
 [Closeout evidence](../design_review/evidence/2026-11-07_nce06-closeout/records/nce.witnessed-heading-closeout.json)
+
+## NCE-07 through NCE-12 development execution
+
+**2026-11-07.** The coordinated model change installed `semantic_nce07_12` in the
+dedicated development database. A forward correction `semantic_nce07_12_replay` repaired
+native artifact aggregation and contextual report construction. The failed authoring and
+replay attempts remain in managed custody. The release and test receipts belong to the
+[development evidence](../design_review/evidence/2026-11-07_nce07-12/README.md).
+
+| Package | Implementation and development evidence | Remaining scope or evidence |
+| --- | --- | --- |
+| NCE-07 | Physical occurrence coalescence, directed source-scoped nominations and complete route membership are implemented. Run 263/cut 365 passed native, Reader, CLI, fresh MCP and detached replay. It retained all 14 prior pairs and nominated four supported pairs among ten complete judged opportunities. Table 5.8, 5.9 and 6.1 endpoint recovery carries forward from NCE-01. Controlled cross-view source wording exercises an alternate designator and ambiguity. | The retained artifact frame provides no authenticated alias or revision example and no observed alternate designator that adds a pair. |
+| NCE-08 | Pinned Splink matched ten controlled expected comparison levels and applied term frequency to the exact normalized title level. The 67 existing judgments are reference-to-caption judgments. | The same-lineage scorer remains an assessment mechanism. A distinct protected cohort with genuine same-lineage judgments and authentic name evidence is the prerequisite for efficacy and native multilevel adoption. |
+| NCE-09 | Comparison-side bindings and exact native and detached membership replay are implemented. The three gap projections agree across Reader, CLI and fresh MCP on the retained controls. Run 207/cut 287 is mixed, run 130/cut 164 reports unavailable archived applicability, and run 197/cut 263 reports unavailable authorized comparison support. | Controlled bindings cover directed revisions and typed dependencies. An authentic expanded root binding, explicit conflict evidence and independent applicability premise references beyond the retained grouped readings and qualifying edge remain open. |
+| NCE-10 | Exact mutual ranks and separate witnessed navigation are implemented. Run 264/cut 367 delivered 16 mutual edges and preserved the Section 5.2 witness through Reader, CLI, fresh MCP and detached verification. Run 265/cut 369 verified the recovered Table 6.1 caption and exact reference witness in the ordinary diagnosis and detached review. The scoped affine-`X` diagnosis for run 258/cut 359 passes detached verification against its original retained report and source. The controlled pgvector and scikit-learn comparison matched 17 edges and checked distinct zero-distance peers and near-collinear precision differences. | The assembled diagnosis covers the selected artifact, comparison, contextual and dossier products at their exact task boundaries. Further chain investigations retain their companion triggers. |
+| NCE-11 | Run 261/cut 361 retained nine Table 5.2/5.3 bands and three fixed premises. Run 260/cut 363 retained twenty Table 6.1 bands and exact header geometry. Reader, CLI, fresh MCP and detached verification passed both cuts. Native controls refused resealed factors, masks and omitted policy operations. | The controls establish source-conditioned interpretation and replay. An authentic independently judged ambiguity case is the prerequisite for a selection-gain claim. |
+| NCE-12 | Cut 245 retained 82 defining-text attachments with usable features in the scoped native probe. Protected evaluation 34 adjudicated eleven events from two complete selected source views with one shared origin. Development fit 1 used one supported and ten unsupported events. Installed availability, fit, parameter export and ordinary read passed. | The fit supplies same-corpus diagnostics. Calibration, transfer, activation and optional challengers retain their separate evidence requirements. |
+
+### Affected verification
+
+| Command | Outcome and scope |
+| --- | --- |
+| `uv run ci test --json -- PATH…` | Initial result `cb5e71cbb2974a7d84db49184a66d944` recorded 272 passes and eight failures. |
+| `uv run ci test retry cb5e71cbb2974a7d84db49184a66d944 --lane ordinary --json` | `passed` for all eight selected failures in `f8923e9093cf4f42b974b2ce6ffbcdef`. |
+| `uv run ci test coverage cb5e71cbb2974a7d84db49184a66d944 f8923e9093cf4f42b974b2ce6ffbcdef --view unresolved --json` | Observed 280 required nodes with zero unresolved. Source and native binding changes required scoped replacement evidence. |
+| `uv run ci test --json -- PATH…` | `passed` for 106 affected replay and native nodes in `bd331647a4b347d5ba709fb154ebb6c8` and six final diagnosis and artifact nodes in `c144011d84434acaa31e9a591232d83f`. |
+| `uv run ci check --view steps --json` | `passed` for applicable checks. Rules were `not_run` with an empty registry. Clippy used `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`. |
+| `uv run ci test --json` | `not_run` under the affected-test scope. |
+
+[Execution evidence](../design_review/evidence/2026-11-07_nce07-12/records/nce.enrichment-07-12-development.json)

@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "id": "nce.enrichment-07-12-development",
+  "title": "Development execution of NCE-07 through NCE-12",
+  "group": "NCE",
+  "package": "NCE-07–12",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which scoped corpus enrichment, navigation and attachment reliability contracts complete on retained GS120 evidence?",
+  "answers": [
+    "NCE-07",
+    "NCE-08",
+    "NCE-09",
+    "NCE-10",
+    "NCE-11",
+    "NCE-12"
+  ],
+  "method": "Run exact retained cuts and independently judged controls through managed development deployment, native completion, ordinary delivery and detached replay. Freeze protected event judgments before fitting.",
+  "commands": [
+    "uv run ci model change deploy 252d0691a1414a22a9ca5bddc7a7e829 --json",
+    "uv run ci model change deploy 3532f6a0a2fe407db7d4770b7d2b25c3 --json",
+    "uv run ci test retry cb5e71cbb2974a7d84db49184a66d944 --lane ordinary --json",
+    "uv run ci test coverage cb5e71cbb2974a7d84db49184a66d944 f8923e9093cf4f42b974b2ce6ffbcdef --view unresolved --json",
+    "uv run ci check --view steps --json",
+    "uv run python docs/design_review/evidence/2026-11-07_nce07-12/check_native_mechanisms.py --evaluation 34",
+    "uv run python docs/design_review/evidence/2026-11-07_nce07-12/check_neighborhood_delivery.py 264",
+    "uv run python docs/design_review/evidence/2026-11-07_nce07-12/check_gap_delivery.py",
+    "uv run ci eval operation-event-fit --run 161 --evaluation 34 --project wce-gs120-method-development-20261106 --event defining_text_attachment_correctness --json",
+    "uv run ci eval operation-event-read --fit 1 --project wce-gs120-method-development-20261106 --json",
+    "uv run ci model change deploy 5cb23a2462e345bab21c91c86cdfecaf --json",
+    "uv run python docs/design_review/evidence/2026-11-07_nce07-12/check_source_decision_delivery.py build/nce07-12/artifact-diagnosis-final/result.json",
+    "uv run ci review verify build/ci/d028e782fe654b66b5d27aefaf60cebb/bundle --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "attachment-rubric.md",
+      "role": "Reproducible frozen development control",
+      "sha256": "28bfbe9a120cfeb78dfaa8120bd5c1c70246ae1f925542f7c05c3afab468a7c7"
+    },
+    {
+      "path": "freeze_attachment_frame.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "335008fb116db801c3ff5599fcb36aeb6a8e8fa1333b64f8467ab9223ae51bb1"
+    },
+    {
+      "path": "check_native_mechanisms.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "e26264769742a3c7f18c9d0dabd1830b64a5074e97a99e9ea29d16bf4e23c288"
+    },
+    {
+      "path": "check_neighborhood_delivery.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "da819714003b161fd75ea82d0fae3ae2ed5cdde59e81db5306e9085a71af9f92"
+    },
+    {
+      "path": "check_gap_delivery.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "383e2bf63b0afb905adca3a0f436fa6e7aa5d88722883ebb54de9fccfeedb0ae"
+    },
+    {
+      "path": "replay_artifact_nominations.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "aa5a95b7d4bccf445d35298add9b086d385b79dd81d5b726666365f519384ccf"
+    },
+    {
+      "path": "table-replay.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "115a0469a5036bd49664da15d9e5b68bded66a131b79335698d583946fb0a252"
+    },
+    {
+      "path": "artifact_scorer_mechanism.py",
+      "role": "Reproducible frozen development control",
+      "sha256": "95a3034060eaa995b32f3a1bd02f1c6b9f48d96920848b20217a823960f1b6aa"
+    },
+    {
+      "path": "check_source_decision_delivery.py",
+      "role": "Exact selected artifact diagnosis and transport comparison",
+      "sha256": "e416caa927c5f2598cbc3cf58dbd3faa75097c651688c1906b804e108f9c7043"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "development-results.json",
+      "role": "Dated development result",
+      "sha256": "69e0dbf52f674bff7f883133f69b9d66155cfcbc02a1d88a64c6f4c799390d3a"
+    },
+    {
+      "path": "raw/artifact-replay-002/result.json",
+      "role": "Dated development result",
+      "sha256": "1c3dd864fa66a116ab62441852219f22ba7402d0c0ff1ea2b06b087e440f4e5e"
+    },
+    {
+      "path": "raw/artifact-scorer-mechanism.json",
+      "role": "Dated development result",
+      "sha256": "ebad67bb13f1708f27879786aea3db45dbebcf6e66a0ba729226704b3b84b57d"
+    }
+  ],
+  "depends_on": [
+    "2026-11-07_nce06-closeout/nce.witnessed-heading-closeout"
+  ],
+  "results": [
+    {
+      "name": "Observed affected nodes with recorded passes after exact retry",
+      "value": 280,
+      "of": 280,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Completed protected fitting development events",
+      "value": 11,
+      "of": null,
+      "unit": "events",
+      "note": "One supported and ten unsupported from one source origin."
+    },
+    {
+      "name": "Authentic table correspondence and header journeys",
+      "value": 2,
+      "of": 2,
+      "unit": "cuts",
+      "note": null
+    },
+    {
+      "name": "Mutual neighborhood edges in the selected Section 5.2 inventory",
+      "value": 16,
+      "of": null,
+      "unit": "edges",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native artifact, neighborhood and table journeys passed on the declared controls. Protected attachment development fit 1 persisted and its ordinary read returned parameters. Same-lineage scorer efficacy, authentic table ambiguity benefit, and expanded rooted comparison acceptance retain separate open prerequisites and scope.",
+  "consumed_by": [
+    "NCE-07",
+    "NCE-08",
+    "NCE-09",
+    "NCE-10",
+    "NCE-11",
+    "NCE-12"
+  ]
+}

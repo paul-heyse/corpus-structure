@@ -1,0 +1,6 @@
+baseline: d3041726a
+packs: [statistics]
+native_predecessor: semantic_nce06_heading_release
+native_revision: semantic_nce07_12
+deployment: true
+deployment_profile: development
