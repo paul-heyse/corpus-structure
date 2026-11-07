@@ -1,13 +1,21 @@
 """The preview binds canonical inputs and resumes exact interrupted writes."""
 
+import json
 import subprocess
+from types import SimpleNamespace
 
 import pytest
+from typer.testing import CliRunner
 
 from corpus_structure.schema import generate, model, preparation
 from corpus_structure.schema.change import ChangeRecord, ElementChange
 from corpus_structure.schema.model_change import ChangeRequest, apply_preview, prepare_preview
-from corpus_structure.schema.model_deployment import Candidate
+from corpus_structure.schema.model_deployment import (
+    Candidate,
+    deploy_candidate,
+    deployment_settings,
+)
+from corpus_structure.settings import Settings
 
 
 @pytest.fixture
@@ -70,6 +78,108 @@ def test_release_candidate_must_match_the_reviewed_release(model_checkout):
     with pytest.raises(model.ModelError, match="differs from the reviewed preview"):
         Candidate.from_preview(preview, None, "different", {})
     assert Candidate.from_preview(preview, None, "reviewed", {}).release == "reviewed"
+
+
+def test_deployment_preview_binds_separate_authoring_and_destination(model_checkout, monkeypatch):
+    from corpus_structure.cli import model as commands
+    from corpus_structure.cli import recipes, schema
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.schema import model_deployment
+
+    root, _ = model_checkout
+    settings = Settings(
+        database={"url": "postgresql:///development"},
+        deployment={"url": "postgresql:///approved-destination"},
+    )
+    changed_development = settings.model_copy(
+        update={
+            "database": settings.database.model_copy(update={"url": "postgresql:///other-source"}),
+        }
+    )
+    assert settings.deployment is not None
+    changed_destination = settings.model_copy(
+        update={
+            "deployment": settings.deployment.model_copy(
+                update={"url": "postgresql:///other-target"}
+            ),
+        }
+    )
+    development = model_deployment.target_fingerprint(settings)
+    profile, destination = deployment_settings(settings)
+    destination_id = model_deployment.target_fingerprint(destination)
+    assert profile == "deployment"
+    assert deployment_settings(settings, "development") == ("development", settings)
+    assert deployment_settings(Settings(deployment=None))[0] == "development"
+    with pytest.raises(model.ModelError, match="profile is not configured"):
+        deployment_settings(Settings(deployment=None), "deployment")
+
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(root / "results"))
+    monkeypatch.setattr(recipes, "checkout", lambda _: root)
+    monkeypatch.setattr(
+        commands,
+        "_prepare_release",
+        lambda *_: (None, None, None, SimpleNamespace(release_id="release")),
+    )
+    checked = []
+    monkeypatch.setattr(
+        model_deployment,
+        "verify_predecessor",
+        lambda source, target, predecessor: checked.append(
+            (source.database.url, target, predecessor)
+        ),
+    )
+
+    def author(source, _database, _state, *, expected_predecessor):
+        assert source.database.url == settings.database.url
+        assert expected_predecessor == "before"
+        return schema.NativeCandidateResult(
+            database="development",
+            predecessor="before",
+            output="",
+            native_operations=0,
+            ordinary_operations=0,
+            products=[],
+        ), {}
+
+    monkeypatch.setattr(schema, "author_native_candidate", author)
+    runner = CliRunner()
+
+    def run(args, source, **kwargs):
+        return runner.invoke(
+            app,
+            ["model", "change", *args, "--json"],
+            obj=CliState(settings_factory=lambda: source),
+            **kwargs,
+        )
+
+    staged = run(
+        ["preview", "-"],
+        settings,
+        input=(
+            "deployment: true\npacks: [statistics]\n"
+            "native_predecessor: before\nnative_revision: after\n"
+        ),
+    )
+    assert staged.exit_code == 0, staged.output
+    preview = json.loads(staged.stdout)
+    assert preview["target_profile"] == "deployment"
+    assert checked == [(settings.database.url, development, "before")]
+
+    refused = run(["candidate", preview["result_id"]], changed_development)
+    assert refused.exit_code != 0
+    assert "development authoring target differs" in refused.output
+    authored = run(["candidate", preview["result_id"]], changed_destination)
+    assert authored.exit_code == 0, authored.output
+    authored_id = json.loads(authored.stdout)["result_id"]
+    binding = Candidate.model_validate_json(
+        (root / "results" / authored_id / "deployment.json").read_bytes()
+    )
+    assert binding.target_profile == "deployment"
+    assert binding.target == destination_id
+    assert binding.authoring_target == development
+    with pytest.raises(model.ModelError, match="deployment target differs"):
+        deploy_candidate(root, changed_destination, binding, (), report=lambda _: None)
 
 
 def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatch):

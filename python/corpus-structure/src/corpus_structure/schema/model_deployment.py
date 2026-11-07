@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import ChangePreview, checked_path, generator_fingerprint
-from corpus_structure.settings import Settings
+from corpus_structure.settings import DeploymentProfile, Settings
 
 
 class Candidate(BaseModel):
@@ -24,6 +24,8 @@ class Candidate(BaseModel):
     revision: str | None
     predecessor: str | None
     target: str
+    target_profile: DeploymentProfile = "development"
+    authoring_target: str | None = None
     release: str
     packs: tuple[str, ...]
     files: dict[str, str | None]
@@ -33,9 +35,14 @@ class Candidate(BaseModel):
     def from_preview(
         cls, preview: ChangePreview, revision: str | None, release: str, products: dict[str, bytes]
     ) -> Candidate:
-        if not preview.target or bool(revision) != bool(preview.request.native_predecessor):
+        if (
+            not preview.target
+            or not preview.target_profile
+            or bool(revision) != bool(preview.request.native_predecessor)
+            or bool(revision) != bool(preview.authoring_target)
+        ):
             raise ModelError(
-                ["candidate requires a target and matching native revision/predecessor"]
+                ["candidate requires a deployment target and matching native authoring binding"]
             )
         if preview.local_release != release:
             raise ModelError(["prepared release identity differs from the reviewed preview"])
@@ -46,6 +53,8 @@ class Candidate(BaseModel):
             revision=revision,
             predecessor=preview.request.native_predecessor,
             target=preview.target,
+            target_profile=preview.target_profile,
+            authoring_target=preview.authoring_target,
             release=release,
             packs=preview.request.packs,
             files={
@@ -57,6 +66,18 @@ class Candidate(BaseModel):
             },
             hashes={name: sha256(content).hexdigest() for name, content in products.items()},
         )
+
+
+def deployment_settings(
+    settings: Settings, profile: DeploymentProfile | None = None
+) -> tuple[DeploymentProfile, Settings]:
+    """Resolve the chosen profile once and keep its role credentials scoped to it."""
+    selected = profile or ("deployment" if settings.deployment else "development")
+    if selected == "development":
+        return selected, settings
+    if settings.deployment is None:
+        raise ModelError(["the bound deployment profile is not configured"])
+    return selected, settings.model_copy(update={"database": settings.deployment})
 
 
 def target_fingerprint(settings: Settings) -> str:
@@ -167,7 +188,8 @@ def deploy_candidate(
 
     if str(root) != binding.workspace or generator_fingerprint(root) != binding.generator:
         raise ModelError(["candidate belongs to another workspace or generator"])
-    if target_fingerprint(settings) != binding.target:
+    _, destination = deployment_settings(settings, binding.target_profile)
+    if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])
     for relative, expected in binding.files.items():
         file = checked_path(root, relative)
@@ -179,7 +201,7 @@ def deploy_candidate(
         raise ModelError(["prepared release identity differs from the candidate"])
     _verify_installed_revision(binding)
     with (
-        open_runtime_engine(settings, "ci-model-migrate", purpose="maintenance") as maintenance,
+        open_runtime_engine(destination, "ci-model-migrate", purpose="maintenance") as maintenance,
         maintenance.connect() as conn,
     ):
         if binding.revision is not None:
@@ -190,11 +212,11 @@ def deploy_candidate(
             migration_fence(conn)
             if binding.revision is not None and current_revision(conn) != binding.revision:
                 raise ModelError(["native revision changed before archive/admission"])
-            with open_runtime_engine(settings, "ci-model-admit", purpose="admit") as admission:
+            with open_runtime_engine(destination, "ci-model-admit", purpose="admit") as admission:
                 with admission.begin() as writer:
                     persist_release(writer, bundle, deps, profile, prepared)
                 report("archive")
-                with open_runtime_engine(settings, "ci-model-verify", purpose="read") as reader:
+                with open_runtime_engine(destination, "ci-model-verify", purpose="read") as reader:
                     if has_authored_sql(prepared):
                         with reader.connect() as sql_connection:
                             analyzed = analyze_archived_sql(sql_connection, binding.release)

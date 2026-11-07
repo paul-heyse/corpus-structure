@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
 from corpus_structure.cli.schema import refusal
+from corpus_structure.settings import DeploymentProfile
 
 app = typer.Typer(help="Check the model and prepare canonical changes.")
 changes = typer.Typer(help="Preview, apply and deploy exact model changes.")
@@ -24,6 +25,7 @@ class ModelResult(BaseModel):
     changed: tuple[str, ...] = ()
     predecessor: str | None = None
     release: str | None = None
+    target_profile: DeploymentProfile | None = None
 
 
 class CheckResult(BaseModel):
@@ -88,7 +90,11 @@ def preview(
     from corpus_structure.cli.recipes import checkout
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.model_change import ChangePreview, ChangeRequest, prepare_preview
-    from corpus_structure.schema.model_deployment import target_fingerprint, verify_predecessor
+    from corpus_structure.schema.model_deployment import (
+        deployment_settings,
+        target_fingerprint,
+        verify_predecessor,
+    )
 
     with refusal(json_, expected=(ModelError, ResultError, OSError, yaml.YAMLError)):
         store = result_store(ctx)
@@ -115,11 +121,15 @@ def preview(
                     ]
                 )
             target = None
+            profile: DeploymentProfile = "development"
+            authoring_target = None
             if bound.native_predecessor or bound.deployment:
                 settings = state(ctx).settings()
-                target = target_fingerprint(settings)
+                profile, destination = deployment_settings(settings, bound.deployment_profile)
+                target = target_fingerprint(destination)
                 if bound.native_predecessor:
-                    verify_predecessor(settings, target, bound.native_predecessor)
+                    authoring_target = target_fingerprint(settings)
+                    verify_predecessor(settings, authoring_target, bound.native_predecessor)
             impact = None
             local = None
             release = None
@@ -143,7 +153,13 @@ def preview(
                     impact = compare_semantic_releases(before, local).model_dump(mode="json")
             result.stage("validate and stage")
             staged = prepare_preview(
-                root, bound, target=target, comparison=impact, local_release=release
+                root,
+                bound,
+                target=target,
+                target_profile=profile,
+                authoring_target=authoring_target,
+                comparison=impact,
+                local_release=release,
             )
             artifact = result.directory / "preview.json"
             artifact.write_text(staged.model_dump_json(), encoding="utf-8")
@@ -162,6 +178,7 @@ def preview(
                 changed=tuple(file.path for file in staged.files),
                 predecessor=bound.native_predecessor,
                 release=release,
+                target_profile=staged.target_profile,
             ),
             json=json_,
         )
@@ -185,9 +202,12 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
 
             native = None
             if staged.request.native_predecessor:
-                assert staged.target
+                if not staged.authoring_target:
+                    raise ModelError(["preview lacks the bound development authoring target"])
                 native = predecessor_fence(
-                    state(ctx).settings(), staged.target, staged.request.native_predecessor
+                    state(ctx).settings(),
+                    staged.authoring_target,
+                    staged.request.native_predecessor,
                 )
 
             settled: list[str] = []
@@ -234,7 +254,6 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
     ):
         root = checkout(ctx)
         store = result_store(ctx)
-        settings = state(ctx).settings()
         with (
             store.lease(change),
             store.operation("model.candidate", scope={"preview": change}) as result,
@@ -246,10 +265,8 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             revision = staged.request.native_revision or (
                 record.alembic_revision if record else None
             )
-            if not staged.target:
+            if not staged.target or not staged.target_profile:
                 raise ModelError(["preview does not authorize a target-bound candidate"])
-            if target_fingerprint(settings) != staged.target:
-                raise ModelError(["native authoring target differs from the preview"])
             with writer_lock(root):
                 check_preview(root, staged, applied=True)
                 _, _, _, prepared = _prepare_release(root, staged.request.packs)
@@ -259,6 +276,9 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                     )
                 products: dict[str, bytes] = {}
                 if revision:
+                    settings = state(ctx).settings()
+                    if target_fingerprint(settings) != staged.authoring_target:
+                        raise ModelError(["development authoring target differs from the preview"])
                     result.stage("rollback-only authoring")
                     native, products = author_native_candidate(
                         settings,
@@ -273,6 +293,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         stage="release candidate",
                         revision=staged.revision,
                         release=prepared.release_id,
+                        target_profile=staged.target_profile,
                     )
                 binding = Candidate.from_preview(staged, revision, prepared.release_id, products)
             artifact = result.directory / "deployment.json"
@@ -281,6 +302,8 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             result.settle(
                 sha256=sha256(artifact.read_bytes()).hexdigest(),
                 target=binding.target,
+                target_profile=binding.target_profile,
+                authoring_target=binding.authoring_target,
                 release=binding.release,
                 predecessor=binding.predecessor,
             )
@@ -340,6 +363,7 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                 revision=binding.model_revision,
                 predecessor=binding.predecessor,
                 release=binding.release,
+                target_profile=binding.target_profile,
             ),
             json=json_,
         )

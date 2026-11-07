@@ -9,7 +9,12 @@ from sqlalchemy import insert, select
 from sqlalchemy.engine import URL, make_url
 
 from corpus_structure.schema.model_change import generator_fingerprint
-from corpus_structure.schema.model_deployment import Candidate, deploy_candidate, target_fingerprint
+from corpus_structure.schema.model_deployment import (
+    Candidate,
+    deploy_candidate,
+    deployment_settings,
+    target_fingerprint,
+)
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
@@ -17,6 +22,7 @@ from corpus_structure.semantic.migrations import alembic_config, current_revisio
 from corpus_structure.semantic.releases import activate_release, activation_token
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.settings import DeploymentDatabaseSettings
 
 
 def test_exact_native_deployment_resumes_before_separate_activation(
@@ -62,8 +68,9 @@ def test_exact_native_deployment_resumes_before_separate_activation(
     with semantic_database_at(predecessor) as engine:
         settings = native_settings.model_copy(
             update={
-                "database": native_settings.database.model_copy(
-                    update={
+                "deployment": DeploymentDatabaseSettings.model_validate(
+                    native_settings.database.model_dump()
+                    | {
                         "url": make_url(native_settings.database.url)
                         .set(database=engine.url.database)
                         .render_as_string(hide_password=False),
@@ -74,13 +81,18 @@ def test_exact_native_deployment_resumes_before_separate_activation(
                 ),
             }
         )
+        profile, destination = deployment_settings(settings)
+        assert profile == "deployment"
+        assert target_fingerprint(settings) != target_fingerprint(destination)
         binding = Candidate(
             workspace=str(tmp_path),
             model_revision="fixture",
             generator=generator_fingerprint(tmp_path),
             revision=revision,
             predecessor=predecessor,
-            target=target_fingerprint(settings),
+            target=target_fingerprint(destination),
+            target_profile=profile,
+            authoring_target=target_fingerprint(settings),
             release=prepared.release_id,
             packs=(),
             files={},
@@ -109,7 +121,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             assert activation_token(conn, "model-deployment-control").release_id is None
             assert conn.scalar(select(project.c.selected_result_run_id)) is None
         with (
-            open_runtime_engine(settings, "model-activation-control", purpose="admit") as admit,
+            open_runtime_engine(destination, "model-activation-control", purpose="admit") as admit,
             admit.begin() as conn,
         ):
             selected = activate_release(

@@ -29,6 +29,33 @@ def test_prefix_and_nesting(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.gpu.mode == "exclusive"
 
 
+def test_deployment_profile_is_independent_and_redacted(monkeypatch: pytest.MonkeyPatch) -> None:
+    development = "postgresql:///authoring"
+    deployment = "postgresql://deployer:deployment-secret@remote.example/corpus"
+    maintenance = "postgresql://migrator:maintenance-secret@remote.example"
+    environ = {
+        "CORPUS_DATABASE__URL": development,
+        "CORPUS_DEPLOYMENT__URL": deployment,
+        "CORPUS_DEPLOYMENT__MAINTENANCE_URL": maintenance,
+    }
+    for key, value in environ.items():
+        monkeypatch.setenv(key, value)
+    settings = Settings()
+    assert settings.database.url == development
+    assert settings.deployment is not None
+    assert settings.deployment.url == deployment
+    assert settings.deployment.maintenance_url == maintenance
+    report = settings_report(settings, environ)
+    assert report.unknown_env == ()
+    assert report.resolved["deployment.url"] == (
+        f"postgresql://deployer:{MASK}@remote.example/corpus"
+    )
+    assert "maintenance-secret" not in report.model_dump_json()
+    monkeypatch.delenv("CORPUS_DEPLOYMENT__URL")
+    with pytest.raises(ValidationError, match=r"deployment\.url"):
+        Settings()
+
+
 def test_init_beats_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CORPUS_DATABASE__URL", "postgresql:///from_env")
     settings = Settings(database={"url": "postgresql:///from_init"})

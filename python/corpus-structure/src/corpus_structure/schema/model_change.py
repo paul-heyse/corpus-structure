@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.schema import change, model, preparation
 from corpus_structure.schema.change import ChangeRecord
+from corpus_structure.settings import DeploymentProfile
 
 
 class ChangeRequest(BaseModel):
@@ -31,6 +32,7 @@ class ChangeRequest(BaseModel):
     native_predecessor: str | None = None
     native_revision: str | None = None
     deployment: bool = False
+    deployment_profile: DeploymentProfile | None = None
 
 
 class FileEffect(BaseModel):
@@ -57,6 +59,8 @@ class ChangePreview(BaseModel):
     source_diff: str
     request: ChangeRequest
     target: str | None
+    target_profile: DeploymentProfile | None = None
+    authoring_target: str | None = None
     comparison: dict | None = None
     local_release: str | None = None
     discovery: dict | None = None
@@ -116,6 +120,8 @@ def prepare_preview(
     request: ChangeRequest,
     *,
     target: str | None = None,
+    target_profile: DeploymentProfile = "development",
+    authoring_target: str | None = None,
     comparison: dict | None = None,
     local_release: str | None = None,
 ) -> ChangePreview:
@@ -154,6 +160,12 @@ def prepare_preview(
         native = request.native_predecessor
         if bool(native or request.deployment) != bool(target):
             raise model.ModelError(["a deployment preview requires a configured target binding"])
+        if request.deployment_profile and (
+            not target or request.deployment_profile != target_profile
+        ):
+            raise model.ModelError(["deployment profile differs from the requested target"])
+        if bool(native) != bool(authoring_target):
+            raise model.ModelError(["a native preview requires its development authoring target"])
         migration = request.change.alembic_revision if request.change else None
         if request.native_revision and migration and migration != request.native_revision:
             raise model.ModelError(["native revision conflicts with the declared model change"])
@@ -207,6 +219,8 @@ def prepare_preview(
         ),
         request=request,
         target=target,
+        target_profile=target_profile if target else None,
+        authoring_target=authoring_target,
         comparison=comparison,
         local_release=local_release,
         discovery=locate_consumers(root, head, identifiers) if identifiers else None,

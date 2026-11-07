@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
@@ -65,6 +65,15 @@ class DatabaseSettings(_Section):
         if not sep or scheme not in ("postgresql", "postgres"):
             raise ValueError(f"database.url is not a libpq URL: {self.url!r}")
         return f"postgresql+psycopg://{rest}"
+
+
+class DeploymentDatabaseSettings(DatabaseSettings):
+    """An explicitly configured deployment endpoint with its own purpose credentials."""
+
+    url: str = Field(...)
+
+
+type DeploymentProfile = Literal["development", "deployment"]
 
 
 class PathSettings(_Section):
@@ -125,6 +134,7 @@ class Settings(BaseSettings):
     )
 
     database: DatabaseSettings = DatabaseSettings()
+    deployment: DeploymentDatabaseSettings | None = None
     paths: PathSettings = PathSettings()
     llm: LlmSettings = LlmSettings()
     nemotron: NemotronSettings = NemotronSettings()
@@ -159,10 +169,10 @@ def known_env_names() -> frozenset[str]:
     names: set[str] = set()
     for section, info in Settings.model_fields.items():
         names.add(f"{ENV_PREFIX}{section}".upper())
-        model = info.annotation
-        if isinstance(model, type) and issubclass(model, BaseModel):
-            for field in model.model_fields:
-                names.add(f"{ENV_PREFIX}{section}{NESTED_DELIMITER}{field}".upper())
+        for model in get_args(info.annotation) or (info.annotation,):
+            if isinstance(model, type) and issubclass(model, BaseModel):
+                for field in model.model_fields:
+                    names.add(f"{ENV_PREFIX}{section}{NESTED_DELIMITER}{field}".upper())
     return frozenset(names)
 
 
@@ -214,18 +224,23 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
     """
     resolved: dict[str, str] = {}
     for section, values in settings.model_dump(mode="json").items():
+        if values is None:
+            continue
         for field, value in values.items():
             resolved[f"{section}.{field}"] = "" if value is None else str(value)
-    for field in (
-        "url",
-        "maintenance_url",
-        "evaluator_url",
-        "reader_url",
-        "admission_url",
-        "fitter_url",
-    ):
-        value = getattr(settings.database, field)
-        resolved[f"database.{field}"] = "" if value is None else _mask_url_credentials(value)
+    for section, database in (("database", settings.database), ("deployment", settings.deployment)):
+        if database is None:
+            continue
+        for field in (
+            "url",
+            "maintenance_url",
+            "evaluator_url",
+            "reader_url",
+            "admission_url",
+            "fitter_url",
+        ):
+            value = getattr(database, field)
+            resolved[f"{section}.{field}"] = "" if value is None else _mask_url_credentials(value)
     resolved["llm.endpoint"] = _mask_url_credentials(settings.llm.endpoint)
     known = known_env_names()
     unknown = sorted(
