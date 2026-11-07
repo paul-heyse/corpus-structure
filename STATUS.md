@@ -34,12 +34,13 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
 - The earlier native GC fault retains its diagnostic limit. The current campaigns recorded
   no worker loss. Original failures and earlier attempt receipts remain available.
 
-## Proposed CLI target — 2026-11-07
+## Proposed CLI operations series — 2026-11-07
 
-- The [functional extension review](docs/functional_reviews/typer-cli-target_2026-11-07.md)
-  owns the proposed CLI workflow, result lifecycle and controlled model-change recommendations.
-  Fresh installed CLI help and usage checks establish the recorded current baseline.
-  `just docs-check` passed for the review.
+- The [CLI operations plan](docs/plans/cli-operations_2026-11-07.md) owns the proposed queue
+  and the operator's routing, retention and model-effect decisions. The
+  [functional review](docs/functional_reviews/typer-cli-target_2026-11-07.md) supplies the
+  baseline and opportunities. `just docs-check` passed for the plan. Product qualification
+  is `not_run` for the documentation change.
 
 ## Next
 
@@ -47,3 +48,5 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
   the WCE plan. The authentic table-note and alias examples remain unavailable in their
   inspected frames. Operation fitting remains `not_run` pending compatible events and
   protected evaluations.
+- When CLI execution is selected, start with CLI-00 to carry the accepted rules into their
+  durable owners and schedule the first design/target review.
