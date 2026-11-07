@@ -146,6 +146,11 @@ and independent benefit; broad qualification belongs to WCE12.
 
 ## Current contract realization — 2026-11-06
 
+The [completion audit](../witnessed-corpus-enrichment_2026-11-05.md#completion-audit) retains scoped native publication, current serving and
+legacy removal evidence. The delivered dossier continuation and export cover the configured
+aggregate. WCE11 still owes an integrated journey for qualified membership relative to the root,
+plus affected consumers of the other reopened producer contracts.
+
 **Implemented; combined acceptance owned by the coordinator.** `structural-product-3` and
 `structural-public-statement-3` are the current retained/public shapes. Native completion, exact
 component assessments and whole-report refusal share their released custody owners. Positive

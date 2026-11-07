@@ -395,6 +395,17 @@ enterprise-corpus claim is established by these Proposed designs.
 
 ## Current selected realization — 2026-11-06
 
+The [completion audit](../witnessed-corpus-enrichment_2026-11-05.md#completion-audit) bounds the comparison below to its observed premises.
+The ordinary threshold producer leaves the basis unset and both Python and native comparison
+treat two missing bases as equal. The same-unit revenue fixture therefore emits an interval even
+though the accepted contract withholds it. Neither path consumes witnessed succession. The note
+producer expands a table reference to per-cell proposals without a row or band premise.
+
+The dossier journey assembles the caller-declared predecessor aggregate. The Python and native
+paths copy the root identifier into that aggregate, and portable verification replays the same
+selection. Root-specific qualification and the associated consumer journey remain open. The
+recorded display comparison and exact aggregate custody are preserved.
+
 **Implemented; actual scoped comparison and source products Tested.** Source-local table, note,
 unit, formula/symbol and procedure contributions retain original physical anchors and outcomes.
 All three GS120 policy arms retain the same8210 source contributions. Source-role mistakes remain

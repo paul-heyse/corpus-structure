@@ -181,6 +181,12 @@ Retain original raw results and failed/interrupted attempts. Optional investigat
 
 ## Current selected realization — 2026-11-06
 
+The [completion audit](../witnessed-corpus-enrichment_2026-11-05.md#completion-audit) retains the matched band experiment below. Feasibility
+and independent requests use uniform unary potentials, while the coupled arm adds a symmetric
+same-state preference. Closing WCE08 requires the accepted comparison over source-conditioned
+alternatives and its evidence and sensitivity controls. The WCE09 fit mechanism retains scoped
+completion, with actual fitting conditional on genuine exact events and protected grades.
+
 **Implemented; final qualification owned by the coordinator.** `shared-table-band-2` uses one
 binary applicability decision per retained relation edge, permitting multiple or no applicable
 targets. One shared band factor expresses declared coherence; it does not create source support.

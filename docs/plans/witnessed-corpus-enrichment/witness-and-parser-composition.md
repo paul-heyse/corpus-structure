@@ -423,6 +423,13 @@ integrated qualification: **not_run**. The root owns publication checks and `jus
 
 ## Selected WCE04–05 realization — 2026-11-06
 
+The [completion audit](../witnessed-corpus-enrichment_2026-11-05.md#completion-audit) retains the implemented candidate, definition and linking
+mechanisms. The F37 fixed comparison preserves the recorded old cells and current source facets.
+It leaves whole usage-target applicability unassessed. The actual retained-mention journey
+establishes transport of private own-component edges. WCE05 still requires independently
+specified fixed-endpoint arms and assessment of actual linking, including missed relations and
+false bridges.
+
 The coordinator owns completion and unresolved findings. [Final scoped evidence](../../design_review/evidence/2026-11-06_wce-definition-linking/records/wce04-05.final-union.json)
 covers the current-only implementation. Method4 `structure.definition_components` composes named
 rules/native geometry and optional located GLiNER extraction. Its explicit linguistic-only mode

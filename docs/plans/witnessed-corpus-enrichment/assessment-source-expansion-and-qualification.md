@@ -9,7 +9,7 @@
 > only on current contracts. The coordinator owns execution status and final-source qualification.
 
 
-> Execution reading route,2026-11-06: The coordinator links final selected source/output/downstream assessments, protected frames and the complete applicable qualification union. Original exposure and unassessed populations remain explicit; no source partition is relabelled.
+> Execution reading route,2026-11-06: The coordinator links selected source/output/downstream assessments, protected frames, retained qualification receipts and the current completion audit. Original exposure and unassessed populations remain explicit; no source partition is relabelled.
 
 **Implemented assessment contract; current execution reconciliation,2026-11-06.** [Coordinator](../witnessed-corpus-enrichment_2026-11-05.md) owns package
 state and combined acceptance. This companion owns WCE02/12 and cross-package new assessment
@@ -149,6 +149,13 @@ single coordinator and original PCE F37/F39 owner where their obligations are in
 precise future source/learning/backend triggers. No automatic promotion/default activation is planned.
 
 ## Current assessment realization — 2026-11-06
+
+The [completion audit](../witnessed-corpus-enrichment_2026-11-05.md#completion-audit) retains the source and output capture below and reopens the
+required composition comparisons and affected qualification. The case account includes a nested
+sample-size header, a missed bibliographic note relation and a standard-normal parameter case.
+It leaves positive alternate parameterization and selected merged-header and row/band note
+coverage open where no exact independent case establishes the required behavior. The evidence
+must stay on the declared shared corpus and distinguish unavailable premises from missed output.
 
 **Implemented and independently assessed within declared scope.**
 [Final source capture](../../design_review/evidence/2026-11-06_wce-gs120/assessment/final-source-capture/)

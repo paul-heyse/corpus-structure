@@ -171,6 +171,13 @@ After selected replacement consumers pass, retire any pilot-specific pair recons
 
 ## Current selected realization — 2026-11-06
 
+The [completion audit](../witnessed-corpus-enrichment_2026-11-05.md#completion-audit) retains the actual fixed diagnostic scorer and custody
+journey. Artifact183 registers and scores locally nominated pairs. Its invocation supplies no
+external nominations, and its source projection emits empty alias arrays without a distinct
+unknown state. Emitted-pair judgments cannot assess eligible missed pairs. The entered pilot
+still owes independent eligible-pair coverage, comparable candidate and score results, blocking
+diagnostics, sensitivity and the threshold/error tables described above.
+
 **Implemented; actual native/read/export Tested within this scope.** The statistics pilot operates
 on figure/table/reference occurrences within the single Grinstead–Snell source-work namespace,
 not enterprise document-control identity. `methods/artifact_identity.py`, `semantic/artifact_identity.py`
