@@ -264,3 +264,25 @@ def test_native_piece_boundary_separates_even_adjacent_role_tokens(profile):
     frame = frames["reviews"]
     assert role(text, frame, "object") == (("a", "report"),)
     assert strings(text, frame.focus) == ("The manager reviews a", "report")
+
+
+def test_compound_if_then_keeps_premise_parse_conflict_unresolved(profile):
+    text, product = retained(
+        "Definition 6.2 If F is any event and X is a random variable with "
+        "sample space Ω = {x1, x2, . . .}, then the conditional expectation "
+        "given F is defined by",
+        profile,
+    )
+    result = predicate_frames(text, (product,))
+    frames = readings(text, result)
+    (cue,) = cues(frames["defined"], "condition")
+    assert cue.status == "unresolved" and cue.variant == "compound_if_then"
+    assert strings(text, cue.span) == (
+        "If F is any event and X is a random variable with sample space Ω = {x1, x2, . . .}",
+    )
+    assert frames["defined"].predicate.tokens[0] in cue.hosts
+    assert not any(
+        candidate.status == "located"
+        for frame in result.frames
+        for candidate in cues(frame, "condition")
+    )

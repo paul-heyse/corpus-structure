@@ -621,6 +621,34 @@ class _FrameBlock:
         head = self.doc[token].head.i
         return head if head in self.predicates and self.same_sentence(head, token) else None
 
+    def compound_condition(self, marker: int, subordinate: int, origin: int):
+        """Recognize a provisional host that lies inside an explicit antecedent."""
+        premise = self.doc[origin]
+        main = premise.head
+        if (
+            premise.dep_ != "ccomp"
+            or main.i <= origin
+            or main.i not in self.predicates
+            or not self.same_sentence(marker, subordinate, origin, main.i)
+            or not any(
+                token.lower_ == "and" and token.dep_ == "cc"
+                for token in self.doc[subordinate + 1 : origin]
+            )
+        ):
+            return None
+        boundaries = [
+            token.i
+            for token in main.children
+            if origin < token.i < main.i
+            and token.lower_ == "then"
+            and token.dep_ == "advmod"
+            and self.doc[token.i - 1].text == ","
+            and token.i not in self.quotes
+        ]
+        if len(boundaries) != 1:
+            return None
+        return self.span(range(marker, boundaries[0] - 1)), (origin, main.i)
+
     def clause_cues(self) -> None:
         fronted = []
         phrases = (
@@ -669,6 +697,24 @@ class _FrameBlock:
                     if token.head.i in self.predicates:
                         origin = token.head.i
             if component is not None:
+                compound = (
+                    self.compound_condition(index, component, origin)
+                    if variant == "if" and origin is not None
+                    else None
+                )
+                if compound is not None:
+                    span, candidates = compound
+                    self.add_cue(
+                        kind,
+                        "compound_if_then",
+                        span,
+                        basis,
+                        candidates,
+                        origin=origin,
+                        component=component,
+                        unresolved=True,
+                    )
+                    continue
                 span = self.span({*self.focus(component).tokens, *nodes})
                 hosts = () if origin is None else (origin,)
                 unresolved = origin is None or component not in self.predicates
