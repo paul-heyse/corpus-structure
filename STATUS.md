@@ -34,6 +34,13 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
 - The earlier native GC fault retains its diagnostic limit. The current campaigns recorded
   no worker loss. Original failures and earlier attempt receipts remain available.
 
+## Proposed CLI target — 2026-11-07
+
+- The [functional extension review](docs/functional_reviews/typer-cli-target_2026-11-07.md)
+  owns the proposed CLI workflow, result lifecycle and controlled model-change recommendations.
+  Fresh installed CLI help and usage checks establish the recorded current baseline.
+  `just docs-check` passed for the review.
+
 ## Next
 
 - Settle the remaining source opportunities and exact native table factor reconstruction in

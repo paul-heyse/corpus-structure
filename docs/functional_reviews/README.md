@@ -72,3 +72,10 @@ assessment and paired diffs, mathematical interpretation, parsing composition, c
 linking and source-grounded dossiers. O01–O10 retain concrete mechanisms and proposed rule impacts.
 The bounded retained-table comparison shows correct local structure inside unaccepted whole readings.
 The review does not update active plans, change runtime contracts or resume stopped M1 execution.
+
+## Typer CLI target — 2026-11-07
+
+The [CLI functional extension review](typer-cli-target_2026-11-07.md) proposes O01–O07
+for a routine development and production command surface, resolved context, managed results,
+test reconciliation, terminal and machine output, controlled model changes and corpus operations.
+The recommendations draw on observed Codex workflows and the eight introspection overviews.
