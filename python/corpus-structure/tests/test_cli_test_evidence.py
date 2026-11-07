@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import errno
+import fcntl
 import json
 import os
+import pty
+import re
+import struct
 import subprocess
 import sys
+import termios
 from pathlib import Path
+
+import pytest
 
 from corpus_structure.cli.managed import ResultStore
 
@@ -24,7 +32,9 @@ def _run(store: ResultStore, *args: str, check: bool = True) -> subprocess.Compl
     )
 
 
-def _receipt(directory: Path, nodes: list[str], *, fail: bool) -> None:
+def _receipt(
+    directory: Path, nodes: list[str], *, fail: bool, invocation: dict | None = None
+) -> None:
     directory.mkdir()
     events = [{"event": "collection_finish", "selected": nodes, "native_required": []}]
     reports: list[dict[str, str | int]] = [{"$report_type": "SessionStart"}]
@@ -50,7 +60,7 @@ def _receipt(directory: Path, nodes: list[str], *, fail: bool) -> None:
         (directory / name).write_text("".join(json.dumps(item) + "\n" for item in stream))
     (directory / "pytest.process.json").write_text(json.dumps({"returncode": code}))
     (directory / "invocation.json").write_text(
-        json.dumps({"source": {"head": "failed" if fail else "repaired"}})
+        json.dumps(invocation or {"source": {"head": "failed" if fail else "repaired"}})
     )
 
 
@@ -80,6 +90,7 @@ def test_installed_compact_coverage_and_exact_failures(tmp_path):
     assert (detail["available"], detail["selected"], detail["omitted"]) == (103, 3, 100)
     assert [item["nodeid"] for item in detail["items"]] == nodes[:3]
     assert detail["items"][0]["observations"] == ["failed"]
+    assert detail["next_actions"] == {original.id: f"ci test retry {original.id} --lane ordinary"}
     raw = subprocess.run(
         [
             sys.executable,
@@ -148,9 +159,149 @@ def test_installed_failure_report_identifies_live_and_unsettled_custody(tmp_path
         assert live["availability"] == "partial"
         assert live["lanes"]["ordinary"]["status"] == "running"
         assert live["next_action"] == f"ci results watch {active.id}"
+        coverage = json.loads(
+            _run(store, "coverage", active.id, "--view", "unresolved", "--json").stdout
+        )
+        assert coverage["active_attempts"] == [active.id]
+        assert coverage["next_actions"] == {active.id: f"ci results watch {active.id}"}
         active.defer_settlement()
         active.settle("interrupted")
     retained = json.loads(_run(store, "failures", active.id, "--json").stdout)
     assert retained["availability"] == "unavailable"
     assert retained["next_action"] == f"ci results recover {active.id}"
     assert retained["items"] == []
+
+
+def test_installed_coverage_distinguishes_context_changes_unknowns_and_receipt_custody(tmp_path):
+    store = ResultStore(tmp_path)
+    node = "tests/test_sample.py::test_case"
+    source = {"head": "same"}
+    with store.operation("test", scope={"lane": "ordinary"}) as original:
+        lane = original.directory / "ordinary"
+        _receipt(
+            lane,
+            [node],
+            fail=True,
+            invocation={"source": source, "python": "3.14.9", "versions": {"pytest": "9.0.1"}},
+        )
+        (lane / "pytest.process.json").write_text(
+            json.dumps(
+                {"returncode": 1, "owned_group_cleanup": {"group_present_after_cleanup": True}}
+            )
+        )
+        original.publish("ordinary", lane)
+        original.settle("failed")
+    with store.operation("test.retry", scope={"lane": "ordinary"}) as repaired:
+        lane = repaired.directory / "ordinary"
+        _receipt(
+            lane,
+            [node],
+            fail=False,
+            invocation={"source": source, "python": "3.14.10", "versions": {"pytest": "9.0.2"}},
+        )
+        repaired.publish("ordinary", lane)
+        repaired.settle("passed")
+    coverage = json.loads(
+        _run(store, "coverage", original.id, repaired.id, "--view", "unresolved", "--json").stdout
+    )
+    assert coverage["sources_differ"] is False
+    assert coverage["context_differences"] == ["python", "pytest"]
+    assert "pytest-xdist" in coverage["context_unknowns"]
+    assert "source" not in coverage["context_unknowns"]
+    assert coverage["status"] == "incomplete"
+    assert coverage["unsettled_attempts"] == [original.id]
+    assert list(coverage["next_actions"]) == [original.id]
+    assert f"ci results show {original.id}" in coverage["next_actions"][original.id]
+    refused = _run(store, "retry", original.id, "--lane", "ordinary", "--json", check=False)
+    assert refused.returncode == 1
+    assert "supervisor settlement unproven" in refused.stdout
+
+
+def test_installed_failures_authenticate_only_selected_lane_and_refresh_retry_hint(tmp_path):
+    store = ResultStore(tmp_path)
+    node = "tests/test_sample.py::test_case"
+    with store.operation("test", scope={"lane": "all"}) as result:
+        for name in ("ordinary", "fault"):
+            lane = result.directory / name
+            _receipt(lane, [node], fail=True)
+            result.publish(name, lane)
+        result.settle(
+            "failed",
+            lanes={"ordinary": "failed", "fault": "failed"},
+            next_action=f"ci test retry {result.id} --lane ordinary",
+        )
+    fault = result.directory / "fault"
+    fault.rename(result.directory / "original-fault")
+    _receipt(fault, [node], fail=True)
+    ordinary = ("failures", result.id, "--lane", "ordinary", "--json")
+    available = json.loads(_run(store, *ordinary).stdout)
+    assert available["items"][0]["nodeid"] == node
+    assert available["next_action"] == f"ci test retry {result.id} --lane ordinary"
+    refused = _run(store, "failures", result.id, "--lane", "fault", "--json", check=False)
+    assert refused.returncode == 1
+    assert "differs from its owner publication" in refused.stdout
+    all_lanes = _run(store, "failures", result.id, "--json", check=False)
+    assert all_lanes.returncode == 1
+    assert "differs from its owner publication" in all_lanes.stdout
+    (result.directory / "ordinary" / "events-controller-12.jsonl").unlink()
+    missing = json.loads(_run(store, *ordinary).stdout)
+    assert missing["next_action"] == "ci test --lane ordinary"
+
+
+def _terminal_stdout(store: ResultStore, width: int, *args: str) -> str:
+    reader, terminal = pty.openpty()
+    with os.fdopen(reader, "rb", buffering=0) as stream:
+        try:
+            fcntl.ioctl(terminal, termios.TIOCSWINSZ, struct.pack("HHHH", 24, width, 0, 0))
+            env = {key: value for key, value in os.environ.items() if key != "COLUMNS"}
+            done = subprocess.run(
+                [str(Path(sys.executable).with_name("ci")), "test", *args],
+                cwd=ROOT,
+                env={**env, "CORPUS_CI_RESULTS": str(store.root), "TERM": "xterm", "NO_COLOR": "1"},
+                stdout=terminal,
+                stderr=subprocess.PIPE,
+                timeout=15,
+                check=True,
+            )
+        finally:
+            os.close(terminal)
+        data = bytearray()
+        try:
+            while chunk := stream.read(4096):
+                data.extend(chunk)
+        except OSError as error:
+            if error.errno != errno.EIO:
+                raise
+    assert done.stderr == b""
+    return data.decode()
+
+
+@pytest.mark.parametrize("width", [44, 110])
+def test_installed_named_reports_wrap_and_sanitize_the_same_ordered_identities(tmp_path, width):
+    store = ResultStore(tmp_path)
+    first = "tests/test_sample.py::test_alpha[字形[bold]]"
+    raw = "tests/test_sample.py::test_beta[\x1b[91mtoken=fixture-secret&part=π]"
+    second = "tests/test_sample.py::test_beta[token=**********&part=π]"
+    with store.operation("test", scope={"lane": "ordinary"}) as result:
+        lane = result.directory / "ordinary"
+        _receipt(lane, [raw, first], fail=True)
+        result.publish("ordinary", lane)
+        result.settle("failed")
+    for args, ordering, column in (
+        (("failures", result.id), "lane_collection_node_phase", 2),
+        (("coverage", result.id, "--view", "unresolved"), "node_id", 1),
+    ):
+        machine = json.loads(_run(store, *args, "--json").stdout)
+        assert machine["ordering"] == ordering
+        assert machine["sanitized_identities"] == 1
+        assert [item["nodeid"] for item in machine["items"]] == [first, second]
+        human = _terminal_stdout(store, width, *args)
+        assert "Order" in human
+        assert "fixture-secret" not in human and "\x1b[91m" not in human
+        plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", human)
+        displayed = "".join(
+            line.split("│")[column].strip()
+            for line in plain.splitlines()
+            if line.startswith("│")
+        )
+        assert first + second in displayed

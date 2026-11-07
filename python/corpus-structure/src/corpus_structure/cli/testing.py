@@ -65,11 +65,14 @@ class CoverageSummary(BaseModel):
     status: str
     node_coverage: CoverageCounts
     sources_differ: bool
+    context_differences: list[str]
+    context_unknowns: list[str]
     missing_lanes: list[str]
     selected_lanes: list[str]
     attempt_outcomes: dict[str, str]
     active_attempts: list[str]
     unsettled_attempts: list[str]
+    next_actions: dict[str, str]
     native_observations: dict[str, int]
 
 
@@ -83,6 +86,8 @@ class UnresolvedCoverage(CoverageSummary):
     selected: int
     available: int
     omitted: int
+    ordering: Literal["node_id"] = "node_id"
+    sanitized_identities: int
     items: list[UnresolvedNode]
 
 
@@ -111,12 +116,27 @@ class Failures(BaseModel):
     selected: int
     available: int
     omitted: int
+    ordering: Literal["lane_collection_node_phase"] = "lane_collection_node_phase"
+    sanitized_identities: int
     items: list[FailureEvent]
     next_action: str | None = None
 
 
 def _literal(value: str) -> Text:
-    return Text(safe_text(value).replace("\n", r"\n").replace("\t", r"\t"))
+    return Text(_display_text(value))
+
+
+def _display_text(value: str) -> str:
+    return safe_text(value).replace("\n", r"\n").replace("\t", r"\t")
+
+
+def _sanitize_nodes(items: list[FailureEvent] | list[UnresolvedNode]) -> int:
+    sanitized = 0
+    for item in items:
+        display = _display_text(item.nodeid)
+        sanitized += display != item.nodeid
+        item.nodeid = display
+    return sanitized
 
 
 def _render_coverage(report: CoverageSummary) -> Group:
@@ -141,6 +161,11 @@ def _render_coverage(report: CoverageSummary) -> Group:
     rows.add_row(
         "Sources differ", Text("yes" if report.sources_differ else "no observed difference")
     )
+    rows.add_row(
+        "Context changes", _literal(", ".join(report.context_differences) or "none observed")
+    )
+    if report.context_unknowns:
+        rows.add_row("Unknown context", _literal(", ".join(report.context_unknowns)))
     if report.active_attempts or report.unsettled_attempts:
         rows.add_row(
             "Custody",
@@ -148,6 +173,8 @@ def _render_coverage(report: CoverageSummary) -> Group:
                 f"{len(report.active_attempts)} active, {len(report.unsettled_attempts)} unsettled"
             ),
         )
+    for result, action in report.next_actions.items():
+        rows.add_row("Next action", _literal(f"{result}: {action}"))
     if report.native_observations:
         rows.add_row(
             "Native receipts",
@@ -163,13 +190,16 @@ def _render_coverage(report: CoverageSummary) -> Group:
         "Showing",
         Text(f"{report.selected}/{report.available} unresolved nodes ({report.omitted} omitted)"),
     )
+    rows.add_row("Order", Text("node ID"))
+    if report.sanitized_identities:
+        rows.add_row("Identities sanitized", Text(str(report.sanitized_identities)))
     if not report.items:
         return Group(rows, _literal(counts.applicability_note))
     items = Table()
     items.add_column("Node", overflow="fold")
     items.add_column("Observed status")
     for item in report.items:
-        items.add_row(_literal(item.nodeid), _literal(", ".join(item.observations) or "unobserved"))
+        items.add_row(Text(item.nodeid), _literal(", ".join(item.observations) or "unobserved"))
     return Group(rows, items, _literal(counts.applicability_note))
 
 
@@ -191,6 +221,9 @@ def _render_failures(report: Failures) -> Group:
         "Showing",
         Text(f"{report.selected}/{report.available} observed failures ({report.omitted} omitted)"),
     )
+    rows.add_row("Order", Text("lane (ordinary, fault), then collection errors, node ID and phase"))
+    if report.sanitized_identities:
+        rows.add_row("Identities sanitized", Text(str(report.sanitized_identities)))
     if report.next_action:
         rows.add_row("Next action", _literal(report.next_action))
     if not report.items:
@@ -202,7 +235,7 @@ def _render_failures(report: Failures) -> Group:
     for item in report.items:
         items.add_row(
             Text(f"{item.lane} / {item.phase}"),
-            _literal(item.nodeid or "(session)"),
+            Text(item.nodeid or "(session)"),
             Text(f"{item.outcome} ({item.reason.replace('_', ' ')})"),
         )
     return Group(rows, items)
@@ -237,6 +270,11 @@ def _supervisor(*args: str, opened: dict[Path, int] | None = None) -> dict[str, 
     if "lane_selections" in report:
         report["lane_selections"] = {
             lane: sources.get(path, path) for lane, path in report["lane_selections"].items()
+        }
+    if "receipt_states" in report:
+        report["receipt_states"] = {
+            str(sources.get(directory, directory)): state
+            for directory, state in report["receipt_states"].items()
         }
     return report
 
@@ -389,23 +427,59 @@ def run_tests(
 
 
 def _receipts(
-    store: ResultStore, result: Manifest, stack: ExitStack, *, allow_active: bool = False
+    store: ResultStore,
+    result: Manifest,
+    stack: ExitStack,
+    *,
+    allow_active: bool = False,
+    lane: Lane | None = None,
 ) -> dict[str, tuple[Path, int]]:
     if result.action not in {"test", "test.retry"} or (result.settled is None and not allow_active):
         raise ResultError("a settled test result is required")
     if result.settled is None or result.details.get("custody_unsettled"):
         return {}
     return {
-        role: stack.enter_context(store.open_artifact(result.id, role)) for role in result.artifacts
+        role: stack.enter_context(store.open_artifact(result.id, role))
+        for role in result.artifacts
+        if lane is None or role == lane
     }
 
 
-def _required_lanes(manifest: Manifest, fallback: dict[str, tuple[Path, int]]) -> set[str]:
+def _required_lanes(manifest: Manifest) -> set[str]:
     declared = manifest.scope.get("lane")
     return set(
         manifest.scope.get("required_lanes")
-        or (["ordinary", "fault"] if declared == "all" else [declared] if declared else fallback)
+        or (
+            ["ordinary", "fault"]
+            if declared == "all"
+            else [declared]
+            if declared
+            else manifest.artifacts
+        )
     )
+
+
+def _next_test_action(
+    manifest: Manifest,
+    lane_states: dict[Lane, str],
+    retry_lanes: set[Lane],
+    *,
+    receipt_unsettled: bool,
+) -> str | None:
+    result_id = manifest.id
+    if manifest.settled is None:
+        return f"ci results watch {result_id}"
+    if manifest.details.get("custody_unsettled") and manifest.stage in _LANES:
+        return f"ci results recover {result_id}"
+    if receipt_unsettled or manifest.details.get("custody_unsettled"):
+        return f"Inspect supervisor settlement with ci results show {result_id} before retrying."
+    for lane in _LANES:
+        if lane in retry_lanes:
+            return f"ci test retry {result_id} --lane {lane}"
+    for lane in _LANES:
+        if lane_states.get(lane) in {"failed", "blocked", "incomplete", "interrupted"}:
+            return f"ci test --lane {lane}"
+    return None
 
 
 def _manifest_paths(receipts: list[Path]) -> list[str]:
@@ -440,7 +514,7 @@ def coverage(
             for token in ("--receipt-dir", str(path))
         ]
         initial = manifests[0]
-        required = _required_lanes(initial, scopes[0])
+        required = _required_lanes(initial)
         selectors = [token for lane in sorted(required) for token in ("--required-lane", lane)]
         for name in sorted(required & scopes[0].keys()):
             selectors.extend(("--required-lane-from", name, str(scopes[0][name][0])))
@@ -476,9 +550,11 @@ def coverage(
                         "applicability_note": "No authenticated receipts are available.",
                     },
                     "source_contexts_differ": False,
+                    "context_differences": [],
+                    "context_unknowns": ["source", "python"],
                     "missing_lanes": sorted(required),
                     "selected_lanes": [],
-                    "custody_unsettled": False,
+                    "receipt_states": {},
                     "native_observations": {},
                 }
             )
@@ -487,31 +563,57 @@ def coverage(
             if missing and args:
                 counts.status = "unresolved"
             active = [item.id for item in manifests if item.settled is None]
-            unsettled = [item.id for item in manifests if item.details.get("custody_unsettled")]
+            unsettled = []
+            actions = {}
+            for manifest, receipts in zip(manifests, scopes, strict=True):
+                states = {
+                    lane: summary["receipt_states"][str(receipts[lane][0])]
+                    for lane in _LANES
+                    if lane in receipts
+                }
+                receipt_unsettled = any(item["custody_unsettled"] for item in states.values())
+                if receipt_unsettled or manifest.details.get("custody_unsettled"):
+                    unsettled.append(manifest.id)
+                action = _next_test_action(
+                    manifest,
+                    {
+                        lane: manifest.details.get("lanes", {}).get(lane, "incomplete")
+                        for lane in _LANES
+                        if manifest.id == initial.id and lane in missing
+                    },
+                    {lane for lane, item in states.items() if item["retryable"]},
+                    receipt_unsettled=receipt_unsettled,
+                )
+                if action:
+                    actions[manifest.id] = action
             report = CoverageSummary(
                 results=results,
                 status=(
                     "incomplete"
-                    if missing or active or unsettled or summary["custody_unsettled"]
+                    if missing or active or unsettled
                     else summary["status"]
                 ),
                 node_coverage=counts,
                 sources_differ=summary["source_contexts_differ"],
+                context_differences=summary["context_differences"],
+                context_unknowns=summary["context_unknowns"],
                 missing_lanes=missing,
                 selected_lanes=summary["selected_lanes"],
                 attempt_outcomes=outcomes,
                 active_attempts=active,
                 unsettled_attempts=unsettled,
+                next_actions=actions,
                 native_observations=summary["native_observations"],
             )
             if view == "unresolved":
-                items = summary.get("items", [])
+                items = [UnresolvedNode.model_validate(item) for item in summary.get("items", [])]
                 report = UnresolvedCoverage(
                     **report.model_dump(),
                     limit=size,
                     selected=len(items),
                     available=counts.unresolved,
                     omitted=counts.unresolved - len(items),
+                    sanitized_identities=_sanitize_nodes(items),
                     items=items,
                 )
             emit(report, json=json, render=lambda _: _render_coverage(report))
@@ -566,17 +668,17 @@ def failures(
     with result_boundary(json), ExitStack() as leases:
         store = result_store(ctx)
         leases.enter_context(store.lease(result_id))
-        manifest = store.show(result_id)
-        receipts = _receipts(store, manifest, leases, allow_active=True)
-        selected_lanes = _required_lanes(manifest, receipts) | receipts.keys()
+        manifest = store.show(result_id, role=lane)
+        receipts = _receipts(store, manifest, leases, allow_active=True, lane=lane)
+        selected_lanes = _required_lanes(manifest) | manifest.artifacts.keys()
         if manifest.stage in {"ordinary", "fault"}:
             selected_lanes.add(manifest.stage)
         lanes: dict[Lane, FailureLane] = {}
         items: list[FailureEvent] = []
         available = 0
         receipt_count = 0
-        retry_lane: Lane | None = None
-        unsettled = bool(manifest.details.get("custody_unsettled"))
+        retry_lanes: set[Lane] = set()
+        receipt_unsettled = False
         for name in _LANES:
             if (lane is not None and name != lane) or (lane is None and name not in selected_lanes):
                 continue
@@ -603,7 +705,7 @@ def failures(
                 opened={path: fd},
             )
             receipt_count += 1
-            unsettled |= report["custody_unsettled"]
+            receipt_unsettled |= report["custody_unsettled"]
             lanes[name] = FailureLane(
                 status=report["status"],
                 reporting_complete=report["reporting_complete"] and not report["custody_unsettled"],
@@ -612,17 +714,14 @@ def failures(
             if not report["custody_unsettled"]:
                 available += report["available"]
                 items.extend(FailureEvent(lane=name, **item) for item in report["items"])
-                if report["retryable"] and retry_lane is None:
-                    retry_lane = name
-        next_action = None
-        if manifest.settled is None:
-            next_action = f"ci results watch {result_id}"
-        elif unsettled:
-            next_action = f"ci results recover {result_id}"
-        elif retry_lane is not None:
-            next_action = f"ci test retry {result_id} --lane {retry_lane}"
-        else:
-            next_action = manifest.details.get("next_action")
+                if report["retryable"]:
+                    retry_lanes.add(name)
+        next_action = _next_test_action(
+            manifest,
+            {name: evidence.status for name, evidence in lanes.items()},
+            retry_lanes,
+            receipt_unsettled=receipt_unsettled,
+        )
         if lanes and all(item.reporting_complete for item in lanes.values()):
             availability = "available"
         elif receipt_count or manifest.settled is None:
@@ -640,6 +739,7 @@ def failures(
             selected=len(items),
             available=available,
             omitted=available - len(items),
+            sanitized_identities=_sanitize_nodes(items),
             items=items,
             next_action=next_action,
         )
@@ -657,10 +757,10 @@ def retry(
     with result_boundary(json):
         store = result_store(ctx)
         with store.lease(original), ExitStack() as receipts_open:
-            manifest = store.show(original)
+            manifest = store.show(original, role=lane)
             if manifest.details.get("custody_unsettled"):
                 raise ResultError(f"settle the predecessor with ci results recover {original}")
-            receipts = _receipts(store, manifest, receipts_open)
+            receipts = _receipts(store, manifest, receipts_open, lane=lane)
             with store.operation(
                 "test.retry",
                 scope={
@@ -677,6 +777,11 @@ def retry(
                     selection = result.directory / f"{current}-selection.txt"
                     flags = ["--receipt-dir", str(path), *_manifest_paths([path])]
                     report = _supervisor("classify", "--summary", *flags, opened={path: fd})
+                    if report["custody_unsettled"]:
+                        raise ResultError(
+                            "supervisor settlement unproven. "
+                            f"Inspect with ci results show {original}"
+                        )
                     if report["retryable"] and report["required_unresolved"]:
                         prior = report["contexts"][0]["invocation"] or {}
                         changed = [

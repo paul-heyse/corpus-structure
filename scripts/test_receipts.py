@@ -260,16 +260,19 @@ def source_identity() -> dict[str, Any]:
     }
 
 
+_INVOCATION_PACKAGES = (
+    "pytest",
+    "pytest-xdist",
+    "pytest-reportlog",
+    "hypothesis",
+    "psycopg",
+    "SQLAlchemy",
+)
+
+
 def invocation_context() -> dict[str, Any]:
     versions: dict[str, str | None] = {}
-    for package in (
-        "pytest",
-        "pytest-xdist",
-        "pytest-reportlog",
-        "hypothesis",
-        "psycopg",
-        "SQLAlchemy",
-    ):
+    for package in _INVOCATION_PACKAGES:
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -966,18 +969,22 @@ def classify(
         json.dumps((context["invocation"] or {}).get("source"), sort_keys=True)
         for context in contexts
     }
-    rust_processes = (
-        read_json(path)
-        for directory in directories
-        for name in ("rustc", "nextest-version", "nextest-list", "nextest")
-        if (path := directory / f"{name}.process.json").is_file()
-    )
+    unsettled_receipts = [
+        receipt["directory"]
+        for directory, receipt in zip(directories, receipts, strict=True)
+        if _group_unsettled(receipt["process"])
+        or any(
+            _group_unsettled(read_json(path))
+            for name in ("rustc", "nextest-version", "nextest-list", "nextest")
+            if (path := directory / f"{name}.process.json").is_file()
+        )
+    ]
     return {
         "status": status,
         "contexts": contexts,
         "source_contexts_differ": len(sources) > 1,
-        "custody_unsettled": any(_group_unsettled(item.get("process", {})) for item in receipts)
-        or any(_group_unsettled(process) for process in rust_processes),
+        "custody_unsettled": bool(unsettled_receipts),
+        "unsettled_receipts": unsettled_receipts,
         "receipts": receipts,
         "rust": rust,
         "required": sorted(required),
@@ -1001,9 +1008,38 @@ def classify(
     }
 
 
+def _coverage_context(contexts: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    """Compare recorded facts without treating unknown as a different value."""
+    observations: dict[str, list[Any]] = {"source": [], "python": []}
+    observations.update({name: [] for name in _INVOCATION_PACKAGES})
+    for context in contexts:
+        invocation = context["invocation"] or {}
+        versions = invocation.get("versions") or {}
+        observations["source"].append(invocation.get("source"))
+        observations["python"].append(invocation.get("python"))
+        for name in _INVOCATION_PACKAGES:
+            observations[name].append(versions.get(name))
+        provenance = context["native_provenance"]["status"]
+        if provenance != "not_required":
+            bindings = native_bindings(context["native_contexts"])
+            observations.setdefault("native bindings", []).append(
+                bindings if provenance == "complete" and bindings else None
+            )
+    differences, unknowns = [], []
+    for name, values in observations.items():
+        if len({json.dumps(value, sort_keys=True) for value in values if value is not None}) > 1:
+            differences.append(name)
+        if not values or None in values:
+            unknowns.append(name)
+    return differences, unknowns
+
+
 def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str, Any]:
     coverage = result["required_node_coverage"]
     required, unresolved = len(coverage["required"]), coverage["unresolved"]
+    unresolved_set = set(unresolved)
+    unsettled = set(result["unsettled_receipts"])
+    differences, unknowns = _coverage_context(result["contexts"])
     report = {
         "status": result["status"],
         "node_coverage": {
@@ -1013,10 +1049,22 @@ def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str,
             "unresolved": len(unresolved),
             "applicability_note": coverage["applicability_note"],
         },
-        "source_contexts_differ": result["source_contexts_differ"],
+        "source_contexts_differ": "source" in differences,
+        "context_differences": [name for name in differences if name != "source"],
+        "context_unknowns": unknowns,
         "missing_lanes": result["missing_lanes"],
         "selected_lanes": sorted(result["lane_selections"]),
-        "custody_unsettled": result["custody_unsettled"],
+        "receipt_states": {
+            receipt["directory"]: {
+                "custody_unsettled": receipt["directory"] in unsettled,
+                "retryable": (
+                    receipt["directory"] not in unsettled
+                    and not unresolved_set.isdisjoint(receipt["selected"])
+                    and _receipt_retryable(receipt)
+                ),
+            }
+            for receipt in result["receipts"]
+        },
         "native_observations": dict(
             Counter(entry["native_provenance"]["status"] for entry in result["contexts"])
         ),
@@ -1046,9 +1094,12 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, str]]:
     if not receipt["identity_valid"]:
         return
     for nodeid, node in receipt["nodes"].items():
-        for report in node["reports"]:
-            if report.get("outcome") != "failed":
-                continue
+        for report in sorted(
+            (report for report in node["reports"] if report.get("outcome") == "failed"),
+            key=lambda report: _FAILURE_PHASES.index(report["when"])
+            if report.get("when") in _FAILURE_PHASES
+            else len(_FAILURE_PHASES) - 1,
+        ):
             phase = report.get("when")
             blocked = _failed_prerequisite(report)
             yield {
@@ -1120,7 +1171,10 @@ def _canonical_node_id(node: object) -> bool:
 def _retryable(result: dict[str, Any]) -> bool:
     if result["custody_unsettled"] or len(result["receipts"]) != 1:
         return False
-    receipt = result["receipts"][0]
+    return _receipt_retryable(result["receipts"][0])
+
+
+def _receipt_retryable(receipt: dict[str, Any]) -> bool:
     selected = receipt["selected"]
     if not selected or not receipt["identity_valid"] or receipt["collection_errors"]:
         return False
@@ -1423,6 +1477,7 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 }
                 | {
+                    "custody_unsettled": result["custody_unsettled"],
                     "retryable": _retryable(result),
                     "contexts": [
                         {

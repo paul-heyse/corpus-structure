@@ -355,7 +355,7 @@ class ResultStore:
                 with self._namespace():
                     self._remove_hold(source_id, _RECOVERY, result.id)
 
-    def _read(self, directory: Path) -> Manifest:
+    def _read(self, directory: Path, *, role: str | None = None) -> Manifest:
         try:
             with self._owned_directory(directory.name) as fd:
                 manifest = Manifest.model_validate_json(_read_file(fd, _MANIFEST))
@@ -366,21 +366,24 @@ class ResultStore:
             raise ResultError("result manifest unavailable or invalid") from error
         if manifest.id != directory.name:
             raise ResultError("result identity does not match its workspace")
-        for role, path in manifest.artifacts.items():
-            if role not in registered or registered[role].path != path:
+        for name, path in manifest.artifacts.items():
+            if role is not None and role != name:
+                continue
+            if name not in registered or registered[name].path != path:
                 raise ResultError("artifact selection differs from its owner publication")
             with _artifact_fd(directory, path) as artifact:
-                if registered[role].identity != _identity(artifact):
+                if registered[name].identity != _identity(artifact):
                     raise ResultError("artifact differs from its owner publication")
         manifest.holds = tuple(_hold_ids(directory, ".holds"))
         return manifest
 
-    def show(self, result_id: str) -> Manifest:
+    def show(self, result_id: str, *, role: str | None = None) -> Manifest:
+        """Inspect the result, authenticating only the selected publication when specified."""
         with self.lease(result_id):
-            return self._inspection(self._directory(result_id))
+            return self._inspection(self._directory(result_id), role=role)
 
-    def _inspection(self, directory: Path) -> Manifest:
-        manifest = self._read(directory)
+    def _inspection(self, directory: Path, *, role: str | None = None) -> Manifest:
+        manifest = self._read(directory, role=role)
         recovery_holds = self._recovery_holds(directory, time.time())
         manifest.holds = tuple(sorted(set(manifest.holds).union(recovery_holds)))
         return manifest
@@ -553,7 +556,7 @@ class ResultStore:
     def open_artifact(self, result_id: str, role: str) -> Generator[tuple[Path, int]]:
         """Borrow an authenticated publication for an owned read."""
         directory = self._directory(result_id)
-        manifest = self._read(directory)
+        manifest = self._read(directory, role=role)
         if manifest.settled is None or role not in manifest.artifacts:
             raise ResultError("settled artifact unavailable")
         relative = manifest.artifacts[role]
