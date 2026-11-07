@@ -455,6 +455,10 @@ def _properties(reports: list[dict[str, Any]]) -> dict[str, Any]:
     return {key: value for report in reports for key, value in report.get("user_properties", [])}
 
 
+def _failed_prerequisite(report: dict[str, Any]) -> bool:
+    return report.get("when") == "setup" and "qualification_prerequisite" in _properties([report])
+
+
 def _node_status(reports: list[dict[str, Any]], started: bool, finished: bool) -> dict[str, Any]:
     properties = _properties(reports)
     failed = [report for report in reports if report.get("outcome") == "failed"]
@@ -465,11 +469,7 @@ def _node_status(reports: list[dict[str, Any]], started: bool, finished: bool) -
     reason: object = None
     if failed:
         # A prerequisite annotates the failed setup itself, not an unrelated teardown failure.
-        unexpected = [
-            r
-            for r in failed
-            if r.get("when") != "setup" or "qualification_prerequisite" not in _properties([r])
-        ]
+        unexpected = [report for report in failed if not _failed_prerequisite(report)]
         status = "failed" if unexpected else "blocked"
         reason = properties.get("qualification_reason")
     elif (started or reports) and not finished:
@@ -1001,6 +1001,85 @@ def classify(
     }
 
 
+def _coverage_projection(result: dict[str, Any], limit: int | None) -> dict[str, Any]:
+    coverage = result["required_node_coverage"]
+    required, unresolved = len(coverage["required"]), coverage["unresolved"]
+    report = {
+        "status": result["status"],
+        "node_coverage": {
+            "status": coverage["status"],
+            "required": required,
+            "covered": required - len(unresolved),
+            "unresolved": len(unresolved),
+            "applicability_note": coverage["applicability_note"],
+        },
+        "source_contexts_differ": result["source_contexts_differ"],
+        "missing_lanes": result["missing_lanes"],
+        "selected_lanes": sorted(result["lane_selections"]),
+        "custody_unsettled": result["custody_unsettled"],
+        "native_observations": dict(
+            Counter(entry["native_provenance"]["status"] for entry in result["contexts"])
+        ),
+    }
+    if limit is not None:
+        report["items"] = [
+            {
+                "nodeid": node,
+                "observations": sorted(set(result["coverage"][node])),
+            }
+            for node in unresolved[:limit]
+        ]
+    return report
+
+
+_FAILURE_PHASES = ("collection", "setup", "call", "teardown", "unknown")
+
+
+def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, str]]:
+    for report in sorted(receipt["collection_errors"], key=lambda report: report.get("nodeid", "")):
+        yield {
+            "nodeid": report.get("nodeid", ""),
+            "phase": "collection",
+            "outcome": "failed",
+            "reason": "collection_failure",
+        }
+    if not receipt["identity_valid"]:
+        return
+    for nodeid, node in receipt["nodes"].items():
+        for report in node["reports"]:
+            if report.get("outcome") != "failed":
+                continue
+            phase = report.get("when")
+            blocked = _failed_prerequisite(report)
+            yield {
+                "nodeid": nodeid,
+                "phase": phase if phase in _FAILURE_PHASES else "unknown",
+                "outcome": "blocked" if blocked else "failed",
+                "reason": "prerequisite" if blocked else "pytest_failure",
+            }
+
+
+def _failure_projection(result: dict[str, Any], limit: int, phase: str | None) -> dict[str, Any]:
+    (receipt,) = result["receipts"]
+    items = []
+    available = 0
+    for event in _failure_events(receipt):
+        if phase is not None and event["phase"] != phase:
+            continue
+        available += 1
+        if len(items) < limit:
+            items.append(event)
+    return {
+        "status": result["status"],
+        "items": items,
+        "available": available,
+        "reporting_complete": receipt["reporting_complete"] and receipt["identity_valid"],
+        "custody_unsettled": result["custody_unsettled"],
+        "retryable": _retryable(result),
+        "native_observation": receipt["native_provenance"]["status"],
+    }
+
+
 def _union_node_status(receipt: dict[str, Any], node: str, native_required: set[str]) -> str:
     """Return the status eligible for the current manifest's required union.
 
@@ -1198,7 +1277,11 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--write-unresolved", type=Path)
     inspect.add_argument("--selection-lane", choices=("ordinary", "fault"), default="ordinary")
     inspect.add_argument("--managed-selection", action="store_true")
-    inspect.add_argument("--summary", action="store_true")
+    projection = inspect.add_mutually_exclusive_group()
+    projection.add_argument("--summary", action="store_true")
+    projection.add_argument("--projection", choices=("coverage", "unresolved", "failures"))
+    inspect.add_argument("--limit", type=int, choices=range(101), default=20, metavar="N")
+    inspect.add_argument("--phase", choices=_FAILURE_PHASES)
     inspect.add_argument(
         "--required-lane", action="append", choices=("ordinary", "fault"), default=[]
     )
@@ -1220,6 +1303,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(selected))
         return 0
     if args.action == "classify":
+        if args.projection is not None and args.write_unresolved is not None:
+            parser.error("inspection projections cannot write a retry selection")
+        if args.projection == "failures" and len(args.receipt_dir) != 1:
+            parser.error("failure projection requires exactly one receipt directory")
+        if args.phase is not None and args.projection != "failures":
+            parser.error("phase requires a failure projection")
         try:
             lanes = {name: [] for name in args.required_lane}
             for name, path in args.required_lane_from:
@@ -1311,6 +1400,14 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
         )
+    elif args.action == "classify" and args.projection is not None:
+        if args.projection == "failures":
+            report = _failure_projection(result, args.limit, args.phase)
+        else:
+            report = _coverage_projection(
+                result, args.limit if args.projection == "unresolved" else None
+            )
+        print(json.dumps(report))
     elif args.action == "classify" and args.summary:
         print(
             json.dumps(
