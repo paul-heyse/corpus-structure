@@ -1,7 +1,6 @@
 # CLI reporting and file-free composition
 
-**Status:** Implemented on `work/cli-reporting`. Branch qualification and operator-directed
-integration are in progress. **Created:** 2026-11-07.
+**Status:** Implemented and merged into `main`. Main qualification is in progress. **Created:** 2026-11-07.
 
 ## Outcome and baseline
 
@@ -98,9 +97,17 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
 
 ## Branch execution checkpoint · 2026-11-07
 
-- The reporting branch starts from committed `main` at `5edbd2f0a`. The coordinator
-  integrates only operator-designated later main checkpoints and waits for separate
-  authorization to land on main.
+- Reporting started from `5edbd2f0a`. The operator requested integration of the NCE
+  pause point `73599a210` and authorized the merge to `main` at `78a21de7a` before full
+  qualification. The remaining campaign runs on main.
+- The first broad ordinary attempt `c3d1d17b541943219acf04c99260066c` was interrupted
+  during concurrent cluster activity after 2,560 of 5,160 nodes passed. The branch retry
+  `dacb2d0f6de24042bd1d5e152a7d1998` was stopped at operator direction after the merge.
+  Both receipts remain available. Neither establishes main qualification.
+- A PostgreSQL 18 `pg_virtualenv` run on the staged integration of `1331728f9` passed
+  all 12 selected tests, including a native CLI failure check. Receipt
+  `deda02c1c21f47229df5224f57246b33` records the private test context. The temporary
+  cluster was removed. The real authentication fault lane targets the dedicated cluster.
 - CLIR-01–06 are implemented. Compact classifier output, exact test failures, preview and
   candidate reads, authenticated managed review inspection, bounded stdin, ordered recipe
   steps and the installed stream boundary are available on the branch. Managed review
@@ -111,8 +118,8 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
   Additional logging, continuous progress and retained excerpts remain conditional on
   a named decision those reports cannot support. Revisit bounded transcript collection
   if measured child output or a specific pre-failure need warrants changing the supervisor.
-- CLIR-08 records targeted and integrated qualification separately. Qualification does not
-  imply a merge to main or change the separate live CLI operations prerequisites.
+- CLIR-08 records targeted and integrated qualification separately. The separate live
+  CLI operations prerequisites retain their existing owner.
 
 ### Branch verification
 
