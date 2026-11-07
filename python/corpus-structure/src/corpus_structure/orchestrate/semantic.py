@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
+from contextlib import ExitStack
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
@@ -11,6 +12,11 @@ from sqlalchemy import select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.orchestrate.liveness import (
+    record_supervisor,
+    run_supervisor,
+    supervisor_connection,
+)
 from corpus_structure.semantic._operation_ids import CutId, DocumentId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -238,7 +244,9 @@ def run_source_methods(
         producer_binding(method_name, values)
         agent_configs[f"{method_name}/{config_name}"] = values
         operation_versions[method_name] = SEMANTIC_AGENT_VERSION
-    with engine.begin() as conn:
+    with ExitStack() as startup:
+        conn = supervisor_conn = startup.enter_context(supervisor_connection(engine))
+        transaction = conn.begin()
         d = table("kb.document")
         docs = (
             conn.execute(select(d).where(d.c.project_id == project_id).order_by(d.c.key))
@@ -379,7 +387,9 @@ def run_source_methods(
             phase=phase,
             guideline=guideline,
         )
+        startup.enter_context(run_supervisor(conn, rid))
         start_run(conn, rid)
+        record_supervisor(conn, rid, waiting=False)
         if selected_sources:
             from sqlalchemy import text
 
@@ -398,6 +408,8 @@ def run_source_methods(
                     source_view_id=SourceViewId(source.source_view_id),
                     projection_context=prepared,
                 )
+        transaction.commit()
+        supervisor = startup.pop_all()
     holder = f"semantic-source:{rid}"
     try:
         try:
@@ -805,13 +817,15 @@ def run_source_methods(
             import sys
 
             _close_source_resources(registry, sys.exception())
-        with engine.begin() as conn:
+        with supervisor_conn.begin():
+            conn = supervisor_conn
             cut = seal_cut(conn, rid, "source-ready")
             queued = (
                 propose_agents(conn, rid, prepared, registry, policy_source)
                 if graph.policy_propose and policy_source is not None
                 else 0
             )
+            record_supervisor(conn, rid, waiting=True)
         from corpus_structure.semantic.operation_results import validate_result_dimension
 
         status = "awaiting_agent" if queued else "source_ready"
@@ -839,6 +853,8 @@ def run_source_methods(
         except BaseException as cleanup_error:
             exc.add_note(f"source run cleanup failed: {cleanup_error}")
         raise
+    finally:
+        supervisor.close()
 
 
 def _retain_source_originals(engine, claimed, method, config, holder, prepared, active):

@@ -333,6 +333,24 @@ def test_retained_integrated_cli_lifecycle(
             assert project["active_release_id"] == report["release_id"]
             assert project["selected_result_run_id"] == run_id
             assert project["generation"] == selection["selected_generation"] + 2
+        writer_only = settings.model_copy(
+            update={
+                "database": settings.database.model_copy(
+                    update={"admission_url": "postgresql://nonexistent_ingest_control@"}
+                ),
+                "runtime": settings.runtime.model_copy(update={"default_project": "acceptance"}),
+            }
+        )
+        ingested = CliRunner().invoke(
+            app,
+            ["ingest", "--integrated-source", str(pin_path), "--json"],
+            obj=CliState(settings_factory=lambda: writer_only),
+        )
+        assert ingested.exit_code == 0, (ingested.output, ingested.exception)
+        prepared_only = json.loads(ingested.stdout)
+        assert prepared_only["release_id"] == report["release_id"]
+        assert prepared_only["realization_id"] == output
+        assert prepared_only["status"] == "source_ready" and prepared_only["cut_id"] > 0
 
 
 @pytest.mark.parametrize(

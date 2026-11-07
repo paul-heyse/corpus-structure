@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import signal
+import threading
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -12,9 +16,37 @@ from pydantic import JsonValue, RootModel
 from corpus_structure.cli.output import JsonOpt, emit, state
 
 if TYPE_CHECKING:
+    from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.serve.review_bundle import ReviewSelection
 
 app = typer.Typer(help="Export pinned evidence and verify detached review bundles.")
+
+
+@contextmanager
+def _capture_signals(cancellation: OperationCancellation) -> Generator[Callable[[], int | None]]:
+    """Cancel the current native borrower, leaving cleanup to its execution owner."""
+    received: int | None = None
+
+    def request(number: int, _frame: object) -> None:
+        nonlocal received
+        if received is None:
+            received = number
+            cancellation.request_cancel()
+
+    previous = {}
+    try:
+        if threading.current_thread() is threading.main_thread():
+            for number in (signal.SIGINT, signal.SIGTERM):
+                previous[number] = signal.signal(number, request)
+        yield lambda: received
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+
+
+def _selection_digest(body: bytes, *, exact_closure: bool) -> str:
+    mode = b"exact\0" if exact_closure else b"declared\0"
+    return sha256(mode + body).hexdigest()
 
 
 def _deliver_review(
@@ -29,17 +61,29 @@ def _deliver_review(
     previous_binding: str | None = None,
 ) -> None:
     from corpus_structure.cli.managed import result_store
+    from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.serve.review_bundle import export_review_bundle
 
     store = result_store(ctx)
     if destination is not None and (destination.exists() or destination.is_symlink()):
         raise FileExistsError(destination)
     action = "review.export" if evaluator_capture is None else "review.export-evaluated"
-    with store.operation(
-        action, scope={"exact_closure": exact_closure, "previous": previous}
-    ) as result:
+    body = request.model_dump_json().encode()
+    selection_digest = _selection_digest(body, exact_closure=exact_closure)
+    cancellation = OperationCancellation()
+    with (
+        _capture_signals(cancellation) as interrupted,
+        store.operation(
+            action,
+            scope={
+                "exact_closure": exact_closure,
+                "selection_digest": selection_digest,
+                "previous": previous,
+            },
+        ) as result,
+    ):
         selection_path = result.directory / "selection.json"
-        selection_path.write_text(request.model_dump_json())
+        selection_path.write_bytes(body)
         result.publish("selection", selection_path)
         result.stage("capture")
         bundle = result.directory / "bundle"
@@ -52,14 +96,49 @@ def _deliver_review(
             result.manifest.scope["source_binding"] = binding
             result.stage("bound")
 
-        manifest = export_review_bundle(
-            request,
-            bundle,
-            state(ctx).settings(),
-            evaluator_capture=evaluator_capture,
-            exact_closure=exact_closure,
-            retain_binding=retain_binding if evaluator_capture is None else None,
-        )
+        try:
+            manifest = export_review_bundle(
+                request,
+                bundle,
+                state(ctx).settings(),
+                cancellation=cancellation,
+                evaluator_capture=evaluator_capture,
+                exact_closure=exact_closure,
+                retain_binding=retain_binding if evaluator_capture is None else None,
+            )
+        except BaseException as error:
+            received = interrupted()
+            diagnostic = getattr(error, "database_diagnostic", None)
+            native = getattr(diagnostic, "failure", None)
+            if (
+                cancellation.cleanup_failures
+                or getattr(error, "__notes__", ())
+                or getattr(error, "adbc_cleanup_failures", ())
+                or getattr(native, "invalidated", False)
+            ):
+                result.defer_settlement()
+                raise
+            if received is None:
+                raise
+            result.settle(
+                "interrupted",
+                signal=received,
+                next_action=f"ci review retry {result.id}",
+            )
+            if json:
+                emit(
+                    RootModel[dict[str, JsonValue]](
+                        {
+                            "error": {
+                                "code": "review_interrupted",
+                                "message": "review capture interrupted and settled",
+                                "invocation_id": result.id,
+                            }
+                        }
+                    ),
+                    json=True,
+                )
+            raise typer.Exit(128 + received) from error
         result.publish("bundle", bundle)
         result.stage("published")
     delivered = store.deliver(result.id, "bundle", destination)
@@ -168,19 +247,25 @@ def retry_review(
             previous = store.show(result_id)
             if previous.action != "review.export":
                 raise ValueError("retry requires an ordinary review export result")
+            if previous.settled is None or previous.details.get("custody_unsettled"):
+                raise ValueError("retry requires proof that the previous capture settled")
             binding = previous.scope.get("source_binding")
             if not isinstance(binding, str):
                 raise ValueError(
                     "original export acquired no source binding; submit its selection explicitly"
                 )
-            request = ReviewSelection.model_validate_json(
-                store.artifact(result_id, "selection").read_bytes()
-            )
+            body = store.read_artifact(result_id, "selection")
+            exact_closure = previous.scope.get("exact_closure") is True
+            if _selection_digest(body, exact_closure=exact_closure) != previous.scope.get(
+                "selection_digest"
+            ):
+                raise ValueError("retained review selection differs from the original")
+            request = ReviewSelection.model_validate_json(body)
             _deliver_review(
                 ctx,
                 request,
                 destination,
-                exact_closure=previous.scope.get("exact_closure") is True,
+                exact_closure=exact_closure,
                 previous=result_id,
                 previous_binding=binding,
                 json=json,

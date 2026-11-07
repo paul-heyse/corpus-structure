@@ -844,6 +844,11 @@ def _exact_closure(
                     }
                 ),
             )
+            if request.selected_task_id is not None and not page.reports and after == 0:
+                raise SemanticRefusal(
+                    f"exact structural task {request.selected_task_id} is unavailable "
+                    f"in run {request.run_id}, cut {page.cut_id}"
+                )
             for report in page.reports:
                 cancellation.check_active()
                 budget.value(report)

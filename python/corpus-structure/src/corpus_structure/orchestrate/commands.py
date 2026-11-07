@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, Engine
@@ -45,6 +46,8 @@ class RunProgress(BaseModel):
     output_realization_id: str | None
     stages: list[StageCount]
     unresolved_agent_tasks: int
+    readiness: Literal["completed", "source_ready", "incomplete", "terminal"]
+    supervisor: Literal["active", "waiting", "orphaned", "unassessed", "terminal"]
 
 
 class StatusReport(BaseModel):
@@ -94,6 +97,7 @@ def start_bound_run(
     extraction_policy: str = "phase0",
     m1_configuration: str = "default",
     record_policy: dict[str, Any] | None = None,
+    source_only: bool = False,
 ):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
@@ -204,12 +208,15 @@ def start_bound_run(
         )
         if (
             phase == 0
+            and not source_only
             and (graph or PHASE0).policy_propose
             and policy_source is not None
             and scope_record is None
         ):
             raise CommandError("phase 0 full run requires a scope or named slice")
     selected_graph = graph or PHASE0
+    if source_only:
+        selected_graph = replace(selected_graph, policy_propose=False)
     selected_registry = (registry_for or registry)((domains or DOMAINS) / domain)
     if native_product is not None and integrated_product is not None:
         raise CommandError("select one exact native or integrated PDF input role")
@@ -280,6 +287,36 @@ def start_bound_run(
         if extraction_policy == "m1-candidate" and m1_configuration != "default"
         else None,
     )
+
+
+def resolve_source_domain(
+    conn: Connection, project_id: str, release_id: str, domain: str | None
+) -> str:
+    """Resolve a source pack from the release's archived module identities."""
+    import json
+
+    import yaml
+
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.releases import open_release
+
+    try:
+        archive = json.loads(open_release(conn, release_id).manifest)
+    except KeyError as error:
+        raise CommandError("selected release has no archived executable pack") from error
+    modules = {name for name, _ in archive["sources"]}
+    candidates = []
+    for path in sorted(DOMAINS.glob("*/semantic.yaml")):
+        if domain is not None and path.parent.name != domain:
+            continue
+        declaration = yaml.safe_load(path.read_bytes())
+        if isinstance(declaration, dict) and declaration.get("name") in modules:
+            candidates.append(path.parent.name)
+    if len(candidates) == 1:
+        return candidates[0]
+    if candidates:
+        raise CommandError(f"project {project_id!r} has multiple bound packs; select --domain")
+    raise CommandError(f"project {project_id!r} has no matching executable pack for this release")
 
 
 def cancel_bound_run(engine: Engine, run_id: int) -> CancelReport:
@@ -367,6 +404,15 @@ def finalize_bound_run(
     *,
     analytics: AnalyticsSettings | None = None,
 ):
+    from corpus_structure.orchestrate.liveness import supervise_run
+
+    with supervise_run(engine, run_id):
+        return _finalize_bound_run(engine, run_id, output_realization_id, analytics=analytics)
+
+
+def _finalize_bound_run(
+    engine: Engine, run_id: int, output_realization_id: str, *, analytics: AnalyticsSettings | None
+):
     from sqlalchemy import select
 
     from corpus_structure.semantic.domain_operations import DomainOperationRefused, consolidate_cut
@@ -411,6 +457,7 @@ def bound_status(
 ) -> StatusReport:
     from sqlalchemy import func, select
 
+    from corpus_structure.orchestrate.liveness import observe_supervisor
     from corpus_structure.semantic.metadata import table
 
     run = _bound_run_id(conn, run_id, project_id)
@@ -444,13 +491,26 @@ def bound_status(
         )
     ).scalar_one()
     status = row["status"]
+    source_ready = run_source_ready(conn, run)
     if status == "running":
         if unresolved:
             status = "awaiting_agent"
-        elif conn.execute(
-            select(cut.c.id).where(cut.c.run_id == run, cut.c.name == "source-ready")
-        ).first():
+        elif source_ready:
             status = "source_ready"
+    readiness = run_readiness(row["status"], row["result_realization_id"], source_ready)
+    supervisor: Literal["active", "waiting", "orphaned", "unassessed", "terminal"]
+    if readiness in {"terminal", "completed"}:
+        supervisor = "terminal"
+    else:
+        active, waiting = observe_supervisor(conn, run)
+        if active:
+            supervisor = "active"
+        elif waiting is True and row["status"] == "running":
+            supervisor = "waiting"
+        elif waiting is not None:
+            supervisor = "orphaned"
+        else:
+            supervisor = "unassessed"
     return StatusReport(
         run=RunProgress(
             run_id=run,
@@ -466,6 +526,32 @@ def bound_status(
             output_realization_id=row["result_realization_id"],
             stages=[StageCount.model_validate(dict(x)) for x in counts],
             unresolved_agent_tasks=unresolved,
+            readiness=readiness,
+            supervisor=supervisor,
         ),
-        orphaned=None,
+        orphaned=[run] if supervisor == "orphaned" else None if supervisor == "unassessed" else [],
     )
+
+
+def run_source_ready(conn: Connection, run_id: int) -> bool:
+    from sqlalchemy import select
+
+    from corpus_structure.semantic.metadata import table
+
+    cuts = table("ops.input_cut")
+    return (
+        conn.scalar(select(cuts.c.id).where(cuts.c.run_id == run_id, cuts.c.name == "source-ready"))
+        is not None
+    )
+
+
+def run_readiness(
+    status: str, output_realization: str | None, source_ready: bool
+) -> Literal["completed", "source_ready", "incomplete", "terminal"]:
+    if status == "finished" and output_realization is not None:
+        return "completed"
+    if status in {"cancelled", "failed", "finished"}:
+        return "terminal"
+    if source_ready:
+        return "source_ready"
+    return "incomplete"

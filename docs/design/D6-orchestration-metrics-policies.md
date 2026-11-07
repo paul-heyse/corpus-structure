@@ -328,14 +328,16 @@ restart, a crash) is cancelled and started again, reusing what finished; so `ops
 durable stage and `ci run` no resume.
 > Status: **Proposed** (2026-10-28)
 
-**Orphaned runs.** The orchestrator's dedicated connection, the one it `LISTEN`s on, holds a
-session-level advisory lock keyed by the run id for as long as it drives the run, and PostgreSQL
-releases the lock when that session ends, however the process stopped. `ci status` reports a run
-in progress (`running`, `awaiting_agent` or `consolidating`) whose lock is free as **orphaned**,
-and `ci run cancel RUN` sets it `cancelled` with its open tasks (`pending`, `running`,
-`awaiting_agent`), each with reason `run_cancelled`. A heartbeat column would need a writer and a staleness
-threshold; the lock needs neither.
-> Status: **Proposed** (2026-10-28)
+**Run supervision.** The supervisor holds a session-level advisory lock on a dedicated PostgreSQL
+connection outside the writer pool. PostgreSQL releases it when the session ends. Under the lock,
+the writer records active work or an intentional handoff at a retained source-ready cut. The
+reader projects `active`, `waiting`, or `orphaned` from the live lease and last durable handoff.
+An older in-progress run without supervisor evidence is `unassessed`. Terminal state comes from
+the run itself. `ci run resume RUN` uses a retained source-ready cut and refuses incomplete or
+cancelled attempts. `ci run cancel RUN` cancels the run and its open tasks with reason
+`run_cancelled`. The operational table in `corpus_runtime` carries this custody separately from
+semantic release identity. The active session can update it through the native writer routine.
+> Status: **Implemented** (2026-11-07), [CLI-CA04](../plans/cli-operations_2026-11-07.md#completion-audit).
 
 **Run statuses** (D3 `ops.run.status`): `created` → `running` → (`awaiting_agent` ↔ `running`)*
 → `consolidating` (from the seal that opens the final finalize, §3.1, through the final pass,

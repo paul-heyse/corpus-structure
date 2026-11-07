@@ -12,6 +12,7 @@ from sqlalchemy.exc import NoResultFound
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import SemanticRefusal
 
 
@@ -22,11 +23,28 @@ class RegenerationReport(BaseModel):
     source_realization_id: str
     run_id: int
     status: str
+    readiness: str
     output_realization_id: str | None = None
     selected_generation: int | None = None
     provider: dict[str, object] | None = None
     semantic_impact: dict | None = None
     compatibility_advice: tuple[str, ...] = ()
+
+
+def read_product_pin(path: Path | None, role: str) -> ProductReference | None:
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
+    if path is None:
+        return None
+    try:
+        pin = (
+            trusted_pdf_context()
+            .boundary.validate_json("PdfProductReference", path.read_bytes())
+            .model_dump(mode="python")
+        )
+        return ProductReference(**pin)
+    except (ValueError, OSError) as error:
+        raise SemanticRefusal(f"invalid {role} source product pin: {error}") from error
 
 
 def regenerate(
@@ -77,11 +95,24 @@ def regenerate(
     """
     from corpus_structure.core.method import MethodSettings
     from corpus_structure.intervene.automated import extract_run
-    from corpus_structure.orchestrate.commands import finalize_bound_run, start_bound_run
+    from corpus_structure.orchestrate.commands import (
+        finalize_bound_run,
+        run_readiness,
+        run_source_ready,
+        start_bound_run,
+    )
+    from corpus_structure.orchestrate.liveness import supervise_run
     from corpus_structure.orchestrate.project import init_bound_project
     from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.authored_sql import (
+        AuthoredSQL,
+        admit_archived_sql,
+        analyze_archived_sql,
+        has_authored_sql,
+    )
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import OperationConflict
+    from corpus_structure.semantic.publication import admit_release
     from corpus_structure.semantic.regeneration import prepare_pack
     from corpus_structure.semantic.releases import (
         ActivationToken,
@@ -90,16 +121,6 @@ def regenerate(
         persist_release,
     )
     from corpus_structure.semantic.runtime import open_runtime_engine, select_completed_result
-
-    settings = state(ctx).settings()
-    project = project or settings.runtime.default_project
-    from corpus_structure.semantic.authored_sql import (
-        AuthoredSQL,
-        admit_archived_sql,
-        analyze_archived_sql,
-        has_authored_sql,
-    )
-    from corpus_structure.semantic.publication import admit_release
     from corpus_structure.semantic.types import PreparedRelease
 
     def sql_products(release_id: str) -> dict[str, AuthoredSQL]:
@@ -134,30 +155,19 @@ def regenerate(
             ReleaseConflict,
         ),
     ) as failure:
+        settings = state(ctx).settings()
+        project = project or settings.runtime.default_project
         if not automated and (select_result or activate):
             raise SemanticRefusal("source preparation cannot select a result or activate a release")
         if native_source is not None and integrated_source is not None:
             raise SemanticRefusal("native-source and integrated-source are mutually exclusive")
         if resume_run is not None and (native_source is not None or integrated_source is not None):
             raise SemanticRefusal("a resumed run retains its original source input binding")
-        from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-        from corpus_structure.semantic.product_reference import ProductReference
-
-        def product_pin(path: Path | None, role: str) -> ProductReference | None:
-            if path is None:
-                return None
-            try:
-                pin = (
-                    trusted_pdf_context()
-                    .boundary.validate_json("PdfProductReference", path.read_bytes())
-                    .model_dump(mode="python")
-                )
-                return ProductReference(**pin)
-            except (ValueError, OSError) as error:
-                raise SemanticRefusal(f"invalid {role} source product pin: {error}") from error
-
-        native_product = product_pin(native_source, "native")
-        integrated_product = product_pin(integrated_source, "integrated")
+        native_product = read_product_pin(native_source, "native")
+        integrated_product = read_product_pin(integrated_source, "integrated")
+        completed = None
+        readiness = "source_ready"
+        run_state = "running"
         if resume_run is None:
             if domain is None or corpus is None:
                 raise SemanticRefusal("a new run requires --domain and --corpus")
@@ -184,7 +194,8 @@ def regenerate(
                 ):
                     admit_archived_sql(admission_conn, prepared.release_id, analyzed=analyzed)
                     admit_release(prepared, connection=admission_conn)
-        with open_runtime_engine(settings, "ci-regenerate", purpose="write") as engine:
+        purpose = "read" if resume_run is not None and not automated else "write"
+        with open_runtime_engine(settings, "ci-regenerate", purpose=purpose) as engine:
             if resume_run is None:
                 assert prepared is not None and source_id is not None
                 assert domain is not None and corpus is not None
@@ -228,6 +239,16 @@ def regenerate(
                         raise OperationConflict(f"no semantic run {run_id}") from error
                     if row["project_id"] != project:
                         raise OperationConflict("resume run has another project")
+                    completed = row["result_realization_id"]
+                    run_state = row["status"]
+                    readiness = run_readiness(run_state, completed, run_source_ready(conn, run_id))
+                    if readiness == "terminal":
+                        raise OperationConflict(f"run {run_id} is terminal ({run_state})")
+                    if readiness == "incomplete":
+                        raise OperationConflict(
+                            f"run {run_id} has no retained source-ready cut; inspect status "
+                            "before cancelling or starting a replacement"
+                        )
                     prepared = load_release(conn, row["release_id"])
                     failure.bind(prepared, "regenerate")
                     source_id = row["input_realization_id"]
@@ -258,22 +279,23 @@ def regenerate(
                         release_id=prepared.release_id,
                         source_realization_id=source_id,
                         run_id=run_id,
-                        status="prepared",
+                        status="complete" if completed else "prepared",
+                        readiness=readiness,
+                        output_realization_id=completed,
                         semantic_impact=impact,
                         compatibility_advice=advice,
                     ),
                     json=json,
                 )
                 return
-            runs = table("ops.run")
-            with engine.connect() as conn:
-                completed = conn.execute(
-                    select(runs.c.result_realization_id).where(runs.c.id == run_id)
-                ).scalar_one()
-            extracted = None if completed else extract_run(engine, settings, run_id)
-            provider = None if extracted is None else extracted.model_dump(mode="json")
+            provider = None
+            if completed is None and run_state != "consolidating":
+                with supervise_run(engine, run_id):
+                    extracted = extract_run(engine, settings, run_id)
+                    provider = extracted.model_dump(mode="json") if extracted is not None else None
             output = completed or f"result:{project}:{run_id}"
-            finalize_bound_run(engine, run_id, output, analytics=settings.analytics)
+            if completed is None:
+                finalize_bound_run(engine, run_id, output, analytics=settings.analytics)
         generation = None
         if activate or select_result:
             assert prepared is not None
@@ -317,6 +339,7 @@ def regenerate(
                 source_realization_id=source_id,
                 run_id=run_id,
                 status="complete",
+                readiness="completed",
                 output_realization_id=output,
                 selected_generation=generation,
                 provider=provider,

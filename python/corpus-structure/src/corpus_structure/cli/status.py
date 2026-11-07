@@ -5,7 +5,6 @@ by default. Without a reachable database the settings are still reported, with t
 
 from __future__ import annotations
 
-import os
 from typing import Annotated, Any
 
 import typer
@@ -14,19 +13,20 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, state
-from corpus_structure.settings import SettingsReport, settings_report
+from corpus_structure.cli.output import JsonOpt, cli_settings_report, emit, safe_text, state
+from corpus_structure.settings import SettingsReport
 
 
 def _render(result: BaseModel) -> RenderableType:
     assert isinstance(result, SettingsReport)
     table = Table("setting", "value", title="settings")
     for name, value in result.resolved.items():
-        table.add_row(name, value)
+        table.add_row(Text(safe_text(name)), Text(safe_text(value)))
     if not result.unknown_env:
         return table
     unknown = Text(
-        "unknown CORPUS_* variables (set nothing): " + ", ".join(result.unknown_env), style="yellow"
+        "unknown CORPUS_* variables (set nothing): " + safe_text(", ".join(result.unknown_env)),
+        style="yellow",
     )
     return Group(table, unknown)
 
@@ -58,11 +58,18 @@ def _render_status(result: BaseModel) -> RenderableType:
             "cut_name",
             "output_realization_id",
             "unresolved_agent_tasks",
+            "readiness",
+            "supervisor",
         ):
-            head.add_row(name, str(getattr(run, name)))
+            head.add_row(name, Text(safe_text(str(getattr(run, name)))))
         stages = Table("stage", "status", "reason", "tasks", title="tasks")
         for c in run.stages:
-            stages.add_row(c.stage, c.status, c.reason or "", str(c.count))
+            stages.add_row(
+                Text(safe_text(c.stage)),
+                Text(safe_text(c.status)),
+                Text(safe_text(c.reason or "")),
+                str(c.count),
+            )
         parts += [head, stages]
     if progress is not None and progress.orphaned is None:
         parts.append(Text("orphan assessment: not assessed"))
@@ -83,31 +90,30 @@ def status(
     json: JsonOpt = False,
 ) -> None:
     """Show a run's progress (the latest by default) and the resolved settings."""
-    from corpus_structure.cli import orchestrate
-    from corpus_structure.orchestrate import commands
-
-    settings = state(ctx).settings()
-    report = settings_report(settings, os.environ)
     from psycopg import OperationalError
     from psycopg_pool import PoolTimeout
 
-    try:
-        with orchestrate.READ_ENGINE(settings) as engine, engine.connect() as conn:
-            progress = commands.bound_status(
-                conn,
-                run_id,
-                project_id=project
-                or (settings.runtime.default_project if run_id is None else None),
+    from corpus_structure.cli import orchestrate
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.orchestrate import commands
+
+    with failure_boundary(json, expected=(commands.CommandError, ValueError)):
+        settings = state(ctx).settings()
+        report = cli_settings_report(settings)
+        try:
+            with orchestrate.READ_ENGINE(settings) as engine, engine.connect() as conn:
+                progress = commands.bound_status(
+                    conn,
+                    run_id,
+                    project_id=project
+                    or (settings.runtime.default_project if run_id is None else None),
+                )
+        except (PoolTimeout, OperationalError) as error:
+            result = StatusResult(
+                database_error=f"{type(error).__name__}: {safe_text(str(error))}", settings=report
             )
-    except commands.CommandError as error:
-        diagnostic(f"refused: {error}")
-        raise typer.Exit(code=1) from None
-    except (PoolTimeout, OperationalError) as error:  # unreachable: the settings still report
-        result = StatusResult(
-            database_error=f"{type(error).__name__}: {safe_text(str(error))}", settings=report
-        )
-    else:
-        result = StatusResult(progress=progress, settings=report)
+        else:
+            result = StatusResult(progress=progress, settings=report)
     emit(result, json=json, render=_render_status)
 
 

@@ -283,29 +283,6 @@ class SemanticAgentSession:
                     raise ProposalRefused("recorded source packet changed after it was served")
             return session
 
-    def status(self) -> service.QueueStatus:
-        from corpus_structure.semantic.metadata import table
-
-        tasks, configs = table("ops.task"), table("ops.method_config")
-        with self.engine.connect() as conn:
-            rows = conn.execute(
-                select(tasks.c.stage, configs.c.params, func.count().label("n"))
-                .join(configs, configs.c.id == tasks.c.method_config_id)
-                .where(tasks.c.run_id == self.run_id, tasks.c.status == "awaiting_agent")
-                .group_by(tasks.c.stage, configs.c.params)
-            ).mappings()
-            return service.QueueStatus(
-                queues=[
-                    service.QueueCount(
-                        run_id=self.run_id,
-                        stage=row["stage"],
-                        mode=row["params"].get("mode", "extract"),
-                        awaiting=row["n"],
-                    )
-                    for row in rows
-                ]
-            )
-
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
         _require_queue_mode(mode)
         from corpus_structure.methods.llm.producer import SUPPORTED_PRODUCERS, producer_binding
@@ -461,13 +438,6 @@ class SemanticProjectSession:
                 ).scalars()
             )
 
-    def status(self) -> service.QueueStatus:
-        return service.QueueStatus(
-            queues=[
-                queue for run in self.pending_runs() for queue in self.for_run(run).status().queues
-            ]
-        )
-
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
         _require_queue_mode(mode)
         if max_units is not None and max_units < 1:
@@ -582,21 +552,23 @@ def build_semantic_server(
         ):
             yield conn
 
+    bound_id = session.run_id if isinstance(session, SemanticAgentSession) else run_id
+
+    def reader_project(ctx: Context) -> str:
+        if isinstance(session, SemanticProjectSession):
+            return session.project_id
+        return ctx.lifespan_context["settings"].runtime.default_project
+
     @contextmanager
     def source_snapshot(ctx: Context, selected_run: int) -> Generator[Connection]:
         """Open source reads under the reader purpose and retain the server scope."""
         from corpus_structure.semantic.metadata import table
 
-        bound_id = session.run_id if isinstance(session, SemanticAgentSession) else run_id
         if bound_id is not None and selected_run != bound_id:
             raise ProposalRefused("this server is bound to a different semantic run")
         with reader_snapshot(ctx) as conn:
             if bound_id is None:
-                project = (
-                    session.project_id
-                    if isinstance(session, SemanticProjectSession)
-                    else ctx.lifespan_context["settings"].runtime.default_project
-                )
+                project = reader_project(ctx)
                 runs = table("ops.run")
                 belongs = conn.scalar(
                     select(runs.c.id).where(runs.c.id == selected_run, runs.c.project_id == project)
@@ -608,7 +580,7 @@ def build_semantic_server(
     from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
 
-    register_record_tools(server, bound_run)
+    register_record_tools(server, source_snapshot)
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("OperationExplanation")
@@ -754,10 +726,46 @@ def build_semantic_server(
             raise ValueError(result.error or "native region render failed")
         return _rendered_artifact_result(active.engine, result, max_bytes)
 
-    @server.tool
+    @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict)
     def queue_status(ctx: Context, run: int | None = None) -> service.QueueStatus:
-        return bound_run(ctx, run).status()
+        from corpus_structure.semantic.metadata import table
+
+        tasks, configs, runs = table("ops.task"), table("ops.method_config"), table("ops.run")
+        selected = bound_id if run is None else run
+        statement = (
+            select(tasks.c.run_id, tasks.c.stage, configs.c.params, func.count().label("n"))
+            .join(configs, configs.c.id == tasks.c.method_config_id)
+            .where(tasks.c.status == "awaiting_agent")
+            .group_by(tasks.c.run_id, tasks.c.stage, configs.c.params)
+            .order_by(tasks.c.run_id.desc())
+        )
+        if selected is not None:
+            with source_snapshot(ctx, selected) as conn:
+                rows = conn.execute(statement.where(tasks.c.run_id == selected)).mappings().all()
+        else:
+            with reader_snapshot(ctx) as conn:
+                rows = (
+                    conn.execute(
+                        statement.join(runs, runs.c.id == tasks.c.run_id).where(
+                            runs.c.project_id == reader_project(ctx),
+                            runs.c.status.in_(("created", "running")),
+                        )
+                    )
+                    .mappings()
+                    .all()
+                )
+        return service.QueueStatus(
+            queues=[
+                service.QueueCount(
+                    run_id=row["run_id"],
+                    stage=row["stage"],
+                    mode=row["params"].get("mode", "extract"),
+                    awaiting=row["n"],
+                )
+                for row in rows
+            ]
+        )
 
     @server.tool(
         output_schema=compress_schema(

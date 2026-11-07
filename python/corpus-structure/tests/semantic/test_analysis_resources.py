@@ -217,6 +217,8 @@ class FinalizationResult:
                 "project_id": "control",
                 "release_id": "release-control",
                 "input_realization_id": "source-control",
+                "status": "consolidating",
+                "result_realization_id": None,
             }
         # Native ops.run order: exercise the generated materializer before the
         # independently asserted resource snapshot reaches consolidation.
@@ -269,6 +271,9 @@ class FinalizationEngine:
 
 
 def test_finalization_preserves_selected_resource_snapshot(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+
+    from corpus_structure.orchestrate import liveness
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.semantic import domain_operations
 
@@ -281,6 +286,7 @@ def test_finalization_preserves_selected_resource_snapshot(tmp_path, monkeypatch
         return "controlled result"
 
     monkeypatch.setattr(domain_operations, "consolidate_cut", consolidated)
+    monkeypatch.setattr(liveness, "supervise_run", lambda *args: nullcontext())
     assert finalize_bound_run(engine, 17, "output", analytics=resources) == "controlled result"
     assert observed == [(engine, 1, "output", resources)]
     assert observed[0][3] is resources
@@ -313,6 +319,7 @@ def test_cli_passes_resolved_analytics_without_reacquiring_defaults(command, tmp
     monkeypatch.setattr(cli, "ENGINE", engine)
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
     monkeypatch.setattr(commands, "finalize_bound_run", finalized)
+    monkeypatch.setattr(commands, "run_source_ready", lambda *args: True)
     prepared = prepared_inputs()[2]
     monkeypatch.setattr(releases, "load_release", lambda *args: prepared)
     args = (

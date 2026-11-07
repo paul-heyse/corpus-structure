@@ -121,3 +121,36 @@ def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_pat
     assert changed.exit_code == 1
     assert "differ from the original" in json.loads(changed.stdout)["error"]["message"]
     assert len(seen) == 2
+    retained = tmp_path / "managed" / original["invocation_id"] / "selection.json"
+    retained.write_text(
+        '{"structural_selections":[{"run_id":205,"cut_id":283,"kind":"artifact_identity"}]}'
+    )
+    edited = cli("review", "retry", original["invocation_id"], "--json")
+    assert edited.exit_code == 1
+    assert "selection differs" in json.loads(edited.stdout)["error"]["message"]
+    assert len(seen) == 2
+
+
+def test_review_retry_requires_settled_cleanup(cli, tmp_path, monkeypatch):
+    from corpus_structure.serve import review_bundle
+
+    selection = tmp_path / "selection.json"
+    selection.write_text('{"structural_selections":[{"run_id":205,"cut_id":283}]}')
+    results = tmp_path / "managed"
+
+    def uncertain(_request, _destination, _settings, *, retain_binding, **_kwargs):
+        retain_binding("bound-source")
+        error = ValueError("capture owner lost its connection")
+        error.add_note("database cleanup failed")
+        raise error
+
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(results))
+    monkeypatch.setattr(review_bundle, "export_review_bundle", uncertain)
+    failed = cli("review", "export", str(selection), "--exact-closure", "--json")
+    assert failed.exit_code == 1
+    manifest_path = next(results.glob("*/manifest.json"))
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["details"]["custody_unsettled"] is True
+    retry = cli("review", "retry", manifest["id"], "--json")
+    assert retry.exit_code == 1
+    assert "proof that the previous capture settled" in json.loads(retry.stdout)["error"]["message"]

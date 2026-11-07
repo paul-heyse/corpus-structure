@@ -195,11 +195,38 @@ def export_operation_review(
     output(result, json)
 
 
+@eval_app.command("operation-event-availability")
+def operation_event_availability(
+    ctx: typer.Context,
+    run: Annotated[int, typer.Argument(metavar="RUN")],
+    evaluation: Annotated[int | None, typer.Option()] = None,
+    project: str | None = None,
+    json: JsonOpt = False,
+):
+    """Inspect exact emitted events and a selected protected evaluation before fitting."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import state
+    from corpus_structure.evaluate.operation_fitting import operation_event_availability as inspect
+
+    with failure_boundary(json):
+        settings = state(ctx).settings()
+        result = inspect(
+            settings,
+            project_id=project or settings.runtime.default_project,
+            run_id=run,
+            evaluation_id=evaluation,
+        )
+    output(result, json)
+
+
 @eval_app.command("operation-event-fit")
 def operation_event_fit(
     ctx: typer.Context,
-    evaluation: Annotated[int, typer.Option()],
-    project: Annotated[str, typer.Option()],
+    evaluation: Annotated[int | None, typer.Option()] = None,
+    project: Annotated[str | None, typer.Option()] = None,
+    run: Annotated[
+        int | None, typer.Option(help="Check an exact completed event population.")
+    ] = None,
     out: Annotated[Path | None, typer.Option()] = None,
     json: JsonOpt = False,
 ):
@@ -209,17 +236,28 @@ def operation_event_fit(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.output import state
     from corpus_structure.evaluate.operation_fitting import fit_native_operation_event
+    from corpus_structure.evaluate.operation_fitting import operation_event_availability as inspect
+    from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     if out is not None and out.exists():
         raise typer.BadParameter("runtime parameter output already exists")
-    with (
-        failure_boundary(json),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-event-fit", purpose="fit"
-        ) as engine,
-    ):
-        result = fit_native_operation_event(engine, project_id=project, evaluation_id=evaluation)
+    with failure_boundary(json):
+        settings = state(ctx).settings()
+        project = project or settings.runtime.default_project
+        if run is not None:
+            availability = inspect(
+                settings, project_id=project, run_id=run, evaluation_id=evaluation
+            )
+            if availability.status != "ready":
+                output(availability, json)
+                return
+        if evaluation is None:
+            raise SemanticRefusal("select --run to inspect availability or --evaluation to fit")
+        with open_runtime_engine(settings, "ci-event-fit", purpose="fit") as engine:
+            result = fit_native_operation_event(
+                engine, project_id=project, evaluation_id=evaluation
+            )
     parameters = result["result"]["parameters"]
     if out is not None and parameters is not None:
         with out.open("x") as stream:

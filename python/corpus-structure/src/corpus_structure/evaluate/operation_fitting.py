@@ -84,6 +84,126 @@ class NativeOperationEventFrame(EventContract):
     frame: OperationEventFrame
 
 
+class OperationEventAvailability(EventContract):
+    status: Literal["missing_events", "missing_evaluation", "unfit", "ready"]
+    project_id: str
+    run_id: int
+    cut_id: int
+    release_id: str
+    compatible_events: int
+    evaluation_id: int | None = None
+    next_action: str
+
+
+def read_operation_event_population(conn, *, project_id: str, run_id: int):
+    """Find distinct, exact emitted events in one completed cut under reader authority."""
+    from sqlalchemy import func, select
+
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.refusals import SemanticRefusal
+
+    run, complete, membership, contribution = map(
+        table, ("ops.run", "ops.completed_result", "ops.cut_task", "kb.source_contribution")
+    )
+    binding = conn.execute(
+        select(complete.c.cut_id, complete.c.release_id)
+        .join(run, run.c.id == complete.c.run_id)
+        .where(run.c.id == run_id, run.c.project_id == project_id)
+    ).one_or_none()
+    if binding is None:
+        raise SemanticRefusal(
+            "fitting availability requires a completed run in the selected project"
+        )
+    events = (
+        select(contribution.c.task_id, contribution.c.contribution_id)
+        .join(membership, membership.c.origin_task_id == contribution.c.task_id)
+        .where(
+            membership.c.cut_id == binding.cut_id,
+            contribution.c.kind == "relation",
+            contribution.c.semantic_type == "relation.defined_by",
+        )
+        .distinct()
+        .subquery()
+    )
+    return binding.cut_id, binding.release_id, conn.scalar(select(func.count()).select_from(events))
+
+
+def operation_event_availability(
+    settings, *, project_id: str, run_id: int, evaluation_id: int | None = None
+) -> OperationEventAvailability:
+    """Project aggregate applicability without running a fit or disclosing protected labels."""
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with (
+        open_runtime_engine(settings, "ci-event-availability", purpose="read") as engine,
+        read_snapshot(engine) as conn,
+    ):
+        cut, release, events = read_operation_event_population(
+            conn, project_id=project_id, run_id=run_id
+        )
+    scope = dict(
+        project_id=project_id,
+        run_id=run_id,
+        cut_id=cut,
+        release_id=release,
+        compatible_events=events,
+        evaluation_id=evaluation_id,
+    )
+    evaluation_remedy = (
+        "Use ci eval run with a protected development or feature-fit operation assessment "
+        "for this cut, then pass its exact --evaluation ID."
+    )
+    if not events:
+        return OperationEventAvailability(
+            **scope,
+            status="missing_events",
+            next_action=(
+                "Inspect ci contributions list for this run, then use the producer for "
+                "relation.defined_by events before authoring a correctness assessment."
+            ),
+        )
+    if evaluation_id is None:
+        return OperationEventAvailability(
+            **scope, status="missing_evaluation", next_action=evaluation_remedy
+        )
+    try:
+        with (
+            open_runtime_engine(settings, "ci-event-availability", purpose="fit") as engine,
+            read_snapshot(engine) as conn,
+        ):
+            native, frame = read_native_frame(
+                conn, project_id=project_id, evaluation_id=evaluation_id
+            )
+    except DBAPIError as error:
+        if getattr(error.orig, "sqlstate", None) not in {"P0002", "23514"}:
+            raise
+        return OperationEventAvailability(
+            **scope, status="missing_evaluation", next_action=evaluation_remedy
+        )
+    if native["run_id"] != run_id or native["cut_id"] != cut or native["release_id"] != release:
+        return OperationEventAvailability(
+            **scope, status="missing_evaluation", next_action=evaluation_remedy
+        )
+    judgments = {observation.judgment for observation in frame.observations}
+    if not {"supported", "unsupported"} <= judgments:
+        return OperationEventAvailability(
+            **scope,
+            status="unfit",
+            next_action=(
+                "Return to the independent operation assessment. A fit needs at least "
+                "one supported and one unsupported exact event."
+            ),
+        )
+    return OperationEventAvailability(
+        **scope,
+        status="ready",
+        next_action=f"ci eval operation-event-fit --run {run_id} --evaluation {evaluation_id}",
+    )
+
+
 class EventPrediction(EventContract):
     event_id: str = Field(min_length=1)
     judgment: Literal["supported", "unsupported", "ambiguous", "unassessed"]

@@ -164,6 +164,73 @@ def test_db_migrate_uses_semantic_history_and_refuses_legacy(semantic_db_engine)
         _migrate(semantic_db_engine, "owned-test", False)
 
 
+def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_reader_engine,
+    semantic_application_settings,
+    tmp_path,
+):
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.orchestrate.commands import bound_status, cancel_bound_run
+    from corpus_structure.orchestrate.liveness import (
+        record_supervisor,
+        run_supervisor,
+        supervisor_connection,
+    )
+    from corpus_structure.semantic.operations import seal_cut, start_run
+
+    _, run, _, _ = build_resubmission_case(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "liveness.pdf"
+    )
+    settings = semantic_application_settings
+    settings = settings.model_copy(
+        update={"database": settings.database.model_copy(update={"pool_max_size": 1})}
+    )
+
+    def status(expected):
+        with semantic_reader_engine.connect() as reader:
+            progress = bound_status(reader, run, project_id="resubmit")
+        assert progress.run is not None
+        assert progress.run.supervisor == expected
+        assert progress.orphaned == (
+            [run] if expected == "orphaned" else None if expected == "unassessed" else []
+        )
+
+    status("unassessed")
+    with open_runtime_engine(settings, purpose="write", timeout=3) as engine:
+        with engine.begin() as writer:
+            start_run(writer, run)
+        with (
+            engine.connect() as writer,
+            pytest.raises(DBAPIError, match="requires the active session lease"),
+        ):
+            record_supervisor(writer, run, waiting=False)
+        with (
+            semantic_reader_engine.connect() as reader,
+            pytest.raises(DBAPIError, match="permission denied"),
+        ):
+            record_supervisor(reader, run, waiting=False)
+        with supervisor_connection(engine) as supervisor, run_supervisor(supervisor, run):
+            record_supervisor(supervisor, run, waiting=False)
+            supervisor.commit()
+            status("active")
+            with engine.begin() as writer:
+                seal_cut(writer, run, "source-ready")
+            record_supervisor(supervisor, run, waiting=True)
+            supervisor.commit()
+        status("waiting")
+        with supervisor_connection(engine) as supervisor, run_supervisor(supervisor, run):
+            record_supervisor(supervisor, run, waiting=False)
+            supervisor.commit()
+            status("active")
+            supervisor.invalidate()
+        status("orphaned")
+        assert cancel_bound_run(engine, run).run_id == run
+        status("terminal")
+
+
 def test_default_mcp_and_direct_share_protected_direction_log(
     semantic_db_engine,
     semantic_writer_engine,
@@ -378,11 +445,12 @@ def test_current_cli_stdio_journey_and_settlement(
                 if mode == "early_exit":
                     return
                 assert (await client.call_tool("queue_status", {"run": run})).structured_content
-                assert set(writer_principals()) == {"corpus_sem_writer"}
+                assert writer_principals() == []
                 if mode == "cancelled":
                     cancellation.cancel()
                     await anyio.sleep(0)
                 unit = await lease_and_read(client, run, task)
+                assert set(writer_principals()) == {"corpus_sem_writer"}
                 if mode == "tool_failure":
                     with pytest.raises(
                         ToolError,

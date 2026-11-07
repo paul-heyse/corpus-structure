@@ -20,7 +20,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
+from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.core.vocab import AgentMode, AgentReuse, GpuMode, TaskStatus
 
 project_app = typer.Typer(help="Create the project from a pack and corpus.", no_args_is_help=True)
@@ -63,8 +63,8 @@ def _phase0() -> dict[str, Any]:
 PHASE0: Callable[[], dict[str, Any]] = _phase0
 
 
-@contextmanager
-def _refusals() -> Generator[None]:
+def _refusals(json: bool):
+    from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.orchestrate import commands, project, registry
     from corpus_structure.orchestrate.errors import RunError
     from corpus_structure.orchestrate.policy import PolicyError
@@ -72,20 +72,19 @@ def _refusals() -> Generator[None]:
     from corpus_structure.semantic.domain_operations import DomainOperationRefused
     from corpus_structure.semantic.operations import OperationConflict
 
-    try:
-        yield
-    except (
-        commands.CommandError,
-        project.ProjectError,
-        registry.RegistryError,
-        RunError,
-        OperationConflict,
-        DomainOperationRefused,
-        SliceError,
-        PolicyError,
-    ) as error:
-        diagnostic(f"refused: {error}")
-        raise typer.Exit(code=1) from None
+    return failure_boundary(
+        json,
+        expected=(
+            commands.CommandError,
+            project.ProjectError,
+            registry.RegistryError,
+            RunError,
+            OperationConflict,
+            DomainOperationRefused,
+            SliceError,
+            PolicyError,
+        ),
+    )
 
 
 def _table(title: str, result: BaseModel) -> Table:
@@ -119,7 +118,7 @@ def project_init(
 
     settings = state(ctx).settings()
     seams = PHASE0()
-    with _refusals(), ENGINE(settings) as engine, engine.begin() as conn:
+    with _refusals(json), ENGINE(settings) as engine, engine.begin() as conn:
         if semantic_release is None or realization is None:
             raise typer.BadParameter("initialization requires --semantic-release and --realization")
         report = project.init_bound_project(
@@ -247,7 +246,7 @@ def run(
     if gpu_mode is not None:
         raise typer.BadParameter("the selected semantic graph has no GPU operation")
     project = project or settings.runtime.default_project
-    with _refusals(), ENGINE(settings) as engine:
+    with _refusals(json), ENGINE(settings) as engine:
         with engine.connect() as conn:
             release_id, realization_id = resolve_source_binding(
                 conn, project, release_id=semantic_release, realization_id=realization
@@ -296,7 +295,7 @@ def run_cancel(
     """Cancel a run and its open tasks."""
     from corpus_structure.orchestrate import commands
 
-    with _refusals(), ENGINE(state(ctx).settings()) as engine:
+    with _refusals(json), ENGINE(state(ctx).settings()) as engine:
         report = commands.cancel_bound_run(engine, run_id)
     emit(report, json=json, render=lambda r: _table("cancelled", r))
 
@@ -341,7 +340,7 @@ def run_finalize(
     from corpus_structure.semantic.domain_operations import DomainResult
 
     settings = state(ctx).settings()
-    with _refusals(), ENGINE(settings) as engine:
+    with _refusals(json), ENGINE(settings) as engine:
         result = commands.finalize_bound_run(
             engine, run_id, output_realization, analytics=settings.analytics
         )
@@ -398,7 +397,7 @@ def tasks(
     """List a run's tasks (the latest run by default)."""
     from corpus_structure.orchestrate import commands
 
-    with _refusals(), READ_ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
+    with _refusals(json), READ_ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
         listing = commands.bound_task_listing(
             conn,
             run_id,
@@ -413,31 +412,68 @@ def tasks(
 
 def ingest(
     ctx: typer.Context,
-    domain: Annotated[str, typer.Option(help="Executable domain pack.")],
-    corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    domain: Annotated[str | None, typer.Option(help="Choose an ambiguous executable pack.")] = None,
+    corpus: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
     project: str | None = None,
+    semantic_release: Annotated[str | None, typer.Option(help="Already admitted release.")] = None,
+    realization: Annotated[str | None, typer.Option(help="Exact bound input realization.")] = None,
     slice: str | None = None,
     scope: str | None = None,
     native_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     integrated_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     json: JsonOpt = False,
 ) -> None:
-    """Prepare the selected corpus source cut without extracting or selecting a result."""
-    from corpus_structure.cli.regenerate import regenerate
+    """Prepare a source cut for an existing bound project."""
+    from corpus_structure.cli.regenerate import read_product_pin
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.orchestrate import commands
+    from corpus_structure.orchestrate.project import init_bound_project
+    from corpus_structure.semantic.runtime import resolve_source_binding
 
-    regenerate(
-        ctx,
-        domain,
-        corpus,
-        project=project,
-        slice=slice,
-        scope=scope,
-        native_source=native_source,
-        integrated_source=integrated_source,
-        automated=False,
-        select_result=False,
-        json=json,
-    )
+    with _refusals(json), ENGINE(settings := state(ctx).settings()) as engine:
+        project = project or settings.runtime.default_project
+        if native_source is not None and integrated_source is not None:
+            raise commands.CommandError(
+                "native-source and integrated-source are mutually exclusive"
+            )
+        native_product = read_product_pin(native_source, "native")
+        integrated_product = read_product_pin(integrated_source, "integrated")
+        with engine.begin() as conn:
+            release, source = resolve_source_binding(
+                conn, project, release_id=semantic_release, realization_id=realization
+            )
+            domain = commands.resolve_source_domain(conn, project, release, domain)
+            if corpus is not None:
+                init_bound_project(
+                    conn,
+                    domain=domain,
+                    corpus=corpus,
+                    release_id=release,
+                    realization_id=source,
+                    name=project,
+                )
+        result = commands.start_bound_run(
+            engine,
+            release_id=release,
+            realization_id=source,
+            project_id=project,
+            domain=domain,
+            method_settings=MethodSettings(
+                data_dir=settings.paths.data_dir,
+                model_cache=settings.paths.model_cache,
+                nemotron_endpoint=settings.nemotron.endpoint,
+                nemotron_python=settings.nemotron.python,
+                nemotron_worker=settings.nemotron.worker,
+                nemotron_receipts=settings.nemotron.receipts,
+                nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
+            ),
+            slice=slice,
+            scope=scope,
+            native_product=native_product,
+            integrated_product=integrated_product,
+            source_only=True,
+        )
+    emit(result, json=json)
 
 
 def register(app: typer.Typer) -> None:
