@@ -20,6 +20,14 @@ origins remain independently citable. Population inclusion retains an exact loca
 convention. Formula occurrence recovery keeps syntax and original native coordinates available
 to later consumers. [Development replay](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#qualifier-scope-completion)
 
+**Implemented, 2026-11-07.** A qualified comparison has two source-bound sides. Ordered
+dimension members retain their exact occurrences and premises. Presence, known emptiness,
+grouping, and alignment determine which comparisons the source supports. A model role can
+be retained independently of a complete definition, whose directed attachment must be
+reconstructed from its retained model envelope or witnessed source rule. Exact contextual
+nomination preserves a source-supported target and its route before exploratory ranking.
+[NCE execution evidence](../design_review/evidence/2026-11-07_nce-comparison-model-links/README.md)
+
 **Implemented; bounded Tested,2026-11-06.** Located definition components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Domain relationship constraints distinguish compatible selected edges from exclusive alternatives. Logical relationship identity binds source-resolved target meaning and qualifiers; opaque retrieval IDs, evidence-basis IDs and assessment wording remain provenance. Inventory-local semantic groups retain every qualifying origin without establishing global concept identity.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and

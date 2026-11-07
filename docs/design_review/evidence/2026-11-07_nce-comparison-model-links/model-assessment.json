@@ -1,0 +1,847 @@
+{
+  "definitions": {
+    "bare": {
+      "roles_with_exact_locations": 17,
+      "windows_with_roles": [
+        [
+          "benefit:122",
+          1599,
+          1849
+        ],
+        [
+          "benefit:135",
+          4337,
+          5070
+        ],
+        [
+          "benefit:147",
+          74,
+          561
+        ]
+      ],
+      "stages": [
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 1599:1849: 9 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 1599:1849: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 6 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 1 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 74:561: 2 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 74:561: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        }
+      ],
+      "cases": {
+        "benefit:122": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        },
+        "benefit:135": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": [
+            {
+              "term": [
+                "benefit:135",
+                4430,
+                4444,
+                "expected value"
+              ],
+              "content": [
+                "benefit:135",
+                4456,
+                4473,
+                "symmetric gambles"
+              ],
+              "interpretation": "explanation"
+            }
+          ]
+        },
+        "benefit:147": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        }
+      }
+    },
+    "described": {
+      "roles_with_exact_locations": 20,
+      "windows_with_roles": [
+        [
+          "benefit:122",
+          1599,
+          1849
+        ],
+        [
+          "benefit:135",
+          4337,
+          5070
+        ],
+        [
+          "benefit:147",
+          74,
+          561
+        ]
+      ],
+      "stages": [
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 1599:1849: 12 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 1599:1849: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 7 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 4337:5070: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 74:561: 1 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 74:561: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        }
+      ],
+      "cases": {
+        "benefit:122": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        },
+        "benefit:135": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        },
+        "benefit:147": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        }
+      }
+    },
+    "flat": {
+      "roles_with_exact_locations": 17,
+      "windows_with_roles": [
+        [
+          "benefit:122",
+          1599,
+          1849
+        ],
+        [
+          "benefit:135",
+          4337,
+          5070
+        ],
+        [
+          "benefit:147",
+          74,
+          561
+        ]
+      ],
+      "stages": [
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 1599:1849: 9 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 1599:1849: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 6 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 1 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 74:561: 2 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 74:561: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        }
+      ],
+      "cases": {
+        "benefit:122": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        },
+        "benefit:135": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": [
+            {
+              "term": [
+                "benefit:135",
+                4430,
+                4444,
+                "expected value"
+              ],
+              "content": [
+                "benefit:135",
+                4456,
+                4473,
+                "symmetric gambles"
+              ],
+              "interpretation": "explanation"
+            }
+          ]
+        },
+        "benefit:147": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        }
+      }
+    },
+    "nested": {
+      "roles_with_exact_locations": 21,
+      "windows_with_roles": [
+        [
+          "benefit:122",
+          1599,
+          1849
+        ],
+        [
+          "benefit:135",
+          4337,
+          5070
+        ],
+        [
+          "benefit:147",
+          74,
+          561
+        ]
+      ],
+      "stages": [
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 1599:1849: 13 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 1599:1849: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 6 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 1 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 74:561: 2 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 74:561: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        }
+      ],
+      "cases": {
+        "benefit:122": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        },
+        "benefit:135": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": [
+            {
+              "term": [
+                "benefit:135",
+                4430,
+                4444,
+                "expected value"
+              ],
+              "content": [
+                "benefit:135",
+                4456,
+                4473,
+                "symmetric gambles"
+              ],
+              "interpretation": "explanation"
+            }
+          ]
+        },
+        "benefit:147": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        }
+      }
+    },
+    "allow": {
+      "roles_with_exact_locations": 21,
+      "windows_with_roles": [
+        [
+          "benefit:122",
+          1599,
+          1849
+        ],
+        [
+          "benefit:135",
+          4337,
+          5070
+        ],
+        [
+          "benefit:147",
+          74,
+          561
+        ]
+      ],
+      "stages": [
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Current named rules executed on authenticated retained annotation columns."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 1599:1849: 13 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:122",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 1599:1849: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 6 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:135",
+          "operation": "attachment",
+          "outcome": "succeeded",
+          "reason": "Window 4337:5070: 1 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "located_extraction",
+          "outcome": "succeeded",
+          "reason": "Window 74:561: 2 source-validated entity proposals retained; role/support remains unassessed."
+        },
+        {
+          "passage_id": "benefit:147",
+          "operation": "attachment",
+          "outcome": "empty",
+          "reason": "Window 74:561: 0 individually decoded role-and-attachment components retained; 0 rejected candidates retained with indexed reasons; no absence or semantic correctness claim."
+        }
+      ],
+      "cases": {
+        "benefit:122": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        },
+        "benefit:135": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": [
+            {
+              "term": [
+                "benefit:135",
+                4430,
+                4444,
+                "expected value"
+              ],
+              "content": [
+                "benefit:135",
+                4456,
+                4473,
+                "symmetric gambles"
+              ],
+              "interpretation": "explanation"
+            }
+          ]
+        },
+        "benefit:147": {
+          "expected_term_returned": false,
+          "expected_content_returned": false,
+          "expected_attachment_returned": false,
+          "model_attachments": []
+        }
+      }
+    }
+  },
+  "classification": {
+    "exact_focus": {
+      "policy": "exact_focus",
+      "readings": [
+        {
+          "expected_function": "explanation",
+          "expected_presentation": [],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:122",
+            "start": 1724,
+            "end": 1773,
+            "text": "the probability that X is less than Y is given by"
+          },
+          "preceding": null,
+          "following": null,
+          "context_digest": "cdf870fbd9083abf484345197e096f0c7d5f3e02fdc1142a603ce8642fdfe54e",
+          "envelope": "1621fd876b0c9a6639dac9d1b7464cbdf925679f6838b60adea6d4ea9c83aea6",
+          "function": [
+            {
+              "label": "assumption_restriction",
+              "score": 0.503081202507019,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "attribution",
+              "score": 0.18464933335781097,
+              "accepted": false
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        },
+        {
+          "expected_function": "reference",
+          "expected_presentation": [
+            "attribution",
+            "historical"
+          ],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:135",
+            "start": 4354,
+            "end": 4403,
+            "text": "defining the expected value as a weighted average"
+          },
+          "preceding": null,
+          "following": null,
+          "context_digest": "4c32fab5e2d084984d5d1fb3a37e5bd1baebba4804b9b3c45a26d5b919e92d13",
+          "envelope": "c350dfb526906ac28f1d6983b12ace355c73acbad1f4cb163cdf26495c2f8c6d",
+          "function": [
+            {
+              "label": "definition",
+              "score": 0.9854891896247864,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "example",
+              "score": 0.09635630249977112,
+              "accepted": false
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        },
+        {
+          "expected_function": "definition",
+          "expected_presentation": [],
+          "function_matches": true,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:147",
+            "start": 296,
+            "end": 350,
+            "text": "This set of points is called a set of constant density"
+          },
+          "preceding": null,
+          "following": null,
+          "context_digest": "7bb3d9be88e07b15a76e0e1410ec48c2b50a94561ae78e4bbd685328350674bb",
+          "envelope": "010c3c3f0347831972c2f53bdb90875250d3a55f498ca98a2f646d5af4fd85b2",
+          "function": [
+            {
+              "label": "definition",
+              "score": 0.8567234873771667,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "example",
+              "score": 0.10123304277658463,
+              "accepted": false
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        },
+        {
+          "expected_function": "prescribed_action",
+          "expected_presentation": [],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:147",
+            "start": 470,
+            "end": 474,
+            "text": "Show"
+          },
+          "preceding": null,
+          "following": null,
+          "context_digest": "10af97f49bb48340f41f45f9cba7740b9cbd7a3722ee135259a5256375d24d0c",
+          "envelope": "467b9c8047ba4af3e9dfbe5d90e11b43e66029124d7f00aa03927e0738b176a6",
+          "function": [
+            {
+              "label": "definition",
+              "score": 0.7435651421546936,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "example",
+              "score": 0.972404420375824,
+              "accepted": true
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        }
+      ]
+    },
+    "adjacent_sentences": {
+      "policy": "adjacent_sentences",
+      "readings": [
+        {
+          "expected_function": "explanation",
+          "expected_presentation": [],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:122",
+            "start": 1724,
+            "end": 1773,
+            "text": "the probability that X is less than Y is given by"
+          },
+          "preceding": {
+            "passage_id": "benefit:122",
+            "start": 1679,
+            "end": 1697,
+            "text": "= \u03bbe-\u03bbx and g(x) ="
+          },
+          "following": null,
+          "context_digest": "667ca9395b26ecc9ace4eb31f101f60927aa8cbbe8cab7605d41ca65ef2cdfac",
+          "envelope": "add8f030686119b555b8bfbbc79a182ec9ccd4aa9c4b667c21ea60f61d798a92",
+          "function": [
+            {
+              "label": "assumption_restriction",
+              "score": 0.4147719442844391,
+              "accepted": false
+            }
+          ],
+          "presentation": [
+            {
+              "label": "attribution",
+              "score": 0.17615769803524017,
+              "accepted": false
+            }
+          ],
+          "disposition": "withheld",
+          "reason": "No resolved label met the application threshold."
+        },
+        {
+          "expected_function": "reference",
+          "expected_presentation": [
+            "attribution",
+            "historical"
+          ],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:135",
+            "start": 4354,
+            "end": 4403,
+            "text": "defining the expected value as a weighted average"
+          },
+          "preceding": null,
+          "following": {
+            "passage_id": "benefit:135",
+            "start": 4525,
+            "end": 4684,
+            "text": "Although this requires a good deal of clever manipulation, Huygens ended up with values that agree with those given by our modern definition of expected value."
+          },
+          "context_digest": "09679d450efc93e4011bc4a03ffa8623cab6fa88770a8c1ec1434700b5fbe1e9",
+          "envelope": "b8bd9473d5b85efb0920ff705c9cd367475b44e149c7ade1d0a528d3fc832524",
+          "function": [
+            {
+              "label": "definition",
+              "score": 0.5248286128044128,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "example",
+              "score": 0.5534808039665222,
+              "accepted": true
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        },
+        {
+          "expected_function": "definition",
+          "expected_presentation": [],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:147",
+            "start": 296,
+            "end": 350,
+            "text": "This set of points is called a set of constant density"
+          },
+          "preceding": {
+            "passage_id": "benefit:147",
+            "start": 175,
+            "end": 295,
+            "text": "Now suppose that we want to know the set of points (x, y) in the xy-plane such that fX,Y (x, y) = C for some constant C."
+          },
+          "following": {
+            "passage_id": "benefit:147",
+            "start": 352,
+            "end": 469,
+            "text": "Roughly speaking, a set of constant density is a set of points where the outcomes (X, Y ) are equally likely to fall."
+          },
+          "context_digest": "0702ff1ca8e15838a586ffe807cbc426c5895593fd575167f4be9b73c8096cf3",
+          "envelope": "5ac166a0f32103f89c34deea120056f1449b1bae2ce75839e6c573537b2091fa",
+          "function": [
+            {
+              "label": "reference",
+              "score": 0.5152721405029297,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "unresolved",
+              "score": 0.1888633817434311,
+              "accepted": false
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        },
+        {
+          "expected_function": "prescribed_action",
+          "expected_presentation": [],
+          "function_matches": false,
+          "expected_presentation_retained": [],
+          "focus": {
+            "passage_id": "benefit:147",
+            "start": 470,
+            "end": 474,
+            "text": "Show"
+          },
+          "preceding": {
+            "passage_id": "benefit:147",
+            "start": 352,
+            "end": 469,
+            "text": "Roughly speaking, a set of constant density is a set of points where the outcomes (X, Y ) are equally likely to fall."
+          },
+          "following": null,
+          "context_digest": "6281257f1cb2dcba358fd8fd1823cc2aebd4ee0ebea98554339b9d250a0650f4",
+          "envelope": "b517722599a1acbaf4b6934154ea5e29391190f4126f462d1a3c500daf52265f",
+          "function": [
+            {
+              "label": "definition",
+              "score": 0.8979119062423706,
+              "accepted": true
+            }
+          ],
+          "presentation": [
+            {
+              "label": "example",
+              "score": 0.30346739292144775,
+              "accepted": false
+            }
+          ],
+          "disposition": "observed",
+          "reason": "Located model observation."
+        }
+      ]
+    }
+  }
+}

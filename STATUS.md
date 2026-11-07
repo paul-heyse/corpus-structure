@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. NCE-01 and the selected NCE-02 scope are verified in development. Live production qualification and WCE12 remain open._
+_Updated 2026-11-07. Selected NCE-01 through NCE-06 paths are verified in development. Full NCE-06 delivery, live qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -20,7 +20,7 @@ _Updated 2026-11-07. NCE-01 and the selected NCE-02 scope are verified in develo
   [repair account](docs/design_review/evidence/2026-11-06_wce-completion-repair/README.md).
 - The original 97 GLiNER2.5 envelopes supplied the retained model evidence. Native run207
   withheld the unsupported formula X link while keeping its candidate list. The exact
-  formula Z occurrence was later recovered in NCE-02. The eligible standard-normal target remains open.
+  formula Z occurrence was recovered in NCE-02 and linked to its declaration in NCE-06.
 - Both table weighting modes selected all nine supported readings at each declared scale.
   The WCE artifact reference includes 13 supported pairs, three originally native-only.
 
@@ -49,11 +49,11 @@ _Updated 2026-11-07. NCE-01 and the selected NCE-02 scope are verified in develo
 
 ## Next
 
-- The [next corpus enrichment series](docs/plans/next-corpus-enrichment_2026-11-07.md#selected-execution--2026-11-07)
-  owns NCE-01/02. Development revision `semantic_nce02_scope_guard` is installed.
-  Scoped run 224 recovered five qualifier attachments and exact formula Z. Native list
-  fixtures, affected tests and current and archived detached delivery passed. Live adoption,
-  additional formal interpretation, and standard-normal target eligibility remain open.
+- The [next corpus enrichment series](docs/plans/next-corpus-enrichment_2026-11-07.md#nce-03-through-nce-06-development-execution)
+  owns development evidence for comparison, private model observations and witnessed links.
+  Revision `semantic_nce03_06_witness_fence` is installed. The matched provider arms give no
+  adoption evidence. Generic cross-view section headings, broader dependency-based cue
+  recipes, and live adoption remain open.
 - Settle the remaining source opportunities and exact native table factor reconstruction in
   the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
   Fitting remains `not_run` pending compatible events and protected evaluations.

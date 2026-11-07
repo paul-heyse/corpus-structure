@@ -1389,10 +1389,16 @@ introduction has its explicit limited policy; it establishes neither transfer ap
 independent semantic support. The old six-way pair classifier and supplied definition bridge
 have been removed.
 
-**Implemented, 2026-11-07.** The current routes use `structure.compare/2`,
-`structure.dossier/2` and `structure.artifact_identity/2` on retained evidence.
-`structure.scoped_relations/3` produces exact scoped candidates and declared table
-policy inputs. The supplied structural report operation is retired. Finite RUN
+**Implemented, 2026-11-07.** The current routes use `structure.compare/3`,
+`structure.dossier/2` and `structure.artifact_identity/2` on retained evidence. Comparison
+binds two retained predicate readings and their host qualifier populations.
+`structure.scoped_relations/6` produces exact scoped candidates, source-witnessed links,
+and declared table policy inputs. `retrieve.contextual/6` preserves exact source nominations
+through exploratory ranking and can serve them when exploratory retrieval is unavailable.
+`structure.definition_components/8` retains independently located model roles and the raw
+directed attachment. `structure.clause_classification/1` records private observations on
+authenticated exact focuses. Later scoped interpretation can cite the observation and report
+its agreement with the deterministic reading. Finite RUN
 operations retain the existing task, release and native completion owner.
 A graph permits one effective config per method; conflicting defaults refuse before DB/model work,
 while equivalent aliases/global overrides remain valid. Separate executions can be explicitly

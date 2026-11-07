@@ -1,0 +1,331 @@
+{
+  "date": "2026-11-07",
+  "target": "development",
+  "deployments": {
+    "initial": {
+      "result_id": "8f0cee5e4b8a4446aa632b9493f2c197",
+      "stage": "deployed",
+      "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+      "changed": [],
+      "predecessor": "semantic_nce02_scope_guard",
+      "release": "release:e98627a36859c9b99fe46b7e5895c14394101633ee8fec9ba3e5e03314281dd5",
+      "target_profile": "development",
+      "acquired_target": {
+        "database": "corpus_structure_dev",
+        "database_oid": 25921445,
+        "system_identifier": "7701811359771751232",
+        "host": "/var/run/postgresql",
+        "port": 5434,
+        "purpose": "maintenance"
+      }
+    },
+    "model_fence": {
+      "result_id": "0ac958ae299445338f1267131435e537",
+      "stage": "deployed",
+      "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+      "changed": [],
+      "predecessor": "semantic_nce03_06_witnessed",
+      "release": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "target_profile": "development",
+      "acquired_target": {
+        "database": "corpus_structure_dev",
+        "database_oid": 25921445,
+        "system_identifier": "7701811359771751232",
+        "host": "/var/run/postgresql",
+        "port": 5434,
+        "purpose": "maintenance"
+      }
+    },
+    "witness_fence": {
+      "result_id": "2c53fb82925a42e2a19c1806bb7d6757",
+      "stage": "deployed",
+      "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+      "changed": [],
+      "predecessor": "semantic_nce03_06_model_fence",
+      "release": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "target_profile": "development",
+      "acquired_target": {
+        "database": "corpus_structure_dev",
+        "database_oid": 25921445,
+        "system_identifier": "7701811359771751232",
+        "host": "/var/run/postgresql",
+        "port": 5434,
+        "purpose": "maintenance"
+      }
+    }
+  },
+  "qualified_runs": {
+    "clause-adjacent_sentences": {
+      "cut_id": 337,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 238,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "clause-exact_focus": {
+      "cut_id": 335,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 237,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "comparison": {
+      "cut_id": 323,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 231,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "definition-allow": {
+      "cut_id": 333,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 236,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "definition-bare": {
+      "cut_id": 325,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 232,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "definition-described": {
+      "cut_id": 327,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 233,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "definition-flat": {
+      "cut_id": 329,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 234,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "definition-nested": {
+      "cut_id": 331,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 235,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    }
+  },
+  "comparison_product": "structural:5d179a79c041b026794495378b63e1c13faca69a2e1f8018a74757124f3a2d04",
+  "link_run": {
+    "run": {
+      "cut_id": 339,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+      "result_revision": 1,
+      "run_id": 240,
+      "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+    },
+    "standard_normal": "source-contribution:7558a88fb107cf1e7b6e2b3d137abb47ac4cea36936cd1218245f170bbe12195",
+    "table_6_1": "source-contribution:41fa5ac11a23f9548f870d5440a01f14b2277b7cc5fcdac626d4343191204618",
+    "unresolved_external": "source-contribution:d4bfd634e71f94942556625d84b341dd488d8be23bfd3ee3e1c8c7ea969cd43d"
+  },
+  "contextual_control": {
+    "outcome": "passed",
+    "occurrence": "source-occurrence:ebc4ebfc7e4b4262b1236aad4d78de9fd282293cb536347c6a8dcc450db3d5d9",
+    "target": "312f1acf0514ee313c0cfb83613311410058a0314c48ab4f1d1d8aec802ddf42",
+    "decision": "insufficient_evidence"
+  },
+  "concordance_run": {
+    "cut_id": 345,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+    "result_revision": 1,
+    "run_id": 244,
+    "runtime_id": "runtime:f703b7e84054fa3b8c161e1e31d7fb3b7eda06aef931ce080c923453cf8ee82b"
+  },
+  "concordance_classifier_run": {
+    "cut_id": 343,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+    "result_revision": 1,
+    "run_id": 242,
+    "runtime_id": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+  },
+  "delivery": {
+    "comparison": {
+      "outcome": "passed",
+      "kind": "qualified_comparison",
+      "run_id": 228,
+      "cut_id": 319,
+      "products": [
+        "structural:5d179a79c041b026794495378b63e1c13faca69a2e1f8018a74757124f3a2d04"
+      ]
+    },
+    "definition": {
+      "outcome": "passed",
+      "kind": "definition_components",
+      "run_id": 232,
+      "cut_id": 325,
+      "products": [
+        "structural:4bc2ec0df1d33c506d7dd6e2346ce7bd4a36d1eacdb059f0936631b3d4f6f3db"
+      ]
+    },
+    "classification": {
+      "outcome": "passed",
+      "kind": "clause_classification",
+      "run_id": 237,
+      "cut_id": 335,
+      "products": [
+        "structural:7910d190247d6318e4fa286656b7905fb3e57843203cdef371b206270b398f1c"
+      ]
+    },
+    "links": {
+      "outcome": "passed",
+      "kind": "contributions",
+      "run_id": 226,
+      "cut_id": 317,
+      "contributions": 35
+    }
+  },
+  "detached_bundle_invocations": {
+    "compare": "b5023ea4f1134a63a999845ed9125c78",
+    "models": "772479cc8ac749c18c8f5d8b3cdd2899",
+    "links": "a762625bdfbe4ce6af61c7fc4f934231",
+    "contextual": "6f4b2e99651d4ee9b70e8b1d04871d02",
+    "concordance": "eb2c2df414e64930b16f200434be4cce"
+  },
+  "limitations": [
+    "The GS120 selection supports a bounded development result.",
+    "The cross-view definition path used a controlled same-packet case.",
+    "Generic cross-view section headings and broader dependency-matched cue coverage remain open.",
+    "The matched provider arms did not justify changing the ordinary bare/flat policy."
+  ],
+  "concordance_selection_digest": "ed9b4bd42ad3a502f766c45230c2b59fc0fec121d5ce7df7b23db89750cbf522",
+  "concordance_readings": [
+    {
+      "reference": {
+        "product_id": "structural:525166b4aae57f756b14dede9592dac9099254774c4241326e11fe0879384cd3",
+        "project_id": "wce-gs120-method-development-20261106",
+        "run_id": 242,
+        "cut_id": 343,
+        "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+        "result_revision": 1,
+        "selected_task_id": 1257,
+        "origin_task_id": 1257,
+        "runtime_fingerprint": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+      },
+      "observation": {
+        "selection": {
+          "passage_id": "benefit:147",
+          "frame": {
+            "contribution_id": "source-contribution:c130815f994656e268a4d98b407627626e2a949ed3f411c3ebe111b0068b3bdc",
+            "project_id": "wce-gs120-method-development-20261106",
+            "run_id": 241,
+            "cut_id": 341,
+            "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+            "result_revision": 1,
+            "selected_task_id": 1256,
+            "origin_task_id": 1256,
+            "runtime_fingerprint": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+          }
+        },
+        "focus": {
+          "passage_id": "benefit:147",
+          "start": 296,
+          "end": 350,
+          "text": "This set of points is called a set of constant density"
+        },
+        "context_digest": "df4a5080fa278a6c4e01f9d2377fb16bcee79dd565725fb7399c564f529e4a69",
+        "envelope": "ef83e95cae9c90c1d1e94be4ff778443bd3bd33e60c4209da0fa3239cf81bc79",
+        "function": [
+          {
+            "label": "definition",
+            "score": 0.8567234873771667,
+            "accepted": true
+          }
+        ],
+        "presentation": [
+          {
+            "label": "example",
+            "score": 0.10123304277658463,
+            "accepted": false
+          }
+        ],
+        "disposition": "observed",
+        "reason": "Located model observation."
+      },
+      "deterministic_reading": "definition",
+      "comparison": "agrees"
+    },
+    {
+      "reference": {
+        "product_id": "structural:525166b4aae57f756b14dede9592dac9099254774c4241326e11fe0879384cd3",
+        "project_id": "wce-gs120-method-development-20261106",
+        "run_id": 242,
+        "cut_id": 343,
+        "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+        "result_revision": 1,
+        "selected_task_id": 1257,
+        "origin_task_id": 1257,
+        "runtime_fingerprint": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+      },
+      "observation": {
+        "selection": {
+          "passage_id": "benefit:147",
+          "frame": {
+            "contribution_id": "source-contribution:33a17d0cd352adb2d82ccd553a129c17dba0ead96c90a80d936591a45e22abe1",
+            "project_id": "wce-gs120-method-development-20261106",
+            "run_id": 241,
+            "cut_id": 341,
+            "release_id": "release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+            "result_revision": 1,
+            "selected_task_id": 1256,
+            "origin_task_id": 1256,
+            "runtime_fingerprint": "runtime:81cd7cee987c5a859dd0a82fc76234c4107d85d8cb52bfe656590b1c7902e0c4"
+          }
+        },
+        "focus": {
+          "passage_id": "benefit:147",
+          "start": 470,
+          "end": 474,
+          "text": "Show"
+        },
+        "context_digest": "3408f3beba4aa6c530ca8e3797591ef47adc565c8a4122c692768f786d9714b2",
+        "envelope": "87a7e4615062766953922ce73164c6489b601b8838837bbef672f8c4682467b3",
+        "function": [
+          {
+            "label": "definition",
+            "score": 0.7435651421546936,
+            "accepted": true
+          }
+        ],
+        "presentation": [
+          {
+            "label": "example",
+            "score": 0.972404420375824,
+            "accepted": true
+          }
+        ],
+        "disposition": "observed",
+        "reason": "Located model observation."
+      },
+      "deterministic_reading": "prescribed_action",
+      "comparison": "disagrees"
+    }
+  ],
+  "affected_test_results": {
+    "affected_model_and_application_initial": "fa7bbefd60344146a58c019cd580f960",
+    "affected_model_and_application_retry": "7219d964933d47a380c64809307f3f63",
+    "affected_native_initial": "97dbc9f517994d5c8ab3ced9b426aba0",
+    "affected_native_first_retry": "d5730101ab0d40a6a419129878921087",
+    "affected_native_second_retry": "ec94cd32720745af878cddf2899953d7",
+    "affected_native_final_retry": "d2ae89a3a6f54fbda41932a257b58f2b",
+    "cross_view_definition_witness_and_portable_omission": "4a8c231f05714e09a103f0c3f41cd4d0",
+    "final_detached_and_classifier": "860c28c9463f4e05b67c6c9a8b02d6ce"
+  }
+}

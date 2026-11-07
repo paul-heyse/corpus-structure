@@ -166,8 +166,9 @@ the review.
   table roles and exact attachment labels. Record unresolved, unavailable, corrected, lost
   and spurious results explicitly. Development results describe the shared frame. Additional
   transfer, calibration or performance claims need their own evidence.
-- **Current checkpoint.** The operator selected NCE-01 and NCE-02. The remaining packages
-  retain their proposed dispositions and acceptance boundaries.
+- **Current checkpoint.** NCE-01 and NCE-02 are delivered in development. The operator selected
+  NCE-03 through NCE-06 next, with affected-test qualification. NCE-07 through NCE-12 retain
+  their proposed dispositions and acceptance boundaries.
 
 ## Selected execution · 2026-11-07
 
@@ -236,3 +237,54 @@ constant-density case. The qualifier replay below has its own source selections 
 - Development run 224 and cut 315 passed exact Reader, CLI and fresh MCP checks.
   `uv run ci review verify` passed for current bundle `5b469934d6cc459aa5e46529012c1a67` and archived v4 bundle
   `746abd8fc8294c6ca2cc5a2426acfe87`. [Current replay record](../design_review/evidence/2026-11-07_nce-source-linguistics/records/nce.qualifier-scope-development.json)
+
+## NCE-03 through NCE-06 development execution
+
+**NCE-03 · Tested in development, 2026-11-07.** The selected comparison uses the admitted Event F and
+correlation-definition readings. Run 231, cut 323 retained both distinct condition premises
+and withheld an interval consequence. Native replay checked the selected reading bindings,
+and detached checks refused substituted references. Run 228 produced the same comparison identity
+and passed Reader, CLI, fresh MCP and exact detached delivery.
+
+**NCE-06 · Partially delivered and Tested in development, 2026-11-07.** The scoped link replay
+in run 240, cut 339 bound the exact formula `Z` to the retained
+standard-normal declaration and the dice procedure text to the recovered Table 6.1 caption.
+It retained the Box and Muller citation with an unavailable external endpoint. Contextual
+run 230, cut 321 kept the red-ball `X` candidate and withheld the false affine `X` edge.
+The equivalent scoped replay in run 226 and the contextual run passed exact detached verification.
+The cross-view definition case uses a controlled
+fixture, including encoder failure, omission of the witness channel and top-k exclusion.
+
+Named links currently use bounded lexical forms and exact native membership checks. They
+support same-view section headings and cross-view definition targets within an authenticated
+native packet. Generic cross-view headings have no authenticated target type in the current
+inventory. The broader spaCy `Matcher` and `DependencyMatcher` recipes and corresponding
+acceptance remain open. Retained examples include generic `see Section` cues for 5.2, 6.3,
+5.1 and 10.3. Their heading endpoints need their own authenticated inventory and native and
+detached closure before they can qualify as cross-view navigation.
+
+**NCE-04 and NCE-05 · Tested in development, 2026-11-07.** The pinned GLiNER2.5 definition arms
+admitted the same three source windows. Bare and described retained 17 and 20 exact role proposals
+and one and zero model attachments, respectively. Flat, nested, and allow retained 17, 21, and 21
+exact role proposals. Across the five arms, none recovered an independently expected attachment.
+Exact-focus classification matched one of four judged functions. Adjacent-sentence classification
+matched none. The ordinary bare and flat settings remain selected. Native run 244, cut 345
+attached the exact classifier observations from run 242, cut 343 to two later deterministic
+readings. The model agreed on the constant-density definition and disagreed on the instruction
+`Show`. Exact detached replay verified both with their separate standing intact. The wider
+judged cases in the companion remain open beyond the bounded comparison cohort. The experiment
+does not establish transfer or policy adoption.
+
+### Affected verification
+
+| Command | Outcome and scope |
+| --- | --- |
+| `uv run ci test --json -- PATH…` | `passed` for 55 final detached and classifier nodes in `860c28c9463f4e05b67c6c9a8b02d6ce`. The earlier 418-node model and application selection `fa7bbefd60344146a58c019cd580f960` recorded one failure. Its exact retry passed in `7219d964933d47a380c64809307f3f63`. |
+| `uv run ci test retry ec94cd32720745af878cddf2899953d7 --lane ordinary --json` | `passed`, all 21 affected native fixtures in `d2ae89a3a6f54fbda41932a257b58f2b`. The original and earlier retry receipts are preserved. |
+| `uv run ci test coverage 97dbc9f517994d5c8ab3ced9b426aba0 d5730101ab0d40a6a419129878921087 d2ae89a3a6f54fbda41932a257b58f2b --view unresolved --limit 20 --json` | The managed result preserves historical failures and reports changed native bindings across attempts. The 171 selected native nodes have zero unresolved. |
+| `uv run ci review verify BUNDLE --json` | `passed` for qualified comparison, seven model arms, later concordance, scoped links and the contextual refusal. The bundles and cuts are listed in the replay evidence. |
+| `uv run ci check --view steps --json` | `passed`. Rules were `not_run` with an empty registry. Clippy ran under `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`. |
+| `uv run ci evidence check --json` | `passed`, zero errors and 40 historical warnings. |
+| `uv run ci test --json` | `not_run` for this increment under the operator's affected-selection scope. |
+
+[Replay and delivery evidence](../design_review/evidence/2026-11-07_nce-comparison-model-links/records/nce.comparison-model-links-development.json)

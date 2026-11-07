@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "id": "nce.comparison-model-links-development",
+  "title": "Qualified comparison, matched model arms, and witnessed link replay",
+  "group": "NCE",
+  "package": "NCE-03 through NCE-06",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which qualified comparisons, private observations, and witnessed links can the selected GS120 sources and pinned provider support?",
+  "answers": [
+    "NCE-03",
+    "NCE-04",
+    "NCE-05",
+    "NCE-06"
+  ],
+  "method": "Freeze source judgments and focus intervals before inference. Complete each matched arm and witnessed route separately in development. Check managed Reader and detached outputs against source and producer custody.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-comparison-model-links/replay_selected.py build/nce-comparison-model-links/qualified --release release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196 suite build/nce-comparison-model-links/selection",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-comparison-model-links/replay_links.py build/nce-comparison-model-links/links-final --release release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-comparison-model-links/replay_concordance.py build/nce-comparison-model-links/concordance-final build/nce-comparison-model-links/concordance-current/current-classifier --release release:df90782fab4649702dcd8fba8adcf8ad581fe13f3d3da061a245f74595a8b196",
+    "uv run ci test retry ec94cd32720745af878cddf2899953d7 --lane ordinary --json",
+    "uv run ci review verify build/ci/772479cc8ac749c18c8f5d8b3cdd2899/bundle --json",
+    "uv run ci review verify build/ci/a762625bdfbe4ce6af61c7fc4f934231/bundle --json",
+    "uv run ci review verify build/ci/6f4b2e99651d4ee9b70e8b1d04871d02/bundle --json",
+    "uv run ci review verify build/ci/eb2c2df414e64930b16f200434be4cce/bundle --json",
+    "uv run ci check --view steps --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "prepare.py",
+      "role": "frozen retained readings, exact focus selection and independent class judgments",
+      "sha256": "303bf5fdc4669a21e3fd15cabbb4220b82f3d830c7650cbef7e416ec7a1fd5fc"
+    },
+    {
+      "path": "replay_selected.py",
+      "role": "comparison and separate matched model-arm drivers",
+      "sha256": "b754b51419fb9801da3a06e7d894541bb7739941ef0f2fbeea267f544939df65"
+    },
+    {
+      "path": "replay_concordance.py",
+      "role": "exact current deterministic reading and retained classifier join",
+      "sha256": "9c9fc9e1c8daaf8f67d62602f61cf02b51658441479d141e3549c0f39f8a215f"
+    },
+    {
+      "path": "replay_links.py",
+      "role": "source-backed original symbol, caption and external reference controls",
+      "sha256": "4acee985d7f5f0ebc1ea37fb5084d15ca340f59bd974a177f92c2da89834c18b"
+    },
+    {
+      "path": "replay_contextual.py",
+      "role": "original affine X versus red-ball X control",
+      "sha256": "ec4048be1078b84ca86ddcab1dd4f4ee285abb8797db70f58efa7893ae39d983"
+    },
+    {
+      "path": "assess_model.py",
+      "role": "independent extent and classification assessment",
+      "sha256": "b550dafe2650c752932a93494c3aed3434ec0a9a2071bca18e37f2236aba9f5b"
+    },
+    {
+      "path": "check_delivery.py",
+      "role": "installed CLI and fresh MCP transport comparison",
+      "sha256": "5a1e1e1894442074c491ddd482513d9f55680ba4ac18561d2b487cee6bd0cc1d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "development-results.json",
+      "role": "native runs, source pins, delivery and managed bundle receipts",
+      "sha256": "77be871e6893bcdc2cf8e66b9b96bf7ff84f5a3d451ad69692ea7aa56a378fcd"
+    },
+    {
+      "path": "model-assessment.json",
+      "role": "frozen expectations and matched observed results",
+      "sha256": "a77cabf7d96b03a4fac4eba906b65f3797c1fe7d931f54470d6aec01cba58797"
+    },
+    {
+      "path": "provider-preflight.json",
+      "role": "initial real exact-focus responses",
+      "sha256": "6d82419408d0f28e67cae8c97c36e1586331e968146ad5143eb5ca841a0e77fa"
+    }
+  ],
+  "depends_on": [
+    "2026-11-07_nce-source-linguistics/nce.qualifier-scope-development"
+  ],
+  "results": [
+    {
+      "name": "Matched definition model runs",
+      "value": 5,
+      "of": 5,
+      "unit": "arms",
+      "note": "Three original windows per arm. No arm recovered an independently expected directed attachment."
+    },
+    {
+      "name": "Exact-focus class agreement",
+      "value": 1,
+      "of": 4,
+      "unit": "focuses",
+      "note": null
+    },
+    {
+      "name": "Adjacent context class agreement",
+      "value": 0,
+      "of": 4,
+      "unit": "focuses",
+      "note": null
+    },
+    {
+      "name": "Native witness guard exact retries",
+      "value": 21,
+      "of": 21,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Verified exact model concordance focuses",
+      "value": 2,
+      "of": null,
+      "unit": "focuses",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Development supports the selected qualified comparison, private model and role products, formula Z declaration, Table 6.1 link and explicit unresolved citation. The matched arms give no adoption evidence. Generic cross-view section headings, broader dependency-based cue recipes, wider judged acceptance cases and live qualification remain open.",
+  "consumed_by": [
+    "NCE-03",
+    "NCE-04",
+    "NCE-05",
+    "NCE-06"
+  ]
+}

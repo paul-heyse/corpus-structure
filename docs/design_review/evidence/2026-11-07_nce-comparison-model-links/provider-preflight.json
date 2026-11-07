@@ -1,0 +1,90 @@
+{
+  "checkpoint": "fastino/gliner2.5-base-v1",
+  "revision": "54785d51df8d86a0d8f2eb212fec15871aad2c4d",
+  "rows": [
+    {
+      "context": "cdf870fbd9083abf484345197e096f0c7d5f3e02fdc1142a603ce8642fdfe54e",
+      "computation": "1eef122233660cbd226465cee3a6ad27b5751f7fb175fc5c41d7d19e657f2bc0",
+      "pack": "789b5c1faa12477191cdf106f6ac7f66bb2de2b8175b3ff60866060cf84a33f1",
+      "focus": "the probability that X is less than Y is given by.",
+      "disposition": "observed",
+      "function": [
+        {
+          "label": "assumption_restriction",
+          "score": 0.503081202507019,
+          "accepted": true
+        }
+      ],
+      "presentation": [
+        {
+          "label": "attribution",
+          "score": 0.18464933335781097,
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "context": "4c32fab5e2d084984d5d1fb3a37e5bd1baebba4804b9b3c45a26d5b919e92d13",
+      "computation": "d0fa564d4a394cf893775677622c229b181d50612e99232ca193fef730bb872b",
+      "pack": "789b5c1faa12477191cdf106f6ac7f66bb2de2b8175b3ff60866060cf84a33f1",
+      "focus": "defining the expected value as a weighted average.",
+      "disposition": "observed",
+      "function": [
+        {
+          "label": "definition",
+          "score": 0.9854891896247864,
+          "accepted": true
+        }
+      ],
+      "presentation": [
+        {
+          "label": "example",
+          "score": 0.09635630249977112,
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "context": "7bb3d9be88e07b15a76e0e1410ec48c2b50a94561ae78e4bbd685328350674bb",
+      "computation": "2b3d8beddd0dea94367ebe373bc3e2e0b350eba8aaf8558dd97550260b70970d",
+      "pack": "789b5c1faa12477191cdf106f6ac7f66bb2de2b8175b3ff60866060cf84a33f1",
+      "focus": "This set of points is called a set of constant density.",
+      "disposition": "observed",
+      "function": [
+        {
+          "label": "definition",
+          "score": 0.8567234873771667,
+          "accepted": true
+        }
+      ],
+      "presentation": [
+        {
+          "label": "example",
+          "score": 0.10123304277658463,
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "context": "10af97f49bb48340f41f45f9cba7740b9cbd7a3722ee135259a5256375d24d0c",
+      "computation": "ac91fed6b7923a43b8c4bac9dcc1a6345bc2161e96fafd91df216b0a16ee17c4",
+      "pack": "789b5c1faa12477191cdf106f6ac7f66bb2de2b8175b3ff60866060cf84a33f1",
+      "focus": "Show.",
+      "disposition": "observed",
+      "function": [
+        {
+          "label": "definition",
+          "score": 0.7435651421546936,
+          "accepted": true
+        }
+      ],
+      "presentation": [
+        {
+          "label": "example",
+          "score": 0.972404420375824,
+          "accepted": true
+        }
+      ]
+    }
+  ]
+}
