@@ -1,4 +1,93 @@
 -- Immutable section views are instances, never fabricated document/rendition rows.
+CREATE OR REPLACE FUNCTION ops.validate_projected_table_captions(p_build text,p_root text,p_projection jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $captions$
+BEGIN
+ IF EXISTS (
+  WITH RECURSIVE selected AS MATERIALIZED (
+   SELECT r.pointer,r.parent_pointer,r.label,r.native_json
+   FROM jsonb_array_elements_text(p_projection->'items') p(pointer)
+   JOIN kb.pdf_record_access r ON r.pointer=p.pointer AND r.product_id=p_build
+    AND r.revision_id=p_build AND r.content_layer='body'
+   WHERE r.native_json->>'self_ref'=r.pointer
+  ), walk(pointer,path,visited,in_cell,cell_index) AS (
+   SELECT pointer,ARRAY[]::bigint[],ARRAY[pointer],false,NULL::bigint FROM selected WHERE pointer=p_root
+   UNION ALL
+   SELECT child.pointer,w.path||edge.n,w.visited||child.pointer,w.in_cell OR edge.in_cell,
+    CASE WHEN edge.in_cell THEN edge.n-1 ELSE w.cell_index END
+   FROM walk w JOIN selected parent USING(pointer)
+   CROSS JOIN LATERAL (
+    SELECT c->>'$ref' AS pointer,n,false AS in_cell
+    FROM jsonb_array_elements(parent.native_json->'children') WITH ORDINALITY c(c,n)
+    WHERE parent.native_json->'data'->'table_cells' IS NULL
+    UNION ALL
+    SELECT c->'ref'->>'$ref',n,true
+    FROM jsonb_array_elements(parent.native_json->'data'->'table_cells') WITH ORDINALITY c(c,n)
+    WHERE c->'ref'->>'$ref' IS NOT NULL
+   ) edge JOIN selected child ON child.pointer=edge.pointer AND NOT child.pointer=ANY(w.visited)
+  ), associations AS (
+   SELECT DISTINCT ON (caption.pointer) caption.pointer,t.pointer AS owner,w.path,
+    cardinality(w.path) AS depth,refs.family,refs.n
+   FROM walk w JOIN selected t USING(pointer)
+   CROSS JOIN LATERAL (
+    SELECT 0 AS family,n,c->>'$ref' AS pointer FROM jsonb_array_elements(t.native_json->'children') WITH ORDINALITY c(c,n)
+    UNION ALL
+    SELECT 1,n,c->>'$ref' FROM jsonb_array_elements(t.native_json->'captions') WITH ORDINALITY c(c,n)
+   ) refs JOIN selected caption ON caption.pointer=refs.pointer
+   WHERE t.label='table' AND t.native_json->'data'->'table_cells' IS NOT NULL
+    AND caption.label='caption' AND jsonb_typeof(caption.native_json->'text')='string'
+    AND caption.native_json->>'text'<>''
+    AND caption.parent_pointer=t.pointer
+    AND NOT EXISTS(SELECT FROM walk reached WHERE reached.pointer=caption.pointer)
+   ORDER BY caption.pointer,w.path,refs.family,refs.n
+  ), pieces AS MATERIALIZED (
+   SELECT piece,n FROM jsonb_array_elements(p_projection->'pieces') WITH ORDINALITY p(piece,n)
+   WHERE piece->>'kind'='native_text'
+  ), captions AS (
+   SELECT a.*,false AS ordinary,p.n AS position
+   FROM associations a LEFT JOIN pieces p ON p.piece->>'item_ref'=a.pointer
+    AND p.piece->>'source_field'='text' AND NOT p.piece ? 'cell_index'
+   UNION ALL
+   SELECT w.pointer,NULL,w.path,cardinality(w.path),NULL,NULL,true,p.n
+   FROM walk w JOIN selected c USING(pointer)
+   LEFT JOIN pieces p ON p.piece->>'item_ref'=w.pointer
+    AND p.piece->>'source_field'='text' AND NOT p.piece ? 'cell_index'
+   WHERE NOT w.in_cell AND c.label='caption' AND c.native_json->>'text'<>''
+  )
+  SELECT FROM captions a WHERE a.position IS NULL
+   OR (SELECT count(*) FROM pieces p WHERE p.piece->>'item_ref'=a.pointer)<>1
+   OR (NOT a.ordinary AND EXISTS (
+    SELECT FROM pieces p WHERE p.n>a.position AND (
+     (p.piece->>'item_ref'=a.owner AND p.piece->>'source_field'='cell_text')
+     OR (p.piece ? 'cell_index' AND EXISTS(
+      SELECT FROM walk rich WHERE rich.pointer=p.piece->>'item_ref' AND rich.in_cell
+       AND rich.path[1:a.depth]=a.path
+     ))
+    )
+   ))
+   OR EXISTS (
+    SELECT FROM captions prior WHERE prior.owner=a.owner
+     AND (prior.family,prior.n)<(a.family,a.n) AND prior.position>=a.position
+   )
+   OR EXISTS (
+    SELECT FROM pieces p JOIN walk w ON w.pointer=p.piece->>'item_ref' AND NOT w.in_cell
+    WHERE w.path<>a.path AND NOT p.piece ? 'cell_index'
+     AND ((w.path<a.path AND p.n>a.position) OR (w.path>a.path AND p.n<a.position))
+   )
+  UNION ALL
+  SELECT FROM pieces p JOIN selected c ON c.pointer=p.piece->>'item_ref'
+  WHERE c.label='caption' AND (
+   (NOT p.piece ? 'cell_index' AND NOT EXISTS(SELECT FROM captions a WHERE a.pointer=c.pointer))
+   OR (p.piece ? 'cell_index' AND NOT EXISTS(
+    SELECT FROM walk rich WHERE rich.pointer=c.pointer AND rich.in_cell
+     AND rich.cell_index=(p.piece->>'cell_index')::bigint AND p.piece->>'source_field'='text'
+   ))
+  )
+ ) THEN
+  RAISE EXCEPTION 'source view table caption projection differs from selected native occurrences' USING ERRCODE='23514';
+ END IF;
+END $captions$;
+REVOKE ALL ON FUNCTION ops.validate_projected_table_captions(text,text,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_attempt bigint,p_holder text,p_position bigint,p_payload bytea,p_recipe bytea) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
 DECLARE job ops.task; run ops.run; product jsonb; parsing_item jsonb; projection jsonb; piece jsonb;
@@ -39,6 +128,10 @@ BEGIN
  SELECT COALESCE(jsonb_agg(pointer ORDER BY ordinal),'[]'::jsonb) INTO expected FROM kb.pdf_record_access
  WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer IN (SELECT pointer FROM ops.read_pdf_published_section_nodes(native.task_id,native.product_key,native.content_digest,section.pointer,product->>'membership') WHERE role='selected');
  IF projection->'items' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'source view membership/order is incomplete or differs' USING ERRCODE='23514'; END IF;
+ IF (CASE WHEN convert_from(p_recipe,'UTF8') IS JSON OBJECT
+   THEN convert_from(p_recipe,'UTF8')::jsonb->>'recipe' END)='native-section-text-v8' THEN
+  PERFORM ops.validate_projected_table_captions(placement.build_id,section.pointer,projection);
+ END IF;
  WITH RECURSIVE ancestry AS (
  SELECT p.*,0 depth FROM kb.pdf_record_access p WHERE p.product_id=placement.build_id AND p.revision_id=placement.build_id AND p.pointer=section.parent_pointer
  UNION ALL SELECT p.*,a.depth+1 FROM kb.pdf_record_access p JOIN ancestry a ON p.pointer=a.parent_pointer WHERE p.product_id=placement.build_id AND p.revision_id=placement.build_id

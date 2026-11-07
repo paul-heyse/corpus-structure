@@ -176,7 +176,13 @@ def test_named_rule_availability_is_preserved_per_variant(monkeypatch, states, a
     retained = SimpleNamespace(
         source=SimpleNamespace(text="X"),
         annotations=(
-            SimpleNamespace(block_start=0, block_end=1, block_id="block", display_spans=()),
+            SimpleNamespace(
+                block_start=0,
+                block_end=1,
+                block_id="block",
+                display_spans=(),
+                dependency_digest="d" * 64,
+            ),
         ),
         errors=(),
         annotation_task_id=285,

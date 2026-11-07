@@ -143,6 +143,290 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_source_table_note_scope(kb.source_view,jsonb) FROM PUBLIC;
 
+-- A projected extent must reconstruct the exact ordered physical anchors and
+-- contain exactly the submitted retained tokens, apart from inter-token whitespace.
+CREATE OR REPLACE FUNCTION ops.predicate_role_anchor_match(
+ projection jsonb,extents jsonb,anchors jsonb,tokens jsonb,indices jsonb,lo bigint,hi bigint)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH extents_ AS (
+  SELECT (e->>'start')::bigint AS a,(e->>'end')::bigint AS b,n,
+   lag((e->>'end')::bigint) OVER(ORDER BY n) AS previous_end
+  FROM jsonb_array_elements(extents) WITH ORDINALITY x(e,n)
+ ), pieces AS (
+  SELECT p,(p->>'start')::bigint AS a,(p->>'end')::bigint AS b,n
+  FROM jsonb_array_elements(projection->'pieces') WITH ORDINALITY x(p,n)
+ ), selected_tokens AS (
+  SELECT (t->>'start')::bigint AS a,(t->>'end')::bigint AS b,n-1 AS i
+  FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+  WHERE indices @> jsonb_build_array(n-1)
+ ), token_runs AS (
+  SELECT e.n,t.a,t.b,lag(t.b) OVER(PARTITION BY e.n ORDER BY t.i) AS previous_end
+  FROM extents_ e JOIN selected_tokens t ON e.a<=t.a AND t.b<=e.b
+ ), physical AS (
+  SELECT jsonb_agg(jsonb_build_array(
+   p.p->>'item_ref'||CASE WHEN p.p->>'source_field'='cell_text'
+    THEN '/data/table_cells/'||(p.p->>'cell_index') ELSE '' END,
+   greatest(e.a,p.a)-p.a,least(e.b,p.b)-p.a
+  ) ORDER BY e.n,p.n) AS anchors
+  FROM extents_ e JOIN pieces p ON p.a<e.b AND p.b>e.a AND p.p->>'kind'='native_text'
+ )
+ SELECT jsonb_array_length(extents)>0 AND jsonb_array_length(indices)>0
+ AND NOT EXISTS(SELECT FROM extents_ e WHERE e.a<lo OR e.b>hi OR e.a>=e.b OR e.previous_end>e.a)
+ AND NOT EXISTS(SELECT FROM extents_ e JOIN pieces p ON p.a<e.b AND p.b>e.a
+  WHERE p.p->>'kind'<>'native_text' OR coalesce(p.p->>'source_field','text') NOT IN ('text','orig','cell_text'))
+ AND (SELECT jsonb_agg(i ORDER BY i) FROM selected_tokens) IS NOT DISTINCT FROM indices
+ AND (SELECT count(*) FROM selected_tokens)=(SELECT count(*) FROM token_runs)
+ AND NOT EXISTS(
+  SELECT FROM extents_ e LEFT JOIN token_runs t USING(n)
+  GROUP BY e.n,e.a,e.b HAVING min(t.a) IS DISTINCT FROM e.a OR max(t.b) IS DISTINCT FROM e.b
+ )
+ AND NOT EXISTS(
+  SELECT FROM token_runs r WHERE r.previous_end IS NOT NULL AND
+   substring(projection->>'text' FROM (r.previous_end+1)::integer FOR (r.a-r.previous_end)::integer)
+    ~ '[^[:space:]]'
+ )
+ AND (SELECT physical.anchors FROM physical) IS NOT DISTINCT FROM (
+  SELECT jsonb_agg(jsonb_build_array(a->>'pointer',a->'start',a->'end') ORDER BY n)
+  FROM jsonb_array_elements(anchors) WITH ORDINALITY x(a,n)
+  WHERE a->>'space'='native' AND a->>'precision'='exact'
+ );
+$$;
+REVOKE ALL ON FUNCTION ops.predicate_role_anchor_match(jsonb,jsonb,jsonb,jsonb,jsonb,bigint,bigint) FROM PUBLIC;
+
+-- Independently check the declared marker/host relationship against the retained
+-- dependency columns. Shared fronted conditions and modals have one direct source
+-- owner and a compatible explicit conjunct.
+CREATE OR REPLACE FUNCTION ops.predicate_cue_host_matches(
+ projection jsonb,tokens jsonb,cue jsonb,host integer)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE origin integer:=(cue->>'governing_token')::integer;
+ subordinate integer:=(cue->>'subordinate_token')::integer;
+ marker_index integer:=(cue->'marker_token_indices'->>0)::integer;
+ marker jsonb; root jsonb; child jsonb; target jsonb; kind_ text:=cue->>'cue_kind';
+BEGIN
+ marker:=tokens->marker_index; root:=tokens->origin; child:=tokens->subordinate; target:=tokens->host;
+ IF marker IS NULL OR root IS NULL OR target IS NULL
+  OR marker->>'sentence' IS NULL OR root->'sentence' IS DISTINCT FROM marker->'sentence'
+  OR target->'sentence' IS DISTINCT FROM root->'sentence'
+  OR (child IS NOT NULL AND child->'sentence' IS DISTINCT FROM root->'sentence') THEN
+  RETURN false;
+ END IF;
+ IF kind_ IN ('condition','exception','order') THEN
+  IF child IS NOT NULL THEN
+   IF NOT COALESCE(
+    (marker->>'dependency'='mark' AND marker->'head'=to_jsonb(subordinate)
+     AND child->>'dependency'='advcl' AND child->'head'=to_jsonb(origin))
+    OR (marker->>'dependency' IN ('prep','advmod') AND marker->'head'=to_jsonb(origin)
+     AND child->>'dependency' IN ('pcomp','advcl') AND child->'head'=to_jsonb(marker_index)),
+    false) THEN RETURN false; END IF;
+  ELSIF NOT COALESCE(kind_='exception' AND left(cue->>'variant',8)='nominal_'
+   AND marker->>'dependency'='prep' AND marker->'head'=to_jsonb(origin),false) THEN RETURN false;
+  END IF;
+ ELSIF kind_ IN ('modality','negation') THEN
+  IF marker->'head' IS DISTINCT FROM to_jsonb(origin) OR NOT COALESCE(
+   (kind_='negation' AND marker->>'dependency'='neg')
+   OR (kind_='modality' AND marker->>'tag'='MD' AND marker->>'dependency' IN ('aux','auxpass','aux:pass','cop')),
+   false) THEN RETURN false; END IF;
+ ELSIF kind_ IN ('attribution','assumption') THEN
+  IF cue->>'variant' IN ('reported_assumption','reported_complement') THEN
+   RETURN COALESCE(marker_index=origin AND child->>'dependency'='ccomp'
+    AND child->'head'=to_jsonb(origin) AND host=(CASE WHEN kind_='assumption' THEN origin ELSE subordinate END),false);
+  END IF;
+  RETURN COALESCE(kind_='attribution' AND cue->>'variant'='according_to'
+   AND marker->>'dependency'='prep' AND marker->'head'=to_jsonb(origin) AND origin=host,false);
+ ELSE
+  RETURN false;
+ END IF;
+ IF host=origin THEN RETURN true; END IF;
+ RETURN COALESCE(
+  (kind_='modality' OR (kind_='condition' AND (cue->'token_indices'->>-1)::integer<origin))
+  AND target->>'dependency'='conj' AND target->'head'=to_jsonb(origin)
+  AND (SELECT array_agg(DISTINCT lower(substring(projection->>'text'
+     FROM (t->>'start')::integer+1 FOR (t->>'end')::integer-(t->>'start')::integer)))
+   FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+   WHERE n-1>least(host,origin) AND n-1<greatest(host,origin)
+    AND t->>'dependency'='cc' AND (t->>'head')::integer IN (host,origin))=ARRAY['and']::text[]
+  AND NOT EXISTS(
+   SELECT FROM jsonb_array_elements(tokens) t WHERE t->'head'=to_jsonb(host)
+   AND t->>'dependency' IN ('nsubj','csubj','nsubjpass','csubjpass','nsubj:pass','csubj:pass',
+    'aux','auxpass','aux:pass','cop')
+  ),false);
+END $$;
+REVOKE ALL ON FUNCTION ops.predicate_cue_host_matches(jsonb,jsonb,jsonb,integer) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_source_predicates(
+ p_task ops.task,p_view kb.source_view,p_population jsonb,p_config jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE original jsonb; original_id text; selected_run bigint:=p_task.run_id; selected_cut bigint;
+ p_operations jsonb:=p_config->'_predicate_operations';
+ body jsonb; origin_task bigint; annotation_map jsonb; evidence jsonb; c jsonb; part jsonb; m jsonb;
+ annotation jsonb; tokens jsonb; selection jsonb; members jsonb; predicate jsonb; focus jsonb;
+ qualification_schema json; condition_schema json;
+ cue jsonb; host jsonb; interpretation jsonb; qualified jsonb; condition_ jsonb; lo bigint; hi bigint; kind_ text;
+BEGIN
+ IF p_config->'inputs' IS NOT NULL AND p_config->'inputs'<>'null'::jsonb THEN
+  SELECT s INTO STRICT original FROM jsonb_array_elements(p_config->'inputs'->'sources') s
+   WHERE (s->>'source_view_id')::bigint=p_view.id;
+  PERFORM ops.validate_structural_source(original);
+  original_id:=encode(sha256(convert_to(data.canonical_json(original),'UTF8')),'hex');
+  selected_run:=(original->>'run_id')::bigint;
+  selected_cut:=(original->>'cut_id')::bigint;
+ END IF;
+ SELECT r.body,r.task_id INTO STRICT body,origin_task
+ FROM ops.task selected
+ JOIN ops.task_result r ON r.task_id=coalesce(selected.reused_task_id,selected.id)
+ JOIN ops.method_config cfg ON cfg.id=selected.method_config_id
+ JOIN ops.method method ON method.id=cfg.method_id
+ WHERE selected.run_id=selected_run AND selected.unit_type='source_view' AND selected.unit_id=p_view.id
+  AND selected.status IN ('done','reused','failed') AND method.name='extract.m1_annotations' AND method.version='2'
+  AND r.body->>'source'=p_view.key
+  AND (selected_cut IS NULL OR EXISTS(
+   SELECT FROM ops.cut_task cut WHERE cut.cut_id=selected_cut AND cut.task_id=selected.id
+    AND cut.origin_task_id=r.task_id
+  ));
+ IF EXISTS(SELECT FROM jsonb_each(p_operations) o WHERE
+  o.value->>'question' IN ('source_predicate_frames','source_predicate_interpretation')
+  AND (o.value->>'annotation_origin_task_id')::bigint IS DISTINCT FROM origin_task) THEN
+  RAISE EXCEPTION 'predicate operation differs from exact annotation producer' USING ERRCODE='23514';
+ END IF;
+ SELECT jsonb_object_agg('annotation:'||(a->>'dependency_digest'),a) INTO annotation_map
+ FROM jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a;
+ SELECT convert_from(content,'UTF8')::json INTO qualification_schema
+ FROM sem.artifact WHERE release_id=p_task.release_id AND artifact_name='json_schema/Qualification';
+ SELECT convert_from(content,'UTF8')::json INTO condition_schema
+ FROM sem.artifact WHERE release_id=p_task.release_id AND artifact_name='json_schema/Condition';
+ FOR evidence IN SELECT value FROM jsonb_each(p_population)
+  WHERE value->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')
+ LOOP
+  c:=evidence->'component'; kind_:=c->>'kind';
+  IF kind_ IN ('predicate_frame','predicate_cue') THEN
+   annotation:=annotation_map->(c->>'annotation');
+   IF annotation IS NULL OR annotation->>'block_id' IS DISTINCT FROM c->>'block'
+    OR NOT (c->'dependencies' ? (c->>'annotation')) THEN
+    RAISE EXCEPTION 'predicate evidence lacks the exact retained annotation block' USING ERRCODE='23514';
+   END IF;
+   tokens:=annotation->'tokens';
+   lo:=(annotation->>'block_start')::bigint; hi:=(annotation->>'block_end')::bigint;
+   IF selected_cut IS NOT NULL THEN
+    SELECT p INTO STRICT selection FROM jsonb_array_elements(p_config->'inputs'->'passages') p
+     WHERE p->>'source_ref'=original_id AND p->>'passage_id'=c->>'scope'
+      AND p->>'effective_version' IS NOT DISTINCT FROM c->>'effective_version';
+    lo:=greatest(lo,(selection->>'start')::bigint); hi:=least(hi,(selection->>'end')::bigint);
+   ELSIF c->>'scope' IS DISTINCT FROM c->>'block' OR c ? 'effective_version' THEN
+    RAISE EXCEPTION 'predicate evidence is outside its retained block scope' USING ERRCODE='23514';
+   END IF;
+  END IF;
+  IF kind_='predicate_frame' THEN
+   SELECT jsonb_agg(m_->'contribution' ORDER BY n) INTO members
+   FROM jsonb_array_elements(c->'frame_members') WITH ORDINALITY x(m_,n);
+   SELECT m_ INTO STRICT predicate FROM jsonb_array_elements(c->'frame_members') m_ WHERE m_->>'role'='predicate';
+   SELECT m_ INTO focus FROM jsonb_array_elements(c->'frame_members') m_ WHERE m_->>'role'='focus';
+   IF evidence->>'kind'<>'composite' OR evidence ? 'endpoints' OR evidence->'members' IS DISTINCT FROM members
+    OR jsonb_array_length(members)<>(SELECT count(DISTINCT m_) FROM jsonb_array_elements(members) m_)
+    OR NOT c->'dependencies' @> members
+    OR predicate->'head_token' IS DISTINCT FROM c->'predicate_token'
+    OR (SELECT count(*) FROM jsonb_array_elements(c->'frame_members') m_ WHERE m_->>'role'='focus')>1
+    OR (c->>'focus_state'='unavailable') IS DISTINCT FROM (focus IS NULL)
+    OR (c->>'focus_state'='exact' AND (jsonb_array_length(focus->'extents')<>1 OR focus->>'outcome'<>'complete')) THEN
+    RAISE EXCEPTION 'predicate frame differs from distinct role members and exact focus' USING ERRCODE='23514';
+   END IF;
+   FOR m IN SELECT value FROM jsonb_array_elements(c->'frame_members') LOOP
+    part:=p_population->(m->>'contribution');
+    IF part IS NULL OR part->'pin' IS DISTINCT FROM evidence->'pin'
+     OR part->>'operation_key' IS DISTINCT FROM evidence->>'operation_key'
+     OR part->>'kind'<>'occurrence' OR part->>'semantic_type'<>'structural.predicate_member'
+     OR NOT part->'computation_dependencies' ? (c->>'annotation')
+     OR (m ? 'head_token' AND NOT m->'token_indices' @> jsonb_build_array(m->'head_token'))
+     OR (m ? 'inherited_from' AND (m->>'inherited_from')::bigint>=jsonb_array_length(tokens))
+     OR NOT ops.predicate_role_anchor_match(p_view.projection,m->'extents',part->'anchors',tokens,m->'token_indices',lo,hi) THEN
+     RAISE EXCEPTION 'predicate role differs from retained tokens and exact source extents' USING ERRCODE='23514';
+    END IF;
+   END LOOP;
+  ELSIF kind_='predicate_cue' THEN
+   part:=p_population->(c->>'marker_member');
+   IF evidence->>'kind'<>'occurrence'
+    OR NOT ops.predicate_role_anchor_match(p_view.projection,c->'extents',evidence->'anchors',tokens,c->'token_indices',lo,hi)
+    OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'candidate_tokens') token
+     WHERE token::bigint>=jsonb_array_length(tokens))
+    OR (c->>'host_state'='located' AND (
+     coalesce(jsonb_array_length(c->'candidate_tokens'),0)=0 OR part IS NULL))
+    OR (c ? 'marker_member' AND (
+     part IS NULL OR part->'pin' IS DISTINCT FROM evidence->'pin'
+     OR part->>'operation_key' IS DISTINCT FROM evidence->>'operation_key'
+     OR part->>'semantic_type'<>'structural.predicate_member'
+     OR NOT c->'dependencies' ? (c->>'marker_member')
+     OR evidence->'members' IS DISTINCT FROM jsonb_build_array(c->'marker_member')
+     OR NOT ops.predicate_role_anchor_match(
+      p_view.projection,c->'marker_extents',part->'anchors',tokens,c->'marker_token_indices',lo,hi)))
+    OR (NOT c ? 'marker_member' AND evidence ? 'members') THEN
+    RAISE EXCEPTION 'predicate qualifier lacks exact retained evidence or candidate hosts' USING ERRCODE='23514';
+   END IF;
+  ELSE
+   host:=p_population->(CASE kind_ WHEN 'predicate_reading' THEN c->>'frame' ELSE c->>'host_contribution_id' END);
+   IF host->'component'->>'kind' IS DISTINCT FROM 'predicate_frame'
+    OR host->'pin' IS DISTINCT FROM evidence->'pin'
+    OR host->'component'->>'scope' IS DISTINCT FROM c->>'scope'
+    OR host->'component'->>'effective_version' IS DISTINCT FROM c->>'effective_version'
+    OR NOT c->'dependencies' ? (host->>'contribution_id') THEN
+    RAISE EXCEPTION 'predicate interpretation differs from exact frame scope or version' USING ERRCODE='23514';
+   END IF;
+   IF kind_='predicate_reading' THEN
+    IF evidence->>'kind'<>'composite' OR evidence ? 'endpoints'
+     OR evidence->'members' IS DISTINCT FROM jsonb_build_array(host->'contribution_id') THEN
+     RAISE EXCEPTION 'predicate reading must interpret one exact frame' USING ERRCODE='23514';
+    END IF;
+   ELSE
+    cue:=p_population->(c->>'qualifier_contribution_id');
+    annotation:=annotation_map->(cue->'component'->>'annotation');
+    interpretation:=p_population->(c->>'interpretation_member');
+    qualified:=data.record_source_json(c->'qualification');
+    condition_:=data.record_source_json(c->'condition');
+    IF cue->'component'->>'kind' IS DISTINCT FROM 'predicate_cue'
+     OR cue->'component'->>'host_state' IS DISTINCT FROM 'located'
+     OR cue->'pin' IS DISTINCT FROM evidence->'pin'
+     OR cue->'component'->>'scope' IS DISTINCT FROM c->>'scope'
+     OR cue->'component'->>'effective_version' IS DISTINCT FROM c->>'effective_version'
+     OR cue->'component'->>'annotation' IS DISTINCT FROM host->'component'->>'annotation'
+     OR cue->'component'->>'block' IS DISTINCT FROM host->'component'->>'block'
+     OR cue->'component'->>'cue_kind' IS DISTINCT FROM c->>'qualifier_kind'
+     OR NOT cue->'component'->'candidate_tokens' @> jsonb_build_array(host->'component'->'predicate_token')
+     OR NOT c->'dependencies' ? (cue->>'contribution_id')
+     OR NOT ops.predicate_cue_host_matches(
+      p_view.projection,annotation->'tokens',cue->'component',(host->'component'->>'predicate_token')::integer)
+     OR evidence->'members' IS DISTINCT FROM (CASE WHEN c ? 'interpretation_member'
+      THEN jsonb_build_array(cue->'contribution_id',host->'contribution_id',c->'interpretation_member')
+      ELSE jsonb_build_array(cue->'contribution_id',host->'contribution_id') END)
+     OR (c ? 'qualification') IS DISTINCT FROM (c ? 'interpretation_member')
+     OR (condition_->>'kind'='escape' AND condition_->>'text' IS DISTINCT FROM
+      (SELECT string_agg(substring(p_view.projection->>'text' FROM (e->>'start')::integer+1
+         FOR (e->>'end')::integer-(e->>'start')::integer),' ' ORDER BY n)
+       FROM jsonb_array_elements(cue->'component'->'extents') WITH ORDINALITY x(e,n)))
+     OR (c ? 'condition' AND c->>'qualifier_kind' NOT IN ('condition','assumption'))
+     OR (c ? 'condition' AND NOT coalesce(public.json_matches_schema(
+      condition_schema,data.record_source_json(c->'condition')::json),false))
+     OR (c ? 'qualification' AND (
+      NOT coalesce(public.json_matches_schema(qualification_schema,data.record_source_json(c->'qualification')::json),false)
+      OR qualified->'condition' IS DISTINCT FROM (CASE WHEN c ? 'condition' THEN condition_ END)
+      OR NOT c->'dependencies' ? (c->>'interpretation_member')
+      OR interpretation->'component'->>'kind' IS DISTINCT FROM 'predicate_reading'
+      OR interpretation->'component'->'frame' IS DISTINCT FROM host->'contribution_id'
+      OR qualified->'scope' IS DISTINCT FROM jsonb_build_object('extent','statement','locator',host->'contribution_id')
+      OR qualified->>'modality' IS DISTINCT FROM (CASE interpretation->'component'->>'reading'
+       WHEN 'definition' THEN 'defined' WHEN 'assumption_restriction' THEN 'supposed'
+       WHEN 'described_process' THEN 'asserted' END)
+      OR qualified->'polarity' IS DISTINCT FROM (CASE interpretation->'component'->>'polarity'
+       WHEN 'positive' THEN 'true'::jsonb WHEN 'negative' THEN 'false'::jsonb END)
+     )) THEN
+     RAISE EXCEPTION 'predicate qualifier differs from its exact proposed host' USING ERRCODE='23514';
+    END IF;
+   END IF;
+  END IF;
+ END LOOP;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'predicate evidence cannot resolve exact scope and annotation custody' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_source_predicates(ops.task,kb.source_view,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_source_contribution_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; anchor_ jsonb; ep jsonb;
@@ -150,7 +434,7 @@ DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; 
  declaration json; role_definition jsonb; retained ops.task; binding jsonb; old_view kb.source_view; new_view kb.source_view; old_descriptor jsonb; new_descriptor jsonb; retained_body jsonb; retained_digests jsonb:='{}'; retained_sources jsonb:='{}';
  operation_map jsonb; identity_map jsonb; output_counts jsonb; schemas jsonb:='{}'; allowed_contracts jsonb;
  local_ jsonb; local_request jsonb; local_result jsonb; selected_ids jsonb; local_inputs jsonb;
- table_config jsonb; table_mode text; table_policy_id text;
+ predicate_population jsonb; table_config jsonb; table_mode text; table_policy_id text;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -172,7 +456,7 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='3' THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4') THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
   SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
   table_mode:=table_config->>'interpretation_mode';
@@ -921,6 +1205,10 @@ BEGIN
      UNION ALL SELECT a FROM jsonb_array_elements(COALESCE(contribution->'endpoints','[]')) e
       JOIN LATERAL (SELECT c FROM jsonb_array_elements(p_envelope->'contributions') c WHERE c->>'contribution_id'=e->>'contribution_id') c ON true
       CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.c->'anchors','[]')) a
+     UNION ALL SELECT a FROM jsonb_array_elements_text(COALESCE(contribution->'members','[]')) m(id)
+      JOIN LATERAL (SELECT c FROM jsonb_array_elements(p_envelope->'contributions') c WHERE c->>'contribution_id'=m.id) c ON true
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.c->'anchors','[]')) a
+      WHERE component->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue')
     ) source_anchors;
     FOR basis IN SELECT value FROM jsonb_array_elements(component->'bases') LOOP
      IF NOT(component->'dependencies' @> (basis->'dependencies'))
@@ -937,7 +1225,7 @@ BEGIN
        SELECT FROM jsonb_array_elements(contribution->'anchors') a WHERE a->>'anchor_id'=aid)) THEN
        RAISE EXCEPTION 'located component role has unavailable source anchor' USING ERRCODE='23514'; END IF;
      END LOOP;
-    ELSE
+    ELSIF component->>'kind' NOT IN ('predicate_frame','predicate_reading','predicate_cue') THEN
      SELECT convert_from(content,'UTF8')::jsonb->'component_endpoints'->(component->>'kind') INTO endpoint_roles
       FROM sem.artifact WHERE release_id=t.release_id AND artifact_name='contribution_projection.json';
      SELECT jsonb_object_agg(role,component->(role||'_contribution_id')) INTO expected_endpoints
@@ -955,6 +1243,29 @@ BEGIN
  SELECT COALESCE(jsonb_agg(a),'[]') INTO anchors FROM (SELECT DISTINCT a
   FROM jsonb_array_elements(p_envelope->'contributions') c
   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c->'anchors','[]')) a) pieces;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c WHERE
+  CASE c->'component'->>'kind'
+   WHEN 'predicate_frame' THEN 'structural.predicate_frame'
+   WHEN 'predicate_reading' THEN 'structural.predicate_reading'
+   WHEN 'predicate_cue' THEN 'structural.predicate_cue'
+   WHEN 'predicate_qualifier' THEN 'structural.predicate_qualification'
+   ELSE 'other' END IS DISTINCT FROM
+  CASE WHEN c->>'semantic_type' IN ('structural.predicate_frame','structural.predicate_reading',
+   'structural.predicate_cue','structural.predicate_qualification') THEN c->>'semantic_type' ELSE 'other' END) THEN
+  RAISE EXCEPTION 'predicate contribution differs from its released component type' USING ERRCODE='23514';
+ END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
+  WHERE c->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')) THEN
+  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version'<>'4' THEN
+   RAISE EXCEPTION 'predicate evidence requires its released producer' USING ERRCODE='23514';
+  END IF;
+  SELECT jsonb_object_agg(c->>'contribution_id',c) INTO predicate_population
+  FROM jsonb_array_elements(p_envelope->'contributions') c
+  WHERE c->>'semantic_type' IN ('structural.predicate_member','structural.predicate_frame',
+   'structural.predicate_cue','structural.predicate_reading','structural.predicate_qualification');
+  PERFORM ops.validate_source_predicates(
+   t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map));
+ END IF;
  PERFORM ops.validate_source_anchor_coordinates(t.run_id,t.unit_id,p_envelope->>'source',anchors);
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_source_contribution_report(bigint,jsonb) FROM PUBLIC;

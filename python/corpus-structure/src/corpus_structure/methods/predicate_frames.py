@@ -16,7 +16,7 @@ from spacy.vocab import Vocab
 from corpus_structure.ingest.annotation_views import AnnotationView, annotation_view
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
 
-PREDICATE_FRAME_VERSION = "1"
+PREDICATE_FRAME_VERSION = "2"
 type RoleSpan = tuple[int, int]
 type FrameLayout = Literal["prose", "example", "policy", "instruction"]
 
@@ -378,9 +378,14 @@ class _FrameBlock:
                 or self.doc[comparison].head.i != copula
             ):
                 continue
-            subject_nodes = tuple(sorted(self.noun_chunks.get(head, {head}) | set(nodes)))
+            nominal_nodes = {
+                i
+                for i in self.noun_chunks.get(head, {head})
+                if i <= head and self.doc[i].dep_ != "advmod"
+            }
+            subject_nodes = tuple(sorted(nominal_nodes | set(nodes)))
             self.probability[head] = subject_nodes
-            if endpoint + 2 >= len(self.doc) or nominal.dep_ != "ROOT":
+            if endpoint + 2 >= len(self.doc) or nominal.dep_ not in {"ROOT", "appos"}:
                 continue
             auxiliary, given = self.doc[endpoint + 1], self.doc[endpoint + 2]
             if (

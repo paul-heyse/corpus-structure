@@ -417,6 +417,7 @@ classes:
       report_digest: {pattern: '^[0-9a-f]{64}$'}
       inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
       computation_dependencies: {multivalued: true}
+      annotation_origin_task_id: {range: integer, minimum_value: 1}
       reason: {}
   ContributionEndpoint:
     is_a: SourceRecordProduct
@@ -515,6 +516,71 @@ classes:
       attachment_contribution_id: {required: true}
       target_contribution_id: {required: true}
       attachment_kind: {required: true}
+  PredicateProjectedExtent:
+    is_a: SourceRecordProduct
+    attributes:
+      start: {range: integer, minimum_value: 0, required: true}
+      end: {range: integer, minimum_value: 1, required: true}
+  PredicateFrameMember:
+    is_a: SourceRecordProduct
+    attributes:
+      contribution: {required: true}
+      role: {required: true, pattern: '^(predicate|focus|actor|subject|object|complement|marker)$'}
+      token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
+      extents: {range: PredicateProjectedExtent, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
+      head_token: {range: integer, minimum_value: 0}
+      inherited_from: {range: integer, minimum_value: 0}
+      outcome: {required: true, pattern: '^(complete|partial|unresolved)$'}
+  PredicateFrameComponent:
+    is_a: WitnessedComponent
+    description: Neutral predicate and source-coordinate focus with grammatical role members.
+    attributes:
+      kind: {equals_string: predicate_frame}
+      annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
+      block: {required: true}
+      predicate_token: {range: integer, minimum_value: 0, required: true}
+      variant: {required: true}
+      grammatical_reading: {required: true}
+      focus_state: {required: true, pattern: '^(exact|partial|unavailable)$'}
+      frame_members: {range: PredicateFrameMember, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
+  PredicateCueComponent:
+    is_a: WitnessedComponent
+    description: Exact linguistic qualifier evidence with candidate predicate heads, independently of an attachment.
+    attributes:
+      kind: {equals_string: predicate_cue}
+      annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
+      block: {required: true}
+      cue_kind: {required: true, pattern: '^(condition|assumption|parameterization|exception|attribution|modality|negation|order|dependency|contrast|example|quotation)$'}
+      variant: {required: true}
+      host_state: {required: true, pattern: '^(located|unresolved)$'}
+      candidate_tokens: {range: integer, minimum_value: 0, multivalued: true}
+      governing_token: {range: integer, minimum_value: 0}
+      subordinate_token: {range: integer, minimum_value: 0}
+      token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
+      extents: {range: PredicateProjectedExtent, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
+      marker_extents: {range: PredicateProjectedExtent, multivalued: true, inlined: true}
+      marker_token_indices: {range: integer, minimum_value: 0, multivalued: true}
+      marker_member: {}
+  PredicateReadingComponent:
+    is_a: WitnessedComponent
+    description: Deterministic private interpretation of one retained neutral frame.
+    attributes:
+      kind: {equals_string: predicate_reading}
+      frame: {required: true}
+      reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$'}
+      voice: {required: true}
+      polarity: {required: true, pattern: '^(positive|negative|unresolved)$'}
+  PredicateQualifierComponent:
+    is_a: WitnessedComponent
+    description: Located qualifier with one source-owned predicate host. Logical lowering is optional.
+    attributes:
+      kind: {equals_string: predicate_qualifier}
+      qualifier_contribution_id: {required: true}
+      host_contribution_id: {required: true}
+      qualifier_kind: {required: true, pattern: '^(condition|assumption|parameterization|exception|attribution|modality|negation|order|dependency)$'}
+      qualification: {range: SourceValue, inlined: true, description: Encoded released Qualification.}
+      condition: {range: SourceValue, inlined: true, description: Encoded released Condition.}
+      interpretation_member: {}
   TypedComparisonComponent:
     is_a: WitnessedComponent
     attributes:

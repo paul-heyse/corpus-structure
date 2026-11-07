@@ -372,7 +372,7 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
     from alembic.script import ScriptDirectory
 
     from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
-    from corpus_structure.semantic.execution_admission import _DESCRIPTOR_SHA256
+    from corpus_structure.semantic.execution_admission import _descriptor_sha256
     from corpus_structure.semantic.migrations import alembic_config, head_revision
     from corpus_structure.semantic.native_products import (
         NativeProduct,
@@ -395,7 +395,7 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
         sha256(
             function_bodies(head.content.decode())["data.execution_contract_descriptor"].encode()
         ).hexdigest()
-        == _DESCRIPTOR_SHA256
+        == _descriptor_sha256()
     )
 
     current = current_authoring_provenance()

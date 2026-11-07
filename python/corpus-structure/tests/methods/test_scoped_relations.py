@@ -149,7 +149,13 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
         contributions=rows,
         coordinate_texts=output["coordinates"],
     )
-    assert len(bound_rows) == len(rows) and len(bound_operations) == 2
+    assert len(bound_rows) == len(rows)
+    assert {op["question"]: op["outcome"] for op in bound_operations} == {
+        "source_structural_relations": "succeeded",
+        "source_procedure_roles": "succeeded",
+        "source_predicate_frames": "not_run",
+        "source_predicate_interpretation": "not_run",
+    }
     operation = output["extra_operations"][0]
     assert operation["outcome"] == "succeeded" and operation["emitted_count"] > 0
     assert all(
@@ -397,3 +403,72 @@ def test_same_run_annotation_route_still_preserves_unavailable_upstream_without_
         )["outcome"]
         == "not_run"
     )
+
+
+def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swapped_host():
+    from pathlib import Path
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.contributions import bind_contributions, contribution_identity
+    from corpus_structure.semantic.observations import observation_inputs
+
+    text = (
+        "The reviewer must complete the purchase review form if the purchase exceeds the limit, "
+        "and the analyst must retain the receipt if the audit remains open."
+    )
+    view = complete_native_fields(source(text, labels=("text",)))
+    annotations = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    assert annotations.annotations and not annotations.annotation_errors
+    output = discover_relations(native_source_frame(view, ()), annotations=annotations.annotations)
+    rows = output["contributions"]
+    by_id = {row["contribution_id"]: row for row in rows}
+    conditions = [
+        row for row in rows if row.get("component", {}).get("qualifier_kind") == "condition"
+    ]
+
+    def predicate(row):
+        host = by_id[row["component"]["host_contribution_id"]]
+        member = next(m for m in host["component"]["frame_members"] if m["role"] == "predicate")
+        assert host["component"]["focus_state"] == "exact"
+        return by_id[member["contribution"]]["anchors"][0]["source_piece"]
+
+    assert {
+        predicate(row): source_python(row["component"]["condition"])["text"] for row in conditions
+    } == {"complete": "if the purchase exceeds the limit", "retain": "if the audit remains open"}
+    first, second = conditions
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    prepared = prepare_release(
+        observation_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    )
+
+    def bind(population):
+        return bind_contributions(
+            prepared,
+            source=view.ref.key,
+            operations=(output["operation"], *output["extra_operations"]),
+            contributions=population,
+            coordinate_texts=output["coordinates"],
+        )
+
+    bind(rows)
+    old_host, new_host = (row["component"]["host_contribution_id"] for row in conditions)
+
+    def change_host(values):
+        return tuple(new_host if value == old_host else value for value in values)
+
+    forged = {
+        **first,
+        "members": change_host(first["members"]),
+        "endpoints": (first["endpoints"][0], second["endpoints"][1]),
+        "computation_dependencies": change_host(first["computation_dependencies"]),
+        "component": {
+            **first["component"],
+            "host_contribution_id": new_host,
+            "dependencies": change_host(first["component"]["dependencies"]),
+        },
+    }
+    forged["contribution_id"] = contribution_identity(forged)
+    with pytest.raises(ValueError, match="exact proposed predicate host"):
+        bind(tuple(forged if row is first else row for row in rows))

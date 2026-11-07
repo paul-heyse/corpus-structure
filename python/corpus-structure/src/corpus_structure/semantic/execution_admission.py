@@ -7,6 +7,10 @@ the execution lifecycle contracts cannot activate until their SP-C03 guards exis
 
 from __future__ import annotations
 
+import ast
+from functools import lru_cache
+from hashlib import sha256
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .refusals import SemanticRefusal
@@ -80,7 +84,7 @@ def _verify_deployment_functions(connection: Connection) -> None:
     from sqlalchemy import text
 
     for signature, digest, security, language in (
-        ("data.execution_contract_descriptor()", _DESCRIPTOR_SHA256, False, "sql"),
+        ("data.execution_contract_descriptor()", _descriptor_sha256(), False, "sql"),
         ("data.require_execution_release(text)", _REQUIRE_SHA256, True, "plpgsql"),
     ):
         available = (
@@ -201,9 +205,66 @@ def require_archive_fence(connection: Connection) -> None:
     raise ExecutionAdmissionError("native execution archive fence differs from trusted enforcement")
 
 
+def _descriptor_sha256() -> str:
+    """Read the descriptor body from the installed head's hash-bound admission artifact."""
+    from .migrations import ALEMBIC_DIR
+
+    return _descriptor_for_directory(ALEMBIC_DIR, (ALEMBIC_DIR / "versions").stat().st_mtime_ns)
+
+
+@lru_cache(maxsize=4)
+def _descriptor_for_directory(directory: Path, _registration_stamp: int) -> str:
+    from .native_products import function_bodies
+
+    fields = {"revision", "down_revision", "NATIVE_ADMISSION_FILE", "NATIVE_ADMISSION_SHA256"}
+    revisions = {}
+    predecessors = set()
+    try:
+        for path in (directory / "versions").glob("*.py"):
+            if path.name == "__init__.py":
+                continue
+            declared = {
+                target.id: ast.literal_eval(node.value)
+                for node in ast.parse(path.read_bytes(), filename=path.name).body
+                if isinstance(node, (ast.Assign, ast.AnnAssign))
+                for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
+                if isinstance(target, ast.Name) and target.id in fields and node.value is not None
+            }
+            revision = declared["revision"]
+            if not isinstance(revision, str) or revision in revisions:
+                raise ValueError("ambiguous revision")
+            revisions[revision] = declared
+            predecessor = declared.get("down_revision")
+            predecessors.update(predecessor if isinstance(predecessor, tuple) else (predecessor,))
+    except (OSError, SyntaxError, ValueError, KeyError) as error:
+        raise ExecutionAdmissionError("installed revision declarations are unavailable") from error
+    heads = revisions.keys() - predecessors
+    if len(heads) != 1:
+        raise ExecutionAdmissionError("installed head lacks unambiguous native admission")
+    declared = revisions[next(iter(heads))]
+    filename = declared.get("NATIVE_ADMISSION_FILE")
+    digest = declared.get("NATIVE_ADMISSION_SHA256")
+    if not isinstance(filename, str) or Path(filename).name != filename:
+        raise ExecutionAdmissionError("installed head lacks a local native admission artifact")
+    path = directory / "versions" / filename
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise ExecutionAdmissionError(
+            "installed native admission artifact is unavailable"
+        ) from error
+    if sha256(content).hexdigest() != digest:
+        raise ExecutionAdmissionError(
+            "installed native admission artifact differs from its revision"
+        )
+    body = function_bodies(content.decode()).get("data.execution_contract_descriptor")
+    if body is None:
+        raise ExecutionAdmissionError("installed native admission descriptor is unavailable")
+    return sha256(body.encode()).hexdigest()
+
+
 # Exact current native body hashes for the installed witnessed deployment.
 # Deployment checks retain ownership, privilege, configuration and body enforcement.
-_DESCRIPTOR_SHA256 = "b9cc8f6b34d005e99032334ed8e62ec39b2cef8852dc3f4c12eb373a4c7740e3"
 _REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

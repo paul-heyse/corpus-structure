@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
+from itertools import pairwise
 from typing import Any
 
 from .identity import canonical_bytes
@@ -176,6 +177,13 @@ def bind_contributions(prepared, *, source, operations, contributions, coordinat
         validate_component(
             row, by_operation[row["operation_key"]], by_identity, endpoint_signatures
         )
+        component = row.get("component", {})
+        if component.get("kind") == "predicate_qualifier":
+            from .observations import source_python
+
+            for field, contract in (("condition", "Condition"), ("qualification", "Qualification")):
+                if field in component:
+                    prepared.validate_python(contract, source_python(component[field]))
     from .local_interpretation_reports import validate_local_interpretation_report
 
     for op in ops:
@@ -252,6 +260,17 @@ def validate_component(row, operation, population, endpoint_signatures):
     cross-row meaning that neither a JSON schema nor a matcher establishes.
     """
     component = row.get("component")
+    predicate_types = {
+        "predicate_frame": "structural.predicate_frame",
+        "predicate_cue": "structural.predicate_cue",
+        "predicate_reading": "structural.predicate_reading",
+        "predicate_qualifier": "structural.predicate_qualification",
+    }
+    predicate_kind = predicate_types.get(component["kind"]) if component is not None else None
+    if (
+        predicate_kind is not None or row["semantic_type"] in predicate_types.values()
+    ) and predicate_kind != row["semantic_type"]:
+        raise ValueError("predicate contribution differs from its released component type")
     if component is None:
         return
     if (
@@ -268,6 +287,9 @@ def validate_component(row, operation, population, endpoint_signatures):
     for endpoint in row.get("endpoints", ()):
         participant = population[endpoint["contribution_id"]]
         anchors.update(a["anchor_id"] for a in participant.get("anchors", ()))
+    if component["kind"] in {"predicate_frame", "predicate_reading", "predicate_cue"}:
+        for key in row.get("members", ()):
+            anchors.update(a["anchor_id"] for a in population[key].get("anchors", ()))
     for basis in component["bases"]:
         if len(set(basis["dependencies"])) != len(basis["dependencies"]) or not set(
             basis["dependencies"]
@@ -284,6 +306,8 @@ def validate_component(row, operation, population, endpoint_signatures):
         for role in roles:
             if not set(role["anchor_ids"]) <= {a["anchor_id"] for a in row.get("anchors", ())}:
                 raise ValueError("located component role has unavailable source anchor")
+    elif component["kind"] in {"predicate_frame", "predicate_reading", "predicate_cue"}:
+        _validate_predicate_component(row, component, population)
     else:
         roles = endpoint_signatures.get(component["kind"])
         if not roles or row["kind"] != "relation":
@@ -294,6 +318,139 @@ def validate_component(row, operation, population, endpoint_signatures):
         }
         if len(row.get("endpoints", ())) != len(expected) or actual != expected:
             raise ValueError("component endpoints differ from released role signature")
+        if component["kind"] == "predicate_qualifier":
+            _validate_predicate_component(row, component, population)
+
+
+def _validate_predicate_component(row, component, population):
+    """Keep scope, evidence membership and host selection closed over the same frame."""
+    kind = component["kind"]
+    members = tuple(row.get("members", ()))
+    deps = set(component["dependencies"])
+
+    def same_scope(participant, expected_kind):
+        other = participant.get("component", {})
+        if (
+            participant["pin"] != row["pin"]
+            or other.get("kind") != expected_kind
+            or other.get("scope") != component["scope"]
+            or other.get("effective_version") != component.get("effective_version")
+        ):
+            raise ValueError("predicate component differs from exact source scope or role")
+        return other
+
+    if kind in {"predicate_frame", "predicate_cue"} and component["annotation"] not in deps:
+        raise ValueError("predicate evidence lacks its retained annotation dependency")
+    if kind == "predicate_frame":
+        rows = component["frame_members"]
+        if (
+            row["kind"] != "composite"
+            or row.get("endpoints")
+            or members != tuple(m["contribution"] for m in rows)
+            or len(set(members)) != len(members)
+            or not set(members) <= deps
+        ):
+            raise ValueError("predicate frame differs from its distinct exact role members")
+        predicates = [m for m in rows if m["role"] == "predicate"]
+        focus = [m for m in rows if m["role"] == "focus"]
+        if (
+            len(predicates) != 1
+            or predicates[0].get("head_token") != component["predicate_token"]
+            or len(focus) > 1
+            or (component["focus_state"] == "unavailable") != (not focus)
+            or (component["focus_state"] == "exact" and len(focus[0]["extents"]) != 1)
+        ):
+            raise ValueError("predicate frame has inconsistent predicate or focus")
+        for m in rows:
+            participant = population[m["contribution"]]
+            indices = m["token_indices"]
+            extents = m["extents"]
+            if (
+                participant["pin"] != row["pin"]
+                or participant["operation_key"] != row["operation_key"]
+                or participant["kind"] != "occurrence"
+                or participant["semantic_type"] != "structural.predicate_member"
+                or component["annotation"] not in participant.get("computation_dependencies", ())
+                or sorted(set(indices)) != list(indices)
+                or ("head_token" in m and m["head_token"] not in indices)
+                or any(e["start"] >= e["end"] for e in extents)
+                or any(a["end"] > b["start"] for a, b in pairwise(extents))
+            ):
+                raise ValueError("predicate role member differs from its located source evidence")
+    elif kind == "predicate_cue":
+        marker = component.get("marker_member")
+        marked = population[marker] if marker is not None else {}
+        if (
+            row["kind"] != "occurrence"
+            or not row.get("occurrence_id")
+            or (
+                component["host_state"] == "located"
+                and (not component.get("candidate_tokens") or marker is None)
+            )
+            or members != ((marker,) if marker is not None else ())
+            or (
+                marker is not None
+                and (
+                    marker not in deps
+                    or marked["pin"] != row["pin"]
+                    or marked["operation_key"] != row["operation_key"]
+                    or marked["semantic_type"] != "structural.predicate_member"
+                )
+            )
+        ):
+            raise ValueError("predicate cue lacks exact occurrence or its proposed hosts")
+    elif kind == "predicate_reading":
+        key = component["frame"]
+        if (
+            row["kind"] != "composite"
+            or row.get("endpoints")
+            or members != (key,)
+            or key not in deps
+        ):
+            raise ValueError("predicate reading must interpret one exact frame")
+        same_scope(population[key], "predicate_frame")
+    else:
+        from .observations import source_python
+
+        qualifier = component["qualifier_contribution_id"]
+        host = component["host_contribution_id"]
+        reading = component.get("interpretation_member")
+        expected_members = (qualifier, host, reading) if reading is not None else (qualifier, host)
+        cue = same_scope(population[qualifier], "predicate_cue")
+        frame = same_scope(population[host], "predicate_frame")
+        if (
+            members != expected_members
+            or not set(expected_members) <= deps
+            or (reading is not None) != ("qualification" in component)
+            or cue["host_state"] != "located"
+            or cue["annotation"] != frame["annotation"]
+            or cue["block"] != frame["block"]
+            or component["qualifier_kind"] != cue["cue_kind"]
+            or frame["predicate_token"] not in cue["candidate_tokens"]
+            or ("condition" in component and cue["cue_kind"] not in {"condition", "assumption"})
+            or (
+                "qualification" in component
+                and source_python(component["qualification"]).get("condition")
+                != (source_python(component["condition"]) if "condition" in component else None)
+            )
+        ):
+            raise ValueError("qualifier differs from its exact proposed predicate host")
+        if reading is not None:
+            qualified = source_python(component["qualification"])
+            interpretation = same_scope(population[reading], "predicate_reading")
+            modality = {
+                "definition": "defined",
+                "assumption_restriction": "supposed",
+                "described_process": "asserted",
+            }.get(interpretation["reading"])
+            if (
+                interpretation["frame"] != host
+                or qualified.get("scope") != {"extent": "statement", "locator": host}
+                or qualified.get("modality") != modality
+                or interpretation["polarity"] == "unresolved"
+                or qualified.get("polarity") is not (interpretation["polarity"] == "positive")
+            ):
+                raise ValueError("qualification differs from its retained predicate interpretation")
 
 
 def component_statement(row, population):

@@ -585,9 +585,18 @@ def _report_source_ids(body: Any) -> set[int]:
 def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
     # This is the declared upstream-input ABI of the typed replay operation,
     # not a recursive interpretation of arbitrary returned JSON.
-    if report.get("method") != "resolve.m1_readings":
+    if report.get("method") == "resolve.m1_readings":
+        values = report["configuration"].get("retained_source_tasks", ())
+    elif report.get("method") == "structure.scoped_relations":
+        body = report.get("body") or {}
+        values = tuple(
+            op["annotation_origin_task_id"]
+            for op in body.get("contribution_operations", ())
+            if "annotation_origin_task_id" in op
+            and op.get("question") in {"source_predicate_frames", "source_predicate_interpretation"}
+        )
+    else:
         return set()
-    values = report["configuration"].get("retained_source_tasks", ())
     if any(type(value) is not int or value <= 0 for value in values):
         raise SemanticRefusal("retained source task reference is invalid")
     return set(values)
@@ -1359,6 +1368,125 @@ def _verify_artifact_nomination_closure(
             raise ValueError("artifact nomination differs from exact retained endpoints")
 
 
+def _verify_predicate_closure(root, manifest):
+    """Replay predicate evidence against the retained annotations and physical source pieces."""
+    from corpus_structure.core.method import SourceViewRef
+    from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.predicate_contributions import (
+        predicate_results,
+        publish_predicate_evidence,
+    )
+    from corpus_structure.semantic.observations import source_python
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import (
+        NativeSourceContext,
+        SourceSlice,
+        record_source_pin,
+    )
+    from corpus_structure.semantic.source_views import PreparedSourceView
+    from corpus_structure.semantic.structural_products import StructuralInput
+
+    if "reports" not in manifest["relations"]:
+        return
+    scoped, producers = [], {}
+    for row in _detached_relation(root, manifest, "reports"):
+        body = row["body"] or {}
+        if row.get("method") == "extract.m1_annotations":
+            producers[row["origin_task_id"]] = row
+        elif row.get("method") == "structure.scoped_relations" and any(
+            contribution["semantic_type"] == "structural.predicate_frame"
+            or contribution["semantic_type"] == "structural.predicate_cue"
+            for contribution in body.get("contributions", ())
+        ):
+            scoped.append(row)
+    if not scoped:
+        return
+    source_ids = {row["origin_unit_id"] for row in scoped}
+    sources = {
+        row["source_view_id"]: row
+        for row in _detached_relation(root, manifest, "sources")
+        if row["source_view_id"] in source_ids
+    }
+    for row in scoped:
+        (producer_id,) = tuple(_retained_report_ids(row))
+        producer = producers.get(producer_id)
+        if (
+            producer is None
+            or producer["origin_unit_id"] != row["origin_unit_id"]
+            or producer["project_id"] != row["project_id"]
+            or producer["body"].get("operation_version") != "2"
+        ):
+            raise ValueError("predicate evidence lacks the exact annotation producer")
+        source = sources[row["origin_unit_id"]]
+        descriptor = dict(source["ref"])
+        descriptor["native_product"] = ProductReference(**descriptor["native_product"])
+        ref = SourceViewRef(**descriptor)
+        context = source["context"]
+        view = PreparedSourceView(
+            ref,
+            source["text"],
+            tuple(context["pieces"]),
+            tuple(context["items"]),
+            tuple(context["ancestors"]),
+            context["health"],
+            integrated_context=(
+                json.loads(context["integrated_context_json"])
+                if "integrated_context_json" in context
+                else None
+            ),
+        )
+        frame = native_source_frame(view, ())
+        details = source_python(producer["body"]["parse_detail"])
+        configuration = row["configuration"]
+        profile = AnnotationProfile(
+            SentenceConfig.model_validate(configuration.get("sentences", {}))
+        )
+        annotation = restore_annotations(details["annotations"], source=frame, profile=profile)
+        configured = configuration.get("inputs")
+        passages = None
+        if configured is not None:
+            inputs = StructuralInput.model_validate(configured)
+            (external,) = tuple(ref for ref in inputs.sources if ref.source_view_id == view.ref.id)
+            passages = tuple(p for p in inputs.passages if p.source_ref == external.identity)
+        context = NativeSourceContext(
+            frame,
+            (),
+            (SourceSlice(ref.id, 0, len(view.text)),),
+            "native structural composition",
+            "scoped-source-joins-1",
+            "selected source",
+            max_chars=max(1, len(view.text)),
+            max_pieces=max(1, len(view.pieces)),
+        )
+        replay = []
+        publish_predicate_evidence(
+            frame,
+            context,
+            record_source_pin(frame),
+            "native:" + str(ref.native_product.task_id),
+            predicate_results(
+                frame, annotation, view.pieces, {item["self_ref"]: item for item in view.items}
+            ),
+            tuple(details.get("annotation_errors", ())),
+            producer_id,
+            passages,
+            replay,
+            {},
+        )
+        actual = {
+            c["contribution_id"]: canonical_bytes(c)
+            for c in row["body"]["contributions"]
+            if c["semantic_type"].startswith("structural.predicate_")
+        }
+        expected = {c["contribution_id"]: canonical_bytes(c) for c in replay}
+        if actual != expected:
+            raise ValueError(
+                "predicate evidence differs from retained source and annotation replay"
+            )
+
+
 def verify_review_bundle(root: Path) -> dict[str, Any]:
     """Offline integrity and JSONL/Parquet equivalence; no database or model access."""
     manifest = json.loads(_member(root, "manifest.json").read_bytes())
@@ -1657,6 +1785,7 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     if not public_product_ids <= structural_product_ids:
         raise ValueError("public structural witness has no selected product")
     if selection.completeness == "selected_source_closure":
+        _verify_predicate_closure(root, manifest)
         if not required_contracts <= captured_contracts:
             raise ValueError("structural release contracts are missing")
         if any(index not in structural_scopes for index, _ in structural_members):

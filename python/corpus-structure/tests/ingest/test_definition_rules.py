@@ -157,7 +157,9 @@ def test_negated_definition_retains_cue_without_positive_attachment(controlled):
     assert (scope.act_host, scope.act_polarity, scope.disposition) == (3, "negative", "negated")
     (negation,) = scope.act_cues
     assert (negation.kind, negation.hosts, negation.span.extents) == (
-        "negation", (3,), ((112, 115),)
+        "negation",
+        (3,),
+        ((112, 115),),
     )
     assert not scope.content_cues
 
@@ -195,7 +197,9 @@ def test_embedded_content_negation_remains_inside_a_positive_definition(controll
     assert not scope.act_cues
     (negation,) = scope.content_cues
     assert (negation.kind, negation.hosts, tuple(text_span(negation, text))) == (
-        "negation", (9,), ("not",)
+        "negation",
+        (9,),
+        ("not",),
     )
     assert found.content.text == "a value that does not change"
 
@@ -205,10 +209,21 @@ def test_naming_keeps_its_permitted_nominal_complement(controlled):
         controlled,
         "This set of points is called a set of constant density .",
         (1, 5, 1, 2, 5, 5, 7, 5, 7, 10, 8, 5),
-        ("det", "nsubjpass", "prep", "pobj", "auxpass", "ROOT",
-         "det", "oprd", "prep", "amod", "pobj", "punct"),
-        ("DET", "NOUN", "ADP", "NOUN", "AUX", "VERB",
-         "DET", "NOUN", "ADP", "ADJ", "NOUN", "PUNCT"),
+        (
+            "det",
+            "nsubjpass",
+            "prep",
+            "pobj",
+            "auxpass",
+            "ROOT",
+            "det",
+            "oprd",
+            "prep",
+            "amod",
+            "pobj",
+            "punct",
+        ),
+        ("DET", "NOUN", "ADP", "NOUN", "AUX", "VERB", "DET", "NOUN", "ADP", "ADJ", "NOUN", "PUNCT"),
         ("this", "set", "of", "point", "be", "call", "a", "set", "of", "constant", "density", "."),
     )
     assert found.term.text == "a set of constant density"
@@ -222,12 +237,54 @@ def test_historical_instead_of_keeps_the_contrast_and_withholds_defining_act(con
         controlled,
         text,
         (11, 0, 1, 4, 2, 2, 8, 8, 5, 11, 11, 11, 11, 11),
-        ("advmod", "prep", "pcomp", "amod", "dobj", "prep", "det", "amod", "pobj",
-         "punct", "nsubj", "ROOT", "dobj", "punct"),
-        ("ADV", "ADP", "VERB", "ADJ", "NOUN", "ADP", "DET", "ADJ", "NOUN",
-         "PUNCT", "PROPN", "VERB", "NOUN", "PUNCT"),
-        ("instead", "of", "define", "expect", "value", "as", "a", "weight", "average",
-         ",", "Huygens", "assume", "symmetry", "."),
+        (
+            "advmod",
+            "prep",
+            "pcomp",
+            "amod",
+            "dobj",
+            "prep",
+            "det",
+            "amod",
+            "pobj",
+            "punct",
+            "nsubj",
+            "ROOT",
+            "dobj",
+            "punct",
+        ),
+        (
+            "ADV",
+            "ADP",
+            "VERB",
+            "ADJ",
+            "NOUN",
+            "ADP",
+            "DET",
+            "ADJ",
+            "NOUN",
+            "PUNCT",
+            "PROPN",
+            "VERB",
+            "NOUN",
+            "PUNCT",
+        ),
+        (
+            "instead",
+            "of",
+            "define",
+            "expect",
+            "value",
+            "as",
+            "a",
+            "weight",
+            "average",
+            ",",
+            "Huygens",
+            "assume",
+            "symmetry",
+            ".",
+        ),
     )
     (reading,) = [m for m in matches if m.variant == "active_as"]
     scope = scopes[reading]
@@ -235,7 +292,7 @@ def test_historical_instead_of_keeps_the_contrast_and_withholds_defining_act(con
     assert (scope.act_host, scope.act_polarity, scope.disposition) == (2, "positive", "contrasted")
     (contrast,) = [cue for cue in scope.act_cues if cue.kind == "contrast"]
     assert (contrast.origin, contrast.hosts) == (11, (2,))
-    assert any(text[a - 100:b - 100] == "Instead of" for a, b in contrast.basis.extents)
+    assert any(text[a - 100 : b - 100] == "Instead of" for a, b in contrast.basis.extents)
 
 
 def test_reported_definition_retains_attribution_without_an_unattributed_pair(controlled):
@@ -308,10 +365,34 @@ def test_located_condition_within_the_exact_content_remains_literal(controlled):
         controlled,
         text,
         (1, 1, 1, 1, 5, 3, 7, 5, 10, 10, 7, 1),
-        ("nsubj", "ROOT", "dobj", "prep", "det", "pobj", "nsubj", "relcl", "mark",
-         "nsubj", "advcl", "punct"),
-        ("PRON", "VERB", "NOUN", "ADP", "DET", "NOUN", "PRON", "VERB", "SCONJ",
-         "NOUN", "VERB", "PUNCT"),
+        (
+            "nsubj",
+            "ROOT",
+            "dobj",
+            "prep",
+            "det",
+            "pobj",
+            "nsubj",
+            "relcl",
+            "mark",
+            "nsubj",
+            "advcl",
+            "punct",
+        ),
+        (
+            "PRON",
+            "VERB",
+            "NOUN",
+            "ADP",
+            "DET",
+            "NOUN",
+            "PRON",
+            "VERB",
+            "SCONJ",
+            "NOUN",
+            "VERB",
+            "PUNCT",
+        ),
         ("we", "define", "x", "as", "a", "value", "that", "change", "if", "head", "occur", "."),
     )
     (reading,) = [m for m in matches if m.variant == "active_as"]
@@ -320,7 +401,9 @@ def test_located_condition_within_the_exact_content_remains_literal(controlled):
     assert not scope.act_cues
     (condition,) = scope.content_cues
     assert (condition.kind, condition.hosts, tuple(text_span(condition, text))) == (
-        "condition", (7,), ("if heads occur",)
+        "condition",
+        (7,),
+        ("if heads occur",),
     )
 
 
@@ -340,6 +423,9 @@ def test_unsupported_condition_at_content_predicate_withholds_pair(controlled):
     assert scope.disposition == "unresolved"
     (condition,) = scope.content_cues
     assert (condition.kind, condition.status, condition.origin, condition.hosts) == (
-        "condition", "unresolved", 4, ()
+        "condition",
+        "unresolved",
+        4,
+        (),
     )
     assert tuple(text_span(condition, text)) == ("if",)

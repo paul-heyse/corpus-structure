@@ -226,12 +226,21 @@ class DefinitionScope:
     disposition: DefinitionDisposition
     act_cues: tuple[FrameCue, ...] = ()
     content_cues: tuple[FrameCue, ...] = ()
+    probability_subject: tuple[int, int] | None = None
 
 
 _SCOPE_CUES = frozenset(
     {
-        "negation", "condition", "exception", "modality", "attribution",
-        "contrast", "quotation", "assumption", "example", "order",
+        "negation",
+        "condition",
+        "exception",
+        "modality",
+        "attribution",
+        "contrast",
+        "quotation",
+        "assumption",
+        "example",
+        "order",
     }
 )
 
@@ -244,10 +253,22 @@ def definition_scopes(
 ) -> dict[AnnotationRuleMatch, DefinitionScope]:
     """Assess exact predicate ownership before projecting a definition pair."""
     by_head: dict[int, dict[FrameCue, None]] = {}
+    probability_subjects = {}
     for frame in result.frames:
-        by_head.setdefault(frame.predicate.tokens[0], {}).update(
+        head = frame.predicate.tokens[0]
+        by_head.setdefault(head, {}).update(
             dict.fromkeys(cue for cue in frame.cues if cue.kind in _SCOPE_CUES)
         )
+        if frame.variant == "passive_probability_subject":
+            subjects = {
+                role.span.extents[0]
+                for role in frame.roles
+                if role.name == "object"
+                and role.status == "located"
+                and len(role.span.extents) == 1
+            }
+            if len(subjects) == 1:
+                probability_subjects[head] = next(iter(subjects))
     unowned = tuple(cue for cue in result.unresolved_cues if cue.kind in _SCOPE_CUES)
     for cue in unowned:
         origin = cue.origin
@@ -279,7 +300,8 @@ def definition_scopes(
         content_candidates = (
             *(cue for head in sorted(content_heads & by_head.keys()) for cue in by_head[head]),
             *(
-                cue for cue in unowned
+                cue
+                for cue in unowned
                 if cue.basis.tokens and set(cue.basis.tokens) <= content_nodes
             ),
         )
@@ -288,8 +310,10 @@ def definition_scopes(
         )
         act_negation = tuple(cue for cue in act_cues if cue.kind == "negation")
         polarity: Literal["positive", "negative", "unresolved"] = (
-            "unresolved" if any(cue.status != "located" for cue in act_negation)
-            else "negative" if act_negation
+            "unresolved"
+            if any(cue.status != "located" for cue in act_negation)
+            else "negative"
+            if act_negation
             else "positive"
         )
         act_kinds = {cue.kind for cue in act_cues}
@@ -320,7 +344,14 @@ def definition_scopes(
             disposition = "qualified"
         else:
             disposition = "supported"
-        scopes[match] = DefinitionScope(act.head, polarity, disposition, act_cues, content_cues)
+        scopes[match] = DefinitionScope(
+            act.head,
+            polarity,
+            disposition,
+            act_cues,
+            content_cues,
+            probability_subjects.get(act.head),
+        )
     return scopes
 
 
@@ -441,6 +472,10 @@ def components_from_following_display(
         if term.nodes != tuple(range(term.nodes[0], term.nodes[-1] + 1)):
             continue
         term_start, term_end = term.extents[0][0], term.extents[-1][1]
+        if match.rule == "explanation" and scope.probability_subject is not None:
+            subject_start, subject_end = scope.probability_subject
+            if subject_start <= term_start < term_end <= subject_end:
+                term_start, term_end = subject_start, subject_end
         cue_end = cue.extents[-1][1]
         if not passage.start <= term_start < term_end <= cue_end <= passage.end:
             continue
@@ -528,7 +563,8 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
         )
         result = prepared.match(restored)
         matches = tuple(
-            match for match in result.matches
+            match
+            for match in result.matches
             if all(passage.start <= start < end <= passage.end for start, end in match.extents)
         )
         scopes = (

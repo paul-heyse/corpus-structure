@@ -1237,6 +1237,7 @@ class BoundReader:
         query = (
             select(
                 result.c.body,
+                result.c.task_id.label("origin_task_id"),
                 result.c.release_id,
                 task.c.input_hash,
                 task.c.unit_key,
@@ -1280,9 +1281,12 @@ class BoundReader:
             raise OperationConflict("upstream source result differs from its run/task binding")
         # Return detached decoded columns; the enclosing stored envelope remains
         # the one persistence and source-product custody owner.
-        if body.get("parse_detail") is None:
-            return dict(body)
-        return dict(body, parse_detail=source_python(body["parse_detail"]))
+        body = dict(body)
+        if method == "extract.m1_annotations":
+            body["origin_task_id"] = row["origin_task_id"]
+        if body.get("parse_detail") is not None:
+            body["parse_detail"] = source_python(body["parse_detail"])
+        return body
 
     def retained_source_result(self, source_view_id, task_id, method):
         """Read a named immutable producer result, never implicitly search older runs.

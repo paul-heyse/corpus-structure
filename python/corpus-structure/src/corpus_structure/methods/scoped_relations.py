@@ -2,6 +2,7 @@
 
 import json
 import re
+from collections.abc import Iterable
 from typing import Any, Literal, Self
 
 from pydantic import Field, model_validator
@@ -33,6 +34,9 @@ class SourceWorkBinding(StructuralValue):
     native_content_digest: str = Field(pattern="^[0-9a-f]{64}$")
     source_work: str = Field(min_length=1)
     provenance: str = Field(min_length=1)
+
+
+PROCEDURE_OPERATION_VERSION = "2"
 
 
 class ScopedRelationsConfig(StructuralValue):
@@ -182,12 +186,90 @@ def _table_schematics(items, text):
     return selected
 
 
+def _scalar_procedure_readings(proposals, passages) -> Iterable[dict[str, Any]]:
+    """Project compatible one-span procedure roles for existing structural readers."""
+    for annotation, result in proposals:
+        predicates = {
+            p.predicate.tokens[0]: p.predicate for p in result.frames if p.predicate.tokens
+        }
+        for frame in result.frames:
+            if frame.reading not in {"active", "passive"} or len(frame.predicate.extents) != 1:
+                continue
+            (action,) = frame.predicate.extents
+            scopes = (
+                ((annotation.block_start, annotation.block_end),)
+                if passages is None
+                else tuple((p.start, p.end) for p in passages)
+            )
+            local = tuple((a, b) for a, b in scopes if a <= action[0] < action[1] <= b)
+            if not local:
+                continue
+
+            def exact(span, local=local):
+                if len(span.extents) == 1:
+                    ((start, end),) = span.extents
+                    if any(a <= start < end <= b for a, b in local):
+                        return ((start, end),)
+                return ()
+
+            roles = {
+                name: tuple(
+                    extent
+                    for role in frame.roles
+                    if role.name == name and role.status == "located"
+                    for extent in exact(role.span)
+                )
+                for name in ("actor", "object")
+            }
+            qualifiers = {
+                field: tuple(
+                    extent
+                    for cue in frame.cues
+                    if cue.kind == kind and cue.status == "located"
+                    for extent in exact(cue.span)
+                )
+                for field, kind in (
+                    ("modality", "modality"),
+                    ("conditions", "condition"),
+                    ("exceptions", "exception"),
+                )
+            }
+            orders = []
+            for cue in frame.cues:
+                if (
+                    cue.kind != "order"
+                    or cue.status != "located"
+                    or cue.component not in predicates
+                ):
+                    continue
+                subordinate = exact(predicates[cue.component])
+                if subordinate:
+                    if cue.variant == "before":
+                        orders.append((action, subordinate[0]))
+                    elif cue.variant == "after":
+                        orders.append((subordinate[0], action))
+            yield dict(
+                action=action,
+                **roles,
+                **qualifiers,
+                orders=tuple(orders),
+                voice=frame.voice,
+                polarity=frame.polarity,
+                behavior=frame.interpretation,
+                clause_role=frame.reading,
+                dependency=annotation.dependency_digest,
+                reading_key=f"{annotation.block_id}:{frame.variant}:{frame.predicate.tokens}",
+            )
+
+
 def discover_relations(
     frame,
     *,
     source_work=None,
     annotations=(),
     annotation_errors=(),
+    annotation_origin_task_id=None,
+    passages=None,
     formula_seconds=0.5,
     max_formula_chars=2048,
 ):
@@ -216,7 +298,9 @@ def discover_relations(
         if hasattr(frame, "native_product")
         else "native:" + str(pin["native_product_task_id"])
     )
-    op = operation_identity("structure.scoped_relations", ScopedRelationsMethod.version, pin)
+    # The unchanged geometry/artifact operation has an independent identity.
+    # Artifact cohort replay also reconstructs this identity from the source.
+    op = operation_identity("structure.scoped_relations", "3", pin)
     products, coordinates, participants = [], {}, {}
     formula_diagnostics = []
     annotation_dependencies = tuple("annotation:" + a.dependency_digest for a in annotations)
@@ -228,9 +312,18 @@ def discover_relations(
     }
 
     def participant(
-        start, end, *, role, pointer, region, extra=None, dependencies=(), operation=op
+        start,
+        end,
+        *,
+        role,
+        pointer,
+        region,
+        extra=None,
+        dependencies=(),
+        operation=op,
+        reading_key=None,
     ):
-        key = (start, end, role, pointer, operation)
+        key = (start, end, role, pointer, operation, reading_key)
         if key in participants:
             return participants[key]
         if not 0 <= start < end <= len(frame.text):
@@ -249,7 +342,7 @@ def discover_relations(
             kind="occurrence",
             semantic_type="structural.located_participant",
             operation_key=operation,
-            item_key=f"{pointer}:{role}:{start}:{end}",
+            item_key=f"{pointer}:{role}:{start}:{end}" + (f":{reading_key}" if reading_key else ""),
             pin=pin,
             anchors=tuple(anchors),
             occurrence_id=occurrence_identity(anchors),
@@ -321,7 +414,7 @@ def discover_relations(
                 question="source_structural_relations"
                 if operation == op
                 else "source_procedure_roles",
-                question_version="1",
+                question_version="1" if operation == op else PROCEDURE_OPERATION_VERSION,
                 scope=region,
                 interpretation=state,
                 bases=(
@@ -373,7 +466,10 @@ def discover_relations(
             continue
         pointer = piece["item_ref"]
         node = items.get(pointer, {})
-        if piece.get("cell_index") is not None:
+        if piece.get("source_field") in {"chart_title", "chart_cell_text"}:
+            # Chart coordinates have a distinct field bridge from scalar PDF cells.
+            continue
+        if piece.get("source_field") == "cell_text":
             index = piece["cell_index"]
             cell = geometry.get(pointer, node).get("data", {}).get("table_cells", ())[index]
             role = (
@@ -404,7 +500,7 @@ def discover_relations(
             text = frame.text[piece["start"] : piece["end"]]
             text_rows.append((piece, node, text))
             for found in artifact_spans(text):
-                if source_work is None:
+                if source_work is None or piece.get("cell_index") is not None:
                     continue
                 start, end = piece["start"] + found["start"], piece["start"] + found["end"]
                 item = participant(
@@ -701,11 +797,27 @@ def discover_relations(
                                 ),
                             )
                             relation(used, declaration, "declares", pointer, "matched_cue")
+    from corpus_structure.ingest.annotations import AnnotationProduct
+
+    from .predicate_contributions import predicate_results, publish_predicate_evidence
     from .structural_roles import procedure_frames
 
-    procedure_op = operation_identity("source_procedure_roles", "1", pin)
-    readings = procedure_frames(frame.text, annotations)
-    by_action = {r["action"]: r for r in readings}
+    procedure_op = operation_identity(
+        "source_procedure_roles",
+        PROCEDURE_OPERATION_VERSION,
+        pin,
+        None if passages is None else tuple(p.passage_id for p in passages),
+    )
+    predicate_proposals = predicate_results(frame, annotations, source_pieces, items)
+    readings: list[dict[str, Any]] = [
+        *(
+            dict(reading)
+            for reading in procedure_frames(
+                frame.text, tuple(a for a in annotations if not isinstance(a, AnnotationProduct))
+            )
+        ),
+        *_scalar_procedure_readings(predicate_proposals, passages),
+    ]
     for reading in readings:
 
         def located(extent, role, reading=reading):
@@ -720,7 +832,7 @@ def discover_relations(
             )
             if original is None:
                 return None
-            action_reading = by_action.get((start, end), reading)
+            action_reading = reading
             extra = {}
             if role == "procedure_action":
                 extra = dict(
@@ -751,6 +863,7 @@ def discover_relations(
                 extra=extra,
                 dependencies=("annotation:" + action_reading["dependency"],),
                 operation=procedure_op,
+                reading_key=reading.get("reading_key") if role == "procedure_action" else None,
             )
 
         action = located(reading["action"], "procedure_action")
@@ -769,7 +882,7 @@ def discover_relations(
                         operation=procedure_op,
                     )
                     if role == "object":
-                        for (a, b, r, _pointer, _operation), artifact in tuple(
+                        for (a, b, r, _pointer, _operation, _reading_key), artifact in tuple(
                             participants.items()
                         ):
                             if r == "artifact_reference" and extent[0] <= a < b <= extent[1]:
@@ -818,7 +931,7 @@ def discover_relations(
         dict(
             operation_key=procedure_op,
             question="source_procedure_roles",
-            operation_version="1",
+            operation_version=PROCEDURE_OPERATION_VERSION,
             outcome=("limited" if emitted else "failed")
             if annotation_errors
             else (
@@ -840,10 +953,22 @@ def discover_relations(
             computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
         ),
     )
+    predicate_operations = publish_predicate_evidence(
+        frame,
+        context,
+        pin,
+        dependency,
+        predicate_proposals,
+        annotation_errors,
+        annotation_origin_task_id,
+        passages,
+        products,
+        coordinates,
+    )
     return dict(
         contributions=tuple(products),
         coordinates=tuple(coordinates.values()),
-        extra_operations=extra_operations,
+        extra_operations=(*extra_operations, *predicate_operations),
         formula_diagnostics=tuple(formula_diagnostics),
         operation=dict(
             operation_key=op,
@@ -859,7 +984,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "3"
+    version = "4"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -873,7 +998,11 @@ class ScopedRelationsMethod:
         )
 
     def input_digest(self, unit, cfg):
-        return Digest(canonical_bytes(cfg.model_dump(mode="json")))
+        inputs = {"configuration": cfg.model_dump(mode="json")}
+        if cfg.inputs is None:
+            annotation = unit.run.reader.source_result(unit.ref.unit_id, "extract.m1_annotations")
+            inputs["annotation"] = annotation
+        return Digest(canonical_bytes(inputs))
 
     def run(self, units, cfg, ctx):
         results = []
@@ -928,11 +1057,20 @@ class ScopedRelationsMethod:
                 ):
                     raise ValueError("retained annotations differ from current native projection")
                 annotations, annotation_errors = retained.annotations, retained.errors
+                annotation_origin_task_id = getattr(retained, "annotation_task_id", None)
+                passages = tuple(
+                    passage
+                    for passage in cfg.inputs.passages
+                    if passage.source_ref == original.identity
+                )
             else:
+                passages = None
+                annotation_origin_task_id = None
                 try:
-                    annotations, annotation_errors, _ = consume_annotations(
+                    annotations, annotation_errors, annotation_result = consume_annotations(
                         ctx.reader, view, AnnotationProfile(cfg.sentences)
                     )
+                    annotation_origin_task_id = annotation_result.get("origin_task_id")
                 except ValueError as error:
                     if (
                         str(error)
@@ -946,6 +1084,8 @@ class ScopedRelationsMethod:
                 source_work=bindings[0].source_work if bindings else None,
                 annotations=annotations,
                 annotation_errors=annotation_errors,
+                annotation_origin_task_id=annotation_origin_task_id,
+                passages=passages,
                 formula_seconds=cfg.formula_seconds,
                 max_formula_chars=cfg.max_formula_chars,
             )

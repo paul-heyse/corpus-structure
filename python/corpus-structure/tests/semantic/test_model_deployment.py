@@ -43,8 +43,10 @@ def test_exact_native_deployment_resumes_before_separate_activation(
 
     predecessor = "semantic_wce_gaps_20261106"
     revision = "semantic_wce_lineage_20261107"
-    script = ScriptDirectory.from_config(alembic_config()).get_revision(revision)
+    scripts = ScriptDirectory.from_config(alembic_config())
+    script = scripts.get_revision(revision)
     assert script is not None
+    ancestors = {Path(item.path).name for item in scripts.iterate_revisions(predecessor, "base")}
     products = {
         product: Path(script.path)
         .with_name(getattr(script.module, f"NATIVE_{kind}_FILE"))
@@ -111,7 +113,7 @@ def test_exact_native_deployment_resumes_before_separate_activation(
             if (
                 source.is_file()
                 and source.name not in replaced
-                and (source.suffix != ".py" or source.name < Path(script.path).name)
+                and (source.suffix != ".py" or source.name in ancestors)
             ):
                 (versions / source.name).symlink_to(source)
         monkeypatch.setattr(migrations, "ALEMBIC_DIR", versions.parent)
