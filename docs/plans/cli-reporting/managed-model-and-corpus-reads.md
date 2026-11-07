@@ -1,7 +1,8 @@
 # Managed model and corpus reads
 
-**Status:** Implemented on main. [Coordinator](../cli-reporting_2026-11-07.md) owns scope and integrated
-acceptance. This plan consumes [O03](../../functional_reviews/cli-reporting_2026-11-07.md#O03)
+**Status:** Managed reads are present. CLIR-CA04–05 and CLIR-CA09 own the open corrections
+and journey verification. The [coordinator](../cli-reporting_2026-11-07.md#completion-audit)
+owns scope and integrated acceptance. This plan consumes [O03](../../functional_reviews/cli-reporting_2026-11-07.md#O03)
 and [O04](../../functional_reviews/cli-reporting_2026-11-07.md#O04).
 
 <a id="CLIR-03"></a>

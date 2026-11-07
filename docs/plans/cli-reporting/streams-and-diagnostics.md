@@ -1,7 +1,8 @@
 # Stream behavior and diagnostics
 
-**Status:** Implemented on main. [Coordinator](../cli-reporting_2026-11-07.md) owns scope, the
-compatibility decision and integrated acceptance. This plan consumes
+**Status:** CLIR-CA07–08 own the open stream and stage corrections. CLIR-CA10 owns the reopened
+diagnostic investigation. The [coordinator](../cli-reporting_2026-11-07.md#completion-audit)
+owns scope, the compatibility decision and integrated acceptance. This plan consumes
 [O06](../../functional_reviews/cli-reporting_2026-11-07.md#O06) and
 [O07](../../functional_reviews/cli-reporting_2026-11-07.md#O07).
 

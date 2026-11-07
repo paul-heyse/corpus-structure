@@ -37,8 +37,8 @@ _Updated 2026-11-07. NCE captions, predicate evidence and the constant-density a
 ## CLI operations — 2026-11-07
 
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
-- The [CLI reporting series](docs/plans/cli-reporting_2026-11-07.md#main-qualification--2026-11-07)
-  is qualified on main with 5,173 Python nodes covered, zero unresolved after a single-node retry.
+- The [CLI reporting audit](docs/plans/cli-reporting_2026-11-07.md#completion-audit) reopened acceptance.
+  Prior receipts cover 5,173 Python nodes. `uv run ci docs check --json` passed for the audit.
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.

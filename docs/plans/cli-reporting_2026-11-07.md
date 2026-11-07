@@ -1,6 +1,6 @@
 # CLI reporting and file-free composition
 
-**Status:** Development qualification complete on `main`. **Created:** 2026-11-07.
+**Status:** Reopened by the completion audit. Development test evidence is retained. **Created:** 2026-11-07.
 
 ## Outcome and baseline
 
@@ -16,8 +16,7 @@ at `e2385dd1f`. Source inspection for planning used that HEAD on 2026-11-07, wit
 changes in the CLI failure adapter, detached verifier and enrichment code. Recheck those
 shared boundaries before editing. The environment pins Python 3.14.10, Rich 15.0.0,
 Typer 0.28.0 and Pydantic 2.14.1. The dated controls establish the observed behavior on their
-selected inputs, including the current early-pipe-close failure. The proposed commands and
-their runtime qualification are `not_run`. [Reporting controls](../design_review/evidence/2026-11-07_cli-reporting/README.md) ·
+selected inputs, including the pre-implementation exit 120 on early pipe closure. [Reporting controls](../design_review/evidence/2026-11-07_cli-reporting/README.md) ·
 [Dependency manifest](../../python/corpus-structure/pyproject.toml)
 
 | Current owner | Inspected foundation and consequence |
@@ -56,18 +55,18 @@ their runtime qualification are `not_run`. [Reporting controls](../design_review
   remain with the operation. This applies to existing and new human, JSON and explicit
   text reports. Operator decision recorded in the execution planning conversation.
 
-## Execution queue and source coverage
+## Execution scope and current disposition
 
-| Package | Source | Prerequisite and completion boundary |
-|---|---|---|
-| [CLIR-01 · Report boundary](cli-reporting/reporting-and-test-evidence.md#CLIR-01) | O01 | Extend the emitter with the minimum contract shared by compact test and leased model reads. Verify equivalent human and named JSON facts and the existing full JSON route. |
-| [CLIR-02 · Test evidence](cli-reporting/reporting-and-test-evidence.md#CLIR-02) | O02 | Consume CLIR-01. The classifier projects counts and bounded details at its boundary. An exact failure and reconciled retry coverage can be inspected by ID. |
-| [CLIR-03 · Preview and candidate](cli-reporting/managed-model-and-corpus-reads.md#CLIR-03) | O03 | Consume CLIR-01. Bound model artifacts are read in place. The explicit raw diff stream is gated by CLIR-06. |
-| [CLIR-04 · Review and corpus](cli-reporting/managed-model-and-corpus-reads.md#CLIR-04) | O04 | Consume CLIR-01 and authenticated read capabilities exercised by CLIR-03. Managed and detached inspection agree for the same authorized bundle. Complete the stdin and verified corpus routes against their owner contracts. New stream routes use CLIR-06's accepted policy. |
-| [CLIR-05 · Repository diagnostics and discovery](cli-reporting/checks-and-discovery.md#CLIR-05) | O05 | Consume CLIR-01 and existing recipe ownership. Identify failed steps, explain safe next actions and provide a direct reference route once its stdout contract is settled in CLIR-06. |
-| [CLIR-06 · Streams and stage reporting](cli-reporting/streams-and-diagnostics.md#CLIR-06) | O06 | Start the compatibility inquiry alongside CLIR-01. Make stream and settlement behavior available independently of optional TTY work. |
-| [CLIR-07 · Diagnostic gaps](cli-reporting/streams-and-diagnostics.md#CLIR-07) | O07 | Compare actual gaps after CLIR-05 and the stage/report slice of CLIR-06. Add a mechanism only for a demonstrated decision gap. A reasoned disposition with a revisit trigger can close the investigation. |
-| CLIR-08 · Adoption and qualification | O01–O07 | Consume the delivered packages and resolved or explicitly deferred conditional work. Qualify the declared union, update operator guidance with the shipped routes, and record any remaining blocked obligation at its owner. |
+| Package | Source | Prerequisite and completion boundary | Current disposition |
+|---|---|---|---|
+| [CLIR-01 · Report boundary](cli-reporting/reporting-and-test-evidence.md#CLIR-01) | O01 | Extend the emitter with the minimum contract shared by compact test and leased model reads. Verify equivalent human and named JSON facts and the existing full JSON route. | **Partial.** Shared emitter delivered. CLIR-CA01 and CLIR-CA05 own the outstanding view contract and parity. |
+| [CLIR-02 · Test evidence](cli-reporting/reporting-and-test-evidence.md#CLIR-02) | O02 | Consume CLIR-01. The classifier projects counts and bounded details at its boundary. An exact failure and reconciled retry coverage can be inspected by ID. | **Partial.** Compact classifier, exact failures and retry compatibility verified. CLIR-CA02 and CLIR-CA03 own remaining context, guidance and lane isolation. |
+| [CLIR-03 · Preview and candidate](cli-reporting/managed-model-and-corpus-reads.md#CLIR-03) | O03 | Consume CLIR-01. Bound model artifacts are read in place. The explicit raw diff stream is gated by CLIR-06. | **Partial.** Bound reads and raw stream delivered. CLIR-CA04 owns attribution and effect guidance. |
+| [CLIR-04 · Review and corpus](cli-reporting/managed-model-and-corpus-reads.md#CLIR-04) | O04 | Consume CLIR-01 and authenticated read capabilities exercised by CLIR-03. Managed and detached inspection agree for the same authorized bundle. Complete the stdin and verified corpus routes against their owner contracts. New stream routes use CLIR-06's accepted policy. | **Partial.** Managed verification and typed inputs delivered. CLIR-CA05 and CLIR-CA09 own reporting and installed journey proof. |
+| [CLIR-05 · Repository diagnostics and discovery](cli-reporting/checks-and-discovery.md#CLIR-05) | O05 | Consume CLIR-01 and existing recipe ownership. Identify failed steps, explain safe next actions and provide a direct reference route once its stdout contract is settled in CLIR-06. | **Partial.** Ordered step transport and direct reference delivered. CLIR-CA06 and CLIR-CA10 own outcome and diagnostic fidelity. |
+| [CLIR-06 · Streams and stage reporting](cli-reporting/streams-and-diagnostics.md#CLIR-06) | O06 | Start the compatibility inquiry alongside CLIR-01. Make stream and settlement behavior available independently of optional TTY work. | **Partial.** Normal stream controls passed. CLIR-CA07 and CLIR-CA08 own remaining delivery, cancellation and stage reporting. |
+| [CLIR-07 · Diagnostic gaps](cli-reporting/streams-and-diagnostics.md#CLIR-07) | O07 | Compare actual gaps after CLIR-05 and the stage/report slice of CLIR-06. Add a mechanism only for a demonstrated decision gap. A reasoned disposition with a revisit trigger can close the investigation. | **Partial.** CLIR-CA10 reopens the diagnostic investigation for a demonstrated lost failure excerpt. |
+| CLIR-08 · Adoption and qualification | O01–O07 | Consume the delivered packages and resolved or explicitly deferred conditional work. Qualify the declared union, update operator guidance with the shipped routes, and record any remaining blocked obligation at its owner. | **Partial.** Guidance and recorded development test union established. CLIR-CA09 owns final journey qualification. |
 
 Source IDs are scoped to this review. The supporting plans disposition the additional
 library families with the package where they would apply. Generic selectors and content
@@ -108,16 +107,15 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
   all 12 selected tests, including a native CLI failure check. Receipt
   `deda02c1c21f47229df5224f57246b33` records the private test context. The temporary
   cluster was removed. The real authentication fault lane targets the dedicated cluster.
-- CLIR-01–06 are implemented. Compact classifier output, exact test failures, preview and
-  candidate reads, authenticated managed review inspection, bounded stdin, ordered recipe
-  steps and the installed stream boundary are available on the branch. Managed review
+- The branch delivered compact classifier output, exact test failures, preview and
+  candidate reads, managed review inspection, bounded stdin, ordered recipe steps and
+  the shared stream boundary. The completion audit below owns the remaining work. Managed review
   results created before publication recorded a manifest digest can still be verified
   from an intentional detached bundle. A fresh export establishes managed origin proof.
-- CLIR-07 uses the recipe step channel and existing managed stages and counts. The failed
-  and interrupted controls identify the step or unsettled result and the next action.
-  Additional logging, continuous progress and retained excerpts remain conditional on
-  a named decision those reports cannot support. Revisit bounded transcript collection
-  if measured child output or a specific pre-failure need warrants changing the supervisor.
+- The initial CLIR-07 investigation relied on the recipe step channel and existing managed
+  stages and counts. Its controls identified the failed step or unsettled result and a next
+  action. CLIR-CA10 records a later control where the reason for failure is lost and reopens
+  the excerpt decision. Additional logging and continuous progress remain conditional.
 - CLIR-08 records targeted and integrated qualification separately. The separate live
   CLI operations prerequisites retain their existing owner.
 
@@ -134,8 +132,8 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
 
 ## Main qualification · 2026-11-07
 
-CLIR-01–08 are complete for development. The conditional diagnostic investigation
-selected owned step and stage facts and recorded revisit conditions above. The
+These receipts establish the recorded development test union. The completion audit
+separately assesses functional scope and installed journeys. The
 operator-directed guidance in [AGENTS.md](../../AGENTS.md) and the
 [ci skill](../../.claude/skills/ci/SKILL.md) makes routine report materialization
 an in-scope CLI responsibility.
@@ -146,3 +144,49 @@ an in-scope CLI responsibility.
 | `uv run ci test retry fce1f0a6a72d4e8cb2f89205484a9cd7 --lane ordinary --json` | `passed`. Receipt `215a0a7279114003b295702aa418bc7d` selected only `test_six_published_views_keep_current_claims_and_native_dependencies` at `9f4acd541`. Only agent and skill guidance changed between the source commits. |
 | `uv run ci test coverage fce1f0a6a72d4e8cb2f89205484a9cd7 215a0a7279114003b295702aa418bc7d --view unresolved --limit 20 --json` | `passed` as a report. The required Python union is covered at 5,173 of 5,173 with zero unresolved, no missing lanes and settled custody. The original failure, successful retry and source-context difference remain visible. |
 | `uv run ci check --view steps --json`, `uv run ci docs check --json`, `uv run ci doctor --json` | `passed` on main. Repository checks covered the installed step report, lint, types, publication, dependency pins and Clippy. The docs and tool checks passed after the reporting guidance change. |
+
+## Completion audit
+
+**2026-11-07 · inspected committed `397a52964` on main.** Reviewed all claimed CLIR-01–08
+scope against the companion plans, O01–O07, ADR-0069, and the operator's CLIR-D01 decision.
+Three independent read-only reviews followed the installed command, owner, custody and
+verification paths. Concurrent NCE edits, including changes to predicate replay in the shared
+review verifier, are outside the baseline and the disposition below.
+
+**Implementation.** The core file-free routes work. The audit reopened reporting fidelity,
+effect guidance and stream behavior where the actual outcome falls short of the accepted
+scope. The plan's existing conditions for generic browsing, manifest-only inspection,
+dynamic progress and logging still apply. The lost failure diagnostic supplies a concrete
+case for CLIR-07 to reconsider with the recipe owner.
+
+**Verification.** The retained main receipts still reconcile to 5,173 required Python
+nodes, zero unresolved, both lanes present and settled custody. The original lock timeout
+remains visible. Between the tested source and the inspected commit, changes were limited
+to agent guidance and plan documentation. The installed managed review and model-preview
+reads, exact failure lookup and coverage reconciliation passed bounded audit reads. The audit
+also reproduced false success for an inapplicable rule check, omitted review scope in the human view, and
+stream edge cases recorded below. Installed Bash completion also passed with invalid
+application settings. Product test execution was `not_run` in this audit.
+The recorded campaign does not close the installed journey obligations below.
+
+**Benefit.** Compact classification avoids returning the full required-node list over
+the subprocess boundary. The retained model and review reads and ordinary retry journey
+show direct use by ID without caller scratch files. These observations establish usable
+routes and bounded payload shape. Runtime improvement remains unmeasured.
+
+| Finding | Owner and gap | Required closure |
+|---|---|---|
+| CLIR-CA01 | **CLIR-01 · Open.** The named failure and unresolved-node views show selected and omitted counts. Their payloads and human renderers omit the declared ordering required to interpret the selection. [Report models and renderers](../../python/corpus-structure/src/corpus_structure/cli/testing.py#L81) | State the owner ordering in both views and prove the same selection and readable exact identities through installed human and JSON reads, including narrow Unicode, literal markup, controls and credential-shaped text. |
+| CLIR-CA02 | **CLIR-02 · Open.** The compact classifier compares source fingerprints. An installed fixture with identical source and changed Python and pytest versions reports `sources_differ: false` without surfacing those context differences. Active coverage identifies custody but offers no watch action. Failures can repeat a stored exact-retry hint after current evidence makes retry unavailable. [Classifier](../../scripts/test_receipts.py#L954) · [Coverage and failure adapters](../../python/corpus-structure/src/corpus_structure/cli/testing.py#L489) | Distinguish source and applicable execution-context differences and unknowns in the bounded reports. Carry the current custody and derive watch, recovery or retry from available evidence. Cover same-source changed context, active and classifier-only unsettled custody, and a missing collection manifest with a stale hint. Keep full JSON compatible. |
+| CLIR-CA03 | **CLIR-02 · Open.** An explicit ordinary-lane failure read authenticates all artifact roles before selecting the lane. A substituted fault artifact refused the intact ordinary lookup in an installed fixture. [Receipt selection](../../python/corpus-structure/src/corpus_structure/cli/testing.py#L391) · [Failure command](../../python/corpus-structure/src/corpus_structure/cli/testing.py#L565) | Resolve the requested lane before opening its artifacts. Prove the intact selected lane remains readable and the same substitution still refuses when its lane is selected. |
+| CLIR-CA04 | **CLIR-03 · Open.** Bounded patch pages lose the file identity of individual hunks and the bound target. Preview guidance can suggest an effect for a stale checkout. Candidate inspection keeps a register hint when installed artifacts conflict and the registration owner would refuse. [Patch and preview report](../../python/corpus-structure/src/corpus_structure/cli/model.py#L244) · [Candidate guidance](../../python/corpus-structure/src/corpus_structure/cli/model.py#L444) · [Registration owner](../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L282) | Attribute each hunk to its file and each page to its preview and target. Use locally available owner checks to distinguish eligible, stale and conflicting actions. Surface remaining effect prerequisites as conditions. Exercise multi-file pages, a stale preview, and missing versus conflicting candidate artifacts. Preserve the exact streamed bytes and lease. |
+| CLIR-CA05 | **CLIR-04 · Open.** The installed human review read of `4e8c7df6081c45d5b9e0d47765f0cb8b` shows only inventory, source completeness and two relation types. JSON includes the selected run and cut, relation row counts and assessment scope. The human source coverage projection also omits the exact content digest. [Review renderer](../../python/corpus-structure/src/corpus_structure/cli/review.py#L346) · [Source coverage renderer](../../python/corpus-structure/src/corpus_structure/cli/source.py#L134) | Materialize a bounded attributed human review view with selection, witness and assessment coverage. Include the exact source product pin in coverage. Verify normal inventory, evaluated scope and distinct incomplete cases against owner facts. |
+| CLIR-CA06 | **CLIR-05 · Open.** `ci check --only rules --view steps --json` exited 0 with `passed`. The unchanged full route reported `rules-scan: not_run (no rules yet)`. The owned bundle channel also maps zero exit to `passed` without a separate applicability fact. [Rule owner](../../justfile#L155) · [Step consumer](../../python/corpus-structure/src/corpus_structure/cli/operations.py#L183) | Carry the owner's applicability and refusal separately from process exit. Check skipped, passed, failed, interrupted and unobserved steps through both the bundle and single-step routes. Preserve the direct transcript and full JSON behavior. |
+| CLIR-CA07 | **CLIR-06 · Open.** A closed stdout with unavailable stderr can replace the accepted exit 74 with exit 1 when reporting the delivery error. Managed command reference generation converts known cancellation to a generic failed result and exit 1. The direct reference route preserves the cancellation status. [Delivery boundary](../../python/corpus-structure/src/corpus_structure/cli/output.py#L61) · [Reference routes](../../python/corpus-structure/src/corpus_structure/cli/operations.py#L242) | Make stderr diagnostics best effort when stdout closes and preserve the known operation status. Settle interrupted managed reference generation truthfully and verify the original result by ID. Exercise installed write and flush failures with unavailable stderr, plus direct and managed cancellation. |
+| CLIR-CA08 | **CLIR-06 · Open.** Test and review commands surface owner stages. Long-running model and native candidate operations write stages into manifests and expose the initial ID, while the command itself omits the meaningful stage changes from stderr. [Stage owner](../../python/corpus-structure/src/corpus_structure/cli/managed.py#L212) · [Model stages](../../python/corpus-structure/src/corpus_structure/cli/model.py) | Materialize bounded owner stage lines on the affected long-running routes, with a settled final result and clean stdout. Verify on an installed command without requiring a separate watch. |
+| CLIR-CA09 | **CLIR-08 · Open.** The retained installed corpus journey is ordinary inventory. Focused fixtures cover evaluated role selection and stdin or replay separately with mocked edges. The installed preview case has no semantic effects. They leave the required installed evaluated stdin and exposure, ordinary replay of an admitted stdin selection, two different incomplete coverage causes, and attributed nonempty model review unqualified. Earlier width and safety probes used synthetic rendering. The installed PTY control covers stderr staging and JSON separation, leaving the shipped narrow and wide report and interrupted managed result retrieval to qualify. [Journey criteria](#integrated-acceptance-and-adoption) · [Review controls](../../python/corpus-structure/tests/test_review_cli.py#L31) · [Preview controls](../../python/corpus-structure/tests/test_cli_model_inspect.py#L90) | After the reporting repairs, exercise the remaining installed journeys with independent expected owner facts and the applicable evaluator authority. Recheck directly affected consumers and assess the required union for the final source. Preserve earlier receipts at their recorded scope. |
+| CLIR-CA10 | **CLIR-05 and CLIR-07 · Open.** Excerpts come from the final 1,200 characters of each aggregate stream, without a step identity. In an installed bundle control an early step failed with exit 17 and a later passing step emitted enough stderr to displace the first failure's diagnostic. The report named the failed step but lost the reason needed to choose a next action. [Excerpt selection](../../python/corpus-structure/src/corpus_structure/cli/operations.py#L190) | Compare retaining an owner-attributed bounded excerpt with the existing process receipt and scoped handler options. Preserve the actionable failed-step excerpt and truncation information through later output. Qualify a failed step followed by a verbose passing step, redaction and interruption. Adopt the smallest owner mechanism that supplies the fact. |
+
+Start with the owner and delivery repairs in CLIR-CA02–08 and CLIR-CA10. Close the view checks and
+installed journey gaps alongside those repairs. The [CLI operations plan](cli-operations_2026-11-07.md)
+continues to own its separate production prerequisites.
