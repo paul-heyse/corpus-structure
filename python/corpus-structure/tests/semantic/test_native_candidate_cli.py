@@ -157,14 +157,18 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
         "--json",
         settings=lambda: settings,
     )
+    assert "resolve native authoring intent" in result.stderr
+    assert "rollback-only authoring" in result.stderr
     if fail:
         assert result.exit_code == 1
         assert json.loads(result.stdout)["error"]["code"] == "SemanticRefusal"
         assert not out.exists()
         assert events == ["connect", "begin", "rollback"]
+        assert "publish native candidate" not in result.stderr
     else:
         assert result.exit_code == 0, result.output
         report = json.loads(result.stdout)
+        assert "publish native candidate" in result.stderr
         assert report["database"] == (database or "ordinary")
         assert report["predecessor"] == "106"
         assert {item.name for item in out.iterdir()} == {
