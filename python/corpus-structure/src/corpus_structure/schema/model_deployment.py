@@ -136,7 +136,7 @@ def verify_predecessor(settings: Settings, target: str, predecessor: str) -> Non
 
 def _migration_names(binding: Candidate) -> dict[str, str]:
     if not binding.revision or not re.fullmatch(r"[A-Za-z0-9_]{1,32}", binding.revision):
-        raise ModelError(["revision ID must contain 1–32 letters, digits or underscores"])
+        raise ModelError(["revision ID must contain 1 to 32 letters, digits or underscores"])
     if not binding.predecessor or binding.predecessor == binding.revision:
         raise ModelError(["native registration requires a distinct predecessor"])
     return {kind: f"{binding.revision}_{suffix}" for kind, _, suffix in _NATIVE_PRODUCTS}
