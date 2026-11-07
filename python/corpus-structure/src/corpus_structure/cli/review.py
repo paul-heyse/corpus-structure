@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from pydantic import JsonValue, RootModel
+from rich.table import Table
 
 from corpus_structure.cli.output import (
     JsonOpt,
@@ -303,6 +304,66 @@ def verify_review(bundle: Path, json: JsonOpt = False):
     emit(RootModel[dict[str, JsonValue]].model_validate(result), json=json)
 
 
+def _inspection_view(report: RootModel[dict[str, JsonValue]], subject: str) -> Table:
+    body = report.root
+    fields: list[tuple[str, object]] = [
+        ("Verified review", subject),
+        ("Coverage", body["completeness"]),
+        ("Source completeness", body["original_source_completeness"]),
+        ("Assessment scope", body["assessment_scope"]),
+    ]
+    selections = body["selection"]
+    selected_bindings = body["selected_bindings"]
+    cuts = (
+        {
+            (binding.get("kind"), binding.get("index")): binding.get("cut_id")
+            for binding in selected_bindings
+            if isinstance(binding, dict)
+        }
+        if isinstance(selected_bindings, list)
+        else {}
+    )
+    if isinstance(selections, dict):
+        visible = []
+        total = 0
+        for kind, key in (
+            ("Contribution", "selections"),
+            ("Structural", "structural_selections"),
+        ):
+            requests = selections.get(key)
+            if not isinstance(requests, list):
+                continue
+            total += len(requests)
+            for index, request in enumerate(requests[: 8 - len(visible)]):
+                if isinstance(request, dict):
+                    item = f"{kind} · Run {request['run_id']}"
+                    if (cut := cuts.get((kind.lower(), index))) is not None:
+                        item += f" · Cut {cut}"
+                    elif (cut := request.get("cut_id")) is not None:
+                        item += f" · Requested cut {cut}"
+                    if (task := request.get("selected_task_id")) is not None:
+                        item += f" · Task {task}"
+                    visible.append(item)
+        if total > len(visible):
+            visible.append(f"… {total - len(visible)} more selections")
+        fields.append(("Selection", "\n".join(visible)))
+    relations = body["relations"]
+    if isinstance(relations, dict):
+        for label, name in (
+            ("Witness rows", "structural_public_assertions"),
+            ("Evaluator authority rows", "assessment_authority"),
+            ("Assessment history rows", "assessment_history"),
+            ("Omission rows", "omissions"),
+        ):
+            fields.append((label, relations.get(name, "none retained")))
+        names = sorted(relations)
+        visible = [f"{name}: {relations[name]}" for name in names[:12]]
+        if len(names) > len(visible):
+            visible.append(f"… {len(names) - len(visible)} more relations")
+        fields.append(("Relation rows", "\n".join(visible) or "none retained"))
+    return report_fields(*fields)
+
+
 @app.command("inspect")
 def inspect_review(
     ctx: typer.Context,
@@ -346,12 +407,7 @@ def inspect_review(
     emit(
         RootModel[dict[str, JsonValue]].model_validate(report),
         json=json,
-        render=lambda _: report_fields(
-            ("Verified review", subject),
-            ("Coverage", report["completeness"]),
-            ("Source completeness", report["original_source_completeness"]),
-            ("Relations", len(report["relations"])),
-        ),
+        render=lambda value: _inspection_view(value, subject),
     )
 
 

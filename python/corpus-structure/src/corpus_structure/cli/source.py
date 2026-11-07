@@ -134,6 +134,7 @@ def inspect(
         render=lambda report: report_fields(
             ("Run", report.selection.run_id),
             ("Producer", f"{report.selection.task_id} · {report.selection.product_key}"),
+            ("Content digest", report.selection.content_digest),
             ("Release", report.release_id),
             ("Outcome", report.outcome),
             (

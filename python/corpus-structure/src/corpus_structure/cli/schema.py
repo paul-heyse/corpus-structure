@@ -10,13 +10,20 @@ from pydantic import BaseModel
 from rich.table import Table
 
 from corpus_structure.cli.failures import failure_boundary
-from corpus_structure.cli.output import JsonOpt, emit
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.semantic.storage_target import StorageTarget
 
 if TYPE_CHECKING:
     from sqlalchemy import MetaData
 
+    from corpus_structure.cli.managed import Invocation
     from corpus_structure.semantic.native_objects import NativeIdentity
+
+
+def model_stage(result: Invocation, name: str, **details: object) -> None:
+    """Persist and announce an owner-named model phase."""
+    result.stage(name, **details)
+    diagnostic(f"Model {result.id} · {name}")
 
 
 def refusal(json, *, expected=(), context=None):
@@ -425,13 +432,14 @@ def native_candidate_(
             raise SemanticRefusal("native authoring delivery requires a new directory")
         store = result_store(ctx)
         with store.operation("schema.native-candidate") as result:
-            result.stage("rollback-only authoring")
+            model_stage(result, "resolve native authoring intent")
             requested = (
                 NativeIntent()
                 if intent is None
                 else NativeIntent.model_validate(yaml.safe_load(intent.read_bytes()))
             )
             retire, recreate = native_intent(requested.retire, requested.recreate)
+            model_stage(result, "rollback-only authoring")
             report, products = author_native_candidate(
                 state(ctx).settings(),
                 authoring_database,
@@ -439,6 +447,7 @@ def native_candidate_(
                 retire=retire,
                 recreate=recreate,
             )
+            model_stage(result, "publish native candidate")
             report = publish_native_candidate(result, report, products)
             result.settle(predecessor=report.predecessor, target=report.database)
         if out is not None:

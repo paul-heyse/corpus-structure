@@ -182,6 +182,10 @@ def test_managed_inspection_matches_detached_and_rejects_replacement(cli, tmp_pa
     assert detached.exit_code == managed.exit_code == 0, managed.output
     assert json.loads(managed.stdout) == {"result_id": invocation.id, **json.loads(detached.stdout)}
     assert json.loads(managed.stdout)["relations"] == {"contributions": 1}
+    human = cli("review", "inspect", "--result", invocation.id)
+    assert human.exit_code == 0, human.output
+    for detail in (invocation.id, "Run 1", "contributions: 1", "Assessment scope", "Witness rows"):
+        assert detail in human.stdout
     assert cli("review", "inspect", str(bundle), "--result", invocation.id).exit_code == 2
 
     alternate = tmp_path / "alternate"

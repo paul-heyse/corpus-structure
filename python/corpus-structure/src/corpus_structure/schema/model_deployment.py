@@ -241,8 +241,9 @@ def _versions() -> Path:
     return ALEMBIC_DIR / "versions"
 
 
-def _declared_revision_paths(versions: Path, revision: str) -> set[Path]:
-    paths = set()
+def _migration_declarations(
+    versions: Path,
+) -> Generator[tuple[Path, str, dict[str, ast.expr]]]:
     for path in versions.glob("*.py"):
         if path.name == "__init__.py":
             continue
@@ -250,20 +251,71 @@ def _declared_revision_paths(versions: Path, revision: str) -> set[Path]:
             tree = ast.parse(path.read_bytes(), filename=path.name)
         except (OSError, SyntaxError) as error:
             raise ModelError([f"cannot inspect migration declaration: {path.name}"]) from error
-        declarations = [
-            node.value.value
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and isinstance(node.value, ast.Constant)
-            and any(
-                isinstance(target, ast.Name) and target.id == "revision" for target in node.targets
-            )
-        ]
-        if len(declarations) != 1 or not isinstance(declarations[0], str):
+        fields: dict[str, ast.expr] = {}
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                targets, value = node.targets, node.value
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                targets, value = [node.target], node.value
+            else:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id in {
+                    "revision",
+                    "down_revision",
+                    "depends_on",
+                    "branch_labels",
+                }:
+                    if target.id in fields:
+                        raise ModelError([f"duplicate {target.id} in {path.name}"])
+                    fields[target.id] = value
+        revision = fields.get("revision")
+        if not isinstance(revision, ast.Constant) or not isinstance(revision.value, str):
             raise ModelError([f"migration requires one literal revision ID: {path.name}"])
-        if declarations[0] == revision:
-            paths.add(path)
-    return paths
+        yield path, revision.value, fields
+
+
+def _declared_revision_paths(versions: Path, revision: str) -> set[Path]:
+    return {path for path, name, _ in _migration_declarations(versions) if name == revision}
+
+
+def _declared_revision_head(
+    declarations: list[tuple[Path, str, dict[str, ast.expr]]],
+) -> str | None:
+    """Ask Alembic to resolve the graph from literal metadata without importing migrations."""
+    from alembic.script.revision import Revision, RevisionError, RevisionMap
+
+    def declared_edges(fields: dict[str, ast.expr], name: str) -> str | tuple[str, ...] | None:
+        if name not in fields:
+            if name == "down_revision":
+                raise ValueError("missing down_revision")
+            return None
+        value = ast.literal_eval(fields[name])
+        if value is None or isinstance(value, str):
+            return value
+        if isinstance(value, (list, tuple)) and all(isinstance(item, str) for item in value):
+            return tuple(value)
+        raise ValueError(f"invalid {name}")
+
+    revisions: dict[str, Revision] = {}
+    for path, revision, fields in declarations:
+        try:
+            if revision in revisions:
+                raise ValueError("duplicate revision ID")
+            revisions[revision] = Revision(
+                revision,
+                declared_edges(fields, "down_revision"),
+                dependencies=declared_edges(fields, "depends_on"),
+                branch_labels=declared_edges(fields, "branch_labels"),
+            )
+        except (RevisionError, ValueError, TypeError) as error:
+            raise ModelError(
+                [f"invalid migration graph metadata in {path.name}: {error}"]
+            ) from error
+    try:
+        return RevisionMap(lambda: revisions.values()).get_current_head()
+    except (RevisionError, KeyError) as error:
+        raise ModelError([f"cannot resolve the installed migration head: {error}"]) from error
 
 
 def _approved_wrapper(binding: Candidate) -> bytes:
@@ -279,17 +331,16 @@ def _approved_wrapper(binding: Candidate) -> bytes:
     return content
 
 
-def register_candidate(root: Path, binding: Candidate, products: Path | int) -> tuple[str, ...]:
-    """Install exact migration products under the caller's checkout writer lock."""
-    from alembic.script import ScriptDirectory
-
-    from corpus_structure.semantic.migrations import alembic_config
-
-    _verify_candidate_files(root, binding)
+def candidate_registration_files(
+    root: Path, binding: Candidate, products: Path | int
+) -> dict[Path, bytes]:
+    """Validate the exact registration and return its files without changing the checkout."""
+    check_candidate_files(root, binding)
     names = _migration_names(binding)
     versions = _versions().relative_to(root)
     wrapper = checked_path(root, (versions / f"{binding.revision}.py").as_posix())
-    if _declared_revision_paths(root / versions, binding.revision or "") - {wrapper}:
+    declarations = list(_migration_declarations(root / versions))
+    if any(name == binding.revision and path != wrapper for path, name, _ in declarations):
         raise ModelError(["candidate revision is declared by a different migration wrapper"])
     staged = {}
     for kind, product, _ in _NATIVE_PRODUCTS:
@@ -306,11 +357,14 @@ def register_candidate(root: Path, binding: Candidate, products: Path | int) -> 
     for path, content in staged.items():
         if path.exists() and path.read_bytes() != content:
             raise ModelError([f"migration file already has different content: {path.name}"])
-    if (
-        not wrapper.is_file()
-        and ScriptDirectory.from_config(alembic_config()).get_current_head() != binding.predecessor
-    ):
+    if not wrapper.is_file() and _declared_revision_head(declarations) != binding.predecessor:
         raise ModelError(["installed migration head differs from the candidate predecessor"])
+    return staged
+
+
+def register_candidate(root: Path, binding: Candidate, products: Path | int) -> tuple[str, ...]:
+    """Install exact migration products under the caller's checkout writer lock."""
+    staged = candidate_registration_files(root, binding, products)
     for path, content in staged.items():
         if path.exists():
             continue
@@ -322,6 +376,10 @@ def register_candidate(root: Path, binding: Candidate, products: Path | int) -> 
     return tuple(path.relative_to(root).as_posix() for path in staged)
 
 
+class MigrationNotRegistered(ModelError):
+    """The reviewed revision needs one or more missing registration files."""
+
+
 def _verify_installed_revision(root: Path, binding: Candidate) -> dict[str, bytes]:
     """Only the repository migration owner may execute an admitted frozen revision."""
     if binding.revision is None:
@@ -330,8 +388,10 @@ def _verify_installed_revision(root: Path, binding: Candidate) -> dict[str, byte
     versions = _versions().relative_to(root)
     wrapper = checked_path(root, (versions / f"{binding.revision}.py").as_posix())
     wrapper_bytes = _approved_wrapper(binding)
-    if not wrapper.is_file() or wrapper.read_bytes() != wrapper_bytes:
-        raise ModelError(["install the exact approved migration wrapper at its canonical path"])
+    if not wrapper.exists():
+        raise MigrationNotRegistered(["the approved migration wrapper is missing"])
+    if wrapper.read_bytes() != wrapper_bytes:
+        raise ModelError(["installed migration wrapper differs from the approved wrapper"])
     if _declared_revision_paths(root / versions, binding.revision) != {wrapper}:
         raise ModelError(["candidate revision is declared by a different migration wrapper"])
     frozen = {wrapper.name: wrapper_bytes}
@@ -339,7 +399,7 @@ def _verify_installed_revision(root: Path, binding: Candidate) -> dict[str, byte
         name = names[kind]
         path = checked_path(root, (versions / name).as_posix())
         if not path.is_file():
-            raise ModelError([f"installed migration artifact is missing: {name}"])
+            raise MigrationNotRegistered([f"installed migration artifact is missing: {name}"])
         content = path.read_bytes()
         if sha256(content).hexdigest() != binding.hashes[product]:
             raise ModelError([f"installed migration artifact differs: {name}"])
@@ -369,7 +429,8 @@ def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path 
         yield location
 
 
-def _verify_candidate_files(root: Path, binding: Candidate) -> None:
+def check_candidate_files(root: Path, binding: Candidate) -> None:
+    """Verify that the candidate still matches the local inputs and generator."""
     if str(root) != binding.workspace or generator_fingerprint(root) != binding.generator:
         raise ModelError(["candidate belongs to another workspace or generator"])
     for relative, expected in binding.files.items():
@@ -398,7 +459,7 @@ def deploy_candidate(
     from corpus_structure.semantic.releases import open_release, persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    _verify_candidate_files(root, binding)
+    check_candidate_files(root, binding)
     _, destination = deployment_settings(settings, binding.target_profile)
     if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])

@@ -100,6 +100,8 @@ def test_inspection_projects_bound_effects_and_pages_exact_hunks(model_results):
         ["one.txt", "two.txt"],
         "preceding",
     )
+    assert body["next_command"] is None
+    assert "another workspace" in body["action_detail"]
     assert body["comparison_status"] == "unavailable"
     assert body["discovery_status"] == "available"
     assert "patch" not in body
@@ -108,17 +110,34 @@ def test_inspection_projects_bound_effects_and_pages_exact_hunks(model_results):
     assert page.exit_code == 0, page.output
     body = json.loads(page.stdout)
     assert body["total_hunks"] == 2 and body["next_after_hunk"] == 1
+    assert body["target"] == "target"
     assert body["hunks"] == [
-        {"ordinal": 1, "patch_line": 3, "excerpt": "@@ -1 +1 @@\n-old\n+new\n", "truncated": False}
+        {
+            "ordinal": 1,
+            "path": "one.txt",
+            "patch_line": 3,
+            "excerpt": "@@ -1 +1 @@\n-old\n+new\n",
+            "truncated": False,
+        }
     ]
     human = _inspect(preview_id, "--view", "patch", "--after-hunk", "1")
     assert human.exit_code == 0, human.output
     assert "1 of 2" in human.stdout
-    assert "Hunk 2" in human.stdout and "+second" in human.stdout
+    assert "Hunk 2 · two.txt" in human.stdout and "+second" in human.stdout
 
     discovery = _inspect(preview_id, "--view", "discovery", "--json")
     assert json.loads(discovery.stdout)["discovery"]["ast_grep_status"] == "inspected_no_hit"
     assert [item.id for item in model_results.list(None, 100, None).results] == [preview_id]
+
+
+def test_patch_attribution_skips_header_like_body_and_keeps_unterminated_lines():
+    from corpus_structure.schema.model_change import _diff
+
+    patch = _diff("one.txt", "-- a/two.txt", "++ b/two.txt") + _diff("two.txt", None, "last")
+    total, hunks = model._patch_hunks(patch, ("one.txt", "two.txt"), 0, 2)
+    assert total == 2
+    assert [hunk.path for hunk in hunks] == ["one.txt", "two.txt"]
+    assert [hunk.truncated for hunk in hunks] == [False, False]
 
 
 def test_exact_patch_stream_keeps_lease_and_composes_with_git(model_results, monkeypatch):
@@ -212,7 +231,9 @@ def test_preview_refuses_oversized_file_and_stdin(model_results, tmp_path):
 def test_candidate_registration_requires_exact_installed_artifacts(
     model_results, tmp_path, monkeypatch
 ):
+    from corpus_structure.schema.model_change import generator_fingerprint
     from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.storage_target import StorageTarget
 
     monkeypatch.chdir(tmp_path)
     (tmp_path / "justfile").touch()
@@ -221,6 +242,11 @@ def test_candidate_registration_requires_exact_installed_artifacts(
     versions = tmp_path / "migrations/versions"
     versions.mkdir(parents=True)
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", versions.parent)
+    marker = tmp_path / "migration-executed"
+    (versions / "previous.py").write_text(
+        'revision = "previous"\ndown_revision = None\n'
+        f"from pathlib import Path\nPath({str(marker)!r}).touch()\n"
+    )
     products = {
         "native_candidate.py": b"upgrade",
         "native_operations.json": b"state",
@@ -229,10 +255,18 @@ def test_candidate_registration_requires_exact_installed_artifacts(
     binding = Candidate(
         workspace=str(tmp_path),
         model_revision="model",
-        generator="generator",
+        generator=generator_fingerprint(tmp_path),
         revision="current",
         predecessor="previous",
         target="bound",
+        target_identity=StorageTarget(
+            database="development",
+            database_oid=10,
+            system_identifier="1",
+            host="socket",
+            port=5434,
+            purpose="maintenance",
+        ),
         release="release",
         packs=(),
         files={},
@@ -240,13 +274,20 @@ def test_candidate_registration_requires_exact_installed_artifacts(
     )
     wrapper = migration_wrapper(binding)
     binding = binding.model_copy(update={"wrapper_sha256": sha256(wrapper).hexdigest()})
-    candidate_id, _ = _publish(
-        model_results,
-        "model.candidate",
-        "deployment",
-        binding.model_dump_json().encode(),
-        scope={"preview": "preview"},
-    )
+    with model_results.operation("model.candidate", scope={"preview": "preview"}) as result:
+        candidate_id = result.id
+        deployment = result.directory / "deployment.json"
+        deployment.write_text(binding.model_dump_json())
+        result.publish("deployment", deployment)
+        wrapped = result.directory / "migration.py"
+        wrapped.write_bytes(wrapper)
+        result.publish("wrapper", wrapped)
+        candidate = result.directory / "candidate"
+        candidate.mkdir()
+        for name, body in products.items():
+            (candidate / name).write_bytes(body)
+        result.publish("candidate", candidate)
+        result.settle(sha256=sha256(deployment.read_bytes()).hexdigest())
 
     def inspect():
         output = CliRunner().invoke(
@@ -257,7 +298,16 @@ def test_candidate_registration_requires_exact_installed_artifacts(
 
     absent = inspect()
     assert absent["registration"] == "unverified"
-    assert not list(versions.iterdir())
+    assert absent["next_command"] == f"ci model change register {candidate_id}"
+    assert {path.name for path in versions.iterdir()} == {"previous.py"}
+    assert not marker.exists()
+    conflict = versions / "current_admission.sql"
+    conflict.write_bytes(b"conflict before registration")
+    blocked = inspect()
+    assert blocked["next_command"] is None
+    assert "already has different content" in blocked["action_detail"]
+    assert conflict.read_bytes() == b"conflict before registration"
+    conflict.unlink()
     assert absent["preview_id"] == "preview" and absent["predecessor"] == "previous"
 
     (versions / "current.py").write_bytes(wrapper)
@@ -265,9 +315,23 @@ def test_candidate_registration_requires_exact_installed_artifacts(
     (versions / "current_native.json").write_bytes(products["native_operations.json"])
     admission = versions / "current_admission.sql"
     admission.write_bytes(products["native_admission.sql"])
-    assert inspect()["registration"] == "verified"
+    installed = inspect()
+    assert installed["registration"] == "verified"
+    assert installed["next_command"] == f"ci model change deploy {candidate_id}"
+    assert installed["action_conditions"]
+    generator = tmp_path / "python/corpus-structure/src/corpus_structure/schema"
+    generator.mkdir(parents=True)
+    changed = generator / "changed.py"
+    changed.touch()
+    stale = inspect()
+    assert stale["registration"] == "verified"
+    assert stale["next_command"] is None
+    assert "workspace or generator" in stale["action_detail"]
+    changed.unlink()
+
     admission.write_bytes(b"substituted")
     damaged = inspect()
     assert damaged["registration"] == "unverified"
     assert "installed migration artifact differs" in damaged["registration_detail"]
+    assert damaged["next_command"] is None
     assert admission.read_bytes() == b"substituted"

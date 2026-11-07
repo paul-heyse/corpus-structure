@@ -156,13 +156,14 @@ def _digest(content: str | None) -> str | None:
 
 
 def _diff(path: str, before: str | None, after: str) -> str:
+    lines = unified_diff(
+        (before or "").splitlines(keepends=True),
+        after.splitlines(keepends=True),
+        fromfile=f"a/{path}" if before is not None else "/dev/null",
+        tofile=f"b/{path}",
+    )
     return "".join(
-        unified_diff(
-            (before or "").splitlines(keepends=True),
-            after.splitlines(keepends=True),
-            fromfile=f"a/{path}" if before is not None else "/dev/null",
-            tofile=f"b/{path}",
-        )
+        line if line.endswith("\n") else line + "\n\\ No newline at end of file\n" for line in lines
     )
 
 

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from hashlib import sha256
+from io import StringIO
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import typer
 from pydantic import BaseModel, JsonValue
@@ -25,9 +26,12 @@ from corpus_structure.cli.output import (
     write_report_bytes,
     write_report_text,
 )
-from corpus_structure.cli.schema import refusal
+from corpus_structure.cli.schema import model_stage, refusal
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
+
+if TYPE_CHECKING:
+    from corpus_structure.schema.model_change import ChangePreview
 
 app = typer.Typer(help="Check the model and prepare canonical changes.")
 changes = typer.Typer(help="Preview, apply and deploy exact model changes.")
@@ -49,7 +53,13 @@ class CheckResult(BaseModel):
     report: str
 
 
-class PreviewEffectsReport(BaseModel):
+class EffectGuidance(BaseModel):
+    next_command: str | None = None
+    action_detail: str | None = None
+    action_conditions: tuple[str, ...] = ()
+
+
+class PreviewEffectsReport(EffectGuidance):
     preview_id: str
     revision: str
     baseline: str
@@ -67,7 +77,6 @@ class PreviewEffectsReport(BaseModel):
     comparison: dict[str, JsonValue] | None
     discovery_status: Literal["available", "unavailable"]
     dependency_available: bool
-    next_command: str | None
 
 
 class PreviewDiscoveryReport(BaseModel):
@@ -78,6 +87,7 @@ class PreviewDiscoveryReport(BaseModel):
 
 class PatchHunk(BaseModel):
     ordinal: int
+    path: str
     patch_line: int
     excerpt: str
     truncated: bool
@@ -85,13 +95,16 @@ class PatchHunk(BaseModel):
 
 class PreviewPatchReport(BaseModel):
     preview_id: str
+    target: str | None
+    target_profile: DeploymentProfile | None
+    acquired_target: StorageTarget | None
     changed_paths: tuple[str, ...]
     total_hunks: int
     hunks: list[PatchHunk]
     next_after_hunk: int | None
 
 
-class CandidateInspection(BaseModel):
+class CandidateInspection(EffectGuidance):
     candidate_id: str
     preview_id: str | None
     workspace: str
@@ -106,7 +119,6 @@ class CandidateInspection(BaseModel):
     registration: Literal["verified", "unverified", "not_applicable"]
     registration_detail: str | None
     dependency_available: bool
-    next_command: str | None
 
 
 @app.command()
@@ -143,50 +155,78 @@ def _load_artifact(store, result_id: str, action: str, role: str) -> bytes:
     return raw
 
 
-_HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@[^\n]*\n", re.MULTILINE)
+_HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@[^\n]*\n")
+_NO_FINAL_NEWLINE = "\\ No newline at end of file\n"
 _PATCH_STREAM_LIMIT = 8 * 1024 * 1024
 _HUNK_LINES = 40
 _HUNK_CHARS = 3000
 
 
-def _patch_hunks(patch: str, after: int, limit: int) -> tuple[int, list[PatchHunk]]:
+def _patch_hunks(
+    patch: str, paths: tuple[str, ...], after: int, limit: int
+) -> tuple[int, list[PatchHunk]]:
+    from corpus_structure.cli.managed import ResultError
+
     hunks: list[PatchHunk] = []
     total = 0
-    patch_line, prior = 1, 0
-    for total, header in enumerate(_HUNK.finditer(patch), 1):
-        if total > after + limit:
+    path = None
+    bound_paths = iter(paths)
+    lines = iter(enumerate(StringIO(patch), 1))
+    for patch_line, line in lines:
+        if line == _NO_FINAL_NEWLINE:
             continue
-        patch_line += patch.count("\n", prior, header.start())
-        prior = header.start()
-        if total <= after:
+        if line.startswith("--- "):
+            path = next(bound_paths, None)
+            if (
+                path is None
+                or line not in (f"--- a/{path}\n", "--- /dev/null\n")
+                or next(lines, (0, ""))[1] != f"+++ b/{path}\n"
+            ):
+                raise ResultError("patch headers differ from the bound changed paths")
             continue
+        header = _HUNK.fullmatch(line)
+        if header is None or path is None:
+            raise ResultError("patch hunk is missing its bound file or has an invalid header")
+        total += 1
+        selected = after < total <= after + limit
         old, new = (int(count) if count is not None else 1 for count in header.groups())
-        excerpt = safe_text(header[0])[:_HUNK_CHARS]
-        offset = header.end()
-        truncated = len(excerpt) == _HUNK_CHARS
-        for _ in range(_HUNK_LINES):
-            if not (old or new) or truncated or offset >= len(patch):
+        excerpt = safe_text(line) if selected else ""
+        line_count = 0
+        truncated = len(excerpt) > _HUNK_CHARS
+        excerpt = excerpt[:_HUNK_CHARS]
+        while old or new:
+            _, body = next(lines, (0, ""))
+            if body == _NO_FINAL_NEWLINE:
+                continue
+            if not body:
+                # Older producers could leave the final changed line unterminated.
+                truncated = True
                 break
-            end = patch.find("\n", offset)
-            end = len(patch) if end < 0 else end + 1
-            kind = patch[offset]
-            if kind not in " +-":
-                break
+            kind = body[:1]
+            if kind not in {" ", "+", "-"}:
+                raise ResultError("patch hunk body differs from its declared range")
             old -= kind != "+"
             new -= kind != "-"
-            line = safe_text(patch[offset:end])
-            remaining = _HUNK_CHARS - len(excerpt)
-            excerpt += line[:remaining]
-            truncated = len(line) > remaining
-            offset = end
-        hunks.append(
-            PatchHunk(
-                ordinal=total,
-                patch_line=patch_line,
-                excerpt=excerpt,
-                truncated=truncated or bool(old or new),
+            if min(old, new) < 0:
+                raise ResultError("patch hunk body differs from its declared range")
+            if selected and line_count < _HUNK_LINES and not truncated:
+                rendered = safe_text(body)
+                remaining = _HUNK_CHARS - len(excerpt)
+                excerpt += rendered[:remaining]
+                truncated = len(rendered) > remaining
+            line_count += 1
+        if selected:
+            hunks.append(
+                PatchHunk(
+                    ordinal=total,
+                    path=path,
+                    patch_line=patch_line,
+                    excerpt=excerpt,
+                    truncated=truncated or line_count > _HUNK_LINES,
+                )
             )
-        )
+    if next(bound_paths, None) is not None:
+        raise ResultError("patch does not contain every bound changed path")
     return total, hunks
 
 
@@ -204,6 +244,66 @@ def _target_summary(profile: DeploymentProfile | None, target: StorageTarget | N
             f"{target.host}:{target.port} ({target.purpose})"
         )
     return f"{profile} · acquired identity unavailable" if profile else "unbound"
+
+
+def _guidance_fields(guidance: EffectGuidance) -> tuple[tuple[str, object], ...]:
+    fields: list[tuple[str, object]] = [
+        ("Review before", guidance.next_command or "no effect command proposed")
+    ]
+    if guidance.action_detail:
+        fields.append(("Action detail", guidance.action_detail))
+    if guidance.action_conditions:
+        fields.append(("Still required", "\n".join(guidance.action_conditions)))
+    return tuple(fields)
+
+
+def _preview_guidance(
+    ctx: typer.Context, staged: ChangePreview, preview_id: str, dependency_available: bool
+) -> EffectGuidance:
+    from corpus_structure.cli.recipes import RecipeError, checkout
+    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.model_change import check_preview
+
+    if not dependency_available:
+        return EffectGuidance(action_detail="the managed preview is unavailable as a dependency")
+    if not staged.files and not staged.effects.admission:
+        return EffectGuidance()
+    try:
+        root = checkout(ctx)
+        if staged.effects.admission:
+            try:
+                check_preview(root, staged, applied=True)
+            except ModelError:
+                if not staged.files:
+                    raise
+            else:
+                if not staged.target or not staged.target_profile or staged.target_identity is None:
+                    return EffectGuidance(
+                        action_detail="the candidate requires an exact target binding"
+                    )
+                conditions = ["verify the prepared release identity"]
+                if staged.effects.native:
+                    conditions.append("verify the bound development target and native predecessor")
+                return EffectGuidance(
+                    next_command=f"ci model change candidate {preview_id}",
+                    action_conditions=tuple(conditions),
+                )
+        check_preview(root, staged)
+        if staged.request.native_predecessor and (
+            not staged.authoring_target or staged.authoring_identity is None
+        ):
+            return EffectGuidance(action_detail="the native authoring target is unavailable")
+        conditions = (
+            ("verify the bound development target and native predecessor",)
+            if staged.request.native_predecessor
+            else ()
+        )
+        return EffectGuidance(
+            next_command=f"ci model change apply {preview_id}",
+            action_conditions=conditions,
+        )
+    except (ModelError, OSError, RecipeError) as error:
+        return EffectGuidance(action_detail=safe_text(str(error)))
 
 
 def _effects_view(report: PreviewEffectsReport) -> Table:
@@ -237,13 +337,15 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Semantic comparison", impact),
         ("Discovery", report.discovery_status),
         ("Dependency", "available" if report.dependency_available else "unavailable"),
-        ("Review before", report.next_command or "no effect command proposed"),
+        *_guidance_fields(report),
     )
 
 
 def _patch_view(report: PreviewPatchReport) -> Group:
     summary = report_fields(
         ("Preview", report.preview_id),
+        ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Target fingerprint", report.target or "unbound"),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Selected hunks", f"{len(report.hunks)} of {report.total_hunks}"),
         (
@@ -256,7 +358,7 @@ def _patch_view(report: PreviewPatchReport) -> Group:
     parts: list[Table | Text | Syntax] = [summary]
     for hunk in report.hunks:
         suffix = " (excerpt truncated)" if hunk.truncated else ""
-        parts.append(Text(f"Hunk {hunk.ordinal}{suffix}", style="bold"))
+        parts.append(Text(safe_text(f"Hunk {hunk.ordinal} · {hunk.path}{suffix}"), style="bold"))
         parts.append(
             Syntax(
                 hunk.excerpt, "diff", line_numbers=True, start_line=hunk.patch_line, word_wrap=True
@@ -312,13 +414,14 @@ def inspect_preview(
 ) -> None:
     """Inspect a settled preview by ID without applying it."""
     from corpus_structure.cli.managed import ResultError, result_store
+    from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.model_change import ChangePreview
 
     if stdout and (view != "patch" or json_ or limit is not None or after_hunk):
         raise typer.BadParameter("--stdout requires --view patch without JSON or hunk selection")
     if view != "patch" and (limit is not None or after_hunk):
         raise typer.BadParameter("hunk selection requires --view patch")
-    with refusal(json_, expected=(ResultError, OSError)):
+    with refusal(json_, expected=(ResultError, ModelError, OSError)):
         store = result_store(ctx)
         with store.lease(preview_id):
             staged = ChangePreview.model_validate_json(
@@ -337,10 +440,13 @@ def inspect_preview(
                 return
         paths = tuple(file.path for file in staged.files)
         if view == "patch":
-            total, hunks = _patch_hunks(staged.patch, after_hunk, limit or 8)
+            total, hunks = _patch_hunks(staged.patch, paths, after_hunk, limit or 8)
             emit(
                 PreviewPatchReport(
                     preview_id=preview_id,
+                    target=staged.target,
+                    target_profile=staged.target_profile,
+                    acquired_target=staged.target_identity,
                     changed_paths=paths,
                     total_hunks=total,
                     hunks=hunks,
@@ -387,13 +493,7 @@ def inspect_preview(
                 comparison=staged.comparison,
                 discovery_status=discovery_status,
                 dependency_available=dependency_available,
-                next_command=(
-                    f"ci model change apply {preview_id}"
-                    if paths and dependency_available
-                    else f"ci model change candidate {preview_id}"
-                    if staged.effects.admission and dependency_available
-                    else None
-                ),
+                **_preview_guidance(ctx, staged, preview_id, dependency_available).model_dump(),
             ),
             json=json_,
             render=_effects_view,
@@ -413,7 +513,7 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Registration", report.registration),
         ("Registration detail", report.registration_detail or "none"),
         ("Dependency", "available" if report.dependency_available else "unavailable"),
-        ("Review before", report.next_command or "no effect command proposed"),
+        *_guidance_fields(report),
     )
 
 
@@ -427,34 +527,73 @@ def inspect_candidate(
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import RecipeError, checkout
     from corpus_structure.schema.model import ModelError
-    from corpus_structure.schema.model_deployment import Candidate, _verify_installed_revision
+    from corpus_structure.schema.model_deployment import (
+        Candidate,
+        MigrationNotRegistered,
+        _verify_installed_revision,
+        candidate_registration_files,
+        check_candidate_files,
+        migration_wrapper,
+    )
 
     with refusal(json_, expected=(ResultError, OSError)):
         store = result_store(ctx)
+        status: Literal["verified", "unverified", "not_applicable"] = "unverified"
+        detail = None
+        guidance = EffectGuidance()
         with store.lease(candidate_id):
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate_id, "model.candidate", "deployment")
             )
             scope = store.show(candidate_id).scope
             dependency_available = store.dependency_available(candidate_id)
+            try:
+                root = checkout(ctx)
+                if str(root) != binding.workspace:
+                    raise ModelError(["candidate is bound to a different checkout"])
+                status = "not_applicable" if binding.revision is None else "unverified"
+                try:
+                    _verify_installed_revision(root, binding)
+                except MigrationNotRegistered as error:
+                    detail = safe_text(str(error))
+                    if dependency_available:
+                        if store.read_artifact(candidate_id, "wrapper") != migration_wrapper(
+                            binding
+                        ):
+                            raise ModelError(
+                                ["managed migration wrapper differs from the reviewed candidate"]
+                            ) from None
+                        with store.open_artifact(candidate_id, "candidate") as (_, descriptor):
+                            candidate_registration_files(root, binding, descriptor)
+                        guidance = EffectGuidance(
+                            next_command=f"ci model change register {candidate_id}"
+                        )
+                else:
+                    if binding.revision is not None:
+                        status = "verified"
+                    if dependency_available:
+                        check_candidate_files(root, binding)
+                        if binding.target_identity is None:
+                            raise ModelError(
+                                ["candidate lacks the approved acquired PostgreSQL target"]
+                            )
+                        guidance = EffectGuidance(
+                            next_command=f"ci model change deploy {candidate_id}",
+                            action_conditions=(
+                                "verify the configured and acquired target",
+                                "verify purpose roles and the applicable native predecessor",
+                                "verify the prepared release identity",
+                            ),
+                        )
+            except (ModelError, ResultError, OSError, RecipeError) as error:
+                if status == "unverified":
+                    detail = safe_text(str(error))
+                guidance = EffectGuidance(action_detail=safe_text(str(error)))
+            if not dependency_available:
+                guidance = EffectGuidance(
+                    action_detail="the managed candidate is unavailable as a dependency"
+                )
         preview_id = scope.get("preview")
-        status: Literal["verified", "unverified", "not_applicable"] = "unverified"
-        detail = None
-        next_command = None
-        try:
-            root = checkout(ctx)
-            if str(root) != binding.workspace:
-                detail = "candidate is bound to a different checkout"
-            elif binding.revision is None:
-                status = "not_applicable"
-                next_command = f"ci model change deploy {candidate_id}"
-            else:
-                next_command = f"ci model change register {candidate_id}"
-                _verify_installed_revision(root, binding)
-                status = "verified"
-                next_command = f"ci model change deploy {candidate_id}"
-        except (ModelError, OSError, RecipeError) as error:
-            detail = safe_text(str(error))
         emit(
             CandidateInspection(
                 candidate_id=candidate_id,
@@ -471,7 +610,7 @@ def inspect_candidate(
                 registration=status,
                 registration_detail=detail,
                 dependency_available=dependency_available,
-                next_command=next_command if dependency_available else None,
+                **guidance.model_dump(),
             ),
             json=json_,
             render=_candidate_view,
@@ -524,7 +663,7 @@ def preview(
         store = result_store(ctx)
         root = checkout(ctx)
         with store.operation("model.preview") as result:
-            result.stage("resolve request")
+            model_stage(result, "resolve request")
             if re.fullmatch(r"[a-f0-9]{32}", request) and not Path(request).is_file():
                 with store.lease(request):
                     bound = ChangePreview.model_validate_json(
@@ -539,6 +678,7 @@ def preview(
             target_identity = None
             authoring_identity = None
             if bound.native_predecessor or bound.deployment:
+                model_stage(result, "bind deployment target")
                 settings = state(ctx).settings()
                 profile, destination = deployment_settings(settings, bound.deployment_profile)
                 target = target_fingerprint(destination)
@@ -567,6 +707,7 @@ def preview(
                 )
                 release = local.release_id
             if bound.archive_release:
+                model_stage(result, "compare archived release")
                 from corpus_structure.semantic.operation_reporting import compare_semantic_releases
                 from corpus_structure.semantic.query import read_snapshot
                 from corpus_structure.semantic.releases import open_release
@@ -581,7 +722,7 @@ def preview(
                 ):
                     before = open_release(connection, bound.archive_release)
                     impact = compare_semantic_releases(before, local).model_dump(mode="json")
-            result.stage("validate and stage")
+            model_stage(result, "validate and stage")
             staged = prepare_preview(
                 root,
                 bound,
@@ -658,7 +799,7 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 settled.append(path)
                 result.stage(f"applied {path}", settled_paths=settled)
 
-            result.stage("verify exact preview")
+            model_stage(result, "verify exact preview")
             try:
                 apply_preview(checkout(ctx), staged, native_fence=native, report=report)
             except BaseException as error:
@@ -731,6 +872,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             ):
                 raise ModelError(["preview does not authorize a target-bound candidate"])
             with writer_lock(root):
+                model_stage(result, "verify preview and prepare release")
                 check_preview(root, staged, applied=True)
                 _, _, _, prepared = _prepare_release(root, staged.request.packs)
                 if (
@@ -751,7 +893,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                     retired, recreated = native_intent(
                         staged.request.retire, staged.request.recreate
                     )
-                    result.stage("rollback-only authoring")
+                    model_stage(result, "rollback-only authoring")
                     native, products = author_native_candidate(
                         settings,
                         None,
@@ -771,6 +913,7 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         release=prepared.release_id,
                         target_profile=staged.target_profile,
                     )
+                model_stage(result, "bind and publish candidate")
                 binding = Candidate.from_preview(staged, revision, prepared.release_id, products)
                 if revision:
                     wrapper = result.directory / "migration.py"
@@ -814,6 +957,7 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
             if store.read_artifact(candidate, "wrapper") != migration_wrapper(binding):
                 raise ModelError(["managed migration wrapper differs from the reviewed candidate"])
             root = checkout(ctx)
+            model_stage(result, "verify and register frozen migration")
             with (
                 writer_lock(root),
                 store.open_artifact(candidate, "candidate") as (_, directory_fd),
@@ -863,12 +1007,13 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
             )
             root = checkout(ctx)
             with writer_lock(root):
+                model_stage(result, "prepare bound release")
                 deployment = _prepare_release(root, binding.packs)
                 applied: list[str] = []
 
                 def report(effect: str) -> None:
                     applied.append(effect)
-                    result.stage(effect, settled_effects=applied)
+                    model_stage(result, effect, settled_effects=applied)
 
                 try:
                     deploy_candidate(

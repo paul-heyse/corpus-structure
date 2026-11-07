@@ -332,3 +332,4 @@ def test_source_coverage_summary_keeps_page_counts_and_continuation(
     human = cli(*args)
     assert human.exit_code == 0, human.output
     assert "missing: 1, ready: 1" in human.stdout
+    assert "a" * 64 in human.stdout.replace("\n", "").replace(" ", "")

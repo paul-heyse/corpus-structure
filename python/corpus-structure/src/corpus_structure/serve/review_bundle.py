@@ -15,7 +15,7 @@ import stat
 import sys
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack, contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1530,8 +1530,21 @@ def _verify_predicate_closure(root, manifest):
             )
 
 
+@dataclass(frozen=True, slots=True)
+class _VerifiedReview:
+    manifest: dict[str, Any]
+    selected_bindings: list[dict[str, Any]]
+
+
+_REVIEW_BINDING_LIMIT = 8
+
+
 def verify_review_bundle(root: Path | int, *, manifest_digest: str | None = None) -> dict[str, Any]:
     """Verify a detached path or borrow an authenticated directory descriptor."""
+    return _verified_review(root, manifest_digest).manifest
+
+
+def _verified_review(root: Path | int, manifest_digest: str | None) -> _VerifiedReview:
     if isinstance(root, int):
         return _verify_review_bundle(root, manifest_digest)
     try:
@@ -1544,7 +1557,7 @@ def verify_review_bundle(root: Path | int, *, manifest_digest: str | None = None
         os.close(descriptor)
 
 
-def _verify_review_bundle(root: int, manifest_digest: str | None) -> dict[str, Any]:
+def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedReview:
     with _member(root, "manifest.json", digest=manifest_digest) as stream:
         manifest = json.load(stream)
     if manifest.get("format") != FORMAT:
@@ -1925,16 +1938,36 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> dict[str, A
             raise ValueError("review required report members are missing")
     if set(os.listdir(root)) != expected:
         raise ValueError("review package has undeclared or missing members")
-    return manifest
+    bindings = []
+    remaining = _REVIEW_BINDING_LIMIT
+    for kind, requests, scopes in (
+        ("contribution", selection.selections, contribution_scopes),
+        ("structural", selection.structural_selections, structural_scopes),
+    ):
+        visible = min(remaining, len(requests))
+        for index in range(visible):
+            if (scope := scopes.get(index)) is not None:
+                bindings.append(
+                    {
+                        "kind": kind,
+                        "index": index,
+                        "run_id": scope["run_id"],
+                        "cut_id": scope["cut_id"],
+                    }
+                )
+        remaining -= visible
+    return _VerifiedReview(manifest, bindings)
 
 
 def inspect_review_bundle(
     root: Path | int, *, manifest_digest: str | None = None
 ) -> dict[str, Any]:
-    manifest = verify_review_bundle(root, manifest_digest=manifest_digest)
+    verified = _verified_review(root, manifest_digest)
+    manifest = verified.manifest
     return {
         "format": FORMAT,
         "selection": manifest["selection"],
+        "selected_bindings": verified.selected_bindings,
         "completeness": manifest["completeness"],
         "relations": {name: spec["rows"] for name, spec in manifest["relations"].items()},
         "assessment_scope": manifest["assessment_scope"],
