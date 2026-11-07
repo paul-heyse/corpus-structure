@@ -103,7 +103,9 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
   authorization to land on main.
 - CLIR-01–06 are implemented. Compact classifier output, exact test failures, preview and
   candidate reads, authenticated managed review inspection, bounded stdin, ordered recipe
-  steps and the installed stream boundary are available on the branch.
+  steps and the installed stream boundary are available on the branch. Managed review
+  results created before publication recorded a manifest digest can still be verified
+  from an intentional detached bundle. A fresh export establishes managed origin proof.
 - CLIR-07 uses the recipe step channel and existing managed stages and counts. The failed
   and interrupted controls identify the step or unsettled result and the next action.
   Additional logging, continuous progress and retained excerpts remain conditional on
@@ -111,3 +113,14 @@ as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/
   if measured child output or a specific pre-failure need warrants changing the supervisor.
 - CLIR-08 records targeted and integrated qualification separately. Qualification does not
   imply a merge to main or change the separate live CLI operations prerequisites.
+
+### Branch verification
+
+| Command or journey | Outcome on 2026-11-07 |
+|---|---|
+| `uv run ci test --json --` with the affected reporting, verifier and classifier modules | `passed`. Integrated receipt `cde5b8be0ffb498193201e76730a3b75` covered 191 tests. Follow-up receipt `9f732152596243c8afb687169e2cb694` covered 75 tests after the custody and delivery review fixes. The selections overlap. |
+| `uv run ci check --json` and `uv run ci docs check --json` | `passed` on the reporting branch. Rules were `not_run` with no registered rules. |
+| `ci test failures`, `ci test retry --lane ordinary` and `ci test coverage --view unresolved` | `passed`. Initial receipt `b60343be69404004a931511ac2de5fe6` failed nine native test setups when the migration inputs were LFS pointers. After hydration, retry `07243b2c52424443bbf51bc8fe2b1aed` passed all nine. Reconciliation retained the initial failure and showed 50 required, 50 covered and zero unresolved, with the source-context difference visible. |
+| `ci model change preview -` and `ci model change inspect` | `passed` against bound no-effect preview `a72f921cae04458a82de6e556da104d6`. Focused fixtures exercise candidate registration evidence, expiry and substitutions and feed exact diff bytes to Git. |
+| `ci review export -` and `ci review inspect --result` | `passed` for inventory scope, run 205 and cut 283, under result `4e8c7df6081c45d5b9e0d47765f0cb8b`. Focused tests cover detached parity, bounded input, regular-file enforcement and substitution of a self-consistent bundle. |
+| `ci docs commands --stdout \| head -c 0` | `passed` as an early-close control. Pipeline statuses were `74 0`. Focused tests cover child interruption, write and flush closure, and known failures with both output streams closed. |

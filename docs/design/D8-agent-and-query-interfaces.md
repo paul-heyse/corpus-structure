@@ -484,7 +484,14 @@ The [CLI plan](../plans/cli-operations_2026-11-07.md) owns the current cutover a
 
 > Decision: ADR-0069
 
-For the current installed inventory use `ci --help`, group help and `ci docs commands`.
+For the current installed inventory use `ci --help`, group help and `ci docs commands --stdout`.
+Owner-selected reports can be read directly by managed ID. Review inspection verifies the
+bundle against its invocation's settled manifest digest. Model inspection holds the
+lease through authenticated reads and observes whether the result is eligible for a
+new dependency. The full JSON result is available when no named view is requested.
+A downstream close during report delivery exits 74 when the command would otherwise
+succeed. A known command failure or cancellation keeps its status and settlement.
+The [CLI reporting plan](../plans/cli-reporting_2026-11-07.md) owns its adoption evidence.
 The [ci skill](../../.claude/skills/ci/SKILL.md) explains common workflows and result handling.
 Use `ci context show` and `ci doctor` for checkout context, `ci test` and `ci results` for
 qualification and retained outcomes, `ci model change` for approved model effects, and
