@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. NCE-07 through NCE-12 are implemented in development with bounded qualification. Live qualification and WCE12 remain open._
+_Updated 2026-11-07. The NCE-01 through NCE-12 completion audit records partial development delivery and the remaining acceptance. Live qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -47,14 +47,14 @@ _Updated 2026-11-07. NCE-07 through NCE-12 are implemented in development with b
 
 ## NCE development and next work
 
-- The [NCE coordinator](docs/plans/next-corpus-enrichment_2026-11-07.md#nce-07-through-nce-12-development-execution)
-  owns implementation, affected verification and open acceptance. Development revision
-  `semantic_nce07_12_replay` is installed on port 5434.
-- Table correspondence runs 261/cut 361 and 260/cut 363 passed native and Reader/CLI/MCP
-  delivery and detached verification. Attachment development fit 1 passed on protected
-  evaluation 34 with eleven events from one source origin.
-- The artifact score challenger awaits protected same-lineage assessment. Rooted assembly
-  retains the selected comparison and scope limitations recorded by the NCE coordinator.
+- The [NCE completion audit](docs/plans/next-corpus-enrichment_2026-11-07.md#completion-audit)
+  owns the combined disposition. Development remains at `semantic_nce07_12_replay`
+  on port 5434. The retained bundle checks and attachment fit reads passed on
+  2026-11-07. A new product suite was `not_run` under the affected-test scope.
+- `just turn-end` and `uv run ci docs check --json` passed for the audit.
+- Next NCE work starts with source, model and native admission gaps before dependent
+  comparison, linking and detached qualification. The private artifact scorer mechanism
+  is complete. Efficacy awaits protected same-lineage assessment.
 - Settle the remaining source opportunities and unrelated factor reconstruction in the WCE
   plan. Live CLI qualification needs a configured production target, purpose roles and
   effect authority.

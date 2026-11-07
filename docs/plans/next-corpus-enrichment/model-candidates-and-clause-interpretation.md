@@ -1,6 +1,6 @@
 # Model candidates and clause interpretation
 
-**Proposed · 2026-11-07.** Companion to the [next corpus enrichment coordinator](../next-corpus-enrichment_2026-11-07.md). Develops [O09](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O09) and the model-side recovery and
+**Development scope audited · 2026-11-07.** Companion to the [next corpus enrichment coordinator](../next-corpus-enrichment_2026-11-07.md). Develops [O09](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O09) and the model-side recovery and
 diagnostics in [O10](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O10). Preserve the distinction between a located candidate, a scored model
 observation, and an admitted interpretation. The existing GLiNER worker owns bounded inference. The
 source and linguistic companion owns exact source mapping and neutral frame identities, and
@@ -122,6 +122,35 @@ products through the authorized structural reads and replay, and pass the exact 
 references to link and assessment consumers. Run focused GLiNER, record, source-mapping, native
 product and replay controls. Upgrade ordinary selection only through the declared policy and
 combined acceptance.
+
+## Completion audit follow-up
+
+[Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+
+<a id="nce-04-audit"></a>
+**NCE-04-A1 · Bind the selected model computation and window.** Native validation
+checks pack and profile values against their sibling detail fields. It still needs to
+authenticate the actual declaration and computation against the released operation. The
+detached verifier reconstructs schema, profile and context but does not authenticate the
+selected computation policy or reconstruct the configured definition window inventory.
+Check a resealed substituted schema, overlap or threshold setting, and a different
+same-passage window through both admission and detached replay. Preserve deterministic
+interpretation and the actual provider receipts. [Native validation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1241) ·
+[Detached model replay](../../../python/corpus-structure/src/corpus_structure/serve/model_observation_replay.py#L68).
+
+<a id="nce-05-audit"></a>
+**NCE-05-A1 · Deliver exact unattached roles with observed loss accounting.** The
+definition report retains exactly located candidates and record assembly can retain
+unattached roles in parse detail. The ordinary definition-term route still requires a
+complete component, and the parse detail lacks a native/replay and linking/assessment
+consumer. Carry independently useful roles through witnessed private evidence, with
+attachment standing kept separate. Preserve occurrence identities, check repeated and
+unattached exact roles through authorized reads and replay, and distinguish attempted,
+refused and unobserved windows and stages. The five definition arms recovered zero
+independently expected term locations, content locations or attachments. The higher
+proposal counts measure returned exact locations across the windows. [Term reader](../../../python/corpus-structure/src/corpus_structure/methods/definition_terms.py) ·
+[Record assembly](../../../python/corpus-structure/src/corpus_structure/methods/record_assembly.py#L735) ·
+[Arm assessment](../../design_review/evidence/2026-11-07_nce-comparison-model-links/model-assessment.json).
 
 ## Owned conditional investigations
 

@@ -2,7 +2,7 @@
 
 # NCE-11 · Source-conditioned finite interpretation
 
-**Proposed · 2026-11-07.** The [coordinator](../next-corpus-enrichment_2026-11-07.md) owns execution
+**Development scope audited · 2026-11-07.** The [coordinator](../next-corpus-enrichment_2026-11-07.md) owns execution
 state and integration. This package develops [O06](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O06)
 and the inference portion of [O12](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O12).
 It can proceed on the retained table evidence and existing finite interpreter independently of
@@ -91,6 +91,24 @@ Factorization is an execution decision for a specific workload. [Current numeric
   contribution tests through `uv run ci test -- <path>`. The coordinator owns final union and
   qualification. Record dated evidence and exact scope using the existing result and evidence
   routes.
+
+## Completion audit follow-up
+
+[Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+
+<a id="nce-11-audit"></a>
+**NCE-11-A1 · Complete operational and portable acceptance.** The installed native
+route derives and authenticates source-conditioned requests, and both retained cuts
+passed transport and detached custody. The detached verifier does not reconstruct the
+correspondence request and result from the exact source premises. The ordinary worker
+calls the finite executor without carrying its cancellation signal, and a source with
+no eligible band emits no correspondence operation or explicit unavailable outcome.
+Connect cancellation and unavailable-state reporting in the ordinary path, then verify
+source-conditioned detached replay, a substituted factor or premise, and cancellation
+without partial publication. The controlled ambiguity and exact-header results stand.
+[Native request reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3002) ·
+[Worker call](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1496) ·
+[Detached dispatch](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L2325).
 
 ## Conditional investigations
 

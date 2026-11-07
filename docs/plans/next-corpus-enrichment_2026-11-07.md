@@ -1,6 +1,6 @@
 # Next corpus enrichment
 
-**Status:** NCE-01 through NCE-06 have bounded development evidence. NCE-07 through NCE-12 are implemented in development with the qualification and evidence boundaries below. **Revised:** 2026-11-07. This coordinator owns the series,
+**Status:** Audited development delivery is partial across the series. The [completion audit](#completion-audit) owns the current package dispositions, qualification limits and remaining work. **Revised:** 2026-11-07. This coordinator owns the series,
 its source dispositions and combined completion. The scope comes from the
 [Next corpus enrichment review](../functional_reviews/next-corpus-enrichment_2026-11-07.md)
 at `8277b7445`, including its integrated corrections and conditional opportunities. Existing
@@ -166,9 +166,9 @@ the review.
   table roles and exact attachment labels. Record unresolved, unavailable, corrected, lost
   and spurious results explicitly. Development results describe the shared frame. Additional
   transfer, calibration or performance claims need their own evidence.
-- **Current checkpoint.** NCE-01 and NCE-02 are delivered in development. The operator selected
-  NCE-03 through NCE-06 next, followed by NCE-07 through NCE-12 with affected-test
-  qualification. The dated execution sections own each increment’s results and remaining work.
+- **Current checkpoint.** The operator selected development delivery across NCE-01 through
+  NCE-12 with affected-test qualification after the initial campaign. The dated execution sections
+  retain each increment's results. The [completion audit](#completion-audit) owns current disposition.
 
 ## Selected execution · 2026-11-07
 
@@ -202,7 +202,8 @@ the review.
   Native offsets 242–243 in view 117 retain the standalone inline formula Z occurrence.
   Explicit list inheritance passed the two-host native fixture and its scope refusals.
   Authentic list-inheritance benefit, source bindings for further formal interpretation,
-  the eligible standard-normal target, and live adoption remain separate obligations.
+  and live adoption remain separate obligations. NCE-06 subsequently recovered the eligible
+  standard-normal declaration on its selected cut.
   [Current replay](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#qualifier-scope-completion)
 
 ### Selected execution verification
@@ -248,7 +249,7 @@ and passed Reader, CLI, fresh MCP and exact detached delivery.
 
 **NCE-06 · Initial development slice, Tested 2026-11-07.** The scoped link replay
 in run 240, cut 339 bound the exact formula `Z` to the retained
-standard-normal declaration and the dice procedure text to the recovered Table 6.1 caption.
+standard-normal declaration and the Table 6.1 mention in the dice procedure to the recovered caption.
 It retained the Box and Muller citation with an unavailable external endpoint. Contextual
 run 230, cut 321 kept the red-ball `X` candidate and withheld the false affine `X` edge.
 The equivalent scoped replay in run 226 and the contextual run passed exact detached verification.
@@ -286,7 +287,7 @@ does not establish transfer or policy adoption.
 
 ## NCE-06 closeout
 
-**Implemented and Tested in development, 2026-11-07.** `structure.scoped_relations/7`
+**Bounded implementation and tests in development, 2026-11-07.** `structure.scoped_relations/7`
 locates named reference and declaration arguments using retained spaCy token and
 dependency columns. It projects list and clause inheritance from admitted qualifier
 hosts. `retrieve.contextual/7` authenticates heading targets and their original selected
@@ -303,7 +304,7 @@ Development revision `semantic_nce06_heading_release` produced the following res
 | Section 5.1 | 256 / 353 | Selected “5.1 Important Distributions,” view 110 |
 | Section 10.3 | 252 / 347 | Retained the cue with no compatible heading in the inspected GS120 inventory |
 | Section 5.2, heading supplied only in the broader catalog | 257 / 357 | Retained the outside-inventory outcome without nominating the catalog target |
-| Scoped regression | 253 / 350 | Recovered the standard-normal declaration and the Table 6.1 caption link. Retained the unavailable Box and Muller endpoint. |
+| Scoped regression | 253 / 350 | Recovered the standard-normal declaration and the Table 6.1 mention-to-caption link. Retained the unavailable Box and Muller endpoint. |
 | Contextual regression | 258 / 359 | Kept the red-ball candidate and withheld the unsupported affine-`X` edge |
 
 The three selected headings passed exact Reader traversal in both directions. The five
@@ -330,10 +331,10 @@ replay attempts remain in managed custody. The release and test receipts belong 
 
 | Package | Implementation and development evidence | Remaining scope or evidence |
 | --- | --- | --- |
-| NCE-07 | Physical occurrence coalescence, directed source-scoped nominations and complete route membership are implemented. Run 263/cut 365 passed native, Reader, CLI, fresh MCP and detached replay. It retained all 14 prior pairs and nominated four supported pairs among ten complete judged opportunities. Table 5.8, 5.9 and 6.1 endpoint recovery carries forward from NCE-01. Controlled cross-view source wording exercises an alternate designator and ambiguity. | The retained artifact frame provides no authenticated alias or revision example and no observed alternate designator that adds a pair. |
+| NCE-07 | Run 263/cut 365 passed native, Reader, CLI, fresh MCP and detached replay for physical coalescence and the selected reference-nomination routes. It retained all 14 prior pairs and nominated four supported pairs among ten complete judged opportunities, one with a directed witness. All 14 pairs were reference-only. Tables 5.8, 5.9 and 6.1 endpoint recovery carries forward from NCE-01. Controlled cross-view source wording exercises an alternate designator and ambiguity. | The retained frame supplies no new pair key or authenticated alias or revision example. The [audit](#completion-audit) distinguishes selected reference nomination from the remaining lineage and revision behavior. |
 | NCE-08 | Pinned Splink matched ten controlled expected comparison levels and applied term frequency to the exact normalized title level. The 67 existing judgments are reference-to-caption judgments. | The same-lineage scorer remains an assessment mechanism. A distinct protected cohort with genuine same-lineage judgments and authentic name evidence is the prerequisite for efficacy and native multilevel adoption. |
-| NCE-09 | Comparison-side bindings and exact native and detached membership replay are implemented. The three gap projections agree across Reader, CLI and fresh MCP on the retained controls. Run 207/cut 287 is mixed, run 130/cut 164 reports unavailable archived applicability, and run 197/cut 263 reports unavailable authorized comparison support. | Controlled bindings cover directed revisions and typed dependencies. An authentic expanded root binding, explicit conflict evidence and independent applicability premise references beyond the retained grouped readings and qualifying edge remain open. |
-| NCE-10 | Exact mutual ranks and separate witnessed navigation are implemented. Run 264/cut 367 delivered 16 mutual edges and preserved the Section 5.2 witness through Reader, CLI, fresh MCP and detached verification. Run 265/cut 369 verified the recovered Table 6.1 caption and exact reference witness in the ordinary diagnosis and detached review. The scoped affine-`X` diagnosis for run 258/cut 359 passes detached verification against its original retained report and source. The controlled pgvector and scikit-learn comparison matched 17 edges and checked distinct zero-distance peers and near-collinear precision differences. | The assembled diagnosis covers the selected artifact, comparison, contextual and dossier products at their exact task boundaries. Further chain investigations retain their companion triggers. |
+| NCE-09 | Controlled comparison-side membership passed native and detached replay. The three gap projections agree across Reader, CLI and fresh MCP on the retained controls. Run 207/cut 287 is mixed, run 130/cut 164 reports unavailable archived applicability, and run 197/cut 263 reports unavailable authorized comparison support. | Controlled bindings cover directed revisions and typed dependencies. Authentic expanded bindings, explicit conflict evidence, independent applicability premises and exact detached custody of the gap inputs remain open. |
+| NCE-10 | Run 264/cut 367 delivered 16 native mutual edges and preserved the Section 5.2 witness through Reader, CLI, fresh MCP and detached verification. Run 265/cut 369 verified the recovered Table 6.1 caption and exact reference witness in the selected artifact task. The affine-`X` diagnosis for run 258/cut 359 passed detached verification against its original retained report and source. The controlled pgvector and scikit-learn comparison matched 17 edges. | The diagnosis inspects one selected task at a time. Cross-task diagnosis and exact detached membership at a tied cutoff remain open. Wider chain investigations retain their companion triggers. |
 | NCE-11 | Run 261/cut 361 retained nine Table 5.2/5.3 bands and three fixed premises. Run 260/cut 363 retained twenty Table 6.1 bands and exact header geometry. Reader, CLI, fresh MCP and detached verification passed both cuts. Native controls refused resealed factors, masks and omitted policy operations. | The controls establish source-conditioned interpretation and replay. An authentic independently judged ambiguity case is the prerequisite for a selection-gain claim. |
 | NCE-12 | Cut 245 retained 82 defining-text attachments with usable features in the scoped native probe. Protected evaluation 34 adjudicated eleven events from two complete selected source views with one shared origin. Development fit 1 used one supported and ten unsupported events. Installed availability, fit, parameter export and ordinary read passed. | The fit supplies same-corpus diagnostics. Calibration, transfer, activation and optional challengers retain their separate evidence requirements. |
 
@@ -349,3 +350,87 @@ replay attempts remain in managed custody. The release and test receipts belong 
 | `uv run ci test --json` | `not_run` under the affected-test scope. |
 
 [Execution evidence](../design_review/evidence/2026-11-07_nce07-12/records/nce.enrichment-07-12-development.json)
+
+## Completion audit
+
+**2026-11-07 · Source-inspected at clean `9ddf44a33`, product `ec45d70fc`.**
+Three independent reviewers inspected the accepted NCE-01 through NCE-12 scope in
+the six companions, including bounded completion claims in partially delivered packages.
+The combined audit traced recovered captions to artifact nomination and diagnosis, scoped
+linguistic evidence to comparison and dossier membership, and authenticated inputs
+into the separate table interpretation and protected fitting routes. Development
+PostgreSQL 18/corpus was at `semantic_nce07_12_replay` on port 5434. Historical
+receipts remain attached to their original sources, cuts and releases. ADR-0067
+governs current-only cutover. [Cutover decision](../adr/0067-witnessed-current-only-cutover.md)
+
+### Implementation
+
+Development delivery is partial. The table records the current disposition of every
+package. Companion findings own the acceptance still needed.
+
+| Package | Established delivery and remaining obligation |
+| --- | --- |
+| NCE-01 | Both v8 caption builders, the three recovered endpoints and downstream annotation regeneration stand. Native publication still needs to authenticate the selected recipe and refuse a bypass through another recipe identifier. [NCE-01-A1](next-corpus-enrichment/source-and-linguistic-composition.md#nce-01-audit) |
+| NCE-02 | The retained antecedents, qualified readings and exact formula occurrence stand. Open native interpretation and condition authentication, and carry wholly clipped role uncertainty into comparison. [NCE-02-A1–A2](next-corpus-enrichment/source-and-linguistic-composition.md#nce-02-audit) |
+| NCE-03 | The selected two-premise comparison and withholding stand. Complete typed member alignment and refuse consequences that depend on unresolved grouping. [NCE-03-A1](next-corpus-enrichment/source-and-linguistic-composition.md#nce-03-audit) |
+| NCE-04 | The bounded provider arms and later concordance stand. Authenticate the selected model declaration, window and computation at native and detached boundaries. [NCE-04-A1](next-corpus-enrichment/model-candidates-and-clause-interpretation.md#nce-04-audit) |
+| NCE-05 | Exact model role proposals and the overlap experiment stand. Deliver usable unattached roles to authorized consumers and account for attempted, refused and unobserved windows and loss stages. [NCE-05-A1](next-corpus-enrichment/model-candidates-and-clause-interpretation.md#nce-05-audit) |
+| NCE-06 | Exact heading navigation, the scoped `Z` control, the Table 6.1 caption link and the affine-`X` refusal stand. Open exact definition and procedure bindings, complete native cue reconstruction, effective version and portable cue closure. [NCE-06-A1–A3](next-corpus-enrichment/witnessed-links-and-artifact-identity.md#nce-06-audit) |
+| NCE-07 | The physical occurrence and selected reference nomination routes stand. Complete witnessed lineage and revision semantics and their exact origin journey. [NCE-07-A1](next-corpus-enrichment/witnessed-links-and-artifact-identity.md#nce-07-audit) |
+| NCE-08 | The bounded private Splink mechanism assessment is complete. Efficacy and native adoption remain blocked on a protected same-lineage cohort with authentic names and the planned parity evidence. [NCE-08](next-corpus-enrichment/witnessed-links-and-artifact-identity.md#nce-08-audit) |
+| NCE-09 | Controlled membership and the selected gap projections stand. Open exact reading and premise binding, conflict semantics, portable input and support custody, and scope-conflict refusal. [NCE-09-A1–A2](next-corpus-enrichment/rooted-assembly-and-navigation.md#nce-09-audit) |
+| NCE-10 | Native mutual navigation and the two selected diagnosis cases stand. Open exact detached tie membership and the joined cross-task operator journey. [NCE-10-A1–A2](next-corpus-enrichment/rooted-assembly-and-navigation.md#nce-10-audit) |
+| NCE-11 | Native source-conditioned correspondence and the two retained table controls stand. Open ordinary cancellation and unavailable outcomes, and independent source-conditioned detached replay. [NCE-11-A1](next-corpus-enrichment/finite-interpretation.md#nce-11-audit) |
+| NCE-12 | The protected development fit and authorized parameter read stand. Open runtime feature reconstruction and parity, repeated physical event grain, and independently recorded role, direction and scope dispositions. [NCE-12-A1](next-corpus-enrichment/operation-reliability.md#nce-12-audit) |
+
+### Qualification
+
+- `uv run ci test coverage` reconciled the original and affected receipts above.
+  It observed zero unresolved nodes in the separate 5,144, 234, 418, 171, 55 and 280
+  node selections. These are overlapping or differently scoped populations. The
+  5,144-node selection included the earlier exclusive fault lane. Source differed
+  across the attempts and native bindings changed across the native selections.
+  `uv run ci test failures cb5e71cbb2974a7d84db49184a66d944 --lane ordinary --json`
+  still records one artifact call failure and seven contextual setup failures. Their
+  exact retry passed. The 106-node replay selection predates the final
+  `contextual_navigation.py` bytes. The six-node diagnosis and artifact selection
+  exercises the later correction at that scope. The reconciliations establish
+  observed node coverage and retain original failed outcomes. Complete current
+  qualification remains open on the companion obligations.
+- `uv run ci review inspect --result ID --json` passed for the retained qualifier,
+  comparison, concordance, heading, neighborhood, two diagnoses and two table
+  selections. The antecedent's older managed result has no bound bundle digest
+  and its managed inspection failed. `uv run ci review verify
+  build/ci/2f8652fa86b047b6880f9c229553cdec/bundle --json` passed on the retained
+  bundle with the recorded selection digest. These checks establish the selected
+  custody and replay behavior, subject to the verification gaps above.
+- `uv run ci status 265 --project wce-gs120-method-development-20261106 --json`
+  confirmed finished cut 369 under the diagnosis release. The exact
+  `ci eval operation-event-availability` read for run 161, evaluation 34 and the
+  attachment event returned ready on cut 245 with 82 compatible events.
+  `ci eval operation-event-read --fit 1` on the same project returned the fitted
+  parameters and `in_sample_development` standing through the ordinary route.
+  [Recorded run and bundle identities](../design_review/evidence/2026-11-07_nce07-12/development-results.json)
+- A new product suite was `not_run`. The material gaps were established by
+  source inspection and the existing receipts. The audit preserves the operator's
+  affected-test boundary. Live qualification and adoption retain their separate
+  target and authority prerequisites.
+
+### Benefit and next work
+
+The frozen source frame establishes recovered captions, located linguistic evidence,
+and specific witnessed navigation outcomes. The model arms increased exactly located
+proposal counts in some settings but recovered zero independently expected exact roles
+or attachments. Keep bare and flat. The artifact replay added zero pair keys and
+the private challenger establishes mechanism behavior only. The two authentic table
+controls establish the selected source-conditioned journey. An independently judged
+authentic ambiguity remains the prerequisite for selection gain. Fit 1 establishes
+same-corpus diagnostics on eleven protected events from one origin. Calibration,
+transfer and activation retain their separate evidence requirements.
+
+Start follow-up with the source, model and native admission obligations so dependent
+comparison, linking, dossier and detached consumers can qualify against corrected
+products. The artifact, table and fitting obligations can advance on their own retained
+inputs where those dependencies do not apply. Recheck only affected functional and
+native/provider paths and reconcile their final-source applicability before closing
+the series. Conditional investigations keep their existing triggers.

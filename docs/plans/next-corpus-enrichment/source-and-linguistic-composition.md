@@ -1,6 +1,6 @@
 # Source and linguistic composition
 
-**Proposed · 2026-11-07.** Companion to the [next corpus enrichment coordinator](../next-corpus-enrichment_2026-11-07.md). Develops the selected [O01](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O01), [O02](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O02) and [O03](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O03) outcomes.
+**Development scope audited · 2026-11-07.** Companion to the [next corpus enrichment coordinator](../next-corpus-enrichment_2026-11-07.md). Develops the selected [O01](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O01), [O02](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O02) and [O03](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O03) outcomes.
 The coordinator owns combined completion and cross-companion decisions.
 
 Keep source access, grammatical evidence, semantic interpretation and comparison as distinct
@@ -174,6 +174,52 @@ on singleton and repeated fixtures, replay under the selected contract and ordin
 and detached delivery of complete evidence. Target `test_typed_structural_composition.py`, `test_comparison_projection.py`, `test_structural_native_replay.py` and portable bundle checks through
 the existing managed test route. A locally passed fixture establishes the declared comparison case
 and does not establish aggregate benefit.
+
+## Completion audit follow-up
+
+[Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+
+<a id="nce-01-audit"></a>
+**NCE-01-A1 · Authenticate the projection recipe at publication.** Both builders emit the
+v8 caption projection and the three recovered captions reached artifact admission. The
+native writer checks the submitted recipe bytes against the submitted digest and runs the
+caption guard when those bytes declare v8. A different recipe identifier can bypass that
+guard on a fresh publication. Bind new publications to the selected recipe and preserve
+exact historical reuse. Exercise omitted and duplicate captions, a substituted recipe,
+and an unchanged retry through the public native writer. The historical caption probe
+called the private helper directly. [Native writer](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql#L104) ·
+[Caption probe](../../design_review/evidence/2026-11-07_nce-source-linguistics/check_caption_admission.py).
+
+<a id="nce-02-audit"></a>
+**NCE-02-A1 · Authenticate interpretation and condition lowering.** The selected
+antecedents and attachments retain their dated evidence. Native admission binds the
+predicate reading to the retained frame but accepts submitted reading and polarity fields
+without deriving them from the retained cues. For ordinary conditional cues it checks
+condition shape and exact escape wording where present, leaving room for a substituted
+formal condition on a nonformal premise. Detached replay derives the complete reading
+and may refuse what native admission accepted. Verify parity on a forged polarity or
+formal condition and the exact source-backed or escape reading through the ordinary
+consumers. [Native predicate guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L1088) ·
+[Detached reconstruction](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L1968).
+
+**NCE-02-A2 · Preserve clipped role uncertainty into comparison.** A predicate
+frame survives passage selection, but a retained participant whose anchors all fall
+outside the selected passage is dropped. Comparison then reports the dimension as
+absent. Carry the unresolved role without inventing an extent and test an
+action-only passage where the retained annotation supplies a participant outside the
+selection. [Role emission](../../../python/corpus-structure/src/corpus_structure/methods/predicate_contributions.py#L438) ·
+[Comparison group derivation](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L417).
+
+<a id="nce-03-audit"></a>
+**NCE-03-A1 · Compare supported typed members and enforce unresolved grouping.** Run
+231/cut 323 retains two premises and withholds a consequence. Both comparison engines
+preserve repeated members but compare their lexical arrays. Typed interval logic uses
+singleton thresholds and can still issue a consequence when an unresolved grouping in
+another dimension affects the comparison. Establish typed member alignment under the
+declared scope and basis. Exercise changed typed members, conjunction versus disjunction,
+and identical unresolved member lists alongside otherwise comparable singleton thresholds.
+Compare native and application decisions and exact detached delivery. [Application comparison](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L163) ·
+[Native comparison](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L531).
 
 ## Owned conditional investigations
 

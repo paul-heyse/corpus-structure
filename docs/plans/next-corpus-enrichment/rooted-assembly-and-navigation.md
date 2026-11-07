@@ -1,6 +1,6 @@
 # Rooted assembly and navigation
 
-**Proposed, 2026-11-07.** Supporting plan for [Next corpus enrichment](../next-corpus-enrichment_2026-11-07.md).
+**Development scope audited · 2026-11-07.** Supporting plan for [Next corpus enrichment](../next-corpus-enrichment_2026-11-07.md).
 The coordinator owns package state, integration and qualification. This plan realizes
 [O08](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O08) and the consumer
 diagnosis portion of [O11](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O11).
@@ -174,6 +174,48 @@ candidate to establish separate source-to-decision outcomes. When assessing the 
 and portable views show the same selection, layer and evidence boundary. Scoped query
 changes publish on the same source and result cut. Preserve explicit comparison metadata
 when selections differ across releases.
+
+## Completion audit follow-up
+
+[Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+
+<a id="nce-09-audit"></a>
+**NCE-09-A1 · Bind the exact comparison reading and premise.** Native and application
+admission can qualify a selected reading with a root-linked occurrence from a different
+clause in the same passage. Bind the relationship to the exact reading focus and
+authenticate its independent applicability premises. Complete the conflict role, which
+has no derivation alongside variant, exception and revision. Check the two-clause
+refusal, supported left-only and dual bindings, and conflict with exact source evidence
+through membership and detached replay. [Application binding](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L638) ·
+[Native binding](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L580).
+
+**NCE-09-A2 · Authenticate portable gap evidence and inspected scope.** The gap
+verifier rebuilds pages from the bundle's captured evidence and checks selected IDs.
+It needs original report, cut, binding and authorized-support closure to reject a
+consistent substitution of both inputs and pages. Match authorized support to the
+exact comparison facets and qualify each side independently. An unrelated successful
+operation must refuse the conflicting selector or report uninspected coverage. Exercise
+a genuinely supported unconnected comparison, a successful empty inspection and an
+unavailable operation, including re-sealed source and support substitution and exact
+pagination. [Gap capture](../../../python/corpus-structure/src/corpus_structure/serve/structural_gaps.py#L507) ·
+[Detached gap verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L1505).
+
+<a id="nce-10-audit"></a>
+**NCE-10-A1 · Verify exact mutual membership at the cutoff.** Native rank order
+breaks distance ties with immutable IDs. Detached replay permits a rank interval around
+near ties and requires only pairs whose entire intervals fall in the top five. With
+seven distinct representatives sharing one normalized vector, all intervals cover ranks
+one through six and the check accepts an empty edge list. Require exact membership and
+tie-order reconstruction while bounding any tolerance to distance comparison. Exercise
+that exact tie and the existing near-collinear case. [Detached rank verification](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py#L173).
+
+**NCE-10-A2 · Join the selected source-to-decision journey.** The current diagnosis
+projects one selected task. Preserve its verified Table 6.1 and affine-`X` paths.
+Connect original source opportunities to exact authorized producer results, rule counts
+and route memberships, decision, dossier membership and display. A missing occurrence
+in one task cannot settle source capture. Verify the distinct stopping points for an
+omitted caption and a represented unsupported candidate across the intended products.
+Broader chain reports retain their conditional triggers. [Current capture](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py#L263).
 
 ## Conditional and deferred choices
 

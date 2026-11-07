@@ -1,6 +1,6 @@
 # Witnessed links and artifact identity
 
-**Proposed, 2026-11-07.** Supporting plan for [Next corpus enrichment](../next-corpus-enrichment_2026-11-07.md).
+**Development scope audited · 2026-11-07.** Supporting plan for [Next corpus enrichment](../next-corpus-enrichment_2026-11-07.md).
 The coordinator owns package state, integration and qualification. This plan realizes
 [O04](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O04),
 [O05](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O05) and the producer
@@ -216,6 +216,61 @@ control and the provenance of fitted or provisional parameters. Compare changes 
 error cases on the same judged pairs, including generic titles, authentic aliases and code
 conflicts. Excluded pairs remain unscored. Private assessment results retain their actual
 standing.
+
+## Completion audit follow-up
+
+[Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+
+<a id="nce-06-audit"></a>
+**NCE-06-A1 · Qualify cross-view definition targets.** Exact section headings,
+formula `Z`, the Table 6.1 procedure and the false affine-`X` control retain their
+bounded results. The section-definition route admits a witnessed candidate based on
+same-section component membership. With one unrelated component in the named section,
+it can select a `defined-by` edge without a witness identifying that component as the
+definition of the cue's subject. Require an exact endpoint binding for selection and
+retain section-only matches as candidates. Verify with unrelated and incomplete
+same-section populations, plus a correctly bound target, through native and detached
+reconstruction. [Candidate route](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py#L717) ·
+[Native witness reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2569) ·
+[Detached witness replay](../../../python/corpus-structure/src/corpus_structure/serve/contextual_witness_replay.py#L489).
+
+**NCE-06-A2 · Validate complete source-derived cue groups and version.** Native
+admission checks submitted named-link rows but can omit a genuine cue group, a
+located declaration's target and edge, or the formula operation. Detached replay
+reconstructs these populations. Check complete-group omission through the running-task
+guard and require the exact effective version on a formula recap edge. The recap
+operation retains the version, but the producer and guards omit it from the emitted
+edge. [Native operation checks](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2971) ·
+[Recap producer](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1118).
+
+**NCE-06-A3 · Deliver typed procedure linkage and exact portable cue custody.**
+The Table 6.1 control verifies a mention-to-caption edge. The procedure cue depends
+on that edge but still lacks a typed procedure endpoint and reads as requiring
+target selection. Bind the exact procedure/frame and artifact. Also use the same
+authenticated section cue to discover portable closure as native admission. The
+detached component path looks for literal `Section ` and can skip witnesses for
+valid lowercase or tab-separated cues. Verify both spellings and refuse a substituted
+portable decision. [Procedure projection](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1193) ·
+[Detached cue discovery](../../../python/corpus-structure/src/corpus_structure/serve/contextual_witness_replay.py#L55).
+
+<a id="nce-07-audit"></a>
+**NCE-07-A1 · Finish the lineage and revision distinction.** The observed artifact
+nominations are directed reference-to-caption relations. Native and detached custody
+must also preserve the accepted distinction between a reference, an independently
+witnessed same-lineage or revision relation, and similar labels with unknown scope.
+Verify a distinct revision, alias state and cross-work citation through the actual
+producer and read path, using an explicitly controlled source case where authentic
+evidence is missing. The retained cut had zero new pair keys and zero score-eligible
+pairs. Tables 5.8 and 5.9 used unscoped-code nominations. Table 6.1 also had a directed
+witness. [Nomination type](../../../python/corpus-structure/src/corpus_structure/semantic/artifact_identity.py#L231) ·
+[Native admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L940) ·
+[Retained result](../../design_review/evidence/2026-11-07_nce07-12/raw/artifact-replay-002/result.json).
+
+<a id="nce-08-audit"></a>
+**NCE-08 · Bounded mechanism confirmed.** Ten controlled Splink comparisons exercise
+the ordered comparison levels and exact-title term frequency. Same-lineage efficacy
+and native adoption await the protected eligible cohort and parity required above.
+Reference-to-caption judgments retain their original meaning. [Mechanism result](../../design_review/evidence/2026-11-07_nce07-12/raw/artifact-scorer-mechanism.json).
 
 ## Conditional and deferred choices
 

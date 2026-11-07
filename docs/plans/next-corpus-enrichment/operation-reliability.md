@@ -2,7 +2,7 @@
 
 # NCE-12 · Attachment-event reliability and uncertainty
 
-**Proposed · 2026-11-07.** The [coordinator](../next-corpus-enrichment_2026-11-07.md) owns execution
+**Development scope audited · 2026-11-07.** The [coordinator](../next-corpus-enrichment_2026-11-07.md) owns execution
 state and integration. This package develops [O07](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O07)
 and the statistical portions of [O11](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O11)
 and [O12](../../functional_reviews/next-corpus-enrichment_2026-11-07.md#O12). Event definition and
@@ -107,6 +107,27 @@ and repeated optional assessment outside the ordinary read or enrichment path.
   current development frame lacks a genuine class, record the observed prerequisite and
   leave native development fit unavailable. Report dated commands and outcomes, and let the
   coordinator account for the integrated qualification union.
+
+## Completion audit follow-up
+
+[Series disposition](../next-corpus-enrichment_2026-11-07.md#completion-audit).
+
+<a id="nce-12-audit"></a>
+**NCE-12-A1 · Reconstruct runtime features and preserve independent label grain.**
+The native census and protected development fit stand for the selected event. Runtime
+scoring takes a supplied feature vector, while the new recipe derives features only
+in SQL. The retained digest probe serializes the same native features and establishes
+no independently derived runtime parity. Implement the authorized source-to-vector
+route and compare it against native results on exact and unavailable inputs. Count
+repeated physical events across views and runs at one label and weight per event
+while retaining their separate producer custody. The current frame identifies rows by
+origin task and contribution, which permits repeated appearances to become separate
+observations. Record independent head, tail, direction and scope dispositions and
+disagreements in the protected path. Qualify repeated events, missing and single-class
+frames, forged inputs, denied protected reads and ordinary authorized parameter reads
+for the new event. [Feature recipe](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L2) ·
+[Native event frame](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L137) ·
+[Runtime score input](../../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py#L57).
 
 ## Conditional investigations
 
