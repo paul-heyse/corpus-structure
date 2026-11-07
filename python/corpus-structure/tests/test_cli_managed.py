@@ -14,7 +14,7 @@ from corpus_structure.cli.managed import ResultError, ResultStore
 from corpus_structure.cli.output import safe_text
 
 
-def test_settlement_holds_and_expiry(tmp_path):
+def test_settlement_holds_and_expiry(tmp_path, monkeypatch):
     store = ResultStore(tmp_path)
     with store.operation("test") as result:
         artifact = result.directory / "receipt"
@@ -29,6 +29,9 @@ def test_settlement_holds_and_expiry(tmp_path):
         store.hold(result.id, review.id)
         assert store.collect(apply=True, now=expiry).removed == []
         store.release(result.id, review.id)
+    monkeypatch.setattr("corpus_structure.cli.managed.time.time", lambda: expiry)
+    with pytest.raises(ResultError, match="expired"):
+        store.hold(result.id, review.id)
     assert store.collect(apply=True, now=expiry).removed == [result.id]
     with pytest.raises(ResultError, match="expired"):
         store.hold(result.id, review.id)

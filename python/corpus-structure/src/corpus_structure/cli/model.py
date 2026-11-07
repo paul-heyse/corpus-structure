@@ -345,6 +345,7 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
             root = checkout(ctx)
             with writer_lock(root):
                 paths = register_candidate(root, binding, store.artifact(candidate, "candidate"))
+            store.hold(candidate, _registration_hold(candidate))
             result.settle(paths=paths, revision=binding.revision)
         emit(
             ModelResult(
@@ -403,6 +404,7 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                     outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
                     result.settle(outcome, settled_effects=applied, error_type=type(error).__name__)
                     raise
+            store.release(candidate, _registration_hold(candidate))
             result.settle(settled_effects=applied, release=binding.release)
         emit(
             ModelResult(
@@ -415,6 +417,10 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
             ),
             json=json_,
         )
+
+
+def _registration_hold(candidate: str) -> str:
+    return sha256(f"registered:{candidate}".encode()).hexdigest()[:32]
 
 
 def register(root: typer.Typer) -> None:

@@ -179,7 +179,7 @@ class ResultStore:
             self.operation(action, scope={source_role: source_id}) as result,
         ):
             with self._namespace():
-                recovery = self._directory(source_id) / _RECOVERY
+                recovery = self._dependency_source(source_id) / _RECOVERY
                 recovery.mkdir(exist_ok=True, mode=0o700)
                 marker = recovery / result.id
                 marker.touch()
@@ -214,9 +214,23 @@ class ResultStore:
         if not _ID.fullmatch(dependent_id):
             raise ResultError("invalid dependent ID")
         with self._namespace():
-            holds = self._directory(result_id) / ".holds"
+            holds = self._dependency_source(result_id) / ".holds"
             holds.mkdir(exist_ok=True, mode=0o700)
             (holds / dependent_id).touch()
+
+    def _dependency_source(self, result_id: str) -> Path:
+        directory = self._directory(result_id)
+        manifest = self._read(directory)
+        now = time.time()
+        if (
+            manifest.settled is not None
+            and now >= manifest.expiry()
+            and not manifest.details.get("custody_unsettled")
+            and not any((directory / ".holds").glob("*"))
+            and not self._needs_recovery(directory, now)
+        ):
+            raise ResultError("result has expired; select a current result for the dependency")
+        return directory
 
     def release(self, result_id: str, dependent_id: str) -> None:
         if not _ID.fullmatch(dependent_id):
