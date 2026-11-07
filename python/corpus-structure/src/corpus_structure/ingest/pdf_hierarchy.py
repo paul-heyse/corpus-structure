@@ -5,13 +5,17 @@ from __future__ import annotations
 import json
 import re
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
 
+from corpus_structure.semantic.identity import canonical_bytes
+
 if TYPE_CHECKING:
     from docling_core.types.doc import DoclingDocument
+
+    from corpus_structure.semantic.product_reference import ProductReference
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +233,17 @@ class TextProjection:
     pieces: tuple[ProjectedPiece, ...]
 
 
+def section_text_recipe(native_product: ProductReference, *, analysis_eligible: bool) -> bytes:
+    return canonical_bytes(
+        {
+            "recipe": "native-section-text-v8",
+            "content_layers": ["body"],
+            "analysis_eligible": analysis_eligible,
+            "organization_owner": native_product.values(),
+        }
+    )
+
+
 def project_section(
     document: Any,
     document_digest: str,
@@ -237,11 +252,17 @@ def project_section(
     *,
     section_refs: frozenset[str],
     node_index: dict[str, Any] | None = None,
+    selected_items: Iterable[str] = (),
 ) -> TextProjection:
     """One explicit section view, retaining tables/cells and synthetic separators."""
     nodes = native_nodes(document) if node_index is None else node_index
     return project_section_nodes(
-        nodes, document_digest, section_ref, membership, section_refs=section_refs
+        nodes,
+        document_digest,
+        section_ref,
+        membership,
+        section_refs=section_refs,
+        selected_items=selected_items,
     )
 
 
@@ -252,11 +273,13 @@ def project_section_nodes(
     membership: Literal["direct", "descendant"],
     *,
     section_refs: frozenset[str],
+    selected_items: Iterable[str] = (),
 ) -> TextProjection:
     """Project an admitted selected closure without fabricating a partial document.
 
-    Native objects and retained native mappings share this constructor. Relationship
-    resolution stays explicit in the caller's exact published selection.
+    Native objects and retained native mappings share this constructor. Table caption
+    recovery requires the caller's exact selected body membership. Subtree callers
+    without such a selection use the existing structural traversal.
     """
     if membership not in {"direct", "descendant"}:
         raise ValueError("membership must be direct or descendant")
@@ -265,6 +288,8 @@ def project_section_nodes(
     text: list[str] = []
     pieces: list[ProjectedPiece] = []
     position = 0
+    selected = frozenset(selected_items)
+    emitted_captions: set[str] = set()
 
     def append(
         value: str,
@@ -303,9 +328,30 @@ def project_section_nodes(
             raise ValueError("selected native closure is missing a referenced occurrence")
         return pointer
 
-    def visit(node: Any, separator: bool = True, cell_index: int | None = None) -> None:
+    def is_body(node: Any) -> bool:
         layer = field(node, "content_layer", "body")
-        if field(layer, "value", layer) != "body":
+        return field(layer, "value", layer) == "body"
+
+    def append_table_captions(table: Any, pointer: str, rich_cell_refs: set[str]) -> None:
+        for ref in (*field(table, "children", ()), *field(table, "captions", ())):
+            target = reference(ref)
+            if target not in selected or target in emitted_captions or target in rich_cell_refs:
+                continue
+            caption = nodes.get(target)
+            if field(caption, "self_ref") != target or field(caption, "label") != "caption":
+                continue
+            parent = field(caption, "parent")
+            value = field(caption, "text")
+            # Native containment is a tree. A table-owned caption has no ordinary child path,
+            # and a reference to a caption under an ordinary parent cannot move that caption.
+            if parent is None or reference(parent) != pointer or not is_body(caption):
+                continue
+            if isinstance(value, str) and value:
+                append(value, target)
+                emitted_captions.add(target)
+
+    def visit(node: Any, separator: bool = True, cell_index: int | None = None) -> None:
+        if not is_body(node):
             return
         if (
             field(node, "self_ref") != section_ref
@@ -316,10 +362,12 @@ def project_section_nodes(
         pointer = field(node, "self_ref")
         cells = field(field(node, "data"), "table_cells")
         if cells is not None:
+            rich_cell_refs: set[str] = set()
             for index, cell in enumerate(cells):
                 target = field(cell, "ref")
                 if target is not None:
                     target_pointer = reference(target)
+                    rich_cell_refs.add(target_pointer)
                     if target_pointer not in nodes:
                         raise ValueError(
                             "selected native closure is missing a rich-cell occurrence"
@@ -327,6 +375,12 @@ def project_section_nodes(
                     visit(nodes[target_pointer], cell_index=index)
                 else:
                     append(field(cell, "text"), pointer, index, "cell_text")
+            if (
+                pointer in selected
+                and nodes.get(pointer) is node
+                and field(node, "label") == "table"
+            ):
+                append_table_captions(node, pointer, rich_cell_refs)
             # Rich-cell subtrees are represented by the cell above, not duplicated.
             return
         chart = field(field(node, "meta"), "tabular_chart")

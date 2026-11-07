@@ -48,6 +48,7 @@ from .pdf_hierarchy import (
     native_nodes,
     organize,
     project_section,
+    section_text_recipe,
 )
 from .pdf_record_product import native_publication_draft
 from .pdf_worker import PdfWorker
@@ -419,14 +420,7 @@ def _drafts(
     section_refs = frozenset(
         p for p, n in nodes.items() if p == "#/body" or str(n.label) in {"section", "chapter"}
     )
-    recipe = canonical_bytes(
-        {
-            "recipe": "native-section-text-v7",
-            "content_layers": ["body"],
-            "analysis_eligible": analysis_eligible,
-            "organization_owner": native_product.values(),
-        }
-    )
+    recipe = section_text_recipe(native_product, analysis_eligible=analysis_eligible)
     from corpus_structure.semantic.source_views import formula_health_summary
 
     health = {
@@ -448,6 +442,7 @@ def _drafts(
             "direct" if selected_membership == "direct" else "descendant",
             section_refs=section_refs,
             node_index=nodes,
+            selected_items=item_refs,
         )
         ancestors = []
         item = nodes[section]

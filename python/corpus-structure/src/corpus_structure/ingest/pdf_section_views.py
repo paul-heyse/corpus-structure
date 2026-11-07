@@ -10,7 +10,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.source_views import resolve_native_sections, source_view_health
 
-from .pdf_hierarchy import project_section_nodes
+from .pdf_hierarchy import project_section_nodes, section_text_recipe
 
 
 class NoQualifiedSections(ValueError):
@@ -82,14 +82,7 @@ def published_section_drafts(
         if key not in {"source_scope", "page_start", "page_end", "formula_outcomes"}
     }
     reference = reader.reference
-    recipe = canonical_bytes(
-        dict(
-            recipe="native-section-text-v7",
-            content_layers=["body"],
-            analysis_eligible=True,
-            organization_owner=reference.values(),
-        )
-    )
+    recipe = section_text_recipe(reference, analysis_eligible=True)
     result = []
     for section in selected_sections:
         selected_membership = "direct" if section == "#/body" else membership
@@ -139,6 +132,7 @@ def published_section_drafts(
             section,
             "direct" if selected_membership == "direct" else "descendant",
             section_refs=section_refs,
+            selected_items=members,
         )
         reports = reader.section_reports(members, (section, *ancestors))
         outcomes, coverage = [], []
