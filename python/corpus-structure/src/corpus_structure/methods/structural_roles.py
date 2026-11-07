@@ -9,6 +9,25 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal, TypedDict
 
+from .predicate_frames import (
+    PREDICATE_FRAME_VERSION as PREDICATE_FRAME_VERSION,
+)
+from .predicate_frames import (
+    FrameCue as FrameCue,
+)
+from .predicate_frames import (
+    PredicateFrame as PredicateFrame,
+)
+from .predicate_frames import (
+    frames_from_annotation as frames_from_annotation,
+)
+from .predicate_frames import (
+    predicate_frame_result as predicate_frame_result,
+)
+from .predicate_frames import (
+    predicate_frames as predicate_frames,
+)
+
 type RoleSpan = tuple[int, int]
 
 
