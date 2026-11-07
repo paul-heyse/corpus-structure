@@ -678,7 +678,12 @@ BEGIN
        OR p_population->i->'pin' IS DISTINCT FROM evidence->'pin'
        OR p_population->i->'component'->>'scope' IS DISTINCT FROM c->>'scope'
        OR p_population->i->'component'->>'effective_version' IS DISTINCT FROM c->>'effective_version'
-       OR p_population->i->'component'->>'annotation' IS NOT DISTINCT FROM c->>'annotation')
+       OR p_population->i->'component'->>'annotation' IS NOT DISTINCT FROM c->>'annotation'
+       OR (c->>'host_state'='located' AND (
+        SELECT count(*) FROM jsonb_each(p_population) q
+        WHERE q.value->'component'->>'host_contribution_id'=i
+         AND q.value->'component'->>'qualifier_contribution_id'=evidence->>'contribution_id'
+         AND q.value->'component' ? 'host_witness')<>1))
     ))
     OR (c ? 'marker_member' AND (
      part IS NULL OR part->'pin' IS DISTINCT FROM evidence->'pin'
@@ -742,6 +747,7 @@ BEGIN
      OR matches_host IS DISTINCT FROM true
      OR (recipe=ANY(local_recipes||cross_recipes) AND c->>'qualifier_kind' IN ('condition','assumption')
       AND condition_->>'kind' IS DISTINCT FROM 'escape')
+     OR (recipe IN ('nominal_parameter_pair','customer_population_inclusion') AND c ? 'qualification')
      OR evidence->'members' IS DISTINCT FROM (CASE WHEN c ? 'interpretation_member'
       THEN jsonb_build_array(cue->'contribution_id',host->'contribution_id',c->'interpretation_member')
       ELSE jsonb_build_array(cue->'contribution_id',host->'contribution_id') END)
@@ -783,7 +789,7 @@ DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; 
  declaration json; role_definition jsonb; retained ops.task; binding jsonb; old_view kb.source_view; new_view kb.source_view; old_descriptor jsonb; new_descriptor jsonb; retained_body jsonb; retained_digests jsonb:='{}'; retained_sources jsonb:='{}';
  operation_map jsonb; identity_map jsonb; output_counts jsonb; schemas jsonb:='{}'; allowed_contracts jsonb;
  local_ jsonb; local_request jsonb; local_result jsonb; selected_ids jsonb; local_inputs jsonb;
- predicate_population jsonb; table_config jsonb; table_mode text; table_policy_id text;
+ predicate_population jsonb; table_config jsonb; table_mode text; table_policy_id text; formula_meaning jsonb;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -1547,16 +1553,26 @@ BEGIN
    OR (contribution->>'kind'='composite' AND jsonb_array_length(COALESCE(contribution->'members','[]'))=0) THEN
    RAISE EXCEPTION 'relation/composite contribution lacks endpoints/members' USING ERRCODE='23514'; END IF;
   IF operation_map->(contribution->>'operation_key')->>'question'='source_formula_occurrences' THEN
+   formula_meaning:=data.record_source_json(contribution->'value');
+   anchor_:=contribution->'anchors'->0;
    IF contribution->>'semantic_type' IS DISTINCT FROM 'structural.located_participant'
     OR contribution->>'kind' IS DISTINCT FROM 'occurrence'
     OR contribution ?| ARRAY['component','endpoints','members']
     OR jsonb_array_length(contribution->'anchors') IS DISTINCT FROM 1
     OR contribution->'anchors'->0->>'space' IS DISTINCT FROM 'native'
     OR contribution->'anchors'->0->>'precision' IS DISTINCT FROM 'exact'
-    OR data.record_source_json(contribution->'value')->>'role' IS DISTINCT FROM 'formula_symbol'
-    OR data.record_source_json(contribution->'value')->>'syntax_standing' IS DISTINCT FROM 'syntax_only'
-    OR data.record_source_json(contribution->'value')->>'input_policy' IS DISTINCT FROM 'captured_inline_equation'
-    OR data.record_source_json(contribution->'value')->>'mapping' IS DISTINCT FROM 'exact_native_field'
+    OR formula_meaning->>'role' IS DISTINCT FROM 'formula_symbol'
+    OR formula_meaning->>'syntax_standing' IS DISTINCT FROM 'syntax_only'
+    OR formula_meaning->>'input_policy' IS DISTINCT FROM 'captured_inline_equation'
+    OR formula_meaning->>'mapping' IS DISTINCT FROM 'exact_native_field'
+    OR formula_meaning->>'text' IS DISTINCT FROM anchor_->>'source_piece'
+    OR formula_meaning->>'source_pointer' IS DISTINCT FROM anchor_->>'pointer'
+    OR formula_meaning->>'region' IS DISTINCT FROM anchor_->>'pointer'
+    OR NOT EXISTS(SELECT FROM jsonb_array_elements(v.projection->'pieces') p
+      WHERE p->>'kind'='native_text' AND coalesce(p->>'source_field','text')='text' AND NOT p ? 'cell_index'
+       AND p->>'item_ref'=anchor_->>'pointer'
+       AND (p->>'start')::bigint+(anchor_->>'start')::bigint=(formula_meaning->>'start')::bigint
+       AND (p->>'start')::bigint+(anchor_->>'end')::bigint=(formula_meaning->>'end')::bigint)
     OR EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') link_
       WHERE link_->>'kind'='relation' AND link_->'endpoints' @>
        jsonb_build_array(jsonb_build_object('contribution_id',contribution->>'contribution_id')))
