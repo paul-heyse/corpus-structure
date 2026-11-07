@@ -1,6 +1,6 @@
 # Next corpus enrichment
 
-**Status:** Proposed. **Revised:** 2026-11-07. This coordinator owns the proposed new series,
+**Status:** NCE-01 delivered in development. NCE-02 partially delivered. **Revised:** 2026-11-07. This coordinator owns the series,
 its source dispositions and combined completion. The scope comes from the
 [Next corpus enrichment review](../functional_reviews/next-corpus-enrichment_2026-11-07.md)
 at `8277b7445`, including its integrated corrections and conditional opportunities. Existing
@@ -166,8 +166,51 @@ the review.
   table roles and exact attachment labels. Record unresolved, unavailable, corrected, lost
   and spurious results explicitly. Development results describe the shared frame. Additional
   transfer, calibration or performance claims need their own evidence.
-- **Current checkpoint.** The series is proposed. Runtime, provider, fitting and adoption
-  checks for its packages are `not_run` at authoring. The first proposed execution work is
-  NCE-01 caption emission and NCE-02's neutral frame/qualification boundary. Any unfulfilled
-  conditional package remains visible at its owner, with the missing premise or a justified
-  disposition.
+- **Current checkpoint.** The operator selected NCE-01 and NCE-02. The remaining packages
+  retain their proposed dispositions and acceptance boundaries.
+
+## Selected execution · 2026-11-07
+
+- **NCE-01 · Implemented, bounded Tested.** Both builders use `native-section-text-v8` with
+  their exact body membership. Development source runs 208 and 209 regenerated views 157–159
+  from the original native products. Table 5.8, 5.9 and 6.1 captions bind to their original
+  pointers and to the three independently supported reference pairs in artifact run 210,
+  cut 293. Two other caption occurrences were recovered in view 159. The original native
+  text pieces retain their spelling and sequence. The native guard refused three malformed
+  variants and accepted the same exact projection twice.
+  [Native caption replay](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md)
+- **NCE-02 · Implemented, bounded Tested.** Scoped relations v4 publishes neutral frames,
+  exact or partial focus, role members and cues with original annotation custody. A separate
+  operation publishes readings and host-bound qualifiers, with released condition and
+  qualification values when their premises hold. Named definitions v6 replays its explicit
+  rule recipe on retained columns. Scoped run 217, cut 303 and definition run 218, cut 305
+  exercise three frozen cases. The probability subject retains its exact integral attachment.
+  Historical attribution remains available with the performed definition withheld. Named
+  definitions v7, run 222 and cut 313, resolves “This set of points” to the full preceding
+  level-set expression and retains the local mention in the named operation. Both exact spans
+  match the independent frozen case on original view 147. [Linguistic replay](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md)
+- Development uses revision `semantic_nce_evidence_guards` and the admitted NCE release
+  recorded in the evidence account. The current CLI, fresh MCP and detached bundle passed
+  the bounded read and replay controls. The detached bundle carries original annotation
+  reports. Native admission refused a competing predicate host even when it appeared in
+  the submitted candidate list.
+- **Remaining NCE-02 work.** Native run 220, cut 309 retains the full compound Event F
+  antecedent and withholds the unsupported host. The replay locates variance,
+  normal-parameter and zero-wait context with their semantic attachments still open.
+  Normal parameterization has an exact same-sentence host and needs its own retained-parse
+  and native guard recipe. The variance premise and queue convention need distinct scope
+  and host witnesses. Explicit cross-block layout inheritance, formal interpretation and
+  production adoption remain open.
+  [Additional qualifier cases](../design_review/evidence/2026-11-07_nce-source-linguistics/additional-qualifiers.json)
+
+### Selected execution verification
+
+| Command | Outcome and scope |
+| --- | --- |
+| `uv run ci test --json` | `failed`, managed result `d2f8fbcd817a49e4b84d695fa359f5fa`. Ordinary lane 5,129 passed and seven runtime-pin failures during a source change. Fault lane eight passed. |
+| `uv run ci test retry d2f8fbcd817a49e4b84d695fa359f5fa --lane ordinary --json` | `passed`, all seven exact retries, result `8b5a0eaa2de548ccaa4caec513f1db9e`. |
+| `uv run ci test --json -- PATH…` | `passed`, 69 affected definition, annotation and native replay tests on the final antecedent source, result `80dab1360371491a9ce83bb5426ecd78`. Exact file selections are in the [antecedent evidence](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#antecedent-decision). |
+| `uv run ci test coverage ORIGINAL RETRY EVENT_F PREDICATE ANTECEDENT --json` | The managed account preserves the original failure and source differences. The original 5,144 selected nodes have zero unresolved after replacement. The operator selected affected tests and exact retries for final verification. |
+
+The antecedent comparison, ordinary Reader delivery and detached verification are separate
+from the broader qualifier opportunities still open above.

@@ -1,0 +1,64 @@
+{
+  "initial": {
+    "cut_id": 307,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "result_revision": 1,
+    "run_id": 219,
+    "runtime_id": "runtime:cb75461d487957fa1e577037dd804c91e2a12b30141e41ceda8734507ec4d6fa"
+  },
+  "revised": {
+    "cut_id": 309,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "result_revision": 1,
+    "run_id": 220,
+    "runtime_id": "runtime:7cbcba597ef978694bf72da18e6b63bc1d567c6c3c471d43b4fc5225b24734da"
+  },
+  "cases": [
+    {
+      "case": "event-f",
+      "disposition": "compound_condition_retained_unresolved",
+      "before": {
+        "anchors": [
+          "If F is any event"
+        ],
+        "candidate_tokens": [
+          9
+        ]
+      },
+      "after": {
+        "anchors": [
+          "If F is any event and X is a random variable with sample space Ω = {x1, x2, . . .}"
+        ],
+        "candidate_tokens": [
+          9,
+          35
+        ]
+      }
+    },
+    {
+      "case": "positive-variance",
+      "disposition": "located_phrase_without_correlation_attachment",
+      "anchors": [
+        "X",
+        "Y be random variables with positive variance"
+      ]
+    },
+    {
+      "case": "normal-parameters",
+      "disposition": "located_parameter_prose_without_normal_density_qualification",
+      "anchors": [
+        "The parameter µ represents the \"center\" of the density"
+      ]
+    },
+    {
+      "case": "zero-wait",
+      "disposition": "located_inclusive_scope_context_without_equilibrium_or_zero_wait_attachment",
+      "anchors": [
+        "that in this case we are counting the waiting time of all customers",
+        "even those"
+      ]
+    }
+  ]
+}

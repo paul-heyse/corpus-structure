@@ -677,3 +677,72 @@ def test_explicit_linguistic_only_mode_has_no_provider_profile():
             use_model=False,
             use_named_candidates=False,
         )
+
+
+@pytest.mark.parametrize("context", ("unique", "competing", "outside_selection", "separate_piece"))
+def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
+    from types import SimpleNamespace
+
+    import yaml
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
+    from corpus_structure.methods.definition_applicability import retained_annotation_components
+    from corpus_structure.schema.pack import DOMAINS
+
+    from .test_predicate_frames import _PREFIX, retained
+
+    restriction = (
+        "the set of points (x, y) in the xy-plane such that fX,Y (x, y) = C for some constant C."
+    )
+    sentence = f"Now suppose that we want to know {restriction}"
+    if context == "competing":
+        sentence = sentence[:-1] + " and the set of points such that y = 0."
+    mention = "This set of points"
+    text = f"{sentence} {mention} is called a set of constant density."
+    offset = len(_PREFIX)
+    mention_start = offset + len(sentence) + 1
+    pieces = None
+    if context == "separate_piece":
+        pieces = (
+            ProjectedPiece("#/texts/3", offset, mention_start, "native_text"),
+            ProjectedPiece("#/texts/4", mention_start, offset + len(text), "native_text"),
+        )
+    source_text, product = retained(text, AnnotationProfile(), pieces=pieces)
+    start = mention_start if context == "outside_selection" else offset
+    selected = (
+        inputs()
+        .passages[0]
+        .model_copy(update={"start": start, "end": len(source_text), "text": source_text[start:]})
+    )
+    rules = yaml.safe_load((DOMAINS / "statistics/m1-methods.yaml").read_bytes())
+    config = DefinitionComponentsConfig(
+        annotation_rules=rules["configs"]["extract.m1_candidates"]["witnessed"]["annotation_rules"],
+    )
+    result = retained_annotation_components(
+        None,
+        None,
+        selected,
+        config,
+        retained=SimpleNamespace(
+            source=SimpleNamespace(text=source_text),
+            annotations=(product,),
+            errors=(),
+            annotation_task_id=594,
+        ),
+    )
+    (found,) = result.components
+    assert found.term.text == "a set of constant density"
+    assert found.content.text == (restriction if context == "unique" else mention)
+    assert source_text[found.content.start : found.content.end] == found.content.text
+    (match,) = next(
+        operation["matches"]
+        for operation in result.operations
+        if operation["variant"] == "passive_called_term"
+    )
+    if context == "unique":
+        assert match["content_antecedent"] == found.content.model_dump(mode="json")
+        (role,) = [role for role in match["roles"] if role["role"] == "defining_content"]
+        assert source_text[role["extents"][0][0] : role["extents"][-1][1]] == mention
+    else:
+        assert "content_antecedent" not in match

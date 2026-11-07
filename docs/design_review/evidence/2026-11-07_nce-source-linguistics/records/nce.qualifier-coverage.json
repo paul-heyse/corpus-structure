@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "nce.qualifier-coverage",
+  "title": "Additional frozen qualifier opportunities",
+  "group": "NCE",
+  "package": "NCE-02",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which qualifier premises and hosts survive additional retained-source replay?",
+  "answers": [
+    "NCE-02"
+  ],
+  "method": "Scoped native discovery on four independently selected source cases, with one observed grammar counterexample and corrective replay.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/replay_qualifiers.py build/nce-source-linguistics/qualifier-coverage-current --release release:d16c5b3f09a4b73c52369a9a999fc31847be91ce4602d4a13d5ade5af215311a",
+    "uv run ci contributions list --run 220 --source-view 131 --method structure.scoped_relations --include-details --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_qualifiers.py",
+      "role": "scoped replay",
+      "sha256": "bc9efd9beb1badd6d791bc454155eb3572bb38dd8a686470eea054e5384946f0"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "additional-qualifiers.json",
+      "role": "native scoped results",
+      "sha256": "3caefd377a59ecd5ec71e9d79451fa361fcfe10ef2563d4257970db254962667"
+    }
+  ],
+  "depends_on": [
+    "nce.predicate-native-replay"
+  ],
+  "results": [
+    {
+      "name": "Frozen qualifier opportunities inspected",
+      "value": 4,
+      "of": null,
+      "unit": "cases",
+      "note": "Exact bounded original passages."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The compound Event F antecedent survives as unresolved evidence with the unsupported host withheld. Variance, parameter and waiting-time phrases survive as located frame evidence. Their exact semantic attachments remain open.",
+  "consumed_by": [
+    "NCE-02"
+  ]
+}
