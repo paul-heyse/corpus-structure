@@ -165,6 +165,11 @@ def test_exact_patch_stream_keeps_lease_and_composes_with_git(model_results, mon
     with monkeypatch.context() as expired:
         expired.setattr("corpus_structure.cli.managed.time.time", lambda: expires)
         assert _inspect(preview_id, "--view", "patch").exit_code == 0
+        effects = _inspect(preview_id, "--json")
+        assert effects.exit_code == 0
+        report = json.loads(effects.stdout)
+        assert report["dependency_available"] is False
+        assert report["next_command"] is None
         with pytest.raises(ResultError, match="expired"):
             model_results.hold(preview_id, preview_id)
     assert model_results.collect(apply=True, now=expires).removed == [preview_id]

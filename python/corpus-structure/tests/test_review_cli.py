@@ -157,6 +157,8 @@ def test_review_retry_requires_settled_cleanup(cli, tmp_path, monkeypatch):
 
 
 def test_managed_inspection_matches_detached_and_rejects_replacement(cli, tmp_path, monkeypatch):
+    from hashlib import sha256
+
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.serve.contributions import ContributionRequest
     from corpus_structure.serve.review_bundle import ReviewSelection, write_review_bundle
@@ -170,6 +172,10 @@ def test_managed_inspection_matches_detached_and_rejects_replacement(cli, tmp_pa
         )
         write_review_bundle(selection, bundle, [("contributions", {"id": "known"})])
         invocation.publish("bundle", bundle)
+        invocation.stage(
+            "published",
+            bundle_manifest_sha256=sha256((bundle / "manifest.json").read_bytes()).hexdigest(),
+        )
 
     detached = cli("review", "inspect", str(bundle), "--json")
     managed = cli("review", "inspect", "--result", invocation.id, "--json")
@@ -177,6 +183,15 @@ def test_managed_inspection_matches_detached_and_rejects_replacement(cli, tmp_pa
     assert json.loads(managed.stdout) == {"result_id": invocation.id, **json.loads(detached.stdout)}
     assert json.loads(managed.stdout)["relations"] == {"contributions": 1}
     assert cli("review", "inspect", str(bundle), "--result", invocation.id).exit_code == 2
+
+    alternate = tmp_path / "alternate"
+    write_review_bundle(selection, alternate, [("contributions", {"id": "substituted"})])
+    for member in alternate.iterdir():
+        (bundle / member.name).write_bytes(member.read_bytes())
+    assert cli("review", "inspect", str(bundle), "--json").exit_code == 0
+    rewritten = cli("review", "inspect", "--result", invocation.id, "--json")
+    assert rewritten.exit_code == 1
+    assert "integrity differs" in json.loads(rewritten.stdout)["error"]["message"]
 
     bundle.rename(bundle.with_name("previous"))
     bundle.mkdir()

@@ -28,11 +28,14 @@ See the [request model](../../../../python/corpus-structure/src/corpus_structure
 
 ```sh
 uv run ci model change preview CHANGE.yaml --json
-uv run ci results export PREVIEW_ID --role patch --json
+uv run ci model change inspect PREVIEW_ID
+uv run ci model change inspect PREVIEW_ID --view patch
 uv run ci model change apply PREVIEW_ID --json
 ```
 
-Read the preview and patch before the apply. The preview binds reviewed inputs and applicable
+Read the preview and patch before the apply. Use `--view discovery` for consumer discovery,
+and `--view patch --stdout` for an exact safe patch stream to a consumer such as
+`git apply --stat`. The preview binds reviewed inputs and applicable
 effects. Apply by exact preview ID. If the inputs or predecessor differ, inspect the refusal
 and prepare a fresh preview when the intended change differs. Use the existing ID for
 supported recovery of the same approved change.
@@ -45,6 +48,7 @@ Run the stages individually at their authorized boundaries.
 
 ```sh
 uv run ci model change candidate PREVIEW_ID --json
+uv run ci model change inspect-candidate CANDIDATE_ID
 uv run ci model change register CANDIDATE_ID --json
 uv run ci model change deploy CANDIDATE_ID --json
 ```

@@ -1,7 +1,7 @@
 # CLI reporting and file-free composition
 
-**Status:** Proposed. **Created:** 2026-11-07. Owns the proposed reporting packages, source
-opportunity dispositions and combined acceptance.
+**Status:** Implemented on `work/cli-reporting`. Branch qualification and operator-directed
+integration are in progress. **Created:** 2026-11-07.
 
 ## Outcome and baseline
 
@@ -51,12 +51,11 @@ their runtime qualification are `not_run`. [Reporting controls](../design_review
   verifying an entire bundle on every browse. Keep required verification explicit and choose
   access, bounds and lifetime together. [Design principles](../design_review/design_principles/core/design-principles.md) ·
   [Execution-fit guidance](../design_review/design_principles/core/efficient-architecture-heuristics.md)
-- **CLIR-D01 · Open compatibility decision.** Choose and confirm the stream-close policy in
-  CLIR-06 before dependent routes are delivered. The proposal preserves the existing full JSON
-  contract and effect boundaries. Present any change to existing exit or output semantics to
-  the operator with the affected callers and evidence. Record the decision, date and authority
-  route here. Use an ADR and update D8 if a binding decision changes. A rejection keeps affected
-  routes gated or narrows them to an approved additive contract.
+- **CLIR-D01 · Accepted 2026-11-07.** An incomplete report caused by stdout closure exits
+  74 and reports the delivery failure on stderr where possible. An already-known command
+  failure or cancellation keeps its original status. Settlement and managed result identity
+  remain with the operation. This applies to existing and new human, JSON and explicit
+  text reports. Operator decision recorded in the execution planning conversation.
 
 ## Execution queue and source coverage
 
@@ -96,3 +95,19 @@ the applicable required union for final source and context. Record command, scop
 and blocked prerequisites. Keep historical receipts and synthetic controls at their original
 scope. Update installed help and the relevant [ci skill routes](../../.claude/skills/ci/SKILL.md)
 as each capability lands. [Pinned Typer test runner](https://github.com/fastapi/typer/blob/0.28.0/typer/testing.py)
+
+## Branch execution checkpoint · 2026-11-07
+
+- The reporting branch starts from committed `main` at `5edbd2f0a`. The coordinator
+  integrates only operator-designated later main checkpoints and waits for separate
+  authorization to land on main.
+- CLIR-01–06 are implemented. Compact classifier output, exact test failures, preview and
+  candidate reads, authenticated managed review inspection, bounded stdin, ordered recipe
+  steps and the installed stream boundary are available on the branch.
+- CLIR-07 uses the recipe step channel and existing managed stages and counts. The failed
+  and interrupted controls identify the step or unsettled result and the next action.
+  Additional logging, continuous progress and retained excerpts remain conditional on
+  a named decision those reports cannot support. Revisit bounded transcript collection
+  if measured child output or a specific pre-failure need warrants changing the supervisor.
+- CLIR-08 records targeted and integrated qualification separately. Qualification does not
+  imply a merge to main or change the separate live CLI operations prerequisites.

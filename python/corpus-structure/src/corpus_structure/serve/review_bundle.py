@@ -1041,24 +1041,27 @@ def _member(
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
     except OSError as error:
         raise ValueError("review member missing or not an ordinary file") from error
-    with os.fdopen(fd, "rb") as stream:
+    try:
         before = os.fstat(fd)
         if not stat.S_ISREG(before.st_mode):
             raise ValueError("review member missing or not an ordinary file")
         if size is not None and before.st_size != size:
             raise ValueError("review file integrity differs")
-        if digest is not None:
-            if file_digest(stream, "sha256").hexdigest() != digest:
-                raise ValueError("review file integrity differs")
-            stream.seek(0)
-        yield stream
-        after = os.fstat(fd)
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            if digest is not None:
+                if file_digest(stream, "sha256").hexdigest() != digest:
+                    raise ValueError("review file integrity differs")
+                stream.seek(0)
+            yield stream
+            after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
             after.st_size,
             after.st_mtime_ns,
             after.st_ctime_ns,
         ):
             raise ValueError("review member changed during verification")
+    finally:
+        os.close(fd)
 
 
 def _relation_member(root: int, file: Mapping[str, Any]):
@@ -1518,22 +1521,22 @@ def _verify_predicate_closure(root, manifest):
             )
 
 
-def verify_review_bundle(root: Path | int) -> dict[str, Any]:
+def verify_review_bundle(root: Path | int, *, manifest_digest: str | None = None) -> dict[str, Any]:
     """Verify a detached path or borrow an authenticated directory descriptor."""
     if isinstance(root, int):
-        return _verify_review_bundle(root)
+        return _verify_review_bundle(root, manifest_digest)
     try:
         descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
     except OSError as error:
         raise ValueError("review member missing or not an ordinary file") from error
     try:
-        return _verify_review_bundle(descriptor)
+        return _verify_review_bundle(descriptor, manifest_digest)
     finally:
         os.close(descriptor)
 
 
-def _verify_review_bundle(root: int) -> dict[str, Any]:
-    with _member(root, "manifest.json") as stream:
+def _verify_review_bundle(root: int, manifest_digest: str | None) -> dict[str, Any]:
+    with _member(root, "manifest.json", digest=manifest_digest) as stream:
         manifest = json.load(stream)
     if manifest.get("format") != FORMAT:
         raise ValueError("unsupported review format")
@@ -1913,8 +1916,10 @@ def _verify_review_bundle(root: int) -> dict[str, Any]:
     return manifest
 
 
-def inspect_review_bundle(root: Path | int) -> dict[str, Any]:
-    manifest = verify_review_bundle(root)
+def inspect_review_bundle(
+    root: Path | int, *, manifest_digest: str | None = None
+) -> dict[str, Any]:
+    manifest = verify_review_bundle(root, manifest_digest=manifest_digest)
     return {
         "format": FORMAT,
         "selection": manifest["selection"],

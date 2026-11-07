@@ -22,9 +22,9 @@ def recipe_checkout(tmp_path, monkeypatch):
         'sample: (_bundle "sample" "ok bad later")\n'
         'interrupted: (_bundle "interrupted" "wait later")\n'
         'ok:\n    @echo "plan fake-step"\n'
-        'bad:\n    @bash -c \'printf "password=example-secret\\n" >&2; exit 17\'\n'
+        "bad:\n    @bash -c 'printf \"password=example-secret\\n\" >&2; exit 17'\n"
         'later:\n    @echo "the later recipe ran"\n'
-        'wait:\n    @touch started\n    @sleep 60\n',
+        "wait:\n    @touch started\n    @sleep 60\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)

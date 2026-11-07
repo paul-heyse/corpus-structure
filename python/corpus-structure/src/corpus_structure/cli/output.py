@@ -49,18 +49,28 @@ def state(ctx: typer.Context) -> CliState:
     return obj
 
 
+def _discard_shutdown_output(descriptor: int) -> None:
+    # A failed buffered flush is retried during interpreter shutdown.
+    fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(fd, descriptor)
+    finally:
+        os.close(fd)
+
+
 def _undelivered(exit_code: int) -> None:
-    # Discard any buffered bytes during interpreter shutdown after a real stdout
-    # pipe closes. In-process callers keep their own capture streams.
     if sys.stdout is sys.__stdout__:
-        fd = os.open(os.devnull, os.O_WRONLY)
+        _discard_shutdown_output(1)
+    message = "ci: stdout closed before report delivery completed\n"
+    if sys.stderr is sys.__stderr__:
         try:
-            os.dup2(fd, 1)
-        finally:
-            os.close(fd)
-    with suppress(BrokenPipeError):
-        sys.stderr.write("ci: stdout closed before report delivery completed\n")
-        sys.stderr.flush()
+            os.write(2, message.encode())
+        except BrokenPipeError:
+            _discard_shutdown_output(2)
+    else:
+        with suppress(BrokenPipeError):
+            sys.stderr.write(message)
+            sys.stderr.flush()
     raise typer.Exit(exit_code or 74)
 
 
@@ -76,6 +86,8 @@ class _ReportConsole(Console):
 class _DiagnosticConsole(Console):
     def on_broken_pipe(self) -> None:
         self.quiet = True
+        if sys.stderr is sys.__stderr__:
+            _discard_shutdown_output(2)
 
 
 def stdout_console(*, exit_code: int = 0) -> Console:
@@ -157,7 +169,7 @@ def report_fields(*fields: tuple[str, object]) -> Table:
     """Render a short report with literal values and stable labels."""
     table = Table.grid(padding=(0, 1))
     table.add_column(style="bold")
-    table.add_column()
+    table.add_column(overflow="fold")
     for label, value in fields:
         table.add_row(label, Text(safe_text(str(value))))
     return table

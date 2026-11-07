@@ -69,6 +69,7 @@ def _deliver_review(
 ) -> None:
     from corpus_structure.cli.managed import result_store
     from corpus_structure.core.db.cancellation import OperationCancellation
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.serve.review_bundle import export_review_bundle
 
     store = result_store(ctx)
@@ -155,7 +156,10 @@ def _deliver_review(
                 )
             raise typer.Exit(128 + received) from error
         result.publish("bundle", bundle)
-        result.stage("published")
+        result.stage(
+            "published",
+            bundle_manifest_sha256=sha256(canonical_bytes(manifest) + b"\n").hexdigest(),
+        )
     delivered = store.deliver(result.id, "bundle", destination)
     diagnostic(f"Review {result.id} · published")
     emit(
@@ -324,8 +328,19 @@ def inspect_review(
                 manifest = store.show(result_id)
                 if manifest.action not in {"review.export", "review.export-evaluated"}:
                     raise ResultError("result is not a managed review export")
+                if manifest.outcome != "passed" or manifest.details.get("custody_unsettled"):
+                    raise ResultError("a successful, settled review export is required")
+                digest = manifest.details.get("bundle_manifest_sha256")
+                if not isinstance(digest, str):
+                    raise ResultError(
+                        "review result has no bound bundle digest; export the selection again "
+                        "or verify an intentional detached copy"
+                    )
                 with store.open_artifact(result_id, "bundle") as (_, descriptor):
-                    report = {"result_id": result_id, **inspect_review_bundle(descriptor)}
+                    report = {
+                        "result_id": result_id,
+                        **inspect_review_bundle(descriptor, manifest_digest=digest),
+                    }
             subject = result_id
 
     emit(

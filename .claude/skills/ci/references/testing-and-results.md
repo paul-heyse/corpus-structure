@@ -22,12 +22,14 @@ selection. Coordinate it with other work using the shared cluster.
 ## Recover, retry and reconcile
 
 ```sh
-uv run ci results show ORIGINAL_ID --json
+uv run ci test failures ORIGINAL_ID --lane ordinary
 uv run ci test retry ORIGINAL_ID --lane ordinary --json
-uv run ci test coverage ORIGINAL_ID RETRY_ID --json
+uv run ci test coverage ORIGINAL_ID RETRY_ID
+uv run ci test coverage ORIGINAL_ID RETRY_ID --view unresolved --limit 20 --json
 ```
 
-- Use `results show` for outcome, custody, expiry, published roles, diagnostic availability
+- Use `test failures` for the exact failed node, phase and lane from the classifier.
+  Use `results show` for outcome, custody, expiry, published roles, diagnostic availability
   and the next action. Use `results watch ID` for bounded progress on an active invocation.
 - Use an exact retry for a settled result with eligible unresolved pytest identities.
   The supervisor recollects the required selection before running those nodes. Each retry

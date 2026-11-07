@@ -121,6 +121,8 @@ def _literal(value: str) -> Text:
 
 def _render_coverage(report: CoverageSummary) -> Group:
     rows = Table.grid(padding=(0, 1))
+    rows.add_column()
+    rows.add_column(overflow="fold")
     counts = report.node_coverage
     original = report.results[0]
     rows.add_row("Original", _literal(f"{original} ({report.attempt_outcomes[original]})"))
@@ -163,7 +165,9 @@ def _render_coverage(report: CoverageSummary) -> Group:
     )
     if not report.items:
         return Group(rows, _literal(counts.applicability_note))
-    items = Table("Node", "Observed status")
+    items = Table()
+    items.add_column("Node", overflow="fold")
+    items.add_column("Observed status")
     for item in report.items:
         items.add_row(_literal(item.nodeid), _literal(", ".join(item.observations) or "unobserved"))
     return Group(rows, items, _literal(counts.applicability_note))
@@ -171,6 +175,8 @@ def _render_coverage(report: CoverageSummary) -> Group:
 
 def _render_failures(report: Failures) -> Group:
     rows = Table.grid(padding=(0, 1))
+    rows.add_column()
+    rows.add_column(overflow="fold")
     rows.add_row("Result", _literal(report.result_id))
     rows.add_row("Outcome", _literal(report.outcome))
     rows.add_row("Evidence", _literal(report.availability))
@@ -189,7 +195,10 @@ def _render_failures(report: Failures) -> Group:
         rows.add_row("Next action", _literal(report.next_action))
     if not report.items:
         return Group(rows)
-    items = Table("Lane / phase", "Node", "Outcome")
+    items = Table()
+    items.add_column("Lane / phase")
+    items.add_column("Node", overflow="fold")
+    items.add_column("Outcome")
     for item in report.items:
         items.add_row(
             Text(f"{item.lane} / {item.phase}"),

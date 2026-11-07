@@ -516,6 +516,14 @@ class ResultStore:
             raise ResultError("result has expired; select a current result for the dependency")
         return directory
 
+    def dependency_available(self, result_id: str) -> bool:
+        """Observe current eligibility without acquiring a dependency or hold."""
+        try:
+            self._dependency_source(result_id)
+        except ResultError:
+            return False
+        return True
+
     def release(self, result_id: str, dependent_id: str) -> None:
         if not _ID.fullmatch(dependent_id):
             raise ResultError("invalid dependent ID")

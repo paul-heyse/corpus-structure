@@ -74,6 +74,16 @@ def test_missing_member_and_undeclared_extra_are_detected(tmp_path):
         verify_review_bundle(root)
 
 
+def test_rejects_directory_substituted_for_regular_member(tmp_path):
+    root = tmp_path / "review"
+    write_review_bundle(selection(), root, [("source", {"text": "known"})])
+    member = root / "source.parquet"
+    member.unlink()
+    member.mkdir()
+    with pytest.raises(ValueError, match="ordinary file"):
+        verify_review_bundle(root)
+
+
 def test_existing_empty_destination_and_racing_destination_survive(tmp_path):
     existing = tmp_path / "existing"
     existing.mkdir()

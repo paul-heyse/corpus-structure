@@ -29,16 +29,17 @@ Use fitting or evaluation write routes only with their applicable inputs and aut
 
 Prepare a selection JSON that names the completed source and requested evidence.
 Use `--exact-closure` when the delivery must include only exact retained predecessors.
-The command publishes the bundle under a managed ID and reports its destination.
+The command publishes the bundle under a managed ID. Supply an existing selection file or
+pipe the selection JSON to `review export -`. Inspect the managed result directly by ID.
 See the [selection model](../../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py).
 
 ```sh
 uv run ci review export SELECTION.json --exact-closure --json
-uv run ci results export RESULT_ID --role bundle --json
+uv run ci review inspect --result RESULT_ID
 uv run ci review verify BUNDLE_PATH --json
 ```
 
-Use the path returned by `results export` for detached verification or handoff. If an
+Use a detached bundle path when verifying an intentional handoff. If an
 ordinary export was interrupted after binding its selection and source, inspect its
 settlement and follow its next action. `uv run ci review retry RESULT_ID --json` replays
 the same retained selection and source binding. If the export never acquired a binding,

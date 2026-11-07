@@ -183,7 +183,8 @@ def check(
         if only:
             process = run_recipe(name)
             status = process.returncode
-            steps = (RecipeStep(name, "failed" if status else "passed", status),)
+            outcome = "interrupted" if status in (130, 143) else "failed" if status else "passed"
+            steps = (RecipeStep(name, outcome, status),)
         else:
             process, steps = run_recipe_steps(name)
         excerpts = []

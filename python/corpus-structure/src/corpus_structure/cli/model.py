@@ -19,6 +19,7 @@ from corpus_structure.cli.output import (
     diagnostic,
     emit,
     read_request_bytes,
+    report_fields,
     safe_text,
     state,
     write_report_bytes,
@@ -65,6 +66,7 @@ class PreviewEffectsReport(BaseModel):
     comparison_status: Literal["available", "unavailable", "not_applicable"]
     comparison: dict[str, JsonValue] | None
     discovery_status: Literal["available", "unavailable"]
+    dependency_available: bool
     next_command: str | None
 
 
@@ -103,6 +105,7 @@ class CandidateInspection(BaseModel):
     authoring_target: StorageTarget | None
     registration: Literal["verified", "unverified", "not_applicable"]
     registration_detail: str | None
+    dependency_available: bool
     next_command: str | None
 
 
@@ -187,15 +190,6 @@ def _patch_hunks(patch: str, after: int, limit: int) -> tuple[int, list[PatchHun
     return total, hunks
 
 
-def _summary(*rows: tuple[str, object]) -> Table:
-    table = Table.grid(padding=(0, 2))
-    table.add_column(style="bold")
-    table.add_column(overflow="fold")
-    for label, value in rows:
-        table.add_row(label, Text(safe_text(str(value))))
-    return table
-
-
 def _path_summary(paths: tuple[str, ...]) -> str:
     listed = "\n".join(paths[:8])
     if len(paths) > 8:
@@ -228,7 +222,7 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         if isinstance(routes, dict)
         else ""
     )
-    return _summary(
+    return report_fields(
         ("Preview", report.preview_id),
         ("Revision", report.revision),
         ("Target", _target_summary(report.target_profile, report.acquired_target)),
@@ -242,12 +236,13 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Compatibility routes", route_summary or "none declared"),
         ("Semantic comparison", impact),
         ("Discovery", report.discovery_status),
+        ("Dependency", "available" if report.dependency_available else "unavailable"),
         ("Review before", report.next_command or "no effect command proposed"),
     )
 
 
 def _patch_view(report: PreviewPatchReport) -> Group:
-    summary = _summary(
+    summary = report_fields(
         ("Preview", report.preview_id),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Selected hunks", f"{len(report.hunks)} of {report.total_hunks}"),
@@ -263,7 +258,9 @@ def _patch_view(report: PreviewPatchReport) -> Group:
         suffix = " (excerpt truncated)" if hunk.truncated else ""
         parts.append(Text(f"Hunk {hunk.ordinal}{suffix}", style="bold"))
         parts.append(
-            Syntax(hunk.excerpt, "diff", line_numbers=True, start_line=hunk.patch_line, word_wrap=True)
+            Syntax(
+                hunk.excerpt, "diff", line_numbers=True, start_line=hunk.patch_line, word_wrap=True
+            )
         )
     return Group(*parts)
 
@@ -271,7 +268,7 @@ def _patch_view(report: PreviewPatchReport) -> Group:
 def _discovery_view(report: PreviewDiscoveryReport) -> Table:
     discovery = report.discovery
     if discovery is None:
-        return _summary(("Preview", report.preview_id), ("Discovery", report.status))
+        return report_fields(("Preview", report.preview_id), ("Discovery", report.status))
     hits = discovery.get("ast")
     selected = []
     if isinstance(hits, list):
@@ -281,7 +278,7 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
             if isinstance(item, dict)
         ]
     coverage = discovery.get("semantic_coverage")
-    return _summary(
+    return report_fields(
         ("Preview", report.preview_id),
         ("Discovery", report.status),
         ("Source head", discovery.get("head", "unavailable")),
@@ -294,7 +291,10 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
         ),
         ("Candidate examples", "\n".join(selected) or "none displayed"),
         ("AST-grep", discovery.get("ast_grep_status", "unknown")),
-        ("Semantic coverage", coverage.get("status", "unknown") if isinstance(coverage, dict) else "unknown"),
+        (
+            "Semantic coverage",
+            coverage.get("status", "unknown") if isinstance(coverage, dict) else "unknown",
+        ),
     )
 
 
@@ -305,7 +305,9 @@ def inspect_preview(
     view: Annotated[Literal["effects", "patch", "discovery"], typer.Option()] = "effects",
     limit: Annotated[int | None, typer.Option(min=1, max=20, help="Maximum hunks.")] = None,
     after_hunk: Annotated[int, typer.Option(min=0, help="Continue after this hunk ordinal.")] = 0,
-    stdout: Annotated[bool, typer.Option(help="Write the exact safe patch bytes to stdout.")] = False,
+    stdout: Annotated[
+        bool, typer.Option(help="Write the exact safe patch bytes to stdout.")
+    ] = False,
     json_: JsonOpt = False,
 ) -> None:
     """Inspect a settled preview by ID without applying it."""
@@ -322,12 +324,15 @@ def inspect_preview(
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, preview_id, "model.preview", "preview")
             )
+            dependency_available = store.dependency_available(preview_id)
             if stdout:
                 patch = staged.patch.encode("utf-8")
                 if len(patch) > _PATCH_STREAM_LIMIT:
                     raise ResultError("patch exceeds the 8 MiB stream limit")
                 if safe_text(staged.patch) != staged.patch:
-                    raise ResultError("patch cannot be delivered unchanged; use the bounded patch view")
+                    raise ResultError(
+                        "patch cannot be delivered unchanged; use the bounded patch view"
+                    )
                 write_report_bytes(patch)
                 return
         paths = tuple(file.path for file in staged.files)
@@ -339,7 +344,9 @@ def inspect_preview(
                     changed_paths=paths,
                     total_hunks=total,
                     hunks=hunks,
-                    next_after_hunk=hunks[-1].ordinal if hunks and hunks[-1].ordinal < total else None,
+                    next_after_hunk=hunks[-1].ordinal
+                    if hunks and hunks[-1].ordinal < total
+                    else None,
                 ),
                 json=json_,
                 render=_patch_view,
@@ -379,11 +386,12 @@ def inspect_preview(
                 else "unavailable",
                 comparison=staged.comparison,
                 discovery_status=discovery_status,
+                dependency_available=dependency_available,
                 next_command=(
                     f"ci model change apply {preview_id}"
-                    if paths
+                    if paths and dependency_available
                     else f"ci model change candidate {preview_id}"
-                    if staged.effects.admission
+                    if staged.effects.admission and dependency_available
                     else None
                 ),
             ),
@@ -393,7 +401,7 @@ def inspect_preview(
 
 
 def _candidate_view(report: CandidateInspection) -> Table:
-    return _summary(
+    return report_fields(
         ("Candidate", report.candidate_id),
         ("Preview", report.preview_id or "unavailable"),
         ("Target", _target_summary(report.target_profile, report.acquired_target)),
@@ -404,6 +412,7 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Predecessor", report.predecessor or "not applicable"),
         ("Registration", report.registration),
         ("Registration detail", report.registration_detail or "none"),
+        ("Dependency", "available" if report.dependency_available else "unavailable"),
         ("Review before", report.next_command or "no effect command proposed"),
     )
 
@@ -427,6 +436,7 @@ def inspect_candidate(
                 _load_artifact(store, candidate_id, "model.candidate", "deployment")
             )
             scope = store.show(candidate_id).scope
+            dependency_available = store.dependency_available(candidate_id)
         preview_id = scope.get("preview")
         status: Literal["verified", "unverified", "not_applicable"] = "unverified"
         detail = None
@@ -460,7 +470,8 @@ def inspect_candidate(
                 authoring_target=binding.authoring_identity,
                 registration=status,
                 registration_detail=detail,
-                next_command=next_command,
+                dependency_available=dependency_available,
+                next_command=next_command if dependency_available else None,
             ),
             json=json_,
             render=_candidate_view,

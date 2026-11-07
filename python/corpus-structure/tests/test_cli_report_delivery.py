@@ -7,19 +7,27 @@ import sys
 import pytest
 
 
-def _closed_pipe(*args: str, code: str = "from corpus_structure.cli.app import main; main()"):
+def _closed_pipe(
+    *args: str, code: str = "from corpus_structure.cli.app import main; main()", close_stderr=False
+):
     reader, writer = os.pipe()
     os.close(reader)
+    stderr = subprocess.PIPE
+    if close_stderr:
+        error_reader, stderr = os.pipe()
+        os.close(error_reader)
     try:
         return subprocess.run(
             [sys.executable, "-c", code, *args],
             stdout=writer,
-            stderr=subprocess.PIPE,
+            stderr=stderr,
             check=False,
             timeout=15,
         )
     finally:
         os.close(writer)
+        if close_stderr:
+            os.close(stderr)
 
 
 @pytest.mark.parametrize("args", [(), ("--json",)])
@@ -99,3 +107,16 @@ def test_headless_json_keeps_terminal_stage_diagnostics_separate(tmp_path, monke
     diagnostic = b"".join(chunks)
     assert b"selected=3, passed=1" in diagnostic
     assert b"\x1b[" not in diagnostic
+
+
+@pytest.mark.parametrize(
+    ("args", "status"),
+    [
+        (("results", "list"), 74),
+        (("results", "list", "--json"), 74),
+        (("results", "show", "0" * 32, "--json"), 1),
+    ],
+)
+def test_both_closed_pipes_preserve_exit(tmp_path, monkeypatch, args, status):
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path))
+    assert _closed_pipe(*args, close_stderr=True).returncode == status

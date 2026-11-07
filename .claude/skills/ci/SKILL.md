@@ -13,20 +13,22 @@ boundaries. Here `ci` is the installed project CLI. Hosted CI is a separate veri
 ## Choose the route
 
 - Use `uv run ci --help` or the relevant subcommand's `--help` when you need syntax. Use
-  `uv run ci docs commands --json` when you need the full current reference. It returns a
-  managed result ID and path.
+  `uv run ci docs commands --stdout` to read the full current reference directly. Use
+  `uv run ci docs commands --json` when a managed reference is needed.
 - Use `uv run ci context show --json` to inspect resolved settings and their origins when the
   checkout, profile, or environment is in doubt. Use `uv run ci doctor` for tool prerequisites.
   Use `uv run ci setup` to synchronize an already prepared checkout when needed. For
   database work, `ci db status` observes the acquired target and role.
-- Use `uv run ci check` for applicable repository checks at the declared boundary. Select
+- Use `uv run ci check` for applicable repository checks at the declared boundary. Use
+  `uv run ci check --view steps --json` for ordered, structured outcomes. Select
   `--only types`, `--only lint`, `--only docs`, `--only deps`, `--only rules` or
   `--only adr` when you need one check. The rules selector runs the scan. Use
   `uv run ci docs check` for publication and `uv run ci format` for intentional formatting.
 - Use the command's defaults when they select the intended scope. Supply the identifiers,
   target, or effect options that change the operation's meaning. For automation, use
   `--json` where supported and capture stdout separately from diagnostics on stderr.
-  Retain the exit status and managed result ID.
+  Retain the exit status and managed result ID. Exit 74 means stdout closed before a
+  report could be delivered. An already-known operation failure keeps its own exit status.
 
 Read only the reference needed for the task.
 
