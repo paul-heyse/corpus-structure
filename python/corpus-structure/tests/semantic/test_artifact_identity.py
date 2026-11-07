@@ -1,5 +1,7 @@
 """Artifact candidates keep source-work scope and evidence, without merging authority."""
 
+import json
+from types import SimpleNamespace
 from typing import Literal
 
 import pytest
@@ -66,6 +68,94 @@ def record(
         numbering=numbering_label,
         revision=revision_label,
     )
+
+
+def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope():
+    from corpus_structure.methods.artifact_identity import artifact_declared_relationships
+
+    records, passages, frames = [], [], {}
+    cases = (
+        ("first", "one", "5.1", "old", "caption", ""),
+        (
+            "second",
+            "one",
+            "5.1",
+            "new",
+            "caption",
+            " (supersedes Table 5.1 in numbering namespace Main revision old)",
+        ),
+        ("other", "two", "5.2", None, "caption", " (work: two)"),
+        ("uncited", "two", "5.2", None, "caption", ""),
+        (
+            "citation",
+            "one",
+            "5.3",
+            None,
+            "reference",
+            " (cites Table 5.2 in numbering namespace Main of work two)",
+        ),
+        (
+            "lineage",
+            "one",
+            "5.4",
+            None,
+            "caption",
+            " (same lineage as Table 5.1 in numbering namespace Main revision old)",
+        ),
+    )
+    for key, work, code, revision, role, suffix in cases:
+        row = record(key, work=work, code=code, revision=revision, role=role, namespace="Main")
+        citation = row.citations[0]
+        body = citation.text + " (numbering namespace: Main)"
+        if revision:
+            body += f" (revision: {revision})"
+        body += suffix
+        records.append(
+            row.model_copy(
+                update={
+                    "source_contribution": {"anchors": [{"end": citation.end}]},
+                }
+            )
+        )
+        passages.append(SimpleNamespace(passage_id=citation.passage_id, end=len(body)))
+        frames[citation.source_ref] = SimpleNamespace(
+            text=body,
+            native_context=json.dumps(
+                {
+                    "pieces": [
+                        {
+                            "kind": "native_text",
+                            "item_ref": citation.source_pointer,
+                            "start": 0,
+                            "end": len(body),
+                        }
+                    ]
+                }
+            ),
+        )
+    links = artifact_declared_relationships(
+        records,
+        SimpleNamespace(passages=passages),
+        frames,
+    )
+    assert [(row.kind, row.source_id, [end.record_id for end in row.targets]) for row in links] == [
+        ("supersedes", "second", ["first"]),
+        ("reference", "citation", ["other"]),
+        ("same_lineage", "lineage", ["first"]),
+    ]
+    work_cue = links[1].targets[0].work_cue
+    assert work_cue is not None and work_cue.text == " (work: two)"
+    assert links[0].origin.source_ref == "source:second"
+    pairs = {
+        (pair.left, pair.right): pair
+        for pair in pair_candidates(
+            tuple(records),
+            declared_relationships=links,
+        )
+    }
+    cross_work = pairs["citation", "other"]
+    assert cross_work.candidate_routes == ("external_pairs",)
+    assert cross_work.score_status == "excluded" and cross_work.model_probability is None
 
 
 def nomination(left, right, ordinal=1):

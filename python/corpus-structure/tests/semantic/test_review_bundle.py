@@ -1341,6 +1341,98 @@ def test_detached_comparison_refuses_resealed_reading_substitution(tmp_path, var
     assert not (tmp_path / "comparison").exists()
 
 
+def _equal_vector_neighborhood():
+    from itertools import combinations
+
+    ids = "abcdefg"
+    inventory = {
+        "inventory_id": "inventory",
+        "targets": [
+            {"target_id": key, "representation_digest": key, "source_binding": key} for key in ids
+        ],
+        "semantic_groups": [
+            {"target_id": f"group-{key}", "member_target_ids": [key]} for key in ids
+        ],
+    }
+    report = {
+        "inventories": [inventory],
+        "profiles": [{"profile_id": "profile", "dimension": 2}],
+        "vectors": [
+            {
+                "object_id": key,
+                "profile_id": "profile",
+                "representation_digest": key,
+                "source_binding": key,
+                "values": [1.0, 0.0],
+            }
+            for key in ids
+        ],
+        "neighborhood": {
+            "inventory_id": "inventory",
+            "profile_id": "profile",
+            "policy": "mutual-exact-cosine-top5-2",
+            "status": "completed",
+            "directed_ranks": [
+                {"from_id": key, "to_id": peer, "rank": rank, "distance": 0.0}
+                for key in ids
+                for rank, peer in enumerate(ids.replace(key, "")[:5], 1)
+            ],
+            "edges": [
+                {
+                    "left_id": left,
+                    "right_id": right,
+                    "left_group": f"group-{left}",
+                    "right_group": f"group-{right}",
+                    "left_digest": left,
+                    "right_digest": right,
+                    "left_rank": ord(right) - ord("a"),
+                    "right_rank": ord(left) - ord("a") + 1,
+                    "distance": 0.0,
+                }
+                for left, right in combinations(ids[:6], 2)
+            ],
+        },
+    }
+    return report
+
+
+def test_detached_native_neighborhood_requires_the_exact_mutual_intersection():
+    from corpus_structure.serve.contextual_navigation import verify_detached_neighborhood
+
+    report = _equal_vector_neighborhood()
+    verify_detached_neighborhood(report, native_ranks=True)
+    report["neighborhood"]["edges"] = []
+    with pytest.raises(ValueError, match="exact directed-rank intersection"):
+        verify_detached_neighborhood(report, native_ranks=True)
+
+    report = _equal_vector_neighborhood()
+    first_source = report["neighborhood"]["directed_ranks"][:5]
+    for row, peer in zip(first_source, "cdefg", strict=True):
+        row["to_id"] = peer
+    report["neighborhood"]["edges"] = []
+    with pytest.raises(ValueError, match="exact equal-vector ID order"):
+        verify_detached_neighborhood(report, native_ranks=True)
+
+
+def test_native_neighborhood_retains_all_directed_ranks_at_the_cutoff(semantic_db_engine):
+    from sqlalchemy import text
+
+    report = _equal_vector_neighborhood()
+    with semantic_db_engine.connect() as conn:
+        actual = conn.scalar(
+            text(
+                "SELECT ops.contextual_mutual_neighbors("
+                "CAST(:inventory AS jsonb),CAST(:profile AS jsonb),CAST(:vectors AS jsonb))"
+            ),
+            {
+                "inventory": json.dumps(report["inventories"][0]),
+                "profile": json.dumps(report["profiles"][0]),
+                "vectors": json.dumps(report["vectors"]),
+            },
+        )
+    assert actual == report["neighborhood"]
+
+
 def test_source_decision_keeps_the_witness_kind_under_its_delivery_kind():
     from corpus_structure.serve.contextual_navigation import (
         SourceDecisionParams,

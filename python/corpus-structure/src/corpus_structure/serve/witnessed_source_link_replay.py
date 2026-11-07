@@ -9,7 +9,10 @@ from corpus_structure.methods.witnessed_source_links import (
     NAMED_VERSION,
     QUESTION,
     VERSION,
+    explicit_named_definition_extent,
     named_source_links,
+    procedure_artifact_bindings,
+    procedure_artifact_endpoint,
     recapped_declarations,
 )
 from corpus_structure.semantic.contributions import operation_identity
@@ -124,6 +127,10 @@ def verify_witnessed_links(report, source, pin, inputs):
             and r["kind"] == "relation"
             and r.get("component", {}).get("attachment_kind") == "declares"
             and r["component"]["scope"] == link.scope
+            and (
+                body["operation_version"] != "9"
+                or r["component"].get("effective_version") == link.effective_version
+            )
             and {cue["contribution_id"], prior["contribution_id"]}
             <= set(r["computation_dependencies"])
         ]
@@ -178,6 +185,7 @@ def _verify_named_population(
     inspected_count,
     outcome,
     annotation_origin_task_id=None,
+    annotations=(),
 ):
     text, pieces = source["text"], source["context"]["pieces"]
     key = operation_identity(
@@ -200,10 +208,20 @@ def _verify_named_population(
         raise ValueError("named link outcome differs from exact selected source")
     verified = set()
     artifact_bindings = {}
+    rows = {row["contribution_id"]: row for row in body["contributions"]}
+    annotation_by_dependency = {
+        "annotation:" + annotation.dependency_digest: annotation for annotation in annotations
+    }
     if version == NAMED_VERSION:
-        from corpus_structure.methods.witnessed_source_links import procedure_artifact_bindings
-
         artifact_bindings = procedure_artifact_bindings(body["contributions"])
+    passage_starts = {passage.passage_id: passage.start for passage in passages}
+    native_starts = {
+        piece["item_ref"]: piece["start"]
+        for piece in pieces
+        if piece["kind"] == "native_text"
+        and piece.get("source_field", "text") == "text"
+        and "cell_index" not in piece
+    }
 
     def require(role, pointer, extent, passage, details, dependencies=None):
         (piece,) = [
@@ -249,6 +267,7 @@ def _verify_named_population(
         versioned = {}
         dependencies = None
         subject_dependencies = None
+        artifacts = ()
         if version == NAMED_VERSION:
             versioned = details | {"named_cue": link.evidence()}
             dependencies = [f"native:{pin['native_product_task_id']}", link.witness.annotation]
@@ -270,6 +289,54 @@ def _verify_named_population(
         cue = require(
             "named_link_cue", link.pointer, link.cue, link.passage, versioned, dependencies
         )
+        if (
+            body.get("operation_version") == "9"
+            and link.kind == "definition_reference"
+            and link.resolution == "target_selection_required"
+            and (
+                concept := explicit_named_definition_extent(
+                    text,
+                    max(native_starts[link.pointer], passage_starts[link.passage]),
+                    link.cue[0],
+                )
+            )
+            is not None
+        ):
+            assert dependencies is not None
+            require(
+                "named_link_definition_subject",
+                link.pointer,
+                concept,
+                link.passage,
+                versioned,
+                [*dependencies, subject, cue],
+            )
+        if body.get("operation_version") == "9" and artifacts:
+            binding = procedure_artifact_endpoint(
+                rows, link, annotation_by_dependency[link.witness.annotation], artifacts[0]
+            )
+            if binding is not None:
+                action, caption, artifact = (row["contribution_id"] for row in binding)
+                matches = [
+                    row
+                    for row in selected
+                    if row["kind"] == "relation"
+                    and row.get("component", {}).get("attachment_kind") == "procedure_reference"
+                    and row["component"]["scope"] == link.scope
+                    and row["component"].get("effective_version") == link.witness.effective_version
+                    and row.get("members") == [action, caption]
+                    and row.get("endpoints")
+                    == [
+                        {"role": "attachment", "contribution_id": action},
+                        {"role": "target", "contribution_id": caption},
+                    ]
+                    and {subject, cue, artifact} <= set(row["computation_dependencies"])
+                ]
+                if len(matches) != 1:
+                    raise ValueError(
+                        "named procedure reference differs from exact action and caption"
+                    )
+                verified.add(matches[0]["contribution_id"])
         if link.right is None or link.target_pointer is None:
             continue
         target = require(
@@ -329,7 +396,7 @@ def verify_annotated_named_links(report, source, producers):
     body, cfg = report["body"], report["configuration"]
     if cfg.get("inputs") is None:
         return
-    if body["operation_version"] not in {"7", "8"} or body["configuration_hash"] != config_key(
+    if body["operation_version"] not in {"7", "8", "9"} or body["configuration_hash"] != config_key(
         "structure.scoped_relations", body["operation_version"], cfg
     ):
         raise ValueError("named links differ from their retained configuration")
@@ -389,6 +456,7 @@ def verify_annotated_named_links(report, source, producers):
         inspected_count=expected.inspected_count,
         outcome=expected.outcome(),
         annotation_origin_task_id=origin_id,
+        annotations=annotations,
     )
     _verify_inheritance(
         body,

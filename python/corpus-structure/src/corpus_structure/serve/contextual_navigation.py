@@ -110,20 +110,101 @@ class ContextualNeighborhoodQuery:
         )
 
 
-def verify_detached_neighborhood(report):
+def _verify_native_rank_intersection(result, reps, targets, points):
+    from collections import defaultdict
+    from math import isclose, isfinite
+
+    import numpy as np
+
+    rows = result["directed_ranks"]
+    edges = result["edges"]
+    if result["status"] != "completed":
+        if rows or edges:
+            raise ValueError("unavailable neighborhood has ranks or edges")
+        return
+    k = min(5, max(0, len(reps) - 1))
+    expected_order = [(source, rank) for source in sorted(reps) for rank in range(1, k + 1)]
+    if [(row["from_id"], row["rank"]) for row in rows] != expected_order:
+        raise ValueError("detached directed ranks differ from the eligible representative frame")
+    by_pair = {}
+    previous = None
+    ids = sorted(reps)
+    matrix = np.asarray([points[identifier] for identifier in ids], dtype=np.float64)
+    if k:
+        matrix /= np.linalg.norm(matrix, axis=1, keepdims=True)
+    position = {identifier: i for i, identifier in enumerate(ids)}
+    identical = defaultdict(list)
+    identity = {identifier: (points[identifier] + np.float32(0)).tobytes() for identifier in ids}
+    for identifier in ids:
+        identical[identity[identifier]].append(identifier)
+    tolerance = 1e-6
+    distances = ()
+    selected = set()
+    exact_distances = {}
+    for row in rows:
+        source, peer, rank, distance = (row["from_id"], row["to_id"], row["rank"], row["distance"])
+        if (
+            type(rank) is not int
+            or peer not in reps
+            or source == peer
+            or (source, peer) in by_pair
+            or not isfinite(distance)
+            or not 0 <= distance <= 2
+            or (rank > 1 and previous is not None and previous >= (distance, peer))
+        ):
+            raise ValueError("detached directed rank differs from native distance and ID order")
+        if rank == 1:
+            distances = 1 - matrix @ matrix[position[source]]
+            selected = set()
+            exact_distances = {}
+        if not isclose(distance, distances[position[peer]], rel_tol=0, abs_tol=tolerance):
+            raise ValueError("detached directed distance differs from its frozen vectors")
+        selected.add(peer)
+        if rank == k:
+            omitted = reps.keys() - selected - {source}
+            if any(distances[position[other]] < distance - tolerance for other in omitted):
+                raise ValueError("detached directed ranks omit a closer eligible representative")
+        identity_key = identity[peer]
+        exact_peers = identical[identity_key]
+        if exact_distances.setdefault(identity_key, distance) != distance or any(
+            other < peer and other != source and other not in selected for other in exact_peers
+        ):
+            raise ValueError("detached directed rank differs from the exact equal-vector ID order")
+        by_pair[source, peer] = row
+        previous = (distance, peer)
+    expected_edges = [
+        {
+            "left_id": left,
+            "right_id": right,
+            "left_group": reps[left],
+            "right_group": reps[right],
+            "left_digest": targets[left]["representation_digest"],
+            "right_digest": targets[right]["representation_digest"],
+            "left_rank": row["rank"],
+            "right_rank": by_pair[right, left]["rank"],
+            "distance": row["distance"],
+        }
+        for (left, right), row in sorted(by_pair.items())
+        if left < right and (right, left) in by_pair
+    ]
+    if edges != expected_edges:
+        raise ValueError("detached mutual edges differ from the exact directed-rank intersection")
+
+
+def verify_detached_neighborhood(report, *, native_ranks=False):
     """Check the retained projection against the frozen vector frame without a server."""
     from collections import defaultdict
     from math import isclose
 
     import numpy as np
-    from sklearn.neighbors import NearestNeighbors
 
     result = report["neighborhood"]
     (inventory,) = report["inventories"]
     profiles = report["profiles"]
     profile = profiles[0] if len(profiles) == 1 else None
     if (
-        result["policy"] != "mutual-exact-cosine-top5-1"
+        result["policy"]
+        != ("mutual-exact-cosine-top5-2" if native_ranks else "mutual-exact-cosine-top5-1")
         or result["inventory_id"] != inventory["inventory_id"]
         or result.get("profile_id") != (profile["profile_id"] if profile else None)
     ):
@@ -160,10 +241,17 @@ def verify_detached_neighborhood(report):
     if len(members) != len(set(members)) or set(members) != targets.keys():
         raise ValueError("detached neighborhood groups do not cover the exact inventory")
     reps = {min(group["member_target_ids"]): group["target_id"] for group in groups}
+    if native_ranks:
+        if not isinstance(result.get("directed_ranks"), list):
+            raise ValueError("detached neighborhood has no native directed ranks")
+        _verify_native_rank_intersection(result, reps, targets, points)
+        return
     if status != "completed" or len(reps) <= 1:
         if result["edges"]:
             raise ValueError("detached neighborhood must be empty")
         return
+    from sklearn.neighbors import NearestNeighbors
+
     ids = sorted(reps)
     distances, peers = (
         NearestNeighbors(metric="cosine", algorithm="brute")

@@ -1,5 +1,6 @@
 """Independent membership, scaling and in-sample scope controls."""
 
+from math import log1p
 from typing import Literal
 
 import pytest
@@ -13,6 +14,43 @@ from corpus_structure.evaluate.operation_fitting import (
     fit_operation_event,
     score_operation_event,
 )
+from corpus_structure.semantic.operation_policy import defining_text_features
+
+
+def test_attachment_features_use_exact_union_and_signed_common_passage_distance():
+    body = "term  IS\u00a0DEFINED AS  source"
+    source = {"kind": "native_text", "item_ref": "#/texts/0", "start": 0, "end": len(body)}
+
+    def anchor(start, end):
+        return {
+            "pin": {"source_view_id": 7},
+            "space": "native",
+            "precision": "exact",
+            "pointer": "#/texts/0",
+            "start": start,
+            "end": end,
+            "source_piece": body[start:end],
+        }
+
+    term = [anchor(0, 3), anchor(2, 4)]
+    content = [anchor(21, 27)]
+    expected = (log1p(4), log1p(6), 17 / 27, 1.0)
+    assert defining_text_features(7, body, (source,), term, content).features == pytest.approx(
+        expected
+    )
+    assert defining_text_features(7, body, (source,), content, term).features == pytest.approx(
+        (expected[1], expected[0], -expected[2], 1.0)
+    )
+    overlapping = defining_text_features(7, body, (source,), term, [anchor(3, 5)])
+    assert overlapping.features is not None and overlapping.features[2] == 0
+    assert defining_text_features(7, "", (), term, content).reason == "missing_common_passage"
+    assert defining_text_features(7, body, (source, source), term, content).reason == (
+        "incomparable_endpoint_anchors"
+    )
+    altered = {**content[0], "source_piece": "forged"}
+    assert defining_text_features(7, body, (source,), term, (altered,)).reason == (
+        "incomparable_endpoint_anchors"
+    )
 
 
 def frame(

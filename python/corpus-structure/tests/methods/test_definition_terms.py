@@ -9,7 +9,12 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import retained_definition_witnesses
 from corpus_structure.methods.definition_terms import DefinitionTermsConfig, DefinitionTermsMethod
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.structural_products import ExternalSourceRef, RetainedComponentRef
+from corpus_structure.semantic.structural_products import (
+    ExternalSourceRef,
+    RetainedComponentRef,
+    RetainedDefinitionRoleRef,
+    RetainedStructuralRef,
+)
 from methods.test_m1_producer import view
 
 
@@ -96,6 +101,58 @@ def test_projection_uses_retained_source_role_and_refuses_foreign_source():
     )
     assert len(witnesses) == 1 and witnesses[0].relation == "defined-by"
     assert witnesses[0].support_state == "unassessed"
+    role_ref = RetainedDefinitionRoleRef(
+        report=RetainedStructuralRef.model_validate(
+            reference.model_dump(
+                exclude={
+                    "component_id",
+                    "operation_id",
+                    "operation_version",
+                    "dependencies",
+                }
+            )
+        ),
+        role="term",
+        envelope="e" * 64,
+        index=1,
+    )
+    report = {
+        **retained["report"],
+        "definition_components": {
+            "role_candidates": [
+                {
+                    "role": "term",
+                    "envelope": role_ref.envelope,
+                    "index": 1,
+                    "span": {"passage_id": "p", "start": 0, "end": 4, "text": "Mean"},
+                }
+            ]
+        },
+    }
+    role_cfg = cfg.model_copy(update={"component_refs": (), "role_refs": (role_ref,)})
+    ctx.reader.retained_structural_report = lambda _: {"report": report}
+    (located,) = DefinitionTermsMethod().run((unit,), role_cfg, ctx)
+    assert located.contributions is not None
+    (role,) = located.contributions
+    assert role["kind"] == "proposal"
+    assert role["occurrence_id"] == product["occurrence_id"]
+    assert source_python(role["value"]) == {
+        "role": "term",
+        "role_reference": role_ref.model_dump(mode="json"),
+    }
+    assert (
+        retained_definition_witnesses(
+            {"contributions": (role,)},
+            (dict(role, computation_dependencies=(role["contribution_id"], "upstream")),),
+            role["occurrence_id"],
+            SimpleNamespace(targets=(target,)),
+            {reference.component_id},
+            "source",
+            "scope",
+            None,
+        )
+        == ()
+    )
     target.source_binding = "definition-component:wrong-origin"
     with pytest.raises(ValueError, match="different component origin"):
         retained_definition_witnesses(

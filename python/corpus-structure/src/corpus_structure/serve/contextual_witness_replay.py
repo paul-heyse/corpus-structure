@@ -12,13 +12,15 @@ from corpus_structure.methods.contextual_candidates import (
     SECTION_CONSTRAINT,
     ContextualCandidateConfig,
     explicit_definition_section,
+    explicit_definition_subject,
     explicit_section_citation,
     relationship_contributions,
     retained_occurrences,
     section_citation_witnesses,
+    section_definition_subject_witnesses,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, identity
-from corpus_structure.semantic.contextual_links import select_relationships
+from corpus_structure.semantic.contextual_links import RelationshipWitness, select_relationships
 from corpus_structure.semantic.contextual_registry import (
     ExtractedComponentTarget,
     SectionHeadingTarget,
@@ -39,7 +41,7 @@ from corpus_structure.semantic.structural_products import StructuralProductRepor
 
 
 def _reports(body):
-    if body.get("operation_version") in {"6", "7", "8"}:
+    if body.get("operation_version") in {"6", "7", "8", "9"}:
         for op in body.get("contribution_operations", ()):
             if "contextual_enrichment" in op:
                 yield op["contextual_enrichment"]
@@ -58,8 +60,19 @@ def _possible_carriers(body):
             continue
         value = source_python(row["value"])
         producer = value["producer_semantic_type"]
-        named_section = producer == "structural.located_participant" and any(
-            anchor.get("source_piece", "").startswith("Section ") for anchor in row["anchors"]
+        original = source_python(value["producer_value"])
+        marker = original.get("named_cue")
+        named_section = producer == "structural.located_participant" and (
+            (isinstance(marker, dict) and marker.get("kind") == "definition_reference")
+            or (
+                marker is None
+                and any(
+                    re.fullmatch(
+                        r"Section\s+[0-9]+(?:\.[0-9]+)+", anchor.get("source_piece", ""), re.I
+                    )
+                    for anchor in row["anchors"]
+                )
+            )
         )
         if producer == "definition.term" or named_section:
             yield row
@@ -186,7 +199,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
 
     body, configuration = retained["body"], retained["configuration"]
     version = body["operation_version"]
-    if version not in {"7", "8"} or body["configuration_hash"] != config_key(
+    if version not in {"7", "8", "9"} or body["configuration_hash"] != config_key(
         "retrieve.contextual", version, configuration
     ):
         raise ValueError("section citation differs from exact retained configuration")
@@ -227,7 +240,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
         or scoped["project_id"] != retained["project_id"]
         or upstream["source"] != body["source"]
         or upstream["release_id"] != body["release_id"]
-        or upstream["operation_version"] not in {"7", "8"}
+        or upstream["operation_version"] not in {"7", "8", "9"}
     ):
         raise ValueError("section citation lacks its exact scoped source report")
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -431,9 +444,10 @@ def verify_contextual_witness_closure(root, manifest):
 
     for retained in reports.values():
         body = retained.get("body") or {}
-        if retained.get("method") == "retrieve.contextual" and body.get("operation_version") == "8":
+        version = body.get("operation_version")
+        if retained.get("method") == "retrieve.contextual" and version in ("8", "9"):
             (report,) = tuple(_reports(body))
-            verify_detached_neighborhood(report)
+            verify_detached_neighborhood(report, native_ranks=version == "9")
     relevant = [
         r
         for r in reports.values()
@@ -572,3 +586,96 @@ def verify_contextual_witness_closure(root, manifest):
                     or replay.policy_id != candidate["policy_id"]
                 ):
                     raise ValueError("contextual witness rank differs from retained channels")
+                if body.get("operation_version") != "9":
+                    continue
+                scope, version = inventory["scope"], inventory.get("effective_version")
+                section_carriers = [
+                    row
+                    for row in carriers
+                    if row["occurrence_id"] == candidate["occurrence_id"]
+                    and explicit_definition_section(
+                        row, nodes, scope=scope, effective_version=version
+                    )
+                    is not None
+                ]
+                if not section_carriers:
+                    continue
+                (decision,) = [
+                    row
+                    for row in report["relationship_decisions"]
+                    if row["occurrence_id"] == candidate["occurrence_id"]
+                ]
+                original_binding = body["source"]
+                section_ids = {row["contribution_id"] for row in section_carriers}
+                exact_subject_witnesses = []
+                for row in section_carriers:
+                    subject = explicit_definition_subject(
+                        row, nodes, scope=scope, effective_version=version
+                    )
+                    if subject is None:
+                        continue
+                    code, _ = subject
+                    matching_section = []
+                    for target_id in eligible:
+                        target, (physical, term, original) = targets[target_id]
+                        if (
+                            physical.native_content_digest
+                            == source["ref"]["native_product"]["content_digest"]
+                            and _section(original, term) == code
+                        ):
+                            matching_section.append((target.reference, term.text))
+                    exact_subject_witnesses.extend(
+                        section_definition_subject_witnesses(
+                            (row,),
+                            nodes,
+                            matching_section,
+                            source_binding=original_binding,
+                            scope=scope,
+                            effective_version=version,
+                        )
+                    )
+                retained_other_witnesses = []
+                for witness in decision.get("witnesses", ()):
+                    if witness["relation"] == "defined-by" and (
+                        witness["witness_id"].startswith(
+                            ("section-definition:", "section-term-definition:")
+                        )
+                        or section_ids.intersection(witness.get("evidence_ids", ()))
+                    ):
+                        continue
+                    retained_other_witnesses.append(
+                        RelationshipWitness(**({"effective_version": None} | witness))
+                    )
+                config = ContextualCandidateConfig.model_validate(retained["configuration"])
+                selected = select_relationships(
+                    candidates=replay,
+                    inventory=frozen,
+                    source_binding=original_binding,
+                    scope=scope,
+                    effective_version=version,
+                    constraints=config.relationship_constraints,
+                    witnesses=(*exact_subject_witnesses, *retained_other_witnesses),
+                    insufficient_reason="no source-grounded relationship witness",
+                )
+                if _wire(asdict(selected)) != _wire(decision):
+                    raise ValueError("section definition differs from exact source-bound selection")
+                selection_key = operation_identity(
+                    "contextual-phase-2",
+                    "relationship selection",
+                    candidate["occurrence_id"],
+                    (replay.list_id,),
+                )
+                actual = {
+                    row["contribution_id"]: _wire(row)
+                    for row in body["contributions"]
+                    if row["semantic_type"] == "contextual.relationship"
+                    and row["occurrence_id"] == candidate["occurrence_id"]
+                }
+                projected = {
+                    row["contribution_id"]: _wire(row)
+                    for row in relationship_contributions(selected, carriers, frozen, selection_key)
+                }
+                if projected != actual:
+                    raise ValueError(
+                        "section definition projection differs from exact retained decision"
+                    )

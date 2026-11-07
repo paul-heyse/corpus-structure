@@ -1,6 +1,6 @@
 """Independent endpoint, role and compatibility controls; no mocked efficacy claims."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from itertools import pairwise
 from typing import Literal
 
@@ -20,6 +20,12 @@ from corpus_structure.methods.definition_applicability import (
     definition_pack,
 )
 from corpus_structure.methods.gliner import GlinerRefused
+from corpus_structure.methods.model_observation import (
+    MODEL_OBSERVATION_INPUT,
+    installed_policy,
+    observation_digest,
+    request_digest,
+)
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import (
@@ -550,27 +556,44 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
 
         def extract(self, pack, requests, **kwargs):
             (request,) = requests
+            key = request_digest(
+                pack,
+                asdict(profile),
+                requests,
+                kwargs["threshold"],
+                kwargs["overlap_policy"],
+                kwargs.get("evaluation", False),
+                policy["inference"],
+            )
+            raw = json.dumps(returned)
             return (
                 GlinerReport(
                     request.context_id,
                     request.context_digest,
-                    "controlled",
+                    key,
                     profile.fingerprint,
                     pack.fingerprint,
                     GlinerPreparation(request.text, "", 0, 0, len(request.text)),
-                    json.dumps(returned),
+                    raw,
                     "{}",
                     0.0,
                     False,
+                    request_digest=key,
+                    observation_digest=observation_digest(key, raw, "{}"),
                 ),
             )
 
+    policy, policy_digest = installed_policy()
     method = DefinitionComponentsMethod()
     monkeypatch.setattr(method, "_worker", ControlledWorker())
     ctx = SimpleNamespace(
         check_active=lambda: None,
         reader=SimpleNamespace(
-            validate_structural_inputs=lambda _: None, prepared=SimpleNamespace(release_id="r")
+            validate_structural_inputs=lambda _: None,
+            prepared=SimpleNamespace(
+                release_id="r",
+                manifest=json.dumps({"dependencies": [(MODEL_OBSERVATION_INPUT, policy_digest)]}),
+            ),
         ),
     )
     (result,) = method.run(
@@ -597,13 +620,26 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
         )
     ]
     config = cfg.model_dump(mode="json", exclude_none=True)
-    _verify_definition_roles(report, config, result.parse_detail, "r")
+    _verify_definition_roles(report, config, result.parse_detail, "r", policy)
+    original_window = retained[0]["window_start"]
+    assert isinstance(original_window, int)
+    retained[0]["window_start"] = original_window + 1
+    with pytest.raises(ValueError, match="returned window"):
+        _verify_definition_roles(report, config, result.parse_detail, "r", policy)
+    retained[0]["window_start"] = original_window
+    with pytest.raises(ValueError, match="exact configured population"):
+        _verify_definition_roles(
+            report, config, {**result.parse_detail, "window_outcomes": []}, "r", policy
+        )
     # All entity roles and exact source coordinates survive, but the valid directed
     # relation is gone. The component can no longer be admitted as a model reading.
     returned["relation_extraction"][cfg.attachment_relation].pop(0)
     retained[0]["raw_json"] = json.dumps(returned)
+    retained[0]["observation_digest"] = observation_digest(
+        retained[0]["computation"], retained[0]["raw_json"], "{}"
+    )
     with pytest.raises(ValueError, match="retained directed attachments"):
-        _verify_definition_roles(report, config, result.parse_detail, "r")
+        _verify_definition_roles(report, config, result.parse_detail, "r", policy)
 
 
 def test_labelled_copula_display_requires_same_block_explicit_definition_label():

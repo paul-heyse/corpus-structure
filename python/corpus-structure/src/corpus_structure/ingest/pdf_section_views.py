@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 from typing import Any, Literal
 
 from corpus_structure.core.method import SourceViewDraft
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.source_views import resolve_native_sections, source_view_health
 
-from .pdf_hierarchy import project_section_nodes, section_text_recipe
+from .pdf_hierarchy import project_section_nodes, section_text_recipe, section_view_key
 
 
 class NoQualifiedSections(ValueError):
@@ -63,6 +61,7 @@ def published_section_drafts(
     membership: Literal["direct", "descendants"],
     scope: Any,
     consumer_release: str,
+    projection_policy: bytes | None = None,
 ) -> tuple[SourceViewDraft, ...]:
     sections = reader.sections()
     selected_sections = select_published_sections(sections, selections, membership, scope)
@@ -82,7 +81,7 @@ def published_section_drafts(
         if key not in {"source_scope", "page_start", "page_end", "formula_outcomes"}
     }
     reference = reader.reference
-    recipe = section_text_recipe(reference, analysis_eligible=True)
+    recipe = section_text_recipe(reference, analysis_eligible=True, policy=projection_policy)
     result = []
     for section in selected_sections:
         selected_membership = "direct" if section == "#/body" else membership
@@ -156,20 +155,8 @@ def published_section_drafts(
             recognition_coverage=coverage,
             recognition_coverage_present=coverage_present,
         )
-        key = (
-            "source-view:"
-            + sha256(
-                canonical_bytes(
-                    dict(
-                        consumer_release=consumer_release,
-                        native=reference.values(),
-                        section=section,
-                        membership=selected_membership,
-                        analysis_eligible=True,
-                        recipe=sha256(recipe).hexdigest(),
-                    )
-                )
-            ).hexdigest()
+        key = section_view_key(
+            consumer_release, reference, section, selected_membership, True, recipe
         )
         result.append(
             SourceViewDraft(

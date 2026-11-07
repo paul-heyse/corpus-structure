@@ -174,7 +174,7 @@ BEGIN
     OR jsonb_typeof(source_record->'anchor_endpoint_role')<>'string'
     OR btrim(source_record->>'anchor_endpoint_role')=''))
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') a WHERE jsonb_typeof(a)<>'object' OR a='{}')
-   OR (bound->>'rubric_version'='nce12-attachment-role-direction-scope-1'
+   OR (bound->>'rubric_version' IN ('nce12-attachment-role-direction-scope-1','nce12-attachment-role-direction-scope-2')
     AND source_record->>'facet'='defining_text_attachment_correctness' AND EXISTS(
      SELECT FROM jsonb_array_elements(source_record->'alternatives') a
      WHERE a-ARRAY['semantic_type','endpoint_semantics']<>'{}'
@@ -199,6 +199,33 @@ BEGIN
    RAISE EXCEPTION 'operation case differs from independent source/facet authority' USING ERRCODE='23514'; END IF;
 
  END LOOP;
+ IF bound->>'rubric_version'='nce12-attachment-role-direction-scope-2' THEN
+  IF bound->>'direction'<>'output_first'
+   OR EXISTS (SELECT FROM jsonb_array_elements(p_payload->'cases') c
+    CROSS JOIN LATERAL jsonb_array_elements(c->'alternatives') a
+    WHERE c->>'facet' IN ('attachment_head','attachment_tail','attachment_direction','attachment_scope')
+     AND (a-ARRAY['semantic_type',c->>'facet']<>'{}'
+       OR a->>'semantic_type' IS DISTINCT FROM 'definition.defining_text_attachment'
+       OR NOT a ? (c->>'facet')
+       OR CASE c->>'facet'
+         WHEN 'attachment_scope' THEN jsonb_typeof(a->'attachment_scope') IS DISTINCT FROM 'object'
+           OR (a->'attachment_scope')-ARRAY['kind','term','defining_text','declared_scope','effective_version']<>'{}'
+           OR a->'attachment_scope'->>'kind' IS DISTINCT FROM 'native_section_scope'
+           OR jsonb_typeof(a->'attachment_scope'->'term') IS DISTINCT FROM 'array'
+           OR jsonb_typeof(a->'attachment_scope'->'defining_text') IS DISTINCT FROM 'array'
+           OR EXISTS(SELECT FROM jsonb_array_elements_text(
+            (a->'attachment_scope'->'term')||(a->'attachment_scope'->'defining_text')) p(pointer)
+            WHERE NOT EXISTS(SELECT FROM kb.pdf_record_access n
+             WHERE n.product_id=selected.native_build_id AND n.revision_id=selected.native_build_id
+              AND n.pointer=p.pointer AND (n.label IN ('section','chapter') OR n.pointer='#/body')))
+         WHEN 'attachment_direction' THEN a->'attachment_direction' NOT IN
+           ('["term","defining_text"]'::jsonb,'["defining_text","term"]'::jsonb)
+         ELSE jsonb_typeof(a->(c->>'facet')) IS DISTINCT FROM 'array'
+           OR NOT ((bound->'anchor_ids') @> (a->(c->>'facet')))
+       END)) THEN
+   RAISE EXCEPTION 'attachment rubric requires independent exact head, tail, direction and scope cases' USING ERRCODE='23514';
+  END IF;
+ END IF;
  IF jsonb_array_length(p_payload->'cases')<>(SELECT count(DISTINCT r->>'case_id') FROM jsonb_array_elements(p_payload->'cases') r) THEN
   RAISE EXCEPTION 'operation reference duplicates case identities' USING ERRCODE='23514'; END IF;
 END $$;
@@ -217,6 +244,17 @@ BEGIN
   OR btrim(COALESCE(p_actor,''))='' THEN
   RAISE EXCEPTION 'record reference pass differs from released independent protocol' USING ERRCODE='23514'; END IF;
  PERFORM eval.validate_operation_reference_frame(p_unit,payload,p_frame);
+ IF p_frame->'evaluation_frame'->>'rubric_version'='nce12-attachment-role-direction-scope-2'
+  AND EXISTS (SELECT FROM jsonb_array_elements_text(p_frame->'evaluation_frame'->'contribution_ids') id
+   CROSS JOIN unnest(ARRAY['defining_text_attachment_correctness','attachment_head',
+     'attachment_tail','attachment_direction','attachment_scope']) f(facet)
+   WHERE (SELECT count(*) FROM jsonb_array_elements(payload->'cases') c
+     WHERE c->>'contribution_id'=id AND c->>'facet'=f.facet
+      AND c->>'contribution_kind'='relation'
+      AND COALESCE(c->>'expectation_mode','structure')='structure')<>1) THEN
+  RAISE EXCEPTION 'attachment authoring requires all five independent cases per emitted relation'
+   USING ERRCODE='23514';
+ END IF;
  -- All independent authors and adjudication see the same frozen primary/related cut.
  IF EXISTS(SELECT FROM eval.reference_pass p JOIN eval.reference_frame f ON f.pass_id=p.id
   WHERE p.unit_id=p_unit AND f.source_frame IS DISTINCT FROM p_frame) THEN

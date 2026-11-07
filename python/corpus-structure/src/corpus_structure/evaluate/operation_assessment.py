@@ -351,7 +351,16 @@ def _comparison_product(
                 fields=_literal_product(target),
             )
         )
-    return dict(value, endpoint_semantics=endpoints)
+    value = dict(value, endpoint_semantics=endpoints)
+    if value.get("semantic_type") == "definition.defining_text_attachment":
+        endpoints_by_role = {endpoint["role"]: endpoint["anchor_ids"] for endpoint in endpoints}
+        if len(endpoints) == 2 and endpoints_by_role.keys() == {"term", "defining_text"}:
+            value.update(
+                attachment_head=endpoints_by_role["term"],
+                attachment_tail=endpoints_by_role["defining_text"],
+                attachment_direction=[endpoint["role"] for endpoint in endpoints],
+            )
+    return value
 
 
 def _case_anchors(case: OperationCase, value: Mapping[str, Any]) -> set[str]:
@@ -896,6 +905,32 @@ def reference_evaluate(
                 "operation selected contribution capture exceeds bounded source inventory"
             )
         predictions = list(captured.contributions)
+        if frame.rubric_version == "nce12-attachment-role-direction-scope-2":
+            selected_attachments = [
+                {"task_id": value["origin_task_id"], "contribution_id": value["contribution_id"]}
+                for value in predictions
+                if value["semantic_type"] == "definition.defining_text_attachment"
+            ]
+            scopes = dict(
+                _call(
+                    conn,
+                    """
+                    SELECT selection.contribution_id,
+                     eval.defining_text_event_scope(selection.task_id,selection.contribution_id)
+                    FROM jsonb_to_recordset(CAST(:rows AS jsonb))
+                     selection(task_id bigint,contribution_id text)
+                    """,
+                    rows=_json(selected_attachments),
+                ).all()
+            )
+            if any(scope is None for scope in scopes.values()):
+                raise ReferenceError("selected defining-text attachment lacks native section scope")
+            predictions = [
+                dict(value, attachment_scope=scopes[value["contribution_id"]])
+                if value["contribution_id"] in scopes
+                else value
+                for value in predictions
+            ]
         prediction_ids = {value["contribution_id"] for value in predictions}
         endpoint_ids = {
             endpoint["contribution_id"]

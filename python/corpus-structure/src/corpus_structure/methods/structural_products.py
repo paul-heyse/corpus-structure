@@ -6,6 +6,7 @@ admission remain separate boundaries; these producers emit only private proposal
 
 from __future__ import annotations
 
+from collections import defaultdict
 from itertools import pairwise
 from typing import Literal
 
@@ -28,6 +29,7 @@ from corpus_structure.semantic.structural_products import (
     ClauseFieldGroup,
     ClauseReading,
     ComparisonLiteral,
+    ComparisonMemberDecision,
     ComparisonProduct,
     DimensionComparison,
     DossierComparisonBinding,
@@ -120,8 +122,94 @@ def _difference(left, right):
     return (interval, None, "different") if removed else (None, interval, "different")
 
 
+def _typed_member(field):
+    """Return the comparable question and exact value for a source-backed member."""
+    threshold = field.typed
+    if (
+        threshold is not None
+        and threshold.state == "parsed"
+        and threshold.quantity
+        and threshold.unit
+        and threshold.basis
+    ):
+        return (
+            ("threshold", threshold.quantity, threshold.unit, threshold.basis),
+            (threshold.comparator, threshold.value),
+        )
+    if field.literal is not None and field.literal.kind in {"date", "identifier"}:
+        return ((field.literal.kind,), field.literal.value)
+    condition = field.condition
+    if condition is not None:
+        negated = condition.get("kind") == "not"
+        comparison = condition.get("term", {}) if negated else condition
+        if comparison.get("kind") == "compare":
+            return (
+                ("condition", negated),
+                (comparison["lhs"], comparison["relation"], comparison["rhs"]),
+            )
+    return None
+
+
+def _compare_group_members(
+    left, right, *, compatible
+) -> tuple[
+    Literal["same", "different", "unresolved"],
+    tuple[ComparisonMemberDecision, ...],
+    Literal["unknown", "ambiguous", "different", "equivalent"],
+]:
+    if not compatible:
+        return "unresolved", (), "unknown"
+    if "unresolved" in (left.state, right.state, left.grouping, right.grouping):
+        return "unresolved", (), "ambiguous"
+    if "absent" in (left.state, right.state):
+        return "unresolved", (), "unknown"
+    grouping: Literal["same", "different"] = (
+        "same" if left.grouping == right.grouping else "different"
+    )
+    by_side = []
+    for group in (left, right):
+        by_key = defaultdict(list)
+        for index, field in enumerate(group.members):
+            typed = _typed_member(field)
+            if typed is not None:
+                key, value = typed
+                by_key[key].append((index, value))
+        by_side.append(by_key)
+    lkeys, rkeys = by_side
+    matched = []
+    ambiguous = False
+    for key in lkeys.keys() & rkeys.keys():
+        if len(lkeys[key]) != 1 or len(rkeys[key]) != 1:
+            ambiguous = True
+            continue
+        (li, lv), (ri, rv) = lkeys[key][0], rkeys[key][0]
+        matched.append(
+            ComparisonMemberDecision(
+                left_index=li, right_index=ri, outcome="equivalent" if lv == rv else "different"
+            )
+        )
+    matched.sort(key=lambda row: row.left_index)
+    outcome: Literal["unknown", "ambiguous", "different", "equivalent"]
+    if ambiguous:
+        outcome = "ambiguous"
+    elif len(matched) != len(left.members) or len(matched) != len(right.members) or not matched:
+        outcome = "unknown"
+    elif grouping == "different" or any(row.outcome == "different" for row in matched):
+        outcome = "different"
+    else:
+        outcome = "equivalent"
+    return grouping, tuple(matched), outcome
+
+
 def compare_clauses(
-    inputs, *, left, right, left_reading=None, right_reading=None, cancelled=lambda: False
+    inputs,
+    *,
+    left,
+    right,
+    left_reading=None,
+    right_reading=None,
+    cancelled=lambda: False,
+    typed_groups=False,
 ):
     if left.passage_id == right.passage_id:
         raise ValueError("comparison requires distinct original passages")
@@ -136,6 +224,15 @@ def compare_clauses(
     succession = _succession(a, b) if a.scope == b.scope else None
     compatible = a.scope == b.scope and (
         a.effective_version == b.effective_version or succession is not None
+    )
+    typed_compatible = compatible and (a.effective_version is not None or succession is not None)
+    interval_applicable = not typed_groups or (
+        typed_compatible
+        and all(
+            "unresolved" not in (group.state, group.grouping)
+            for side in (left, right)
+            for group in (side.groups or {}).values()
+        )
     )
     dimensions = []
     for dimension in DIMENSIONS:
@@ -160,6 +257,7 @@ def compare_clauses(
         )
         typed, removed, added = "unknown", None, None
         reason = "No complete source-qualified typed premises."
+        grouping = matched = None
         if lg is not None and rg is not None:
             values = tuple(
                 tuple(member.lexical_value for member in group.members) for group in (lg, rg)
@@ -172,7 +270,14 @@ def compare_clauses(
                 lexical = "incompatible_applicability"
             elif "unresolved" in (lg.state, rg.state, lg.grouping, rg.grouping):
                 typed = "ambiguous"
-        if (not grouped or compatible) and x and y and x.typed and y.typed:
+            if typed_groups:
+                grouping, matched, typed = _compare_group_members(
+                    lg, rg, compatible=typed_compatible
+                )
+                if matched:
+                    reason = "Compared source-qualified members by their unique typed keys."
+        threshold_consequence = False
+        if interval_applicable and (not grouped or compatible) and x and y and x.typed and y.typed:
             p, q = x.typed, y.typed
             if "ambiguous" in {p.state, q.state}:
                 typed = "ambiguous"
@@ -191,17 +296,20 @@ def compare_clauses(
                 reason = "Unknown unit, quantity or basis withholds a stronger typed conclusion."
             else:
                 removed, added, typed = _difference(p, q)
+                threshold_consequence = True
                 reason = "Exact threshold consequence only; other rule dimensions remain separate."
         dimensions.append(
             DimensionComparison(
                 dimension=dimension,
                 outcome=lexical,
                 **({"left_group": lg, "right_group": rg} if grouped else {"left": x, "right": y}),
+                grouping_outcome=grouping,
+                member_comparisons=matched,
                 typed_outcome=typed,
                 removed_interval=removed,
                 added_interval=added,
                 assumptions=("same_quantity_unit_basis",)
-                if typed in {"different", "equivalent"}
+                if threshold_consequence and typed in {"different", "equivalent"}
                 else (),
                 reason=reason,
             )
@@ -251,6 +359,8 @@ def compare_clauses(
             right_id=b.passage_id,
             left_reading=left_reading,
             right_reading=right_reading,
+            left_focus=left.focus if typed_groups else None,
+            right_focus=right.focus if typed_groups else None,
             dimensions=tuple(dimensions),
             applicability=applicability,
             applicability_reason=reason,
@@ -353,14 +463,16 @@ def _group_fields(passage, members, incomplete):
     )
 
 
-def read_retained_clause(passage, source, reference, retained):
+def read_retained_clause(passage, source, reference, retained, *, predicate_version=None):
     """Compose the admitted frame roles and the immutable host qualifier population."""
     if reference.project_id != source.project_id:
         raise ValueError("reading belongs to another project")
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
     reading = rows[reference.contribution_id]
     component = reading.get("component", {})
-    if component.get("kind") != "predicate_reading":
+    if component.get("kind") != "predicate_reading" or (
+        predicate_version is not None and component.get("question_version") != predicate_version
+    ):
         raise ValueError("comparison requires a retained predicate reading")
     frame = rows[component["frame"]]
     frame_component = frame.get("component", {})
@@ -414,6 +526,9 @@ def read_retained_clause(passage, source, reference, retained):
         )
 
     focus = None
+    for role in frame_component.get("unlocated_roles", ()):
+        if dimension := _ROLE_DIMENSIONS.get(role["role"]):
+            incomplete.add(dimension)
     for role in frame_component["frame_members"]:
         if role["role"] == "focus" and role["outcome"] == "complete" and len(role["extents"]) == 1:
             focus = role["extents"][0]
@@ -471,9 +586,11 @@ def read_retained_clause(passage, source, reference, retained):
         for dimension, fields in members.items()
     }
     exception_spans = [span for field in groups["exception"].members for span in field.spans or ()]
+    located_focus = None
     if focus is not None:
         start, end = focus["start"] - passage.start, focus["end"] - passage.start
-        exception_spans.append(_located(passage, passage.text[start:end], start))
+        located_focus = _located(passage, passage.text[start:end], start)
+        exception_spans.append(located_focus)
     empty = [
         span
         for span in exception_spans
@@ -493,7 +610,11 @@ def read_retained_clause(passage, source, reference, retained):
         groups["threshold_unit"] = ClauseFieldGroup(
             state="unresolved", grouping="unresolved", members=threshold.members
         )
-    return ClauseReading(passage_id=passage.passage_id, groups=groups)
+    return ClauseReading(
+        passage_id=passage.passage_id,
+        groups=groups,
+        focus=located_focus,
+    )
 
 
 def select_dossier(
@@ -619,7 +740,18 @@ def dossier_root(reference, retained) -> LocatedDefinitionComponent:
     raise ValueError("dossier root does not resolve in the exact selected predecessor")
 
 
-def _comparison_member_roles(reference, report, selections, relationships, root_ref, root):
+def _comparison_member_roles(
+    reference,
+    report,
+    selections,
+    relationships,
+    root_ref,
+    root,
+    *,
+    require_focus=False,
+    applicability_reports=None,
+    dossier_passages=None,
+):
     comparison = report.comparison
     if comparison is None or comparison.left_reading is None:
         raise ValueError("root binding requires a current retained grouped comparison")
@@ -662,6 +794,70 @@ def _comparison_member_roles(reference, report, selections, relationships, root_
             for span in occurrence
         ):
             raise ValueError("relationship occurrence is outside the exact comparison side")
+        focus = comparison.left_focus if side == "left" else comparison.right_focus
+        if require_focus and focus is None:
+            raise ValueError("comparison side has no exact retained reading focus")
+        if focus is not None and any(
+            not focus.start <= span.start < span.end <= focus.end for span in occurrence
+        ):
+            raise ValueError("relationship occurrence is outside the exact comparison focus")
+        applicability_ref = selection.applicability_ref
+        if applicability_ref is not None:
+            predecessor = (applicability_reports or {}).get(applicability_ref)
+            if predecessor is None or focus is None or predecessor.definition is None:
+                raise ValueError("comparison binding lacks its exact applicability predecessor")
+            definition = predecessor.definition
+            usage = next(
+                p for p in predecessor.inputs.passages if p.passage_id == definition.usage_id
+            )
+            usage_source = next(
+                s for s in predecessor.inputs.sources if s.identity == usage.source_ref
+            )
+            if (
+                usage_source != source
+                or usage.scope != passage.scope
+                or usage.effective_version != passage.effective_version
+                or not focus.start <= usage.start < usage.end <= focus.end
+                or (usage.start, usage.end) != (occurrence[0].start, occurrence[-1].end)
+                or not any(
+                    reading.component_ref == root_ref
+                    and (
+                        reading.link_ref == selection.relationship_ref
+                        or edge["relation"] == "specializes"
+                    )
+                    and reading.outcome in {"applicable_definition", "applicable_explanation"}
+                    for reading in definition.readings
+                )
+            ):
+                raise ValueError(
+                    "comparison applicability differs from exact focus, root, or relationship"
+                )
+        applicable = not require_focus or applicability_ref is not None
+        conflict = None
+        if selection.conflict_passage_id is not None:
+            proof = (dossier_passages or {}).get(selection.conflict_passage_id)
+            a, b = comparison.left_focus, comparison.right_focus
+            if (
+                proof is None
+                or applicability_ref is None
+                or comparison.applicability != "co_applicable"
+                or proof.scope != passage.scope
+                or proof.effective_version != passage.effective_version
+                or a is None
+                or b is None
+                or a.text == b.text
+                or '"' in a.text
+                or '"' in b.text
+                or proof.text
+                not in {
+                    f'"{a.text}" contradicts "{b.text}".',
+                    f'"{b.text}" contradicts "{a.text}".',
+                }
+            ):
+                raise ValueError(
+                    "dossier conflict requires an exact explicit contradiction of both readings"
+                )
+            conflict = _located(proof, proof.text, 0)
         citation = _located(passage, passage.text, 0)
         binding = DossierComparisonBinding(
             comparison_ref=reference,
@@ -675,24 +871,43 @@ def _comparison_member_roles(reference, report, selections, relationships, root_
             comparison=comparison,
             opposite_source=sources[opposite.source_ref],
             opposite_citation=_located(opposite, opposite.text, 0),
+            applicability_ref=applicability_ref,
+            conflict_evidence=conflict,
         )
+        if conflict is not None:
+            yield "conflict", citation, binding
         if comparison.succession and comparison.succession.newer_id == passage.passage_id:
             yield "revision", comparison.succession.evidence, binding
         exceptions = next(d for d in comparison.dimensions if d.dimension == "exception")
         group = exceptions.left_group if side == "left" else exceptions.right_group
-        if edge["relation"] == "specializes" and group is not None and group.state == "present":
+        if (
+            applicable
+            and edge["relation"] == "specializes"
+            and group is not None
+            and group.state == "present"
+        ):
             for field in group.members:
                 for span in field.spans or ():
                     yield "exception", span, binding
-        if comparison.applicability == "co_applicable" and any(
-            d.typed_outcome == "different" for d in comparison.dimensions
+        if (
+            conflict is None
+            and applicable
+            and comparison.applicability == "co_applicable"
+            and any(d.typed_outcome == "different" for d in comparison.dimensions)
         ):
             yield "variant", citation, binding
         yield "relationship", citation, binding
 
 
 def derive_dossier_members(
-    inputs, retained, *, root=None, root_ref=None, comparison_selections=(), relationships=None
+    inputs,
+    retained,
+    *,
+    root=None,
+    root_ref=None,
+    comparison_selections=(),
+    relationships=None,
+    require_comparison_focus=False,
 ):
     """Derive role spans from actual retained products, never from input inventory."""
     from hashlib import sha256
@@ -716,8 +931,14 @@ def derive_dossier_members(
     members = []
     facets = []
     member_ids = set()
-    for reference, payload in retained:
-        report = StructuralProductReport.model_validate(payload["report"])
+    parsed = [
+        (ref, payload, StructuralProductReport.model_validate(payload["report"]))
+        for ref, payload in retained
+    ]
+    applicability_reports = {
+        ref: report for ref, _, report in parsed if report.kind == "definition_applicability"
+    }
+    for reference, payload, report in parsed:
         if report.product_id != reference.product_id:
             raise ValueError("retained predecessor product substituted")
         if report.product_id not in inputs.dependencies:
@@ -796,7 +1017,15 @@ def derive_dossier_members(
         selected = selections.pop(report.product_id, ())
         if selected:
             bound_roles = _comparison_member_roles(
-                reference, report, selected, relationships, root_ref, root
+                reference,
+                report,
+                selected,
+                relationships,
+                root_ref,
+                root,
+                require_focus=require_comparison_focus,
+                applicability_reports=applicability_reports,
+                dossier_passages=passages,
             )
         if report.comparison and root is None:
             for d in report.comparison.dimensions:
@@ -889,7 +1118,7 @@ def derive_dossier_members(
                 continue
             member_ids.add(member.member_id)
             members.append(member)
-            if supported and (binding is None or role != "relationship"):
+            if supported and (binding is None or role not in {"relationship", "conflict"}):
                 semantic_kind = ":".join(
                     value for value in (role, interpretation, outcome) if value is not None
                 )
@@ -951,7 +1180,7 @@ class StructuralComparisonConfig(StructuralValue):
 
 class StructuralComparisonMethod:
     name = "structure.compare"
-    version = "3"
+    version = "4"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -982,6 +1211,7 @@ class StructuralComparisonMethod:
                 sources[passage.source_ref],
                 reference,
                 ctx.reader.retained_source_contribution(reference),
+                predicate_version="4",
             )
 
         report = compare_clauses(
@@ -990,6 +1220,7 @@ class StructuralComparisonMethod:
             right=side(cfg.right_id, cfg.right_reading),
             left_reading=cfg.left_reading,
             right_reading=cfg.right_reading,
+            typed_groups=True,
         )
         return tuple(
             UnitResult(
@@ -1042,6 +1273,10 @@ class StructuralDossierConfig(StructuralValue):
             selection.comparison_product_id not in {ref.product_id for ref in self.predecessors}
             or self.inputs is None
             or selection.relationship_ref.edge_id not in self.inputs.dependencies
+            or (
+                selection.applicability_ref is not None
+                and selection.applicability_ref not in self.predecessors
+            )
             for selection in self.comparison_selections
         ):
             raise ValueError("dossier comparison binding requires exact declared dependencies")
@@ -1050,7 +1285,7 @@ class StructuralDossierConfig(StructuralValue):
 
 class StructuralDossierMethod:
     name = "structure.dossier"
-    version = "2"
+    version = "3"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -1090,6 +1325,7 @@ class StructuralDossierMethod:
             root_ref=cfg.root_component,
             comparison_selections=cfg.comparison_selections,
             relationships=relationships,
+            require_comparison_focus=True,
         )
         from .dossier_contributions import derive_contribution_members
 

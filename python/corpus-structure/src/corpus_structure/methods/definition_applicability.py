@@ -811,19 +811,17 @@ _DEFINITION_WINDOW_OVERLAP = 256
 _DEFINITION_MAX_WINDOWS = 64
 
 
-def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConfig):
+def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConfig, policy=None):
     """Bound model contexts while preserving original offsets and overlap provenance."""
     # Operational resource choices belong to the archived runtime, not the semantic
     # configuration ABI. Tuning these bounds does not redefine the output data model.
-    max_chars = (
-        min(_DEFINITION_WINDOW_CHARS, max(1, cfg.profile.max_input_bytes // 4))
-        if cfg.profile is not None
-        else _DEFINITION_WINDOW_CHARS
-    )
-    overlap = min(_DEFINITION_WINDOW_OVERLAP, max_chars // 4)
+    bound = policy["chars"] if policy else _DEFINITION_WINDOW_CHARS
+    limit = policy["limit"] if policy else _DEFINITION_MAX_WINDOWS
+    max_chars = min(bound, max(1, cfg.profile.max_input_bytes // 4)) if cfg.profile else bound
+    overlap = min(policy["overlap"] if policy else _DEFINITION_WINDOW_OVERLAP, max_chars // 4)
     start = 0
     windows = []
-    while start < len(passage.text) and len(windows) < _DEFINITION_MAX_WINDOWS:
+    while start < len(passage.text) and len(windows) < limit:
         end = min(len(passage.text), start + max_chars)
         if end < len(passage.text):
             boundary = passage.text.rfind(" ", start + max_chars // 2, end)
@@ -851,7 +849,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "8"
+    version = "9"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -878,11 +876,23 @@ class DefinitionComponentsMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
 
     def run(self, units, cfg, ctx):
+        from .model_observation import (
+            observation_digest,
+            released_pack,
+            released_policy,
+            request_digest,
+        )
+
         if cfg.inputs is None or (cfg.use_model and cfg.profile is None):
             raise ValueError("definition extraction needs complete configured inputs")
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
-        pack = definition_pack(ctx.reader.prepared.release_id, cfg) if cfg.use_model else None
+        policy = released_policy(ctx.reader.prepared)
+        pack = (
+            released_pack(ctx.reader.prepared.release_id, policy, config=cfg.model_dump())
+            if cfg.use_model
+            else None
+        )
         if cfg.use_model:
             if cfg.profile is None:
                 raise GlinerRefused("model execution requires its exact declared profile")
@@ -891,7 +901,7 @@ class DefinitionComponentsMethod:
             elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
                 raise GlinerRefused("definition worker cannot switch model profile")
         passages = {p.passage_id: p for p in cfg.inputs.passages}
-        components, stages, raw_reports = [], [], []
+        components, stages, raw_reports, window_outcomes = [], [], [], []
         role_candidates = []
         named_rule_operations = []
         annotation_sources = {}
@@ -950,12 +960,32 @@ class DefinitionComponentsMethod:
             if self._worker is None or pack is None:
                 raise GlinerRefused("model execution owner is unavailable")
             passage = passages[passage_id]
-            windows = definition_windows(passage, cfg)
+            windows = definition_windows(passage, cfg, policy["definition_windows"])
             for window in windows:
                 ctx.check_active()
                 request = GlinerInput(
-                    "definition-target:" + window.identity, window.identity, window.text
+                    "definition-target:" + window.identity,
+                    window.identity,
+                    window.text,
+                    f"{self.name}/{self.version}",
                 )
+                expected = request_digest(
+                    pack,
+                    asdict(cfg.profile),
+                    (request,),
+                    cfg.threshold,
+                    cfg.evaluation_overlap or "flat",
+                    cfg.evaluation_overlap is not None,
+                    policy["inference"],
+                )
+                outcome = dict(
+                    passage_id=passage_id,
+                    start=window.start,
+                    end=window.end,
+                    request_digest=expected,
+                    status="failed",
+                )
+                window_outcomes.append(outcome)
                 try:
                     (reply,) = self._worker.extract(
                         pack,
@@ -965,6 +995,16 @@ class DefinitionComponentsMethod:
                         **({"evaluation": True} if cfg.evaluation_overlap is not None else {}),
                         check_active=ctx.check_active,
                     )
+                    if (
+                        reply.computation != expected
+                        or reply.request_digest != expected
+                        or reply.observation_digest
+                        != observation_digest(
+                            expected, reply.raw_json, reply.effective_profile_json
+                        )
+                    ):
+                        raise GlinerWorkerError("provider reply differs from the selected request")
+                    outcome["status"] = "returned"
                     raw_reports.append(
                         dict(
                             passage_id=passage_id,
@@ -986,6 +1026,8 @@ class DefinitionComponentsMethod:
                     TimeoutError,
                     OSError,
                 ) as error:
+                    if isinstance(error, GlinerRefused) and outcome["status"] != "returned":
+                        outcome["status"] = "refused"
                     stages.append(
                         DefinitionStage(
                             passage_id=passage_id,
@@ -1063,6 +1105,14 @@ class DefinitionComponentsMethod:
                     )
                 )
             if windows and windows[-1].end < passage.end:
+                window_outcomes.append(
+                    dict(
+                        passage_id=passage_id,
+                        start=windows[-1].end,
+                        end=passage.end,
+                        status="uninspected",
+                    )
+                )
                 stages.append(
                     DefinitionStage(
                         passage_id=passage_id,
@@ -1090,9 +1140,10 @@ class DefinitionComponentsMethod:
             .model_validate_json(
                 canonical_bytes(
                     dict(
-                        version="located-definition-extraction-3",
+                        version="located-definition-extraction-4",
                         predicate_frame_version=PREDICATE_FRAME_VERSION,
                         raw_reports=raw_reports,
+                        window_outcomes=window_outcomes,
                         named_rule_operations=named_rule_operations,
                         annotation_inputs=[
                             dict(

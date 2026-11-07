@@ -242,6 +242,55 @@ def operation_event_availability(
     )
 
 
+@eval_app.command("operation-event-features")
+def operation_event_features(
+    ctx: typer.Context,
+    run: Annotated[int, typer.Argument(metavar="RUN")],
+    cut: Annotated[int, typer.Option()],
+    task: Annotated[int, typer.Option()],
+    contribution: Annotated[str, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    json: JsonOpt = False,
+):
+    """Read the exact defining-text features with ordinary reader authority."""
+    from dataclasses import asdict
+
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import state
+    from corpus_structure.semantic.operation_policy import (
+        ATTACHMENT_EVENT_VERSION,
+        ATTACHMENT_FEATURE_NAMES,
+        read_defining_text_features,
+    )
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with (
+        failure_boundary(json),
+        open_runtime_engine(
+            state(ctx).settings(), application_name="ci-event-features", purpose="read"
+        ) as engine,
+        read_snapshot(engine) as conn,
+    ):
+        result = read_defining_text_features(
+            conn,
+            project_id=project,
+            run_id=run,
+            cut_id=cut,
+            task_id=task,
+            contribution_id=contribution,
+        )
+    output(
+        {
+            "event": "defining_text_attachment_correctness",
+            "event_version": ATTACHMENT_EVENT_VERSION,
+            "feature_names": ATTACHMENT_FEATURE_NAMES,
+            **asdict(result),
+        },
+        json,
+    )
+
+
 @eval_app.command("operation-event-fit")
 def operation_event_fit(
     ctx: typer.Context,

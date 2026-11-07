@@ -1,5 +1,6 @@
 """Publish neutral linguistic evidence and separate interpretations on the same source."""
 
+import re
 from bisect import bisect_right
 from collections import defaultdict
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.source_contexts import ContextRefused, evidence_anchor
 from corpus_structure.semantic.structural_parsing import parse_threshold
+
+from .predicate_frames import interpretation_recipe
 
 
 @dataclass(frozen=True)
@@ -48,12 +51,9 @@ def source_layout(product, frame, pieces, items):
             continue
         heading = frame.text[piece["start"] : piece["end"]].strip().lower()
         first = heading.split(maxsplit=1)[0].strip(":") if heading else ""
-        if first in {"example", "examples", "exercise", "exercises"}:
-            return "example"
-        if first in {"policy", "policies", "requirements"}:
-            return "policy"
-        if first in {"instructions", "procedure", "procedures"}:
-            return "instruction"
+        for layout, headings in interpretation_recipe()["layout_headings"].items():
+            if first in headings:
+                return layout
         break
     return "prose"
 
@@ -75,9 +75,37 @@ def predicate_results(frame, annotations, source_pieces, items):
     )
 
 
-def _condition(kind, cue_variant, text, *, contiguous):
+def _numeric_condition(cue_variant, text, recipe):
+    marker, _, expression = text.strip(" \t\r\n").partition(" ")
+    if marker.lower() != cue_variant or cue_variant not in recipe["condition_markers"]:
+        return None
+    number = recipe["number_pattern"]
+    match = re.fullmatch(
+        rf"[ \t\r\n]*({number})[ \t]+(>=|<=|>|<|=|≥|≤)[ \t\r\n]*({number})[ \t\r\n]*",
+        expression,
+    )
+    if match is None:
+        return None
+    left, operator, right = match.groups()
+    parsed = parse_threshold(f"{operator} {right}")
+    if parsed is None:
+        return None
+    comparison = dict(
+        kind="compare",
+        relation=recipe["comparators"][operator],
+        lhs=dict(kind="expression", language="text", expression=left, form="formula"),
+        rhs=dict(kind="expression", language="text", expression=parsed["value"], form="formula"),
+    )
+    return dict(kind="not", term=comparison) if cue_variant == "unless" else comparison
+
+
+def _condition(kind, cue_variant, text, *, contiguous, version="3"):
     if kind not in {"condition", "assumption"}:
         return None
+    if version == "4":
+        recipe = interpretation_recipe()
+        formal = _numeric_condition(cue_variant, text, recipe) if contiguous else None
+        return formal or dict(kind="escape", text=text, reason=recipe["escape_reason"])
     # Formal lowering needs operands that carry their own meaning. A bare symbol
     # or unit needs a separate source binding. The located text remains usable.
     marker, _, expression = text.strip().partition(" ")
@@ -127,7 +155,7 @@ def publish_predicate_evidence(
 
     from .predicate_cross_block import CrossBlockTarget, cross_block_qualifiers
 
-    if version not in {"2", "3"}:
+    if version not in {"2", "3", "4"}:
         raise ValueError("unknown predicate contribution recipe")
     native = json.loads(frame.native_context)
     pieces = tuple(piece for piece in native["pieces"] if piece["kind"] == "native_text")
@@ -371,7 +399,7 @@ def publish_predicate_evidence(
     def attach(selected, located, variant, target, bases, *, witness=None):
         qualifier, kind, _, source_text, contiguous = located
         host, reading_id = target.frame, target.reading
-        lowered = _condition(kind, variant, source_text, contiguous=contiguous)
+        lowered = _condition(kind, variant, source_text, contiguous=contiguous, version=version)
         details: dict[str, Any] = {}
         if lowered is not None:
             details["condition"] = source_value(lowered)
@@ -420,7 +448,7 @@ def publish_predicate_evidence(
 
     scoped_hosts = defaultdict(list)
     for annotation, result in results:
-        if version == "3" and result.frames:
+        if version in {"3", "4"} and result.frames:
             from corpus_structure.ingest.annotation_views import annotation_view
 
             from .predicate_frames import _frame_vocabulary
@@ -444,6 +472,7 @@ def publish_predicate_evidence(
                     continue
                 predicate_token = indices[0]
                 role_rows: list[dict[str, Any]] = []
+                unlocated_roles = []
 
                 def member(
                     role,
@@ -494,6 +523,7 @@ def publish_predicate_evidence(
                 member("predicate", candidate.predicate, predicate_token)
                 member("focus", candidate.focus, predicate_token)
                 for role in candidate.roles:
+                    row_count = len(role_rows)
                     member(
                         role.name,
                         role.span,
@@ -503,6 +533,24 @@ def publish_predicate_evidence(
                         if role.status == "unresolved"
                         else ("partial" if role.status == "partial" else "complete"),
                     )
+                    if version == "4" and len(role_rows) == row_count:
+                        selected_tokens = any(
+                            selected.start <= token.start < token.end <= selected.end
+                            for token in (annotation.tokens[index] for index in role.span.tokens)
+                        )
+                        unlocated_roles.append(
+                            dict(
+                                role=role.name,
+                                head_token=role.head,
+                                token_indices=role.span.tokens,
+                                reason="unmappable" if selected_tokens else "outside_selection",
+                                **(
+                                    {"inherited_from": role.inherited_from}
+                                    if role.inherited_from is not None
+                                    else {}
+                                ),
+                            )
+                        )
                 focus = next((row for row in role_rows if row["role"] == "focus"), None)
                 focus_state = (
                     "unavailable"
@@ -533,6 +581,7 @@ def publish_predicate_evidence(
                         grammatical_reading=candidate.reading,
                         focus_state=focus_state,
                         frame_members=tuple(role_rows),
+                        **({"unlocated_roles": tuple(unlocated_roles)} if unlocated_roles else {}),
                     ),
                 )
                 polarity = (
@@ -571,7 +620,7 @@ def publish_predicate_evidence(
                     annotation,
                     predicate_token,
                 )
-                if version == "3" and scope is not None:
+                if version in {"3", "4"} and scope is not None:
                     scoped_hosts[selected].append(target)
                 for cue in candidate.cues:
                     located = cue_row(annotation, selected, cue, dep, bases)
@@ -586,7 +635,7 @@ def publish_predicate_evidence(
                         continue
                     attach(selected, located, cue.variant, target, bases)
 
-    if version == "3" and scope is not None:
+    if version in {"3", "4"} and scope is not None:
         for selected in scope:
             for entry in cross_block_qualifiers(
                 frame,

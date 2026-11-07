@@ -242,6 +242,11 @@ def explicit_definition_section(product, nodes, *, scope=None, effective_version
     if value.get("producer_semantic_type") != "structural.located_participant":
         return None
     producer = source_python(value["producer_value"])
+    if producer.get("role") == "named_link_definition_subject":
+        exact = explicit_definition_subject(
+            product, nodes, scope=scope, effective_version=effective_version
+        )
+        return exact[0] if exact is not None else None
     if producer.get("role") != "named_link_subject":
         return None
     if "named_cue" in producer:
@@ -263,6 +268,67 @@ def explicit_definition_section(product, nodes, *, scope=None, effective_version
     if not re.search(r"\b[Aa]s defined in $", original[: anchor["start"]]):
         return None
     return reference[1]
+
+
+def explicit_definition_subject(product, nodes, *, scope, effective_version):
+    """Read the exact source-named subject of a selected definition citation."""
+    from .witnessed_source_links import explicit_named_definition_extent
+
+    if len(product["anchors"]) != 1:
+        return None
+    value = source_python(product["value"])
+    if value.get("producer_semantic_type") != "structural.located_participant":
+        return None
+    original = source_python(value["producer_value"])
+    if original.get("role") != "named_link_definition_subject":
+        return None
+    marker = original["named_cue"]
+    if (
+        marker["kind"] != "definition_reference"
+        or marker["resolution"] != "target_selection_required"
+        or (marker["scope"], marker.get("effective_version")) != (scope, effective_version)
+    ):
+        return None
+    (anchor,) = product["anchors"]
+    literal = nodes[anchor["pointer"]]["text"]
+    offset = original["start"] - anchor["start"]
+    extent = explicit_named_definition_extent(literal, 0, marker["cue"][0] - offset)
+    if anchor["precision"] != "exact" or extent != (anchor["start"], anchor["end"]):
+        raise ValueError("definition subject differs from its exact native cue")
+    return marker["designator"], literal[slice(*extent)]
+
+
+def section_definition_subject_witnesses(
+    carriers, nodes, targets, *, source_binding, scope, effective_version
+):
+    witnesses = []
+    for product in carriers:
+        binding = explicit_definition_subject(
+            product, nodes, scope=scope, effective_version=effective_version
+        )
+        if binding is None:
+            continue
+        code, subject = binding
+        matched = [ref for ref, term in targets if term == subject]
+        if len(matched) != 1:
+            continue
+        (reference,) = matched
+        witnesses.append(
+            RelationshipWitness(
+                "section-term-definition:"
+                + operation_identity(product["contribution_id"], reference.identity, code),
+                product["occurrence_id"],
+                reference.component_id,
+                "defined-by",
+                source_binding,
+                scope,
+                effective_version,
+                (product["contribution_id"],),
+                "explicit_source_cue",
+                "unassessed",
+            )
+        )
+    return tuple(witnesses)
 
 
 def explicit_section_citation(product, nodes):
@@ -814,6 +880,7 @@ class ContextualCandidates:
                 section_outcome = None
                 try:
                     exact_witnesses = ()
+                    section_nominations = {}
                     if cfg.section_sources:
                         resolution, exact_witnesses = section_citation_witnesses(
                             heading_mentions[occurrence],
@@ -840,25 +907,47 @@ class ContextualCandidates:
                         )
                     if occurrence in section_mentions:
                         code, carriers = section_mentions[occurrence]
-                        exact_witnesses += tuple(
-                            RelationshipWitness(
-                                "section-definition:"
-                                + operation_identity(
-                                    product["contribution_id"], reference.identity, code
+                        if self.version == "9":
+                            # A section locates a population. Its designation does
+                            # not identify the definition of an unrelated concept.
+                            section_nominations = {
+                                reference.component_id: {p["contribution_id"] for p in carriers}
+                                for reference in section_targets[code]
+                            }
+                            exact_witnesses += section_definition_subject_witnesses(
+                                carriers,
+                                nodes,
+                                tuple(
+                                    (
+                                        reference,
+                                        semantic_targets[reference.component_id]["term"]["text"],
+                                    )
+                                    for reference in section_targets[code]
                                 ),
-                                occurrence,
-                                reference.component_id,
-                                "defined-by",
-                                frame.unit_ref,
-                                cfg.scope,
-                                cfg.effective_version,
-                                (product["contribution_id"],),
-                                "explicit_source_cue",
-                                "unassessed",
+                                source_binding=frame.unit_ref,
+                                scope=cfg.scope,
+                                effective_version=cfg.effective_version,
                             )
-                            for reference in section_targets[code]
-                            for product in carriers
-                        )
+                        else:
+                            exact_witnesses += tuple(
+                                RelationshipWitness(
+                                    "section-definition:"
+                                    + operation_identity(
+                                        product["contribution_id"], reference.identity, code
+                                    ),
+                                    occurrence,
+                                    reference.component_id,
+                                    "defined-by",
+                                    frame.unit_ref,
+                                    cfg.scope,
+                                    cfg.effective_version,
+                                    (product["contribution_id"],),
+                                    "explicit_source_cue",
+                                    "unassessed",
+                                )
+                                for reference in section_targets[code]
+                                for product in carriers
+                            )
                     retrieval_error = encoder_error
                     channels = {}
                     if query is not None:
@@ -877,10 +966,13 @@ class ContextualCandidates:
                         except (ValueError, DBAPIError, TimeoutError, OSError) as error:
                             _propagate_cancellation(error, ctx.check_active)
                             retrieval_error = error
-                    if retrieval_error is not None and not (cfg.section_sources or exact_witnesses):
+                    if retrieval_error is not None and not (
+                        cfg.section_sources or exact_witnesses or section_nominations
+                    ):
                         raise retrieval_error
-                    if cfg.section_sources or exact_witnesses:
+                    if cfg.section_sources or exact_witnesses or section_nominations:
                         evidence = defaultdict(set)
+                        evidence.update(section_nominations)
                         for witness in exact_witnesses:
                             evidence[witness.target_id].update(witness.evidence_ids)
                         channels["witness"] = tuple(
@@ -1022,9 +1114,13 @@ class ContextualCandidates:
                 ),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
-            if self.version == "8":
+            if self.version == "9":
                 neighborhood = ctx.reader.contextual_mutual_neighbors(report)
-                report["neighborhood"] = dict(neighborhood, edges=tuple(neighborhood["edges"]))
+                report["neighborhood"] = dict(
+                    neighborhood,
+                    directed_ranks=tuple(neighborhood["directed_ranks"]),
+                    edges=tuple(neighborhood["edges"]),
+                )
             operation = dict(
                 operation_key=operation_key,
                 question="retained producer occurrence roles and contextual encoder products",
@@ -1072,4 +1168,4 @@ class ContextualCandidates:
 
 
 class ContextualCandidatesWithNeighborhood(ContextualCandidates):
-    version = "8"
+    version = "9"

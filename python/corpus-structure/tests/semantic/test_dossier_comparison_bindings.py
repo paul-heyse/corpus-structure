@@ -218,6 +218,156 @@ def test_comparison_qualification_rejects_substitution(failure):
         derive(value, root, root_ref, reference, payload, selected[:1], relationships)
 
 
+def test_comparison_root_witness_cannot_bind_another_focus_in_the_same_passage():
+    from corpus_structure.methods.structural_products import _comparison_member_roles
+
+    value, root, root_ref, reference, payload, selected, relationships = fixture()
+    report = StructuralProductReport.model_validate(payload["report"])
+    assert report.comparison is not None
+    left = next(p for p in value.passages if p.passage_id == report.comparison.left_id)
+    report = report.model_copy(
+        update={
+            "comparison": report.comparison.model_copy(update={"left_focus": span(left, "Apply")})
+        }
+    )
+    with pytest.raises(ValueError, match="outside the exact comparison focus"):
+        tuple(
+            _comparison_member_roles(
+                reference,
+                report,
+                selected[:1],
+                relationships,
+                root_ref,
+                root,
+                require_focus=True,
+            )
+        )
+
+
+def test_comparison_conflict_requires_exact_applicability_and_both_authored_readings():
+    from corpus_structure.methods.structural_products import _comparison_member_roles
+    from corpus_structure.semantic.structural_products import (
+        ApplicabilityPremise,
+        DefinitionProduct,
+        StructuralDefinitionReading,
+    )
+
+    value, root, root_ref, reference, payload, selected, relationships = fixture(exception=False)
+    report = StructuralProductReport.model_validate(payload["report"])
+    assert report.comparison is not None
+    left, right = value.passages
+    left_focus, right_focus = span(left, "Apply measure"), span(right, "Measure is a control rule")
+    located_usage = span(left, "measure")
+    usage = left.model_copy(
+        update={
+            "passage_id": "exact-usage",
+            "start": located_usage.start,
+            "end": located_usage.end,
+            "text": located_usage.text,
+        }
+    )
+    report = report.model_copy(
+        update={
+            "comparison": report.comparison.model_copy(
+                update={
+                    "left_focus": left_focus,
+                    "right_focus": right_focus,
+                    "applicability": "co_applicable",
+                }
+            )
+        }
+    )
+    premise = StructuralProductReport(
+        kind="definition_applicability",
+        inputs=value.model_copy(
+            update={
+                "passages": (*value.passages, usage),
+                "dependencies": tuple(
+                    dict.fromkeys(
+                        (
+                            *value.dependencies,
+                            root.component_id,
+                            root_ref.product_id,
+                            selected[0].relationship_ref.edge_id,
+                        )
+                    )
+                ),
+            }
+        ),
+        definition=DefinitionProduct(
+            usage_id=usage.passage_id,
+            candidate_list_id="candidate-list",
+            eligible_targets=(root.component_id,),
+            candidate_targets=(root.component_id,),
+            readings=(
+                StructuralDefinitionReading(
+                    target_id=root.component_id,
+                    component_ref=root_ref,
+                    link_ref=selected[0].relationship_ref,
+                    component=root,
+                    outcome="applicable_definition",
+                    evidence=(left.passage_id,),
+                    premises=tuple(
+                        ApplicabilityPremise(
+                            dimension=dimension,
+                            state="compatible",
+                            evidence=(left.passage_id,),
+                            reason="Exact scoped fixture.",
+                        )
+                        for dimension in (
+                            "sense",
+                            "scope",
+                            "parent",
+                            "parameterization",
+                            "convention",
+                            "version",
+                        )
+                    ),
+                    reason="Source witnesses this exact relation.",
+                ),
+            ),
+        ),
+    )
+    premise_ref = reference.model_copy(update={"product_id": premise.product_id})
+    text = f'"{left_focus.text}" contradicts "{right_focus.text}".'
+    proof = left.model_copy(
+        update={
+            "passage_id": "authored-contradiction",
+            "start": 0,
+            "end": len(text),
+            "text": text,
+        }
+    )
+    choice = selected[0].model_copy(
+        update={
+            "applicability_ref": premise_ref,
+            "conflict_passage_id": proof.passage_id,
+        }
+    )
+
+    def roles(witness):
+        return tuple(
+            _comparison_member_roles(
+                reference,
+                report,
+                (choice,),
+                relationships,
+                root_ref,
+                root,
+                require_focus=True,
+                applicability_reports={premise_ref: premise},
+                dossier_passages={proof.passage_id: witness},
+            )
+        )
+
+    conflict, relationship = roles(proof)
+    assert conflict[0] == "conflict" and relationship[0] == "relationship"
+    assert conflict[2].conflict_evidence is not None
+    assert conflict[2].conflict_evidence.text == text
+    with pytest.raises(ValueError, match="explicit contradiction"):
+        roles(proof.model_copy(update={"text": text.replace("contradicts", "discusses")}))
+
+
 def test_revision_requires_original_successor_and_direction():
     value = side_inputs()
     left, right = value.passages

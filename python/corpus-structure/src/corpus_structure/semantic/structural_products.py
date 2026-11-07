@@ -142,6 +142,13 @@ class RetainedStructuralRef(StructuralValue):
     runtime_fingerprint: Nonempty
 
 
+class RetainedDefinitionRoleRef(StructuralValue):
+    report: RetainedStructuralRef
+    role: Literal["term", "content"]
+    envelope: Digest
+    index: Annotated[int, Field(strict=True, ge=0)]
+
+
 class LocatedDefinitionSpan(StructuralValue):
     passage_id: Nonempty
     start: Annotated[int, Field(strict=True, ge=0)]
@@ -480,6 +487,7 @@ class ClauseReading(StructuralValue):
     passage_id: Nonempty
     fields: tuple[ClauseField, ...] = ()
     groups: dict[Dimension, ClauseFieldGroup] | None = None
+    focus: LocatedDefinitionSpan | None = None
 
     @model_validator(mode="after")
     def dimensions(self) -> Self:
@@ -488,6 +496,12 @@ class ClauseReading(StructuralValue):
         if len({f.dimension for f in self.fields}) != len(self.fields):
             raise ValueError("duplicate clause dimension")
         return self
+
+
+class ComparisonMemberDecision(StructuralValue):
+    left_index: int = Field(ge=0)
+    right_index: int = Field(ge=0)
+    outcome: Literal["equivalent", "different"]
 
 
 class DimensionComparison(StructuralValue):
@@ -499,6 +513,8 @@ class DimensionComparison(StructuralValue):
     right: ClauseField | None = None
     left_group: ClauseFieldGroup | None = None
     right_group: ClauseFieldGroup | None = None
+    grouping_outcome: Literal["same", "different", "unresolved"] | None = None
+    member_comparisons: tuple[ComparisonMemberDecision, ...] | None = None
     typed_outcome: Literal["equivalent", "different", "unknown", "unsupported", "ambiguous"] = (
         "unknown"
     )
@@ -521,6 +537,8 @@ class ComparisonProduct(StructuralValue):
     dimensions: tuple[DimensionComparison, ...]
     left_reading: RetainedContributionRef | None = None
     right_reading: RetainedContributionRef | None = None
+    left_focus: LocatedDefinitionSpan | None = None
+    right_focus: LocatedDefinitionSpan | None = None
     equivalence: Literal["not_asserted"] = "not_asserted"
     identity_standing: Literal["not_asserted"] = "not_asserted"
     applicability: Literal[
@@ -532,6 +550,14 @@ class ComparisonProduct(StructuralValue):
     @model_validator(mode="after")
     def succession_custody(self) -> Self:
         grouped = self.left_reading is not None
+        if any(
+            focus is not None and (not grouped or focus.passage_id != passage)
+            for focus, passage in (
+                (self.left_focus, self.left_id),
+                (self.right_focus, self.right_id),
+            )
+        ):
+            raise ValueError("comparison focus must identify its exact grouped side")
         if grouped != (self.right_reading is not None) or any(
             (d.left_group is not None) != grouped
             or (d.right_group is not None) != grouped
@@ -582,6 +608,12 @@ class DossierComparisonSelection(StructuralValue):
     comparison_product_id: Nonempty
     side: Literal["left", "right"]
     relationship_ref: RetainedRelationshipDecisionRef
+    applicability_ref: RetainedStructuralRef | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    conflict_passage_id: Nonempty | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class DossierComparisonBinding(StructuralValue):
@@ -596,6 +628,12 @@ class DossierComparisonBinding(StructuralValue):
     comparison: ComparisonProduct
     opposite_source: ExternalSourceRef
     opposite_citation: LocatedDefinitionSpan
+    applicability_ref: RetainedStructuralRef | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    conflict_evidence: LocatedDefinitionSpan | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def sides(self) -> Self:

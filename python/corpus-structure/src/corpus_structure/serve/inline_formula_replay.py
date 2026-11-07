@@ -67,7 +67,7 @@ def verify_inline_formula_report(report, source):
         d for d in detail["formula_syntax"] if d.get("input_policy") == INLINE_FORMULA_POLICY
     ]
     actual = [row for row in body["contributions"] if row["operation_key"] == op_key]
-    if body.get("operation_version") in {"6", "7", "8"}:
+    if body.get("operation_version") in {"6", "7", "8", "9"}:
         from .witnessed_source_link_replay import verify_named_links, verify_witnessed_links
 
         verify_witnessed_links(report, source, pin, cfg.inputs)
@@ -125,7 +125,7 @@ def verify_inline_formula_report(report, source):
             for op in body["contribution_operations"]
             if op["question"] == QUESTION
         }
-        if body.get("operation_version") in {"6", "7", "8"}
+        if body.get("operation_version") in {"6", "7", "8", "9"}
         else set()
     )
     formula_ids = {row["contribution_id"] for row in actual}
@@ -191,7 +191,7 @@ def verify_inline_formula_closure(root, manifest):
         row
         for row in all_reports.values()
         if row.get("method") == "structure.scoped_relations"
-        and (row.get("body") or {}).get("operation_version") in {"5", "6", "7", "8"}
+        and (row.get("body") or {}).get("operation_version") in {"5", "6", "7", "8", "9"}
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}
     ]
     if not reports:
@@ -207,5 +207,5 @@ def verify_inline_formula_closure(root, manifest):
         if source is None:
             raise ValueError("inline formula verification lacks exact retained source")
         verify_inline_formula_report(report, source)
-        if report["body"]["operation_version"] in {"7", "8"}:
+        if report["body"]["operation_version"] in {"7", "8", "9"}:
             verify_annotated_named_links(report, source, all_reports)

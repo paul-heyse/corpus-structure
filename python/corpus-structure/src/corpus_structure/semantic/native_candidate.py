@@ -719,6 +719,8 @@ def series_native_definitions(connection, *, include_selected=True):
 
     for name, roles in {
         "defining_text_event_features": (),
+        "defining_text_event_scope": ("corpus_sem_evaluator",),
+        "defining_text_event_identity": (),
         "operation_event_fit_frame": ("corpus_sem_evaluator", "corpus_sem_fitter"),
         "record_operation_event_fit": ("corpus_sem_evaluator", "corpus_sem_fitter"),
         "read_operation_event_fit": (
@@ -747,6 +749,16 @@ def series_native_definitions(connection, *, include_selected=True):
                 (role, "EXECUTE", False)
                 for role in ("corpus_sem_reader", "corpus_sem_evaluator", "corpus_sem_fitter")
             ),
+        )
+    )
+    definitions.extend(
+        _task_call_definitions(
+            connection,
+            operation_event_fitting_native_sql(),
+            name="count_defining_text_events",
+            source="ordinary operation event availability:forward",
+            schema="ops",
+            grants=(("corpus_sem_reader", "EXECUTE", False),),
         )
     )
     review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
@@ -822,6 +834,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "artifact_alias_span_source_value",
         "artifact_source_records",
         "artifact_external_nominations",
+        "artifact_declared_relationships",
         "artifact_lexical_score",
         "validate_artifact_identity",
         "structural_threshold_field",
@@ -830,8 +843,15 @@ def series_native_definitions(connection, *, include_selected=True):
         "comparison_member",
         "comparison_groups",
         "structural_grouped_comparison",
+        "comparison_typed_member",
+        "comparison_group_members",
         "dossier_comparison_roles",
         "structural_dossier",
+        "model_observation_policy",
+        "model_definition_declaration",
+        "located_model_request",
+        "located_model_observation_matches",
+        "validate_definition_window_requests",
         "definition_role_candidates",
         "definition_model_components",
         "clause_model_axis",
@@ -873,10 +893,19 @@ def series_native_definitions(connection, *, include_selected=True):
         "predicate_token_texts",
         "predicate_cue_recipe_matches",
         "predicate_cross_block_host_matches",
+        "predicate_lowered_condition",
+        "predicate_unlocated_role_matches",
+        "predicate_source_negation",
+        "predicate_reading_layout",
+        "predicate_source_reading",
         "validate_source_predicates",
         "validate_witnessed_formula_links",
+        "source_formula_recaps",
         "validate_named_source_links",
         "named_link_nominal",
+        "named_link_initial_words",
+        "named_link_expected_groups",
+        "named_link_definition_subject",
         "validate_named_annotation_links",
         "validate_scope_inheritance",
         "clause_model_concordance",

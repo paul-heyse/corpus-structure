@@ -1,6 +1,6 @@
 """Private GLiNER observations over authenticated exact predicate focuses."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 from typing import Literal, Self
 
@@ -265,7 +265,7 @@ def model_concordance(reference, report, source_view_id, contributions, resolve_
 
 class ClauseClassificationMethod:
     name = "structure.clause_classification"
-    version = "1"
+    version = "2"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -292,11 +292,19 @@ class ClauseClassificationMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json", exclude_none=True)))
 
     def run(self, units, cfg, ctx):
+        from .model_observation import (
+            observation_digest,
+            released_pack,
+            released_policy,
+            request_digest,
+        )
+
         if cfg.inputs is None or cfg.profile is None:
             raise ValueError("clause model inputs and profile absent")
         ctx.check_active()
         ctx.reader.validate_structural_inputs(cfg.inputs)
-        pack = clause_pack(ctx.reader.prepared.release_id)
+        policy = released_policy(ctx.reader.prepared)
+        pack = released_pack(ctx.reader.prepared.release_id, policy)
         if self._worker is None:
             self._worker = GlinerWorker(cfg.profile)
         elif self._worker.profile.fingerprint != cfg.profile.fingerprint:
@@ -325,16 +333,37 @@ class ClauseClassificationMethod:
                 retained,
                 annotations.get(passage.source_ref, ()),
             )
-            request = clause_context(selection, cfg.context_policy, focus, preceding, following)
+            request = replace(
+                clause_context(selection, cfg.context_policy, focus, preceding, following),
+                operation=f"{self.name}/{self.version}",
+            )
             prepared_focuses.append((selection, focus, preceding, following, request))
 
-        readings, raw_reports = [], []
+        readings, raw_reports, request_outcomes = [], [], []
         for selection, focus, preceding, following, request in prepared_focuses:
             ctx.check_active()
             reply = None
             function, presentation = (), ()
+            expected = request_digest(
+                pack, asdict(cfg.profile), (request,), THRESHOLD, "flat", False, policy["inference"]
+            )
+            outcome = dict(request_digest=expected, status="failed")
+            request_outcomes.append(outcome)
             try:
-                (reply,) = self._worker.extract(pack, (request,), check_active=ctx.check_active)
+                (returned,) = self._worker.extract(
+                    pack, (request,), threshold=THRESHOLD, check_active=ctx.check_active
+                )
+                if (
+                    returned.computation != expected
+                    or returned.request_digest != expected
+                    or returned.observation_digest
+                    != observation_digest(
+                        expected, returned.raw_json, returned.effective_profile_json
+                    )
+                ):
+                    raise GlinerWorkerError("provider reply differs from the selected request")
+                reply = returned
+                outcome["status"] = "returned"
                 raw_reports.append(asdict(reply))
                 function, presentation, disposition = clause_labels(reply.raw)
                 reason = (
@@ -344,6 +373,8 @@ class ClauseClassificationMethod:
                 )
             except (GlinerRefused, GlinerWorkerError, ValueError, TimeoutError, OSError) as error:
                 disposition, reason = "failed", f"{type(error).__name__}: {error}"
+                if isinstance(error, GlinerRefused) and reply is None:
+                    outcome["status"] = "refused"
             readings.append(
                 ClauseModelReading(
                     selection=selection,
@@ -371,12 +402,13 @@ class ClauseClassificationMethod:
                 outcome=ObservationOutcome.PRODUCED,
                 structural_product=report.model_dump(mode="json"),
                 parse_detail={
-                    "version": "clause-model-observation-1",
+                    "version": "clause-model-observation-2",
                     "schema_declaration": pack.declaration_json,
                     "pack_fingerprint": pack.fingerprint,
                     "profile_fingerprint": cfg.profile.fingerprint,
                     "profile": cfg.model_dump(mode="json")["profile"],
                     "raw_reports": raw_reports,
+                    "request_outcomes": request_outcomes,
                 },
             )
             for unit in units

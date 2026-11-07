@@ -56,7 +56,7 @@ from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.source_views import load_source_view, store_source_view
 
 from .agent_scenarios import lease_and_read
-from .native_record_fixtures import publish_native_record_fixture
+from .native_record_fixtures import publish_native_record_fixture, qualified_view_draft
 
 
 def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
@@ -271,7 +271,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
                 task_id=source,
                 attempt=claim.attempt,
                 holder="native-fixture",
-                draft=parent_draft,
+                draft=qualified_view_draft(parent_draft, prepared.release_id),
                 position=0,
             )
             sibling_draft = SourceViewDraft(
@@ -302,7 +302,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
                 task_id=source,
                 attempt=claim.attempt,
                 holder="native-fixture",
-                draft=sibling_draft,
+                draft=qualified_view_draft(sibling_draft, prepared.release_id),
                 position=2,
             )
         draft = SourceViewDraft(
@@ -326,6 +326,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
             dict(payload["health"], formula_outcomes=[]),
             b'{"recipe":"native-person-section"}',
         )
+        draft = qualified_view_draft(draft, prepared.release_id)
         view = store_source_view(
             conn,
             run_id=run,
@@ -711,12 +712,13 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         semantic_db_engine, semantic_writer_engine, tmp_path, ancestor=True
     )
     with semantic_writer_engine.connect() as conn:
-        parent = conn.scalar(
-            text("SELECT id FROM kb.source_view WHERE key='native-parent-section'")
-        )
-        sibling = conn.scalar(
-            text("SELECT id FROM kb.source_view WHERE key='native-sibling-section'")
-        )
+        parent, selected_child, sibling = conn.scalars(
+            text(
+                "SELECT source_view_id FROM ops.run_source_view WHERE run_id=:run ORDER BY position"
+            ),
+            {"run": run},
+        ).all()
+        assert selected_child == child
         parent_view = load_source_view(conn, parent)
         child_view = load_source_view(conn, child)
         sibling_view = load_source_view(conn, sibling)

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from functools import lru_cache
+from importlib.resources import files
 from typing import Literal
 
 from spacy.lang.en import English
@@ -20,23 +22,32 @@ PREDICATE_FRAME_VERSION = "2"
 type RoleSpan = tuple[int, int]
 type FrameLayout = Literal["prose", "example", "policy", "instruction"]
 
+
+@lru_cache(maxsize=1)
+def interpretation_recipe():
+    return json.loads(files(__package__).joinpath("predicate_interpretation.json").read_text())
+
+
 _SUBJECT = ("nsubj", "csubj")
 _PATIENT = ("nsubjpass", "csubjpass", "nsubj:pass", "csubj:pass")
 _OBJECT = ("obj", "dobj", "iobj", "dative")
 _COMPLEMENT = ("attr", "acomp", "oprd")
 _AUX = frozenset({"aux", "auxpass", "aux:pass", "cop"})
-_CLAUSE = frozenset({"advcl", "acl", "acl:relcl", "relcl", "ccomp", "xcomp", "parataxis"})
+_CLAUSE = frozenset(interpretation_recipe()["subordinate_dependencies"])
 _NOMINAL_EDGE = frozenset(
     {"det", "amod", "compound", "nummod", "quantmod", "poss", "case", "flat", "fixed", "advmod"}
 )
 _NOMINAL_PREP = frozenset({"of", "for", "in", "than"})
 _NOMINAL_POS = frozenset({"NOUN", "PROPN", "PRON", "NUM", "ADJ"})
-_REPORT = frozenset({"assume", "suppose", "presume", "say", "report", "state", "claim", "assert"})
-_ASSUMPTION = frozenset({"assume", "suppose", "presume"})
+_REPORT = frozenset(interpretation_recipe()["report_lemmas"])
+_ASSUMPTION = frozenset(interpretation_recipe()["assumption_lemmas"])
 _ASSUMPTION_WORDS = frozenset(
     f"{lemma[:-1]}{ending}" for lemma in _ASSUMPTION for ending in ("e", "es", "ed", "ing")
 )
-_NAMING = frozenset({"define", "call", "name", "denote", "mean", "represent", "refer"})
+_NAMING = frozenset(interpretation_recipe()["naming_lemmas"])
+_NAMING_COMPLEMENT = frozenset(interpretation_recipe()["naming_complement_required"])
+_NAMING_REFERENCE = frozenset(interpretation_recipe()["naming_reference_only"])
+_PRESCRIPTIVE_MODALS = frozenset(interpretation_recipe()["prescriptive_modals"])
 _CONDITION = frozenset({"if", "when", "provided", "provided that", "as long as"})
 _EXCEPTION = frozenset({"unless", "except", "except for"})
 _ORDER = frozenset({"before", "after"})
@@ -998,8 +1009,7 @@ class _FrameBlock:
             )
             return "reported_assumption", variant
         if lemma in _NAMING and (
-            lemma not in {"call", "name", "refer"}
-            or any(role.name == "complement" for role in roles)
+            lemma not in _NAMING_COMPLEMENT or any(role.name == "complement" for role in roles)
         ):
             return "naming", "naming_" + voice
         if voice == "copular":
@@ -1034,7 +1044,7 @@ class _FrameBlock:
         if reading == "naming":
             if polarity != "positive":
                 return "reference" if polarity == "negative" else "unresolved"
-            if self.lemma(token) in {"refer", "represent"}:
+            if self.lemma(token) in _NAMING_REFERENCE:
                 return "reference"
             return "definition" if len(roles) >= 2 else "unresolved"
         if self.layout == "example" or "example" in kinds:
@@ -1050,7 +1060,7 @@ class _FrameBlock:
         ):
             return "unresolved"
         modals = {cue.variant for cue in cues if cue.kind == "modality"}
-        if self.layout in {"policy", "instruction"} and modals & {"must", "shall", "should", "may"}:
+        if self.layout in {"policy", "instruction"} and modals & _PRESCRIPTIVE_MODALS:
             return "prescribed_action"
         imperative = (token.tag_ == "VB" or "Imp" in token.morph.get("Mood", None)) and not any(
             role.name == "actor" for role in roles

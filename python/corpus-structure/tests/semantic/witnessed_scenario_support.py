@@ -6,7 +6,7 @@ Reference meanings remain explicit original-source literals, never producer proj
 
 import json
 from collections.abc import Mapping
-from dataclasses import replace
+from dataclasses import asdict, replace
 from types import SimpleNamespace
 from typing import Any
 
@@ -32,6 +32,11 @@ from corpus_structure.methods.contextual_candidates import (
     ProducerRelationshipRecipe,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
+from corpus_structure.methods.model_observation import (
+    installed_policy,
+    observation_digest,
+    request_digest,
+)
 from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
@@ -170,18 +175,30 @@ def completed_component_case(case, tmp_path):
                     "term is defined or explained by": [dict(head=endpoint, tail=endpoint)]
                 },
             )
+            key = request_digest(
+                pack,
+                asdict(self.profile),
+                requests,
+                kwargs["threshold"],
+                kwargs["overlap_policy"],
+                kwargs.get("evaluation", False),
+                installed_policy()[0]["inference"],
+            )
+            raw_json = json.dumps(raw)
             return tuple(
                 GlinerReport(
                     request.context_id,
                     request.context_digest,
-                    "controlled-kernel",
+                    key,
                     self.profile.fingerprint,
                     pack.fingerprint,
                     GlinerPreparation(request.text, "", 1, 1, len(request.text.encode())),
-                    json.dumps(raw),
+                    raw_json,
                     "{}",
                     0.0,
                     False,
+                    request_digest=key,
+                    observation_digest=observation_digest(key, raw_json, "{}"),
                 )
                 for request in requests
             )

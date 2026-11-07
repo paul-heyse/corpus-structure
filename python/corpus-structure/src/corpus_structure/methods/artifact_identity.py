@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
+from collections import defaultdict
+from typing import Literal
 
 from pydantic import Field, model_validator
 
@@ -11,6 +14,8 @@ from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOut
 from corpus_structure.semantic.artifact_identity import (
     ArtifactAliasSpan,
     ArtifactCitation,
+    ArtifactDeclaredEndpoint,
+    ArtifactDeclaredRelationship,
     ArtifactIdentityProduct,
     ArtifactNomination,
     ArtifactNominationEndpoint,
@@ -23,6 +28,7 @@ from corpus_structure.semantic.artifact_identity import (
     artifact_source_labels,
     explicit_artifact_reference,
     native_alias_candidates,
+    normalized_code,
     pair_candidates,
     score_pairs,
 )
@@ -159,6 +165,142 @@ def artifact_cohort(records: list[ArtifactRecord]) -> tuple[ArtifactRecord, ...]
     return tuple(cohort.values())
 
 
+_RELATION_LABEL = re.compile(r"[ \t]+\((?:numbering namespace|revision):[ \t]*[A-Za-z0-9_.-]+\)")
+_WORK_CUE = re.compile(r"[ \t]+\(work:[ \t]*([A-Za-z0-9][A-Za-z0-9_.-]*)\)")
+_ARTIFACT_RELATION = re.compile(
+    r"[ \t]+\((cites|same lineage as|supersedes)[ \t]+(Table|Figure|Theorem|Section)[ \t]+"
+    r"([A-Za-z]?[0-9]+(?:[.-][0-9]+)*[A-Za-z]?)[ \t]+in numbering namespace[ \t]+"
+    r"([A-Za-z0-9][A-Za-z0-9_.-]*)(?:[ \t]+of work[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*))?"
+    r"(?:[ \t]+revision[ \t]+([A-Za-z0-9][A-Za-z0-9_.-]*))?\)"
+)
+_RELATION_KINDS: dict[str, Literal["reference", "same_lineage", "supersedes"]] = {
+    "cites": "reference",
+    "same lineage as": "same_lineage",
+    "supersedes": "supersedes",
+}
+
+
+def artifact_declared_relationships(records, inputs, frames):
+    """Resolve explicit bounded artifact declarations without inferring lineage from labels."""
+    passages = {p.passage_id: p for p in inputs.passages}
+    piece_bounds = {
+        (source, p["item_ref"], p["start"]): p["end"]
+        for source, frame in frames.items()
+        for p in json.loads(frame.native_context)["pieces"]
+        if p.get("kind") == "native_text" and p.get("cell_index") is None
+    }
+    captions = defaultdict(list)
+    declarations = []
+    for record in records:
+        work, kind = record.artifact.source_work, record.artifact.artifact_kind
+        work_citations = []
+        anchor_end = record.source_contribution["anchors"][0]["end"]
+        for citation in record.citations:
+            frame = frames[citation.source_ref]
+            passage = passages[citation.passage_id]
+            bound = min(
+                passage.end,
+                piece_bounds[
+                    citation.source_ref,
+                    citation.source_pointer,
+                    citation.end - anchor_end,
+                ],
+            )
+            cursor = citation.end
+            while label := _RELATION_LABEL.match(frame.text, cursor, bound):
+                cursor = label.end()
+            if marker := _WORK_CUE.match(frame.text, cursor, bound):
+                cursor = marker.end()
+                if marker[1] == work:
+                    work_citations.append(
+                        citation.model_copy(
+                            update={
+                                "start": marker.start(),
+                                "end": cursor,
+                                "text": marker[0],
+                            }
+                        )
+                    )
+            while relation := _ARTIFACT_RELATION.match(frame.text, cursor, bound):
+                cursor = relation.end()
+                relation_kind = _RELATION_KINDS[relation[1]]
+                if (relation_kind == "reference") != (
+                    record.artifact.occurrence_role == "reference"
+                ):
+                    continue
+                if relation[2].lower() != kind:
+                    continue
+                declarations.append(
+                    (
+                        record,
+                        relation_kind,
+                        citation.model_copy(
+                            update={
+                                "start": relation.start(),
+                                "end": cursor,
+                                "text": relation[0],
+                            }
+                        ),
+                        (relation[5] or work, kind, relation[4], relation[3].lower()),
+                        relation[6],
+                    )
+                )
+        if record.artifact.occurrence_role == "caption":
+            captions[
+                work, kind, record.numbering.value, normalized_code(record.artifact.controlled_code)
+            ].append((record, tuple(work_citations)))
+    output = []
+    for source, kind, origin, key, revision in declarations:
+        targets = []
+        cross_work = key[0] != source.artifact.source_work
+        for target, work_cues in captions[key]:
+            if (
+                target.occurrence_id == source.occurrence_id
+                or (cross_work and not work_cues)
+                or (revision is not None and target.revision.value != revision)
+                or (
+                    kind == "supersedes"
+                    and (
+                        source.revision.value is None
+                        or revision is None
+                        or source.revision.value == revision
+                    )
+                )
+            ):
+                continue
+            marker = work_cues[0] if cross_work else None
+            citation = (
+                next(
+                    c
+                    for c in target.citations
+                    if c.source_ref == marker.source_ref and c.passage_id == marker.passage_id
+                )
+                if marker
+                else target.citations[0]
+            )
+            targets.append(
+                ArtifactDeclaredEndpoint(
+                    record_id=target.contribution_id,
+                    citation=citation,
+                    work_cue=marker,
+                )
+            )
+        output.append(
+            ArtifactDeclaredRelationship(
+                kind=kind,
+                source_id=source.contribution_id,
+                origin=origin,
+                targets=tuple(targets),
+                outcome="no_compatible_candidate"
+                if not targets
+                else "witnessed_candidate"
+                if len(targets) == 1
+                else "ambiguous",
+            )
+        )
+    return tuple(dict.fromkeys(output))
+
+
 def retained_artifact_nomination(inputs, records, reference, payload) -> ArtifactNomination:
     """Bind one genuine retained reference relationship to its exact cohort endpoints."""
     if reference.contribution_id not in inputs.dependencies:
@@ -259,7 +401,7 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
 
 class ArtifactIdentityMethod:
     name = "structure.artifact_identity"
-    version = "3"
+    version = "4"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -280,6 +422,7 @@ class ArtifactIdentityMethod:
         records = []
         unbound = []
         provenance = []
+        frames = {}
         for source in cfg.inputs.sources:
             ctx.check_active()
             binding = bindings.get(source.native_content_digest)
@@ -287,6 +430,7 @@ class ArtifactIdentityMethod:
                 unbound.append(source.source_view_id)
                 continue
             frame = ctx.reader.structural_source_frame(cfg.inputs, source.identity)
+            frames[source.identity] = frame
             records.extend(
                 discover_identity_records(frame, cfg.inputs, source.identity, binding.source_work)
             )
@@ -301,9 +445,15 @@ class ArtifactIdentityMethod:
             )
         alias, _ = native_alias_candidates(selected)
         explicit_references = artifact_reference_resolutions(selected)
+        declarations = (
+            artifact_declared_relationships(selected, cfg.inputs, frames)
+            if self.version == "4"
+            else None
+        )
         pairs = pair_candidates(
             selected,
             external_nominations=tuple(nominations),
+            declared_relationships=declarations or (),
             explicit_references=explicit_references,
             native_alias_pairs=alias,
             title_threshold=cfg.title_threshold,
@@ -315,11 +465,15 @@ class ArtifactIdentityMethod:
             kind="artifact_identity",
             inputs=cfg.inputs,
             artifact_identity=ArtifactIdentityProduct(
+                protocol="artifact-identity-4"
+                if declarations is not None
+                else "artifact-identity-3",
                 records=selected,
                 pairs=scored,
                 native_alias_pairs=tuple(ArtifactPairKey(left=a, right=b) for a, b in alias),
                 external_nominations=tuple(nominations),
                 explicit_references=explicit_references,
+                declared_relationships=declarations,
                 route_counts=artifact_route_counts(scored),
                 policy=cfg.policy,
                 source_mapping_provenance=tuple(sorted(set(provenance))),

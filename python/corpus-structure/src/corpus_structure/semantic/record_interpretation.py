@@ -11,6 +11,7 @@ does not authorize splitting, approximate fallback, or claims about ordinary com
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from threading import Event
@@ -307,18 +308,22 @@ def interpret_records(
 
 
 def interpret_local(
-    request: LocalInterpretationRequest, *, cancellation: Event | None = None
+    request: LocalInterpretationRequest,
+    *,
+    cancellation: Event | None = None,
+    check_active: Callable[[], None] | None = None,
 ) -> InterpretationResult:
     """Evaluate an explicit local question without fabricating a whole-record event."""
     if not isinstance(request, LocalInterpretationRequest):
         raise TypeError("local interpretation requires LocalInterpretationRequest")
-    return _interpret(request, cancellation=cancellation)
+    return _interpret(request, cancellation=cancellation, check_active=check_active)
 
 
 def _interpret(
     request: InterpretationRequest | LocalInterpretationRequest,
     *,
     cancellation: Event | None = None,
+    check_active: Callable[[], None] | None = None,
 ) -> InterpretationResult:
     """Evaluate a private retained model, without accepting records or changing any store.
 
@@ -335,6 +340,8 @@ def _interpret(
     duration = 0.0
 
     def poll() -> None:
+        if check_active is not None:
+            check_active()
         if cancellation is not None and cancellation.is_set():
             raise _Stop(Outcome.CANCELLED, "cancelled; no partial probabilities returned")
         if monotonic() - started >= duration:

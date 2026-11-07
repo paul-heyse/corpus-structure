@@ -7,7 +7,9 @@ import re
 import warnings
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from functools import cache
 from hashlib import sha256
+from importlib.resources import files
 from typing import TYPE_CHECKING, Any, Literal
 
 from corpus_structure.semantic.identity import canonical_bytes
@@ -16,6 +18,7 @@ if TYPE_CHECKING:
     from docling_core.types.doc import DoclingDocument
 
     from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.types import PreparedRelease
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,14 +236,57 @@ class TextProjection:
     pieces: tuple[ProjectedPiece, ...]
 
 
-def section_text_recipe(native_product: ProductReference, *, analysis_eligible: bool) -> bytes:
+@cache
+def _section_text_policy_bytes() -> bytes:
+    return (
+        files("corpus_structure").joinpath("model/semantic/section-text-recipe.json").read_bytes()
+    )
+
+
+def section_text_policy(prepared: PreparedRelease) -> bytes:
+    policy = _section_text_policy_bytes()
+    digest = dict(json.loads(prepared.manifest)["dependencies"]).get(
+        "execution/implementation/pdf/section-text-recipe.json"
+    )
+    if digest != sha256(policy).hexdigest():
+        raise ValueError("section text recipe differs from the selected release")
+    return policy
+
+
+def section_text_recipe(
+    native_product: ProductReference, *, analysis_eligible: bool, policy: bytes | None = None
+) -> bytes:
     return canonical_bytes(
         {
-            "recipe": "native-section-text-v8",
-            "content_layers": ["body"],
+            **json.loads(policy if policy is not None else _section_text_policy_bytes()),
             "analysis_eligible": analysis_eligible,
             "organization_owner": native_product.values(),
         }
+    )
+
+
+def section_view_key(
+    consumer_release: str,
+    native: ProductReference,
+    section: str,
+    membership: str,
+    analysis_eligible: bool,
+    recipe: bytes,
+) -> str:
+    return (
+        "source-view:"
+        + sha256(
+            canonical_bytes(
+                {
+                    "consumer_release": consumer_release,
+                    "native": native.values(),
+                    "section": section,
+                    "membership": membership,
+                    "analysis_eligible": analysis_eligible,
+                    "recipe": sha256(recipe).hexdigest(),
+                }
+            )
+        ).hexdigest()
     )
 
 

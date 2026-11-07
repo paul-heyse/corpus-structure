@@ -3,9 +3,80 @@
 import json
 import struct
 import sys
+from hashlib import sha256
 from pathlib import Path
 
 from sqlalchemy import text
+
+
+def test_located_request_binds_ordered_schema_and_exact_inference(semantic_db_engine):
+    policy = {
+        "request_version": "located-model-request-1",
+        "definition": {"bare": ['{"entities":[', {"field": "term_entity"}, "]}"]},
+        "inference": {"operation": "batch_extract", "include_spans": True},
+    }
+    profile = {
+        "snapshot": "/acquired",
+        "checkpoint": "checkpoint",
+        "timeout_seconds": 120.0,
+        "artifact_hashes": [["z", "last"], ["a", "first"]],
+    }
+    config = {
+        "profile": profile,
+        "description_arm": "bare",
+        "term_entity": '\u03b1 "term"',
+        "threshold": 0.5,
+        "evaluation_overlap": "nested",
+    }
+    expected = [
+        "located-model-request-1",
+        "r",
+        "native-local-v1",
+        '{"entities":["\u03b1 \\"term\\""]}',
+        {
+            "checkpoint": "checkpoint",
+            "timeout_seconds": "120",
+            "artifact_hashes": [["a", "first"], ["z", "last"]],
+        },
+        [["structure.definition_components/9", "context", "digest", " \u03b1\t\u03b2"]],
+        "0.5",
+        "nested",
+        True,
+        {"operation": "batch_extract", "include_spans": True},
+    ]
+    expected_key = sha256(
+        json.dumps(expected, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+    sql = (
+        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
+    ).read_text()
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
+        query = text(
+            "SELECT ops.located_model_request('r','structure.definition_components/9',"
+            "CAST(:policy AS jsonb),CAST(:config AS jsonb),'context','digest',:body)"
+        )
+        params = {
+            "policy": json.dumps(policy),
+            "config": json.dumps(config),
+            "body": " \u03b1\t\u03b2",
+        }
+        assert conn.scalar(query, params) == expected_key
+        assert (
+            conn.scalar(
+                query,
+                {
+                    **params,
+                    "config": json.dumps(
+                        {
+                            **config,
+                            "evaluation_overlap": "allow",
+                        }
+                    ),
+                },
+            )
+            != expected_key
+        )
 
 
 def test_native_model_report_preserves_exact_binary_profile_and_scores(semantic_db_engine):

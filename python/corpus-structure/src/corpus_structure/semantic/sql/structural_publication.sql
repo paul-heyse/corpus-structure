@@ -95,6 +95,8 @@ BEGIN
   value:=report->'comparison'; items:='[]';
   FOR item IN SELECT v FROM jsonb_array_elements(value->'dimensions') v LOOP
    entry:=jsonb_build_object('dimension',item->>'dimension','outcome',item->>'outcome','typed_outcome',item->>'typed_outcome','assumptions',item->'assumptions');
+   entry:=entry||jsonb_strip_nulls(jsonb_build_object(
+    'grouping_outcome',item->'grouping_outcome','member_comparisons',item->'member_comparisons'));
    IF nullif(item->'removed_interval','null') IS NOT NULL THEN entry:=entry||jsonb_build_object('removed_interval',item->'removed_interval');END IF;
    IF nullif(item->'added_interval','null') IS NOT NULL THEN entry:=entry||jsonb_build_object('added_interval',item->'added_interval');END IF;
    FOREACH side IN ARRAY ARRAY['left','right'] LOOP

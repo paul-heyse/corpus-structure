@@ -191,6 +191,12 @@ def structural_statement(
             item.update(
                 typed_outcome=dimension.typed_outcome, assumptions=list(dimension.assumptions)
             )
+            if dimension.grouping_outcome is not None:
+                item["grouping_outcome"] = dimension.grouping_outcome
+            if dimension.member_comparisons is not None:
+                item["member_comparisons"] = [
+                    member.model_dump(mode="json") for member in dimension.member_comparisons
+                ]
             for interval_name in ("removed_interval", "added_interval"):
                 interval = getattr(dimension, interval_name)
                 if interval is not None:

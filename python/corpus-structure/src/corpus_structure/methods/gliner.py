@@ -219,6 +219,7 @@ class GlinerInput:
     context_id: str
     context_digest: str
     text: str
+    operation: str | None = None
 
     def __post_init__(self) -> None:
         if not self.context_id or not self.text or len(self.context_digest) != 64:
@@ -256,6 +257,8 @@ class GlinerReport:
         ("abstention", "unavailable"),
         ("feasibility", "unavailable"),
     )
+    request_digest: str | None = None
+    observation_digest: str | None = None
 
     @property
     def raw(self) -> dict[str, Any]:

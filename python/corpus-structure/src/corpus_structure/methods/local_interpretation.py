@@ -7,7 +7,7 @@ remain with their existing owners; a seal is attribution, never publication auth
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from threading import Event
 from typing import Any
@@ -27,6 +27,7 @@ def interpret_contribution_question(
     dependency_ids: tuple[str, ...],
     request: LocalInterpretationRequest | None = None,
     cancellation: Event | None = None,
+    check_active: Callable[[], None] | None = None,
     unavailable_reason: str | None = None,
     unavailable_policy_version: str | None = None,
 ) -> dict[str, Any]:
@@ -86,7 +87,9 @@ def interpret_contribution_question(
             policy_version=policy.revision,
         )
         request_row = _sealed_value(asdict(request))
-        result = _sealed_value(asdict(interpret_local(request, cancellation=cancellation)))
+        result = _sealed_value(
+            asdict(interpret_local(request, cancellation=cancellation, check_active=check_active))
+        )
         row.update(
             request=request_row,
             request_digest=_digest(request_row),
@@ -107,6 +110,7 @@ def local_question_operation(
     dependency_ids: tuple[str, ...],
     request: LocalInterpretationRequest | None = None,
     cancellation: Event | None = None,
+    check_active: Callable[[], None] | None = None,
     unavailable_reason: str | None = None,
     unavailable_policy_version: str | None = None,
 ) -> dict[str, Any]:
@@ -120,6 +124,7 @@ def local_question_operation(
         dependency_ids=dependency_ids,
         request=request,
         cancellation=cancellation,
+        check_active=check_active,
         unavailable_reason=unavailable_reason,
         unavailable_policy_version=unavailable_policy_version,
     )

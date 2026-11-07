@@ -1,6 +1,7 @@
 """Selected gap coverage distinguishes findings, inspected empty and unavailable."""
 
 from copy import deepcopy
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -58,7 +59,7 @@ def capture(report, payload=None, **changes):
     )
 
 
-def unresolved(outcome="insufficient_evidence", operation_outcome="succeeded"):
+def unresolved(outcome="insufficient_evidence", operation_outcome="succeeded") -> dict[str, Any]:
     operation = dict(
         question="contextual relationship selection for located occurrence",
         operation_key="phase",
@@ -118,6 +119,23 @@ def test_unresolved_binding_preserves_candidate_and_recorded_coverage():
     )
 
 
+def test_unresolved_binding_refuses_operation_for_a_different_occurrence():
+    name = "unresolved_binding"
+    payload = unresolved()
+    operation = payload["operations"][0]
+    operation["dependencies"] = ["other-cue"]
+    operation.pop("report_digest", None)
+    request = GapRequest(
+        report=name,
+        run_id=1,
+        task_id=4,
+        occurrence_id="cue",
+        operation_key=operation["operation_key"],
+    )
+    with pytest.raises(SemanticRefusal, match="did not inspect"):
+        gap_page(request, capture(name, payload))
+
+
 def test_unknown_applicability_keeps_original_incompatibility_and_exact_cursor():
     name = "unknown_applicability_premise"
     request = GapRequest(report=name, run_id=1, task_id=4, limit=1)
@@ -170,6 +188,12 @@ def test_supported_comparison_gap_requires_authorized_summary_and_inspected_bind
     bound = deepcopy(comparison)
     bound["binding_payload"]["bound"].append(reference.model_dump(mode="json"))
     assert gap_page(request, bound).status == "empty"
+    one_side = deepcopy(comparison)
+    one_side["binding_payload"]["bound_sides"] = [
+        {"reference": reference.model_dump(mode="json"), "side": "left"}
+    ]
+    uncovered = gap_page(request, one_side).rows[0].evidence["sides"]
+    assert isinstance(uncovered, dict) and set(uncovered) == {"right"}
     uninspected = gap_page(request, {**comparison, "binding_payload": None})
     assert uninspected.status == "unavailable"
     assert uninspected.rows[0].reason == "binding_production_unavailable"
@@ -213,3 +237,35 @@ def test_detached_gap_replays_same_pages_and_rejects_substitution(tmp_path):
     output = tmp_path / "forged"
     with pytest.raises(ValueError, match="differs from selected producer evidence"):
         write_review_bundle(selection, output, iter(rows))
+
+
+def test_exact_detached_gap_rejects_consistent_projection_substitution(tmp_path):
+    name = "unknown_applicability_premise"
+    request = GapRequest(report=name, run_id=1, cut_id=2, task_id=4)
+    original = applicability().model_dump(mode="json")
+    selection = ReviewSelection(
+        structural_gap_selections=(request,), require_original_gap_reports=True
+    )
+    custody = {
+        "selection_index": 0,
+        "bodies": {"producer": {"structural_product": original}, "binding": None},
+        "assertions": [],
+    }
+
+    def rows(payload):
+        captured = capture(name, payload)
+        page = gap_page(request, captured)
+        return iter(
+            [
+                ("structural_gap_sources", dict(selection_index=0, **captured)),
+                ("structural_gap_custody", custody),
+                ("structural_gaps", dict(selection_index=0, **page.model_dump(mode="json"))),
+            ]
+        )
+
+    manifest = write_review_bundle(selection, tmp_path / "original", rows(original))
+    assert verify_review_bundle(tmp_path / "original") == manifest
+    changed = deepcopy(original)
+    changed["definition"]["readings"] = changed["definition"]["readings"][:1]
+    with pytest.raises(ValueError, match="differs from the original producer report"):
+        write_review_bundle(selection, tmp_path / "changed", rows(changed))

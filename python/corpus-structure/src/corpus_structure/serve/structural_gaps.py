@@ -1,5 +1,6 @@
 """Bounded gap reports over exact selected producers and authorized support."""
 
+import json
 from hashlib import sha256
 from typing import Annotated, Literal
 
@@ -192,6 +193,102 @@ SELECT jsonb_build_object(
 """
 
 
+def gap_payload_from_report(body, request, *, binding=False):
+    """Reconstruct a bounded gap projection from the original producer result."""
+    if binding:
+        from corpus_structure.semantic.structural_products import StructuralProductReport
+
+        product = body.get("structural_product")
+        if not product or product.get("kind") != "dossier":
+            return None
+        dossier = product["dossier"]
+        bound_sides = {
+            canonical_bytes(
+                {
+                    "reference": member["comparison_binding"]["comparison_ref"],
+                    "side": member["comparison_binding"]["side"],
+                }
+            )
+            for member in dossier["members"]
+            if member.get("comparison_binding") is not None
+        }
+        return {
+            "product_id": StructuralProductReport.model_validate(product).product_id,
+            "root": dossier.get("root_component"),
+            "predecessors": dossier["predecessors"],
+            "bound_sides": [json.loads(row) for row in sorted(bound_sides)],
+        }
+    if request.report != "unresolved_binding":
+        return body.get("structural_product")
+    operations = []
+    for raw in body.get("contribution_operations") or ():
+        operation = {
+            key: value
+            for key, value in raw.items()
+            if key not in {"contextual_enrichment", "computation_dependencies"}
+        }
+        if contextual := raw.get("contextual_enrichment"):
+
+            def selected(rows):
+                return [
+                    row
+                    for row in rows
+                    if request.occurrence_id is None
+                    or row["occurrence_id"] == request.occurrence_id
+                ]
+
+            operation["contextual"] = {
+                "candidate_lists": [
+                    {
+                        **{
+                            k: c.get(k)
+                            for k in ("occurrence_id", "list_id", "eligible_target_count")
+                        },
+                        "candidates": [candidate["target_id"] for candidate in c["candidates"]],
+                    }
+                    for c in selected(contextual["candidate_lists"])
+                ],
+                "decisions": [
+                    {
+                        key: row[key]
+                        for key in (
+                            "occurrence_id",
+                            "decision_id",
+                            "scope",
+                            "outcome",
+                            "reason",
+                            "exclusions",
+                            "unresolved_constraints",
+                        )
+                        if row.get(key) is not None
+                    }
+                    for row in selected(contextual["relationship_decisions"])
+                ],
+                "section_resolutions": selected(contextual.get("section_resolutions", ())),
+            }
+        elif (
+            raw["question"] == "contextual relationship selection for located occurrence"
+            and request.operation_key in (None, raw["operation_key"])
+        ):
+            operation["dependencies"] = raw["computation_dependencies"]
+        else:
+            continue
+        operations.append(operation)
+    return {
+        "operations": operations,
+        "occurrences": [
+            {
+                "id": row["contribution_id"],
+                "occurrence_id": row["occurrence_id"],
+                "anchors": row["anchors"],
+            }
+            for row in body.get("contributions") or ()
+            if row["semantic_type"] == "contextual.located_mention"
+            and request.occurrence_id in (None, row["occurrence_id"])
+        ],
+    }
+
+
 def _read_payload(conn, producer, request, *, binding=False):
     if not producer["cut_member"] or producer["task_status"] not in {"done", "reused", "empty"}:
         return None
@@ -214,8 +311,10 @@ def _read_payload(conn, producer, request, *, binding=False):
               'product_id','structural:'||encode(sha256(convert_to(data.canonical_json(report-'retrieval_report'),'UTF8')),'hex'),
               'root',report->'dossier'->'root_component',
               'predecessors',report->'dossier'->'predecessors',
-              'bound',COALESCE((SELECT
-                 jsonb_agg(DISTINCT member->'comparison_binding'->'comparison_ref')
+              'bound_sides',COALESCE((SELECT
+                 jsonb_agg(DISTINCT jsonb_build_object(
+                  'reference',member->'comparison_binding'->'comparison_ref',
+                  'side',member->'comparison_binding'->'side'))
                  FROM jsonb_array_elements(report->'dossier'->'members') member
                  WHERE jsonb_typeof(member->'comparison_binding')='object'),'[]')) AS payload
             FROM (SELECT body->'structural_product' report
@@ -255,6 +354,7 @@ def _unresolved(payload, request):
             for dependency in operation.get("dependencies", ()):
                 by_dependency.setdefault(dependency, set()).add(key)
     chosen: dict[tuple[str, ...], GapRow] = {}
+    selected_operation_matches = False
     for product in contextual:
         decisions = {d["occurrence_id"]: d for d in product["decisions"]}
         candidates = {c["occurrence_id"]: c for c in product["candidate_lists"]}
@@ -275,6 +375,7 @@ def _unresolved(payload, request):
                 matching.update(by_digest.get(decision["decision_id"].rsplit(":", 1)[-1], ()))
             if request.operation_key is not None:
                 matching.intersection_update({request.operation_key})
+                selected_operation_matches |= bool(matching)
             if not matching:
                 if request.operation_key is None:
                     chosen[(key, occurrence["id"])] = _gap(
@@ -334,6 +435,13 @@ def _unresolved(payload, request):
                 chosen[(key, occurrence["id"], operation)] = row
     if request.operation_key is not None and request.operation_key not in phases:
         raise SemanticRefusal("binding operation is outside the selected producer")
+    if (
+        request.operation_key is not None
+        and request.occurrence_id is not None
+        and phases[request.operation_key]["outcome"] in SUCCESS
+        and not selected_operation_matches
+    ):
+        raise SemanticRefusal("binding operation did not inspect the selected occurrence")
     if (
         request.operation_key is not None
         and not chosen
@@ -400,7 +508,7 @@ def _unknown(report, producer, request):
     ]
 
 
-def _supported_comparison(report, producer, binding, binding_producer, support):
+def _supported_comparison(report, producer, binding, binding_producer, support, request):
     def unavailable(reason, outcome):
         return [_gap("unavailable", reason, producer["method"], outcome)]
 
@@ -435,23 +543,33 @@ def _supported_comparison(report, producer, binding, binding_producer, support):
         )
     if reference not in binding["predecessors"]:
         return unavailable("comparison_outside_binding_selection", "not_inspected")
-    if reference in binding["bound"]:
-        return []
+    bound_sides = {
+        entry["side"] for entry in binding.get("bound_sides", ()) if entry["reference"] == reference
+    }
+    # Older captured projections recorded comparison-level membership only.
     if comparison is None:
         raise ValueError("selected supported product lacks comparison")
     passages = {p.passage_id: p for p in report.inputs.passages}
     sources = {s.identity: s for s in report.inputs.sources}
-    sides = {}
+    selected_sides = {}
     for side, passage_id, reading in (
         ("left", comparison.left_id, comparison.left_reading),
         ("right", comparison.right_id, comparison.right_reading),
     ):
         passage = passages[passage_id]
-        sides[side] = dict(
+        source = sources[passage.source_ref]
+        if request.source_view_id not in (None, source.source_view_id):
+            continue
+        selected_sides[side] = dict(
             passage=passage.model_dump(mode="json"),
-            source=sources[passage.source_ref].model_dump(mode="json"),
+            source=source.model_dump(mode="json"),
             reading=reading.model_dump(mode="json") if reading else None,
         )
+    if not selected_sides:
+        raise SemanticRefusal("gap source does not identify a selected comparison side")
+    sides = {side: row for side, row in selected_sides.items() if side not in bound_sides}
+    if reference in binding.get("bound", ()) or not sides:
+        return []
     return [
         _gap(
             "actionable",
@@ -501,7 +619,9 @@ def gap_rows(request, producer, payload, binding_producer, binding_payload, supp
     _structural_source(report, request)
     if request.report == "unknown_applicability_premise":
         return _unknown(report, producer, request)
-    return _supported_comparison(report, producer, binding_payload, binding_producer, support)
+    return _supported_comparison(
+        report, producer, binding_payload, binding_producer, support, request
+    )
 
 
 def gap_capture(conn, request):
@@ -528,12 +648,17 @@ def gap_capture(conn, request):
     binding_producer = binding_payload = None
     support = []
     if request.report == "unconnected_supported_comparison" and payload:
-        from corpus_structure.semantic.structural_admission import read_structural_assertions
+        from corpus_structure.semantic.structural_admission import (
+            read_structural_assertions,
+            structural_claim_id,
+            structural_statement,
+        )
         from corpus_structure.semantic.structural_products import StructuralProductReport
 
         report = StructuralProductReport.model_validate(payload)
         _structural_source(report, request)
         if "StructuralPublicationPolicy" in session.prepared.index.definitions:
+            claim_id = structural_claim_id(structural_statement(report))
             support = [
                 dict(assertion_id=row["assertion_id"], claim_id=row["claim_id"])
                 for row in read_structural_assertions(
@@ -546,6 +671,7 @@ def gap_capture(conn, request):
                 if row["cut_id"] == producer["cut_id"]
                 and row["selected_task_id"] == producer["selected_task_id"]
                 and row["origin_task_id"] == producer["origin_task_id"]
+                and row["claim_id"] == claim_id
             ]
         if not support:
             payload = None
@@ -563,6 +689,198 @@ def gap_capture(conn, request):
         binding_payload=binding_payload,
         support=support,
     )
+
+
+_CUSTODY_FIELDS = (
+    "run_id",
+    "cut_id",
+    "project_id",
+    "release_id",
+    "result_revision",
+    "selected_task_id",
+    "origin_task_id",
+    "runtime_fingerprint",
+    "method",
+)
+
+
+def gap_review_custody(conn, captured, budget):
+    """Export original producer records and only the authorized assertion statement."""
+    from corpus_structure.semantic.structural_admission import read_structural_assertions
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    results = table("ops.task_result")
+    raw = {}
+    bindings = {}
+    for name, producer in (
+        ("producer", captured["producer"]),
+        ("binding", captured["binding_producer"]),
+    ):
+        body = None
+        bindings[name] = None
+        if producer:
+            _, bound = _task(
+                conn,
+                GapTask(
+                    run_id=producer["run_id"],
+                    cut_id=producer["cut_id"],
+                    task_id=producer["selected_task_id"],
+                ),
+                producer["method"],
+            )
+            bindings[name] = {key: bound[key] for key in _CUSTODY_FIELDS}
+        if (
+            producer
+            and producer["cut_member"]
+            and producer["task_status"] in {"done", "reused", "empty"}
+        ):
+            query = select(results.c.body).where(results.c.task_id == producer["origin_task_id"])
+            budget.preflight(conn, query)
+            body = conn.scalar(query)
+        raw[name] = body
+    assertions = []
+    if captured["support"]:
+        producer = captured["producer"]
+        session = bind_completed_result(conn, producer["run_id"])
+        product = StructuralProductReport.model_validate(captured["payload"])
+        ids = {row["assertion_id"] for row in captured["support"]}
+        assertions = [
+            {key: row[key] for key in ("assertion_id", "claim_id", "statement")}
+            for row in read_structural_assertions(
+                conn,
+                release_id=session.binding.release_id,
+                realization_id=session.binding.realization_id,
+                product_ids=(product.product_id,),
+                support=True,
+            )
+            if row["assertion_id"] in ids
+            and row["cut_id"] == producer["cut_id"]
+            and row["selected_task_id"] == producer["selected_task_id"]
+            and row["origin_task_id"] == producer["origin_task_id"]
+        ]
+    return {"bodies": raw, "bindings": bindings, "assertions": assertions}
+
+
+def gap_review_source_ids(custody):
+    selected = set()
+    for body in custody["bodies"].values():
+        if not body:
+            continue
+        product = body.get("structural_product") or {}
+        selected.update(
+            row["source_view_id"] for row in product.get("inputs", {}).get("sources", ())
+        )
+        selected.update(
+            row["pin"]["source_view_id"]
+            for row in body.get("contributions") or ()
+            if row.get("pin", {}).get("source_view_id") is not None
+        )
+    return selected
+
+
+def _verify_gap_source_pins(bodies, sources):
+    for body in bodies.values():
+        if not body:
+            continue
+        product = body.get("structural_product") or {}
+        inputs = product.get("inputs", {})
+        by_identity = {}
+        for pin in inputs.get("sources", ()):
+            source = sources[pin["source_view_id"]]
+            ref = source["ref"]
+            if (ref["projection_digest"], ref["recipe_digest"], ref["native_product"]) != (
+                pin["projection_digest"],
+                pin["recipe_digest"],
+                {
+                    "task_id": pin["native_task_id"],
+                    "product_key": pin["native_product_key"],
+                    "content_digest": pin["native_content_digest"],
+                },
+            ):
+                raise ValueError("detached gap source differs from the original structural pin")
+            by_identity[sha256(canonical_bytes(pin)).hexdigest()] = source["text"]
+        for passage in inputs.get("passages", ()):
+            text = by_identity.get(passage["source_ref"])
+            if text is None or text[passage["start"] : passage["end"]] != passage["text"]:
+                raise ValueError("detached gap passage differs from the original projected text")
+        for row in body.get("contributions") or ():
+            pin = row.get("pin", {})
+            if (view_id := pin.get("source_view_id")) is None:
+                continue
+            ref = sources[view_id]["ref"]
+            if (ref["projection_digest"], ref["recipe_digest"], ref["native_product"]) != (
+                pin["projection_digest"],
+                pin["recipe_digest"],
+                {
+                    "task_id": pin["native_product_task_id"],
+                    "product_key": pin["product_key"],
+                    "content_digest": pin["product_digest"],
+                },
+            ):
+                raise ValueError("detached gap occurrence differs from the original source pin")
+
+
+def verify_gap_review_custody(captured, custody, request, sources=None):
+    from corpus_structure.semantic.structural_admission import (
+        structural_claim_id,
+        structural_statement,
+    )
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    bodies = custody["bodies"]
+    if "bindings" in custody:
+        if sources is None or not gap_review_source_ids(custody) <= sources.keys():
+            raise ValueError("detached gap is missing its original source views")
+        _verify_gap_source_pins(bodies, sources)
+        for name, producer in (
+            ("producer", captured["producer"]),
+            ("binding", captured["binding_producer"]),
+        ):
+            expected_binding = {key: producer[key] for key in _CUSTODY_FIELDS} if producer else None
+            if custody["bindings"][name] != expected_binding:
+                raise ValueError("detached gap origin differs from the selected cut")
+            if bodies[name] is not None and (
+                producer is None or bodies[name].get("method") != producer["method"]
+            ):
+                raise ValueError("detached gap report differs from its selected producer method")
+    body = bodies["producer"]
+    expected = gap_payload_from_report(body, request) if body is not None else None
+    missing_support = (
+        request.report == "unconnected_supported_comparison" and not custody["assertions"]
+    )
+    if (
+        request.report != "unresolved_binding"
+        and expected is not None
+        and (expected.get("version") != "structural-product-3" or missing_support)
+    ):
+        expected = None
+    if expected != captured["payload"]:
+        raise ValueError("detached gap payload differs from the original producer report")
+    expected_support = []
+    if custody["assertions"]:
+        statement = structural_statement(StructuralProductReport.model_validate(expected))
+        claim = structural_claim_id(statement)
+        for row in custody["assertions"]:
+            if row["statement"] != statement or row["claim_id"] != claim:
+                raise ValueError("detached gap support differs from the original comparison")
+            expected_support.append({"assertion_id": row["assertion_id"], "claim_id": claim})
+    if expected_support != captured["support"]:
+        raise ValueError("detached gap support differs from the authorized assertion projection")
+    expected_binding = None
+    if (
+        bodies["binding"] is not None
+        and expected_support
+        and (captured["binding_producer"]["comparison_binding_available"])
+    ):
+        expected_binding = gap_payload_from_report(bodies["binding"], request, binding=True)
+    binding = captured["binding_payload"]
+    if expected_binding is not None and binding is not None:
+        expected_binding["bound_sides"] = sorted(
+            expected_binding["bound_sides"], key=canonical_bytes
+        )
+        binding = {**binding, "bound_sides": sorted(binding["bound_sides"], key=canonical_bytes)}
+    if expected_binding != binding:
+        raise ValueError("detached gap binding differs from the original dossier report")
 
 
 def gap_page(request: GapRequest, captured) -> GapPage:

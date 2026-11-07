@@ -11,7 +11,7 @@ import os
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from multiprocessing.reduction import ForkingPickler
@@ -42,6 +42,7 @@ class _Request:
     inputs: tuple[GlinerInput, ...]
     threshold: float
     overlap_policy: str
+    evaluation: bool
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,8 @@ def _send_reply(connection: Connection, reply: _Reply, profile: GlinerProfile) -
 
 
 def _native_child(connection: Connection, profile: GlinerProfile) -> None:
+    from .model_observation import installed_policy, observation_digest, request_digest
+
     os.dup2(2, 1)
     # Defense in depth only: detached inputs and absence of DB/provider imports are
     # the application boundary. This is not an OS sandbox or secret-isolation claim.
@@ -106,16 +109,28 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                     prepare_input(model, schema, item, profile) for item in request.inputs
                 )
                 started = time.monotonic()
+                inference = installed_policy()[0]["inference"]
+                settings = {key: value for key, value in inference.items() if key != "operation"}
+                request_key = (
+                    request_digest(
+                        request.pack,
+                        asdict(profile),
+                        request.inputs,
+                        request.threshold,
+                        request.overlap_policy,
+                        request.evaluation,
+                        inference,
+                    )
+                    if any(item.operation for item in request.inputs)
+                    else None
+                )
                 raw = model.batch_extract(
                     [item.text for item in request.inputs],
                     schema,
                     batch_size=len(request.inputs),
-                    num_workers=0,
                     threshold=request.threshold,
                     overlap_policy=request.overlap_policy,
-                    include_spans=True,
-                    include_confidence=True,
-                    max_len=None,
+                    **settings,
                 )
                 elapsed = time.monotonic() - started
                 if len(raw) != len(request.inputs):
@@ -124,7 +139,8 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                     GlinerReport(
                         item.context_id,
                         item.context_digest,
-                        _digest(
+                        request_key
+                        or _digest(
                             {
                                 "profile": profile.fingerprint,
                                 "effective_profile": effective_profile_fingerprint(effective),
@@ -151,6 +167,12 @@ def _native_child(connection: Connection, profile: GlinerProfile) -> None:
                         effective,
                         elapsed,
                         reused,
+                        request_digest=request_key,
+                        observation_digest=(
+                            observation_digest(request_key, _json(result), effective)
+                            if request_key
+                            else None
+                        ),
                     )
                     for item, prepared, result in zip(
                         request.inputs, preparations, raw, strict=True
@@ -261,7 +283,7 @@ class GlinerWorker:
             if check_active is not None:
                 check_active()
             self._serial += 1
-            request = _Request(self._serial, pack, inputs, threshold, overlap_policy)
+            request = _Request(self._serial, pack, inputs, threshold, overlap_policy, evaluation)
             frame = bytes(ForkingPickler.dumps(request))
             if len(frame) > self.profile.max_request_frame_bytes:
                 raise GlinerRefused("request frame byte bound exceeded")

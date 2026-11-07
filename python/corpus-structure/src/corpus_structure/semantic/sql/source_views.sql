@@ -92,6 +92,7 @@ CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
 DECLARE job ops.task; run ops.run; product jsonb; parsing_item jsonb; projection jsonb; piece jsonb;
  native ops.pdf_selected_product; placement ops.pdf_published_revision; section kb.pdf_record_access; previous kb.source_view; result bigint;
+ recipe_policy jsonb; recipe_owner jsonb; recipe_key text;
  pos bigint:=0; stop bigint; node jsonb; spelling text; piece_pointer text; expected jsonb; coverage_universe text; local_coverage text; coverage_row record; coverage_rows jsonb;
 BEGIN
  SELECT * INTO STRICT run FROM ops.run WHERE id=p_run FOR SHARE;
@@ -128,8 +129,23 @@ BEGIN
  SELECT COALESCE(jsonb_agg(pointer ORDER BY ordinal),'[]'::jsonb) INTO expected FROM kb.pdf_record_access
  WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer IN (SELECT pointer FROM ops.read_pdf_published_section_nodes(native.task_id,native.product_key,native.content_digest,section.pointer,product->>'membership') WHERE role='selected');
  IF projection->'items' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'source view membership/order is incomplete or differs' USING ERRCODE='23514'; END IF;
- IF (CASE WHEN convert_from(p_recipe,'UTF8') IS JSON OBJECT
-   THEN convert_from(p_recipe,'UTF8')::jsonb->>'recipe' END)='native-section-text-v8' THEN
+ SELECT convert_from(content,'UTF8')::jsonb INTO recipe_policy FROM sem.input
+ WHERE release_id=run.release_id AND input_kind='dependency'
+ AND input_name='execution/implementation/pdf/section-text-recipe.json';
+ IF recipe_policy IS NOT NULL THEN
+  IF recipe_policy IS DISTINCT FROM '{"content_layers":["body"],"recipe":"native-section-text-v8"}'::jsonb
+   OR job.unit_type<>'document' OR job.unit_id IS DISTINCT FROM (product->>'document_id')::bigint THEN
+   RAISE EXCEPTION 'source view requires its selected PDF projection producer and recipe' USING ERRCODE='23514'; END IF;
+  recipe_owner:=jsonb_build_object('task_id',native.task_id,'product_key',native.product_key,'content_digest',native.content_digest);
+  IF p_recipe IS DISTINCT FROM convert_to(data.canonical_json(recipe_policy||jsonb_build_object(
+   'analysis_eligible',product->'analysis_eligible','organization_owner',recipe_owner)),'UTF8') THEN
+   RAISE EXCEPTION 'source view recipe differs from its selected release and native owner' USING ERRCODE='23514'; END IF;
+  recipe_key:='source-view:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_object(
+   'consumer_release',run.release_id,'native',recipe_owner,'section',section.pointer,
+   'membership',product->>'membership','analysis_eligible',product->'analysis_eligible',
+   'recipe',product->>'recipe_digest')),'UTF8')),'hex');
+  IF product->>'key' IS DISTINCT FROM recipe_key THEN
+   RAISE EXCEPTION 'source view key differs from its selected projection recipe' USING ERRCODE='23514'; END IF;
   PERFORM ops.validate_projected_table_captions(placement.build_id,section.pointer,projection);
  END IF;
  WITH RECURSIVE ancestry AS (
@@ -199,7 +215,11 @@ BEGIN
  IF pos<>char_length(projection->>'text') OR projection->'health' IS DISTINCT FROM expected THEN
  RAISE EXCEPTION 'source view text extent/health differs' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM kb.source_view WHERE key=product->>'key' AND release_id=run.release_id;
- IF FOUND THEN
+ IF recipe_policy IS NULL AND NOT EXISTS(
+  SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=previous.id
+   AND position=p_position AND supersedes_source_view_id IS NOT DISTINCT FROM (product->>'replaces_source_view_id')::bigint) THEN
+  RAISE EXCEPTION 'fresh source view publication requires a release-bound projection recipe' USING ERRCODE='23514'; END IF;
+ IF previous.id IS NOT NULL THEN
   IF previous.projection IS DISTINCT FROM projection OR previous.native_build_id IS DISTINCT FROM placement.build_id OR previous.native_revision_id IS DISTINCT FROM placement.build_id OR previous.native_content_digest<>native.content_digest OR previous.recipe_digest<>product->>'recipe_digest' OR previous.analysis_eligible IS DISTINCT FROM (product->>'analysis_eligible')::boolean THEN
    RAISE EXCEPTION 'immutable source view replay differs' USING ERRCODE='23514'; END IF;
   result:=previous.id;

@@ -25,6 +25,7 @@ QUERY_SOURCES = (
     "serve/source_search.py",
     "serve/structural_products.py",
     "serve/contextual_navigation.py",
+    "serve/source_decision_journey.py",
     "serve/structural_gaps.py",
     "serve/explain.py",
     "serve/native_source.py",

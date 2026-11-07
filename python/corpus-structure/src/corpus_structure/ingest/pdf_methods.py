@@ -48,7 +48,9 @@ from .pdf_hierarchy import (
     native_nodes,
     organize,
     project_section,
+    section_text_policy,
     section_text_recipe,
+    section_view_key,
 )
 from .pdf_record_product import native_publication_draft
 from .pdf_worker import PdfWorker
@@ -294,6 +296,7 @@ class IngestPdf:
                     _select_sections(native_nodes(doc), cfg, scope=ctx.run.options.get("scope")),
                     cfg.membership,
                     consumer_release,
+                    projection_policy=section_text_policy(ctx.reader.prepared),
                 )
                 outputs.append(
                     UnitResult(
@@ -414,13 +417,16 @@ def _drafts(
     recognition_coverage: Sequence[Mapping[str, Any]] = (),
     document: Any = None,
     node_index: dict[str, Any] | None = None,
+    projection_policy: bytes | None = None,
 ) -> tuple[SourceViewDraft, ...]:
     doc = load_snapshot(native) if document is None else document
     nodes = native_nodes(doc) if node_index is None else node_index
     section_refs = frozenset(
         p for p, n in nodes.items() if p == "#/body" or str(n.label) in {"section", "chapter"}
     )
-    recipe = section_text_recipe(native_product, analysis_eligible=analysis_eligible)
+    recipe = section_text_recipe(
+        native_product, analysis_eligible=analysis_eligible, policy=projection_policy
+    )
     from corpus_structure.semantic.source_views import formula_health_summary
 
     health = {
@@ -460,20 +466,13 @@ def _drafts(
             tuple(reversed(ancestors)),
             recognition_coverage=recognition_coverage,
         )
-        key = (
-            "source-view:"
-            + sha256(
-                canonical_bytes(
-                    {
-                        "consumer_release": consumer_release,
-                        "native": native_product.values(),
-                        "section": section,
-                        "membership": selected_membership,
-                        "analysis_eligible": analysis_eligible,
-                        "recipe": sha256(recipe).hexdigest(),
-                    }
-                )
-            ).hexdigest()
+        key = section_view_key(
+            consumer_release,
+            native_product,
+            section,
+            selected_membership,
+            analysis_eligible,
+            recipe,
         )
         drafts.append(
             SourceViewDraft(
@@ -508,6 +507,7 @@ def _enrichment_view_drafts(
     nodes: dict[str, Any],
     *,
     retain_existing: bool = False,
+    projection_policy: bytes | None = None,
 ) -> tuple[SourceViewDraft, ...]:
     replacements: dict[tuple[str, str], int] = {
         (view.section_pointer, view.membership): view.id for view in views
@@ -532,6 +532,7 @@ def _enrichment_view_drafts(
             recognition_coverage=coverage,
             document=document,
             node_index=nodes,
+            projection_policy=projection_policy,
         )
     )
     # The Ingest projection can already be the exact desired current-consumer view.
@@ -767,6 +768,7 @@ class EnrichPdfMath:
                         document,
                         nodes,
                         retain_existing=True,
+                        projection_policy=section_text_policy(ctx.reader.prepared),
                     )
                     outputs.append(
                         UnitResult(
@@ -947,6 +949,7 @@ class EnrichPdfMath:
                     release,
                     document,
                     nodes,
+                    projection_policy=section_text_policy(ctx.reader.prepared),
                 )
                 outputs.append(
                     UnitResult(

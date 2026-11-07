@@ -102,6 +102,102 @@ def test_source_without_authenticated_parent_binding_retains_no_artifact_identit
     assert not any(r["semantic_type"] == "structural.artifact" for r in output["contributions"])
 
 
+def test_selected_action_preserves_wholly_clipped_role_without_an_anchor():
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.source_preparation import prepare_source
+
+    text = "The analyst records the input."
+    view = complete_native_fields(source(text, labels=("text",)))
+    prepared = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    start = text.index("records")
+    selected = StructuralPassage(
+        passage_id="action",
+        scope="action",
+        source_ref="fixture",
+        start=start,
+        end=start + len("records"),
+        text="records",
+    )
+    output = discover_relations(
+        native_source_frame(view, ()),
+        annotations=prepared.annotations,
+        passages=(selected,),
+        predicate_version="4",
+    )
+    (frame,) = [
+        row["component"]
+        for row in output["contributions"]
+        if row.get("component", {}).get("kind") == "predicate_frame"
+    ]
+    assert not any(role["role"] in {"actor", "object"} for role in frame["frame_members"])
+    assert {(role["role"], role["reason"]) for role in frame["unlocated_roles"]} == {
+        ("actor", "outside_selection"),
+        ("object", "outside_selection"),
+    }
+
+
+def test_named_procedure_reference_binds_verb_to_caption_under_selected_version():
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.methods.source_preparation import prepare_source
+
+    view = complete_native_fields(
+        native_table_source(
+            (table_cell("1", 0, 0),),
+            caption="Table 6.1 Results",
+            note="The results are shown in Table 6.1.",
+        )
+    )
+    view = replace(
+        view,
+        items=tuple(
+            dict(
+                item,
+                content_layer="body",
+                **({"parent": {"$ref": "#/tables/0"}} if item["label"] == "caption" else {}),
+            )
+            for item in view.items
+        ),
+    )
+    annotation = prepare_source(view, profile=AnnotationProfile(), annotations_only=True)
+    output = discover_relations(
+        native_source_frame(view, ()),
+        source_work="fixture-parent",
+        annotations=annotation.annotations,
+        passages=(
+            StructuralPassage(
+                passage_id="procedure",
+                source_ref="fixture",
+                scope="procedure",
+                effective_version="R1",
+                start=0,
+                end=len(view.text),
+                text=view.text,
+            ),
+        ),
+        predicate_version="4",
+        witnessed_links_enabled=True,
+        named_link_version="2",
+    )
+    rows = {row["contribution_id"]: row for row in output["contributions"]}
+    (edge,) = [
+        row
+        for row in rows.values()
+        if row.get("component", {}).get("attachment_kind") == "procedure_reference"
+    ]
+    action, caption = (source_python(rows[key]["value"]) for key in edge["members"])
+    assert (action["role"], action["text"], caption["source_pointer"], caption["text"]) == (
+        "procedure_action",
+        "shown",
+        "#/texts/captions",
+        "Table 6.1",
+    )
+    assert edge["component"]["effective_version"] == "R1"
+    assert any(
+        rows.get(key, {}).get("component", {}).get("attachment_kind") == "artifact_reference_target"
+        for key in edge["computation_dependencies"]
+    )
+
+
 def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     from .test_structural_roles import annotation
 

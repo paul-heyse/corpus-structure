@@ -442,6 +442,7 @@ def _heldout_source(case, directory):
             dict(payload["health"], formula_outcomes=[]),
             b'{"view":"heldout-cells"}',
         )
+        draft = source_fixture.qualified_view_draft(draft, case.prepared.release_id)
         view = store_source_view(
             conn,
             run_id=run,
@@ -476,7 +477,7 @@ def _heldout_source(case, directory):
         view_row=row,
         table=native_table.self_ref,
         method=case.method,
-        source="heldout-view",
+        source=draft.key,
         cut=None,
     )
 

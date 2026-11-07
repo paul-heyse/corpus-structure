@@ -1064,9 +1064,11 @@ def discover_relations(
             NAMED_VERSION,
             QUESTION,
             VERSION,
+            explicit_named_definition_extent,
             match_named_source_links,
             named_source_links,
             procedure_artifact_bindings,
+            procedure_artifact_endpoint,
             qualified_inheritance,
             recapped_declarations,
         )
@@ -1124,6 +1126,7 @@ def discover_relations(
                 operation=witness_op,
                 extra_witnesses=(cue, declarations[0]),
                 question=QUESTION,
+                effective_version=link.effective_version if predicate_version == "4" else None,
             )
         if links:
             witnessed_operations = (
@@ -1190,6 +1193,20 @@ def discover_relations(
                 named_op = operation_identity(NAMED_QUESTION, NAMED_VERSION, pin, selection)
                 first = len(products)
                 artifact_bindings = procedure_artifact_bindings(products)
+                procedure_rows = {row["contribution_id"]: row for row in products}
+                procedure_annotations = {
+                    "annotation:" + annotation.dependency_digest: annotation
+                    for annotation in annotations
+                    if isinstance(annotation, AnnotationProduct)
+                }
+                named_piece_starts = {
+                    p["item_ref"]: p["start"]
+                    for p in source_pieces
+                    if p.get("kind") == "native_text"
+                    and p.get("source_field", "text") == "text"
+                    and "cell_index" not in p
+                }
+                selected_passages = {passage.passage_id: passage for passage in passages or ()}
                 for link in inspection.matches:
                     evidence = link.evidence()
                     extra = dict(resolution=link.resolution, named_cue=evidence)
@@ -1221,6 +1238,57 @@ def discover_relations(
                         operation=named_op,
                         reading_key=reading_key,
                     )
+                    if (
+                        predicate_version == "4"
+                        and link.kind == "definition_reference"
+                        and link.resolution == "target_selection_required"
+                        and (
+                            concept := explicit_named_definition_extent(
+                                frame.text,
+                                max(
+                                    named_piece_starts[link.pointer],
+                                    selected_passages[link.passage].start,
+                                ),
+                                link.cue[0],
+                            )
+                        )
+                        is not None
+                    ):
+                        participant(
+                            *concept,
+                            role="named_link_definition_subject",
+                            pointer=link.pointer,
+                            region=link.passage,
+                            extra=extra,
+                            dependencies=(
+                                *deps,
+                                subject["contribution_id"],
+                                cue["contribution_id"],
+                            ),
+                            operation=named_op,
+                            reading_key=reading_key,
+                        )
+                    if predicate_version == "4" and artifact_deps:
+                        binding = procedure_artifact_endpoint(
+                            procedure_rows,
+                            link,
+                            procedure_annotations[link.witness.annotation],
+                            artifact_deps[0],
+                        )
+                        if binding is not None:
+                            action, caption, artifact = binding
+                            relation(
+                                action,
+                                caption,
+                                "procedure_reference",
+                                link.scope,
+                                "matched_cue",
+                                operation=named_op,
+                                extra_witnesses=(subject, cue, artifact),
+                                question=NAMED_QUESTION,
+                                question_version=NAMED_VERSION,
+                                effective_version=link.witness.effective_version,
+                            )
                     if link.right is None or link.target_pointer is None:
                         continue
                     target = participant(
@@ -1351,7 +1419,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "8"
+    version = "9"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -1474,7 +1542,7 @@ class ScopedRelationsMethod:
                 passages=passages,
                 formula_seconds=cfg.formula_seconds,
                 max_formula_chars=cfg.max_formula_chars,
-                predicate_version="3",
+                predicate_version="4",
                 inline_equations_enabled=True,
                 witnessed_links_enabled=True,
                 named_link_version="2",
@@ -1497,7 +1565,9 @@ class ScopedRelationsMethod:
                 prepared_questions = ctx.reader.prepare_table_correspondence(
                     view.ref.id, table_inputs, cfg.interpretation_weight_scale
                 )
-                interpretation = execute_table_correspondence(table_inputs, prepared_questions)
+                interpretation = execute_table_correspondence(
+                    table_inputs, prepared_questions, check_active=ctx.check_active
+                )
             else:
                 interpretation = table_policy_operations(
                     contributions=table_inputs,

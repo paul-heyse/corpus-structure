@@ -154,6 +154,26 @@ def procedure_artifact_bindings(contributions):
     }
 
 
+def procedure_artifact_endpoint(rows, link, annotation, artifact_id):
+    """Bind the recipe's exact action token to the original caption relationship."""
+    from corpus_structure.semantic.observations import source_python
+
+    verb = annotation.tokens[link.witness.tokens["verb"]]
+    actions = [
+        row
+        for row in rows.values()
+        if row.get("semantic_type") == "structural.located_participant"
+        and (value := source_python(row["value"])).get("role") == "procedure_action"
+        and (value["source_pointer"], value["start"], value["end"])
+        == (link.pointer, verb.start, verb.end)
+        and link.witness.annotation in row["computation_dependencies"]
+    ]
+    if len(actions) != 1:
+        return None
+    artifact = rows[artifact_id]
+    return actions[0], rows[artifact["members"][1]], artifact
+
+
 _NAME = r"[A-Za-z][A-Za-z0-9_ -]{0,79}?"
 _NAMED_LINK = re.compile(
     r"^(?P<left>" + _NAME + r") (?P<cue>is hereafter called|is renamed to|specializes|supersedes)"
@@ -310,6 +330,16 @@ class NamedLinkInspection:
         if self.incomplete or any(m.resolution != "located" for m in self.matches):
             return "limited"
         return "succeeded" if self.matches else "empty"
+
+
+def explicit_named_definition_extent(text, start, cue_start):
+    """Return the quoted concept immediately preceding a definition-reference cue."""
+    recipe, _, _ = _named_recipe()
+    match = re.search(recipe["definition_subject_pattern"], text[start:cue_start])
+    if match is None:
+        return None
+    lo, hi = match.span(1 if match[1] is not None else 2)
+    return start + lo, start + hi
 
 
 @lru_cache(maxsize=1)

@@ -135,6 +135,20 @@ classes:
       attachment: {required: true}
       targets: {range: string, multivalued: true}
       outcome: {required: true, pattern: '^(witnessed_candidate|ambiguous|no_compatible_candidate)$'}
+  ArtifactDeclaredEndpoint:
+    is_a: SourceRecordProduct
+    attributes:
+      record_id: {required: true}
+      citation: {range: ArtifactCitation, required: true, inlined: true}
+      work_cue: {range: ArtifactCitation, inlined: true}
+  ArtifactDeclaredRelationship:
+    is_a: SourceRecordProduct
+    attributes:
+      kind: {required: true, pattern: '^(reference|same_lineage|supersedes)$'}
+      source_id: {required: true}
+      origin: {range: ArtifactCitation, required: true, inlined: true}
+      targets: {range: ArtifactDeclaredEndpoint, inlined: true, multivalued: true, required: true}
+      outcome: {required: true, pattern: '^(witnessed_candidate|ambiguous|no_compatible_candidate)$'}
   ArtifactRecord:
     is_a: SourceRecordProduct
     attributes:
@@ -239,7 +253,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       protocol:
-        equals_string: artifact-identity-3
+        pattern: '^artifact-identity-[34]$'
       identity_grain:
         equals_string: source_work_artifact_lineage
       records:
@@ -256,6 +270,7 @@ classes:
         inlined: true
       external_nominations: {range: ArtifactNomination, inlined: true, multivalued: true}
       explicit_references: {range: ArtifactReferenceResolution, inlined: true, multivalued: true}
+      declared_relationships: {range: ArtifactDeclaredRelationship, inlined: true, multivalued: true}
       route_counts: {range: ArtifactRouteCount, inlined: true, multivalued: true, required: true}
       policy:
         range: ArtifactScoringPolicy
@@ -584,6 +599,15 @@ classes:
       head_token: {range: integer, minimum_value: 0}
       inherited_from: {range: integer, minimum_value: 0}
       outcome: {required: true, pattern: '^(complete|partial|unresolved)$'}
+  PredicateUnlocatedRole:
+    is_a: SourceRecordProduct
+    description: Retained grammatical role for which no exact source extent is selected.
+    attributes:
+      role: {required: true, pattern: '^(actor|subject|object|complement)$'}
+      head_token: {range: integer, required: true, minimum_value: 0}
+      token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
+      inherited_from: {range: integer, minimum_value: 0}
+      reason: {required: true, pattern: '^(outside_selection|unmappable)$'}
   PredicateFrameComponent:
     is_a: WitnessedComponent
     description: Neutral predicate and source-coordinate focus with grammatical role members.
@@ -596,6 +620,7 @@ classes:
       grammatical_reading: {required: true}
       focus_state: {required: true, pattern: '^(exact|partial|unavailable)$'}
       frame_members: {range: PredicateFrameMember, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
+      unlocated_roles: {range: PredicateUnlocatedRole, multivalued: true, inlined: true}
   PredicateCueComponent:
     is_a: WitnessedComponent
     description: Exact linguistic qualifier evidence with candidate predicate heads, independently of an attachment.
@@ -1133,12 +1158,19 @@ classes:
       left_rank: {range: integer, minimum_value: 1, maximum_value: 5, required: true}
       right_rank: {range: integer, minimum_value: 1, maximum_value: 5, required: true}
       distance: {range: contextual_float, required: true}
+  ContextualDirectedNeighbor:
+    attributes:
+      from_id: {required: true}
+      to_id: {required: true}
+      rank: {range: integer, minimum_value: 1, maximum_value: 5, required: true}
+      distance: {range: contextual_float, required: true}
   ContextualNeighborhood:
     attributes:
-      policy: {required: true, equals_string: mutual-exact-cosine-top5-1}
+      policy: {required: true, range: ContextualNeighborhoodPolicy}
       inventory_id: {required: true}
       profile_id: {}
       status: {range: ContextualNeighborhoodStatus, required: true}
+      directed_ranks: {range: ContextualDirectedNeighbor, multivalued: true, inlined: true}
       edges: {range: ContextualMutualNeighbor, multivalued: true, inlined: true}
   ContextualEnrichmentReport:
     is_a: SourceRecordProduct
@@ -1289,6 +1321,8 @@ classes:
       succession: {range: RevisionSuccession, inlined: true}
       left_reading: {range: RetainedContributionRef, inlined: true}
       right_reading: {range: RetainedContributionRef, inlined: true}
+      left_focus: {range: LocatedDefinitionSpan, inlined: true}
+      right_focus: {range: LocatedDefinitionSpan, inlined: true}
       left_id:
         required: true
       right_id:
@@ -1447,6 +1481,12 @@ classes:
         minimum_cardinality: 1
       reason:
         required: true
+  ComparisonMemberDecision:
+    is_a: SourceRecordProduct
+    attributes:
+      left_index: {range: integer, minimum_value: 0, required: true}
+      right_index: {range: integer, minimum_value: 0, required: true}
+      outcome: {range: StructuralTypedOutcome, required: true, pattern: '^(equivalent|different)$'}
   DimensionComparison:
     is_a: SourceRecordProduct
     attributes:
@@ -1457,6 +1497,8 @@ classes:
       reason: {required: true}
       left_group: {range: ClauseFieldGroup, inlined: true}
       right_group: {range: ClauseFieldGroup, inlined: true}
+      grouping_outcome: {pattern: '^(same|different|unresolved)$'}
+      member_comparisons: {range: ComparisonMemberDecision, inlined: true, multivalued: true}
       dimension:
         required: true
         range: StructuralDimensionComparisonDimensionValue
@@ -1488,6 +1530,8 @@ classes:
       comparison_product_id: {required: true}
       side: {required: true, range: StructuralComparisonSideValue}
       relationship_ref: {required: true, range: RetainedRelationshipDecisionRef, inlined: true}
+      applicability_ref: {range: RetainedStructuralRef, inlined: true}
+      conflict_passage_id: {}
   DossierComparisonBinding:
     is_a: SourceRecordProduct
     attributes:
@@ -1502,6 +1546,8 @@ classes:
       comparison: {required: true, range: ComparisonProduct, inlined: true}
       opposite_source: {required: true, range: ExternalSourceRef, inlined: true}
       opposite_citation: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      applicability_ref: {range: RetainedStructuralRef, inlined: true}
+      conflict_evidence: {range: LocatedDefinitionSpan, inlined: true}
   DossierMember:
     is_a: SourceRecordProduct
     attributes:
@@ -1807,6 +1853,11 @@ classes:
       grouping: {range: StructuralFieldGrouping}
       members: {range: StructuralPublicClauseField, multivalued: true, inlined: true, inlined_as_list: true}
       witnesses: {range: StructuralPublicCitation, multivalued: true, inlined: true, inlined_as_list: true}
+  StructuralPublicMemberDecision:
+    attributes:
+      left_index: {range: integer, minimum_value: 0, required: true}
+      right_index: {range: integer, minimum_value: 0, required: true}
+      outcome: {range: StructuralMemberComparisonOutcome, required: true}
   StructuralPublicDimension:
     attributes:
       typed_outcome: {required: true, range: StructuralTypedOutcome}
@@ -1815,6 +1866,8 @@ classes:
       assumptions: {multivalued: true}
       left_group: {range: StructuralPublicClauseGroup, inlined: true}
       right_group: {range: StructuralPublicClauseGroup, inlined: true}
+      grouping_outcome: {range: StructuralGroupingComparisonOutcome}
+      member_comparisons: {range: StructuralPublicMemberDecision, inlined: true, multivalued: true}
       dimension:
         range: StructuralClauseFieldDimensionValue
         required: true
@@ -1942,6 +1995,19 @@ classes:
         inlined: true
 
 enums:
+  ContextualNeighborhoodPolicy:
+    permissible_values:
+      mutual-exact-cosine-top5-1: {}
+      mutual-exact-cosine-top5-2: {}
+  StructuralMemberComparisonOutcome:
+    permissible_values:
+      equivalent: {}
+      different: {}
+  StructuralGroupingComparisonOutcome:
+    permissible_values:
+      same: {}
+      different: {}
+      unresolved: {}
   ContextualNeighborhoodStatus:
     permissible_values:
       completed:

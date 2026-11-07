@@ -34,7 +34,7 @@ from corpus_structure.semantic.source_views import (
     store_source_view,
 )
 
-from .native_record_fixtures import publish_native_record_fixture
+from .native_record_fixtures import publish_native_record_fixture, qualified_view_draft
 from .operation_scenario_support import prepare_operation_scenario
 
 
@@ -318,6 +318,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
             ),
             b'{"recipe":"section-view-fixture"}',
         )
+        draft = qualified_view_draft(draft, prepared.release_id)
         identity = store_source_view(
             conn,
             run_id=run,
@@ -327,6 +328,33 @@ def test_native_source_view_is_real_unit_with_exact_context(
             draft=draft,
             position=0,
         )
+        assert (
+            store_source_view(
+                conn,
+                run_id=run,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="view-fixture",
+                draft=draft,
+                position=0,
+            )
+            == identity
+        )
+        forged = replace(
+            draft,
+            key="source-view:substituted-recipe",
+            recipe_bytes=b'{"recipe":"native-section-text-v7"}',
+        )
+        with pytest.raises((ValueError, DBAPIError), match="recipe"), conn.begin_nested():
+            store_source_view(
+                conn,
+                run_id=run,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="view-fixture",
+                draft=forged,
+                position=0,
+            )
         child_draft = SourceViewDraft(
             "view-child",
             document,
@@ -366,6 +394,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
             ),
             b'{"recipe":"section-view-fixture"}',
         )
+        child_draft = qualified_view_draft(child_draft, prepared.release_id)
         child_identity = store_source_view(
             conn,
             run_id=run,

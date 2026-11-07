@@ -20,6 +20,7 @@ from corpus_structure.serve.results import (
     FindAnswer,
     StatementAnswer,
 )
+from corpus_structure.serve.source_decision_journey import SourceDecisionJourneyQuery
 from corpus_structure.serve.structural_gaps import GapPage, GapParams, GapRequest
 from corpus_structure.serve.structural_products import DossierRepresentationPage
 
@@ -484,4 +485,5 @@ GENERIC = (
     StructuralGapQuery("unconnected_supported_comparison"),
     ContextualNeighborhoodQuery(),
     SourceDecisionDiagnosisQuery(),
+    SourceDecisionJourneyQuery(),
 )

@@ -22,27 +22,34 @@ from corpus_structure.semantic.source_contexts import (
     evidence_anchor,
     record_source_pin,
 )
-from corpus_structure.semantic.structural_products import RetainedComponentRef, StructuralValue
+from corpus_structure.semantic.structural_products import (
+    ExternalSourceRef,
+    RetainedComponentRef,
+    RetainedDefinitionRoleRef,
+    StructuralValue,
+)
 
 
 class DefinitionTermsConfig(StructuralValue):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    component_refs: tuple[RetainedComponentRef, ...] = Field(min_length=1, max_length=256)
+    component_refs: tuple[RetainedComponentRef, ...] = Field(default=(), max_length=256)
+    role_refs: tuple[RetainedDefinitionRoleRef, ...] = Field(default=(), max_length=256)
     source_product_digest: str = Field(pattern="^[0-9a-f]{64}$")
     source_projection_digest: str = Field(pattern="^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def distinct_components(self):
-        if len({reference.identity for reference in self.component_refs}) != len(
-            self.component_refs
-        ):
-            raise ValueError("definition term projection contains duplicate component references")
+        refs = (*self.component_refs, *self.role_refs)
+        if not refs or (self.component_refs and self.role_refs):
+            raise ValueError("select one retained definition reference kind")
+        if len(set(refs)) != len(refs):
+            raise ValueError("definition role projection contains duplicate references")
         return self
 
 
 class DefinitionTermsMethod:
     name = "locate.definition_terms"
-    version = "1"
+    version = "2"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -77,8 +84,8 @@ class DefinitionTermsMethod:
                 frame,
                 (),
                 (SourceSlice(view.ref.id, 0, len(frame.text)),),
-                "retained component term projection",
-                "retained-definition-term-1",
+                "retained definition role projection",
+                "retained-definition-role-2",
                 "whole selected source",
                 max_chars=len(frame.text),
                 max_pieces=max(1, len(view.pieces)),
@@ -88,16 +95,41 @@ class DefinitionTermsMethod:
             )
             products, coordinates = [], {}
             dependencies = []
-            for reference in cfg.component_refs:
+            for reference in (*cfg.component_refs, *cfg.role_refs):
                 ctx.check_active()
-                retained = ctx.reader.retained_definition_component(reference)
-                component, report = retained["component"], retained["report"]
-                term = component["term"]
+                if isinstance(reference, RetainedDefinitionRoleRef):
+                    report = ctx.reader.retained_structural_report(reference.report)["report"]
+                    (candidate,) = [
+                        row
+                        for row in report["definition_components"]["role_candidates"]
+                        if (row["role"], row["envelope"], row["index"])
+                        == (reference.role, reference.envelope, reference.index)
+                    ]
+                    span = candidate["span"]
+                    semantic_type = (
+                        "definition.term"
+                        if reference.role == "term"
+                        else "definition.defining_text"
+                    )
+                    item_key = "retained-definition-role:" + reference.identity
+                    deps = (reference.report.product_id, reference.envelope, item_key)
+                    meaning = dict(
+                        role=reference.role, role_reference=reference.model_dump(mode="json")
+                    )
+                    kind = "proposal"
+                else:
+                    retained = ctx.reader.retained_definition_component(reference)
+                    report, span = retained["report"], retained["component"]["term"]
+                    semantic_type = "definition.term"
+                    item_key = "retained-component:" + reference.identity
+                    deps = (reference.product_id, reference.component_id, item_key)
+                    meaning = dict(
+                        role="defined_term", component_reference=reference.model_dump(mode="json")
+                    )
+                    kind = "occurrence"
                 passage = next(
-                    p for p in report["inputs"]["passages"] if p["passage_id"] == term["passage_id"]
+                    p for p in report["inputs"]["passages"] if p["passage_id"] == span["passage_id"]
                 )
-                from corpus_structure.semantic.structural_products import ExternalSourceRef
-
                 source = next(
                     s
                     for s in report["inputs"]["sources"]
@@ -115,25 +147,20 @@ class DefinitionTermsMethod:
                     raise ValueError("retained definition term belongs to another original source")
                 anchors = []
                 for piece in context.map_span(
-                    term["start"], term["end"], literal=term["text"], allow_multiple=True
+                    span["start"], span["end"], literal=span["text"], allow_multiple=True
                 ):
                     anchor, coordinate = evidence_anchor(context, piece, native=True)
                     anchors.append(anchor)
                     coordinates[
                         canonical_bytes({k: v for k, v in coordinate.items() if k != "text"})
                     ] = coordinate
-                deps = (
-                    reference.product_id,
-                    reference.component_id,
-                    "retained-component:" + reference.identity,
-                )
                 dependencies.extend(deps)
                 row = dict(
                     contract="RetainedContributionSemantics",
-                    kind="occurrence",
-                    semantic_type="definition.term",
+                    kind=kind,
+                    semantic_type=semantic_type,
                     operation_key=operation_key,
-                    item_key="retained-component:" + reference.identity,
+                    item_key=item_key,
                     pin=pin,
                     anchors=tuple(anchors),
                     occurrence_id=occurrence_identity(anchors),
@@ -141,21 +168,16 @@ class DefinitionTermsMethod:
                     standing="retained_private",
                     score_state="missing",
                     computation_dependencies=deps,
-                    value=source_value(
-                        dict(
-                            role="defined_term",
-                            component_reference=reference.model_dump(mode="json"),
-                        )
-                    ),
+                    value=source_value(meaning),
                 )
                 row["contribution_id"] = contribution_identity(row)
                 products.append(row)
             operation = dict(
                 operation_key=operation_key,
-                question="locate_term_from_retained_definition_component",
+                question="locate_role_from_retained_definition_evidence",
                 operation_version=self.version,
                 outcome="succeeded",
-                inspected_count=len(cfg.component_refs),
+                inspected_count=len(cfg.component_refs) + len(cfg.role_refs),
                 emitted_count=len(products),
                 computation_dependencies=tuple(dict.fromkeys(dependencies)),
             )

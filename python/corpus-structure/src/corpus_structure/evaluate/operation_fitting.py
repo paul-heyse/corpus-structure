@@ -8,7 +8,6 @@ they establish neither held-out performance nor calibrated factual correctness.
 from __future__ import annotations
 
 import warnings
-from hashlib import sha256
 from typing import Literal, Self
 
 import numpy as np
@@ -20,7 +19,7 @@ from sklearn.metrics import brier_score_loss, log_loss
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.methods.contextual_embeddings import numeric_identity
 from corpus_structure.semantic.operation_policy import (
     DEFAULT_OPERATION_EVENT,
     OperationEvent,
@@ -36,18 +35,35 @@ class EventContract(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
 
+EventJudgment = Literal["supported", "unsupported", "ambiguous", "unassessed"]
+AttachmentFacet = Literal[
+    "attachment_head", "attachment_tail", "attachment_direction", "attachment_scope"
+]
+
+
+class OperationEventSighting(EventContract):
+    origin_task_id: int = Field(gt=0)
+    source_view_id: int = Field(gt=0)
+    contribution_id: str = Field(min_length=1)
+    judgment: EventJudgment
+    facets: dict[AttachmentFacet, EventJudgment]
+    disagreements: tuple[AttachmentFacet, ...]
+
+
 class OperationEventObservation(EventContract):
     event_id: str = Field(min_length=1)
     contribution_id: str = Field(min_length=1)
     source_ref: str = Field(min_length=1)
     features: tuple[FiniteFloat, ...]
-    judgment: Literal["supported", "unsupported", "ambiguous", "unassessed"]
+    judgment: EventJudgment
     origin_group: str | None = None
+    sightings: tuple[OperationEventSighting, ...] = ()
 
 
 class UnavailableOperationEventFeatures(EventContract):
     event_id: str
     reason: Literal["missing_common_passage", "incomparable_endpoint_anchors"]
+    sightings: tuple[OperationEventSighting, ...] = ()
 
 
 class OperationEventFrame(EventContract):
@@ -143,18 +159,18 @@ def read_operation_event_population(
         raise SemanticRefusal(
             "fitting availability requires a completed run in the selected project"
         )
+    if event == "defining_text_attachment_correctness":
+        count = conn.scalar(
+            select(func.ops.count_defining_text_events(project_id, run_id, binding.cut_id))
+        )
+        return binding.cut_id, binding.release_id, count
     events = (
         select(contribution.c.task_id, contribution.c.contribution_id)
         .join(membership, membership.c.origin_task_id == contribution.c.task_id)
         .where(
             membership.c.cut_id == binding.cut_id,
             contribution.c.kind == "relation",
-            contribution.c.semantic_type
-            == (
-                "relation.defined_by"
-                if event == DEFAULT_OPERATION_EVENT
-                else "definition.defining_text_attachment"
-            ),
+            contribution.c.semantic_type == "relation.defined_by",
         )
         .distinct()
         .subquery()
@@ -453,19 +469,18 @@ def fit_operation_event(
 
 def frame_digest(frame: OperationEventFrame) -> str:
     """Hash numeric meaning identically to the native binary64 identity codec."""
-    import struct
-
     value = frame.model_dump(mode="json")
     if frame.feature_unavailable is None:
         del value["feature_unavailable"]
+    for unavailable in value.get("feature_unavailable", ()):
+        if not unavailable["sightings"]:
+            del unavailable["sightings"]
     for observation in value["observations"]:
         if observation["origin_group"] is None:
             del observation["origin_group"]
-        observation["features"] = [
-            {"native_float64": struct.pack("!d", feature).hex()}
-            for feature in observation["features"]
-        ]
-    return sha256(canonical_bytes(value)).hexdigest()
+        if not observation["sightings"]:
+            del observation["sightings"]
+    return numeric_identity("frame", value).removeprefix("frame:")
 
 
 def read_native_frame(

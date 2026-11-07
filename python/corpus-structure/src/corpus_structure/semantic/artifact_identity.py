@@ -342,6 +342,22 @@ class ArtifactReferenceResolution(StructuralValue):
     outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
 
 
+class ArtifactDeclaredEndpoint(StructuralValue):
+    record_id: str
+    citation: ArtifactCitation
+    work_cue: ArtifactCitation | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class ArtifactDeclaredRelationship(StructuralValue):
+    """One source declaration with exact target alternatives and their original citations."""
+
+    kind: Literal["reference", "same_lineage", "supersedes"]
+    source_id: str
+    origin: ArtifactCitation
+    targets: tuple[ArtifactDeclaredEndpoint, ...]
+    outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
+
+
 def artifact_reference_resolutions(
     records: tuple[ArtifactRecord, ...],
 ) -> tuple[ArtifactReferenceResolution, ...]:
@@ -398,6 +414,7 @@ def pair_candidates(
     records: tuple[ArtifactRecord, ...],
     *,
     external_nominations: tuple[ArtifactNomination, ...] = (),
+    declared_relationships: tuple[ArtifactDeclaredRelationship, ...] = (),
     explicit_references: tuple[ArtifactReferenceResolution, ...] = (),
     native_alias_pairs: tuple[tuple[str, str], ...] = (),
     title_threshold=70.0,
@@ -414,6 +431,11 @@ def pair_candidates(
     for nomination in external_nominations:
         key = (min(nomination.left, nomination.right), max(nomination.left, nomination.right))
         external.setdefault(key, set()).add(nomination.relationship.contribution_id)
+    for declaration in declared_relationships:
+        for target in declaration.targets:
+            left, right = sorted((declaration.source_id, target.record_id))
+            key = (left, right)
+            external.setdefault(key, set()).add("artifact-declaration:" + declaration.identity)
     alias = {(min(left, right), max(left, right)) for left, right in native_alias_pairs}
     forbidden = {(min(left, right), max(left, right)) for left, right in exclusions}
     if any(
@@ -703,13 +725,16 @@ def native_alias_candidates(
 class ArtifactIdentityProduct(StructuralValue):
     """One selected source-work cohort, candidate routes and frozen model results."""
 
-    protocol: Literal["artifact-identity-3"] = "artifact-identity-3"
+    protocol: Literal["artifact-identity-3", "artifact-identity-4"] = "artifact-identity-3"
     identity_grain: Literal["source_work_artifact_lineage"] = "source_work_artifact_lineage"
     records: tuple[ArtifactRecord, ...] = ()
     pairs: tuple[ArtifactPair, ...] = ()
     native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
     external_nominations: tuple[ArtifactNomination, ...] = ()
     explicit_references: tuple[ArtifactReferenceResolution, ...] = ()
+    declared_relationships: tuple[ArtifactDeclaredRelationship, ...] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     route_counts: tuple[ArtifactRouteCount, ...]
     policy: ArtifactScoringPolicy
     source_mapping_provenance: tuple[str, ...] = ()
@@ -781,6 +806,30 @@ class ArtifactIdentityProduct(StructuralValue):
                 raise ValueError("external nomination lacks its exact pair and relationship proof")
             nomination_ids.add(relation_id)
             nominated.add(key)
+        if (self.protocol == "artifact-identity-4") != (self.declared_relationships is not None):
+            raise ValueError("artifact declaration ledger differs from the selected protocol")
+        for declaration in self.declared_relationships or ():
+            if declaration.outcome != (
+                "no_compatible_candidate"
+                if not declaration.targets
+                else "witnessed_candidate"
+                if len(declaration.targets) == 1
+                else "ambiguous"
+            ):
+                raise ValueError("artifact declaration does not preserve its target alternatives")
+            if declaration.source_id not in by_id:
+                raise ValueError("artifact declaration is outside the selected occurrence cohort")
+            for target in declaration.targets:
+                left, right = sorted((declaration.source_id, target.record_id))
+                key = (left, right)
+                pair = by_pair.get(key)
+                if (
+                    pair is None
+                    or "external_pairs" not in pair.candidate_routes
+                    or "artifact-declaration:" + declaration.identity not in pair.dependencies
+                ):
+                    raise ValueError("artifact declaration lacks its exact pair route")
+                nominated.add(key)
         if nominated != {
             key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes
         }:

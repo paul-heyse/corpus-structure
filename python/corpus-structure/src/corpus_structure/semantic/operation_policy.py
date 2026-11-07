@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from math import log1p
 from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
@@ -9,6 +13,158 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 OperationEvent = Literal["defined_by_correctness", "defining_text_attachment_correctness"]
 
 DEFAULT_OPERATION_EVENT: OperationEvent = "defined_by_correctness"
+
+ATTACHMENT_EVENT_VERSION = "defining-text-attachment-scope-features-2"
+ATTACHMENT_FEATURE_NAMES = (
+    "term_log_length",
+    "content_log_length",
+    "signed_passage_separation",
+    "declared_cue",
+)
+_DEFINITION_CUE = re.compile(r"\b(?:is defined as|is called|we call|denoted by)\b")
+_FEATURE_WHITESPACE = (
+    "\t\n\v\f\r \x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005"
+    "\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
+)
+
+
+@dataclass(frozen=True)
+class DefiningTextFeatures:
+    features: tuple[float, float, float, float] | None
+    reason: Literal["missing_common_passage", "incomparable_endpoint_anchors"] | None = None
+
+
+def defining_text_features(
+    source_view_id: int,
+    body: str,
+    pieces: Sequence[Mapping],
+    term: Sequence[Mapping],
+    content: Sequence[Mapping],
+) -> DefiningTextFeatures:
+    """Map exact native anchors into their single common projected passage."""
+    if not body:
+        return DefiningTextFeatures(None, "missing_common_passage")
+
+    def extent(anchors):
+        spans = []
+        for anchor in anchors:
+            start, end = anchor.get("start"), anchor.get("end")
+            if (
+                anchor.get("pin", {}).get("source_view_id") != source_view_id
+                or (anchor.get("space"), anchor.get("precision")) != ("native", "exact")
+                or type(start) is not int
+                or type(end) is not int
+                or not 0 <= start < end
+            ):
+                return None
+            positions = [
+                piece["start"]
+                for piece in pieces
+                if piece["kind"] == "native_text"
+                and piece.get("source_field", "text") == "text"
+                and "cell_index" not in piece
+                and piece["item_ref"] == anchor["pointer"]
+                and end <= piece["end"] - piece["start"]
+            ]
+            if len(positions) != 1:
+                return None
+            begin, finish = positions[0] + start, positions[0] + end
+            if finish > len(body) or body[begin:finish] != anchor["source_piece"]:
+                return None
+            spans.append((begin, finish))
+        if not spans:
+            return None
+        spans.sort()
+        low, high = spans[0]
+        length = high - low
+        for start, end in spans[1:]:
+            length += max(0, end - max(start, high))
+            high = max(high, end)
+        return low, high, length
+
+    term_extent, content_extent = extent(term), extent(content)
+    if term_extent is None or content_extent is None:
+        return DefiningTextFeatures(None, "incomparable_endpoint_anchors")
+    t0, t1, term_length = term_extent
+    c0, c1, content_length = content_extent
+    separation = c0 - t1 if c0 >= t1 else c1 - t0 if t0 >= c1 else 0
+    normalized = " ".join(
+        token for token in re.split("[" + _FEATURE_WHITESPACE + "]+", body.casefold()) if token
+    )
+    return DefiningTextFeatures(
+        (
+            log1p(term_length),
+            log1p(content_length),
+            separation / len(body),
+            float(_DEFINITION_CUE.search(normalized) is not None),
+        )
+    )
+
+
+def read_defining_text_features(
+    conn, *, project_id: str, run_id: int, cut_id: int, task_id: int, contribution_id: str
+) -> DefiningTextFeatures:
+    """Reconstruct runtime features from an exact completed, authorized occurrence."""
+    from sqlalchemy import select
+
+    from .contribution_queries import read_source_contributions
+    from .metadata import table
+    from .query import bind_completed_result
+    from .refusals import SemanticRefusal
+    from .source_views import load_source_view
+
+    session = bind_completed_result(conn, run_id)
+    runs = table("ops.run")
+    if (
+        session.completed_cut_id != cut_id
+        or conn.scalar(select(runs.c.project_id).where(runs.c.id == run_id)) != project_id
+    ):
+        raise SemanticRefusal("defining-text features require the exact project and completed cut")
+    selectors = dict(
+        prepared=session.prepared,
+        run_id=run_id,
+        cut_id=cut_id,
+        selected_task_id=task_id,
+        include_details=True,
+    )
+    selected = read_source_contributions(conn, contribution_id=contribution_id, **selectors)
+    if len(selected.contributions) != 1:
+        raise SemanticRefusal("defining-text attachment is outside the selected task")
+    relation = selected.contributions[0]
+    if not relation["cut_member"] or (relation["kind"], relation["semantic_type"]) != (
+        "relation",
+        "definition.defining_text_attachment",
+    ):
+        raise SemanticRefusal("selected contribution is not an exact defining-text attachment")
+    operations = table("kb.source_contribution_operation")
+    producer = conn.scalar(
+        select(operations.c.question).where(
+            operations.c.task_id == relation["origin_task_id"],
+            operations.c.operation_key == relation["operation_key"],
+        )
+    )
+    if producer != "propose_returned_role_attachments":
+        raise SemanticRefusal("defining-text attachment lacks its released group producer")
+    roles = {endpoint["role"]: endpoint["contribution_id"] for endpoint in relation["endpoints"]}
+    if len(relation["endpoints"]) != 2 or roles.keys() != {"term", "defining_text"}:
+        raise SemanticRefusal("defining-text attachment lacks exact directed endpoints")
+    observed = read_source_contributions(conn, contribution_ids=tuple(roles.values()), **selectors)
+    by_id = {row["contribution_id"]: row for row in observed.contributions if row["cut_member"]}
+    if any(
+        key not in by_id
+        or (by_id[key]["kind"], by_id[key]["semantic_type"]) != ("proposal", "definition." + role)
+        or by_id[key]["pin"] != relation["pin"]
+        for role, key in roles.items()
+    ):
+        raise SemanticRefusal("defining-text attachment endpoints differ from the selected source")
+    source = load_source_view(conn, relation["source_view_id"], analysis=False)
+    return defining_text_features(
+        source.ref.id,
+        source.text,
+        source.pieces,
+        by_id[roles["term"]]["anchors"],
+        by_id[roles["defining_text"]]["anchors"],
+    )
 
 
 class EventContract(BaseModel):

@@ -24,6 +24,11 @@ from corpus_structure.serve.contributions import ContributionPage, ContributionR
 from corpus_structure.serve.protocol import QueryContext
 from corpus_structure.serve.record_results import RecordPage, RecordRequest
 from corpus_structure.serve.record_support import RecordSupportPage
+from corpus_structure.serve.source_decision_journey import (
+    SourceDecisionJourneyAnswer,
+    SourceDecisionJourneyParams,
+    SourceDecisionJourneyQuery,
+)
 from corpus_structure.serve.structural_gaps import GapPage, GapRequest
 from corpus_structure.serve.structural_products import (
     DossierRepresentationPage,
@@ -40,6 +45,12 @@ class NeighborhoodToolRequest(NeighborhoodParams):
 
 
 class SourceDecisionToolRequest(SourceDecisionRequest):
+    max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
+
+
+class SourceDecisionJourneyToolRequest(SourceDecisionJourneyParams):
+    run_id: int = Field(strict=True, gt=0)
+    cut_id: int = Field(strict=True, gt=0)
     max_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
 
 
@@ -74,6 +85,24 @@ def register_record_tools(
             if query.session.completed_cut_id != request.cut_id:
                 raise ProposalRefused("diagnosis requires the exact completed cut")
             (page,) = SourceDecisionDiagnosisQuery().rows(query, request)
+        return _bounded_mcp_result(page.row, request.max_bytes)
+
+    @server.tool(
+        annotations={"readOnlyHint": True},
+        output_schema=SourceDecisionJourneyAnswer.model_json_schema(),
+    )
+    @tool_refusals(ProposalRefused, ValueError)
+    def source_decision_journey(
+        ctx: Context, request: SourceDecisionJourneyToolRequest
+    ) -> ToolResult:
+        """Follow one original source opportunity through explicit producer layers."""
+        from corpus_structure.intervene.semantic_server import _bounded_mcp_result
+
+        with snapshot(ctx, request.run_id) as conn:
+            query = QueryContext(request.run_id, conn)
+            if query.session.completed_cut_id != request.cut_id:
+                raise ProposalRefused("journey requires the exact reader cut")
+            (page,) = SourceDecisionJourneyQuery().rows(query, request)
         return _bounded_mcp_result(page.row, request.max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True}, output_schema=GapPage.model_json_schema())

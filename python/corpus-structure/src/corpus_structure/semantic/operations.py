@@ -1665,6 +1665,7 @@ class BoundReader:
     def native_section_drafts(
         self, reference, *, document_id, selections, membership, scope, consumer_release
     ):
+        from corpus_structure.ingest.pdf_hierarchy import section_text_policy
         from corpus_structure.ingest.pdf_section_views import published_section_drafts
 
         _, _, reader = self._native_product_input(reference)
@@ -1681,6 +1682,7 @@ class BoundReader:
             membership=membership,
             scope=scope,
             consumer_release=consumer_release,
+            projection_policy=section_text_policy(self.prepared),
         )
 
     def capture_pdf_candidates(self, reference, directory):

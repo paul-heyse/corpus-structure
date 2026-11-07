@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import signal
 import threading
 from collections.abc import Callable, Generator
@@ -294,13 +295,27 @@ def retry_review(
 
 
 @app.command("verify")
-def verify_review(bundle: Path, json: JsonOpt = False):
+def verify_review(
+    bundle: Path,
+    json: JsonOpt = False,
+    manifest_sha256: Annotated[
+        str | None,
+        typer.Option(help="Expected manifest SHA-256 retained separately from the bundle."),
+    ] = None,
+):
     """Check manifest, bodies and relation agreement without a database or model."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.serve.review_bundle import verify_review_bundle
 
     with failure_boundary(json, expected=(OSError, ValueError)):
-        result = verify_review_bundle(bundle)
+        if manifest_sha256 is not None and re.fullmatch("[0-9a-f]{64}", manifest_sha256) is None:
+            raise ValueError("expected a lowercase SHA-256 manifest digest")
+        result = {
+            **verify_review_bundle(bundle, manifest_digest=manifest_sha256),
+            "verification_standing": "bound_manifest"
+            if manifest_sha256
+            else "internal_consistency",
+        }
     emit(RootModel[dict[str, JsonValue]].model_validate(result), json=json)
 
 

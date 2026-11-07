@@ -13,6 +13,7 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
     ContextualCandidates,
+    ContextualCandidatesWithNeighborhood,
     explicit_definition_section,
     relationship_contributions,
     retained_occurrences,
@@ -806,16 +807,30 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
 
 
 @pytest.mark.parametrize("provider_available", [True, False])
+@pytest.mark.parametrize(
+    "method, quoted",
+    [
+        (ContextualCandidates, False),
+        (ContextualCandidatesWithNeighborhood, False),
+        (ContextualCandidatesWithNeighborhood, True),
+    ],
+)
 def test_explicit_cross_view_definition_witness_survives_exploration(
     monkeypatch,
     provider_available,
+    method,
+    quoted,
 ):
     from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
     from corpus_structure.semantic.observations import source_value
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
 
-    text = "Use the value as defined in Section 6.2."
+    text = (
+        'Use "Expected definition" as defined in section\t6.2.'
+        if quoted
+        else "Use the value as defined in Section 6.2."
+    )
     source = view()
     source = replace(
         source,
@@ -824,15 +839,16 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         items=(source.items[0], dict(source.items[1], text=text)),
     )
     pin = record_source_pin(native_source_frame(source, ()))
-    start = text.index("Section")
+    spelling = "Expected definition" if quoted else "Section 6.2"
+    start = text.index(spelling)
     anchor = dict(
         pin=pin,
         space="native",
         pointer="#/texts/1",
         precision="exact",
         start=start,
-        end=len(text) - 1,
-        source_piece="Section 6.2",
+        end=start + len(spelling),
+        source_piece=spelling,
     )
     anchor["anchor_id"] = anchor_identity(anchor)
     original = dict(
@@ -843,7 +859,21 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         pin=pin,
         anchors=(anchor,),
         occurrence_id=occurrence_identity((anchor,)),
-        value=source_value(dict(role="named_link_subject")),
+        value=source_value(
+            dict(
+                role="named_link_definition_subject",
+                start=start,
+                named_cue=dict(
+                    scope="chapter",
+                    kind="definition_reference",
+                    resolution="target_selection_required",
+                    designator="6.2",
+                    cue=(text.index("as defined in"), text.index("section") - 1),
+                ),
+            )
+            if quoted
+            else dict(role="named_link_subject")
+        ),
     )
     original["contribution_id"] = contribution_identity(original)
 
@@ -947,6 +977,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         retained_component_section=retained_component_section,
         cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
+        contextual_mutual_neighbors=lambda _: {"directed_ranks": [], "edges": []},
     )
     monkeypatch.setattr(
         "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
@@ -955,7 +986,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
 
-    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
+    (result,) = method().run((unit,), cfg, ctx)
     assert set(looked_up) == {wrong.reference.component_id, right.reference.component_id}
     assert result.contribution_operations is not None
     primary, retrieval, selection = result.contribution_operations
@@ -963,10 +994,14 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     (candidate,) = report["candidate_lists"]
     (winner,) = candidate["candidates"]
     (decision,) = report["relationship_decisions"]
-    (edge,) = decision["selected_edges"]
     assert winner["target_id"] == right.reference.component_id
-    assert tuple(edge["member_target_ids"]) == (right.reference.component_id,)
-    assert decision["outcome"] == "selected" and selection["outcome"] == "succeeded"
+    if method is ContextualCandidatesWithNeighborhood and not quoted:
+        assert decision["outcome"] == "insufficient_evidence"
+        assert not decision.get("selected_edges")
+    else:
+        (edge,) = decision["selected_edges"]
+        assert tuple(edge["member_target_ids"]) == (right.reference.component_id,)
+        assert decision["outcome"] == "selected" and selection["outcome"] == "succeeded"
     if provider_available:
         assert candidate["query_vector_id"]
         assert retrieval["outcome"] == "succeeded"
@@ -990,7 +1025,8 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
                 "method": ContextualCandidates.name,
                 "configuration": cfg.model_dump(mode="json"),
                 "body": {
-                    "operation_version": ContextualCandidates.version,
+                    "source": source.ref.key,
+                    "operation_version": method.version,
                     "contribution_operations": result.contribution_operations,
                     "contributions": result.contributions,
                 },
@@ -1017,7 +1053,7 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         "corpus_structure.serve.contextual_witness_replay._term_binding",
         lambda t, *_: (
             SimpleNamespace(native_content_digest=pin["product_digest"]),
-            None,
+            SimpleNamespace(text=t.label),
             "6.2" if t.reference == right.reference else "6.1",
         ),
     )
@@ -1025,7 +1061,19 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
         "corpus_structure.serve.contextual_witness_replay._section",
         lambda code, _term: code,
     )
+    monkeypatch.setattr(
+        "corpus_structure.serve.contextual_navigation.verify_detached_neighborhood",
+        lambda *_args, **_kwargs: None,
+    )
     verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
+    if quoted:
+        (stored_decision,) = stored["body"]["contribution_operations"][0]["contextual_enrichment"][
+            "relationship_decisions"
+        ]
+        stored_decision["outcome"] = "insufficient_evidence"
+        with pytest.raises(ValueError, match="exact source-bound selection"):
+            verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
+        stored_decision["outcome"] = "selected"
     stored_candidate = stored["body"]["contribution_operations"][0]["contextual_enrichment"][
         "candidate_lists"
     ][0]

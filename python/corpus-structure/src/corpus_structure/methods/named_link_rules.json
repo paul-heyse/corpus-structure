@@ -2,6 +2,7 @@
   "version": "2",
   "nominal_dependencies": ["amod", "compound", "det", "flat", "nummod"],
   "nominal_max_tokens": 8,
+  "definition_subject_pattern": "(?:\"([A-Za-z][A-Za-z0-9 -]{0,79})\"|“([A-Za-z][A-Za-z0-9 -]{0,79})”)[ \\t]+$",
   "rules": [
     {
       "rule": "section", "variant": "see_or_consult", "kind": "section_citation", "mechanism": "token",

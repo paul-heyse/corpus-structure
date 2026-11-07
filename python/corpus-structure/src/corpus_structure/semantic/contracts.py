@@ -41,6 +41,7 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
         "records/reference-model.yaml",
         "records/policy-model.yaml",
         "pdf/docling-validation.schema.json",
+        "pdf/section-text-recipe.json",
         "pdf/record-model.yaml",
         "unified/linkml-types.yaml",
         "pdf/record-physical.yaml",
@@ -52,6 +53,8 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
         "libraries.json",
         "operations/section-packets.json",
         "operations/named-link-rules.json",
+        "operations/predicate-interpretation.json",
+        "operations/model-observation.json",
     }
 )
 
@@ -1091,6 +1094,11 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("records/observations.py", "semantic/observations.py"),
                 ("operations/section-packets.json", "model/semantic/nce-section-packets.json"),
                 ("operations/named-link-rules.json", "methods/named_link_rules.json"),
+                (
+                    "operations/predicate-interpretation.json",
+                    "methods/predicate_interpretation.json",
+                ),
+                ("operations/model-observation.json", "methods/model_observation.json"),
                 ("capture/storage.py", "semantic/capture_storage.py"),
                 ("publication/arrow.py", "semantic/arrow_publication.py"),
                 ("graph/ontology.py", "semantic/ontology.py"),
@@ -1124,6 +1132,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/docling-validation.schema.json",
             root.joinpath("model", "semantic", "docling-validation.schema.json").read_bytes(),
+        ),
+        SourceArtifact(
+            "pdf/section-text-recipe.json",
+            root.joinpath("model", "semantic", "section-text-recipe.json").read_bytes(),
         ),
         SourceArtifact(
             "pdf/record-model.yaml",
@@ -1735,6 +1747,13 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         required_implementations.update(
             {"operations/section-packets.json", "operations/named-link-rules.json"}
         )
+    required_implementations.update(
+        {
+            "pdf/section-text-recipe.json",
+            "operations/predicate-interpretation.json",
+            "operations/model-observation.json",
+        }.intersection(names)
+    )
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
         required_implementations.update(
             {

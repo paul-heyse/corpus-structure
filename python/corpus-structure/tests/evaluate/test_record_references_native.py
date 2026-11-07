@@ -25,6 +25,7 @@ from semantic.conftest import (
     semantic_writer_engine as semantic_writer_engine,
 )
 from semantic.native_record_fixtures import private_source as private_source
+from semantic.native_record_fixtures import qualified_view_draft
 from semantic.reference_scenarios import (
     create_case,
     expected_reading,
@@ -651,6 +652,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             bytes(recipe),
             analysis_eligible=view["analysis_eligible"],
         )
+        draft = qualified_view_draft(draft, successor.release_id)
         actual_view = store_source_view(
             conn,
             run_id=run,
@@ -668,7 +670,9 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             task_id=task,
             attempt=held.attempt,
             holder="successor-source",
-            draft=replace(draft, key="changed-eligibility-view", analysis_eligible=False),
+            draft=qualified_view_draft(
+                replace(draft, analysis_eligible=False), successor.release_id
+            ),
             position=1,
         )
         complete_task(
@@ -761,7 +765,7 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
         binding = conn.scalar(text("SELECT eval.record_reference_unit_binding(:r,:u,:p,:f)"), args)
         assert binding["views"][0]["reference_pin"] == frame.pin
         actual_pin = binding["views"][0]["prediction_pin"]
-        assert actual_pin["source"] == "compatible-successor-view" != frame.pin["source"]
+        assert actual_pin["source"] == draft.key != frame.pin["source"]
         assert binding["prediction_frame"]["evaluation_frame"]["anchor_ids"] == sorted(
             frame.anchor_ids
         )
@@ -960,8 +964,8 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             text("SELECT eval.record_reference_applicability('private-records',:r,:s)"),
             dict(r=changed_run, s=created["set_id"]),
         )
-    # Two genuinely admitted views of the same physical closure are ambiguous;
-    # neither array order nor a preferred logical alias can choose the mapping.
+    # A caller cannot manufacture a second identity for the same native recipe
+    # and physical closure to make the protected correspondence ambiguous.
     with case.writer.begin() as conn:
         ambiguous_run = create_run(
             conn,
@@ -996,32 +1000,13 @@ def test_native_compatible_successor_keeps_original_reference_custody_and_fitter
             original=b"%PDF-1.7\nprivate source record fixture",
             recipe_bytes=b'{"recipe":"private-records-1"}',
         )
-        store_source_view(
-            conn,
-            run_id=ambiguous_run,
-            task_id=task,
-            attempt=held.attempt,
-            holder="ambiguous-source",
-            draft=replace(draft, key="ambiguous-physical-clone"),
-            position=1,
-        )
-        complete_task(
-            conn,
-            task_id=task,
-            attempt=held.attempt,
-            holder="ambiguous-source",
-            prepared=successor,
-            observations=[],
-            outcome="empty",
-        )
-        ambiguous_cut = seal_cut(conn, ambiguous_run, "ambiguous-physical-source", final=True)
-    consolidate_cut(case.writer, ambiguous_cut, "ambiguous-physical-source-result")
-    with (
-        semantic_evaluator_engine.begin() as conn,
-        pytest.raises(DBAPIError, match="correspondence missing or ambiguous"),
-        conn.begin_nested(),
-    ):
-        conn.scalar(
-            text("SELECT eval.record_reference_applicability('private-records',:r,:s)"),
-            dict(r=ambiguous_run, s=created["set_id"]),
-        )
+        with pytest.raises(DBAPIError, match="key differs"), conn.begin_nested():
+            store_source_view(
+                conn,
+                run_id=ambiguous_run,
+                task_id=task,
+                attempt=held.attempt,
+                holder="ambiguous-source",
+                draft=replace(draft, key="ambiguous-physical-clone"),
+                position=1,
+            )

@@ -1,7 +1,7 @@
 """Source-conditioned table requests are authored and enforced by the same native policy."""
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 from math import exp
 from threading import Event
 
@@ -156,6 +156,20 @@ def test_native_ambiguous_correspondence_keeps_local_choices_and_counts_event_un
     cancellation = Event()
     cancellation.set()
     assert execute(cancellation=cancellation)[1]["outcome"] == "cancelled"
+
+    class LeaseLost(Exception):
+        pass
+
+    polls = 0
+
+    def check_active():
+        nonlocal polls
+        polls += 1
+        if polls == 3:
+            raise LeaseLost
+
+    with pytest.raises(LeaseLost):
+        execute(check_active=check_active)
     for key, value in (("max_states", 1), ("max_workspace_bytes", 1), ("max_seconds", 0)):
         constrained = deepcopy(prepared)
         constrained["request"]["limits"][key] = value
@@ -194,7 +208,14 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         )
         (claim,) = claim_tasks(conn, run_id=case.run, config_id=registered, holder="table-worker")
         reader = BoundReader(conn, case.run, case.prepared)
-        frame = native_source_frame(reader.source_view(case.view), ())
+        view = reader.source_view(case.view)
+        (unavailable,) = execute_table_correspondence(
+            (), reader.prepare_table_correspondence(case.view, (), 1)
+        )
+        assert unavailable["outcome"] == "not_run"
+        assert unavailable["question"] == f"source correspondence availability for view {case.view}"
+        assert "request" not in unavailable["local_interpretation"]
+        frame = native_source_frame(view, ())
         output = discover_relations(frame)
         subject, original_target = output["contributions"]
         target = deepcopy(original_target)
@@ -294,6 +315,14 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
             envelope=report,
         )
 
+    from corpus_structure.serve.table_correspondence_replay import verify_table_correspondence
+
+    source = dict(
+        source_view_id=view.ref.id, ref=asdict(view.ref), text=view.text, context=view.context()
+    )
+    verify_table_correspondence(
+        dict(body=envelope(prepared), configuration=config.model_dump()), source
+    )
     with case.writer.begin() as conn:
         for field, subfield, index, value in (
             ("potentials", "values", 0, 0.125),
@@ -301,6 +330,10 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         ):
             forged = deepcopy(prepared)
             forged[0]["request"][field][0][subfield][index] = value
+            with pytest.raises(ValueError, match="differs from source-conditioned replay"):
+                verify_table_correspondence(
+                    dict(body=envelope(forged), configuration=config.model_dump()), source
+                )
             with (
                 pytest.raises(DBAPIError, match="authoritative source-conditioned request"),
                 conn.begin_nested(),

@@ -1,0 +1,56 @@
+{
+  "request_version": "located-model-request-1",
+  "definition_windows": {
+    "chars": 1536,
+    "overlap": 256,
+    "limit": 64
+  },
+  "definition": {
+    "bare": [
+      "{\"entities\":[",
+      {
+        "field": "term_entity"
+      },
+      ",",
+      {
+        "field": "content_entity"
+      },
+      "],\"entity_attributes\":{\"interpretation\":{\"labels\":[\"definition\",\"explanation\",\"unresolved\"],\"applies_to\":[",
+      {
+        "field": "term_entity"
+      },
+      "],\"qualify_labels\":true}},\"relations\":[",
+      {
+        "field": "attachment_relation"
+      },
+      "]}"
+    ],
+    "described": [
+      "{\"entities\":{",
+      {
+        "field": "term_entity"
+      },
+      ":\"The exact term or expression whose meaning is stated, distinct from neighboring examples, subjects of historical reports, and incidental symbols.\",",
+      {
+        "field": "content_entity"
+      },
+      ":\"The complete text or formula conveying that meaning, including complements and restrictions needed to state it.\"},\"entity_attributes\":{\"interpretation\":{\"labels\":[\"definition\",\"explanation\",\"unresolved\"],\"applies_to\":[",
+      {
+        "field": "term_entity"
+      },
+      "],\"qualify_labels\":true}},\"relations\":{",
+      {
+        "field": "attachment_relation"
+      },
+      ":\"Directed from the exact term occurrence to the text or formula that defines or explains that occurrence in its local scope.\"}}"
+    ]
+  },
+  "clause": "{\"classifications\":[{\"task\":\"clause_function\",\"labels\":{\"definition\":\"States the meaning of a term, expression, or object.\",\"explanation\":\"Explains why or how a fact or concept holds.\",\"assumption_restriction\":\"Introduces a premise, restriction, or conditional scope.\",\"prescribed_action\":\"Instructs a reader or actor to perform an action.\",\"described_process\":\"Describes how an action or process occurs.\",\"reference\":\"Refers to another definition, statement, source, or artifact.\",\"unresolved\":\"The clause function cannot be determined from the selected input.\"},\"multi_label\":false},{\"task\":\"presentation_context\",\"labels\":{\"example\":\"Presented as a worked example or illustration.\",\"attribution\":\"Reports or attributes a statement, assumption, or activity to another party.\",\"historical\":\"Discusses prior events or historical work.\",\"unresolved\":\"The presentation context cannot be determined from the selected input.\"},\"multi_label\":true,\"cls_threshold\":0.5}]}",
+  "inference": {
+    "operation": "batch_extract",
+    "include_spans": true,
+    "include_confidence": true,
+    "num_workers": 0,
+    "max_len": null
+  }
+}

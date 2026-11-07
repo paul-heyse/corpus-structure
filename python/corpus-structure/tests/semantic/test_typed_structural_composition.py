@@ -12,7 +12,9 @@ from corpus_structure.methods.structural_products import (
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     ClauseField,
+    ClauseFieldGroup,
     ClauseReading,
+    ComparisonLiteral,
     DossierFacet,
     DossierMember,
     LocatedDefinitionSpan,
@@ -307,3 +309,88 @@ def test_independently_located_clause_premises_preserve_threshold_consequence():
     assert comparison.dimensions[5].removed_interval is not None
     assert comparison.dimensions[5].removed_interval.upper == "50000"
     assert comparison.applicability == "unestablished"
+
+
+def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applicability():
+    value = threshold_inputs(
+        "Identifier: Form-A and Date: 2025-01-15. X > 5 kg.\nComparison basis: gross weight.",
+        "Identifier: Form-B or Date: 2025-01-16. X > 7 kg.\nComparison basis: gross weight.",
+    )
+    value = value.model_copy(
+        update={
+            "passages": tuple(
+                passage.model_copy(update={"effective_version": "R1"}) for passage in value.passages
+            )
+        }
+    )
+
+    def side(passage, form, date, connector, state):
+        def span(spelling, start=None):
+            start = passage.text.index(spelling) if start is None else start
+            return LocatedDefinitionSpan(
+                passage_id=passage.passage_id, start=start, end=start + len(spelling), text=spelling
+            )
+
+        members = (
+            ClauseField(
+                dimension="object",
+                lexical_value=f"Identifier: {form}",
+                evidence=(passage.passage_id,),
+                spans=(span(f"Identifier: {form}"),),
+                literal=ComparisonLiteral(kind="identifier", value=form),
+            ),
+            ClauseField(
+                dimension="object",
+                lexical_value=f"Date: {date}",
+                evidence=(passage.passage_id,),
+                spans=(span(f"Date: {date}"),),
+                literal=ComparisonLiteral(kind="date", value=date),
+            ),
+        )
+        # An unresolved actor can coexist with an otherwise exact threshold.
+        threshold = next(x for x in threshold_readings(passage) if x.dimension == "threshold_unit")
+        groups = {d: ClauseFieldGroup(state="absent") for d in DIMENSIONS}
+        groups["actor"] = ClauseFieldGroup(state=state)
+        groups["object"] = ClauseFieldGroup(
+            state="present",
+            grouping="conjunction" if connector == "and" else "disjunction",
+            members=members,
+            witnesses=(span(connector, passage.text.index(f" {connector} ") + 1),),
+        )
+        groups["threshold_unit"] = ClauseFieldGroup(
+            state="present", grouping="singleton", members=(threshold,)
+        )
+        return ClauseReading(passage_id=passage.passage_id, groups=groups)
+
+    def ref(passage, digit):
+        source = next(item for item in value.sources if item.identity == passage.source_ref)
+        return dict(
+            contribution_id="source-contribution:" + digit * 64,
+            project_id=source.project_id,
+            run_id=1,
+            cut_id=1,
+            release_id=source.release_id,
+            result_revision=0,
+            selected_task_id=1,
+            origin_task_id=1,
+            runtime_fingerprint="runtime",
+        )
+
+    left, right = value.passages
+    report = compare_clauses(
+        value,
+        left=side(left, "Form-A", "2025-01-15", "and", "unresolved"),
+        right=side(right, "Form-B", "2025-01-16", "or", "absent"),
+        left_reading=ref(left, "a"),
+        right_reading=ref(right, "b"),
+        typed_groups=True,
+    )
+    assert report.comparison is not None
+    dimensions = {d.dimension: d for d in report.comparison.dimensions}
+    assert dimensions["object"].grouping_outcome == "different"
+    assert [
+        (d.left_index, d.right_index, d.outcome)
+        for d in dimensions["object"].member_comparisons or ()
+    ] == [(0, 0, "different"), (1, 1, "different")]
+    assert dimensions["threshold_unit"].removed_interval is None
+    assert dimensions["threshold_unit"].added_interval is None

@@ -84,6 +84,26 @@ from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.semantic.types import PreparedRelease
 
 
+def qualified_view_draft(draft, release_id):
+    from dataclasses import replace
+
+    from corpus_structure.ingest.pdf_hierarchy import section_text_recipe, section_view_key
+
+    recipe = section_text_recipe(draft.native_product, analysis_eligible=draft.analysis_eligible)
+    return replace(
+        draft,
+        key=section_view_key(
+            release_id,
+            draft.native_product,
+            draft.section_pointer,
+            draft.membership,
+            draft.analysis_eligible,
+            recipe,
+        ),
+        recipe_bytes=recipe,
+    )
+
+
 def publish_native_record_fixture(
     engine, directory, *, task_id, attempt, holder, product, document
 ):
@@ -264,23 +284,35 @@ class RecordPreparation:
 
 
 def build_record_source(
-    admin, writer, directory, preparation, *, include_blank_cell=False, record_method_spec=None
+    admin,
+    writer,
+    directory,
+    preparation,
+    *,
+    include_blank_cell=False,
+    record_method_spec=None,
+    sibling_captions=(),
+    sibling_references=(),
+    project_id="private-records",
 ):
     """Publish the selected pure preparation and acquire one leased record task."""
     bundle, dependencies, profile = preparation.preparation_inputs
     prepared = preparation.prepared
     semantic_db_engine, semantic_writer_engine, tmp_path = admin, writer, directory
+    realization = "private-input" if project_id == "private-records" else f"{project_id}-input"
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id="private-records"))
+        conn.execute(insert(table("data.project")).values(project_id=project_id))
         conn.execute(
             insert(table("data.realization")).values(
-                project_id="private-records",
-                realization_id="private-input",
+                project_id=project_id,
+                realization_id=realization,
                 release_id=prepared.release_id,
             )
         )
     original, recipe = b"%PDF-1.7\nprivate source record fixture", b'{"recipe":"private-records-1"}'
+    if project_id != "private-records":
+        original += b"\n" + project_id.encode()
     doc = DoclingDocument(name="Two independent native cells")
     section = doc.add_group(label=GroupLabel.SECTION, name="Measurements")
     native_table = doc.add_table(
@@ -301,7 +333,33 @@ def build_record_source(
         ),
     )
     sibling = doc.add_group(label=GroupLabel.SECTION, name="Other source")
-    sibling_text = doc.add_text(label=DocItemLabel.TEXT, text="12", orig="12", parent=sibling)
+    sibling_texts = (*sibling_captions, *sibling_references) or ("12",)
+    sibling_items = tuple(
+        doc.add_text(
+            label=DocItemLabel.CAPTION if position < len(sibling_captions) else DocItemLabel.TEXT,
+            text=literal,
+            orig=literal,
+            parent=sibling,
+        )
+        for position, literal in enumerate(sibling_texts)
+    )
+    sibling_projection = "\n".join(sibling_texts)
+    sibling_pieces = []
+    offset = 0
+    for item, literal in zip(sibling_items, sibling_texts, strict=True):
+        if offset:
+            sibling_pieces.append(dict(kind="synthetic_separator", start=offset, end=offset + 1))
+            offset += 1
+        sibling_pieces.append(
+            dict(
+                kind="native_text",
+                item_ref=item.self_ref,
+                source_field="text",
+                start=offset,
+                end=offset + len(literal),
+            )
+        )
+        offset += len(literal)
     native_schema = (
         files("corpus_structure")
         .joinpath("model/semantic/docling-validation.schema.json")
@@ -320,8 +378,8 @@ def build_record_source(
     with writer.begin() as conn:
         run = create_run(
             conn,
-            project_id="private-records",
-            binding=OperationBinding(prepared.release_id, "private-input", 0, b"{}"),
+            project_id=project_id,
+            binding=OperationBinding(prepared.release_id, realization, 0, b"{}"),
             kind="full",
             options={},
             code_commit="private-records-test",
@@ -342,7 +400,7 @@ def build_record_source(
         path.write_bytes(original)
         document = register_document(
             conn,
-            project_id="private-records",
+            project_id=project_id,
             source_uri="source.pdf",
             original_path=str(path),
             original=original,
@@ -409,6 +467,7 @@ def build_record_source(
             dict(payload["health"], formula_outcomes=[]),
             b'{"view":"cells"}',
         )
+        draft = qualified_view_draft(draft, prepared.release_id)
         view = store_source_view(
             conn,
             run_id=run,
@@ -424,21 +483,14 @@ def build_record_source(
             reference,
             sibling.self_ref,
             "direct",
-            "12",
-            (
-                dict(
-                    kind="native_text",
-                    item_ref=sibling_text.self_ref,
-                    source_field="text",
-                    start=0,
-                    end=2,
-                ),
-            ),
-            (sibling.self_ref, sibling_text.self_ref),
+            sibling_projection,
+            tuple(sibling_pieces),
+            (sibling.self_ref, *(item.self_ref for item in sibling_items)),
             (),
             dict(payload["health"], formula_outcomes=[]),
             b'{"view":"other"}',
         )
+        other = qualified_view_draft(other, prepared.release_id)
         other_view = store_source_view(
             conn,
             run_id=run,
@@ -493,6 +545,7 @@ def build_record_source(
             .one()
         )
     return SimpleNamespace(
+        project_id=project_id,
         prepared=prepared,
         preparation_inputs=preparation.preparation_inputs,
         writer=writer,
@@ -506,7 +559,7 @@ def build_record_source(
         task_row=task_row,
         method=record_method_,
         table=native_table.self_ref,
-        sibling=sibling_text.self_ref,
+        sibling=sibling_items[0].self_ref,
     )
 
 
@@ -669,6 +722,8 @@ def private_source(
         preparation,
         include_blank_cell=options.get("include_blank_cell", False),
         record_method_spec=method,
+        sibling_captions=options.get("sibling_captions", ()),
+        sibling_references=options.get("sibling_references", ()),
     )
 
 

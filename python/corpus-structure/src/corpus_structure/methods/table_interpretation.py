@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from itertools import product
@@ -83,11 +83,14 @@ def execute_table_correspondence(
     prepared: Sequence[Mapping[str, Any]],
     *,
     cancellation: Event | None = None,
+    check_active: Callable[[], None] | None = None,
 ) -> tuple[dict[str, Any], ...]:
     """Hydrate native requests and run the finite executor over their frozen support."""
     by_id = {row["contribution_id"]: row for row in contributions}
     operations = []
     for question in prepared:
+        if check_active is not None:
+            check_active()
         retained = tuple(by_id[key] for key in question["contribution_ids"])
         dependencies = tuple(question["dependencies"])
         raw_request = question["request"]
@@ -102,12 +105,15 @@ def execute_table_correspondence(
             dependency_ids=dependencies,
             request=request,
             cancellation=cancellation,
+            check_active=check_active,
             unavailable_policy_version=CORRESPONDENCE_POLICY_VERSION,
             unavailable_reason=question["reason"],
         )
         if operation["operation_key"] != question["scope_id"]:
             raise ValueError("prepared table correspondence differs from the selected band")
         operations.append(operation)
+    if check_active is not None:
+        check_active()
     return tuple(operations)
 
 
