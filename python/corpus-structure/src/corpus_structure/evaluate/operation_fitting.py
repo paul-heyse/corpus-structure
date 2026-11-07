@@ -22,6 +22,8 @@ from sklearn.preprocessing import StandardScaler
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operation_policy import (
+    DEFAULT_OPERATION_EVENT,
+    OperationEvent,
     OperationEventAlgorithm,
     OperationEventParameters,
 )
@@ -40,11 +42,17 @@ class OperationEventObservation(EventContract):
     source_ref: str = Field(min_length=1)
     features: tuple[FiniteFloat, ...]
     judgment: Literal["supported", "unsupported", "ambiguous", "unassessed"]
+    origin_group: str | None = None
+
+
+class UnavailableOperationEventFeatures(EventContract):
+    event_id: str
+    reason: Literal["missing_common_passage", "incomparable_endpoint_anchors"]
 
 
 class OperationEventFrame(EventContract):
     protocol: Literal["operation-event-development-1"] = "operation-event-development-1"
-    event: Literal["defined_by_correctness"] = "defined_by_correctness"
+    event: OperationEvent = DEFAULT_OPERATION_EVENT
     event_version: str = Field(min_length=1)
     producer_version: str = Field(min_length=1)
     rubric_digest: str = Field(pattern="^[0-9a-f]{64}$")
@@ -53,6 +61,7 @@ class OperationEventFrame(EventContract):
     feature_names: tuple[str, ...] = Field(min_length=1)
     event_ids: tuple[str, ...]
     observations: tuple[OperationEventObservation, ...]
+    feature_unavailable: tuple[UnavailableOperationEventFeatures, ...] | None = None
     assessment_mode: Literal["in_sample_development"] = "in_sample_development"
 
     @model_validator(mode="after")
@@ -67,7 +76,23 @@ class OperationEventFrame(EventContract):
             raise ValueError("event frame requires exact ordered distinct membership")
         if any(len(o.features) != len(self.feature_names) for o in self.observations):
             raise ValueError("event feature shape differs from declared order")
+        if self.event != DEFAULT_OPERATION_EVENT and (
+            self.feature_unavailable is None or any(not o.origin_group for o in self.observations)
+        ):
+            raise ValueError("attachment event requires authenticated origin and feature coverage")
+        if self.feature_unavailable is not None:
+            unavailable = {row.event_id for row in self.feature_unavailable}
+            if len(unavailable) != len(self.feature_unavailable) or unavailable.intersection(
+                self.event_ids
+            ):
+                raise ValueError("unavailable events must be distinct from scored events")
         return self
+
+
+def _origin_group_count(frame: OperationEventFrame) -> int | None:
+    if frame.event == DEFAULT_OPERATION_EVENT:
+        return None
+    return len({o.origin_group for o in frame.observations if o.origin_group is not None})
 
 
 class NativeOperationEventFrame(EventContract):
@@ -91,11 +116,15 @@ class OperationEventAvailability(EventContract):
     cut_id: int
     release_id: str
     compatible_events: int
+    event: OperationEvent = DEFAULT_OPERATION_EVENT
+    feature_unavailable: int | None = None
     evaluation_id: int | None = None
     next_action: str
 
 
-def read_operation_event_population(conn, *, project_id: str, run_id: int):
+def read_operation_event_population(
+    conn, *, project_id: str, run_id: int, event: OperationEvent = DEFAULT_OPERATION_EVENT
+):
     """Find distinct, exact emitted events in one completed cut under reader authority."""
     from sqlalchemy import func, select
 
@@ -120,7 +149,12 @@ def read_operation_event_population(conn, *, project_id: str, run_id: int):
         .where(
             membership.c.cut_id == binding.cut_id,
             contribution.c.kind == "relation",
-            contribution.c.semantic_type == "relation.defined_by",
+            contribution.c.semantic_type
+            == (
+                "relation.defined_by"
+                if event == DEFAULT_OPERATION_EVENT
+                else "definition.defining_text_attachment"
+            ),
         )
         .distinct()
         .subquery()
@@ -129,7 +163,12 @@ def read_operation_event_population(conn, *, project_id: str, run_id: int):
 
 
 def operation_event_availability(
-    settings, *, project_id: str, run_id: int, evaluation_id: int | None = None
+    settings,
+    *,
+    project_id: str,
+    run_id: int,
+    evaluation_id: int | None = None,
+    event: OperationEvent = DEFAULT_OPERATION_EVENT,
 ) -> OperationEventAvailability:
     """Project aggregate applicability without running a fit or disclosing protected labels."""
     from sqlalchemy.exc import DBAPIError
@@ -142,7 +181,7 @@ def operation_event_availability(
         read_snapshot(engine) as conn,
     ):
         cut, release, events = read_operation_event_population(
-            conn, project_id=project_id, run_id=run_id
+            conn, project_id=project_id, run_id=run_id, event=event
         )
     scope = dict(
         project_id=project_id,
@@ -151,6 +190,7 @@ def operation_event_availability(
         release_id=release,
         compatible_events=events,
         evaluation_id=evaluation_id,
+        event=event,
     )
     evaluation_remedy = (
         "Use ci eval run with a protected development or feature-fit operation assessment "
@@ -161,8 +201,7 @@ def operation_event_availability(
             **scope,
             status="missing_events",
             next_action=(
-                "Inspect ci contributions list for this run, then use the producer for "
-                "relation.defined_by events before authoring a correctness assessment."
+                f"Inspect ci contributions list for this run and locate the producer for {event}."
             ),
         )
     if evaluation_id is None:
@@ -172,10 +211,10 @@ def operation_event_availability(
     try:
         with (
             open_runtime_engine(settings, "ci-event-availability", purpose="fit") as engine,
-            read_snapshot(engine) as conn,
+            engine.begin() as conn,
         ):
             native, frame = read_native_frame(
-                conn, project_id=project_id, evaluation_id=evaluation_id
+                conn, project_id=project_id, evaluation_id=evaluation_id, event=event
             )
     except DBAPIError as error:
         if getattr(error.orig, "sqlstate", None) not in {"P0002", "23514"}:
@@ -188,9 +227,11 @@ def operation_event_availability(
             **scope, status="missing_evaluation", next_action=evaluation_remedy
         )
     judgments = {observation.judgment for observation in frame.observations}
+    feature_unavailable = len(frame.feature_unavailable or ())
     if not {"supported", "unsupported"} <= judgments:
         return OperationEventAvailability(
             **scope,
+            feature_unavailable=feature_unavailable,
             status="unfit",
             next_action=(
                 "Return to the independent operation assessment. A fit needs at least "
@@ -199,8 +240,12 @@ def operation_event_availability(
         )
     return OperationEventAvailability(
         **scope,
+        feature_unavailable=feature_unavailable,
         status="ready",
-        next_action=f"ci eval operation-event-fit --run {run_id} --evaluation {evaluation_id}",
+        next_action=(
+            f"ci eval operation-event-fit --run {run_id} --evaluation {evaluation_id} "
+            f"--project {project_id} --event {event}"
+        ),
     )
 
 
@@ -222,6 +267,7 @@ class OperationEventFitResult(EventContract):
     labeled: int
     positive: int
     negative: int
+    origin_groups: int | None = None
     warnings: tuple[str, ...] = ()
     iterations: int | None = None
     parameters: OperationEventParameters | None = None
@@ -280,6 +326,7 @@ def _fit_operation_event(
         labeled=len(labeled),
         positive=positive,
         negative=negative,
+        origin_groups=_origin_group_count(frame),
     )
     if not labeled:
         return OperationEventFitResult(
@@ -397,6 +444,7 @@ def fit_operation_event(
             reason=f"Numerical fitting failed: {type(error).__name__}: {error}",
             frame_digest=frame_digest(frame),
             observations=len(frame.observations),
+            origin_groups=_origin_group_count(frame),
             labeled=sum(o.judgment in {"supported", "unsupported"} for o in frame.observations),
             positive=sum(o.judgment == "supported" for o in frame.observations),
             negative=sum(o.judgment == "unsupported" for o in frame.observations),
@@ -408,7 +456,11 @@ def frame_digest(frame: OperationEventFrame) -> str:
     import struct
 
     value = frame.model_dump(mode="json")
+    if frame.feature_unavailable is None:
+        del value["feature_unavailable"]
     for observation in value["observations"]:
+        if observation["origin_group"] is None:
+            del observation["origin_group"]
         observation["features"] = [
             {"native_float64": struct.pack("!d", feature).hex()}
             for feature in observation["features"]
@@ -417,7 +469,7 @@ def frame_digest(frame: OperationEventFrame) -> str:
 
 
 def read_native_frame(
-    conn, *, project_id: str, evaluation_id: int
+    conn, *, project_id: str, evaluation_id: int, event: OperationEvent = DEFAULT_OPERATION_EVENT
 ) -> tuple[dict, OperationEventFrame]:
     """Capture protected labels plus exact completed source/cut/C premises."""
     import json
@@ -425,17 +477,26 @@ def read_native_frame(
     from sqlalchemy import text
 
     value = conn.execute(
-        text("SELECT eval.operation_event_fit_frame(:p,:e)"),
-        {"p": project_id, "e": evaluation_id},
+        text("SELECT eval.operation_event_fit_frame(:p,:e,:event)"),
+        {"p": project_id, "e": evaluation_id, "event": event},
     ).scalar_one()
     native = NativeOperationEventFrame.model_validate_json(json.dumps(value))
-    if native.project_id != project_id or native.evaluation_id != evaluation_id:
+    if (
+        native.project_id != project_id
+        or native.evaluation_id != evaluation_id
+        or native.frame.event != event
+    ):
         raise ValueError("native operation frame differs from selected project/evaluation")
     return value, native.frame
 
 
 def fit_native_operation_event(
-    engine, *, project_id: str, evaluation_id: int, algorithm: OperationEventAlgorithm | None = None
+    engine,
+    *,
+    project_id: str,
+    evaluation_id: int,
+    algorithm: OperationEventAlgorithm | None = None,
+    event: OperationEvent = DEFAULT_OPERATION_EVENT,
 ) -> dict:
     """CPU fitting owns no database snapshot; immutable write rechecks all premises."""
     import json
@@ -444,7 +505,7 @@ def fit_native_operation_event(
 
     with engine.begin() as conn:
         native_frame, frame = read_native_frame(
-            conn, project_id=project_id, evaluation_id=evaluation_id
+            conn, project_id=project_id, evaluation_id=evaluation_id, event=event
         )
     result = fit_operation_event(frame, algorithm)
     with engine.begin() as conn:

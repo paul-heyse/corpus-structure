@@ -10,15 +10,16 @@ from rapidfuzz.fuzz import ratio
 from splink.internals.splink_dataframe import SplinkDataFrame
 
 from corpus_structure.semantic.artifact_identity import (
+    ARTIFACT_ROUTES,
     ArtifactIdentityProduct,
     ArtifactPairKey,
     artifact_linker,
+    artifact_score_status,
     native_alias_candidates,
     normalized_code,
     predict_artifact_pairs,
 )
 
-ROUTES = ("exact_code", "lexical_title", "external_pairs", "native_alias_array")
 PREDICTION_THRESHOLDS = (0.25, 0.5, 0.75)
 CLERICAL_THRESHOLD = 0.5
 WEIGHT_ROUNDING = 0.1
@@ -27,6 +28,7 @@ WEIGHT_ROUNDING = 0.1
 class ArtifactPairJudgment(ArtifactPairKey):
     case_id: str = Field(min_length=1)
     judgment: Literal["supported", "unsupported", "ambiguous", "unassessed"]
+    question: Literal["reference_reachability", "same_lineage"] = "reference_reachability"
 
 
 def _code_state(code: str | None) -> str:
@@ -47,7 +49,7 @@ def evaluate_artifact_pilot(
     title_threshold: float = 70.0,
 ) -> dict:
     """Retain nomination coverage separately from common-support score diagnostics."""
-    by_id = {record.contribution_id: record.artifact for record in product.records}
+    by_id = {record.contribution_id: record for record in product.records}
     pairs = {(pair.left, pair.right): pair for pair in product.pairs}
     exclusions_ = {tuple(sorted(pair)) for pair in exclusions}
     anchors = frozenset(product.known_anchor_ids)
@@ -66,14 +68,13 @@ def evaluate_artifact_pilot(
             raise ValueError("artifact evaluation requires unique exact cohort pairs and case IDs")
         seen_cases.add(case.case_id)
         seen_pairs.add(key)
-        left, right = (by_id[endpoint] for endpoint in key)
-        compatible = (
-            (left.source_work, left.artifact_kind) == (right.source_work, right.artifact_kind)
-            and key not in exclusions_
-            and not set(key) <= anchors
+        a, b = (by_id[endpoint] for endpoint in key)
+        left, right = a.artifact, b.artifact
+        eligibility = artifact_score_status(
+            a, b, excluded=key in exclusions_ or set(key) <= anchors
         )
         known = case.judgment in ("supported", "unsupported")
-        if compatible and known:
+        if eligibility == "eligible" and known and case.question == "same_lineage":
             common.add(key)
         code = normalized_code(left.controlled_code)
         exact = code is not None and code == normalized_code(right.controlled_code)
@@ -82,7 +83,8 @@ def evaluate_artifact_pilot(
         case_rows.append(
             {
                 **case.model_dump(mode="json"),
-                "eligible": compatible,
+                "eligible": eligibility == "eligible",
+                "score_applicability": eligibility,
                 "nomination_routes": list(candidate.candidate_routes) if candidate else [],
                 "union_model_probability": candidate.model_probability if candidate else None,
                 "exact_key_control": exact,
@@ -98,9 +100,10 @@ def evaluate_artifact_pilot(
     if set(alias) != retained_alias:
         raise ValueError("provider alias blocking differs from retained actual nomination ledger")
     candidates = {
-        route: {key for key, p in pairs.items() if route in p.candidate_routes} for route in ROUTES
+        route: {key for key, p in pairs.items() if route in p.candidate_routes}
+        for route in ARTIFACT_ROUTES
     }
-    eligible = {key for key, p in pairs.items() if p.scope_state == "compatible"}
+    eligible = {key for key, p in pairs.items() if p.score_status == "scored"}
     previous: set[tuple[str, str]] = set()
     route_counts = []
     for route, nominated in candidates.items():
@@ -109,7 +112,7 @@ def evaluate_artifact_pilot(
             {
                 "route": route,
                 "nominated": len(nominated),
-                "excluded": len(nominated - eligible),
+                "excluded": sum(pairs[key].scope_state == "excluded" for key in nominated),
                 "eligible": len(present),
                 "marginal_eligible": len(present - previous),
                 "cumulative_eligible": len(previous | present),
@@ -205,6 +208,7 @@ def evaluate_artifact_pilot(
                 "left": left,
                 "right": right,
                 "scope_state": pair.scope_state,
+                "score_status": pair.score_status,
                 "nomination_routes": list(pair.candidate_routes),
                 "nomination_dependencies": list(pair.dependencies),
             }
@@ -222,7 +226,21 @@ def evaluate_artifact_pilot(
             if product.external_nominations
             else "No authenticated external pair nominations supplied."
         ),
-        "alias_state_counts": dict(Counter(a.alias_state for a in by_id.values())),
+        "alias_state_counts": dict(Counter(r.artifact.alias_state for r in by_id.values())),
+        "supported_reachability": {
+            question: {
+                "judged": sum(
+                    c["question"] == question and c["judgment"] == "supported" for c in case_rows
+                ),
+                "nominated": sum(
+                    c["question"] == question
+                    and c["judgment"] == "supported"
+                    and bool(c["nomination_routes"])
+                    for c in case_rows
+                ),
+            }
+            for question in ("reference_reachability", "same_lineage")
+        },
         "cases": case_rows,
         "clerical_cutoff": CLERICAL_THRESHOLD,
         "prediction_cutoffs": list(PREDICTION_THRESHOLDS),

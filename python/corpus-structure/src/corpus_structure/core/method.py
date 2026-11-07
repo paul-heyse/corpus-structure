@@ -434,6 +434,12 @@ class SourcePreparationReader(Protocol):
         """Resolve original retained contribution, endpoint closure and source projections."""
         ...
 
+    def prepare_table_correspondence(
+        self, source_view_id: int, contributions: Sequence[Mapping[str, Any]], weight_scale: float
+    ) -> Sequence[Mapping[str, Any]]:
+        """Detach canonical finite questions from the exact selected native table source."""
+        ...
+
     def retained_structural_report(self, reference: Any) -> Mapping[str, Any]:
         """Authenticate an exact predecessor and its protected public assertions."""
         ...
@@ -483,6 +489,10 @@ class SourcePreparationReader(Protocol):
         channel_budget: int,
     ) -> CandidateList:
         """Owned PostgreSQL retrieval over detached bounded inputs; no model or writer."""
+        ...
+
+    def contextual_mutual_neighbors(self, report: dict) -> dict:
+        """Prepare exact mutual neighbors over the current detached inventory and vectors."""
         ...
 
     def source_context_membership(self, source_view_id: int) -> str:

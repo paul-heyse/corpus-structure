@@ -1,5 +1,7 @@
 """Artifact candidates keep source-work scope and evidence, without merging authority."""
 
+from typing import Literal
+
 import pytest
 
 from corpus_structure.semantic.artifact_identity import (
@@ -7,6 +9,8 @@ from corpus_structure.semantic.artifact_identity import (
     ArtifactRecord,
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
+    artifact_route_counts,
+    artifact_source_labels,
     native_alias_candidates,
     normalized_code,
     pair_candidates,
@@ -15,7 +19,21 @@ from corpus_structure.semantic.artifact_identity import (
 )
 
 
-def record(identity, *, work="book", code="5.1", title=None, aliases=(), revision=None):
+def record(
+    identity,
+    *,
+    work="book",
+    code="5.1",
+    title=None,
+    aliases=(),
+    revision=None,
+    namespace="chapter5",
+    role: Literal["caption", "reference"] = "caption",
+):
+    label_text = (f" (numbering namespace: {namespace})" if namespace else "") + (
+        f" (revision: {revision})" if revision else ""
+    )
+    numbering_label, revision_label = artifact_source_labels(label_text, 0, "#/texts/" + identity)
     return ArtifactRecord(
         contribution_id=identity,
         occurrence_id="occurrence:" + identity,
@@ -40,13 +58,13 @@ def record(identity, *, work="book", code="5.1", title=None, aliases=(), revisio
                 len("Table 5.1"),
                 "#/texts/" + identity,
             ),
-            revision=revision,
-            revision_state="observed" if revision else "unknown",
-            occurrence_role="caption" if title else "reference",
+            occurrence_role=role,
             scope="chapter5",
             source_pointer="#/texts/" + identity,
             dependencies=("source:" + identity,),
         ),
+        numbering=numbering_label,
+        revision=revision_label,
     )
 
 
@@ -65,6 +83,17 @@ def nomination(left, right, ordinal=1):
             origin_task_id=1,
             runtime_fingerprint="runtime:controlled",
         ),
+        endpoints=tuple(
+            dict(
+                role=role,
+                record_id=key,
+                contribution_id=key,
+                origin_source_view_id=1,
+                origin_anchor_id="anchor:" + key,
+            )
+            for role, key in (("attachment", left), ("target", right))
+        ),
+        origin_cue=dict(source_pointer="#/texts/" + left, start=0, end=3, text="See"),
     )
 
 
@@ -123,6 +152,65 @@ def test_revisions_distinguish_lineage_from_immutable_version():
     assert pair_candidates((record("a"), record("b")))[0].revision_relation == "unknown"
 
 
+def test_namespace_and_navigation_do_not_expand_score_eligibility():
+    a = record("a", code="7", title="Shown scores")
+    conflicting = record("b", code="7", title="Shown scores", namespace="appendix")
+    unknown = record("c", code="7", title="Shown scores", namespace=None)
+    ref = record("d", work="foreign", code="17", role="reference")
+    assert pair_candidates((a, conflicting)) == ()
+    pairs = pair_candidates(
+        (a, conflicting, unknown, ref), external_nominations=(nomination("a", "d"),)
+    )
+    by_key = {(p.left, p.right): p for p in pairs}
+    assert by_key["a", "c"].candidate_routes == ("unscoped_code", "lexical_title")
+    assert by_key["a", "c"].numbering_relation == "unknown"
+    assert by_key["a", "c"].score_status == "namespace_unavailable"
+    assert by_key["a", "d"].candidate_routes == ("external_pairs",)
+    assert by_key["a", "d"].score_status == "excluded"
+    counts = {row.route: row for row in artifact_route_counts(pairs)}
+    assert counts["unscoped_code"].marginal == 2
+    assert counts["lexical_title"].marginal == 0
+    assert counts["external_pairs"].marginal == 1
+
+
+def test_explicit_reference_keeps_all_scoped_alternatives_and_missing_targets():
+    from corpus_structure.semantic.artifact_identity import (
+        artifact_reference_resolutions,
+        explicit_artifact_reference,
+    )
+
+    mention = record("mention", code="5.8", namespace=None, role="reference")
+    cue = explicit_artifact_reference(
+        "See Table 5.8 (hereafter Table 6.1 in numbering namespace target).",
+        4,
+        13,
+        "#/texts/mention",
+        mention.artifact,
+    )
+    assert cue is not None
+    mention = mention.model_copy(update={"explicit_reference": cue})
+    matched = (
+        record("a", code="6.1", namespace="target"),
+        record("b", code="6.1", namespace="target"),
+    )
+    decoys = (
+        record("foreign", work="other", code="6.1", namespace="target"),
+        record("unknown", code="6.1", namespace=None, aliases=("target",)),
+        record("wrong", code="6.1", namespace="appendix"),
+    )
+    records = (mention, *matched, *decoys)
+    (resolved,) = references = artifact_reference_resolutions(records)
+    assert resolved.attachment == "mention"
+    assert resolved.targets == ("a", "b") and resolved.outcome == "ambiguous"
+    assert {
+        (p.left, p.right, p.score_status)
+        for p in pair_candidates(records, explicit_references=references)
+        if "explicit_reference" in p.candidate_routes
+    } == {("a", "mention", "reference_only"), ("b", "mention", "reference_only")}
+    (missing,) = artifact_reference_resolutions((mention, *decoys))
+    assert missing.targets == () and missing.outcome == "no_compatible_candidate"
+
+
 def test_external_missing_edge_does_not_grow_a_component():
     records = tuple(record(x, code=None) for x in "abc")
     pairs = pair_candidates(
@@ -160,8 +248,8 @@ def test_native_alias_blocking_is_source_scoped_and_frozen_model_is_recorded():
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     scored = score_pairs(records, pair_candidates(records, native_alias_pairs=alias), policy)
     assert scored[0].candidate_routes == ("native_alias_array",)
-    assert scored[0].model_id == policy.identity
-    assert "gamma_controlled_code" in {f.name for f in scored[0].model_evidence}
+    assert scored[0].score_status == "no_comparable_features"
+    assert scored[0].model_id is None
 
 
 def test_identity_product_rejects_cross_work_scores_and_missing_citations():
@@ -170,11 +258,13 @@ def test_identity_product_rejects_cross_work_scores_and_missing_citations():
     records = (record("a"), record("b", work="foreign"))
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     pair = pair_candidates(records, external_nominations=(nomination("a", "b"),))[0]
+    altered = (pair.model_copy(update={"scope_state": "compatible"}),)
     with pytest.raises(ValueError, match="crosses"):
         ArtifactIdentityProduct(
             records=records,
-            pairs=(pair.model_copy(update={"scope_state": "compatible"}),),
+            pairs=altered,
             policy=policy,
+            route_counts=artifact_route_counts(altered),
             source_mapping_provenance=("manifest",),
         )
     with pytest.raises(ValueError):
@@ -398,11 +488,14 @@ def test_pilot_scores_the_fixed_labeled_support_without_nominating_a_missed_pair
         record("d", code=None),
     )
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
+    scored = score_pairs(records, pair_candidates(records), policy)
     product = ArtifactIdentityProduct(
-        records=records, pairs=score_pairs(records, pair_candidates(records), policy), policy=policy
+        records=records, pairs=scored, policy=policy, route_counts=artifact_route_counts(scored)
     )
     judgments = tuple(
-        ArtifactPairJudgment(left=left, right=right, case_id=case, judgment=judgment)
+        ArtifactPairJudgment(
+            left=left, right=right, case_id=case, judgment=judgment, question="same_lineage"
+        )
         for left, right, case, judgment in (
             ("a", "b", "false-code", "unsupported"),
             ("a", "c", "miss", "supported"),

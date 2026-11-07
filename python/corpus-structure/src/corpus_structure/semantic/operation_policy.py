@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Literal, Self
 
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
-from scipy.special import expit
+
+OperationEvent = Literal["defined_by_correctness", "defining_text_attachment_correctness"]
+
+DEFAULT_OPERATION_EVENT: OperationEvent = "defined_by_correctness"
 
 
 class EventContract(BaseModel):
@@ -24,7 +26,7 @@ class OperationEventAlgorithm(EventContract):
 
 class OperationEventParameters(EventContract):
     algorithm: OperationEventAlgorithm
-    event: Literal["defined_by_correctness"]
+    event: OperationEvent
     event_version: str
     producer_version: str
     feature_names: tuple[str, ...]
@@ -59,9 +61,14 @@ def score_operation_event(
     corpus_id: str,
     event_version: str,
     producer_version: str,
+    event: OperationEvent = DEFAULT_OPERATION_EVENT,
 ) -> float:
-    if (corpus_id, event_version, producer_version) != (
+    import numpy as np
+    from scipy.special import expit
+
+    if (corpus_id, event, event_version, producer_version) != (
         parameters.corpus_id,
+        parameters.event,
         parameters.event_version,
         parameters.producer_version,
     ):

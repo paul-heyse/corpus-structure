@@ -329,7 +329,9 @@ def verify_annotated_named_links(report, source, producers):
     body, cfg = report["body"], report["configuration"]
     if cfg.get("inputs") is None:
         return
-    if body["configuration_hash"] != config_key("structure.scoped_relations", "7", cfg):
+    if body["operation_version"] not in {"7", "8"} or body["configuration_hash"] != config_key(
+        "structure.scoped_relations", body["operation_version"], cfg
+    ):
         raise ValueError("named links differ from their retained configuration")
     inputs = StructuralInput.model_validate(cfg["inputs"])
     view = _retained_review_source_view(source)

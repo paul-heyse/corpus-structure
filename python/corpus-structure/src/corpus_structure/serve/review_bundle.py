@@ -36,7 +36,14 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_views import load_source_view, selected_source_views
 from corpus_structure.serve.companion_export import _publish_directory
+from corpus_structure.serve.contextual_navigation import (
+    SourceDecisionRequest,
+    capture_source_decision,
+    source_decision_capture_from_body,
+    source_decision_from_capture,
+)
 from corpus_structure.serve.contributions import ContributionRequest, _contributions
+from corpus_structure.serve.structural_gaps import GapRequest, gap_capture, gap_page
 from corpus_structure.serve.structural_products import (
     StructuralExportRequest,
     read_structural_export_page,
@@ -58,6 +65,12 @@ class ReviewSelection(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     selections: tuple[ContributionRequest, ...] = ()
     structural_selections: tuple[StructuralExportRequest, ...] = ()
+    source_decision_selections: tuple[SourceDecisionRequest, ...] = Field(
+        default=(), max_length=64, exclude_if=lambda value: not value
+    )
+    structural_gap_selections: tuple[GapRequest, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
     selected_evaluation_ids: tuple[int, ...] = ()
     comparisons: tuple[ReviewComparison, ...] = ()
     completeness: Literal["selected_source_closure", "inventory"] = "selected_source_closure"
@@ -66,8 +79,26 @@ class ReviewSelection(BaseModel):
 
     @model_validator(mode="after")
     def full_selections(self):
-        if not self.selections and not self.structural_selections:
+        if not (
+            self.selections
+            or self.structural_selections
+            or self.structural_gap_selections
+            or self.source_decision_selections
+        ):
             raise ValueError("review requires a contribution or structural selection")
+        backing_tasks = {
+            (request.run_id, request.selected_task_id)
+            for request in (*self.selections, *self.structural_selections)
+        }
+        if self.source_decision_selections and self.completeness != "selected_source_closure":
+            raise ValueError("source decision review requires exact retained source closure")
+        if any(
+            (request.run_id, request.task_id) not in backing_tasks
+            for request in self.source_decision_selections
+        ):
+            raise ValueError("source decision review requires its exact retained task selection")
+        if any(item.cursor is not None for item in self.structural_gap_selections):
+            raise ValueError("gap review cannot begin at a continuation")
         if any(item.after_task_id for item in self.structural_selections):
             raise ValueError("structural review cannot begin after a task")
         if len(set(self.selected_evaluation_ids)) != len(self.selected_evaluation_ids) or any(
@@ -150,6 +181,18 @@ def _structural_predecessors(report):
     if report.comparison is not None and report.comparison.left_reading is not None:
         return (), (report.comparison.left_reading, report.comparison.right_reading)
     return (), ()
+
+
+def _dossier_relationship_refs(report):
+    return (
+        tuple(
+            dict.fromkeys(
+                selection.relationship_ref for selection in report.dossier.comparison_selections
+            )
+        )
+        if report.dossier is not None
+        else ()
+    )
 
 
 def capture_review_relations(conn, selection: ReviewSelection, cancellation: OperationCancellation):
@@ -550,6 +593,33 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             if page.next_after_task_id is None:
                 break
             after = page.next_after_task_id
+
+    for index, original in enumerate(selection.structural_gap_selections):
+        cancellation.check_active()
+        gap_request = original.model_copy(
+            update={"max_bytes": min(original.max_bytes, selection.max_bytes)}
+        )
+        captured = gap_capture(conn, gap_request)
+        budget.value(captured)
+        yield "structural_gap_sources", {"selection_index": index, **captured}
+        while True:
+            cancellation.check_active()
+            page = gap_page(gap_request, captured)
+            yield "structural_gaps", {"selection_index": index, **page.model_dump(mode="json")}
+            if page.next_cursor is None:
+                break
+            gap_request = gap_request.model_copy(update={"cursor": page.next_cursor})
+
+    for index, request in enumerate(selection.source_decision_selections):
+        cancellation.check_active()
+        cut = bind_completed_result(conn, request.run_id).completed_cut_id
+        if request.cut_id is not None and request.cut_id != cut:
+            raise SemanticRefusal("diagnosis selection differs from its exact completed cut")
+        evidence = capture_source_decision(conn, request, cut)
+        budget.value(evidence)
+        yield "source_decision_evidence", {"selection_index": index, **evidence}
+        answer = source_decision_from_capture(request, evidence)
+        yield "source_decisions", {"selection_index": index, **answer.model_dump(mode="json")}
 
 
 def _capture_sources(
@@ -994,6 +1064,19 @@ def _exact_closure(
                         raise SemanticRefusal(
                             "exact closure exceeds one producer's contribution selection limit"
                         )
+                for reference in _dossier_relationship_refs(report):
+                    if reference in seen_references:
+                        continue
+                    seen_references.add(reference)
+                    budget.value(reader_for(reference).retained_relationship_decision(reference))
+                    identifiers = contribution_groups.setdefault(
+                        (reference.run_id, reference.selected_task_id), set()
+                    )
+                    identifiers.add(reference.occurrence_contribution_id)
+                    if len(identifiers) > 1000:
+                        raise SemanticRefusal(
+                            "exact closure exceeds one producer's contribution selection limit"
+                        )
             if page.next_after_task_id is None:
                 break
             after = page.next_after_task_id
@@ -1073,7 +1156,20 @@ def _review_binding(conn: Connection, selection: ReviewSelection) -> str:
     """Identify the acquired database and immutable completed roots in this snapshot."""
     completed = table("ops.completed_result")
     run_ids = sorted(
-        {request.run_id for request in (*selection.selections, *selection.structural_selections)}
+        {
+            request.run_id
+            for request in (
+                *selection.selections,
+                *selection.structural_selections,
+                *selection.structural_gap_selections,
+                *selection.source_decision_selections,
+            )
+        }
+        | {
+            request.binding_task.run_id
+            for request in selection.structural_gap_selections
+            if request.binding_task is not None
+        }
     )
     rows = (
         conn.execute(
@@ -1158,13 +1254,25 @@ def _relation_member(root: int, file: Mapping[str, Any]):
     return _member(root, file["path"], digest=file["sha256"], size=file["bytes"])
 
 
-def _verify_dossier_structural_closure(root, manifest, dossiers, products, scopes, assertions):
+def _verify_dossier_structural_closure(
+    root, manifest, dossiers, products, scopes, assertions, contribution_scopes, inventory
+):
     """Replay declared structural predecessors across their exact selected snapshots."""
     from corpus_structure.methods.structural_products import derive_dossier_members, dossier_root
     from corpus_structure.semantic.structural_admission import structural_claim_id
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
+    dossier_ids = {report.product_id for report in dossiers}
+    origins = {
+        product.product_id: origin
+        for _, _, origin, *_, product in products
+        if product.product_id in dossier_ids
+    }
     origin_ids = {ref.origin_task_id for report in dossiers for ref in report.dossier.predecessors}
+    origin_ids.update(origins.values())
+    origin_ids.update(
+        ref.origin_task_id for report in dossiers for ref in _dossier_relationship_refs(report)
+    )
     raw_reports = {}
     spec = manifest["relations"].get("reports")
     if spec is not None:
@@ -1174,6 +1282,9 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
                 if raw["origin_task_id"] in origin_ids:
                     raw_reports[raw["origin_task_id"]] = raw
     roots = {}
+    relationships = _detached_dossier_relationships(
+        root, manifest, dossiers, raw_reports, contribution_scopes, inventory
+    )
     for report in dossiers:
         references = report.dossier.predecessors
         reference_ids = {ref.product_id for ref in references}
@@ -1264,8 +1375,20 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
             raise ValueError("dossier root differs from its original producer operation")
         component = dossier_root(root_ref, retained)
         roots[report.product_id] = component
+        selections = report.dossier.comparison_selections
+        own = raw_reports.get(origins[report.product_id], {})
+        frozen = (own.get("configuration") or {}).get("comparison_selections", [])
+        if canonical_bytes(frozen) != canonical_bytes(
+            [s.model_dump(mode="json") for s in selections]
+        ):
+            raise ValueError("dossier comparison bindings differ from frozen configuration")
         expected_members, expected_facets = derive_dossier_members(
-            report.inputs, retained, root=component
+            report.inputs,
+            retained,
+            root=component,
+            root_ref=root_ref,
+            comparison_selections=selections,
+            relationships=relationships,
         )
         if actual != {member.member_id: member for member in expected_members}:
             raise ValueError(
@@ -1278,6 +1401,98 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
     return roots
 
 
+def _detached_dossier_relationships(root, manifest, dossiers, raw_reports, scopes, inventory):
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+
+    requested = {}
+    for report in dossiers:
+        for ref in _dossier_relationship_refs(report):
+            requested.setdefault(ref, report)
+    payloads = _retained_contribution_payloads(
+        root,
+        manifest,
+        [
+            (
+                report,
+                RetainedContributionRef(
+                    contribution_id=ref.occurrence_contribution_id,
+                    **ref.model_dump(
+                        exclude={
+                            "operation_key",
+                            "decision_id",
+                            "edge_id",
+                            "occurrence_contribution_id",
+                        }
+                    ),
+                ),
+            )
+            for ref, report in requested.items()
+        ],
+        scopes,
+        inventory,
+    )
+    relationships = {}
+    for ref, payload in zip(requested, payloads, strict=True):
+        body = raw_reports[ref.origin_task_id]["body"]
+        (operation,) = [
+            row
+            for row in body["contribution_operations"]
+            if row["operation_key"] == ref.operation_key
+        ]
+        product = operation["contextual_enrichment"]
+        (decision,) = [
+            row
+            for row in product["relationship_decisions"]
+            if row["decision_id"] == ref.decision_id
+        ]
+        (edge,) = [row for row in decision["selected_edges"] if row["edge_id"] == ref.edge_id]
+        (occurrence,) = [
+            row
+            for row in payload["contributions"]
+            if row["contribution_id"] == ref.occurrence_contribution_id
+        ]
+        if (
+            product["version"] != "contextual-enrichment-2"
+            or occurrence["semantic_type"] != "contextual.located_mention"
+            or occurrence["occurrence_id"] != decision["occurrence_id"]
+            or not any(
+                ref.occurrence_contribution_id in w["evidence_ids"] for w in edge["witnesses"]
+            )
+        ):
+            raise ValueError("dossier binding differs from the actual retained relationship")
+        (source,) = payload["sources"]
+        projection = source["projection"]
+        located = []
+        for anchor in occurrence["anchors"]:
+            (piece,) = [
+                p
+                for p in projection["pieces"]
+                if p["kind"] == "native_text"
+                and anchor["pointer"]
+                == p["item_ref"]
+                + ("/data/table_cells/" + str(p["cell_index"]) if "cell_index" in p else "")
+            ]
+            start, end = piece["start"] + anchor["start"], piece["start"] + anchor["end"]
+            if (
+                anchor["pin"] != source["pin"]
+                or (anchor["space"], anchor["precision"]) != ("native", "exact")
+                or not piece["start"] <= start < end <= piece["end"]
+                or projection["text"][start:end] != anchor["source_piece"]
+            ):
+                raise ValueError("dossier relationship location differs from original source")
+            located.append(dict(start=start, end=end, text=anchor["source_piece"]))
+        relationships[ref] = dict(
+            decision=decision,
+            edge=edge,
+            component_targets=product["component_targets"],
+            source_view_id=source["source_view_id"],
+            located_occurrence=sorted(
+                located, key=lambda row: (row["start"], row["end"], row["text"])
+            ),
+        )
+    return relationships
+
+
 def _detached_relation(root, manifest, name):
     spec = manifest["relations"].get(name)
     if spec is None:
@@ -1287,7 +1502,55 @@ def _detached_relation(root, manifest, name):
             yield json.loads(json.loads(line)["payload_json"])
 
 
-def _retained_contribution_payloads(root, manifest, requested, scopes, inventory):
+def _verify_structural_gaps(root, manifest, selection):
+    from corpus_structure.serve.structural_gaps import METHODS
+
+    captured = {}
+    for row in _detached_relation(root, manifest, "structural_gap_sources"):
+        index = row.pop("selection_index")
+        if index in captured:
+            raise ValueError("duplicate detached gap evidence selection")
+        captured[index] = row
+    if captured.keys() != set(range(len(selection.structural_gap_selections))):
+        raise ValueError("detached gap evidence differs from requested selections")
+    pages = iter(_detached_relation(root, manifest, "structural_gaps"))
+    for index, original in enumerate(selection.structural_gap_selections):
+        evidence = captured[index]
+        producer = evidence["producer"]
+        binding = evidence["binding_producer"]
+        if (
+            (producer["run_id"], producer["selected_task_id"], producer["method"])
+            != (original.run_id, original.task_id, METHODS[original.report])
+            or (original.cut_id is not None and original.cut_id != producer["cut_id"])
+            or (original.binding_task is None) != (binding is None)
+        ):
+            raise ValueError("detached gap producer differs from selected custody")
+        if binding is not None and (
+            (binding["run_id"], binding["selected_task_id"], binding["method"])
+            != (original.binding_task.run_id, original.binding_task.task_id, "structure.dossier")
+            or (
+                original.binding_task.cut_id is not None
+                and original.binding_task.cut_id != binding["cut_id"]
+            )
+        ):
+            raise ValueError("detached gap binding producer differs from selected custody")
+        request = original.model_copy(
+            update={"max_bytes": min(original.max_bytes, selection.max_bytes)}
+        )
+        while True:
+            expected = gap_page(request, evidence)
+            if next(pages, None) != {"selection_index": index, **expected.model_dump(mode="json")}:
+                raise ValueError("detached structural gap differs from selected producer evidence")
+            if expected.next_cursor is None:
+                break
+            request = request.model_copy(update={"cursor": expected.next_cursor})
+    if next(pages, None) is not None:
+        raise ValueError("detached gap report includes unrequested results")
+
+
+def _retained_contribution_payloads(
+    root, manifest, requested, scopes, inventory, *, origin_sources=False
+):
     """Read exact selected raw provenance and endpoint closure once for dependent products."""
     from corpus_structure.methods.structural_products import comparison_host_evidence
     from corpus_structure.semantic.contributions import contribution_identity
@@ -1305,7 +1568,7 @@ def _retained_contribution_payloads(root, manifest, requested, scopes, inventory
     }
     sources = {}
     for row in _detached_relation(root, manifest, "sources"):
-        if row["source_view_id"] not in source_ids:
+        if not origin_sources and row["source_view_id"] not in source_ids:
             continue
         ref = row["ref"]
         sources[row["source_view_id"]] = dict(
@@ -1509,11 +1772,15 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
 def _verify_artifact_nomination_closure(
     root, manifest, artifacts, structural_scopes, contribution_scopes, inventory
 ):
+    from types import SimpleNamespace
+
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.artifact_identity import (
+        ArtifactIdentityConfig,
         ArtifactIdentityMethod,
-        retained_artifact_nomination,
     )
-    from corpus_structure.semantic.contributions import occurrence_identity
+    from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
     origin_ids = {item[2] for item in artifacts}
@@ -1550,52 +1817,50 @@ def _verify_artifact_nomination_closure(
             raise ValueError(
                 "artifact product differs from its registered producer and nomination configuration"
             )
-        for nomination in product.external_nominations:
-            expected.append((report, nomination))
-            requested.append((report, nomination.relationship))
+        cfg = ArtifactIdentityConfig.model_validate(config)
+        if cfg.inputs != report.inputs:
+            raise ValueError("artifact configuration differs from exact selected cohort inputs")
+        expected.append((report, cfg))
+        requested.extend((report, n.relationship) for n in product.external_nominations)
 
-    payloads = _retained_contribution_payloads(
-        root, manifest, requested, contribution_scopes, inventory
-    )
-    for (report, nomination), payload in zip(expected, payloads, strict=True):
-        source_views = {source["source_view_id"]: source for source in payload["sources"]}
-        for row in payload["contributions"]:
-            if row["kind"] != "occurrence":
-                continue
-            anchors = row["anchors"]
-            if not anchors or occurrence_identity(anchors) != row["occurrence_id"]:
-                raise ValueError("artifact nomination endpoint physical identity differs")
-            for anchor in anchors:
-                view = source_views[anchor["pin"]["source_view_id"]]
-                projection = view["projection"]
-                pieces = [
-                    piece
-                    for piece in projection["pieces"]
-                    if piece.get("kind") == "native_text"
-                    and piece.get("item_ref") == anchor["pointer"]
-                    and piece.get("cell_index") is None
-                ]
-                if (
-                    anchor["pin"] != view["pin"]
-                    or anchor["space"] != "native"
-                    or anchor["precision"] != "exact"
-                    or len(pieces) != 1
-                ):
-                    raise ValueError("artifact nomination endpoint lacks exact native bridge")
-                piece = pieces[0]
-                start, end = piece["start"] + anchor["start"], piece["start"] + anchor["end"]
-                if (
-                    not piece["start"] <= start < end <= piece["end"]
-                    or projection["text"][start:end] != anchor["source_piece"]
-                ):
-                    raise ValueError("artifact nomination endpoint differs from original source")
-        product = report.artifact_identity
-        assert product is not None
-        actual = retained_artifact_nomination(
-            report.inputs, product.records, nomination.relationship, payload
+    payloads = dict(
+        zip(
+            (ref for _, ref in requested),
+            _retained_contribution_payloads(
+                root, manifest, requested, contribution_scopes, inventory, origin_sources=True
+            ),
+            strict=True,
         )
-        if actual != nomination:
-            raise ValueError("artifact nomination differs from exact retained endpoints")
+    )
+    selected_ids = {s.source_view_id for report, _ in expected for s in report.inputs.sources}
+    sources = {
+        row["source_view_id"]: row
+        for row in _detached_relation(root, manifest, "sources")
+        if row["source_view_id"] in selected_ids
+    }
+
+    def source_frame(inputs, source_ref):
+        selected = next(s for s in inputs.sources if s.identity == source_ref)
+        return native_source_frame(
+            _retained_review_source_view(sources[selected.source_view_id]), ()
+        )
+
+    context = SimpleNamespace(
+        check_active=lambda: None,
+        reader=SimpleNamespace(
+            structural_source_frame=source_frame, retained_source_contribution=payloads.__getitem__
+        ),
+    )
+    for report, cfg in expected:
+        (result,) = ArtifactIdentityMethod().run(
+            (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=report.inputs.identity)),),
+            cfg,
+            context,
+        )
+        if StructuralProductReport.model_validate(result.structural_product) != report:
+            raise ValueError(
+                "artifact cohort, nominations or scores differ from detached source replay"
+            )
 
 
 def _retained_review_source_view(source):
@@ -1696,7 +1961,7 @@ def _verify_predicate_closure(root, manifest):
             max_pieces=max(1, len(view.pieces)),
         )
         method_version = row["body"].get("operation_version")
-        version = {"4": "2", "5": "3", "6": "3", "7": "3"}.get(method_version)
+        version = {"4": "2", "5": "3", "6": "3", "7": "3", "8": "3"}.get(method_version)
         if version is None or {
             op["operation_version"]
             for op in row["body"].get("contribution_operations", ())
@@ -2086,6 +2351,8 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                 structural_products,
                 structural_scopes,
                 structural_assertions,
+                contribution_scopes,
+                contribution_inventory,
             )
         if dossier_source_members:
             _verify_dossier_contribution_closure(
@@ -2163,6 +2430,45 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
             raise ValueError("review required report members are missing")
     if set(os.listdir(root)) != expected:
         raise ValueError("review package has undeclared or missing members")
+    _verify_structural_gaps(root, manifest, selection)
+    decision_evidence = iter(_detached_relation(root, manifest, "source_decision_evidence"))
+    decisions = iter(_detached_relation(root, manifest, "source_decisions"))
+    if selection.source_decision_selections:
+        bodies = {
+            row["origin_task_id"]: row["body"]
+            for row in _detached_relation(root, manifest, "reports")
+        }
+        selected_origins = {
+            (scope["run_id"], scope["cut_id"], row["selected_task_id"], row["origin_task_id"])
+            for payload in _detached_relation(root, manifest, "inventory")
+            if (scope := contribution_scopes.get(payload.get("selection_index"))) is not None
+            if (row := payload["row"]).get("cut_member")
+        }
+        selected_origins.update(
+            (scope["run_id"], scope["cut_id"], row["selected_task_id"], row["origin_task_id"])
+            for row in _detached_relation(root, manifest, "structural_products")
+            if (scope := structural_scopes.get(row["selection_index"])) is not None
+        )
+        for index, request in enumerate(selection.source_decision_selections):
+            evidence = next(decision_evidence, None)
+            if evidence is None or evidence["selection_index"] != index:
+                raise ValueError("detached source decision evidence is missing")
+            origin = evidence["origin_task_id"]
+            if (request.run_id, request.cut_id, request.task_id, origin) not in selected_origins:
+                raise ValueError("detached source decision has no exact selected origin")
+            expected_evidence = source_decision_capture_from_body(
+                request, request.cut_id, origin, bodies[origin]
+            )
+            if evidence != {"selection_index": index, **expected_evidence}:
+                raise ValueError("detached diagnosis evidence differs from the retained report")
+            expected = source_decision_from_capture(request, expected_evidence).model_dump(
+                mode="json"
+            )
+            if next(decisions, None) != {"selection_index": index, **expected}:
+                raise ValueError("detached diagnosis differs from the retained evidence")
+    if next(decision_evidence, None) is not None or next(decisions, None) is not None:
+        raise ValueError("detached review contains unrequested source diagnoses")
+
     bindings = []
     remaining = _REVIEW_BINDING_LIMIT
     for kind, requests, scopes in (

@@ -174,6 +174,14 @@ BEGIN
     OR jsonb_typeof(source_record->'anchor_endpoint_role')<>'string'
     OR btrim(source_record->>'anchor_endpoint_role')=''))
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'alternatives') a WHERE jsonb_typeof(a)<>'object' OR a='{}')
+   OR (bound->>'rubric_version'='nce12-attachment-role-direction-scope-1'
+    AND source_record->>'facet'='defining_text_attachment_correctness' AND EXISTS(
+     SELECT FROM jsonb_array_elements(source_record->'alternatives') a
+     WHERE a-ARRAY['semantic_type','endpoint_semantics']<>'{}'
+      OR a->>'semantic_type' IS DISTINCT FROM 'definition.defining_text_attachment'
+      OR jsonb_typeof(a->'endpoint_semantics') IS DISTINCT FROM 'array'
+      OR EXISTS(SELECT FROM jsonb_array_elements(a->'endpoint_semantics') e
+       WHERE e->'fields' IS DISTINCT FROM '{}'::jsonb)))
    OR (source_record->>'source_state'='uninspected' AND source_record->>'judgment'<>'unassessed')
    OR (source_record->>'source_state'='stated' AND source_record->>'judgment'='supported' AND source_record->'alternatives'='[]')
    OR NOT((bound->'anchor_ids') @> (source_record->'anchor_ids'))

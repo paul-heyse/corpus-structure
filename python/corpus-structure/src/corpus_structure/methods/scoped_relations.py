@@ -48,7 +48,9 @@ class ScopedRelationsConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
     work_bindings: tuple[SourceWorkBinding, ...] = ()
-    interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
+    interpretation_mode: Literal["feasibility", "independent", "coupled", "correspondence"] = (
+        "coupled"
+    )
     interpretation_weight_scale: float = Field(default=1.0, strict=True)
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     formula_seconds: float = Field(default=0.5, gt=0)
@@ -1349,7 +1351,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "7"
+    version = "8"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -1478,7 +1480,10 @@ class ScopedRelationsMethod:
                 named_link_version="2",
             )
             from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
-            from corpus_structure.methods.table_interpretation import table_policy_operations
+            from corpus_structure.methods.table_interpretation import (
+                execute_table_correspondence,
+                table_policy_operations,
+            )
 
             formula_keys = {
                 o["operation_key"]
@@ -1488,22 +1493,28 @@ class ScopedRelationsMethod:
             table_inputs = tuple(
                 row for row in output["contributions"] if row["operation_key"] not in formula_keys
             )
-            interpretation = table_policy_operations(
-                contributions=table_inputs,
-                dependency_ids=tuple(
-                    sorted(
-                        {
-                            dependency
-                            for row in table_inputs
-                            for dependency in row["computation_dependencies"]
-                        }
-                        | set(output["operation"]["computation_dependencies"])
-                    )
-                ),
-                source_revision=frame.native_product.content_digest,
-                mode=cfg.interpretation_mode,
-                weight_scale=cfg.interpretation_weight_scale,
-            )
+            if cfg.interpretation_mode == "correspondence":
+                prepared_questions = ctx.reader.prepare_table_correspondence(
+                    view.ref.id, table_inputs, cfg.interpretation_weight_scale
+                )
+                interpretation = execute_table_correspondence(table_inputs, prepared_questions)
+            else:
+                interpretation = table_policy_operations(
+                    contributions=table_inputs,
+                    dependency_ids=tuple(
+                        sorted(
+                            {
+                                dependency
+                                for row in table_inputs
+                                for dependency in row["computation_dependencies"]
+                            }
+                            | set(output["operation"]["computation_dependencies"])
+                        )
+                    ),
+                    source_revision=frame.native_product.content_digest,
+                    mode=cfg.interpretation_mode,
+                    weight_scale=cfg.interpretation_weight_scale,
+                )
             model_readings = []
             if classifications:
                 from corpus_structure.methods.clause_classification import model_concordance

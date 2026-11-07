@@ -258,6 +258,11 @@ WITH source AS (
  jsonb_build_object('span',m->'citation')))) citation_
  WHERE p->'passage_id'=citation_->'span'->'passage_id'
  AND p->>'source_ref'=encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')
+ UNION
+ SELECT DISTINCT jsonb_build_object('member_id',m->'member_id',
+  'source',m->'comparison_binding'->'opposite_source',
+  'citation',m->'comparison_binding'->'opposite_citation','context','opposite_comparison_side')
+ FROM selected_members WHERE jsonb_typeof(m->'comparison_binding')='object'
 ), payload AS (
  SELECT jsonb_build_object(
   'members',COALESCE((SELECT jsonb_agg(m ORDER BY ord) FROM selected_members),'[]'),

@@ -9,18 +9,24 @@ from pydantic import Field, model_validator
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.artifact_identity import (
+    ArtifactAliasSpan,
     ArtifactCitation,
     ArtifactIdentityProduct,
     ArtifactNomination,
+    ArtifactNominationEndpoint,
     ArtifactPairKey,
     ArtifactRecord,
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
+    artifact_reference_resolutions,
+    artifact_route_counts,
+    artifact_source_labels,
+    explicit_artifact_reference,
     native_alias_candidates,
-    normalized_code,
     pair_candidates,
     score_pairs,
 )
+from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
@@ -79,7 +85,10 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
     for row in rows:
         if row["semantic_type"] != "structural.artifact":
             continue
+        artifact = SourceArtifactOccurrence.model_validate(source_python(row["value"]))
         citations = []
+        labels = None
+        named_target = None
         for anchor in row["anchors"]:
             for piece in pieces:
                 pointer = piece.get("item_ref", "")
@@ -95,6 +104,17 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
                         and passage.text[start - passage.start : end - passage.start]
                         == anchor["source_piece"]
                     ):
+                        raw = frame.text[piece["start"] : piece["end"]]
+                        labels = artifact_source_labels(raw, anchor["end"], pointer)
+                        explicit = explicit_artifact_reference(
+                            raw, anchor["start"], anchor["end"], pointer, artifact
+                        )
+                        if (
+                            explicit is not None
+                            and passage.start <= piece["start"] + explicit.cue.start
+                            and piece["start"] + explicit.cue.end <= passage.end
+                        ):
+                            named_target = explicit
                         citations.append(
                             ArtifactCitation(
                                 source_ref=source_ref,
@@ -105,18 +125,38 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
                                 text=anchor["source_piece"],
                             )
                         )
-        if not citations:
+        if labels is None:
             continue
         records.append(
             ArtifactRecord(
                 contribution_id=row["contribution_id"],
                 occurrence_id=row["occurrence_id"],
-                artifact=SourceArtifactOccurrence.model_validate(source_python(row["value"])),
+                artifact=artifact,
                 source_contribution=json.loads(canonical_bytes(row)),
                 citations=tuple(citations),
+                numbering=labels[0],
+                revision=labels[1],
+                explicit_reference=named_target,
             )
         )
     return tuple(records)
+
+
+def artifact_cohort(records: list[ArtifactRecord]) -> tuple[ArtifactRecord, ...]:
+    cohort: dict[tuple[str, str, str], ArtifactRecord] = {}
+    for record in sorted(records, key=lambda r: r.contribution_id):
+        key = (record.occurrence_id, record.artifact.source_work, record.artifact.artifact_kind)
+        previous = cohort.setdefault(key, record)
+        if previous is not record:
+            if (previous.numbering, previous.revision) != (record.numbering, record.revision):
+                raise ValueError("overlapping artifact views disagree on native source labels")
+            cohort[key] = previous.model_copy(
+                update={
+                    "citations": tuple(dict.fromkeys((*previous.citations, *record.citations))),
+                    "explicit_reference": previous.explicit_reference or record.explicit_reference,
+                }
+            )
+    return tuple(cohort.values())
 
 
 def retained_artifact_nomination(inputs, records, reference, payload) -> ArtifactNomination:
@@ -134,12 +174,12 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
     endpoints = relation.get("endpoints", ())
     if len(endpoints) != 2 or {e["role"] for e in endpoints} != {"attachment", "target"}:
         raise ValueError("artifact nomination requires two role-bound endpoints")
-    input_sources = {s.source_view_id: s for s in inputs.sources}
-    matched = {}
+    matched: dict[str, ArtifactNominationEndpoint] = {}
+    cue = None
     source_views = {view["source_view_id"]: view for view in payload["sources"]}
     for endpoint in endpoints:
         row = rows.get(endpoint["contribution_id"])
-        if row is None or not row["anchors"]:
+        if row is None or len(row["anchors"]) != 1:
             raise ValueError("artifact nomination endpoint lacks retained source evidence")
         if not (
             row["semantic_type"] == "structural.artifact"
@@ -150,81 +190,76 @@ def retained_artifact_nomination(inputs, records, reference, payload) -> Artifac
         ):
             raise ValueError("artifact nomination endpoint has an incompatible source role")
         pin = row["pin"]
-        source = input_sources.get(pin["source_view_id"])
-        if source is None or (
-            source.native_task_id,
-            source.native_product_key,
-            source.native_content_digest,
-            source.projection_digest,
-            source.recipe_digest,
-        ) != (
-            pin["native_product_task_id"],
-            pin["product_key"],
-            pin["product_digest"],
-            pin["projection_digest"],
-            pin["recipe_digest"],
+        source = source_views.get(pin["source_view_id"])
+        anchor = row["anchors"][0]
+        if (
+            source is None
+            or source["pin"] != pin
+            or anchor["pin"] != pin
+            or anchor["space"] != "native"
+            or anchor["precision"] != "exact"
+            or occurrence_identity([anchor]) != row["occurrence_id"]
         ):
-            raise ValueError("artifact nomination endpoint lies outside selected sources")
+            raise ValueError("artifact nomination endpoint lacks its exact origin source pin")
+        projection = source["projection"]
+        origins = [
+            piece
+            for piece in projection["pieces"]
+            if piece.get("kind") == "native_text"
+            and piece.get("cell_index") is None
+            and piece["item_ref"] == anchor["pointer"]
+            and piece["start"]
+            <= piece["start"] + anchor["start"]
+            < piece["start"] + anchor["end"]
+            <= piece["end"]
+            and projection["text"][
+                piece["start"] + anchor["start"] : piece["start"] + anchor["end"]
+            ]
+            == anchor["source_piece"]
+        ]
+        if len(origins) != 1:
+            raise ValueError("artifact nomination endpoint differs from its exact origin text")
         expected_role = "reference" if endpoint["role"] == "attachment" else "caption"
         matches = [
             record
             for record in records
             if record.occurrence_id == row["occurrence_id"]
             and record.artifact.occurrence_role == expected_role
-            and any(
-                citation.source_ref == source.identity
-                and any(
-                    anchor["pointer"] == citation.source_pointer
-                    and anchor["source_piece"] == citation.text
-                    for anchor in row["anchors"]
-                )
-                for citation in record.citations
-            )
         ]
         if len(matches) != 1:
             raise ValueError("artifact nomination endpoint lacks exactly one selected artifact")
         if expected_role == "reference":
-            projection = source_views[source.source_view_id]["projection"]
-            if not any(
-                ARTIFACT_REFERENCE_CUE.search(
-                    projection["text"][piece["start"] : piece["start"] + anchor["start"]]
-                )
-                for anchor in row["anchors"]
-                if anchor.get("space") == "native" and anchor.get("precision") == "exact"
-                for piece in projection["pieces"]
-                if piece.get("kind") == "native_text"
-                and piece.get("cell_index") is None
-                and piece["item_ref"] == anchor["pointer"]
-            ):
+            start = origins[0]["start"]
+            match = ARTIFACT_REFERENCE_CUE.search(
+                projection["text"][start : start + anchor["start"]]
+            )
+            if match is None:
                 raise ValueError("artifact reference lacks the exact local cross-reference cue")
-        matched[endpoint["role"]] = (matches[0], source.identity)
-    mention, mention_source = matched["attachment"]
-    caption, caption_source = matched["target"]
-    kind = mention.artifact.artifact_kind
-    code = normalized_code(mention.artifact.controlled_code)
-    if (
-        mention_source != caption_source
-        or kind not in {"figure", "table"}
-        or caption.artifact.artifact_kind != kind
-        or code is None
-        or normalized_code(caption.artifact.controlled_code) != code
-        or sum(
-            record.artifact.occurrence_role == "caption"
-            and record.artifact.artifact_kind == kind
-            and normalized_code(record.artifact.controlled_code) == code
-            and any(citation.source_ref == mention_source for citation in record.citations)
-            for record in records
+            literal = match[0].rstrip()
+            cue = ArtifactAliasSpan(
+                source_pointer=anchor["pointer"],
+                start=match.start(),
+                end=match.start() + len(literal),
+                text=literal,
+            )
+        matched[endpoint["role"]] = ArtifactNominationEndpoint(
+            role=endpoint["role"],
+            record_id=matches[0].contribution_id,
+            contribution_id=row["contribution_id"],
+            origin_source_view_id=pin["source_view_id"],
+            origin_anchor_id=anchor["anchor_id"],
         )
-        != 1
-    ):
-        raise ValueError("artifact reference does not identify one exact same-view caption")
-    left, right = sorted((mention.contribution_id, caption.contribution_id))
-    return ArtifactNomination(left=left, right=right, relationship=reference)
+    directed = (matched["attachment"], matched["target"])
+    left, right = sorted(e.record_id for e in directed)
+    assert cue is not None
+    return ArtifactNomination(
+        left=left, right=right, relationship=reference, endpoints=directed, origin_cue=cue
+    )
 
 
 class ArtifactIdentityMethod:
     name = "structure.artifact_identity"
-    version = "2"
+    version = "3"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -256,14 +291,7 @@ class ArtifactIdentityMethod:
                 discover_identity_records(frame, cfg.inputs, source.identity, binding.source_work)
             )
             provenance.append(binding.provenance)
-        # Same physical occurrence seen through overlapping views is one cohort member.
-        cohort = {}
-        for record in sorted(records, key=lambda r: r.contribution_id):
-            cohort.setdefault(
-                (record.occurrence_id, record.artifact.source_work, record.artifact.artifact_kind),
-                record,
-            )
-        selected = tuple(cohort.values())
+        selected = artifact_cohort(records)
         nominations = []
         for reference in sorted(cfg.external_nomination_refs, key=lambda ref: ref.contribution_id):
             ctx.check_active()
@@ -272,9 +300,11 @@ class ArtifactIdentityMethod:
                 retained_artifact_nomination(cfg.inputs, selected, reference, payload)
             )
         alias, _ = native_alias_candidates(selected)
+        explicit_references = artifact_reference_resolutions(selected)
         pairs = pair_candidates(
             selected,
             external_nominations=tuple(nominations),
+            explicit_references=explicit_references,
             native_alias_pairs=alias,
             title_threshold=cfg.title_threshold,
             exclusions=cfg.exclusions,
@@ -289,6 +319,8 @@ class ArtifactIdentityMethod:
                 pairs=scored,
                 native_alias_pairs=tuple(ArtifactPairKey(left=a, right=b) for a, b in alias),
                 external_nominations=tuple(nominations),
+                explicit_references=explicit_references,
+                route_counts=artifact_route_counts(scored),
                 policy=cfg.policy,
                 source_mapping_provenance=tuple(sorted(set(provenance))),
                 unbound_source_ids=tuple(unbound),

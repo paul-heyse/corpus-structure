@@ -94,3 +94,59 @@ def dossier_page(
         ):
             result = serve_dossier_representation(conn, request)
     emit(result, json=json)
+
+
+@app.command("gap")
+def structural_gap(
+    ctx: typer.Context,
+    report: str,
+    run: Annotated[int, typer.Option()],
+    task: Annotated[int, typer.Option()],
+    cut: int | None = None,
+    source_view: int | None = None,
+    scope: str | None = None,
+    occurrence: str | None = None,
+    operation: str | None = None,
+    binding_run: int | None = None,
+    binding_cut: int | None = None,
+    binding_task: int | None = None,
+    limit: int = 20,
+    max_bytes: int = 1_000_000,
+    cursor: str | None = None,
+    json: JsonOpt = False,
+):
+    """Inspect one selected structural gap report and its producer coverage."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_gap
+
+    with failure_boundary(json):
+        request = GapRequest.model_validate(
+            dict(
+                report=report,
+                run_id=run,
+                task_id=task,
+                cut_id=cut,
+                source_view_id=source_view,
+                scope=scope,
+                occurrence_id=occurrence,
+                operation_key=operation,
+                limit=limit,
+                max_bytes=max_bytes,
+                cursor=cursor,
+                binding_task=dict(
+                    run_id=binding_run or run, task_id=binding_task, cut_id=binding_cut
+                )
+                if any(value is not None for value in (binding_run, binding_cut, binding_task))
+                else None,
+            )
+        )
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), "ci-structural-gap", purpose="read"
+            ) as engine,
+            read_snapshot(engine) as conn,
+        ):
+            result = serve_structural_gap(conn, request)
+    emit(result, json=json)

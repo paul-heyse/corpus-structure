@@ -905,142 +905,172 @@ def test_published_capture_keeps_selected_revision_after_reading_original_source
     assert witness["assessment_id"] == "protected-meaning"
 
 
-def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
+def artifact_nomination_rows(*, relation_kind="artifact_reference_target", distinct_codes=False):
+    from copy import deepcopy
     from hashlib import sha256
+    from types import SimpleNamespace
 
-    from corpus_structure.semantic.artifact_identity import (
-        ArtifactIdentityProduct,
-        ArtifactNomination,
-        ArtifactRecord,
-        ArtifactScoringPolicy,
-        SourceArtifactOccurrence,
-        pair_candidates,
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.methods.artifact_identity import (
+        ArtifactIdentityConfig,
+        ArtifactIdentityMethod,
     )
-    from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
+    from corpus_structure.methods.scoped_relations import SourceWorkBinding, discover_relations
+    from corpus_structure.semantic.artifact_identity import ArtifactScoringPolicy
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.observations import source_value
+    from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.retained_contributions import RetainedContributionRef
     from corpus_structure.semantic.structural_products import StructuralProductReport
+    from corpus_structure.serve.review_bundle import _retained_review_source_view
     from corpus_structure.serve.structural_products import StructuralRequest
 
-    literal = "See Figure 1. Figure 1 shows a known comparison."
+    mention = (
+        "See Figure 1 (also published as Figure 2 in numbering namespace Chapter2)."
+        if distinct_codes
+        else "See Figure 1."
+    )
+    caption = (
+        "Figure 2 (numbering namespace: Chapter2) shows a known comparison."
+        if distinct_codes
+        else "Figure 1 shows a known comparison."
+    )
+    literal = mention + "\n" + caption
     rows = structural_rows(literal)
     inputs = StructuralProductReport.model_validate(rows[1][1]["report"]).inputs
     source = rows[3][1]
-    piece = source["context"]["pieces"][0]
-    piece.update(kind="native_text", source_field="text")
-    projection = {**source["context"], "items": ["#/texts/0"]}
+    source["context"]["pieces"] = [
+        dict(
+            kind="native_text", source_field="text", item_ref="#/texts/0", start=0, end=len(mention)
+        ),
+        dict(kind="synthetic_separator", start=len(mention), end=len(mention) + 1),
+        dict(
+            kind="native_text",
+            source_field="text",
+            item_ref="#/texts/1",
+            start=len(mention) + 1,
+            end=len(literal),
+        ),
+    ]
+    source["context"]["items"] = [
+        dict(self_ref="#/texts/0", label="text", text=mention),
+        dict(self_ref="#/texts/1", label="caption", text=caption, parent={"$ref": "#/pictures/0"}),
+        dict(self_ref="#/pictures/0", label="picture"),
+    ]
+    projection = {**source["context"], "items": ["#/texts/0", "#/texts/1", "#/pictures/0"]}
     digest = sha256(canonical_bytes(projection)).hexdigest()
     source["ref"]["projection_digest"] = digest
     source_ref = inputs.sources[0].model_copy(update=dict(projection_digest=digest))
-    passage = inputs.passages[0].model_copy(update=dict(source_ref=source_ref.identity))
-    inputs = inputs.model_copy(update=dict(sources=(source_ref,), passages=(passage,)))
-    pin = dict(
-        source="known",
-        native_product_task_id=1,
-        product_key="native",
-        product_digest="a" * 64,
-        projection_digest=digest,
-        recipe_digest="b" * 64,
-        source_view_id=1,
-    )
+    references = ()
     endpoints = []
-    records = []
-    for start, role in ((4, "reference"), (14, "caption")):
-        quote = "Figure 1"
-        end = start + len(quote)
-        assert literal[start:end] == quote
-        anchor = dict(
-            pin=pin,
-            space="native",
-            pointer="#/texts/0",
-            precision="exact",
-            start=start,
-            end=end,
-            source_piece=quote,
+    reference_row = relation = None
+    if not distinct_codes:
+        frame = native_source_frame(_retained_review_source_view(source), ())
+        contributed = discover_relations(frame, source_work="controlled-work")["contributions"]
+        relation = next(
+            row for row in contributed if row["item_key"].startswith("artifact_reference_target:")
         )
-        occurrence = occurrence_identity([anchor])
-        endpoint = dict(
-            semantic_type="structural.located_participant",
-            kind="occurrence",
-            pin=pin,
-            anchors=[anchor],
-            occurrence_id=occurrence,
-            value=source_value({"role": "artifact_reference"}),
+        endpoint_ids = {e["contribution_id"] for e in relation["endpoints"]}
+        endpoints = [row for row in contributed if row["contribution_id"] in endpoint_ids]
+        reference_row = relation
+        if relation_kind != "artifact_reference_target":
+            relation = {**relation, "value": source_value({"relation": relation_kind})}
+        references = (
+            RetainedContributionRef(
+                contribution_id=reference_row["contribution_id"],
+                project_id="selected-project",
+                run_id=5,
+                cut_id=6,
+                release_id="release:structural",
+                result_revision=2,
+                selected_task_id=75,
+                origin_task_id=70,
+                runtime_fingerprint="runtime:source",
+            ),
         )
-        endpoint["contribution_id"] = contribution_identity(endpoint)
-        endpoints.append(endpoint)
-        artifact = SourceArtifactOccurrence(
-            artifact_kind="figure",
-            source_work="controlled-work",
-            controlled_code="1",
-            occurrence_role=role,
-            source_pointer="#/texts/0",
-            scope="controlled",
-            dependencies=("native:1",),
+    # Two overlapping selected views share physical coordinates. The retained relation
+    # originates in a third view and its own completed cut.
+    selected_rows = {}
+    selected_refs = []
+    passages = []
+    for view_id in (2, 3):
+        selected = deepcopy(source)
+        selected["source_view_id"] = selected["ref"]["id"] = view_id
+        if distinct_codes:
+            piece = selected["context"]["pieces"][0 if view_id == 2 else 2]
+            raw = mention if view_id == 2 else caption
+            piece.update(start=0, end=len(raw))
+            selected["text"] = selected["context"]["text"] = raw
+            selected["context"]["pieces"] = [piece]
+            selected_projection = {
+                **selected["context"],
+                "items": [item["self_ref"] for item in selected["context"]["items"]],
+            }
+            selected["ref"]["projection_digest"] = sha256(
+                canonical_bytes(selected_projection)
+            ).hexdigest()
+        selected_ref = source_ref.model_copy(
+            update={
+                "source_view_id": view_id,
+                "projection_digest": selected["ref"]["projection_digest"],
+            }
         )
-        product_row = dict(
-            endpoint, semantic_type="structural.artifact", value=source_value(artifact.model_dump())
-        )
-        product_row["contribution_id"] = contribution_identity(product_row)
-        records.append(
-            ArtifactRecord(
-                contribution_id=product_row["contribution_id"],
-                occurrence_id=occurrence,
-                artifact=artifact,
-                source_contribution=json.loads(canonical_bytes(product_row)),
-                citations=(
-                    dict(
-                        source_ref=source_ref.identity,
-                        passage_id="p1",
-                        source_pointer="#/texts/0",
-                        start=start,
-                        end=end,
-                        text=quote,
-                    ),
-                ),
+        selected_refs.append(selected_ref)
+        selected_rows[selected_ref.identity] = selected
+        passages.append(
+            inputs.passages[0].model_copy(
+                update={
+                    "passage_id": f"p{view_id}",
+                    "source_ref": selected_ref.identity,
+                    "text": selected["text"],
+                    "end": len(selected["text"]),
+                }
             )
         )
-    relation = dict(
-        semantic_type="structural.scoped_attachment",
-        kind="relation",
-        pin=pin,
-        anchors=[],
-        endpoints=[
-            dict(role=role, contribution_id=row["contribution_id"])
-            for role, row in zip(("attachment", "target"), endpoints, strict=True)
-        ],
-        value=source_value({"relation": relation_kind}),
-    )
-    relation["contribution_id"] = contribution_identity(relation)
-    reference = RetainedContributionRef(
-        contribution_id=relation["contribution_id"],
-        project_id="selected-project",
-        run_id=5,
-        cut_id=6,
-        release_id="release:structural",
-        result_revision=2,
-        selected_task_id=75,
-        origin_task_id=70,
-        runtime_fingerprint="runtime:source",
-    )
-    left, right = sorted(record.contribution_id for record in records)
-    nomination = ArtifactNomination(left=left, right=right, relationship=reference)
     inputs = inputs.model_copy(
-        update=dict(dependencies=(*inputs.dependencies, reference.contribution_id))
+        update=dict(
+            sources=tuple(selected_refs),
+            passages=tuple(passages),
+            dependencies=(*inputs.dependencies, *(ref.contribution_id for ref in references)),
+        )
     )
-    report = StructuralProductReport(
-        kind="artifact_identity",
+    configuration = ArtifactIdentityConfig(
         inputs=inputs,
-        artifact_identity=ArtifactIdentityProduct(
-            records=tuple(records),
-            pairs=pair_candidates(tuple(records), external_nominations=(nomination,)),
-            external_nominations=(nomination,),
-            policy=ArtifactScoringPolicy(
-                prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05
+        structural_input_digest=inputs.identity,
+        work_bindings=(
+            SourceWorkBinding(
+                native_content_digest="a" * 64,
+                source_work="controlled-work",
+                provenance="controlled native fixture",
             ),
         ),
+        policy=ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05),
+        external_nomination_refs=references,
     )
+
+    def retained_source(_):
+        assert reference_row is not None
+        return {
+            "contributions": [*endpoints, reference_row],
+            "sources": [dict(source_view_id=1, pin=reference_row["pin"], projection=projection)],
+        }
+
+    context = SimpleNamespace(
+        check_active=lambda: None,
+        reader=SimpleNamespace(
+            structural_source_frame=lambda _inputs, ref: native_source_frame(
+                _retained_review_source_view(selected_rows[ref]), ()
+            ),
+            retained_source_contribution=retained_source,
+        ),
+    )
+    (result,) = ArtifactIdentityMethod().run(
+        (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity)),),
+        configuration,
+        context,
+    )
+    report = StructuralProductReport.model_validate(result.structural_product)
     structural = dict(
         selection_index=0,
         selected_task_id=100,
@@ -1056,14 +1086,26 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
         origin_run_id=2,
         project_id="selected-project",
         runtime_fingerprint="runtime:artifact",
-        configuration=dict(external_nomination_refs=[reference.model_dump(mode="json")]),
+        configuration=configuration.model_dump(mode="json"),
         body=dict(
             release_id="release:structural",
             method="structure.artifact_identity",
-            operation_version="2",
+            operation_version=ArtifactIdentityMethod.version,
             structural_product=report.model_dump(mode="json"),
         ),
     )
+    if distinct_codes:
+        return ReviewSelection(
+            structural_selections=(StructuralRequest(run_id=2, kind="artifact_identity"),)
+        ), [
+            rows[0],
+            ("structural_products", structural),
+            ("reports", raw),
+            *(("sources", selected) for selected in selected_rows.values()),
+            *rows[4:],
+        ]
+
+    assert relation is not None
     member_rows = [*endpoints, relation]
     scoped = dict(
         origin_task_id=70,
@@ -1108,6 +1150,7 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
         rows[0],
         ("structural_products", structural),
         ("reports", raw),
+        *(("sources", selected) for selected in selected_rows.values()),
         *rows[3:],
     ]
     return ReviewSelection(
@@ -1121,6 +1164,38 @@ def test_artifact_nomination_replays_exact_retained_cross_cut_source(tmp_path):
     root = tmp_path / "artifact"
     write_review_bundle(request, root, iter(rows))
     assert inspect_review_bundle(root)["relations"]["inventory"] == 3
+    report = next(row["report"] for name, row in rows if name == "structural_products")
+    product = report["artifact_identity"]
+    assert len(product["records"]) == 2
+    assert [len(r["citations"]) for r in product["records"]] == [2, 2]
+    nomination = product["external_nominations"][0]
+    assert nomination["origin_cue"]["text"] == "See"
+    assert [e["origin_source_view_id"] for e in nomination["endpoints"]] == [1, 1]
+    assert [e["role"] for e in nomination["endpoints"]] == ["attachment", "target"]
+
+
+def test_artifact_nomination_adds_a_different_code_pair_without_a_score(tmp_path):
+    request, rows = artifact_nomination_rows(distinct_codes=True)
+    root = tmp_path / "artifact-distinct-codes"
+    write_review_bundle(request, root, iter(rows))
+    assert inspect_review_bundle(root)["relations"]["sources"] == 2
+    report = next(row["report"] for name, row in rows if name == "structural_products")
+    product = report["artifact_identity"]
+    (reference,) = product["explicit_references"]
+    assert reference["outcome"] == "witnessed_candidate"
+    (target,) = reference["targets"]
+    records = {r["contribution_id"]: r for r in product["records"]}
+    attachment = records[reference["attachment"]]
+    assert attachment["artifact"]["controlled_code"] == "1"
+    assert records[target]["artifact"]["controlled_code"] == "2"
+    assert attachment["explicit_reference"]["cue"]["text"] == (
+        "See Figure 1 (also published as Figure 2 in numbering namespace Chapter2)"
+    )
+    assert attachment["citations"][0]["source_ref"] != records[target]["citations"][0]["source_ref"]
+    (pair,) = [p for p in product["pairs"] if "explicit_reference" in p["candidate_routes"]]
+    assert pair["candidate_routes"] == ["explicit_reference"]
+    assert pair["score_status"] == "reference_only"
+    assert pair["model_probability"] is None
 
 
 @pytest.mark.parametrize("broken", ["selected_endpoint", "other_relation", "omitted_ref"])
@@ -1132,7 +1207,7 @@ def test_artifact_nomination_refuses_incomplete_or_substituted_source_closure(tm
         next(value["row"] for name, value in rows if name == "inventory")["selected_task_id"] = 80
         error = "selected endpoint inventory missing"
     elif broken == "other_relation":
-        error = "requires a retained reference-target relationship"
+        error = "identity differs from original content"
     else:
         raw = next(
             value for name, value in rows if name == "reports" and value["origin_task_id"] == 100
@@ -1264,3 +1339,40 @@ def test_detached_comparison_refuses_resealed_reading_substitution(tmp_path, var
     with pytest.raises(ValueError, match=reason):
         write_review_bundle(request, tmp_path / "comparison", iter(rows))
     assert not (tmp_path / "comparison").exists()
+
+
+def test_source_decision_keeps_the_witness_kind_under_its_delivery_kind():
+    from corpus_structure.serve.contextual_navigation import (
+        SourceDecisionParams,
+        diagnose_source_decision,
+    )
+
+    artifact = {
+        "records": [
+            {
+                "contribution_id": "reference",
+                "occurrence_id": "source",
+                "citations": [],
+                "artifact": {"occurrence_role": "reference"},
+            },
+        ],
+        "pairs": [],
+        "external_nominations": [
+            {"left": "caption", "right": "reference", "kind": "reference_target"},
+        ],
+    }
+    answer = diagnose_source_decision(
+        SourceDecisionParams(task_id=1, occurrence_id="source"),
+        1,
+        {"artifact_identity": artifact},
+        [],
+        [],
+    )
+    assert answer.decisions == (
+        {
+            "left": "caption",
+            "right": "reference",
+            "kind": "directed_artifact_nomination",
+            "witness_kind": "reference_target",
+        },
+    )

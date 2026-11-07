@@ -39,7 +39,7 @@ from corpus_structure.semantic.structural_products import StructuralProductRepor
 
 
 def _reports(body):
-    if body.get("operation_version") in {"6", "7"}:
+    if body.get("operation_version") in {"6", "7", "8"}:
         for op in body.get("contribution_operations", ()):
             if "contextual_enrichment" in op:
                 yield op["contextual_enrichment"]
@@ -185,8 +185,9 @@ def _verify_section_report(retained, reports, sources, documents, contract):
     from .review_bundle import _retained_review_source_view
 
     body, configuration = retained["body"], retained["configuration"]
-    if body["operation_version"] != "7" or body["configuration_hash"] != config_key(
-        "retrieve.contextual", "7", configuration
+    version = body["operation_version"]
+    if version not in {"7", "8"} or body["configuration_hash"] != config_key(
+        "retrieve.contextual", version, configuration
     ):
         raise ValueError("section citation differs from exact retained configuration")
     config = ContextualCandidateConfig.model_validate(configuration)
@@ -226,7 +227,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
         or scoped["project_id"] != retained["project_id"]
         or upstream["source"] != body["source"]
         or upstream["release_id"] != body["release_id"]
-        or upstream["operation_version"] != "7"
+        or upstream["operation_version"] not in {"7", "8"}
     ):
         raise ValueError("section citation lacks its exact scoped source report")
     frame = native_source_frame(_retained_review_source_view(source), ())
@@ -235,7 +236,7 @@ def _verify_section_report(retained, reports, sources, documents, contract):
     for pointer, node in tuple(nodes.items()):
         for index, cell in enumerate(node.get("data", {}).get("table_cells", ())):
             nodes[f"{pointer}/data/table_cells/{index}"] = cell
-    key = operation_identity("retrieve.contextual", "7", config.model_dump(mode="json"), pin)
+    key = operation_identity("retrieve.contextual", version, config.model_dump(mode="json"), pin)
     products, contexts, _ = retained_occurrences(
         upstream, nodes, pin, key, config.semantic_types, canonical_producer=True
     )
@@ -426,6 +427,13 @@ def verify_contextual_witness_closure(root, manifest):
     if "reports" not in manifest["relations"]:
         return
     reports = {r["origin_task_id"]: r for r in _detached_relation(root, manifest, "reports")}
+    from .contextual_navigation import verify_detached_neighborhood
+
+    for retained in reports.values():
+        body = retained.get("body") or {}
+        if retained.get("method") == "retrieve.contextual" and body.get("operation_version") == "8":
+            (report,) = tuple(_reports(body))
+            verify_detached_neighborhood(report)
     relevant = [
         r
         for r in reports.values()

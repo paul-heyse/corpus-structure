@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import cache
 from itertools import product
 from math import log, prod
 from threading import Event
 from typing import Any, Literal
+
+from pydantic import TypeAdapter
 
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.record_interpretation import (
@@ -30,11 +33,82 @@ from corpus_structure.semantic.record_interpretation import (
 from .local_interpretation import local_constraint_id, local_question_operation
 
 POLICY_VERSION = "shared-table-band-3"
+CORRESPONDENCE_POLICY_VERSION = "source-correspondence-1"
 MAX_BAND_EDGES = 16
 MODE = Literal["feasibility", "independent", "coupled"]
 _RELATIONS = frozenset({"header", "unit", "note", "value_role"})
 _UNRESOLVED = "unresolved"
 _INAPPLICABLE = "does_not_apply"
+
+
+@dataclass(frozen=True)
+class TableCorrespondenceBinding:
+    alignment: Literal["exact", "overlap"]
+    dependencies: tuple[str, ...]
+    observed_anchor: str
+    schematic_anchor: str
+    declaration_anchor: str
+
+
+@dataclass(frozen=True)
+class TableCorrespondencePremise:
+    identity: str
+    standing: Literal["fixed", "alternative"]
+    source_revision: str
+    source_view_id: int
+    source_projection: str
+    source_recipe: str
+    observed_table: str
+    schematic_table: str
+    observed_caption: str
+    schematic_caption: str
+    declaration_pointer: str
+    bindings: dict[str, TableCorrespondenceBinding]
+
+
+@dataclass(frozen=True)
+class TableCorrespondenceRequest(LocalInterpretationRequest):
+    correspondence_premises: tuple[TableCorrespondencePremise, ...] = ()
+    correspondence_status: Literal["fixed", "ambiguous", "unavailable"] = "unavailable"
+    correspondence_reason: str | None = None
+
+
+@cache
+def _correspondence_request_adapter() -> TypeAdapter[TableCorrespondenceRequest]:
+    return TypeAdapter(TableCorrespondenceRequest)
+
+
+def execute_table_correspondence(
+    contributions: Sequence[Mapping[str, Any]],
+    prepared: Sequence[Mapping[str, Any]],
+    *,
+    cancellation: Event | None = None,
+) -> tuple[dict[str, Any], ...]:
+    """Hydrate native requests and run the finite executor over their frozen support."""
+    by_id = {row["contribution_id"]: row for row in contributions}
+    operations = []
+    for question in prepared:
+        retained = tuple(by_id[key] for key in question["contribution_ids"])
+        dependencies = tuple(question["dependencies"])
+        raw_request = question["request"]
+        request = (
+            _correspondence_request_adapter().validate_python(raw_request)
+            if raw_request is not None
+            else None
+        )
+        operation = local_question_operation(
+            question=question["question"],
+            contributions=retained,
+            dependency_ids=dependencies,
+            request=request,
+            cancellation=cancellation,
+            unavailable_policy_version=CORRESPONDENCE_POLICY_VERSION,
+            unavailable_reason=question["reason"],
+        )
+        if operation["operation_key"] != question["scope_id"]:
+            raise ValueError("prepared table correspondence differs from the selected band")
+        operations.append(operation)
+    return tuple(operations)
 
 
 @dataclass(frozen=True)

@@ -56,8 +56,14 @@ classes:
       scope_state:
         range: IdentityArtifactPairScopeStateValue
         required: true
+      numbering_relation:
+        range: IdentityArtifactPairRevisionRelationValue
+        required: true
       revision_relation:
         range: IdentityArtifactPairRevisionRelationValue
+        required: true
+      score_status:
+        range: ArtifactScoreStatus
         required: true
       lexical_score:
         range: contextual_float
@@ -94,7 +100,41 @@ classes:
     attributes:
       left: {required: true}
       right: {required: true}
+      kind: {required: true, equals_string: artifact_reference_target}
       relationship: {range: RetainedContributionRef, required: true, inlined: true}
+      origin_cue: {range: ArtifactAliasOccurrence, required: true, inlined: true}
+      endpoints:
+        range: ArtifactNominationEndpoint
+        required: true
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 2
+  ArtifactNominationEndpoint:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true, pattern: '^(attachment|target)$'}
+      record_id: {required: true}
+      contribution_id: {required: true}
+      origin_source_view_id: {range: integer, minimum_value: 1, required: true}
+      origin_anchor_id: {required: true}
+  ArtifactSourceLabel:
+    is_a: SourceRecordProduct
+    attributes:
+      state: {required: true, pattern: '^(observed|unknown|unresolved)$'}
+      value: {}
+      evidence: {range: ArtifactAliasOccurrence, inlined: true, multivalued: true}
+  ArtifactReferenceDesignator:
+    is_a: SourceRecordProduct
+    attributes:
+      target_code: {required: true}
+      target_numbering: {required: true}
+      cue: {range: ArtifactAliasOccurrence, required: true, inlined: true}
+  ArtifactReferenceResolution:
+    is_a: SourceRecordProduct
+    attributes:
+      attachment: {required: true}
+      targets: {range: string, multivalued: true}
+      outcome: {required: true, pattern: '^(witnessed_candidate|ambiguous|no_compatible_candidate)$'}
   ArtifactRecord:
     is_a: SourceRecordProduct
     attributes:
@@ -118,6 +158,9 @@ classes:
         range: ArtifactCitation
         inlined: true
         required: true
+      numbering: {range: ArtifactSourceLabel, required: true, inlined: true}
+      revision: {range: ArtifactSourceLabel, required: true, inlined: true}
+      explicit_reference: {range: ArtifactReferenceDesignator, inlined: true}
   ArtifactScoringPolicy:
     is_a: SourceRecordProduct
     attributes:
@@ -196,7 +239,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       protocol:
-        equals_string: artifact-identity-2
+        equals_string: artifact-identity-3
       identity_grain:
         equals_string: source_work_artifact_lineage
       records:
@@ -212,6 +255,8 @@ classes:
         range: ArtifactPairKey
         inlined: true
       external_nominations: {range: ArtifactNomination, inlined: true, multivalued: true}
+      explicit_references: {range: ArtifactReferenceResolution, inlined: true, multivalued: true}
+      route_counts: {range: ArtifactRouteCount, inlined: true, multivalued: true, required: true}
       policy:
         range: ArtifactScoringPolicy
         inlined: true
@@ -228,6 +273,14 @@ classes:
         range: integer
       standing:
         equals_string: candidate_relative_private
+  ArtifactRouteCount:
+    is_a: SourceRecordProduct
+    attributes:
+      route: {required: true}
+      nominated: {range: integer, minimum_value: 0, required: true}
+      eligible: {range: integer, minimum_value: 0, required: true}
+      marginal: {range: integer, minimum_value: 0, required: true}
+      cumulative: {range: integer, minimum_value: 0, required: true}
   SourceRecordProduct:
     abstract: true
     description: Private operation product, validated through released report boundaries; not a knowledge graph class or datatype.
@@ -1069,9 +1122,28 @@ classes:
       interpretation: {required: true, range: StructuralDefinitionInterpretationValue}
       scope: {required: true}
       effective_version: {}
+  ContextualMutualNeighbor:
+    attributes:
+      left_id: {required: true}
+      right_id: {required: true}
+      left_group: {required: true}
+      right_group: {required: true}
+      left_digest: {required: true}
+      right_digest: {required: true}
+      left_rank: {range: integer, minimum_value: 1, maximum_value: 5, required: true}
+      right_rank: {range: integer, minimum_value: 1, maximum_value: 5, required: true}
+      distance: {range: contextual_float, required: true}
+  ContextualNeighborhood:
+    attributes:
+      policy: {required: true, equals_string: mutual-exact-cosine-top5-1}
+      inventory_id: {required: true}
+      profile_id: {}
+      status: {range: ContextualNeighborhoodStatus, required: true}
+      edges: {range: ContextualMutualNeighbor, multivalued: true, inlined: true}
   ContextualEnrichmentReport:
     is_a: SourceRecordProduct
     attributes:
+      neighborhood: {range: ContextualNeighborhood, inlined: true}
       component_targets: {range: ExtractedComponentTarget, inlined: true, multivalued: true}
       section_sources: {range: ExternalSourceRef, inlined: true, multivalued: true}
       section_catalog_sources: {range: ExternalSourceRef, inlined: true, multivalued: true}
@@ -1143,6 +1215,7 @@ classes:
   DossierFacet:
     is_a: SourceRecordProduct
     attributes:
+      assessment_scope: {equals_string: comparison_statement}
       definition_interpretation: {range: StructuralDefinitionInterpretationValue}
       applicability_outcome: {range: StructuralDefinitionReadingOutcomeValue}
       facet_id: {required: true}
@@ -1403,13 +1476,41 @@ classes:
       source_ref: {required: true}
       source_pointer: {required: true}
       span: {required: true, range: LocatedDefinitionSpan, inlined: true}
+  DossierDependency:
+    is_a: SourceRecordProduct
+    attributes:
+      relation: {required: true, equals_string: depends_on}
+      dependent: {required: true, range: DossierContributionCitation, multivalued: true, inlined: true, minimum_cardinality: 1}
+      prerequisite: {required: true, range: DossierContributionCitation, multivalued: true, inlined: true, minimum_cardinality: 1}
+  DossierComparisonSelection:
+    is_a: SourceRecordProduct
+    attributes:
+      comparison_product_id: {required: true}
+      side: {required: true, range: StructuralComparisonSideValue}
+      relationship_ref: {required: true, range: RetainedRelationshipDecisionRef, inlined: true}
+  DossierComparisonBinding:
+    is_a: SourceRecordProduct
+    attributes:
+      comparison_ref: {required: true, range: RetainedStructuralRef, inlined: true}
+      side: {required: true, range: StructuralComparisonSideValue}
+      relationship_ref: {required: true, range: RetainedRelationshipDecisionRef, inlined: true}
+      relationship: {required: true, range: StructuralDossierRelationshipValue}
+      root: {required: true, range: RetainedComponentRef, inlined: true}
+      source: {required: true, range: ExternalSourceRef, inlined: true}
+      citation: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      occurrence: {required: true, range: LocatedDefinitionSpan, inlined: true, multivalued: true, minimum_cardinality: 1}
+      comparison: {required: true, range: ComparisonProduct, inlined: true}
+      opposite_source: {required: true, range: ExternalSourceRef, inlined: true}
+      opposite_citation: {required: true, range: LocatedDefinitionSpan, inlined: true}
   DossierMember:
     is_a: SourceRecordProduct
     attributes:
       definition_interpretation: {range: StructuralDefinitionInterpretationValue}
       applicability_outcome: {range: StructuralDefinitionReadingOutcomeValue}
+      comparison_binding: {range: DossierComparisonBinding, inlined: true}
       contribution_ref: {range: RetainedContributionRef, inlined: true}
       contribution_citations: {range: DossierContributionCitation, multivalued: true, inlined: true}
+      semantic_dependency: {range: DossierDependency, inlined: true}
       computation_dependencies: {multivalued: true}
       citation: {required: true, range: LocatedDefinitionSpan, inlined: true}
       member_id:
@@ -1435,6 +1536,7 @@ classes:
       root_component: {range: RetainedComponentRef, inlined: true}
       contribution_predecessors: {range: RetainedContributionRef, multivalued: true, inlined: true}
       predecessors: {range: RetainedStructuralRef, multivalued: true, inlined: true}
+      comparison_selections: {range: DossierComparisonSelection, multivalued: true, inlined: true}
       supported_facets: {range: DossierFacet, multivalued: true, inlined: true}
       representation: {range: DossierRepresentation, required: true, inlined: true}
       root_id:
@@ -1840,6 +1942,11 @@ classes:
         inlined: true
 
 enums:
+  ContextualNeighborhoodStatus:
+    permissible_values:
+      completed:
+      profile_unavailable:
+      vector_coverage_unavailable:
   ArtifactAliasState:
     permissible_values:
       unknown: {}
@@ -1854,6 +1961,15 @@ enums:
       same_observed: {}
       different_observed: {}
       unknown: {}
+      unresolved: {}
+  ArtifactScoreStatus:
+    permissible_values:
+      eligible: {}
+      scored: {}
+      excluded: {}
+      reference_only: {}
+      namespace_unavailable: {}
+      no_comparable_features: {}
   IdentitySourceArtifactOccurrenceArtifactKindValue:
     permissible_values:
       table: {}
@@ -2036,6 +2152,15 @@ enums:
       identifier: {}
       quantity: {}
       range: {}
+  StructuralComparisonSideValue:
+    permissible_values:
+      left: {}
+      right: {}
+  StructuralDossierRelationshipValue:
+    permissible_values:
+      denotes: {}
+      defined-by: {}
+      specializes: {}
   StructuralDossierMemberRoleValue:
     permissible_values:
       definition: {}

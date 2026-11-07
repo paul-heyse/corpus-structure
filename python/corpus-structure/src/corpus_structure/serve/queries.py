@@ -7,6 +7,10 @@ from sqlalchemy import and_, exists, select
 
 from corpus_structure.semantic.query import Coverage, same_scope_clause
 from corpus_structure.semantic.structural_products import StructuralProductReport
+from corpus_structure.serve.contextual_navigation import (
+    ContextualNeighborhoodQuery,
+    SourceDecisionDiagnosisQuery,
+)
 from corpus_structure.serve.protocol import Positioned, Scope
 from corpus_structure.serve.read import T
 from corpus_structure.serve.results import (
@@ -16,6 +20,7 @@ from corpus_structure.serve.results import (
     FindAnswer,
     StatementAnswer,
 )
+from corpus_structure.serve.structural_gaps import GapPage, GapParams, GapRequest
 from corpus_structure.serve.structural_products import DossierRepresentationPage
 
 
@@ -438,6 +443,29 @@ class DossierRepresentationQuery(Query):
             raise InvalidContinuation("invalid dossier continuation") from error
 
 
+class StructuralGapQuery(Query):
+    version = "structural-gap-query-1"
+    params, result = GapParams, GapPage
+
+    def __init__(self, name):
+        self.name = name
+
+    def rows(self, ctx, p, after=None):
+        from corpus_structure.serve.structural_gaps import gap_capture, gap_page
+
+        self.validate_position(after)
+        if after == "done":
+            return
+        request = GapRequest(report=self.name, run_id=ctx.run_id, cursor=after, **p.model_dump())
+        captured = gap_capture(ctx.conn, request)
+        while True:
+            page = gap_page(request, captured)
+            yield Positioned(page, page.next_cursor or "done")
+            if page.next_cursor is None:
+                return
+            request = request.model_copy(update={"cursor": page.next_cursor})
+
+
 GENERIC = (
     Entity(),
     Claims(),
@@ -451,4 +479,9 @@ GENERIC = (
     StructuralProducts("structural_comparisons", "qualified_comparison"),
     StructuralProducts("structural_dossiers", "dossier"),
     DossierRepresentationQuery(),
+    StructuralGapQuery("unresolved_binding"),
+    StructuralGapQuery("unknown_applicability_premise"),
+    StructuralGapQuery("unconnected_supported_comparison"),
+    ContextualNeighborhoodQuery(),
+    SourceDecisionDiagnosisQuery(),
 )

@@ -9,6 +9,7 @@ import typer
 
 from corpus_structure.cli.golden import output, reference_protocol, reference_session
 from corpus_structure.cli.output import JsonOpt, emit, report_fields
+from corpus_structure.semantic.operation_policy import DEFAULT_OPERATION_EVENT, OperationEvent
 
 eval_app = typer.Typer(
     help="Grade completed knowledge against independent semantic references.", no_args_is_help=True
@@ -201,6 +202,7 @@ def operation_event_availability(
     run: Annotated[int, typer.Argument(metavar="RUN")],
     evaluation: Annotated[int | None, typer.Option()] = None,
     project: str | None = None,
+    event: Annotated[OperationEvent, typer.Option()] = DEFAULT_OPERATION_EVENT,
     json: JsonOpt = False,
 ):
     """Inspect exact emitted events and a selected protected evaluation before fitting."""
@@ -215,6 +217,7 @@ def operation_event_availability(
             project_id=project or settings.runtime.default_project,
             run_id=run,
             evaluation_id=evaluation,
+            event=event,
         )
     if json:
         output(result, json)
@@ -224,10 +227,12 @@ def operation_event_availability(
         json=False,
         render=lambda report: report_fields(
             ("Fitting availability", report.status),
+            ("Event", report.event),
             ("Project", report.project_id),
             ("Run / cut", f"{report.run_id} / {report.cut_id}"),
             ("Release", report.release_id),
             ("Compatible events", report.compatible_events),
+            ("Feature unavailable", report.feature_unavailable),
             (
                 "Evaluation",
                 report.evaluation_id if report.evaluation_id is not None else "unselected",
@@ -246,6 +251,7 @@ def operation_event_fit(
         int | None, typer.Option(help="Check an exact completed event population.")
     ] = None,
     out: Annotated[Path | None, typer.Option()] = None,
+    event: Annotated[OperationEvent, typer.Option()] = DEFAULT_OPERATION_EVENT,
     json: JsonOpt = False,
 ):
     """Persist same-corpus development fit of independently graded emitted events."""
@@ -265,7 +271,7 @@ def operation_event_fit(
         project = project or settings.runtime.default_project
         if run is not None:
             availability = inspect(
-                settings, project_id=project, run_id=run, evaluation_id=evaluation
+                settings, project_id=project, run_id=run, evaluation_id=evaluation, event=event
             )
             if availability.status != "ready":
                 output(availability, json)
@@ -274,7 +280,7 @@ def operation_event_fit(
             raise SemanticRefusal("select --run to inspect availability or --evaluation to fit")
         with open_runtime_engine(settings, "ci-event-fit", purpose="fit") as engine:
             result = fit_native_operation_event(
-                engine, project_id=project, evaluation_id=evaluation
+                engine, project_id=project, evaluation_id=evaluation, event=event
             )
     parameters = result["result"]["parameters"]
     if out is not None and parameters is not None:

@@ -11,6 +11,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
     DossierContributionCitation,
+    DossierDependency,
     DossierMember,
     LocatedDefinitionSpan,
 )
@@ -47,6 +48,7 @@ def derive_contribution_members(
         raise ValueError("retained contribution closure includes unrelated products")
     views = {v["source_view_id"]: v for v in payload["sources"]}
     sources = {s.source_view_id: s for s in inputs.sources}
+    passages_by_id = {p.passage_id: p for p in inputs.passages}
     citations, dependencies = [], []
     for row in sorted(reachable.values(), key=lambda r: r["contribution_id"]):
         dependencies.extend((row["contribution_id"], *row.get("computation_dependencies", ())))
@@ -137,6 +139,8 @@ def derive_contribution_members(
         or not any(
             citation.contribution_id == endpoint["contribution_id"]
             and citation.span in (root.term, root.content)
+            and passages_by_id[citation.span.passage_id].scope == root.scope
+            and passages_by_id[citation.span.passage_id].effective_version == root.effective_version
             for endpoint in selected.get("endpoints", ())
             if endpoint["role"] == "target"
             for citation in citations
@@ -144,10 +148,25 @@ def derive_contribution_members(
     ):
         return ()
     meaning = source_python(selected["value"])
+    component = selected.get("component", {})
+    dependency = None
+    if root is not None and component.get("attachment_kind") == "depends_on":
+        endpoints = {entry["role"]: entry["contribution_id"] for entry in selected["endpoints"]}
+        if (
+            meaning.get("relation") != "depends_on"
+            or component.get("scope") != root.scope
+            or component.get("effective_version") != root.effective_version
+            or not any(basis.get("kind") == "matched_cue" for basis in component.get("bases", ()))
+        ):
+            return ()
+        dependency = DossierDependency(
+            dependent=tuple(c for c in citations if c.contribution_id == endpoints["attachment"]),
+            prerequisite=tuple(c for c in citations if c.contribution_id == endpoints["target"]),
+        )
     raw_role = meaning.get("role", meaning.get("relation", "unresolved_sense"))
     role = (
         raw_role
-        if raw_role in {"exception", "revision", "conflict", "open_question"}
+        if raw_role in {"exception", "open_question"}
         else (
             "relationship"
             if selected["kind"] == "relation"
@@ -167,6 +186,11 @@ def derive_contribution_members(
                 role=role,
                 citations=[c.model_dump(mode="json") for c in citations],
                 scope=scope,
+                **(
+                    {"semantic_dependency": dependency.model_dump(mode="json")}
+                    if dependency
+                    else {}
+                ),
                 **({"sense": root.component_id} if root is not None else {}),
             )
         )
@@ -183,6 +207,7 @@ def derive_contribution_members(
             relation_product_id=reference.contribution_id,
             contribution_ref=reference,
             contribution_citations=citations,
+            semantic_dependency=dependency,
             computation_dependencies=tuple(sorted(set(dependencies))),
             qualification="proposed",
         ),

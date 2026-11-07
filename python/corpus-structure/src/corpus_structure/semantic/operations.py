@@ -1107,6 +1107,24 @@ class BoundReader:
             {"reference": json.dumps(ref.model_dump(mode="json"))},
         ).scalar_one()
 
+    def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
+        """Detach the canonical finite questions for an exact selected native view."""
+        from .identity import canonical_bytes
+
+        self.source_view_ref(source_view_id)
+        return self.conn.execute(
+            text(
+                "SELECT ops.prepare_table_correspondence("
+                ":run, :view, CAST(:rows AS jsonb), CAST(:scale AS numeric))"
+            ),
+            {
+                "run": self.run_id,
+                "view": source_view_id,
+                "rows": canonical_bytes(contributions).decode(),
+                "scale": weight_scale,
+            },
+        ).scalar_one()
+
     def retained_component_section(self, reference, work_digest):
         """Read a native section designator from the original component's own source."""
         import json
@@ -1208,6 +1226,25 @@ class BoundReader:
             budget=budget,
             channel_budget=channel_budget,
         )
+
+    def contextual_mutual_neighbors(self, report):
+        from sqlalchemy import text
+
+        from .identity import canonical_bytes
+
+        return self.conn.execute(
+            text(
+                "SELECT ops.contextual_mutual_neighbors("
+                "CAST(:inventory AS jsonb),CAST(:profile AS jsonb),CAST(:vectors AS jsonb))"
+            ),
+            {
+                "inventory": canonical_bytes(report["inventories"][0]).decode(),
+                "profile": canonical_bytes(report["profiles"][0]).decode()
+                if report["profiles"]
+                else None,
+                "vectors": canonical_bytes(report["vectors"]).decode(),
+            },
+        ).scalar_one()
 
     def validate_structural_inputs(self, inputs):
         from sqlalchemy import text

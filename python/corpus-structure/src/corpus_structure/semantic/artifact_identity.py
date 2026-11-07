@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from contextlib import contextmanager
 from hashlib import sha256
 from itertools import combinations
@@ -119,12 +120,94 @@ class ArtifactCitation(StructuralValue):
         return self
 
 
+class ArtifactSourceLabel(StructuralValue):
+    """A label explicitly attached to an artifact designator in a native item."""
+
+    state: Literal["observed", "unknown", "unresolved"] = "unknown"
+    value: str | None = None
+    evidence: tuple[ArtifactAliasSpan, ...] = ()
+
+    @model_validator(mode="after")
+    def provenance(self):
+        labels = {span.text for span in self.evidence}
+        if self.state != (
+            "unknown" if not labels else "observed" if len(labels) == 1 else "unresolved"
+        ) or self.value != (next(iter(labels)) if len(labels) == 1 else None):
+            raise ValueError("artifact source label differs from its located evidence")
+        return self
+
+
+_ARTIFACT_LABEL = re.compile(
+    r"\s*\((numbering namespace|revision):[ \t]*([A-Za-z0-9][A-Za-z0-9_.-]*)\)",
+    re.ASCII,
+)
+
+
+def artifact_source_labels(text: str, artifact_end: int, pointer: str):
+    """Only adjacent declarations supply numbering or revision evidence."""
+    labels: dict[str, list[ArtifactAliasSpan]] = defaultdict(list)
+    cursor = artifact_end
+    while (match := _ARTIFACT_LABEL.match(text, cursor)) is not None:
+        start, end = match.span(2)
+        labels[match[1]].append(
+            ArtifactAliasSpan(source_pointer=pointer, start=start, end=end, text=match[2])
+        )
+        cursor = match.end()
+    return tuple(
+        ArtifactSourceLabel(
+            state="unknown" if not values else "observed" if len(values) == 1 else "unresolved",
+            value=next(iter(values)) if len(values) == 1 else None,
+            evidence=tuple(labels[kind]),
+        )
+        for kind in ("numbering namespace", "revision")
+        for values in ({span.text for span in labels[kind]},)
+    )
+
+
+class ArtifactReferenceDesignator(StructuralValue):
+    """A source names an alternate designator and its numbering namespace."""
+
+    target_code: str
+    target_numbering: str
+    cue: ArtifactAliasSpan
+
+
+_REFERENCE_PREFIX = re.compile(r"[ \t]*(?:See|Consult)[ \t]+", re.I | re.ASCII)
+_REFERENCE_TARGET = re.compile(
+    r"[ \t]+\((?:hereafter|also published as|also cited as)[ \t]+(Table|Figure)[ \t]+"
+    r"([A-Za-z]?[0-9]+(?:[.-][0-9]+)*[A-Za-z]?)[ \t]+in numbering namespace[ \t]+"
+    r"([A-Za-z0-9][A-Za-z0-9_.-]*)\)(?=\.|$)",
+    re.I | re.ASCII,
+)
+
+
+def explicit_artifact_reference(
+    text: str, start: int, end: int, pointer: str, artifact: SourceArtifactOccurrence
+) -> ArtifactReferenceDesignator | None:
+    """Recover the exact NCE-06 mention role and an explicit scoped target cue."""
+    if artifact.occurrence_role != "reference" or not _REFERENCE_PREFIX.fullmatch(text, 0, start):
+        return None
+    target = _REFERENCE_TARGET.match(text, end)
+    if target is None or target[1].lower() != artifact.artifact_kind:
+        return None
+    return ArtifactReferenceDesignator(
+        target_code=target[2],
+        target_numbering=target[3],
+        cue=ArtifactAliasSpan(
+            source_pointer=pointer, start=0, end=target.end(), text=text[: target.end()]
+        ),
+    )
+
+
 class ArtifactRecord(StructuralValue):
     contribution_id: str = Field(min_length=1)
     occurrence_id: str = Field(min_length=1)
     artifact: SourceArtifactOccurrence
     source_contribution: dict[str, JsonValue]
     citations: tuple[ArtifactCitation, ...] = Field(min_length=1)
+    numbering: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
+    revision: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
+    explicit_reference: ArtifactReferenceDesignator | None = None
 
 
 class ArtifactModelField(StructuralValue):
@@ -137,11 +220,47 @@ class ArtifactPairKey(StructuralValue):
     right: str = Field(min_length=1)
 
 
+class ArtifactNominationEndpoint(StructuralValue):
+    role: Literal["attachment", "target"]
+    record_id: str
+    contribution_id: str
+    origin_source_view_id: int
+    origin_anchor_id: str
+
+
 class ArtifactNomination(ArtifactPairKey):
+    kind: Literal["artifact_reference_target"] = "artifact_reference_target"
     relationship: RetainedContributionRef
+    endpoints: tuple[ArtifactNominationEndpoint, ArtifactNominationEndpoint]
+    origin_cue: ArtifactAliasSpan
+
+    @model_validator(mode="after")
+    def direction(self):
+        if (
+            tuple(e.role for e in self.endpoints) != ("attachment", "target")
+            or sorted(e.record_id for e in self.endpoints) != [self.left, self.right]
+            or self.left >= self.right
+        ):
+            raise ValueError("artifact nomination must preserve directed distinct endpoints")
+        return self
 
 
-ArtifactRoute = Literal["exact_code", "lexical_title", "external_pairs", "native_alias_array"]
+ArtifactRoute = Literal[
+    "exact_code",
+    "unscoped_code",
+    "lexical_title",
+    "explicit_reference",
+    "external_pairs",
+    "native_alias_array",
+]
+ARTIFACT_ROUTES: tuple[ArtifactRoute, ...] = (
+    "exact_code",
+    "unscoped_code",
+    "lexical_title",
+    "explicit_reference",
+    "external_pairs",
+    "native_alias_array",
+)
 
 
 class ArtifactPair(StructuralValue):
@@ -149,13 +268,50 @@ class ArtifactPair(StructuralValue):
     right: str
     candidate_routes: tuple[ArtifactRoute, ...] = Field(min_length=1)
     scope_state: Literal["compatible", "excluded"]
-    revision_relation: Literal["same_observed", "different_observed", "unknown"]
+    numbering_relation: Literal["same_observed", "different_observed", "unknown", "unresolved"]
+    revision_relation: Literal["same_observed", "different_observed", "unknown", "unresolved"]
+    score_status: Literal[
+        "eligible",
+        "scored",
+        "excluded",
+        "reference_only",
+        "namespace_unavailable",
+        "no_comparable_features",
+    ]
     lexical_score: float = Field(ge=0, le=1)
     model_probability: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
     model_id: str | None = None
     model_evidence: tuple[ArtifactModelField, ...] = ()
     standing: Literal["candidate_relative_private"] = "candidate_relative_private"
     dependencies: tuple[str, ...]
+
+
+class ArtifactRouteCount(StructuralValue):
+    route: ArtifactRoute
+    nominated: int
+    eligible: int
+    marginal: int
+    cumulative: int
+
+
+def artifact_route_counts(pairs: tuple[ArtifactPair, ...]) -> tuple[ArtifactRouteCount, ...]:
+    seen = set()
+    counts = []
+    for route in ARTIFACT_ROUTES:
+        nominated = tuple(p for p in pairs if route in p.candidate_routes)
+        keys = {(p.left, p.right) for p in nominated}
+        marginal = len(keys - seen)
+        seen.update(keys)
+        counts.append(
+            ArtifactRouteCount(
+                route=route,
+                nominated=len(nominated),
+                eligible=sum(p.score_status in {"eligible", "scored"} for p in nominated),
+                marginal=marginal,
+                cumulative=len(seen),
+            )
+        )
+    return tuple(counts)
 
 
 def normalized_code(code: str | None) -> str | None:
@@ -168,10 +324,81 @@ def normalized_code(code: str | None) -> str | None:
     return value.casefold()
 
 
+def label_relation(left: ArtifactSourceLabel, right: ArtifactSourceLabel):
+    if "unresolved" in (left.state, right.state):
+        return "unresolved"
+    if left.value is None or right.value is None:
+        return "unknown"
+    return "same_observed" if left.value == right.value else "different_observed"
+
+
+def artifact_scope(record: ArtifactRecord) -> tuple[str, str]:
+    return record.artifact.source_work, record.artifact.artifact_kind
+
+
+class ArtifactReferenceResolution(StructuralValue):
+    attachment: str
+    targets: tuple[str, ...]
+    outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
+
+
+def artifact_reference_resolutions(
+    records: tuple[ArtifactRecord, ...],
+) -> tuple[ArtifactReferenceResolution, ...]:
+    """Join explicit scoped designators to selected physical captions."""
+    captions: dict[tuple[str, str, str, str], list[str]] = defaultdict(list)
+    for record in records:
+        if (
+            record.artifact.occurrence_role == "caption"
+            and (namespace := record.numbering.value)
+            and (code := normalized_code(record.artifact.controlled_code))
+        ):
+            captions[(*artifact_scope(record), namespace, code)].append(record.contribution_id)
+    resolutions = []
+    for record in sorted(records, key=lambda r: r.contribution_id):
+        if (cue := record.explicit_reference) is None:
+            continue
+        targets = tuple(
+            sorted(
+                captions.get(
+                    (*artifact_scope(record), cue.target_numbering, cue.target_code.casefold()), ()
+                )
+            )
+        )
+        resolutions.append(
+            ArtifactReferenceResolution(
+                attachment=record.contribution_id,
+                targets=targets,
+                outcome="no_compatible_candidate"
+                if not targets
+                else "witnessed_candidate"
+                if len(targets) == 1
+                else "ambiguous",
+            )
+        )
+    return tuple(resolutions)
+
+
+def artifact_score_status(a: ArtifactRecord, b: ArtifactRecord, *, excluded: bool = False):
+    numbering = label_relation(a.numbering, b.numbering)
+    av, bv = a.artifact, b.artifact
+    if excluded or artifact_scope(a) != artifact_scope(b) or numbering == "different_observed":
+        return "excluded"
+    if "reference" in (av.occurrence_role, bv.occurrence_role):
+        return "reference_only"
+    comparable_codes = normalized_code(av.controlled_code) and normalized_code(bv.controlled_code)
+    if comparable_codes and numbering != "same_observed":
+        return "namespace_unavailable"
+    if not comparable_codes and not (av.title and bv.title):
+        return "no_comparable_features"
+    return "eligible"
+
+
 def pair_candidates(
     records: tuple[ArtifactRecord, ...],
     *,
     external_nominations: tuple[ArtifactNomination, ...] = (),
+    explicit_references: tuple[ArtifactReferenceResolution, ...] = (),
     native_alias_pairs: tuple[tuple[str, str], ...] = (),
     title_threshold=70.0,
     exclusions=(),
@@ -199,35 +426,68 @@ def pair_candidates(
         raise ValueError("known anchors must be distinct exact selected artifact records")
     from .identity_resolution import constrained_label_groups
 
-    result = []
-    for left, right in combinations(sorted(by_id), 2):
+    scope = {key: artifact_scope(r) for key, r in by_id.items()}
+    codes = {key: normalized_code(r.artifact.controlled_code) for key, r in by_id.items()}
+    code_blocks: dict[tuple, list[str]] = defaultdict(list)
+    title_blocks: dict[tuple, list[str]] = defaultdict(list)
+    for key in sorted(by_id):
+        if code := codes[key]:
+            code_blocks[(*scope[key], code)].append(key)
+        if by_id[key].artifact.title:
+            title_blocks[scope[key]].append(key)
+
+    routed: dict[tuple[str, str], set[ArtifactRoute]] = defaultdict(set)
+    lexical_scores = {}
+    for block in code_blocks.values():
+        for left, right in combinations(block, 2):
+            numbering = label_relation(by_id[left].numbering, by_id[right].numbering)
+            if numbering != "different_observed":
+                routed[left, right].add(
+                    "exact_code" if numbering == "same_observed" else "unscoped_code"
+                )
+    for block in title_blocks.values():
+        for left, right in combinations(block, 2):
+            a, b = by_id[left], by_id[right]
+            title_a, title_b = a.artifact.title, b.artifact.title
+            if (
+                not title_a
+                or not title_b
+                or a.occurrence_id == b.occurrence_id
+                or label_relation(a.numbering, b.numbering) == "different_observed"
+            ):
+                continue
+            lexical = ratio(title_a, title_b) / 100
+            if (
+                lexical * 100 >= title_threshold
+                or (left, right) in routed
+                or (left, right) in external
+                or (left, right) in alias
+            ):
+                lexical_scores[left, right] = lexical
+            if lexical * 100 >= title_threshold:
+                routed[left, right].add("lexical_title")
+    for key in external:
+        routed[key].add("external_pairs")
+    for reference in explicit_references:
+        for target in reference.targets:
+            left, right = sorted((reference.attachment, target))
+            routed[left, right].add("explicit_reference")
+    for left, right in alias:
         a, b = by_id[left], by_id[right]
-        av, bv = a.artifact, b.artifact
+        if scope[left] != scope[right] or not set(alias_tokens(a.artifact)) & set(
+            alias_tokens(b.artifact)
+        ):
+            raise ValueError("native alias pair lacks compatible observed aliases")
+        if label_relation(a.numbering, b.numbering) != "different_observed":
+            routed[left, right].add("native_alias_array")
+
+    result = []
+    for (left, right), routes in sorted(routed.items()):
+        a, b = by_id[left], by_id[right]
         if a.occurrence_id == b.occurrence_id:
             continue
-        compatible = (av.source_work, av.artifact_kind) == (bv.source_work, bv.artifact_kind)
-        routes: list[ArtifactRoute] = []
-        code_a, code_b = normalized_code(av.controlled_code), normalized_code(bv.controlled_code)
-        if compatible and code_a is not None and code_a == code_b:
-            routes.append("exact_code")
-        lexical = ratio(av.title, bv.title) / 100 if av.title and bv.title else 0.0
-        if compatible and av.title and bv.title and lexical * 100 >= title_threshold:
-            routes.append("lexical_title")
-        if (left, right) in external:
-            routes.append("external_pairs")
-        if (left, right) in alias:
-            if not compatible or not set(alias_tokens(av)) & set(alias_tokens(bv)):
-                raise ValueError("native alias pair lacks compatible observed aliases")
-            routes.append("native_alias_array")
-        if not routes:
-            continue
-        revision = (
-            "unknown"
-            if av.revision_state != "observed" or bv.revision_state != "observed"
-            else "same_observed"
-            if av.revision == bv.revision
-            else "different_observed"
-        )
+        av, bv = a.artifact, b.artifact
+        numbering = label_relation(a.numbering, b.numbering)
         # This is one pair proposal, not an equivalence or connected-component universe.
         # Reusing the existing guard cannot authorize an unexamined transitive bridge.
         permitted = (
@@ -240,14 +500,17 @@ def pair_candidates(
             )
             == 1
         )
+        score_status = artifact_score_status(a, b, excluded=not permitted)
         result.append(
             ArtifactPair(
                 left=left,
                 right=right,
-                candidate_routes=tuple(routes),
-                scope_state="compatible" if compatible and permitted else "excluded",
-                revision_relation=revision,
-                lexical_score=lexical,
+                candidate_routes=tuple(route for route in ARTIFACT_ROUTES if route in routes),
+                scope_state="excluded" if score_status == "excluded" else "compatible",
+                numbering_relation=numbering,
+                revision_relation=label_relation(a.revision, b.revision),
+                score_status=score_status,
+                lexical_score=lexical_scores.get((left, right), 0.0),
                 dependencies=tuple(
                     sorted(
                         {
@@ -350,7 +613,7 @@ def score_pairs(
     policy: ArtifactScoringPolicy,
 ) -> tuple[ArtifactPair, ...]:
     """Score exactly the registered eligible pair IDs using a frozen Splink model."""
-    allowed = tuple((p.left, p.right) for p in pairs if p.scope_state == "compatible")
+    allowed = tuple((p.left, p.right) for p in pairs if p.score_status == "eligible")
     if not allowed:
         return pairs
     source = {r.contribution_id for r in records}
@@ -362,6 +625,7 @@ def score_pairs(
         ArtifactPair.model_validate(
             {
                 **p.model_dump(),
+                "score_status": "scored",
                 "model_probability": float(probabilities[(p.left, p.right)]["match_probability"]),
                 "model_id": policy.identity,
                 "model_evidence": tuple(
@@ -371,7 +635,7 @@ def score_pairs(
                 ),
             }
         )
-        if p.scope_state == "compatible"
+        if p.score_status == "eligible"
         else p
         for p in pairs
     )
@@ -388,7 +652,7 @@ def native_alias_candidates(
     import duckdb
     from splink import DuckDBAPI, Linker, SettingsCreator, block_on
 
-    eligible = [r for r in records if r.artifact.aliases]
+    eligible = {r.contribution_id: r for r in records if r.artifact.aliases}
     if len(eligible) < 2:
         return (), ()
     payload = [
@@ -398,7 +662,7 @@ def native_alias_candidates(
             artifact_kind=r.artifact.artifact_kind,
             aliases=list(alias_tokens(r.artifact)),
         )
-        for r in eligible
+        for r in eligible.values()
     ]
     settings = SettingsCreator(
         link_type="dedupe_only",
@@ -426,6 +690,10 @@ def native_alias_candidates(
                     max(row["join_key_l"], row["join_key_r"]),
                 )
                 for row in blocked
+                if label_relation(
+                    eligible[row["join_key_l"]].numbering, eligible[row["join_key_r"]].numbering
+                )
+                != "different_observed"
             }
         )
     )
@@ -435,12 +703,14 @@ def native_alias_candidates(
 class ArtifactIdentityProduct(StructuralValue):
     """One selected source-work cohort, candidate routes and frozen model results."""
 
-    protocol: Literal["artifact-identity-2"] = "artifact-identity-2"
+    protocol: Literal["artifact-identity-3"] = "artifact-identity-3"
     identity_grain: Literal["source_work_artifact_lineage"] = "source_work_artifact_lineage"
     records: tuple[ArtifactRecord, ...] = ()
     pairs: tuple[ArtifactPair, ...] = ()
     native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
     external_nominations: tuple[ArtifactNomination, ...] = ()
+    explicit_references: tuple[ArtifactReferenceResolution, ...] = ()
+    route_counts: tuple[ArtifactRouteCount, ...]
     policy: ArtifactScoringPolicy
     source_mapping_provenance: tuple[str, ...] = ()
     known_anchor_ids: tuple[str, ...] = ()
@@ -458,6 +728,19 @@ class ArtifactIdentityProduct(StructuralValue):
         by_pair = {(p.left, p.right): p for p in self.pairs}
         if len(by_pair) != len(self.pairs):
             raise ValueError("identity pairs repeat")
+        if self.route_counts != artifact_route_counts(self.pairs):
+            raise ValueError("artifact route counts differ from the selected pair ledger")
+        explicit_pairs = {
+            tuple(sorted((reference.attachment, target)))
+            for reference in self.explicit_references
+            for target in reference.targets
+        }
+        if self.explicit_references != artifact_reference_resolutions(
+            self.records
+        ) or explicit_pairs != {
+            key for key, pair in by_pair.items() if "explicit_reference" in pair.candidate_routes
+        }:
+            raise ValueError("artifact explicit reference differs from selected source targets")
         for pair in self.pairs:
             if pair.left >= pair.right or not {pair.left, pair.right} <= by_id.keys():
                 raise ValueError("identity pair outside exact cohort")
@@ -469,9 +752,19 @@ class ArtifactIdentityProduct(StructuralValue):
                 raise ValueError("identity pair crosses source-work or artifact kind")
             if pair.scope_state == "compatible" and pair.left in anchors and pair.right in anchors:
                 raise ValueError("distinct known artifact anchors cannot form a compatible pair")
-            if pair.model_probability is not None and (
-                pair.scope_state != "compatible" or pair.model_id != self.policy.identity
-            ):
+            if pair.score_status == "scored":
+                valid_score = (
+                    pair.scope_state == "compatible"
+                    and pair.model_id == self.policy.identity
+                    and pair.model_probability is not None
+                )
+            else:
+                valid_score = (
+                    pair.model_probability is None
+                    and pair.model_id is None
+                    and not pair.model_evidence
+                )
+            if not valid_score:
                 raise ValueError("identity score lacks selected frozen model custody")
         nomination_ids = set()
         nominated = set()

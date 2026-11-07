@@ -572,6 +572,50 @@ class DossierContributionCitation(StructuralValue):
     span: LocatedDefinitionSpan
 
 
+class DossierDependency(StructuralValue):
+    relation: Literal["depends_on"] = "depends_on"
+    dependent: tuple[DossierContributionCitation, ...] = Field(min_length=1)
+    prerequisite: tuple[DossierContributionCitation, ...] = Field(min_length=1)
+
+
+class DossierComparisonSelection(StructuralValue):
+    comparison_product_id: Nonempty
+    side: Literal["left", "right"]
+    relationship_ref: RetainedRelationshipDecisionRef
+
+
+class DossierComparisonBinding(StructuralValue):
+    comparison_ref: RetainedStructuralRef
+    side: Literal["left", "right"]
+    relationship_ref: RetainedRelationshipDecisionRef
+    relationship: Literal["denotes", "defined-by", "specializes"]
+    root: RetainedComponentRef
+    source: ExternalSourceRef
+    citation: LocatedDefinitionSpan
+    occurrence: tuple[LocatedDefinitionSpan, ...] = Field(min_length=1)
+    comparison: ComparisonProduct
+    opposite_source: ExternalSourceRef
+    opposite_citation: LocatedDefinitionSpan
+
+    @model_validator(mode="after")
+    def sides(self) -> Self:
+        left, right = (self.citation, self.opposite_citation)
+        if self.side == "right":
+            left, right = right, left
+        if (
+            (left.passage_id, right.passage_id)
+            != (self.comparison.left_id, self.comparison.right_id)
+            or self.comparison.left_reading is None
+            or any(
+                span.passage_id != self.citation.passage_id
+                or not self.citation.start <= span.start < span.end <= self.citation.end
+                for span in self.occurrence
+            )
+        ):
+            raise ValueError("comparison binding differs from its exact located sides")
+        return self
+
+
 class DossierMember(StructuralValue):
     member_id: Nonempty
     passage_id: Nonempty
@@ -583,8 +627,10 @@ class DossierMember(StructuralValue):
     relation_product_id: Nonempty
     definition_interpretation: DefinitionInterpretation | None = None
     applicability_outcome: DefinitionOutcome | None = None
+    comparison_binding: DossierComparisonBinding | None = None
     contribution_ref: RetainedContributionRef | None = None
     contribution_citations: tuple[DossierContributionCitation, ...] | None = None
+    semantic_dependency: DossierDependency | None = None
     computation_dependencies: tuple[Nonempty, ...] | None = None
     qualification: Literal[
         "proposed", "independently_supported", "ambiguous", "rejected", "unsupported"
@@ -595,6 +641,13 @@ class DossierMember(StructuralValue):
     def assessment(self) -> Self:
         if self.qualification == "independently_supported" and not self.assessment_id:
             raise ValueError("supported member requires its independent assessment reference")
+        if self.comparison_binding is not None and (
+            self.contribution_ref is not None
+            or self.comparison_binding.comparison_ref.product_id != self.relation_product_id
+            or self.comparison_binding.root.component_id != self.sense
+            or self.comparison_binding.citation.passage_id != self.passage_id
+        ):
+            raise ValueError("member differs from its comparison binding")
         if self.contribution_ref is not None:
             if (
                 not self.contribution_citations
@@ -618,6 +671,15 @@ class DossierMember(StructuralValue):
             raise ValueError(
                 "source citation closure requires an exact retained contribution reference"
             )
+        if self.semantic_dependency is not None and (
+            self.role != "relationship"
+            or not self.contribution_citations
+            or not set(self.semantic_dependency.dependent + self.semantic_dependency.prerequisite)
+            <= set(self.contribution_citations)
+            or {c.contribution_id for c in self.semantic_dependency.dependent}
+            & {c.contribution_id for c in self.semantic_dependency.prerequisite}
+        ):
+            raise ValueError("typed dependency requires distinct qualified source endpoints")
         return self
 
 
@@ -629,6 +691,7 @@ class DossierFacet(StructuralValue):
     scope: Nonempty
     member_id: Nonempty
     assessment_id: Nonempty
+    assessment_scope: Literal["comparison_statement"] | None = None
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
 
 
@@ -650,6 +713,9 @@ class DossierProduct(StructuralValue):
     members: tuple[DossierMember, ...]
     predecessors: tuple[RetainedStructuralRef, ...] = ()
     contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
+    comparison_selections: tuple[DossierComparisonSelection, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
     representatives: tuple[Nonempty, ...]
     missing_sections: tuple[MemberRole, ...]
     supported_facets: tuple[DossierFacet, ...] = ()
@@ -664,6 +730,19 @@ class DossierProduct(StructuralValue):
             or any(member.sense != self.root_id for member in self.members)
         ):
             raise ValueError("dossier membership differs from its exact root sense")
+        if any(
+            binding.root != self.root_component
+            or binding.comparison_ref not in self.predecessors
+            or DossierComparisonSelection(
+                comparison_product_id=binding.comparison_ref.product_id,
+                side=binding.side,
+                relationship_ref=binding.relationship_ref,
+            )
+            not in self.comparison_selections
+            for member in self.members
+            if (binding := member.comparison_binding) is not None
+        ):
+            raise ValueError("comparison binding is outside exact dossier predecessors")
         ids = {m.member_id for m in self.members}
         if len(ids) != len(self.members):
             raise ValueError("duplicate dossier member")

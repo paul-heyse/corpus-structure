@@ -12,7 +12,7 @@ from corpus_structure.ingest.pdf_recognition_methods import (
     PdfIntegratedIngestConfig,
 )
 from corpus_structure.methods.clause_classification import ClauseClassificationMethod
-from corpus_structure.methods.contextual_candidates import ContextualCandidates
+from corpus_structure.methods.contextual_candidates import ContextualCandidatesWithNeighborhood
 from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
     DefinitionComponentsMethod,
@@ -244,7 +244,7 @@ def registry(pack: Path) -> MethodRegistry:
             ClauseClassificationMethod(),
             DefinitionApplicabilityMethod(),
             DefinitionTermsMethod(),
-            ContextualCandidates(),
+            ContextualCandidatesWithNeighborhood(),
         ),
         load_methods(path),
     )

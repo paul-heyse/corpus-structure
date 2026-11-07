@@ -156,7 +156,7 @@ BEGIN
  SELECT jsonb_agg(c ORDER BY c->>'source_ref',(c->'span'->>'start')::integer,(c->'span'->>'end')::integer,c->>'contribution_id',c->'span'->>'passage_id') INTO citations FROM (SELECT DISTINCT c FROM jsonb_array_elements(citations)c)q;
  SELECT jsonb_agg(d ORDER BY d) INTO deps FROM (SELECT DISTINCT d FROM jsonb_array_elements_text(deps)d)q;
  meaning:=data.record_source_json(root_->'value');raw_role:=COALESCE(meaning->>'role',meaning->>'relation','unresolved_sense');
- role_:=CASE WHEN raw_role IN ('exception','revision','conflict','open_question') THEN raw_role WHEN root_->>'kind'='relation' THEN 'relationship' WHEN raw_role IN ('header','row_label','symbol','declaration') THEN 'terminology' WHEN starts_with(raw_role,'procedure_') THEN 'usage' ELSE 'unresolved_sense' END;
+ role_:=CASE WHEN raw_role IN ('exception','open_question') THEN raw_role WHEN root_->>'kind'='relation' THEN 'relationship' WHEN raw_role IN ('header','row_label','symbol','declaration') THEN 'terminology' WHEN starts_with(raw_role,'procedure_') THEN 'usage' ELSE 'unresolved_sense' END;
  SELECT string_agg(id,',' ORDER BY id) INTO scope_ FROM (SELECT DISTINCT c->>'source_ref' id FROM jsonb_array_elements(citations)c)q;
  scope_:=scope_||':'||COALESCE(meaning->>'region',meaning->>'scope',meaning->>'source_pointer','unknown');
  key_:=encode(sha256(convert_to(data.canonical_json(jsonb_build_object('contribution_ref',ref,'role',role_,'citations',citations,'scope',scope_)),'UTF8')),'hex');
@@ -180,21 +180,39 @@ REVOKE ALL ON FUNCTION ops.dossier_contribution_member(jsonb,jsonb) FROM PUBLIC;
 
 -- Dependency membership is indexed once; raw rows remain owned by the batch resolver.
 CREATE OR REPLACE FUNCTION ops.dossier_contribution_members(inputs jsonb,refs jsonb,root_component jsonb)
-RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ RETURN QUERY
  WITH dependency_index AS MATERIALIZED (
   SELECT COALESCE(jsonb_object_agg(d,true),'{}') value FROM jsonb_array_elements_text(inputs->'dependencies')d)
- SELECT member
+ SELECT member||CASE WHEN attachment->'component'->>'attachment_kind'='depends_on' THEN
+   jsonb_build_object('semantic_dependency',jsonb_build_object(
+    'relation','depends_on',
+    'dependent',(SELECT jsonb_agg(c ORDER BY n) FROM jsonb_array_elements(member->'contribution_citations') WITH ORDINALITY citations(c,n)
+     WHERE c->>'contribution_id'=attachment->'component'->>'attachment_contribution_id'),
+    'prerequisite',(SELECT jsonb_agg(c ORDER BY n) FROM jsonb_array_elements(member->'contribution_citations') WITH ORDINALITY citations(c,n)
+     WHERE c->>'contribution_id'=attachment->'component'->>'target_contribution_id')))
+   ELSE '{}'::jsonb END
  FROM ops.resolve_retained_source_contributions(refs)r CROSS JOIN dependency_index d
  CROSS JOIN LATERAL (SELECT ops.dossier_contribution_member_from_retained(
   inputs,r.reference,r.contributions,r.sources,d.value) AS member OFFSET 0) resolved
+ JOIN LATERAL jsonb_array_elements(r.contributions) attachment
+  ON attachment->>'contribution_id'=r.reference->>'contribution_id'
+  AND attachment->>'semantic_type'='structural.scoped_attachment'
  WHERE EXISTS(
-  SELECT FROM jsonb_array_elements(r.contributions) relation_
-  CROSS JOIN LATERAL jsonb_array_elements(relation_->'endpoints') endpoint
+  SELECT FROM jsonb_array_elements(attachment->'endpoints') endpoint
   JOIN LATERAL jsonb_array_elements(member->'contribution_citations') citation
    ON citation->>'contribution_id'=endpoint->>'contribution_id'
-  WHERE relation_->>'contribution_id'=r.reference->>'contribution_id'
-   AND relation_->>'semantic_type'='structural.scoped_attachment'
-   AND endpoint->>'role'='target'
-   AND citation->'span' IN (root_component->'term',root_component->'content'))
+  JOIN LATERAL jsonb_array_elements(inputs->'passages') p ON p->'passage_id'=citation->'span'->'passage_id'
+  WHERE endpoint->>'role'='target'
+   AND citation->'span' IN (root_component->'term',root_component->'content')
+   AND p->>'scope'=root_component->>'scope'
+   AND p->>'effective_version' IS NOT DISTINCT FROM root_component->>'effective_version')
+ AND (attachment->'component'->>'attachment_kind' IS DISTINCT FROM 'depends_on' OR (
+  data.record_source_json(attachment->'value')->>'relation'='depends_on'
+  AND attachment->'component'->>'scope'=root_component->>'scope'
+  AND attachment->'component'->>'effective_version' IS NOT DISTINCT FROM root_component->>'effective_version'
+  AND EXISTS(SELECT FROM jsonb_array_elements(attachment->'component'->'bases') basis WHERE basis->>'kind'='matched_cue')));
+END
 $$;
 REVOKE ALL ON FUNCTION ops.dossier_contribution_members(jsonb,jsonb,jsonb) FROM PUBLIC;

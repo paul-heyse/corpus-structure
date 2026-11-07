@@ -113,6 +113,9 @@ class ScopedSourceReader:
     def contextual_candidates(self, **request):
         return self._read(lambda reader: reader.contextual_candidates(**request))
 
+    def contextual_mutual_neighbors(self, report):
+        return self._read(lambda reader: reader.contextual_mutual_neighbors(report))
+
     def validate_structural_inputs(self, inputs):
         return self._read(lambda reader: reader.validate_structural_inputs(inputs))
 
@@ -126,6 +129,13 @@ class ScopedSourceReader:
 
     def retained_source_contribution(self, reference):
         return self._read(lambda reader: reader.retained_source_contribution(reference))
+
+    def prepare_table_correspondence(self, source_view_id, contributions, weight_scale):
+        return self._read(
+            lambda reader: reader.prepare_table_correspondence(
+                source_view_id, contributions, weight_scale
+            )
+        )
 
     def retained_structural_report(self, reference):
         return self._read(lambda reader: reader.retained_structural_report(reference))

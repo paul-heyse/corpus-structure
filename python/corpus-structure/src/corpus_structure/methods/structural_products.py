@@ -30,6 +30,8 @@ from corpus_structure.semantic.structural_products import (
     ComparisonLiteral,
     ComparisonProduct,
     DimensionComparison,
+    DossierComparisonBinding,
+    DossierComparisonSelection,
     DossierMember,
     DossierProduct,
     LocatedDefinitionComponent,
@@ -503,6 +505,7 @@ def select_dossier(
     supported_facets=(),
     predecessors=(),
     contribution_predecessors=(),
+    comparison_selections=(),
     member_budget=12,
     policy="supported-facet-greedy-1",
     cancelled=lambda: False,
@@ -585,6 +588,7 @@ def select_dossier(
             members=ordered,
             predecessors=tuple(predecessors),
             contribution_predecessors=tuple(contribution_predecessors),
+            comparison_selections=tuple(comparison_selections),
             representatives=chosen,
             missing_sections=tuple(r for r in sections if r not in roles),
             supported_facets=facets,
@@ -615,7 +619,81 @@ def dossier_root(reference, retained) -> LocatedDefinitionComponent:
     raise ValueError("dossier root does not resolve in the exact selected predecessor")
 
 
-def derive_dossier_members(inputs, retained, *, root=None):
+def _comparison_member_roles(reference, report, selections, relationships, root_ref, root):
+    comparison = report.comparison
+    if comparison is None or comparison.left_reading is None:
+        raise ValueError("root binding requires a current retained grouped comparison")
+    passages = {p.passage_id: p for p in report.inputs.passages}
+    sources = {s.identity: s for s in report.inputs.sources}
+    for selection in selections:
+        relationship = relationships[selection.relationship_ref]
+        decision, edge = relationship["decision"], relationship["edge"]
+        side = selection.side
+        passage, opposite = (
+            (passages[comparison.left_id], passages[comparison.right_id])
+            if side == "left"
+            else (passages[comparison.right_id], passages[comparison.left_id])
+        )
+        source = sources[passage.source_ref]
+        if (
+            edge["relation"] not in {"denotes", "defined-by", "specializes"}
+            or decision["scope"] != passage.scope
+            or root.scope != passage.scope
+            or not passage.effective_version
+            or decision.get("effective_version") != passage.effective_version
+            or root.effective_version != passage.effective_version
+            or relationship["source_view_id"] != source.source_view_id
+            or selection.relationship_ref.project_id != source.project_id
+            or selection.relationship_ref.release_id != source.release_id
+            or root.component_id not in edge["member_target_ids"]
+            or not any(
+                RetainedComponentRef.model_validate(target["reference"]) == root_ref
+                for target in relationship["component_targets"]
+            )
+        ):
+            raise ValueError("comparison side lacks the exact scoped root relationship")
+        occurrence = tuple(
+            LocatedDefinitionSpan(passage_id=passage.passage_id, **location)
+            for location in relationship["located_occurrence"]
+        )
+        if not occurrence or any(
+            not passage.start <= span.start < span.end <= passage.end
+            or passage.text[span.start - passage.start : span.end - passage.start] != span.text
+            for span in occurrence
+        ):
+            raise ValueError("relationship occurrence is outside the exact comparison side")
+        citation = _located(passage, passage.text, 0)
+        binding = DossierComparisonBinding(
+            comparison_ref=reference,
+            side=side,
+            relationship_ref=selection.relationship_ref,
+            relationship=edge["relation"],
+            root=root_ref,
+            source=source,
+            citation=citation,
+            occurrence=occurrence,
+            comparison=comparison,
+            opposite_source=sources[opposite.source_ref],
+            opposite_citation=_located(opposite, opposite.text, 0),
+        )
+        if comparison.succession and comparison.succession.newer_id == passage.passage_id:
+            yield "revision", comparison.succession.evidence, binding
+        exceptions = next(d for d in comparison.dimensions if d.dimension == "exception")
+        group = exceptions.left_group if side == "left" else exceptions.right_group
+        if edge["relation"] == "specializes" and group is not None and group.state == "present":
+            for field in group.members:
+                for span in field.spans or ():
+                    yield "exception", span, binding
+        if comparison.applicability == "co_applicable" and any(
+            d.typed_outcome == "different" for d in comparison.dimensions
+        ):
+            yield "variant", citation, binding
+        yield "relationship", citation, binding
+
+
+def derive_dossier_members(
+    inputs, retained, *, root=None, root_ref=None, comparison_selections=(), relationships=None
+):
     """Derive role spans from actual retained products, never from input inventory."""
     from hashlib import sha256
 
@@ -630,8 +708,14 @@ def derive_dossier_members(inputs, retained, *, root=None):
     )
 
     passages = {p.passage_id: p for p in inputs.passages}
+    selections = {}
+    for selection in comparison_selections:
+        selections.setdefault(selection.comparison_product_id, []).append(selection)
+    if selections and (root is None or root_ref is None or relationships is None):
+        raise ValueError("comparison bindings require an authenticated dossier root and decisions")
     members = []
     facets = []
+    member_ids = set()
     for reference, payload in retained:
         report = StructuralProductReport.model_validate(payload["report"])
         if report.product_id != reference.product_id:
@@ -708,10 +792,13 @@ def derive_dossier_members(inputs, retained, *, root=None):
                         r.outcome,
                     )
                 )
-        if report.comparison:
-            # Comparison sides carry clause fields and no definition-sense endpoint.
-            if root is not None:
-                continue
+        bound_roles = ()
+        selected = selections.pop(report.product_id, ())
+        if selected:
+            bound_roles = _comparison_member_roles(
+                reference, report, selected, relationships, root_ref, root
+            )
+        if report.comparison and root is None:
             for d in report.comparison.dimensions:
                 for side in (d.left, d.right):
                     if side:
@@ -728,7 +815,14 @@ def derive_dossier_members(inputs, retained, *, root=None):
                             )
             if report.comparison.succession:
                 roles.append(("revision", report.comparison.succession.evidence, None, None, None))
-        for role, span, component_id, interpretation, outcome in roles:
+        member_roles = (
+            *(
+                (role, span, component, interpretation, outcome, None)
+                for role, span, component, interpretation, outcome in roles
+            ),
+            *((role, span, None, None, None, binding) for role, span, binding in bound_roles),
+        )
+        for role, span, component_id, interpretation, outcome, binding in member_roles:
             p = passages[span.passage_id]
             key = sha256(
                 canonical_bytes(
@@ -743,6 +837,15 @@ def derive_dossier_members(inputs, retained, *, root=None):
                             else {}
                         ),
                         **({"applicability_outcome": outcome} if outcome is not None else {}),
+                        **(
+                            {
+                                "comparison_binding": binding.model_dump(
+                                    mode="json", exclude_none=True
+                                )
+                            }
+                            if binding is not None
+                            else {}
+                        ),
                     )
                 )
             ).hexdigest()
@@ -776,13 +879,17 @@ def derive_dossier_members(inputs, retained, *, root=None):
                 relation_product_id=report.product_id,
                 definition_interpretation=interpretation,
                 applicability_outcome=outcome,
-                qualification="independently_supported" if supported else "proposed",
-                assessment_id=supported,
+                comparison_binding=binding,
+                qualification="independently_supported"
+                if supported and binding is None
+                else "proposed",
+                assessment_id=supported if binding is None else None,
             )
-            if member.member_id in {m.member_id for m in members}:
+            if member.member_id in member_ids:
                 continue
+            member_ids.add(member.member_id)
             members.append(member)
-            if supported:
+            if supported and (binding is None or role != "relationship"):
                 semantic_kind = ":".join(
                     value for value in (role, interpretation, outcome) if value is not None
                 )
@@ -796,9 +903,14 @@ def derive_dossier_members(inputs, retained, *, root=None):
                         scope=p.scope,
                         member_id=key,
                         assessment_id=supported,
-                        evidence=(p.passage_id,),
+                        assessment_scope="comparison_statement" if binding is not None else None,
+                        evidence=(p.passage_id, binding.opposite_citation.passage_id)
+                        if binding is not None
+                        else (p.passage_id,),
                     )
                 )
+    if selections:
+        raise ValueError("comparison selection lacks its declared retained predecessor")
     return tuple(members), tuple(facets)
 
 
@@ -895,6 +1007,9 @@ class StructuralDossierConfig(StructuralValue):
     root_component: RetainedComponentRef | None = None
     predecessors: tuple[RetainedStructuralRef, ...] = ()
     contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
+    comparison_selections: tuple[DossierComparisonSelection, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
     member_budget: int = Field(default=12, gt=0, strict=True)
     policy: Literal["supported-facet-greedy-1", "source-order-control-1"] = (
         "supported-facet-greedy-1"
@@ -908,6 +1023,7 @@ class StructuralDossierConfig(StructuralValue):
                 or self.root_component
                 or self.predecessors
                 or self.contribution_predecessors
+                or self.comparison_selections
             ):
                 raise ValueError("partial dossier config")
         elif (
@@ -922,6 +1038,13 @@ class StructuralDossierConfig(StructuralValue):
             self.contribution_predecessors
         ):
             raise ValueError("duplicate dossier contribution predecessor")
+        if len(set(self.comparison_selections)) != len(self.comparison_selections) or any(
+            selection.comparison_product_id not in {ref.product_id for ref in self.predecessors}
+            or self.inputs is None
+            or selection.relationship_ref.edge_id not in self.inputs.dependencies
+            for selection in self.comparison_selections
+        ):
+            raise ValueError("dossier comparison binding requires exact declared dependencies")
         return self
 
 
@@ -954,7 +1077,20 @@ class StructuralDossierMethod:
         checked = ctx.reader.resolve_definition_component(cfg.root_component)
         if LocatedDefinitionComponent.model_validate(checked) != root:
             raise ValueError("dossier root differs from its native component")
-        members, facets = derive_dossier_members(cfg.inputs, retained, root=root)
+        relationships = {}
+        for selection in cfg.comparison_selections:
+            reference = selection.relationship_ref
+            if reference not in relationships:
+                ctx.check_active()
+                relationships[reference] = ctx.reader.retained_relationship_decision(reference)
+        members, facets = derive_dossier_members(
+            cfg.inputs,
+            retained,
+            root=root,
+            root_ref=cfg.root_component,
+            comparison_selections=cfg.comparison_selections,
+            relationships=relationships,
+        )
         from .dossier_contributions import derive_contribution_members
 
         source_members = []
@@ -973,6 +1109,7 @@ class StructuralDossierMethod:
             supported_facets=facets,
             predecessors=cfg.predecessors,
             contribution_predecessors=cfg.contribution_predecessors,
+            comparison_selections=cfg.comparison_selections,
             member_budget=cfg.member_budget,
             policy=cfg.policy,
         )

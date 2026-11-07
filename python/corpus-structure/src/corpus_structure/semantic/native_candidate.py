@@ -718,6 +718,7 @@ def series_native_definitions(connection, *, include_selected=True):
     from corpus_structure.evaluate.operation_fitting import operation_event_fitting_native_sql
 
     for name, roles in {
+        "defining_text_event_features": (),
         "operation_event_fit_frame": ("corpus_sem_evaluator", "corpus_sem_fitter"),
         "record_operation_event_fit": ("corpus_sem_evaluator", "corpus_sem_fitter"),
         "read_operation_event_fit": (
@@ -815,6 +816,9 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_component_targets",
         "component_semantic_target",
         "artifact_alias_fields",
+        "artifact_source_labels",
+        "artifact_explicit_reference",
+        "artifact_label_relation",
         "artifact_alias_span_source_value",
         "artifact_source_records",
         "artifact_external_nominations",
@@ -826,6 +830,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "comparison_member",
         "comparison_groups",
         "structural_grouped_comparison",
+        "dossier_comparison_roles",
         "structural_dossier",
         "definition_role_candidates",
         "definition_model_components",
@@ -860,6 +865,9 @@ def series_native_definitions(connection, *, include_selected=True):
         "source_contribution_occurrence",
         "validate_source_anchor_coordinates",
         "validate_source_table_note_scope",
+        "table_correspondence_band",
+        "table_correspondence_requests",
+        "prepare_table_correspondence",
         "predicate_role_anchor_match",
         "predicate_cue_host_matches",
         "predicate_token_texts",
@@ -878,6 +886,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "contextual_nullable_value",
         "contextual_component_section",
         "contextual_section_headings",
+        "contextual_mutual_neighbors",
         "validate_contextual_selection",
     ):
         definitions.extend(
@@ -889,7 +898,13 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple(
                     (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
                 )
-                if name in {"contextual_component_section", "contextual_section_headings"}
+                if name
+                in {
+                    "contextual_component_section",
+                    "contextual_section_headings",
+                    "contextual_mutual_neighbors",
+                    "prepare_table_correspondence",
+                }
                 else (),
             )
         )

@@ -29,6 +29,61 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.contextual_nullable_value(jsonb) FROM PUBLIC;
 
+-- One bounded immutable neighborhood per already authenticated inventory/profile.
+CREATE OR REPLACE FUNCTION ops.contextual_mutual_neighbors(inv jsonb,profile jsonb,vectors jsonb)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH targets AS MATERIALIZED (
+  SELECT t->>'target_id' AS id,t->>'representation_digest' AS digest,t->>'source_binding' AS source
+  FROM jsonb_array_elements(inv->'targets') t
+ ), eligible AS MATERIALIZED (
+  SELECT t.id,t.digest,(v->'values')::text::public.vector AS vector
+  FROM targets t JOIN jsonb_array_elements(vectors) v ON v->>'object_id'=t.id
+  WHERE v->>'profile_id'=profile->>'profile_id' AND v->>'representation_digest'=t.digest
+   AND v->>'source_binding'=t.source
+   AND public.vector_dims((v->'values')::text::public.vector)=(profile->>'dimension')::integer
+   AND abs(public.vector_norm((v->'values')::text::public.vector)-1)<=0.00001
+ ), coverage AS (
+  SELECT CASE WHEN NOT EXISTS(SELECT FROM targets) THEN 'completed'
+   WHEN profile IS NULL THEN 'profile_unavailable'
+   WHEN (SELECT count(*) FROM targets)<>(SELECT count(*) FROM eligible)
+     OR (SELECT count(*) FROM eligible)<>(SELECT count(DISTINCT id) FROM eligible)
+     OR (SELECT count(*) FROM targets t JOIN jsonb_array_elements(vectors) v
+         ON v->>'object_id'=t.id AND v->>'profile_id'=profile->>'profile_id')
+        <>(SELECT count(*) FROM eligible)
+   THEN 'vector_coverage_unavailable' ELSE 'completed' END AS status
+ ), representatives AS MATERIALIZED (
+  SELECT e.*,g->>'target_id' AS group_id
+  FROM coverage c,jsonb_array_elements(inv->'semantic_groups') g
+  JOIN eligible e ON e.id=g->'member_target_ids'->>0
+  WHERE c.status='completed'
+ ), directed AS MATERIALIZED (
+  SELECT a.id AS from_id,b.id AS to_id,
+   row_number() OVER(PARTITION BY a.id ORDER BY b.distance,b.id COLLATE "C") AS rank_,b.distance
+  FROM representatives a CROSS JOIN LATERAL (
+   SELECT b.id,a.vector OPERATOR(public.<=>) b.vector AS distance
+   FROM representatives b WHERE b.id<>a.id ORDER BY distance,b.id COLLATE "C" LIMIT 5
+  ) b
+ ), mutual AS (
+  SELECT d.from_id,d.to_id,d.rank_ AS left_rank,r.rank_ AS right_rank,d.distance
+  FROM directed d JOIN directed r ON r.from_id=d.to_id AND r.to_id=d.from_id
+  WHERE d.from_id COLLATE "C"<d.to_id COLLATE "C"
+ )
+ SELECT jsonb_strip_nulls(jsonb_build_object(
+  'policy','mutual-exact-cosine-top5-1','inventory_id',inv->>'inventory_id',
+  'profile_id',profile->>'profile_id','status',c.status,
+  'edges',COALESCE((
+   SELECT jsonb_agg(jsonb_build_object('left_id',m.from_id,'right_id',m.to_id,
+    'left_group',a.group_id,'right_group',b.group_id,
+    'left_digest',a.digest,'right_digest',b.digest,
+    'left_rank',m.left_rank,'right_rank',m.right_rank,'distance',m.distance)
+    ORDER BY m.from_id COLLATE "C",m.to_id COLLATE "C")
+   FROM mutual m JOIN representatives a ON a.id=m.from_id JOIN representatives b ON b.id=m.to_id
+  ),'[]'::jsonb)))
+ FROM coverage c
+$$;
+REVOKE ALL ON FUNCTION ops.contextual_mutual_neighbors(jsonb,jsonb,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.contextual_mutual_neighbors(jsonb,jsonb,jsonb) TO corpus_sem_reader,corpus_sem_writer;
+
 -- Replay question-relative selection from the complete witnessed input population.
 CREATE OR REPLACE FUNCTION ops.validate_contextual_selection(d jsonb,candidates jsonb,inventory jsonb) RETURNS void
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -142,6 +197,331 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
  RAISE EXCEPTION 'table note cannot resolve original endpoints' USING ERRCODE='23514';
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_source_table_note_scope(kb.source_view,jsonb) FROM PUBLIC;
+
+-- The selected policy derives finite requests here. The worker receives this
+-- projection verbatim; admission derives it again from the selected source.
+CREATE OR REPLACE FUNCTION ops.table_correspondence_band(
+ p_edges jsonb,p_premises jsonb,p_dependencies jsonb,p_revision text,p_projection text,
+ p_scope text,p_scale numeric)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH policy AS (
+  SELECT 'table-policy:source-correspondence-1:correspondence:'||p_scale::text AS id,
+   'table-model:'||p_revision AS model,'table-ontology:scoped-table-roles' AS ontology,
+   'table-executor:exact-local-1' AS executor,
+   p_scale::double precision*ln(2::double precision) AS weight
+ ), hypotheses AS (
+  SELECT m,m->>'identity' AS id,m->'bindings' AS bindings,n
+  FROM jsonb_array_elements(p_premises) WITH ORDINALITY a(m,n)
+ ), auxiliary AS (
+  SELECT count(*)>0 AND NOT (count(*)=1 AND bool_and(m->>'standing'='fixed')) AS enabled
+  FROM hypotheses
+ ), axes AS (
+  SELECT e->>'axis' AS axis,e->>'role' AS role,
+   jsonb_build_array(jsonb_build_object('key','unresolved','kind','unresolved','reason','retained scope incomplete'))||
+   CASE WHEN e->>'role' IN ('note','unit') THEN jsonb_build_array(
+    jsonb_build_object('key','does_not_apply','kind','resolved','reason',NULL)) ELSE '[]' END||
+   jsonb_agg(jsonb_build_object('key',e->>'id','kind','resolved','reason',NULL) ORDER BY (e->>'id') COLLATE "C") AS candidates,
+   jsonb_agg(e ORDER BY (e->>'id') COLLATE "C") AS edges
+  FROM jsonb_array_elements(p_edges) e GROUP BY e->>'axis',e->>'role'
+ ), options AS (
+  SELECT a.axis,a.role,a.edges,e,c->>'key' AS candidate,n
+  FROM axes a CROSS JOIN LATERAL jsonb_array_elements(a.candidates) WITH ORDINALITY c(c,n)
+  LEFT JOIN LATERAL jsonb_array_elements(a.edges) e ON e->>'id'=c->>'key'
+ ), m_options AS (
+  SELECT 0 AS n,'unresolved' AS id,NULL::jsonb AS bindings
+  UNION ALL SELECT n,id,bindings FROM hypotheses
+ ), role_factors AS (
+  SELECT axis,jsonb_build_object('key','source-choice:'||axis,'scope',jsonb_build_array(axis),
+   'values',jsonb_agg(CASE WHEN e->'direct'='true'::jsonb AND e->'disjoint'='false'::jsonb
+     THEN p.weight ELSE 0 END ORDER BY n),
+   'dependency_ids',(SELECT coalesce(jsonb_agg(d ORDER BY d COLLATE "C"),'[]')
+    FROM (SELECT DISTINCT key AS d FROM jsonb_array_elements(o.edges) x
+     CROSS JOIN LATERAL jsonb_array_elements_text(x->'evidence') k(key)) deps)||jsonb_build_array(p.id)
+  ) AS factor
+  FROM options o CROSS JOIN policy p GROUP BY axis,o.edges,p.id,p.weight
+ ), compatibility AS (
+  SELECT o.axis,jsonb_build_object('key','correspondence-role:'||o.axis,
+   'scope',CASE WHEN a.enabled THEN jsonb_build_array('M',o.axis) ELSE jsonb_build_array(o.axis) END,
+   'values',jsonb_agg(CASE WHEN m.bindings ? o.candidate THEN
+    CASE WHEN m.bindings->o.candidate->>'alignment'='exact' THEN p.weight ELSE p.weight/2 END
+    ELSE 0 END ORDER BY m.n,o.n),
+   'dependency_ids',(SELECT jsonb_agg(d ORDER BY d COLLATE "C") FROM (
+    SELECT DISTINCT dep AS d FROM hypotheses h
+    CROSS JOIN LATERAL jsonb_each(h.bindings) b(edge,proof)
+    JOIN options x ON x.axis=o.axis AND x.candidate=b.edge
+    CROSS JOIN LATERAL jsonb_array_elements_text(b.proof->'dependencies') k(dep)
+    UNION SELECT h.id FROM hypotheses h WHERE EXISTS(
+     SELECT FROM options x WHERE x.axis=o.axis AND h.bindings ? x.candidate)
+    UNION SELECT p.id
+   ) deps)) AS factor
+  FROM options o CROSS JOIN m_options m CROSS JOIN auxiliary a CROSS JOIN policy p
+  WHERE (a.enabled OR m.n>0) AND EXISTS (
+   SELECT FROM hypotheses h JOIN options x ON x.axis=o.axis AND h.bindings ? x.candidate)
+  GROUP BY o.axis,a.enabled,p.id
+ ), m_factor AS (
+  SELECT jsonb_build_object('key','shared-correspondence-evidence','scope',jsonb_build_array('M'),
+   'values',jsonb_agg(CASE WHEN m.n=0 THEN 0 ELSE p.weight END ORDER BY m.n),
+   'dependency_ids',(SELECT jsonb_agg(d ORDER BY d COLLATE "C") FROM (
+    SELECT DISTINCT h.id AS d FROM hypotheses h UNION SELECT p.id) deps)
+  ) AS factor
+  FROM m_options m CROSS JOIN policy p CROSS JOIN auxiliary a WHERE a.enabled GROUP BY p.id
+ ), masks AS (
+  SELECT axis,jsonb_build_object('key','source-disjoint:'||axis,'scope',jsonb_build_array(axis),
+   'allowed',jsonb_agg(e->'disjoint' IS DISTINCT FROM 'true'::jsonb ORDER BY n),
+   'dependency_ids',(SELECT jsonb_agg(d ORDER BY d COLLATE "C") FROM (
+    SELECT DISTINCT key AS d FROM jsonb_array_elements(o.edges) x
+    CROSS JOIN LATERAL jsonb_array_elements_text(x->'evidence') k(key)
+    WHERE x->'disjoint'='true'::jsonb UNION SELECT p.ontology
+   ) deps)
+  ) AS mask
+  FROM options o CROSS JOIN policy p GROUP BY axis,o.edges,p.ontology
+  HAVING bool_or(e->'disjoint'='true'::jsonb)
+ ), events AS (
+  SELECT role,jsonb_build_object('key','any-'||role,
+   'question','At least one retained '||role||' reading applies in this table row',
+   'derivations',jsonb_agg(jsonb_build_array(jsonb_build_object('decision',axis,'candidate',candidate))
+     ORDER BY axis COLLATE "C",n)) AS event
+  FROM options WHERE e->'disjoint'='false'::jsonb GROUP BY role
+ ), dependencies AS (
+  SELECT 0 AS kind_order,key AS id,'observation' AS kind,p_revision AS revision
+   FROM jsonb_array_elements_text(p_dependencies) d(key)
+  UNION ALL SELECT 1,id,'context',p_projection FROM hypotheses
+  UNION ALL SELECT 2,model,'model',p_revision FROM policy
+  UNION ALL SELECT 3,ontology,'ontology','source-correspondence-1' FROM policy
+  UNION ALL SELECT 4,executor,'context','exact-local-1' FROM policy
+  UNION ALL SELECT 5,id,'policy','source-correspondence-1' FROM policy
+ )
+ SELECT jsonb_build_object(
+  'decisions',(CASE WHEN a.enabled THEN jsonb_build_array(jsonb_build_object(
+   'key','M','candidates',jsonb_build_array(jsonb_build_object('key','unresolved',
+   'kind','unresolved','reason','shared correspondence unresolved within retained evidence'))||
+   (SELECT jsonb_agg(jsonb_build_object('key',id,'kind','resolved','reason',NULL) ORDER BY n)
+    FROM hypotheses))) ELSE '[]' END)||
+   (SELECT jsonb_agg(jsonb_build_object('key',axis,'candidates',candidates) ORDER BY axis COLLATE "C") FROM axes),
+  'constraints',
+   (SELECT coalesce(jsonb_agg(mask ORDER BY axis COLLATE "C"),'[]') FROM masks),
+  'dependencies',(SELECT jsonb_agg(jsonb_build_object('key',id,'kind',kind,'revision',revision)
+   ORDER BY kind_order,id COLLATE "C") FROM dependencies),
+  'selection',jsonb_build_object('scope_id',p_scope,'dependency_ids',p_dependencies,
+   'retrieval_limit',NULL,'exclusions',(SELECT coalesce(jsonb_agg('source-disjoint:'||(e->>'id')
+    ORDER BY (e->>'id') COLLATE "C"),'[]') FROM jsonb_array_elements(p_edges) e WHERE e->'disjoint'='true'::jsonb),
+   'truncations','[]'::jsonb),
+  'model_dependency_id',p.model,'ontology_dependency_id',p.ontology,'policy_dependency_id',p.id,
+  'events',(SELECT coalesce(jsonb_agg(event ORDER BY role COLLATE "C"),'[]') FROM events),
+  'marginal_decisions',NULL,'dependence_scopes',(SELECT coalesce(jsonb_agg(jsonb_build_object(
+   'scope',factor->'scope','dependency_ids',factor->'dependency_ids',
+   'reason','One source correspondence conditions this local role reading') ORDER BY axis COLLATE "C"),'[]')
+   FROM compatibility WHERE a.enabled),
+  'limits',jsonb_build_object('max_states',65536,'block_states',1024,'max_workspace_bytes',67108864,
+   'max_seconds',10,'displayed_alternatives',5),
+  'feasibility_control',false,'correspondence_premises',p_premises,
+  'correspondence_status',CASE WHEN a.enabled THEN 'ambiguous'
+   WHEN jsonb_array_length(p_premises)>0 THEN 'fixed' ELSE 'unavailable' END,
+  'correspondence_reason',CASE WHEN jsonb_array_length(p_premises)=0 THEN
+   'No exact observed-to-schematic declaration and eligible matched cells in this row.'
+   WHEN a.enabled THEN 'Retained source permits competing or unresolved correspondence.' END
+ )||jsonb_build_object('potentials',
+  coalesce((SELECT jsonb_agg(factor) FROM m_factor),'[]')||
+  (SELECT jsonb_agg(factor ORDER BY axis COLLATE "C") FROM role_factors)||
+  (SELECT coalesce(jsonb_agg(factor ORDER BY axis COLLATE "C"),'[]') FROM compatibility))
+ FROM auxiliary a CROSS JOIN policy p
+$$;
+REVOKE ALL ON FUNCTION ops.table_correspondence_band(jsonb,jsonb,jsonb,text,text,text,numeric) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.table_correspondence_requests(v kb.source_view,p_rows jsonb,p_scale numeric)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE pointers text[]; nodes jsonb; captions jsonb; requests jsonb;
+BEGIN
+ IF p_scale IS NULL OR p_scale NOT IN (0.5,1,2) THEN
+  RAISE EXCEPTION 'invalid registered table correspondence weight' USING ERRCODE='23514';
+ END IF;
+ p_scale:=trim_scale(p_scale);
+ -- Read only native table cells, and prose referenced by retained role candidates.
+ SELECT array_agg(DISTINCT pointer) INTO pointers FROM (
+  SELECT (regexp_match(a->>'pointer','^(.*)/data/table_cells/[0-9]+$'))[1] AS pointer
+  FROM jsonb_array_elements(p_rows) r CROSS JOIN LATERAL jsonb_array_elements(r->'anchors') a
+  WHERE r->>'semantic_type'='structural.located_participant' AND a->>'pointer' LIKE '%/data/table_cells/%'
+  UNION
+  SELECT a->>'pointer' FROM jsonb_array_elements(p_rows) r
+   CROSS JOIN LATERAL jsonb_array_elements(r->'anchors') a
+  WHERE r->>'semantic_type'='structural.located_participant' AND a->>'pointer' NOT LIKE '%/data/table_cells/%'
+   AND data.record_source_json(r->'value')->>'role'='table_role_declaration'
+ ) candidates WHERE pointer IS NOT NULL;
+ IF pointers IS NULL THEN RETURN '[]'; END IF;
+ SELECT coalesce(jsonb_object_agg(pointer,native_json),'{}') INTO nodes
+ FROM ops.read_pdf_published_items(v.native_task_id,v.native_product_key,v.native_content_digest,pointers);
+ SELECT array_agg(DISTINCT c->>'$ref') INTO pointers FROM jsonb_each(nodes) n
+ CROSS JOIN LATERAL jsonb_array_elements(n.value->'captions') c WHERE n.value->>'label'='table';
+ IF pointers IS NOT NULL THEN
+  SELECT coalesce(jsonb_object_agg(pointer,native_json->>'text'),'{}') INTO captions
+  FROM ops.read_pdf_published_items(v.native_task_id,v.native_product_key,v.native_content_digest,pointers)
+  WHERE native_json->>'label'='caption';
+ END IF;
+ WITH participants AS MATERIALIZED (
+  SELECT r->>'contribution_id' AS id,r->'pin' AS pin,r->'anchors'->0 AS anchor,
+   data.record_source_json(r->'value') AS meaning
+  FROM jsonb_array_elements(p_rows) r
+  WHERE r->>'semantic_type'='structural.located_participant' AND jsonb_array_length(r->'anchors')=1
+ ), selected_cells AS MATERIALIZED (
+  SELECT p.id,p.pin,p.anchor,p.meaning,x.coordinate[1] AS table_ref,c.cell,
+   (c.cell->>'start_row_offset_idx')::integer AS r0,(c.cell->>'end_row_offset_idx')::integer AS r1,
+   (c.cell->>'start_col_offset_idx')::integer AS c0,(c.cell->>'end_col_offset_idx')::integer AS c1
+  FROM participants p CROSS JOIN LATERAL (
+   SELECT regexp_match(p.anchor->>'pointer','^(.*)/data/table_cells/([0-9]+)$') AS coordinate
+  ) x CROSS JOIN LATERAL (
+   SELECT nodes->x.coordinate[1]->'data'->'table_cells'->(x.coordinate[2]::integer) AS cell
+  ) c
+  JOIN LATERAL jsonb_array_elements(v.projection->'pieces') piece
+   ON piece->>'source_field'='cell_text' AND piece->>'item_ref'=x.coordinate[1] AND piece->>'cell_index'=x.coordinate[2]
+  WHERE c.cell IS NOT NULL AND p.anchor->>'precision'='exact' AND p.anchor->>'space'='native'
+   AND p.anchor->>'start'='0' AND (p.anchor->>'end')::integer=length(c.cell->>'text')
+   AND p.anchor->>'source_piece'=c.cell->>'text' AND p.meaning->>'text'=c.cell->>'text'
+   AND p.pin->>'source_view_id'=v.id::text AND p.pin->>'product_digest'=v.native_content_digest
+ ), edges AS MATERIALIZED (
+  SELECT r->>'contribution_id' AS id,r->'computation_dependencies' AS deps,s.id AS subject,t.id AS target,
+   s.table_ref AS region,s.r0,s.r1,st.table_ref AS schematic,
+   s.c0 AS sc0,s.c1 AS sc1,st.r0 AS tr0,st.r1 AS tr1,st.c0 AS tc0,st.c1 AS tc1,
+   s.anchor AS source_anchor,t.anchor AS target_anchor,m.value->>'relation' AS role,m.value->>'basis' AS basis,
+   (st.table_ref=s.table_ref AND t.meaning->>'role'='header' AND m.value->>'relation' IN ('header','unit','value_role')
+    AND m.value->>'basis' IN ('native_geometry','matched_cue')) IS TRUE AS header,
+   st.cell->>'text' AS symbol,t.meaning->>'role' AS target_role
+  FROM jsonb_array_elements(p_rows) r
+  CROSS JOIN LATERAL (SELECT data.record_source_json(r->'value') AS value) m
+  JOIN selected_cells s ON s.id=m.value->>'subject_id'
+  JOIN participants t ON t.id=m.value->>'target_id'
+  LEFT JOIN selected_cells st ON st.id=t.id
+  WHERE r->>'semantic_type'='structural.scoped_attachment' AND m.value->>'protocol'='scoped-attachment-1'
+   AND m.value->>'relation' IN ('header','note','unit','value_role')
+   AND m.value->>'region'=s.table_ref AND m.value->>'scope'=s.table_ref
+   AND r->'pin'=s.pin AND t.pin=s.pin AND s.meaning->>'role'='cell'
+   AND r->'component'->>'kind'='scoped_attachment'
+   AND r->'component'->>'attachment_contribution_id'=s.id
+   AND r->'component'->>'target_contribution_id'=t.id
+   AND r->'component'->>'attachment_kind'=m.value->>'relation'
+   AND r->'component'->>'scope'=s.table_ref
+   AND m.value->'dependencies'=r->'computation_dependencies'
+   AND EXISTS (SELECT FROM jsonb_array_elements(r->'component'->'bases') b
+    WHERE b->>'kind'=m.value->>'basis')
+   AND (st.id IS NOT NULL OR t.meaning->>'role' IN ('note','table_role_declaration'))
+ ), role_edges AS MATERIALIZED (
+  SELECT *,subject||'/'||role||'/'||CASE WHEN role='value_role' THEN role
+   WHEN role='header' AND header THEN '('||tr0||', '||tr1||')' ELSE id END AS axis,
+   (header AND (sc1<=tc0 OR tc1<=sc0)) IS TRUE AS disjoint,
+   ((header AND tc0<=sc0 AND sc1<=tc1 AND tr1<=r0)
+    OR (role IN ('note','unit') AND basis='matched_cue')) IS TRUE AS direct,
+   jsonb_build_array(id,subject,target) AS evidence
+  FROM edges
+ ), declarations AS MATERIALIZED (
+  SELECT d.id,d.anchor,d.meaning->>'region' AS region,cue.parts,
+   regexp_match(d.anchor->>'source_piece',pattern.pattern,'i') AS symbols
+  FROM participants d CROSS JOIN LATERAL (VALUES (
+   CASE d.meaning->>'measure_role'
+    WHEN 'row_sum' THEN '^row sums by (\w+) and (\w+)$'
+    WHEN 'column_sum' THEN '^column sums by (\w+) and (\w+)$'
+    WHEN 'sample_count' THEN '^size of the data set will be denoted by (\w+)$'
+    WHEN 'observed_count' THEN '^ijth entry in the table will be denoted by (sij)$'
+   END)) pattern(pattern)
+  CROSS JOIN LATERAL (SELECT nodes->(d.anchor->>'pointer')->>'text' AS body) source
+  CROSS JOIN LATERAL (SELECT regexp_match(source.body,
+   '\ydata shown in Table ([0-9]+(?:\.[0-9]+)+)\y.*?\ygeneral data table will look as shown in Table ([0-9]+(?:\.[0-9]+)+)\y','i') AS parts) cue
+  WHERE d.meaning->>'role'='table_role_declaration' AND cue.parts[1]<>cue.parts[2]
+   AND d.anchor->>'space'='native' AND d.anchor->>'precision'='exact'
+   AND d.meaning->>'source_pointer'=d.anchor->>'pointer'
+   AND d.meaning->>'text'=d.anchor->>'source_piece'
+   AND substring(source.body FROM (d.anchor->>'start')::integer+1
+    FOR (d.anchor->>'end')::integer-(d.anchor->>'start')::integer)=d.anchor->>'source_piece'
+   AND EXISTS (SELECT FROM jsonb_array_elements(v.projection->'pieces') p
+    WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index' AND p->>'item_ref'=d.anchor->>'pointer')
+ ), bindings AS (
+  SELECT e.region,e.r0,e.r1,e.schematic,d.anchor->>'pointer' AS declaration_pointer,
+   cap0.pointer AS observed_caption,cap1.pointer AS schematic_caption,
+   e.id,e.subject,e.target,
+   CASE WHEN (e.r0,e.r1,e.sc0,e.sc1)=(e.tr0,e.tr1,e.tc0,e.tc1) THEN 'exact' ELSE 'overlap' END AS alignment,
+   jsonb_build_object('dependencies',e.evidence||jsonb_build_array(d.id),
+    'observed_anchor',e.source_anchor->'anchor_id','schematic_anchor',e.target_anchor->'anchor_id',
+    'declaration_anchor',d.anchor->'anchor_id') AS binding
+  FROM role_edges e JOIN declarations d ON e.deps ? d.id AND d.region=e.region
+  CROSS JOIN LATERAL (SELECT c->>'$ref' AS pointer FROM jsonb_array_elements(nodes->e.region->'captions') c
+   WHERE captions->>(c->>'$ref') ~* ('^Table\s+'||replace(d.parts[1],'.','[.]')||'(?=:|\s|$)')) cap0
+  CROSS JOIN LATERAL (SELECT c->>'$ref' AS pointer FROM jsonb_array_elements(nodes->e.schematic->'captions') c
+   WHERE captions->>(c->>'$ref') ~* ('^Table\s+'||replace(d.parts[2],'.','[.]')||'(?=:|\s|$)')) cap1
+  WHERE e.role='value_role' AND e.basis='matched_cue' AND e.region<>e.schematic
+   AND e.source_anchor->>'source_piece' ~ '^\s*[0-9]+\s*$'
+   AND CASE WHEN btrim(e.symbol) ~ '^s[0-9]+$' THEN 'sij' ELSE lower(btrim(e.symbol)) END
+    =ANY(SELECT lower(s) FROM unnest(d.symbols) s)
+   AND e.r0<e.tr1 AND e.tr0<e.r1 AND e.sc0<e.tc1 AND e.tc0<e.sc1
+ ), alternatives AS (
+  SELECT region,r0,r1,schematic,declaration_pointer,observed_caption,schematic_caption,
+   count(*)=count(DISTINCT subject) AND count(*)=count(DISTINCT target) AND bool_and(alignment='exact')
+    AND (nodes->region->'data'->'num_rows',nodes->region->'data'->'num_cols')
+    =(nodes->schematic->'data'->'num_rows',nodes->schematic->'data'->'num_cols') AS exact,
+   jsonb_object_agg(id,binding||jsonb_build_object('alignment',alignment) ORDER BY id COLLATE "C") AS proof
+  FROM bindings GROUP BY region,r0,r1,schematic,declaration_pointer,observed_caption,schematic_caption
+ ), band_premises AS (
+  SELECT region,r0,r1,jsonb_agg(premise||jsonb_build_object('identity',
+    'table-correspondence:'||encode(sha256(convert_to(data.canonical_json(premise),'UTF8')),'hex'),
+    'standing',CASE WHEN alternative_count=1 AND exact THEN 'fixed' ELSE 'alternative' END)
+    ORDER BY schematic COLLATE "C",declaration_pointer COLLATE "C",observed_caption COLLATE "C",
+     schematic_caption COLLATE "C") AS premises
+  FROM (SELECT *,count(*) OVER(PARTITION BY region,r0,r1) AS alternative_count,
+   jsonb_build_object('source_revision',v.native_content_digest,'source_view_id',v.id,
+    'source_projection',v.projection_digest,'source_recipe',v.recipe_digest,'observed_table',region,
+    'schematic_table',schematic,'observed_caption',observed_caption,'schematic_caption',schematic_caption,
+    'declaration_pointer',declaration_pointer,'bindings',proof) AS premise FROM alternatives) a
+  GROUP BY region,r0,r1
+ ), bands AS (
+  SELECT region,r0,r1,count(*) AS edge_count,
+   jsonb_agg(jsonb_build_object('id',id,'axis',axis,'role',role,'direct',direct,
+    'disjoint',disjoint,'evidence',evidence) ORDER BY id COLLATE "C") AS edges,
+   'source correspondence for '||region||' row ['||r0||', '||r1||')' AS question
+  FROM role_edges GROUP BY region,r0,r1
+ ), band_ids AS (
+  SELECT b.*,coalesce(h.premises,'[]') AS premises,
+   (SELECT jsonb_agg(id ORDER BY id COLLATE "C") FROM (
+    SELECT DISTINCT k.id FROM role_edges e
+    CROSS JOIN LATERAL jsonb_array_elements_text(e.evidence) k(id)
+    WHERE (e.region,e.r0,e.r1)=(b.region,b.r0,b.r1)
+    UNION SELECT DISTINCT x.id FROM bindings q
+    CROSS JOIN LATERAL jsonb_array_elements_text(q.binding->'dependencies') x(id)
+    WHERE (q.region,q.r0,q.r1)=(b.region,b.r0,b.r1)
+   ) selected) AS ids
+  FROM bands b LEFT JOIN band_premises h USING(region,r0,r1)
+ ), prepared AS (
+  SELECT b.*,(SELECT jsonb_agg(dep ORDER BY dep COLLATE "C") FROM (
+   SELECT DISTINCT dep FROM jsonb_array_elements(p_rows) r
+   CROSS JOIN LATERAL jsonb_array_elements_text(r->'computation_dependencies') d(dep)
+   WHERE b.ids ? (r->>'contribution_id')
+   UNION SELECT jsonb_array_elements_text(b.ids)) deps) AS dependencies
+  FROM band_ids b
+ ), questions AS (
+  SELECT *,'contribution-operation:'||encode(sha256(convert_to(data.canonical_json(
+    jsonb_build_array(jsonb_build_array('local-interpretation-2',question,ids,dependencies),'{}'::jsonb)),
+    'UTF8')),'hex') AS scope_id FROM prepared
+ )
+ SELECT coalesce(jsonb_agg(jsonb_build_object('scope_id',scope_id,'question',question,
+  'contribution_ids',ids,'dependencies',dependencies,'reason',
+  CASE WHEN edge_count>16 THEN 'Exact correspondence policy permits at most 16 retained attachments per row.'
+   ELSE NULL END,
+  'request',CASE WHEN edge_count<=16 THEN ops.table_correspondence_band(edges,premises,dependencies,
+   v.native_content_digest,v.projection_digest,scope_id,p_scale) ELSE NULL END)
+  ORDER BY region COLLATE "C",r0,r1),'[]') INTO requests FROM questions;
+ RETURN requests;
+END $$;
+REVOKE ALL ON FUNCTION ops.table_correspondence_requests(kb.source_view,jsonb,numeric) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.prepare_table_correspondence(p_run bigint,p_view bigint,p_rows jsonb,p_scale numeric)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE v kb.source_view;
+BEGIN
+ SELECT s.* INTO STRICT v FROM kb.source_view s JOIN ops.run_source_view r ON r.source_view_id=s.id
+ WHERE r.run_id=p_run AND s.id=p_view AND s.analysis_eligible;
+ RETURN ops.table_correspondence_requests(v,p_rows,p_scale);
+EXCEPTION WHEN no_data_found THEN
+ RAISE EXCEPTION 'table correspondence requires the exact selected native source view' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.prepare_table_correspondence(bigint,bigint,jsonb,numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.prepare_table_correspondence(bigint,bigint,jsonb,numeric)
+ TO corpus_sem_reader,corpus_sem_writer;
 
 -- A projected extent must reconstruct the exact ordered physical anchors and
 -- contain exactly the submitted retained tokens, apart from inter-token whitespace.
@@ -1453,6 +1833,7 @@ DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; 
  operation_map jsonb; identity_map jsonb; output_counts jsonb; schemas jsonb:='{}'; allowed_contracts jsonb;
  local_ jsonb; local_request jsonb; local_result jsonb; selected_ids jsonb; local_inputs jsonb;
  predicate_population jsonb; table_config jsonb; table_mode text; table_policy_id text; formula_meaning jsonb;
+ table_expected jsonb; table_actual jsonb;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  PERFORM sem.require_execution_operation(t.release_id,'bind_report');
@@ -1474,16 +1855,19 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7') THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7','8') THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
   SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
   table_mode:=table_config->>'interpretation_mode';
-  IF table_mode IS NULL OR table_mode NOT IN ('feasibility','independent','coupled')
+  IF table_mode IS NULL OR (table_mode NOT IN ('feasibility','independent','coupled')
+   AND NOT (table_mode='correspondence' AND p_envelope->>'operation_version'='8'))
    OR table_config->>'interpretation_weight_scale' IS NULL
    OR table_config->>'interpretation_weight_scale' NOT IN ('0.5','1','2') THEN
    RAISE EXCEPTION 'invalid registered table interpretation policy' USING ERRCODE='23514';
   END IF;
-  table_policy_id:='table-policy:shared-table-band-3:'||table_mode||':'||(table_config->>'interpretation_weight_scale');
+  IF table_mode<>'correspondence' THEN
+   table_policy_id:='table-policy:shared-table-band-3:'||table_mode||':'||(table_config->>'interpretation_weight_scale');
+  END IF;
  END IF;
  IF p_envelope->>'source' IS NULL OR p_envelope->>'source' NOT IN (t.unit_key,v.key) THEN
   RAISE EXCEPTION 'contribution source differs from selected task/view' USING ERRCODE='23514'; END IF;
@@ -1496,7 +1880,7 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_each(operation_map) o
   WHERE o.value->>'question'='source_formula_occurrences'
    AND (p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-    OR p_envelope->>'operation_version' NOT IN ('5','6','7')
+    OR p_envelope->>'operation_version' NOT IN ('5','6','7','8')
     OR o.value->>'operation_version' IS DISTINCT FROM '1')) THEN
   RAISE EXCEPTION 'formula occurrence operation requires its released producer' USING ERRCODE='23514';
  END IF;
@@ -1545,6 +1929,10 @@ BEGIN
  FOR op IN SELECT value FROM jsonb_array_elements(p_envelope->'contribution_operations') LOOP
   IF op ? 'local_interpretation' THEN
    local_:=op->'local_interpretation'; selected_ids:=COALESCE(local_->'contribution_ids','[]');
+   IF (local_->>'policy_version'='source-correspondence-1') IS DISTINCT FROM
+      COALESCE(table_mode='correspondence',false) THEN
+    RAISE EXCEPTION 'table correspondence requires its registered producer and policy' USING ERRCODE='23514';
+   END IF;
    IF local_->>'seal' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(local_-'seal'),'UTF8')),'hex')
     OR local_->>'constraint_id' IS DISTINCT FROM op->>'operation_key'
     OR op->>'operation_version' IS DISTINCT FROM 'local-interpretation-2'
@@ -1690,7 +2078,8 @@ BEGIN
          IF jsonb_typeof(v_) IS DISTINCT FROM 'number' THEN RAISE EXCEPTION 'local interpretation log potential invalid' USING ERRCODE='23514'; END IF;
          IF abs((v_#>>'{}')::numeric)>1.7976931348623157e308 THEN RAISE EXCEPTION 'local interpretation log potential nonfinite' USING ERRCODE='23514'; END IF;
         END LOOP;
-       ELSIF EXISTS(SELECT FROM jsonb_array_elements(t_->'allowed') v WHERE jsonb_typeof(v) IS DISTINCT FROM 'boolean') THEN
+       ELSIF EXISTS(SELECT FROM jsonb_array_elements(t_->'allowed') mask_entry
+        WHERE jsonb_typeof(mask_entry.value) IS DISTINCT FROM 'boolean') THEN
         RAISE EXCEPTION 'local interpretation constraint support must be boolean' USING ERRCODE='23514'; END IF;
       END LOOP;
       IF EXISTS(SELECT FROM jsonb_object_keys(axes_) k WHERE NOT covered_ ? k) THEN
@@ -1820,9 +2209,10 @@ BEGIN
    RAISE EXCEPTION 'located mention differs from selected producer source and role' USING ERRCODE='23514'; END IF;
  END LOOP;
  -- Contextual reports remain private, source-bound operation products.
- IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='7'
-  AND EXISTS(SELECT FROM ops.method_config cfg WHERE cfg.id=t.method_config_id
-   AND jsonb_array_length(coalesce(cfg.params->'section_sources','[]'))>0)
+ IF p_envelope->>'method'='retrieve.contextual'
+  AND (p_envelope->>'operation_version'='8' OR (p_envelope->>'operation_version'='7'
+   AND EXISTS(SELECT FROM ops.method_config cfg WHERE cfg.id=t.method_config_id
+    AND jsonb_array_length(coalesce(cfg.params->'section_sources','[]'))>0)))
   AND (SELECT count(*) FROM jsonb_array_elements(p_envelope->'contribution_operations') o
    WHERE o ? 'contextual_enrichment')<>1 THEN
   RAISE EXCEPTION 'heading selection requires its complete contextual operation report' USING ERRCODE='23514';
@@ -1839,7 +2229,7 @@ BEGIN
    heading_catalog jsonb; heading_catalog_sources jsonb;
   BEGIN
    SELECT params INTO STRICT contextual_config FROM ops.method_config WHERE id=t.method_config_id;
-   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='7'
+   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('7','8')
     AND jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))>0 THEN
     heading_inventory:=ops.contextual_section_headings(t.release_id,contextual_config->'section_sources',v.id,
      contextual_config->>'scope',contextual_config->>'effective_version');
@@ -1860,7 +2250,7 @@ BEGIN
     FROM ops.task selected JOIN ops.task_result upstream ON upstream.task_id=coalesce(selected.reused_task_id,selected.id)
     JOIN ops.method_config cfg ON cfg.id=selected.method_config_id JOIN ops.method method ON method.id=cfg.method_id
     WHERE selected.run_id=t.run_id AND selected.unit_id=v.id AND selected.unit_type='source_view'
-     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version='7';
+     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version IN ('7','8');
     heading_constraints:=jsonb_build_array(jsonb_build_object(
      'constraint_id','section-citation','relation_kinds',jsonb_build_array('cites-section'),
      'occurrence_role','citation','target_role','heading','multiplicity','one','exhaustive',false));
@@ -1936,6 +2326,13 @@ BEGIN
      profile-'profile_id'-'max_items'-'max_input_bytes'-'timeout_seconds'),'UTF8')),'hex');
     IF profile->>'profile_id' IS DISTINCT FROM expected THEN
      RAISE EXCEPTION 'contextual profile identity differs from meaning' USING ERRCODE='23514'; END IF;
+    IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='8' THEN
+     expected:=CASE coalesce(contextual_config->>'profile','e5')
+      WHEN 'e5' THEN 'encoder-profile:45a1807d2b4d6c8b2217aec6cd9dba7a5ed7b5c451f1e8800eaebc4a379a6397'
+      WHEN 'qwen' THEN 'encoder-profile:4ff89ee3472c56c28d99545ddd6207cc0b6a82b9f9931a77b0fea8b86efb55eb' END;
+     IF profile->>'profile_id' IS DISTINCT FROM expected THEN
+      RAISE EXCEPTION 'contextual profile differs from released configured encoder' USING ERRCODE='23514'; END IF;
+    END IF;
    END LOOP;
    FOR vec IN SELECT value FROM jsonb_array_elements(report->'vectors') LOOP
     profile:=profile_map->(vec->>'profile_id');
@@ -2065,6 +2462,15 @@ BEGIN
      END LOOP;
     END LOOP;
    END LOOP;
+   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='8' THEN
+    IF jsonb_array_length(report->'inventories') IS DISTINCT FROM 1
+     OR jsonb_array_length(report->'profiles')>1
+     OR report->'neighborhood' IS DISTINCT FROM ops.contextual_mutual_neighbors(
+      report->'inventories'->0,report->'profiles'->0,report->'vectors') THEN
+     RAISE EXCEPTION 'mutual neighborhood differs from exact eligible vectors and ranks' USING ERRCODE='23514'; END IF;
+   ELSIF report ? 'neighborhood' THEN
+    RAISE EXCEPTION 'mutual neighborhood requires its released producer' USING ERRCODE='23514';
+   END IF;
    FOR candidate_list IN SELECT value FROM jsonb_array_elements(report->'candidate_lists') LOOP
     inv:=inventory_map->(candidate_list->>'inventory_id');
     vec:=vector_map->(candidate_list->>'query_vector_id');
@@ -2160,7 +2566,7 @@ BEGIN
      SELECT coalesce(jsonb_agg(h ORDER BY n),'[]') INTO expected_hits
      FROM jsonb_array_elements(heading_full_hits) WITH ORDINALITY x(h,n)
      WHERE n<=(candidate_list->>'unique_target_budget')::integer;
-    ELSIF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('6','7')
+    ELSIF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('6','7','8')
      AND EXISTS(SELECT FROM ops.method_config cfg,
       LATERAL jsonb_array_elements(cfg.params->'relationship_constraints') q
       WHERE cfg.id=t.method_config_id AND q->'relation_kinds' ? 'defined-by') THEN
@@ -2479,7 +2885,7 @@ BEGIN
        AND (p->>'start')::bigint+(anchor_->>'end')::bigint=(formula_meaning->>'end')::bigint)
     OR EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') link_
       WHERE link_->>'kind'='relation'
-       AND (p_envelope->>'operation_version' NOT IN ('6','7') OR
+       AND (p_envelope->>'operation_version' NOT IN ('6','7','8') OR
         operation_map->(link_->>'operation_key')->>'question' IS DISTINCT FROM 'source_witnessed_links')
        AND link_->'endpoints' @>
        jsonb_build_array(jsonb_build_object('contribution_id',contribution->>'contribution_id')))
@@ -2551,7 +2957,7 @@ BEGIN
  END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
   WHERE c->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')) THEN
-  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7') THEN
+  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7','8') THEN
    RAISE EXCEPTION 'predicate evidence requires its released producer' USING ERRCODE='23514';
   END IF;
   SELECT jsonb_object_agg(c->>'contribution_id',c) INTO predicate_population
@@ -2560,31 +2966,31 @@ BEGIN
    'structural.predicate_cue','structural.predicate_reading','structural.predicate_qualification');
   PERFORM ops.validate_source_predicates(
    t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map,
-    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('5','6','7') THEN '3' ELSE '2' END));
+    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('5','6','7','8') THEN '3' ELSE '2' END));
  END IF;
  IF EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_witnessed_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' NOT IN ('6','7') THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7','8') THEN
    RAISE EXCEPTION 'witnessed links require their released source producer' USING ERRCODE='23514'; END IF;
   PERFORM ops.validate_witnessed_formula_links(v,table_config,p_envelope->'contributions',operation_map);
  END IF;
- IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='7'
+ IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8')
     AND table_config->>'inputs' IS NOT NULL)
   OR EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_named_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' NOT IN ('6','7') THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7','8') THEN
    RAISE EXCEPTION 'named links require their released source producer' USING ERRCODE='23514'; END IF;
-  IF p_envelope->>'operation_version'='7' THEN
+  IF p_envelope->>'operation_version' IN ('7','8') THEN
    PERFORM ops.validate_named_annotation_links(t,v,table_config,p_envelope->'contributions',operation_map);
   ELSE
    PERFORM ops.validate_named_source_links(v,table_config,p_envelope->'contributions',operation_map);
   END IF;
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='7'
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('7','8')
   AND table_config->>'inputs' IS NOT NULL THEN
   PERFORM ops.validate_scope_inheritance(p_envelope->'contributions',operation_map);
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7')
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7','8')
   AND (COALESCE(table_config->'classification_refs','[]')<>'[]'::jsonb
    OR data.record_source_json(p_envelope->'parse_detail') ? 'clause_model_concordance') THEN
   IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(table_config->'classification_refs','[]')) ref
@@ -2594,6 +3000,22 @@ BEGIN
    RAISE EXCEPTION 'clause model concordance differs from authenticated exact focus' USING ERRCODE='23514'; END IF;
  END IF;
  PERFORM ops.validate_source_anchor_coordinates(t.run_id,t.unit_id,p_envelope->>'source',anchors);
+ IF table_mode='correspondence' THEN
+  table_expected:=ops.table_correspondence_requests(
+   v,p_envelope->'contributions',(table_config->>'interpretation_weight_scale')::numeric);
+  SELECT coalesce(jsonb_agg(jsonb_build_object('scope_id',o->'operation_key','question',o->'question',
+   'contribution_ids',local_report->'contribution_ids','dependencies',local_report->'dependencies',
+   'reason',CASE WHEN local_report->>'outcome'='not_run' THEN local_report->'reason' END,
+   'request',data.record_source_json(local_report->'request'))
+   ORDER BY (o->>'operation_key') COLLATE "C"),'[]')
+  INTO table_actual FROM jsonb_array_elements(p_envelope->'contribution_operations') o
+  CROSS JOIN LATERAL (SELECT o->'local_interpretation' AS local_report) l WHERE o ? 'local_interpretation';
+  IF table_actual IS DISTINCT FROM (SELECT coalesce(jsonb_agg(e ORDER BY (e->>'scope_id') COLLATE "C"),'[]')
+    FROM jsonb_array_elements(table_expected) e) THEN
+   RAISE EXCEPTION 'table correspondence differs from authoritative source-conditioned request'
+    USING ERRCODE='23514';
+  END IF;
+ END IF;
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_source_contribution_report(bigint,jsonb) FROM PUBLIC;
 

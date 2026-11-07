@@ -1022,6 +1022,9 @@ class ContextualCandidates:
                 ),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
+            if self.version == "8":
+                neighborhood = ctx.reader.contextual_mutual_neighbors(report)
+                report["neighborhood"] = dict(neighborhood, edges=tuple(neighborhood["edges"]))
             operation = dict(
                 operation_key=operation_key,
                 question="retained producer occurrence roles and contextual encoder products",
@@ -1036,6 +1039,8 @@ class ContextualCandidates:
                     view.ref.projection_digest,
                 ),
             )
+            if encoder_error is not None:
+                operation["reason"] = "configured contextual encoder unavailable for this selection"
             results.append(
                 UnitResult(
                     ref=unit.ref,
@@ -1064,3 +1069,7 @@ class ContextualCandidates:
                 )
             )
         return results
+
+
+class ContextualCandidatesWithNeighborhood(ContextualCandidates):
+    version = "8"
