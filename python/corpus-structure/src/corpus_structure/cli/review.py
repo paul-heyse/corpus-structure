@@ -26,6 +26,7 @@ def _deliver_review(
     json: bool,
     evaluator_capture: Callable[[Any], Any] | None = None,
     previous: str | None = None,
+    previous_binding: str | None = None,
 ) -> None:
     from corpus_structure.cli.managed import result_store
     from corpus_structure.serve.review_bundle import export_review_bundle
@@ -42,12 +43,22 @@ def _deliver_review(
         result.publish("selection", selection_path)
         result.stage("capture")
         bundle = result.directory / "bundle"
+
+        def retain_binding(binding: str) -> None:
+            if previous_binding is not None and binding != previous_binding:
+                raise ValueError(
+                    "configured database or completed review roots differ from the original"
+                )
+            result.manifest.scope["source_binding"] = binding
+            result.stage("bound")
+
         manifest = export_review_bundle(
             request,
             bundle,
             state(ctx).settings(),
             evaluator_capture=evaluator_capture,
             exact_closure=exact_closure,
+            retain_binding=retain_binding if evaluator_capture is None else None,
         )
         result.publish("bundle", bundle)
         result.stage("published")
@@ -157,6 +168,11 @@ def retry_review(
             previous = store.show(result_id)
             if previous.action != "review.export":
                 raise ValueError("retry requires an ordinary review export result")
+            binding = previous.scope.get("source_binding")
+            if not isinstance(binding, str):
+                raise ValueError(
+                    "original export acquired no source binding; submit its selection explicitly"
+                )
             request = ReviewSelection.model_validate_json(
                 store.artifact(result_id, "selection").read_bytes()
             )
@@ -166,6 +182,7 @@ def retry_review(
                 destination,
                 exact_closure=previous.scope.get("exact_closure") is True,
                 previous=result_id,
+                previous_binding=binding,
                 json=json,
             )
 

@@ -247,6 +247,23 @@ def source_identity() -> dict[str, Any]:
     }
 
 
+def invocation_context() -> dict[str, Any]:
+    versions: dict[str, str | None] = {}
+    for package in (
+        "pytest",
+        "pytest-xdist",
+        "pytest-reportlog",
+        "hypothesis",
+        "psycopg",
+        "SQLAlchemy",
+    ):
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = None
+    return {"source": source_identity(), "python": sys.version, "versions": versions}
+
+
 def run_python(
     directory: Path,
     args: list[str],
@@ -489,6 +506,11 @@ def _group_cleanup_errors(process: dict[str, Any]) -> list[str]:
     if cleanup.get("group_present_after_cleanup"):
         errors.append("owned process group still present after bounded cleanup")
     return errors
+
+
+def _group_unsettled(process: dict[str, Any]) -> bool:
+    cleanup = process.get("owned_group_cleanup") or {}
+    return bool(process.get("cleanup_error") or cleanup.get("group_present_after_cleanup"))
 
 
 def _node_aliases(manifests: list[dict[str, Any]]) -> dict[str, str]:
@@ -880,6 +902,9 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
         "status": status,
         "contexts": contexts,
         "source_contexts_differ": len(sources) > 1,
+        "custody_unsettled": any(
+            _group_unsettled(item.get("process", {})) for item in [*receipts, *rust]
+        ),
         "receipts": receipts,
         "rust": rust,
         "required": sorted(required),
@@ -930,7 +955,12 @@ def _positive_timeout(value: str) -> float:
 
 
 def write_unresolved(
-    result: dict[str, Any], destination: Path, *, required_from: list[Path], lane: str
+    result: dict[str, Any],
+    destination: Path,
+    *,
+    required_from: list[Path],
+    lane: str,
+    managed: bool = False,
 ) -> dict[str, Any]:
     """Publish full canonical IDs only after fresh, body-free collection in the selected lane.
 
@@ -956,7 +986,9 @@ def write_unresolved(
         ):
             raise ValueError(f"not a full canonical test node ID: {node!r}")
     # Validate the whole declared selection, so stale covered IDs cannot conceal stale history.
-    scratch = ROOT / "build" / "test-receipts" / "selection-validation"
+    scratch = (
+        destination.parent if managed else ROOT / "build" / "test-receipts" / "selection-validation"
+    )
     scratch.mkdir(parents=True, exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix="collection-", dir=scratch))
     selection = directory / "required.txt"
@@ -974,6 +1006,7 @@ def write_unresolved(
             ],
             cwd=Path.cwd(),
             timeout=120,
+            managed=managed,
         )
     collected = classify_receipt(directory)
     if (
@@ -1069,14 +1102,22 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--required-from", action="append", type=Path, default=[])
     inspect.add_argument("--write-unresolved", type=Path)
     inspect.add_argument("--selection-lane", choices=("ordinary", "fault"), default="ordinary")
+    inspect.add_argument("--managed-selection", action="store_true")
     validate = sub.add_parser("validate-pytest")
+    validate.add_argument("--report-selection", action="store_true")
     validate.add_argument("pytest_args", nargs=argparse.REMAINDER)
+    sub.add_parser("context")
     args = parser.parse_args(argv)
+    if args.action == "context":
+        print(json.dumps(invocation_context()))
+        return 0
     if args.action == "validate-pytest":
         try:
-            validate_pytest_args(_after_separator(args.pytest_args))
+            selected = validate_pytest_args(_after_separator(args.pytest_args))
         except ValueError as error:
             parser.error(str(error))
+        if args.report_selection:
+            print(json.dumps(selected))
         return 0
     if args.action == "classify":
         try:
@@ -1087,6 +1128,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.write_unresolved,
                     required_from=args.required_from,
                     lane=args.selection_lane,
+                    managed=args.managed_selection,
                 )
         except (OSError, ValueError, KeyError, TypeError) as error:
             parser.error(str(error))
@@ -1117,27 +1159,12 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(str(error))
         directory.mkdir(parents=not args.managed_lane, exist_ok=False, mode=0o700)
         with supervision(directory) as control:
-            versions: dict[str, str | None] = {}
-            for package in (
-                "pytest",
-                "pytest-xdist",
-                "pytest-reportlog",
-                "hypothesis",
-                "psycopg",
-                "SQLAlchemy",
-            ):
-                try:
-                    versions[package] = importlib.metadata.version(package)
-                except importlib.metadata.PackageNotFoundError:
-                    versions[package] = None
             write_json(
                 directory / "invocation.json",
                 {
                     "argv": sys.argv if argv is None else argv,
                     "cwd": str(Path.cwd()),
-                    "source": source_identity(),
-                    "python": sys.version,
-                    "versions": versions,
+                    **invocation_context(),
                     "hypothesis_profile": "ci",
                     "session_timeout": args.command_timeout,
                     "test_timeout": args.test_timeout,

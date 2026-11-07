@@ -20,7 +20,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
 from corpus_structure.core.vocab import AgentMode, AgentReuse, GpuMode, TaskStatus
 
 project_app = typer.Typer(help="Create the project from a pack and corpus.", no_args_is_help=True)
@@ -36,6 +36,17 @@ def _open_engine(settings: Any, timeout: float = 30.0) -> Generator[Any]:
 
 
 ENGINE: Callable[..., Any] = _open_engine
+
+
+@contextmanager
+def _open_read_engine(settings: Any, timeout: float = 5.0) -> Generator[Any]:
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with open_runtime_engine(settings, timeout=timeout, purpose="read") as engine:
+        yield engine
+
+
+READ_ENGINE: Callable[..., Any] = _open_read_engine
 
 
 def _phase0() -> dict[str, Any]:
@@ -73,7 +84,7 @@ def _refusals() -> Generator[None]:
         SliceError,
         PolicyError,
     ) as error:
-        stderr_console().print(f"refused: {error}")
+        diagnostic(f"refused: {error}")
         raise typer.Exit(code=1) from None
 
 
@@ -387,7 +398,7 @@ def tasks(
     """List a run's tasks (the latest run by default)."""
     from corpus_structure.orchestrate import commands
 
-    with _refusals(), ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
+    with _refusals(), READ_ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
         listing = commands.bound_task_listing(
             conn,
             run_id,

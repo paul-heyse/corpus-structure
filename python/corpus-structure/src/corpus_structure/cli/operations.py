@@ -6,6 +6,7 @@ import os
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Annotated, Literal
 
 import typer
 from pydantic import BaseModel
@@ -86,9 +87,23 @@ def setup(json: JsonOpt = False) -> None:
     recipe_action("ci-setup", json)
 
 
-def check(json: JsonOpt = False) -> None:
+def check(
+    only: Annotated[
+        Literal["types", "lint", "docs", "deps", "rules", "adr"] | None,
+        typer.Option(help="Run one repository check."),
+    ] = None,
+    json: JsonOpt = False,
+) -> None:
     """Run read-only repository checks."""
-    recipe_action("ci-check", json)
+    recipes = {
+        "types": "types",
+        "lint": "ruff-check",
+        "docs": "docs-check",
+        "deps": "deps",
+        "rules": "rules-scan",
+        "adr": "adr-lint",
+    }
+    recipe_action(recipes[only] if only else "ci-check", json)
 
 
 def format_source(json: JsonOpt = False) -> None:
@@ -125,6 +140,12 @@ def evidence_check(json: JsonOpt = False) -> None:
 @evidence_app.command("index")
 def evidence_index(json: JsonOpt = False) -> None:
     recipe_action("evidence", json, "index")
+
+
+@evidence_app.command("finalize")
+def evidence_finalize(folder: str, record: str, json: JsonOpt = False) -> None:
+    """Finalize a specific prepared evidence record through the evidence owner."""
+    recipe_action("evidence", json, "finalize", "--", folder, record)
 
 
 @evidence_app.command("retain")

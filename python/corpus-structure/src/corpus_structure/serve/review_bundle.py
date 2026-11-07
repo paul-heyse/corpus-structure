@@ -22,7 +22,7 @@ from typing import Any, Literal
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import Connection, func, select
 
 from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.semantic.capture_storage import LogicalRows
@@ -917,6 +917,7 @@ def export_review_bundle(
     extra_relations: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
     evaluator_capture: Callable[[Any], Mapping[str, Iterable[Mapping[str, Any]]]] | None = None,
     exact_closure: bool = False,
+    retain_binding: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     cancellation = cancellation or OperationCancellation()
     cancellation.check_active()
@@ -933,6 +934,8 @@ def export_review_bundle(
             )
         )
         conn = snapshot.enter_context(read_snapshot(engine, cancellation=cancellation.postgresql))
+        if retain_binding is not None:
+            retain_binding(_review_binding(conn, selection))
         reasons = []
         if exact_closure:
             selection, reasons = _exact_closure(conn, selection, cancellation)
@@ -958,6 +961,40 @@ def export_review_bundle(
             compose_review_views(selection, rows()),
             cancellation=cancellation,
         )
+
+
+def _review_binding(conn: Connection, selection: ReviewSelection) -> str:
+    """Identify the acquired database and immutable completed roots in this snapshot."""
+    completed = table("ops.completed_result")
+    run_ids = sorted(
+        {request.run_id for request in (*selection.selections, *selection.structural_selections)}
+    )
+    rows = (
+        conn.execute(
+            select(completed).where(completed.c.run_id.in_(run_ids)).order_by(completed.c.run_id)
+        )
+        .mappings()
+        .all()
+    )
+    if len(rows) != len(run_ids):
+        raise SemanticRefusal("review requires a completed result for every selected run")
+    database = conn.exec_driver_sql(
+        "SELECT current_database(), d.oid, current_setting('port') "
+        "FROM pg_catalog.pg_database d WHERE d.datname = current_database()"
+    ).one()
+    endpoint = conn.engine.url
+    return sha256(
+        canonical_bytes(
+            _json(
+                {
+                    "database": list(database),
+                    "host": endpoint.host or endpoint.query.get("host"),
+                    "port": endpoint.port or endpoint.query.get("port"),
+                    "roots": [dict(row) for row in rows],
+                }
+            )
+        )
+    ).hexdigest()
 
 
 def _named_rows(name, values):

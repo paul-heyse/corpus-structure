@@ -14,7 +14,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, state
 from corpus_structure.settings import SettingsReport, settings_report
 
 
@@ -53,10 +53,10 @@ def _render_status(result: BaseModel) -> RenderableType:
         for name in (
             "kind",
             "status",
-            "started_at",
-            "cut_at",
-            "cut_m19_task_id",
-            "finished_at",
+            "release_id",
+            "cut_id",
+            "cut_name",
+            "output_realization_id",
             "unresolved_agent_tasks",
         ):
             head.add_row(name, str(getattr(run, name)))
@@ -92,7 +92,7 @@ def status(
     from psycopg_pool import PoolTimeout
 
     try:
-        with orchestrate.ENGINE(settings, timeout=5.0) as engine, engine.connect() as conn:
+        with orchestrate.READ_ENGINE(settings) as engine, engine.connect() as conn:
             progress = commands.bound_status(
                 conn,
                 run_id,
@@ -103,7 +103,9 @@ def status(
         diagnostic(f"refused: {error}")
         raise typer.Exit(code=1) from None
     except (PoolTimeout, OperationalError) as error:  # unreachable: the settings still report
-        result = StatusResult(database_error=f"{type(error).__name__}: {error}", settings=report)
+        result = StatusResult(
+            database_error=f"{type(error).__name__}: {safe_text(str(error))}", settings=report
+        )
     else:
         result = StatusResult(progress=progress, settings=report)
     emit(result, json=json, render=_render_status)

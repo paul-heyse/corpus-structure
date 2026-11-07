@@ -361,7 +361,13 @@ def result_store(ctx: typer.Context) -> ResultStore:
         if not path.is_absolute():
             raise ResultError("CORPUS_CI_RESULTS must be an absolute path")
         return ResultStore(path)
-    return ResultStore(checkout(ctx) / "build" / "ci")
+    workspace = checkout(ctx)
+    root = (workspace / "build" / "ci").resolve()
+    if not root.is_relative_to(workspace):
+        raise ResultError(
+            "checkout result storage escapes the workspace; configure CORPUS_CI_RESULTS explicitly"
+        )
+    return ResultStore(root)
 
 
 @contextmanager
@@ -466,6 +472,28 @@ def export_result(
 def gc(ctx: typer.Context, apply: bool = False, json: JsonOpt = False) -> None:
     with result_boundary(json):
         emit(result_store(ctx).collect(apply=apply), json=json)
+
+
+@app.command("hold")
+def hold(
+    ctx: typer.Context, result: str, dependent: str | None = None, json: JsonOpt = False
+) -> None:
+    """Protect a result, optionally on behalf of another invocation."""
+    with result_boundary(json):
+        store = result_store(ctx)
+        store.hold(result, dependent or result)
+        emit(store.show(result), json=json)
+
+
+@app.command("release-hold")
+def release_hold(
+    ctx: typer.Context, result: str, dependent: str | None = None, json: JsonOpt = False
+) -> None:
+    """Release a result's explicit hold."""
+    with result_boundary(json):
+        store = result_store(ctx)
+        store.release(result, dependent or result)
+        emit(store.show(result), json=json)
 
 
 def register(root: typer.Typer) -> None:

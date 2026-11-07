@@ -39,6 +39,10 @@ class RunProgress(BaseModel):
     cut_at: datetime | None
     cut_m19_task_id: int | None
     finished_at: datetime | None
+    release_id: str
+    cut_id: int | None
+    cut_name: str | None
+    output_realization_id: str | None
     stages: list[StageCount]
     unresolved_agent_tasks: int
 
@@ -416,6 +420,12 @@ def bound_status(
         table, ("ops.run", "ops.task", "ops.method_config", "ops.method", "ops.input_cut")
     )
     row = conn.execute(select(r).where(r.c.id == run)).mappings().one()
+    latest_cut = conn.execute(
+        select(cut.c.id, cut.c.name)
+        .where(cut.c.run_id == run)
+        .order_by(cut.c.final.desc(), cut.c.id.desc())
+        .limit(1)
+    ).one_or_none()
     counts = conn.execute(
         select(t.c.stage, t.c.status, t.c.reason, func.count().label("count"))
         .where(t.c.run_id == run)
@@ -450,6 +460,10 @@ def bound_status(
             cut_at=None,
             cut_m19_task_id=None,
             finished_at=None,
+            release_id=row["release_id"],
+            cut_id=latest_cut.id if latest_cut else None,
+            cut_name=latest_cut.name if latest_cut else None,
+            output_realization_id=row["result_realization_id"],
             stages=[StageCount.model_validate(dict(x)) for x in counts],
             unresolved_agent_tasks=unresolved,
         ),

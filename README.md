@@ -14,13 +14,13 @@ Builds a highly structured representation of a set of documents
 
 ## Development
 
-Tools: `just`, `uv`, `git` with Git LFS, the Rust toolchain in `rust-toolchain.toml` with cargo-nextest, cargo-deny, sccache, clang and mold, ast-grep. `just doctor` lists what is
-present. During implementation, run compile checks and targeted tests; once all functional scope
-is implemented, run `just test-all` and `just hygiene` (the non-functional checks). The functional
-qualification route retains streamed outcomes, command context and interrupted-run diagnostics
-under `build/test-receipts/qualification/`; `just check` and `just py-test` remain developer routes.
-`just turn-end` formats and
-regenerates at the end of a turn; `just ready` re-checks the environment after a change.
+Use `uv run ci doctor` to check the prepared tools and `uv run ci context show` to inspect
+the effective settings. Run `uv run ci test -- PATH` for targeted pytest selection and
+`uv run ci test` for the full applicable functional campaign. Use `uv run ci results show ID`
+to find retained outcomes and `uv run ci test retry ID` to retry unresolved test nodes.
+Run `uv run ci check` for repository checks and `uv run ci format` for explicit formatting.
+The underlying `just` recipes remain available for bootstrap and recovery. `just turn-end`
+formats and regenerates repository metadata at the end of a turn.
 
 After the scaffold lockfiles exist, run `bash scripts/setup-env` to prepare this checkout's
 tools. Installed toolchains follow the pin files; setup
@@ -28,9 +28,8 @@ does not install Rust. If using direnv, review `.envrc` and run `direnv allow` o
 checkout. Direnv loads local/native settings without installing, building or activating Python.
 Personal overrides belong in ignored `.envrc.local`.
 
-Use `uv run python …`, `uv run pytest …` and `uv run ruff …` for ordinary Python work.
-uv selects the workspace's `.venv` and synchronizes declared dependencies automatically;
-bare Python/tool activation is not required. Agent commands default to `UV_LOCKED=1`, so
+`uv` selects the workspace's `.venv` and synchronizes declared dependencies automatically.
+Agent commands default to `UV_LOCKED=1`, so
 stale lockfiles fail without changing them. Intentional dependency changes explicitly use
 `UV_LOCKED=0 uv add …` (or the corresponding lock command); exact dependency pins still apply.
 For cross-project work, select the tool working directory or use uv's explicit `--project`/
@@ -41,7 +40,7 @@ explicit dependency-free `--no-project` mode with a local `UV_LOCKED=0` override
 ## Documentation locally
 
 Run `just bootstrap-docs` once to install the declared documentation tools and cache isolated test
-dependencies. Then `just docs-check` builds and checks the complete static artifact under
+dependencies. Then `uv run ci docs check` builds and checks the complete static artifact under
 `build/docs/site/`. `just docs-test` runs focused publisher and ADR tests. `just docs-serve` builds
 and serves on http://127.0.0.1:8000. Rebuild after edits; the preview is not a watcher.
 See [publishing operations](docs/publishing.md) for details.

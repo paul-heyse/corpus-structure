@@ -97,8 +97,9 @@ def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_pat
     selected.write_text('{"structural_selections":[{"run_id":205,"cut_id":283}]}')
     seen = []
 
-    def export(request, destination, _settings, *, exact_closure, **_kwargs):
+    def export(request, destination, _settings, *, exact_closure, retain_binding, **_kwargs):
         seen.append((request, exact_closure))
+        retain_binding("bound-source")
         destination.mkdir()
         return {"selection": request.model_dump(mode="json")}
 

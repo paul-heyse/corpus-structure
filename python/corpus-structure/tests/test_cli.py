@@ -41,7 +41,7 @@ def no_database(monkeypatch: pytest.MonkeyPatch) -> None:
         raise PoolTimeout("couldn't get a connection")
         yield
 
-    monkeypatch.setattr(orchestrate, "ENGINE", unreachable)
+    monkeypatch.setattr(orchestrate, "READ_ENGINE", unreachable)
 
 
 def test_status_json_is_the_result_model(cli, no_database) -> None:

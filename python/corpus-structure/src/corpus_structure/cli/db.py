@@ -116,12 +116,15 @@ def _create(admin: Any, name: str, template: str, creation_token: str | None = N
     return True
 
 
-def _migrate(engine: Any, name: str, created: bool) -> DbReport:
+def _migrate(
+    engine: Any, name: str, created: bool, *, expected_predecessor: str | None = None
+) -> DbReport:
     from sqlalchemy import text
 
     from corpus_structure.semantic import migrations
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 
+    head = migrations.head_revision()
     with engine.begin() as conn:
         legacy = conn.execute(
             text(
@@ -131,36 +134,59 @@ def _migrate(engine: Any, name: str, created: bool) -> DbReport:
         ).scalar_one()
         if legacy:
             raise DbRefused("legacy database refused: bootstrap a fresh owned semantic database")
-        applied = migrations.upgrade(conn)
+        migrations.migration_fence(conn)
+        current = migrations.current_revision(conn)
+        if current != head and not created and expected_predecessor is None:
+            local_development = name == "corpus_structure_dev" and conn.scalar(
+                text("SELECT inet_server_addr() IS NULL AND current_setting('port') = '5434'")
+            )
+            if not local_development:
+                raise DbRefused(
+                    "use ci model change deploy for bound deployment; "
+                    "database recovery requires --expected-predecessor"
+                )
+        applied = migrations.upgrade(
+            conn, head or "head", expected_predecessor=expected_predecessor
+        )
         current = migrations.current_revision(conn)
     return DbReport(
         database=name,
         created=created,
         revision=current,
-        head=migrations.head_revision(),
+        head=head,
         model_revision=PHYSICAL_MODEL_ID,
         applied=[str(a["revision"]) for a in applied],
     )
 
 
-def _run(ctx: typer.Context, json_: bool, create: bool, creation_token: str | None = None) -> None:
+def _run(
+    ctx: typer.Context,
+    json_: bool,
+    create: bool,
+    creation_token: str | None = None,
+    *,
+    expected_predecessor: str | None = None,
+) -> None:
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.core.db.extensions import ExtensionVersionMismatch
 
     settings = state(ctx).settings()
+    from corpus_structure.semantic.migrations import MigrationPredecessorError
     from corpus_structure.semantic.runtime import connection_settings
 
     admin, engine, name = _engines(
         connection_settings(settings, "maintenance").database.sqlalchemy_url
     )
     try:
-        with failure_boundary(json_, expected=(DbRefused, ExtensionVersionMismatch)):
+        with failure_boundary(
+            json_, expected=(DbRefused, ExtensionVersionMismatch, MigrationPredecessorError)
+        ):
             created = (
                 _create(admin, name, settings.database.template, creation_token)
                 if create
                 else False
             )
-            report = _migrate(engine, name, created)
+            report = _migrate(engine, name, created, expected_predecessor=expected_predecessor)
     finally:
         admin.dispose()
         engine.dispose()
@@ -180,9 +206,15 @@ def init(
 
 
 @db_app.command("migrate")
-def migrate(ctx: typer.Context, json_: JsonOpt = False) -> None:
-    """Upgrade a semantic database; refuse the retired legacy history."""
-    _run(ctx, json_, create=False)
+def migrate(
+    ctx: typer.Context,
+    expected_predecessor: Annotated[
+        str | None, typer.Option(help="Require this installed revision for explicit recovery.")
+    ] = None,
+    json_: JsonOpt = False,
+) -> None:
+    """Upgrade the working development database or recover from an exact predecessor."""
+    _run(ctx, json_, create=False, expected_predecessor=expected_predecessor)
 
 
 @db_app.command("check")

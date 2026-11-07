@@ -55,16 +55,25 @@ def _supervisor(*args: str) -> dict[str, Any]:
         raise ResultError("test supervisor did not return valid JSON") from error
 
 
-def _validate(args: tuple[str, ...]) -> None:
-    if args:
-        check = run_owned(
-            ["uv", "run", "python", "scripts/test_receipts.py", "validate-pytest", "--", *args],
-            cwd=checkout(),
-        )
-        if check.returncode:
-            raise ResultError(
-                safe_text(check.stderr.strip()[-2000:]) or "unsupported pytest options"
-            )
+def _validate(args: tuple[str, ...]) -> bool:
+    if not args:
+        return False
+    check = run_owned(
+        [
+            "uv",
+            "run",
+            "python",
+            "scripts/test_receipts.py",
+            "validate-pytest",
+            "--report-selection",
+            "--",
+            *args,
+        ],
+        cwd=checkout(),
+    )
+    if check.returncode:
+        raise ResultError(safe_text(check.stderr.strip()[-2000:]) or "unsupported pytest options")
+    return check.stdout.strip() == "true"
 
 
 def _lane(
@@ -73,6 +82,7 @@ def _lane(
     args: tuple[str, ...] = (),
     *,
     selection: Path | None = None,
+    narrowed: bool = False,
 ) -> str:
     name = "test-all" if lane == "ordinary" else "test-native-faults"
     directory = result.directory / lane
@@ -85,7 +95,7 @@ def _lane(
     env["CORPUS_CI_RECEIPT_DIR"] = str(directory)
     if selection is not None:
         env["CORPUS_CI_SELECTION_FILE"] = str(selection)
-    if lane == "ordinary" and (args or selection is not None):
+    if lane == "ordinary" and (narrowed or selection is not None):
         env["CORPUS_CI_PYTHON_ONLY"] = "1"
     try:
         process = run_recipe(name, *args, env=env)
@@ -99,6 +109,9 @@ def _lane(
         return "interrupted" if process.returncode in (130, 143) else "failed"
     result.publish(lane, directory)
     classified = jsonlib.loads(report.read_text())
+    if classified.get("custody_unsettled"):
+        result.manifest.details["custody_unsettled"] = True
+        diagnostic("test process ownership is unsettled; inspect the retained supervisor receipt")
     status = classified["status"]
     if process.returncode in (130, 143):
         return "interrupted"
@@ -148,22 +161,22 @@ def run_tests(
         return
     args = state(ctx).test_args
     with result_boundary(json):
-        if args and lane == "fault":
+        narrowed = _validate(args)
+        if narrowed and lane == "fault":
             raise ResultError("the exclusive fault lane owns its selection")
-        _validate(args)
         with result_store(ctx).operation(
-            "test", scope={"lane": lane or ("ordinary" if args else "all")}
+            "test", scope={"lane": lane or ("ordinary" if narrowed else "all")}
         ) as result:
             outcomes: dict[str, str] = {}
             if lane != "fault":
-                outcomes["ordinary"] = _lane(result, "ordinary", args)
+                outcomes["ordinary"] = _lane(result, "ordinary", args, narrowed=narrowed)
             if (
-                not args
+                not narrowed
                 and lane != "ordinary"
                 and outcomes.get("ordinary") != "interrupted"
                 and not result.manifest.details.get("custody_unsettled")
             ):
-                outcomes["fault"] = _lane(result, "fault")
+                outcomes["fault"] = _lane(result, "fault", args)
             _finish(result, outcomes, json)
 
 
@@ -229,6 +242,7 @@ def retry(
             receipts = _receipts(store, original)
             with store.operation("test.retry", scope={"retry_of": original}) as result:
                 outcomes: dict[str, str] = {}
+                context = _supervisor("context")
                 for current in ("ordinary", "fault"):
                     if current not in receipts or (lane is not None and lane != current):
                         continue
@@ -237,6 +251,18 @@ def retry(
                     flags = ["--receipt-dir", str(path), *_manifest_paths([path])]
                     report = _supervisor("classify", *flags)
                     if report["required_unresolved"]:
+                        prior = report["receipts"][0]["invocation"] or {}
+                        changed = [
+                            name for name, value in context.items() if prior.get(name) != value
+                        ]
+                        if changed:
+                            result.manifest.scope.setdefault("changed_context", {})[current] = (
+                                changed
+                            )
+                            diagnostic(
+                                f"{current} context changed ({', '.join(changed)}); "
+                                "review coverage applicability after retry"
+                            )
                         _supervisor(
                             "classify",
                             *flags,
@@ -244,8 +270,13 @@ def retry(
                             str(selection),
                             "--selection-lane",
                             current,
+                            "--managed-selection",
                         )
                         outcomes[current] = _lane(result, current, selection=selection)
+                        if outcomes[current] == "interrupted" or result.manifest.details.get(
+                            "custody_unsettled"
+                        ):
+                            break
                     elif report["status"] != "passed":
                         raise ResultError(
                             "no unresolved pytest nodes; run the affected lane explicitly"

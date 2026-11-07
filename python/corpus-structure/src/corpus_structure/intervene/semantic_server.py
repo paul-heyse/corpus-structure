@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import secrets
 import threading
-from collections.abc import AsyncIterator, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Callable, Generator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
@@ -17,7 +17,7 @@ from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
 from mcp.types import CallToolResult, Implementation
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Connection, Engine, func, select
 
 from corpus_structure.intervene import service, submission
 from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
@@ -502,23 +502,37 @@ def build_semantic_server(
     read_engine: Engine | None = None,
 ) -> FastMCP:
     @lifespan
-    async def open_session(server: FastMCP) -> AsyncIterator[dict[str, SemanticSession | Settings]]:
+    async def open_session(
+        server: FastMCP,
+    ) -> AsyncIterator[dict[str, Callable[[], SemanticSession] | Settings]]:
         if session is not None:
-            yield {"session": session}
+            yield {"queue": lambda: session}
             return
         from corpus_structure.semantic.runtime import open_runtime_engine
         from corpus_structure.settings import Settings
 
         selected = settings if settings is not None else Settings()
-        with open_runtime_engine(
-            selected, "ci-mcp-semantic", max_size=4, purpose="write"
-        ) as engine:
-            active: SemanticSession = (
-                SemanticAgentSession(engine, run_id)
-                if run_id is not None
-                else SemanticProjectSession(engine, selected.runtime.default_project)
-            )
-            yield {"session": active, "settings": selected}
+        active: SemanticSession | None = None
+        lock = threading.Lock()
+        with ExitStack() as resources:
+
+            def queue() -> SemanticSession:
+                nonlocal active
+                with lock:
+                    if active is None:
+                        engine = resources.enter_context(
+                            open_runtime_engine(
+                                selected, "ci-mcp-semantic", max_size=4, purpose="write"
+                            )
+                        )
+                        active = (
+                            SemanticAgentSession(engine, run_id)
+                            if run_id is not None
+                            else SemanticProjectSession(engine, selected.runtime.default_project)
+                        )
+                    return active
+
+            yield {"queue": queue, "settings": selected}
 
     server = FastMCP(
         MCP_SERVER_NAME,
@@ -540,7 +554,7 @@ def build_semantic_server(
     )
 
     def current(ctx: Context) -> SemanticSession:
-        return ctx.lifespan_context["session"]
+        return ctx.lifespan_context["queue"]()
 
     def bound_run(ctx: Context, run: int | None) -> SemanticSession:
         found = current(ctx)
@@ -551,39 +565,41 @@ def build_semantic_server(
         return found
 
     @contextmanager
-    def source_snapshot(ctx: Context, selected_run: int):
-        """Open source reads under the reader purpose and retain the server scope."""
-        from corpus_structure.semantic.metadata import table
+    def reader_snapshot(ctx: Context) -> Generator[Connection]:
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.semantic.runtime import open_runtime_engine
 
-        active = current(ctx)
-        if isinstance(active, SemanticAgentSession) and selected_run != active.run_id:
+        injected = read_engine if read_engine is not None else session.engine if session else None
+        if injected is not None:
+            with read_snapshot(injected) as conn:
+                yield conn
+            return
+        with (
+            open_runtime_engine(
+                ctx.lifespan_context["settings"], "ci-mcp-source", max_size=1, purpose="read"
+            ) as reader,
+            read_snapshot(reader) as conn,
+        ):
+            yield conn
+
+    @contextmanager
+    def source_snapshot(ctx: Context, selected_run: int) -> Generator[Connection]:
+        """Open source reads under the reader purpose and retain the server scope."""
+        from corpus_structure.semantic.metadata import table
+
+        bound_id = session.run_id if isinstance(session, SemanticAgentSession) else run_id
+        if bound_id is not None and selected_run != bound_id:
             raise ProposalRefused("this server is bound to a different semantic run")
-
-        @contextmanager
-        def engine_for_source() -> Iterator[Engine]:
-            if read_engine is not None:
-                yield read_engine
-            elif session is not None:
-                # A caller-supplied session owns its engine and compatibility.
-                yield active.engine
-            else:
-                with open_runtime_engine(
-                    ctx.lifespan_context["settings"],
-                    "ci-mcp-source",
-                    max_size=1,
-                    purpose="read",
-                ) as reader:
-                    yield reader
-
-        with engine_for_source() as engine, read_snapshot(engine) as conn:
-            if isinstance(active, SemanticProjectSession):
+        with reader_snapshot(ctx) as conn:
+            if bound_id is None:
+                project = (
+                    session.project_id
+                    if isinstance(session, SemanticProjectSession)
+                    else ctx.lifespan_context["settings"].runtime.default_project
+                )
                 runs = table("ops.run")
                 belongs = conn.scalar(
-                    select(runs.c.id).where(
-                        runs.c.id == selected_run, runs.c.project_id == active.project_id
-                    )
+                    select(runs.c.id).where(runs.c.id == selected_run, runs.c.project_id == project)
                 )
                 if belongs is None:
                     raise ProposalRefused("run does not belong to this semantic project")
@@ -617,7 +633,6 @@ def build_semantic_server(
         from corpus_structure.semantic.identity import canonical_bytes
         from corpus_structure.semantic.operation_reporting import explain_operation as explain
         from corpus_structure.semantic.operation_reporting import parse_operation_subject
-        from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.semantic.releases import open_release
 
         raw_subject = None
@@ -652,7 +667,7 @@ def build_semantic_server(
                     capture_id=capture_id,
                 )
             )
-        with read_snapshot(current(ctx).engine) as conn:
+        with reader_snapshot(ctx) as conn:
             prepared = open_release(conn, release)
             with located_failure_context(prepared, operation):
                 reference = (
@@ -673,10 +688,9 @@ def build_semantic_server(
         from corpus_structure.semantic.operation_reporting import (
             compare_semantic_releases as compare,
         )
-        from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.semantic.releases import open_release
 
-        with read_snapshot(current(ctx).engine) as conn:
+        with reader_snapshot(ctx) as conn:
             old, new = open_release(conn, before), open_release(conn, after)
             with located_failure_context(new, "compare_semantic_releases"):
                 return compare(old, new).model_dump(mode="json")
