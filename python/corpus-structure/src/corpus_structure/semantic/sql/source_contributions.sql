@@ -254,15 +254,322 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.predicate_cue_host_matches(jsonb,jsonb,jsonb,integer) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.predicate_token_texts(projection jsonb,tokens jsonb)
+RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT array_agg(substring(projection->>'text' FROM (t->>'start')::integer+1
+  FOR (t->>'end')::integer-(t->>'start')::integer) ORDER BY n)
+ FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n);
+$$;
+REVOKE ALL ON FUNCTION ops.predicate_token_texts(jsonb,jsonb) FROM PUBLIC;
+
+-- Reconstruct the accepted bounded local recipes from the retained source columns.
+-- The submitted candidate list alone is never a witness for one of these edges.
+CREATE OR REPLACE FUNCTION ops.predicate_cue_recipe_matches(
+ projection jsonb,annotation jsonb,cue jsonb,host integer)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE tokens jsonb:=annotation->'tokens'; words text[]; folded text[];
+ marker integer:=(cue->'marker_token_indices'->>0)::integer;
+ origin integer:=(cue->>'governing_token')::integer;
+ subordinate integer:=(cue->>'subordinate_token')::integer;
+ first_ integer:=(cue->'token_indices'->>0)::integer;
+ last_ integer:=(cue->'token_indices'->>-1)::integer;
+ kind_ text:=cue->>'cue_kind'; variant text:=cue->>'variant';
+ target jsonb:=tokens->host; sentence jsonb:=target->'sentence';
+ base integer:=marker; first_pred integer; conjunction integer; conjunction_head integer;
+ start_sentence integer; then_ integer; lo integer; hi integer;
+ edges integer[][]; labels text[];
+BEGIN
+ IF marker IS NULL OR origin IS NULL OR subordinate IS NULL OR first_ IS NULL OR last_ IS NULL
+  OR least(marker,origin,subordinate,first_,host)<0 OR last_>=jsonb_array_length(tokens)
+  OR target IS NULL OR sentence IS NULL OR sentence='null'
+  OR cue->'marker_token_indices' IS DISTINCT FROM jsonb_build_array(marker)
+  OR jsonb_array_length(cue->'extents')<>1
+  OR cue->'token_indices' IS DISTINCT FROM (SELECT jsonb_agg(i ORDER BY i) FROM generate_series(first_,last_) i)
+ THEN RETURN false; END IF;
+
+ words:=ops.predicate_token_texts(projection,tokens);
+ SELECT array_agg(lower(word) ORDER BY n) INTO folded FROM unnest(words) WITH ORDINALITY x(word,n);
+ lo:=first_;
+ hi:=greatest(last_,host);
+
+ IF variant='event_compound_then' THEN
+  first_pred:=(tokens->marker->>'head')::integer;
+  then_:=last_+2;
+  conjunction:=subordinate-2;
+  conjunction_head:=(tokens->conjunction->>'head')::integer;
+  SELECT min(n-1) INTO start_sentence FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+   WHERE t->'sentence'=sentence;
+  IF NOT coalesce(kind_='condition' AND host=origin AND target->>'dependency'='ROOT'
+   AND first_=marker AND marker+2<=first_pred AND first_pred<conjunction AND subordinate<=last_
+   AND then_<host AND folded[marker+1]='if' AND folded[conjunction+1]='and'
+   AND folded[last_+2:last_+3]=ARRAY[',','then']
+   AND (marker=start_sentence OR (marker=start_sentence+2 AND folded[start_sentence+1]='definition'
+    AND words[start_sentence+2] ~ '^[[:digit:]]+([.][[:digit:]]+)*$'))
+   AND (tokens->(subordinate-1)->>'dependency'='nsubj'
+    AND tokens->(subordinate-1)->'head'=to_jsonb(subordinate)
+    OR tokens->(subordinate-1)->>'dependency'='conj'
+    AND tokens->(subordinate-1)->'head'=to_jsonb(conjunction_head)
+    AND tokens->conjunction_head->>'dependency'='attr'
+    AND tokens->conjunction_head->'head'=to_jsonb(first_pred))
+   AND (conjunction_head IN (first_pred,subordinate) OR (tokens->conjunction_head->>'dependency'='attr'
+    AND tokens->conjunction_head->'head'=to_jsonb(first_pred)))
+   AND (SELECT count(*) FROM generate_series(first_pred+1,subordinate-1) i
+    WHERE folded[i+1]='and' AND tokens->i->>'dependency'='cc')=1
+   AND (SELECT count(*) FROM generate_series(subordinate+1,host-1) i
+    WHERE folded[i+1]='then' AND words[i]=',' AND tokens->i->>'dependency'='advmod'
+     AND tokens->i->'head'=to_jsonb(host))=1,false)
+  THEN RETURN false; END IF;
+  edges:=ARRAY[[0,first_pred-base],[1,first_pred-base],[first_pred-base,subordinate-base],
+   [subordinate-base,host-base],[conjunction-base,conjunction_head-base],[then_-base,host-base]];
+  labels:=ARRAY['mark','nsubj','advcl','ccomp','cc','advmod'];
+
+ ELSIF variant='adjacent_variance_premise' THEN
+  IF NOT coalesce(kind_='assumption' AND annotation->>'kind'='list_item' AND first_=marker
+   AND last_=marker+9 AND origin=marker AND subordinate=marker+4 AND host=marker+18
+   AND folded[marker+1:marker+20]=ARRAY['let',lower(words[marker+2]),'and',lower(words[marker+4]),
+    'be','random','variables','with','positive','variance','.','the','correlation','of',
+    lower(words[marker+2]),'and',lower(words[marker+4]),'is','defined','as'],false)
+  THEN
+   RETURN false;
+  END IF;
+  IF NOT coalesce(words[marker+2] ~ '^[[:alpha:]]$' AND words[marker+4] ~ '^[[:alpha:]]$'
+   AND words[marker+2]<>words[marker+4]
+   AND words[marker+2]=words[marker+15] AND words[marker+4]=words[marker+17]
+   AND target->>'dependency'='ROOT' AND tokens->marker->>'dependency'='ROOT'
+   AND (sentence#>>'{}')::integer=(tokens->marker->>'sentence')::integer+1
+   AND (marker=0 OR tokens->(marker-1)->'sentence' IS DISTINCT FROM tokens->marker->'sentence'
+    OR (words[marker] ~ '^[[:digit:]]+$' AND (marker=1 OR tokens->(marker-2)->'sentence'
+     IS DISTINCT FROM tokens->marker->'sentence')))
+   AND NOT EXISTS(SELECT FROM generate_series(marker,marker+10) i
+    WHERE tokens->i->'sentence' IS DISTINCT FROM tokens->marker->'sentence')
+   AND NOT EXISTS(SELECT FROM generate_series(marker+11,marker+19) i
+    WHERE tokens->i->'sentence' IS DISTINCT FROM sentence),false)
+  THEN RETURN false; END IF;
+  hi:=marker+19;
+  edges:=ARRAY[[4,0],[1,4],[3,1],[2,1],[6,4],[7,6],[9,7],[8,9],[12,18],[13,12],
+   [14,13],[16,14],[15,14],[17,18]];
+  labels:=ARRAY['ccomp','nsubj','conj','cc','attr','prep','pobj','amod','nsubjpass','prep',
+   'pobj','conj','cc','auxpass'];
+
+ ELSIF variant='nominal_parameter_pair' THEN
+  IF NOT coalesce(kind_='parameterization' AND first_=marker AND marker>0 AND last_=marker+4
+   AND origin=host AND host=marker+6 AND subordinate=marker-1
+   AND folded[marker+1:marker+10]=ARRAY['with','parameters',lower(words[marker+3]),
+    'and',lower(words[marker+5]),'is','defined','as','follows',':']
+   AND words[marker+3] ~ '^[[:alpha:]]$' AND words[marker+5] ~ '^[[:alpha:]]$'
+   AND words[marker+3]<>words[marker+5],false)
+  THEN RETURN false; END IF;
+  lo:=subordinate; hi:=marker+9;
+  edges:=ARRAY[[0,-1],[5,6],[7,8],[8,6],[9,6]];
+  labels:=ARRAY['prep','auxpass','mark','advcl','punct'];
+  IF target->>'dependency'='conj' AND tokens->subordinate->>'dependency'='ROOT' THEN
+   edges:=edges||ARRAY[[6,-1],[1,2],[2,0],[3,-1],[4,6]];
+   labels:=labels||ARRAY['conj','compound','pobj','cc','nsubjpass'];
+  ELSIF target->>'dependency'='ROOT' THEN
+   edges:=edges||ARRAY[[-1,6],[1,0],[2,1],[3,2],[4,2]];
+   labels:=labels||ARRAY['nsubjpass','pobj','appos','cc','conj'];
+  ELSE RETURN false;
+  END IF;
+
+ ELSIF variant='customer_population_inclusion' THEN
+  IF NOT coalesce(kind_='population_inclusion' AND origin=host AND marker=host+8
+   AND first_=marker AND last_=host+17 AND subordinate=host+6
+   AND folded[host+1:host+18]=ARRAY['counting','the','waiting','time','of','all','customers',',',
+    'even','those','that','do','not','have','to','wait','at','all']
+   AND (tokens->(last_+1)->'sentence' IS DISTINCT FROM sentence OR words[last_+2]='.')
+   AND (tokens->(host+9)->>'dependency'='appos' AND (
+    tokens->(host+9)->'head'=to_jsonb(subordinate)
+    OR tokens->(host+9)->'head'=to_jsonb(host+3)
+    OR (tokens->((tokens->(host+9)->>'head')::integer)->>'dependency'='nsubj'
+     AND tokens->((tokens->(host+9)->>'head')::integer)->'head'=to_jsonb(host))
+   )),false)
+  THEN RETURN false; END IF;
+  base:=host; lo:=host;
+  edges:=ARRAY[[3,0],[4,3],[6,4],[5,6],[8,9],[10,13],[11,13],[12,13],[13,9],[14,15],[15,13]];
+  labels:=ARRAY['dobj','prep','pobj','det','advmod','nsubj','aux','neg','relcl','aux','xcomp'];
+ ELSE
+  RETURN false;
+ END IF;
+
+ RETURN hi<jsonb_array_length(tokens)
+  AND jsonb_array_length(tokens->marker->'piece_indices')=1
+  AND NOT EXISTS(SELECT FROM generate_series(lo,hi) i
+   WHERE tokens->i->'piece_indices' IS DISTINCT FROM tokens->marker->'piece_indices'
+    OR (variant<>'adjacent_variance_premise' AND tokens->i->'sentence' IS DISTINCT FROM sentence))
+  AND NOT EXISTS(SELECT FROM jsonb_array_elements(tokens) WITH ORDINALITY x(t,n)
+   WHERE t->'sentence' IN (sentence,tokens->marker->'sentence')
+    AND words[n::integer] IN ('"',chr(39),chr(96),'«','»','‘','’','‚','‛','“','”','„','‟',
+     '‹','›','❮','❯',repeat(chr(39),2),repeat(chr(96),2)))
+  AND NOT EXISTS(SELECT FROM generate_subscripts(labels,1) i
+   WHERE tokens->(base+edges[i][1])->>'dependency' IS DISTINCT FROM labels[i]
+    OR tokens->(base+edges[i][1])->'head' IS DISTINCT FROM to_jsonb(base+edges[i][2]));
+END $$;
+REVOKE ALL ON FUNCTION ops.predicate_cue_recipe_matches(jsonb,jsonb,jsonb,integer) FROM PUBLIC;
+
+-- Cross-block witnesses use selected native tree membership and independently
+-- located annotation endpoints. A matching text fragment cannot supply custody.
+CREATE OR REPLACE FUNCTION ops.predicate_cross_block_host_matches(
+ p_view kb.source_view,p_population jsonb,cue jsonb,host jsonb,rel jsonb,
+ source_annotation jsonb,host_annotation jsonb,selection jsonb)
+RETURNS boolean LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE projection jsonb:=p_view.projection; witness jsonb:=rel->'host_witness';
+ scope_kind text:=witness->>'kind';
+ source_node text:=source_annotation->>'block_id'; host_node text:=host_annotation->>'block_id';
+ source_native jsonb; host_native jsonb; parent_native jsonb; group_native jsonb;
+ shared_parent text; list_group text:=witness->>'list_group'; display_node text;
+ source_pos integer; host_pos integer; between_ text;
+ native_siblings text[]; sibling_pos integer;
+ source_tokens jsonb:=source_annotation->'tokens'; host_tokens jsonb:=host_annotation->'tokens';
+ source_words text[]; folded text[]; host_words text[];
+ first_ integer:=(cue->'token_indices'->>0)::integer;
+ last_ integer:=(cue->'token_indices'->>-1)::integer;
+ marker integer:=(cue->'marker_token_indices'->>0)::integer;
+ host_index integer:=(host->'component'->>'predicate_token')::integer;
+ start_sentence integer; end_sentence integer; note_sentence jsonb; symbol text;
+ parameterization jsonb; parameter_cue jsonb; parameter_token integer;
+BEGIN
+ IF NOT coalesce(
+  selection IS NOT NULL AND source_node<>host_node AND source_node IS NOT NULL AND host_node IS NOT NULL
+  AND cue->>'cue_kind'='assumption' AND cue->>'host_state'='located'
+  AND NOT (cue ?| ARRAY['governing_token','subordinate_token'])
+  AND coalesce(jsonb_array_length(cue->'candidate_tokens'),0)=0
+  AND cue->'cross_block_hosts' ? (host->>'contribution_id')
+  AND rel->'dependencies' ? (host->'component'->>'annotation')
+  AND rel->'dependencies' ? (cue->>'annotation')
+  AND projection->'items' ? source_node AND projection->'items' ? host_node
+  AND cue->'marker_token_indices'=jsonb_build_array(marker)
+  AND jsonb_array_length(cue->'extents')=1
+  AND cue->'token_indices'=(SELECT jsonb_agg(i ORDER BY i) FROM generate_series(first_,last_) i),
+  false) THEN RETURN false; END IF;
+
+ WITH pieces AS (
+  SELECT p,row_number() OVER(ORDER BY n) AS position
+  FROM jsonb_array_elements(projection->'pieces') WITH ORDINALITY x(p,n)
+  WHERE p->>'kind'='native_text'
+ ), source_ AS (
+  SELECT position FROM pieces WHERE p->>'item_ref'=source_node
+   AND coalesce(p->>'source_field','text')='text' AND NOT p ? 'cell_index'
+   AND p->'start'=source_annotation->'block_start' AND p->'end'=source_annotation->'block_end'
+   AND (p->>'start')::bigint>=(selection->>'start')::bigint
+   AND (p->>'end')::bigint<=(selection->>'end')::bigint
+ ), host_ AS (
+  SELECT position FROM pieces WHERE p->>'item_ref'=host_node
+   AND coalesce(p->>'source_field','text')='text' AND NOT p ? 'cell_index'
+   AND p->'start'=host_annotation->'block_start' AND p->'end'=host_annotation->'block_end'
+   AND (p->>'start')::bigint>=(selection->>'start')::bigint
+   AND (p->>'end')::bigint<=(selection->>'end')::bigint
+ )
+ SELECT source_.position,host_.position,pieces.p->>'item_ref' INTO STRICT source_pos,host_pos,between_
+ FROM source_ CROSS JOIN host_ LEFT JOIN pieces ON pieces.position=host_.position+1;
+
+ SELECT native_json INTO STRICT source_native FROM ops.read_pdf_published_items(
+  p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,ARRAY[source_node]);
+ SELECT native_json INTO STRICT host_native FROM ops.read_pdf_published_items(
+  p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,ARRAY[host_node]);
+ shared_parent:=source_native->'parent'->>'$ref';
+ IF NOT coalesce(shared_parent IS NOT NULL AND source_native->>'label'='text'
+  AND source_native->>'content_layer'='body' AND host_native->>'content_layer'='body'
+  AND ((projection->'items' ? shared_parent) OR (projection->'ancestors' ? shared_parent)),false)
+ THEN RETURN false; END IF;
+ SELECT native_json INTO STRICT parent_native FROM ops.read_pdf_published_items(
+  p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,ARRAY[shared_parent]);
+ SELECT array_agg(child->>'$ref' ORDER BY n) INTO native_siblings
+ FROM jsonb_array_elements(parent_native->'children') WITH ORDINALITY x(child,n);
+ source_words:=ops.predicate_token_texts(projection,source_tokens);
+ SELECT array_agg(lower(word) ORDER BY n) INTO folded
+ FROM unnest(source_words) WITH ORDINALITY x(word,n);
+
+ IF scope_kind='list_intro' THEN
+  sibling_pos:=array_position(native_siblings,source_node);
+  IF NOT coalesce(cue->>'variant'='list_assumption' AND witness=jsonb_build_object('kind',scope_kind,'list_group',list_group)
+   AND projection->'items' ? list_group AND native_siblings[sibling_pos+1]=list_group AND source_pos<host_pos
+   AND cardinality(array_positions(native_siblings,source_node))=1
+   AND cardinality(array_positions(native_siblings,list_group))=1
+   AND host_native->>'label'='list_item' AND host_native->'parent'->>'$ref'=list_group
+   AND host_annotation->>'kind'='list_item' AND host_tokens->host_index->>'dependency'='ROOT'
+   AND host_tokens->host_index->>'pos' IN ('VERB','AUX')
+   AND (SELECT count(*) FROM jsonb_array_elements(host_tokens) t
+    WHERE t->>'dependency'='ROOT' AND t->>'pos' IN ('VERB','AUX'))=1
+   AND marker=6 AND first_=marker AND last_=jsonb_array_length(source_tokens)-2 AND last_>marker+1
+   AND folded[1:8]=ARRAY['for','each','of','the','following',',','assume','that']
+   AND source_words[last_+2]=':' AND source_tokens->marker->>'dependency'='ROOT'
+   AND (SELECT count(*) FROM generate_series(marker+2,last_) i
+    WHERE source_tokens->i->>'dependency'='ccomp' AND source_tokens->i->'head'=to_jsonb(marker))=1
+   AND (SELECT count(DISTINCT t->'sentence') FROM jsonb_array_elements(source_tokens) t)=1,
+   false) THEN RETURN false; END IF;
+  SELECT native_json INTO STRICT group_native FROM ops.read_pdf_published_items(
+   p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,ARRAY[list_group]);
+  RETURN coalesce(group_native->>'label'='list' AND group_native->>'content_layer'='body'
+   AND group_native->'parent'->>'$ref'=shared_parent
+   AND (SELECT count(*) FROM jsonb_array_elements(group_native->'children') n WHERE n->>'$ref'=host_node)=1
+   AND (SELECT p->>'item_ref' FROM jsonb_array_elements(projection->'pieces') WITH ORDINALITY x(p,n)
+    WHERE p->>'kind'='native_text' ORDER BY n OFFSET source_pos LIMIT 1)
+    =group_native->'children'->0->>'$ref',false);
+ END IF;
+
+ IF scope_kind<>'parameter_note' OR scope_kind IS NULL THEN RETURN false; END IF;
+ sibling_pos:=array_position(native_siblings,host_node);
+ display_node:=native_siblings[sibling_pos+1];
+ IF NOT coalesce(cue->>'variant'='parameter_positive'
+  AND witness=jsonb_build_object('kind',scope_kind,'parameterization',witness->>'parameterization')
+  AND host_native->>'label'='text' AND host_native->'parent'->>'$ref'=shared_parent
+  AND native_siblings[sibling_pos+2]=source_node AND host_pos+2=source_pos
+  AND cardinality(array_positions(native_siblings,source_node))=1
+  AND cardinality(array_positions(native_siblings,host_node))=1
+  AND display_node=between_ AND projection->'items' ? display_node
+  AND EXISTS(SELECT FROM ops.read_pdf_published_items(
+   p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,ARRAY[display_node])
+   WHERE native_json->>'label'='formula' AND native_json->>'content_layer'='body'
+    AND native_json->'parent'->>'$ref'=shared_parent)
+  AND marker=first_+2 AND last_=first_+5
+  AND folded[first_-1:last_+2]=ARRAY['and','thus','it','is','assumed','to','be','positive','.']
+  AND rel->'dependencies' ? (witness->>'parameterization'),false) THEN RETURN false; END IF;
+
+ note_sentence:=source_tokens->marker->'sentence';
+ SELECT min(n-1),max(n-1) INTO start_sentence,end_sentence
+ FROM jsonb_array_elements(source_tokens) WITH ORDINALITY x(t,n) WHERE t->'sentence'=note_sentence;
+ symbol:=source_words[start_sentence+3];
+ IF NOT coalesce(start_sentence+2<first_-2 AND end_sentence=last_+1
+  AND folded[start_sentence+1:start_sentence+2]=ARRAY['the','parameter']
+  AND symbol ~ '^[[:alpha:]]$'
+  AND source_tokens->first_->>'dependency'='nsubjpass' AND source_tokens->first_->'head'=to_jsonb(marker)
+  AND source_tokens->(first_+1)->>'dependency'='auxpass' AND source_tokens->(first_+1)->'head'=to_jsonb(marker)
+  AND source_tokens->(first_+3)->>'dependency'='aux' AND source_tokens->(first_+3)->'head'=to_jsonb(first_+4)
+  AND source_tokens->(first_+4)->>'dependency'='xcomp' AND source_tokens->(first_+4)->'head'=to_jsonb(marker)
+  AND source_tokens->last_->>'dependency'='acomp' AND source_tokens->last_->'head'=to_jsonb(first_+4)
+  AND (SELECT count(*) FROM generate_series(start_sentence,end_sentence-2) i
+    WHERE folded[i+1:i+2]=ARRAY['the','parameter'])=1,false)
+ THEN RETURN false; END IF;
+
+ parameterization:=p_population->(witness->>'parameterization')->'component';
+ parameter_cue:=p_population->(parameterization->>'qualifier_contribution_id')->'component';
+ parameter_token:=(parameter_cue->'token_indices'->>4)::integer;
+ host_words:=ops.predicate_token_texts(projection,host_tokens);
+ RETURN coalesce(parameterization->>'kind'='predicate_qualifier'
+  AND parameterization->>'qualifier_kind'='parameterization'
+  AND parameterization->>'host_contribution_id'=host->>'contribution_id'
+  AND parameter_cue->>'variant'='nominal_parameter_pair'
+  AND parameter_cue->>'annotation'=host->'component'->>'annotation'
+  AND host_words[parameter_token+1]=symbol,false);
+EXCEPTION WHEN no_data_found OR too_many_rows THEN RETURN false;
+END $$;
+REVOKE ALL ON FUNCTION ops.predicate_cross_block_host_matches(
+ kb.source_view,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_source_predicates(
  p_task ops.task,p_view kb.source_view,p_population jsonb,p_config jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE original jsonb; original_id text; selected_run bigint:=p_task.run_id; selected_cut bigint;
  p_operations jsonb:=p_config->'_predicate_operations';
+ predicate_version text:=p_config->>'_predicate_version';
+ local_recipes constant text[]:=ARRAY['event_compound_then','adjacent_variance_premise',
+  'nominal_parameter_pair','customer_population_inclusion'];
+ cross_recipes constant text[]:=ARRAY['list_assumption','parameter_positive'];
  body jsonb; origin_task bigint; annotation_map jsonb; evidence jsonb; c jsonb; part jsonb; m jsonb;
  annotation jsonb; tokens jsonb; selection jsonb; members jsonb; predicate jsonb; focus jsonb;
  qualification_schema json; condition_schema json;
  cue jsonb; host jsonb; interpretation jsonb; qualified jsonb; condition_ jsonb; lo bigint; hi bigint; kind_ text;
+ cue_component jsonb; host_component jsonb; host_annotation jsonb; recipe text; matches_host boolean;
 BEGIN
  IF p_config->'inputs' IS NOT NULL AND p_config->'inputs'<>'null'::jsonb THEN
   SELECT s INTO STRICT original FROM jsonb_array_elements(p_config->'inputs'->'sources') s
@@ -286,7 +593,8 @@ BEGIN
   ));
  IF EXISTS(SELECT FROM jsonb_each(p_operations) o WHERE
   o.value->>'question' IN ('source_predicate_frames','source_predicate_interpretation')
-  AND (o.value->>'annotation_origin_task_id')::bigint IS DISTINCT FROM origin_task) THEN
+  AND ((o.value->>'annotation_origin_task_id')::bigint IS DISTINCT FROM origin_task
+   OR o.value->>'operation_version' IS DISTINCT FROM predicate_version)) THEN
   RAISE EXCEPTION 'predicate operation differs from exact annotation producer' USING ERRCODE='23514';
  END IF;
  SELECT jsonb_object_agg('annotation:'||(a->>'dependency_digest'),a) INTO annotation_map
@@ -299,6 +607,13 @@ BEGIN
   WHERE value->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')
  LOOP
   c:=evidence->'component'; kind_:=c->>'kind';
+  IF c->>'question_version' IS DISTINCT FROM predicate_version
+   OR c->>'question' IS DISTINCT FROM (CASE WHEN kind_ IN ('predicate_frame','predicate_cue')
+    THEN 'source_predicate_frames' ELSE 'source_predicate_interpretation' END)
+   OR (predicate_version='2' AND (
+    c ?| ARRAY['cross_block_hosts','host_witness']
+    OR c->>'variant'=ANY(local_recipes||cross_recipes) OR c->>'cue_kind'='population_inclusion'))
+  THEN RAISE EXCEPTION 'predicate evidence differs from its released recipe version' USING ERRCODE='23514'; END IF;
   IF kind_ IN ('predicate_frame','predicate_cue') THEN
    annotation:=annotation_map->(c->>'annotation');
    IF annotation IS NULL OR annotation->>'block_id' IS DISTINCT FROM c->>'block'
@@ -348,8 +663,21 @@ BEGIN
     OR NOT ops.predicate_role_anchor_match(p_view.projection,c->'extents',evidence->'anchors',tokens,c->'token_indices',lo,hi)
     OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'candidate_tokens') token
      WHERE token::bigint>=jsonb_array_length(tokens))
-    OR (c->>'host_state'='located' AND (
-     coalesce(jsonb_array_length(c->'candidate_tokens'),0)=0 OR part IS NULL))
+    OR (c->>'host_state'='located' AND (part IS NULL OR (
+     coalesce(jsonb_array_length(c->'candidate_tokens'),0)=0
+     AND coalesce(jsonb_array_length(c->'cross_block_hosts'),0)=0)))
+    OR (c ? 'cross_block_hosts' AND (
+     NOT coalesce(c->>'variant'=ANY(cross_recipes) AND c->>'cue_kind'='assumption',false)
+     OR coalesce(jsonb_array_length(c->'candidate_tokens'),0)<>0
+     OR NOT c->'dependencies' @> c->'cross_block_hosts'
+     OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'cross_block_hosts') i GROUP BY i HAVING count(*)>1)
+     OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'cross_block_hosts') i
+      WHERE p_population->i->'component'->>'kind' IS DISTINCT FROM 'predicate_frame'
+       OR p_population->i->'pin' IS DISTINCT FROM evidence->'pin'
+       OR p_population->i->'component'->>'scope' IS DISTINCT FROM c->>'scope'
+       OR p_population->i->'component'->>'effective_version' IS DISTINCT FROM c->>'effective_version'
+       OR p_population->i->'component'->>'annotation' IS NOT DISTINCT FROM c->>'annotation')
+    ))
     OR (c ? 'marker_member' AND (
      part IS NULL OR part->'pin' IS DISTINCT FROM evidence->'pin'
      OR part->>'operation_key' IS DISTINCT FROM evidence->>'operation_key'
@@ -377,7 +705,28 @@ BEGIN
     END IF;
    ELSE
     cue:=p_population->(c->>'qualifier_contribution_id');
-    annotation:=annotation_map->(cue->'component'->>'annotation');
+    cue_component:=cue->'component'; host_component:=host->'component';
+    annotation:=annotation_map->(cue_component->>'annotation');
+    recipe:=cue_component->>'variant';
+    IF c ? 'host_witness' THEN
+     host_annotation:=annotation_map->(host_component->>'annotation');
+     SELECT p INTO STRICT selection FROM jsonb_array_elements(p_config->'inputs'->'passages') p
+      WHERE p->>'source_ref'=original_id AND p->>'passage_id'=c->>'scope'
+       AND p->>'effective_version' IS NOT DISTINCT FROM c->>'effective_version';
+     matches_host:=predicate_version='3' AND recipe=ANY(cross_recipes)
+      AND ops.predicate_cross_block_host_matches(p_view,p_population,cue_component,host,c,
+       annotation,host_annotation,selection);
+    ELSE
+     matches_host:=NOT coalesce(recipe=ANY(cross_recipes),false)
+      AND cue_component->>'annotation'=host_component->>'annotation'
+      AND cue_component->>'block'=host_component->>'block'
+      AND cue_component->'candidate_tokens' @> jsonb_build_array(host_component->'predicate_token')
+      AND CASE WHEN recipe=ANY(local_recipes) THEN predicate_version='3'
+       AND ops.predicate_cue_recipe_matches(p_view.projection,annotation,cue_component,
+        (host_component->>'predicate_token')::integer)
+       ELSE ops.predicate_cue_host_matches(p_view.projection,annotation->'tokens',cue_component,
+        (host_component->>'predicate_token')::integer) END;
+    END IF;
     interpretation:=p_population->(c->>'interpretation_member');
     qualified:=data.record_source_json(c->'qualification');
     condition_:=data.record_source_json(c->'condition');
@@ -386,13 +735,11 @@ BEGIN
      OR cue->'pin' IS DISTINCT FROM evidence->'pin'
      OR cue->'component'->>'scope' IS DISTINCT FROM c->>'scope'
      OR cue->'component'->>'effective_version' IS DISTINCT FROM c->>'effective_version'
-     OR cue->'component'->>'annotation' IS DISTINCT FROM host->'component'->>'annotation'
-     OR cue->'component'->>'block' IS DISTINCT FROM host->'component'->>'block'
-     OR cue->'component'->>'cue_kind' IS DISTINCT FROM c->>'qualifier_kind'
-     OR NOT cue->'component'->'candidate_tokens' @> jsonb_build_array(host->'component'->'predicate_token')
+     OR cue_component->>'cue_kind' IS DISTINCT FROM c->>'qualifier_kind'
      OR NOT c->'dependencies' ? (cue->>'contribution_id')
-     OR NOT ops.predicate_cue_host_matches(
-      p_view.projection,annotation->'tokens',cue->'component',(host->'component'->>'predicate_token')::integer)
+     OR matches_host IS DISTINCT FROM true
+     OR (recipe=ANY(local_recipes||cross_recipes) AND c->>'qualifier_kind' IN ('condition','assumption')
+      AND condition_->>'kind' IS DISTINCT FROM 'escape')
      OR evidence->'members' IS DISTINCT FROM (CASE WHEN c ? 'interpretation_member'
       THEN jsonb_build_array(cue->'contribution_id',host->'contribution_id',c->'interpretation_member')
       ELSE jsonb_build_array(cue->'contribution_id',host->'contribution_id') END)
@@ -456,7 +803,7 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4') THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5') THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
   SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
   table_mode:=table_config->>'interpretation_mode';
@@ -475,6 +822,13 @@ BEGIN
  IF cardinality(identities) IS DISTINCT FROM (SELECT count(DISTINCT x) FROM unnest(identities) x)
   AND cardinality(identities)>0 THEN RAISE EXCEPTION 'duplicate contribution identity' USING ERRCODE='23514'; END IF;
  SELECT jsonb_object_agg(o->>'operation_key',o) INTO operation_map FROM jsonb_array_elements(p_envelope->'contribution_operations') o;
+ IF EXISTS(SELECT FROM jsonb_each(operation_map) o
+  WHERE o.value->>'question'='source_formula_occurrences'
+   AND (p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
+    OR p_envelope->>'operation_version' IS DISTINCT FROM '5'
+    OR o.value->>'operation_version' IS DISTINCT FROM '1')) THEN
+  RAISE EXCEPTION 'formula occurrence operation requires its released producer' USING ERRCODE='23514';
+ END IF;
  SELECT COALESCE(jsonb_object_agg(c->>'contribution_id',true),'{}') INTO identity_map FROM jsonb_array_elements(p_envelope->'contributions') c;
  SELECT COALESCE(jsonb_object_agg(key,n),'{}') INTO output_counts FROM (
   SELECT c->>'operation_key' AS key,count(*) AS n FROM jsonb_array_elements(p_envelope->'contributions') c GROUP BY c->>'operation_key') counts;
@@ -1190,6 +1544,22 @@ BEGIN
   IF (contribution->>'kind'='relation' AND jsonb_array_length(COALESCE(contribution->'endpoints','[]'))<2)
    OR (contribution->>'kind'='composite' AND jsonb_array_length(COALESCE(contribution->'members','[]'))=0) THEN
    RAISE EXCEPTION 'relation/composite contribution lacks endpoints/members' USING ERRCODE='23514'; END IF;
+  IF operation_map->(contribution->>'operation_key')->>'question'='source_formula_occurrences' THEN
+   IF contribution->>'semantic_type' IS DISTINCT FROM 'structural.located_participant'
+    OR contribution->>'kind' IS DISTINCT FROM 'occurrence'
+    OR contribution ?| ARRAY['component','endpoints','members']
+    OR jsonb_array_length(contribution->'anchors') IS DISTINCT FROM 1
+    OR contribution->'anchors'->0->>'space' IS DISTINCT FROM 'native'
+    OR contribution->'anchors'->0->>'precision' IS DISTINCT FROM 'exact'
+    OR data.record_source_json(contribution->'value')->>'role' IS DISTINCT FROM 'formula_symbol'
+    OR data.record_source_json(contribution->'value')->>'syntax_standing' IS DISTINCT FROM 'syntax_only'
+    OR data.record_source_json(contribution->'value')->>'input_policy' IS DISTINCT FROM 'captured_inline_equation'
+    OR data.record_source_json(contribution->'value')->>'mapping' IS DISTINCT FROM 'exact_native_field'
+    OR EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') link_
+      WHERE link_->>'kind'='relation' AND link_->'endpoints' @>
+       jsonb_build_array(jsonb_build_object('contribution_id',contribution->>'contribution_id')))
+   THEN RAISE EXCEPTION 'inline formula occurrence lacks exact syntax-only standing' USING ERRCODE='23514'; END IF;
+  END IF;
   IF contribution ? 'component' THEN
    DECLARE component jsonb:=contribution->'component'; basis jsonb; role_ jsonb; participant jsonb;
     endpoint_roles jsonb; expected_endpoints jsonb; actual_endpoints jsonb; available_anchors jsonb;
@@ -1256,7 +1626,7 @@ BEGIN
  END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
   WHERE c->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')) THEN
-  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version'<>'4' THEN
+  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5') THEN
    RAISE EXCEPTION 'predicate evidence requires its released producer' USING ERRCODE='23514';
   END IF;
   SELECT jsonb_object_agg(c->>'contribution_id',c) INTO predicate_population
@@ -1264,7 +1634,8 @@ BEGIN
   WHERE c->>'semantic_type' IN ('structural.predicate_member','structural.predicate_frame',
    'structural.predicate_cue','structural.predicate_reading','structural.predicate_qualification');
   PERFORM ops.validate_source_predicates(
-   t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map));
+   t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map,
+    '_predicate_version',CASE p_envelope->>'operation_version' WHEN '5' THEN '3' ELSE '2' END));
  END IF;
  PERFORM ops.validate_source_anchor_coordinates(t.run_id,t.unit_id,p_envelope->>'source',anchors);
 END $$;
