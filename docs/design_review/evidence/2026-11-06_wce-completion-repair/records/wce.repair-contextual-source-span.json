@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-contextual-source-span",
+  "title": "Matched contextual source-span correction",
+  "group": "WCE",
+  "package": "WCE05",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [
+    "wce.repair-retained-link-assessment"
+  ],
+  "superseded_by": null,
+  "question": "Does exact physical source evidence prevent the formula X false bridge while preserving retrieval?",
+  "answers": [
+    "WCE-R15",
+    "WCE11"
+  ],
+  "method": "Exact selected native, transport or test observations with separate source assessment.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/run_nonself.py --release-id release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847 --attempt retained004 --upstream retained-m1 --root-go",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/compare_nonself_followup.py native-retained004"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-references/source-reference.json",
+      "role": null,
+      "sha256": "48dad02962d5f7f93db00b2fbc0426798b04c85510b64d6bfefa4badd1131354"
+    },
+    {
+      "path": "composition/native-retained002/source-judgment.json",
+      "role": null,
+      "sha256": "880cc4cb6f302a20de5691e8d3caa9323c9743edb45e51a5c324899d626edbd1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "composition/native-retained004/source-judgment.json",
+      "role": null,
+      "sha256": "c8959e04d1e11a0f314d3360b32d646676a83dc316315b1b5a4d7ca5fce89e07"
+    },
+    {
+      "path": "composition/native-retained004/false-bridge-control.json",
+      "role": null,
+      "sha256": "0d77a143e72ee2c47de9fd6a107a1f1c86139605e36c8b6e03f303b3e5c6e4d9"
+    },
+    {
+      "path": "composition/native-retained004/transports-bounded/result.json",
+      "role": null,
+      "sha256": "01fa5a676e183ed3f39270aae82d502769c1246bebe060e26ceb6eb47512e5e0"
+    },
+    {
+      "path": "composition/native-dice-195-281/assessment.json",
+      "role": null,
+      "sha256": "fca0f3efa60dffecbe6a658b80146191deb3772f407deb3b16393f29fbde4f4a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Retained candidate lists",
+      "value": 90,
+      "of": null,
+      "unit": "lists",
+      "note": "The exact negative X candidate remains visible and the selector abstains."
+    },
+    {
+      "name": "Native dice cells with complete supported chains",
+      "value": 4,
+      "of": 4,
+      "unit": "cells",
+      "note": "Four supported edges per cell, zero wrong-band."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native run207/cut287 and all selected consumers passed. The unsupported X edge is withheld and the exact false candidate is still retrievable. Both the formula Z occurrence and the eligible standard-normal target remain missing.",
+  "consumed_by": [
+    "WCE05"
+  ]
+}

@@ -463,3 +463,11 @@ native/read/export evidence. Fresh CLI/MCP validates the first three selected re
 The fixed exposed F37 source comparison preserves all20 old cells and reports one new private mean
 component, zero model attachments and remaining gaps; it does not count missing whole-app outputs
 as corrected old judgments. Fresh efficacy and assembled multi-package qualification remain WCE02/12.
+
+**Tested, 2026-11-07.** Contextual method5 keeps label and alias matching in retrieval.
+Private denotation can use the coincident original definition span, and other
+relationships still require their own producer witnesses. The actual formula X
+continues to retrieve the unrelated red-ball candidate and now abstains. The exact
+formula Z and eligible standard-normal target were missed. The
+[composition receipts](../../design_review/evidence/2026-11-06_wce-completion-repair/composition/README.md)
+preserve the before and after judgments.

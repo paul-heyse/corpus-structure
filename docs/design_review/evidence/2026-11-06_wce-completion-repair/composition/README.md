@@ -109,6 +109,53 @@ The runner's `--root-go` indicates the coordinator has pinned and admitted the e
 runtime and permits this source realization. The second command rechecks the preserved
 assessment without creating a run.
 
+[Retained003](native-retained003/result.json) passed native execution, ordinary Reader, and
+[detached closure](native-retained003/portable-closure.json) with registered
+`retrieve.contextual/4`. Run206 sealed cut285 under release `aca99be7…` and runtime
+`865a511b…`. The attempt ran from 05:30:21 to 05:33:10 UTC on 2026-11-07.
+
+The [matched false-bridge control](native-retained003/false-bridge-control.json) passed. The
+same source use of X and the same red-ball target are present in the corrected candidate list.
+The selector now abstains for lack of a source-backed witness. The exact formula Z occurrence
+and the standard-normal target remain unavailable. The corrected run retains 166 mention
+products, including nine coarse products, and all 90 actual candidate lists. All 90 selected
+scope decisions record insufficient evidence.
+
+```sh
+PYTHONPATH=python/corpus-structure/src uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/run_nonself.py \
+  --release-id release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847 \
+  --attempt retained003 --upstream retained-m1 --root-go
+uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/adjudicate_nonself.py native-retained003 |
+  cmp - docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained003/source-judgment.json
+uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/compare_nonself_followup.py |
+  cmp - docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained003/false-bridge-control.json
+```
+
+[Retained004](native-retained004/result.json) passed native execution, ordinary Reader, and
+[detached closure](native-retained004/portable-closure.json) with registered
+`retrieve.contextual/5`. Run207 sealed cut287 under release `aca99be7…` and runtime
+`212ca9d9…`. The attempt ran from 05:34:41 to 05:37:02 UTC on 2026-11-07.
+
+The [matched false-bridge control](native-retained004/false-bridge-control.json) passed again
+against retained002. The exact X source use still retrieved the red-ball target and the selector
+abstained with zero selected edges. The [source judgment](native-retained004/source-judgment.json)
+still records two distinct gaps, the missing exact Z use and the missing eligible standard-normal
+target. Both adjacent Z uses have insufficient-evidence decisions. The run retained 166 mention
+products, including nine coarse products, and all 90 actual candidate lists. All 90 selection
+decisions recorded insufficient evidence. This control assesses the retained non-self route and
+the specific unsupported edge. The separate coincident-span witness route is outside this source
+case.
+
+```sh
+PYTHONPATH=python/corpus-structure/src uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/run_nonself.py \
+  --release-id release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847 \
+  --attempt retained004 --upstream retained-m1 --root-go
+uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/adjudicate_nonself.py native-retained004 |
+  cmp - docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained004/source-judgment.json
+uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/compare_nonself_followup.py native-retained004 |
+  cmp - docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/native-retained004/false-bridge-control.json
+```
+
 ## Reproduce
 
 ```sh

@@ -1,5 +1,6 @@
 """Verify the removed red-ball X bridge on the exact same authentic formula use."""
 
+import argparse
 from hashlib import file_digest
 import json
 from pathlib import Path
@@ -14,10 +15,10 @@ def read(path, inputs):
     return json.loads(path.read_bytes())
 
 
-def compare():
+def compare(attempt):
     inputs = {}
     before = HERE / "native-retained002"
-    after = HERE / "native-retained003"
+    after = HERE / attempt
     original = read(before / "source-judgment.json", inputs)
     corrected = read(after / "source-judgment.json", inputs)
     before_run = read(before / "completed.json", inputs)
@@ -78,6 +79,9 @@ def compare():
 
 
 if __name__ == "__main__":
-    receipt = compare()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("attempt", nargs="?", default="native-retained003",
+                        choices=("native-retained003", "native-retained004"))
+    receipt = compare(parser.parse_args().attempt)
     print(json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True))
     raise SystemExit(receipt["outcome"] != "passed")

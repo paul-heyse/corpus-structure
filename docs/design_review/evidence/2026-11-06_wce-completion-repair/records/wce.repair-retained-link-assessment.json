@@ -5,9 +5,9 @@
   "group": "WCE",
   "package": "WCE05",
   "finalized": "2026-11-07",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "wce.repair-contextual-source-span",
   "question": "What did the retained contextual route capture, miss or link incorrectly on the frozen affine-transform case?",
   "answers": [
     "WCE-R15"

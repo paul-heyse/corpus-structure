@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-functional-union",
+  "title": "Repair functional test union",
+  "group": "WCE",
+  "package": "WCE12",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which required Python test identities are covered on the applicable native165 and final contextual scope?",
+  "answers": [
+    "WCE11",
+    "WCE12"
+  ],
+  "method": "Exact selected native, transport or test observations with separate source assessment.",
+  "commands": [
+    "just test-all -n auto",
+    "just test-native-faults",
+    "just hygiene"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "qualification/required-ordinary-001.json",
+      "role": null,
+      "sha256": "4fc5d7a1d050c778893ccde3de66e189bc9baa1953478f2d1618d554c3ac2d0c"
+    },
+    {
+      "path": "qualification/required-affected-final-003.json",
+      "role": null,
+      "sha256": "0c7e0e2a89bc1c7774057220dd57ca5838b7778dfb22f0b21236954a91a752db"
+    },
+    {
+      "path": "qualification/required-native-faults-001.json",
+      "role": null,
+      "sha256": "3a670ccd49baee609d48800a7dcb4c4344bd493854a833926adfd01ee1b823ec"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "qualification/union-summary.json",
+      "role": null,
+      "sha256": "93874c30dac9c099d5720eee7fcbf61509e13db93b90a13785bab9007b68dfaf"
+    },
+    {
+      "path": "qualification/classified-union.json",
+      "role": null,
+      "sha256": "cbba3739ded811d1e0e243b0b14fb9ad65f754e3cde1a3ac85c870299b39cf64"
+    },
+    {
+      "path": "qualification/hygiene-contextual-005.log",
+      "role": null,
+      "sha256": "c0116893a14b63cd7bc3c0917274b4a237c896f692399a8e4164c9752faaa11c"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Required Python test identities covered",
+      "value": 5079,
+      "of": 5079,
+      "unit": "nodes",
+      "note": "Distinct union with zero unresolved and 889 native-required nodes."
+    },
+    {
+      "name": "Passed final affected identities",
+      "value": 148,
+      "of": null,
+      "unit": "nodes",
+      "note": "Includes all four original failures and the new whole-note guard test."
+    },
+    {
+      "name": "Exclusive native fault identities",
+      "value": 8,
+      "of": null,
+      "unit": "nodes",
+      "note": "Run after ordinary and provider lanes."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The declared test-node union is covered with complete native provenance. The first invocation retains its four failures and is superseded for those identities by passing affected evidence. Rust selected zero cases. Source coverage and independent native factor reconstruction remain separate WCE12 obligations.",
+  "consumed_by": [
+    "WCE12"
+  ]
+}

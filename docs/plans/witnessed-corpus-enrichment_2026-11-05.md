@@ -1,9 +1,10 @@
 # Witnessed corpus enrichment
 
-**Status: Completion repairs implemented in part, 2026-11-07.** Native165 installs the
-current source and relationship guards. The individual assessments and integration checks have
-different closure boundaries. This coordinator owns package state, finding disposition and
-combined qualification. Companion plans own local contracts and DESIGN/ADRs own authority.
+**Status: Current repairs verified within the selected scope, 2026-11-07.** Native165 is
+installed and the declared functional test union is covered. Named source and native
+factor-replay obligations keep WCE12 open. This coordinator owns package state,
+finding disposition and combined qualification. Companion plans own local contracts
+and DESIGN/ADRs own authority.
 
 ## Current execution decision — 2026-11-06
 
@@ -212,21 +213,34 @@ uses the original 120-page frame and 97 GLiNER2.5 outputs. The independent
 inspected `2b11a881e`. Product `91c5fa5e9` applies the follow-up lineage, direct endpoint,
 whole-note and registered policy changes. Native165 `semantic_wce_lineage_20261107` retires
 the former rootless native batch membership signature. The changed scoped producer is
-`structure.scoped_relations/3`; the exact earlier versions and runtime identities remain
-with their receipts.
+`structure.scoped_relations/3`. Product `07d25b840` adds the final
+`retrieve.contextual/5` repair, with exact coincident source-term witnesses.
+Release `aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847`
+serves native165. The contextual-only correction preserves that semantic release
+and has its own recorded runtime. Exact earlier versions and runtimes retain their receipts.
 
 | Finding | Implemented behavior and assessed result | Remaining obligation |
 |---|---|---|
 | WCE-R03 | The frozen source frame records 69 anchors and 14 cases, including nested sample-size headers and local gamma notation. Inspection found zero native footnote associations in 17 retained tables. The bibliographic example remains independently assessable. | Review the note availability limit for the shared corpus. Cross-passage gamma equivalence remains unestablished from the retained premises. |
-| WCE-R15 | Fixed cue, layout and composed arms preserve exact endpoint membership. Native run195/cut281 emits all four supported edges on each of the four dice cells with no wrong-band edge. Actual contextual run189/cut257 replays the original GLiNER2.5 output and delivers its retained products through Reader, CLI, MCP and portable export. Independent source grading finds the exact formula Z and its standard-normal target missing. It finds an unsupported bridge from affine-transform X to a red-ball count. | Settle the named source-supported synthesis and its applicability boundary. Keep the false link and missing endpoints visible in the independent account. |
-| WCE-R16 | Matching units require a located common basis for interval arithmetic. The literal succession route requires both source endpoint declarations, shared located clause lineage and direction. Table-note scope uses the full native note and selected geometry. Actual run197/cut263 compares the two retained event predicates and leaves the interval and applicability unknown. | Bound the note claim to the constructed controls and the authentic availability census. |
-| WCE-R17 | An exact provisional component roots the dossier. A direct scoped target or exact applicability reading can qualify a member. An incidental citation is insufficient. Rootless assembly is retired from the active method. | The selected normal-density journey exercises a provisional root with two qualified facets. A dossier-wide canonical-root coverage claim remains outside this evidence. |
+| WCE-R15 | Fixed cue, layout and composed arms preserve exact endpoint membership. Native run195/cut281 emits all four supported edges on each of four dice cells without wrong-band edges. Run189/cut257 retained a false bridge from affine-transform X to a red-ball count. Final run207/cut287 keeps the exact occurrence and candidate visible and abstains. The exact formula Z and its standard-normal target remain missing. | The named source-supported synthesis remains open. The retained assessment distinguishes its occurrence and target capture prerequisites. |
+| WCE-R16 | Matching units require a located common basis for interval arithmetic. Literal succession requires both source endpoint declarations, shared located clause lineage and direction. Native whole-note controls pass exact positive scope and refuse a misleading subspan. Actual run197/cut263 preserves two event thresholds and withholds interval and applicability claims. | The literal and constructed implementation controls are settled. Authentic note availability remains WCE-R03. |
+| WCE-R17 | The exact provisional root qualifies membership through a direct scoped target or exact applicability reading. Both normal-density runs preserve the same two members and facets, exclude the separately supported unrelated component, and pass Reader, CLI, MCP, continuation and portable delivery. Rootless assembly is retired from the active method. | The selected provisional-root obligation is settled. The scope of dossier evidence is the declared root and selected predecessors. |
 | WCE-R18 | All seven native arms and bounded ordinary exports passed on the same 358 contributions. Both weighted modes selected all nine independently supported roles at every assessed scale. Coupling changed marginals without improving the top selections in this frame. | The native guard checks request and result custody, shape and the registered mode and scale. Exact reconstruction of all factors and masks from original source geometry remains open. |
 | WCE-R19 | Run205/cut283 retains 142 occurrences, 116 candidates and 25 exact source nominations. Native, Reader, CLI, MCP and portable verification passed. Source-first evaluation records 67 eligible judgments and 13 supported pairs, including three native-only caption pairs absent from the projected cohort. The fixed-score results, sensitivity and threshold error tables retain candidate-relative private standing. | The source-backed alias arm is unavailable. All 142 alias states are unknown in the inspected frame. Preserve this limit and the missing projected captions in the pilot evaluation. |
 
 Fitting remains conditional on compatible emitted events and protected evaluations.
 The plan keeps required source opportunities distinct from available examples and records
 missing or incorrect outputs individually.
+
+**Functional verification, 2026-11-07.** The
+[repair qualification account](../design_review/evidence/2026-11-06_wce-completion-repair/qualification/README.md)
+covers 5,079 declared Python nodes, including 889 native-required nodes, with zero
+unresolved. The original `just test-all -n auto` remains failed with 5,066 passes
+and four failures. All four were replaced by the 148-pass affected selection on
+final source. `just test-native-faults` passed eight exclusive cases. The new
+whole-note guard test is in the required union. `just hygiene` passed and the
+Rust functional selection was empty, `not_run`. WCE12 remains open on the source
+and native replay obligations recorded above.
 
 ## Outcome, inputs and baseline
 
@@ -316,7 +330,7 @@ remain available for affected-evidence reconciliation when the open obligations 
 | WCE09 | Complete event-evaluator/parameter mechanisms; actual corpus fit unavailable/not_run under its exact contract; no unsupported graph cache | WCE01/02; event/cohort and candidate contracts | Event-specific fitting/evaluation composition and reusable candidate representation; bounded learning only with suitable labels, explicit refusal otherwise. |
 | WCE10 | Source field contract, exact nomination and fixed-score pilot Tested. The source-backed alias arm is unavailable in the inspected frame (WCE-R19). | WCE01/02/05 and the relevant WCE06 artifact slice | Compare scoped candidate arms and scoring on independent eligible pairs with explicit field states and thresholds. |
 | WCE11 | Affected current native and consumer journeys Tested within their declared products and source scope. | Delivered WCE03–10 contracts | Verify native, Reader, CLI, MCP, continuation, portable export, protected standing and current-only cutover. |
-| WCE12 | Prior test identity coverage and scoped journey evidence retained. Combined completion open on WCE-R03/R15–R19 and affected qualification | Required producer and consumer obligations | Reconcile the required union and independent benefit account after the missing scope is settled. Preserve the native GC diagnostic limit. |
+| WCE12 | Declared repair test union covered and affected journeys verified. Combined completion remains open on WCE-R03/R15/R18/R19. | Required producer and consumer obligations | Reconcile the required union and independent benefit account after the missing scope is settled. Preserve the native GC diagnostic limit. |
 
 WCE02 has an early source/question/rubric slice, available without new outputs; later output-first
 freezes and grades follow each producer. Dependencies on WCE02 mean that named early slice or
