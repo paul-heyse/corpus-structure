@@ -428,3 +428,14 @@ its single-reference Reader delegates to the same validation owner. Full-workloa
 representation results are retained in
 [the actual structural journey](../../design_review/evidence/2026-11-06_wce-gs120/current-structural-journey/).
 No unsupported member truncation, timeout widening or public-standing upgrade is permitted.
+
+### Completion repair evidence
+
+**Tested, 2026-11-07.** Native comparison run197 retained both event thresholds and
+withheld interval and applicability claims. Literal revision controls exercise exact older
+declarations, shared located clause lineage and forward or reversed comparison. The
+selected root for dossiers196/202 is the exact normal-density definition component.
+Both display policies retained the same two qualified members and facets, excluded the
+independently supported marginal-totals component and passed Reader, CLI, fresh MCP and
+portable verification. The budget could display both members, so this comparison
+establishes no display advantage. [Repair evidence](../../design_review/evidence/2026-11-06_wce-completion-repair/README.md)

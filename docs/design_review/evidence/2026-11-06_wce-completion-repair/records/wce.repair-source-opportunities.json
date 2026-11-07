@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-source-opportunities",
+  "title": "Frozen Grinstead–Snell repair opportunities",
+  "group": "WCE",
+  "package": "WCE02",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which required source and artifact opportunities are visible in the shared physical pages?",
+  "answers": [
+    "WCE-R03",
+    "WCE-R15",
+    "WCE-R19"
+  ],
+  "method": "Independent source judgments and exact executed observations, with separately bounded conclusions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/source-references/freeze_reference.py | cmp - docs/design_review/evidence/2026-11-06_wce-completion-repair/source-references/source-reference.json",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/source-references/freeze_reference.py --marginal-roles | cmp - docs/design_review/evidence/2026-11-06_wce-completion-repair/source-references/marginal-role-reference.json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-references/freeze_reference.py",
+      "role": null,
+      "sha256": "8a1318f9b2ea4769a9f8872ae3882d15b424accd4001d50701afcfe03c445298"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "source-references/source-reference.json",
+      "role": null,
+      "sha256": "48dad02962d5f7f93db00b2fbc0426798b04c85510b64d6bfefa4badd1131354"
+    },
+    {
+      "path": "source-references/marginal-role-reference.json",
+      "role": null,
+      "sha256": "45eccf5d8072d56aa938a98ca4bfa858bd3ebcc1645bd5cde084022e539edbe7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Exact source anchors",
+      "value": 69,
+      "of": null,
+      "unit": "anchors",
+      "note": "Across 14 frozen cases."
+    },
+    {
+      "name": "Artifact pair judgments",
+      "value": 67,
+      "of": null,
+      "unit": "pairs",
+      "note": "Thirteen supported and 54 contrary."
+    },
+    {
+      "name": "Native table footnote associations",
+      "value": 0,
+      "of": 17,
+      "unit": "tables",
+      "note": "Census of the 17 retained native tables."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Frozen source-first coverage includes the merged sample-size headers, local gamma roles, and source-based artifact pairs outside the emitted union. The inspected 17 native tables have no note association. Gamma equivalence across passages is unestablished.",
+  "consumed_by": [
+    "WCE02",
+    "WCE12"
+  ]
+}

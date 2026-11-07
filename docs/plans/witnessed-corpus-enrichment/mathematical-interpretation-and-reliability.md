@@ -203,3 +203,11 @@ The existing exact E5 route reuses vectors under its current identity contract. 
 consumer of a sklearn sparse neighborhood was not established, so no additional shared graph/cache
 is introduced. Conditional pgmpy learning/backend, Pyro/GEE/PPI and learned-span/metric challengers
 remain inactive with the concrete triggers below, rather than imposing a new qualification gate.
+
+**Tested, 2026-11-07.** The Table 5.2 marginal-role comparison preserves the same 358
+contributions across feasibility, independent weighting, coupling and four sensitivity
+runs. All nine source-supported roles are available, with five contrary layout readings.
+Both weighted modes selected the supported roles at all tested scales. Coupling changes
+the candidate-relative probabilities, with the same top selections. The
+[table receipts](../../design_review/evidence/2026-11-06_wce-completion-repair/table/README.md)
+preserve the executed factor scopes and bounded native replay claim.

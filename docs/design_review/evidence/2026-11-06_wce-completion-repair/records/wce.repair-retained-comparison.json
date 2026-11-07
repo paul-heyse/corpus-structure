@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-retained-comparison",
+  "title": "Retained event comparison through current consumers",
+  "group": "WCE",
+  "package": "WCE06",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current typed comparison preserve original event thresholds and withhold unsupported consequences?",
+  "answers": [
+    "WCE-R16",
+    "WCE11"
+  ],
+  "method": "Independent source judgments and exact executed observations, with separately bounded conclusions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/comparison/run_comparison.py docs/design_review/evidence/2026-11-06_wce-completion-repair/comparison/attempt001 --release-id release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847",
+    "uv run ci structure list --run 197 --kind qualified_comparison --max-bytes 8000000 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "comparison/run_comparison.py",
+      "role": null,
+      "sha256": "b03a724c1678b64ed5790354f4661dad58bf2c7c679960de973c16e42e09c121"
+    },
+    {
+      "path": "comparison/attempt001/inputs.json",
+      "role": null,
+      "sha256": "8f6fcfc915011639efc0f078b7c2ba54f0ea13b0dbb859a68d7f314b7cb5ee01"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "comparison/attempt001/result.json",
+      "role": null,
+      "sha256": "00fe19b9015a798abc1fcfd0f81b3cd3c39994662f874a147d519a5185af89e3"
+    },
+    {
+      "path": "comparison/attempt001/fresh-mcp/result.json",
+      "role": null,
+      "sha256": "ea1cb29d4252b3afe4342e0212e7d6ed32c71248c47e3f766f169aac907a940d"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Original thresholds",
+      "value": 2,
+      "of": null,
+      "unit": "thresholds",
+      "note": "Both located in the retained dice exercise."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Registered native run197/cut263, ordinary Reader, CLI, fresh MCP and detached export preserve T > 3 and T > 6. Units are unknown and neither applicability nor an interval consequence is established. This authentic source is an exercise, without a revision assertion.",
+  "consumed_by": [
+    "WCE06",
+    "WCE12"
+  ]
+}

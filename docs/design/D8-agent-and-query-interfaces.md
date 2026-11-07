@@ -27,6 +27,12 @@ omitted members, original interpretations/outcomes, source closure and raw produ
 Support comes only from exact independently qualified predecessor statements, not membership,
 selection priority or private producer confidence.
 
+**Tested, 2026-11-07.** Rooted dossier continuation binds the exact provisional root,
+membership and supported facets under both display policies. Portable artifact export
+uses an explicit selected scope for its original nomination contributions alongside
+the artifact product. Detached replay authenticates those original tasks, endpoints
+and physical sources before reconstructing the relationship evidence.
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

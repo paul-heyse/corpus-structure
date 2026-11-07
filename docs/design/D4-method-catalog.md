@@ -1388,9 +1388,11 @@ introduction has its explicit limited policy; it establishes neither transfer ap
 independent semantic support. The old six-way pair classifier and supplied definition bridge
 have been removed.
 
-`structure.products` method2 imports only the remaining typed comparison/dossier reports;
-definitions require their owned automatic producers. Supplied typed imports are not automatic
-semantic discovery. Finite RUN operations retain the existing task/release/native completion owner.
+**Implemented, 2026-11-07.** The current routes use `structure.compare/2`,
+`structure.dossier/2` and `structure.artifact_identity/2` on retained evidence.
+`structure.scoped_relations/3` produces exact scoped candidates and declared table
+policy inputs. The supplied structural report operation is retired. Finite RUN
+operations retain the existing task, release and native completion owner.
 A graph permits one effective config per method; conflicting defaults refuse before DB/model work,
 while equivalent aliases/global overrides remain valid. Separate executions can be explicitly
 composed without bypassing dependency/reuse checks. The [WCE coordinator](../plans/witnessed-corpus-enrichment_2026-11-05.md)

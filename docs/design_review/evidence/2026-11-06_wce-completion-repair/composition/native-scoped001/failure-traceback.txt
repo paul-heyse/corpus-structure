@@ -1,0 +1,34 @@
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/run_nonself.py", line 279, in main
+    run, producer, linker = execute(
+                            ~~~~~~~^
+        settings, prepared, report, source, inventory["target_components"], args, output
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/run_nonself.py", line 131, in execute
+    result = run_source_methods(
+        engine,
+    ...<15 lines>...
+        selected_sources=(source,),
+    )
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/orchestrate/semantic.py", line 121, in run_source_methods
+    invocation_input = bind_analysis_family(prepared, "invocation").prepare(
+                       ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/analysis_contracts.py", line 883, in bind_analysis_family
+    model, profile = _profile(prepared, require_current_implementations=family != "read")
+                     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/analysis_contracts.py", line 458, in _profile
+    _fail(
+    ~~~~~^
+        "unsupported_analysis_implementation",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        model.model_id,
+        ^^^^^^^^^^^^^^^
+        "bind the admitted semantic determinant bytes to this runtime before analysis",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/contracts.py", line 1002, in _fail
+    raise PreparationError((Diagnostic(code, location, message),))
+corpus_structure.semantic.types.PreparationError: execution:c34ada4921c60bbcd11cfcdf306837a85fa3601d359b1aaec53b22297cae6268: bind the admitted semantic determinant bytes to this runtime before analysis

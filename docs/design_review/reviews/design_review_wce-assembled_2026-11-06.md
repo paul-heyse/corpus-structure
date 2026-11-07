@@ -1,5 +1,25 @@
 # Witnessed corpus enrichment: assembled target review
 
+## Completion repair follow-up
+
+**Independent static inspection, 2026-11-07.** The follow-up inspected repair source
+`2b11a881e` using `git show`, `git diff` and `rg`. Native, provider and functional execution
+were `not_run` by this reviewer. The review retains the current-only release, immutable
+source custody, protected assessment and Reader architecture.
+
+| Boundary | Finding at the inspected baseline | Required correction |
+|---|---|---|
+| Comparison and notes | Caller-supplied parent and version could give a newer succession cue an unrelated older passage. A note subspan could turn a denying sentence into a positive row cue. | Require the older declaration and shared located clause lineage. Parse the full original note and bind the actual typed endpoints. |
+| Dossier membership | Any recursive citation could borrow root scope. Native also excluded special roles that Python could retain. | Use the exact applicable component or direct target role. Keep the resulting roles through native and portable assembly. |
+| Conditioned table policy | The request and result were sealed, but the native guard did not establish that the registered preparation made those factors and masks from the source. | Bind mode and scale to the registered configuration and retain the remaining exact factor reconstruction obligation. |
+| Artifact nomination | Endpoint custody alone permitted a same-kind caption with a different code. | Replay the local reference cue and unique matching caption rule before using the edge as nomination evidence. |
+
+The source frame establishes bounded footnote unavailability and does not establish cross-passage
+gamma equivalence. Fixed endpoint controls and actual linkage assessment have distinct scopes.
+The artifact reference population includes judgments outside the emitted union. The
+[coordinator](../../plans/witnessed-corpus-enrichment_2026-11-05.md#completion-audit) owns
+the disposition and later verification of these findings.
+
 ## 1. Scope, outcome and coverage
 
 **Design tier; target purpose; combined principle, domain-model and selected enabling-library

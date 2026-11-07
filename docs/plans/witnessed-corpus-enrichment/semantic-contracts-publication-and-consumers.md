@@ -170,3 +170,11 @@ restricted admit route after a native descriptor change.
 callers and actual removal commits for pair/singleton/manual/supplied-report and old semantic
 decoder paths. Frozen installation predecessors and authentic raw historical evidence remain;
 they are not active compatibility readers. All integrated task worktrees were removed.
+
+**Tested, 2026-11-07.** Native165 retires the old rootless batch membership signature.
+The current structural routes passed their actual Reader, CLI and fresh MCP transports.
+Portable artifact verification explicitly selects the scoped nomination predecessors
+alongside the artifact product. The failed structural-only attempt is retained with
+the successful exact closure. The
+[repair evidence](../../design_review/evidence/2026-11-06_wce-completion-repair/README.md)
+owns the dated receipts.

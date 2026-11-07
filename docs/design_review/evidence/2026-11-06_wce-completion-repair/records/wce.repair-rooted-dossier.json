@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-rooted-dossier",
+  "title": "Exact provisional-root dossier delivery",
+  "group": "WCE",
+  "package": "WCE07",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does a source-qualified provisional root exclude a valid unrelated component and retain equal policy membership?",
+  "answers": [
+    "WCE-R17"
+  ],
+  "method": "Registered native execution with exact selected source and independent assessment boundaries.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/dossier/run_rooted_dossier.py docs/design_review/evidence/2026-11-06_wce-completion-repair/dossier/attempt003 --release release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "dossier/run_rooted_dossier.py",
+      "role": null,
+      "sha256": "9cd2a1791ef6912047c94c472a3224e9b44ccf53a531cfed2c1714076aa903d7"
+    },
+    {
+      "path": "dossier/attempt003/frozen-preflight.json",
+      "role": null,
+      "sha256": "70416aa52d5d3682c03984aa2dd73a0ec79656876c17de187b58c91b5dd9a71f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "dossier/attempt003/result.json",
+      "role": null,
+      "sha256": "0af3a7c11dbb7c8ec23cab9137e95fc9859dcd1997d56ae4e19c3e761382094f"
+    },
+    {
+      "path": "dossier/attempt003/portable-receipt.json",
+      "role": null,
+      "sha256": "ee1c767d1855b6400a0b3772c184cefaa45d072e940eb646692890a510078786"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Qualified membership",
+      "value": 2,
+      "of": null,
+      "unit": "members",
+      "note": "Both policies retain exact matching members."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Runs196/cut261 and202/cut273 both retain two root-qualified members and their independently supported facets. The unrelated marginal-totals component stays out. Reader, CLI, fresh MCP continuation and portable verification passed for both policies. The equal budget could display all members.",
+  "consumed_by": [
+    "WCE07",
+    "WCE11",
+    "WCE12"
+  ]
+}

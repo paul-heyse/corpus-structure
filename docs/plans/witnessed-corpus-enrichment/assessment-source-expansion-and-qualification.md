@@ -178,3 +178,10 @@ unsupported component attempts fail natively. Literal typed controls verify cust
 while the broader independently authored account records semantic failures and unassessed scope.
 Final qualification commands, exact source/context applicability and conditional dispositions are
 owned by the coordinator, not inferred from these bounded semantic assessments.
+
+**Tested, 2026-11-07.** The
+[repair reference frame](../../design_review/evidence/2026-11-06_wce-completion-repair/source-references/README.md)
+freezes exact source opportunities and independently judged artifact pairs beyond those
+emitted. It distinguishes missing, contrary, unresolved and unavailable source roles.
+The authentic native tables provide no footnote association in the inspected frame.
+The repaired sample-size header cases use the same retained physical pages.

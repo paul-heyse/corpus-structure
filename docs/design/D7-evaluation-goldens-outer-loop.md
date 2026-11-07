@@ -34,6 +34,14 @@ current pins; prose judgments are not automatically literal machine alternatives
 
 > Decision: [ADR-0066](../adr/0066-witnessed-component-policies.md)
 
+**Tested, 2026-11-07.** The same 120-page development frame supplies source-first
+reference opportunities and separately graded outputs. The artifact pilot freezes
+the eligible pair population before nomination, retaining three supported pairs with
+native-only captions and separate unavailable alias evidence. The table policy compares
+matched candidates at each scale. The
+[WCE assessment evidence](../design_review/evidence/2026-11-06_wce-completion-repair/README.md)
+retains counts and source anchors at those grains.
+
 ## Progressive enrichment target
 
 **Implemented private foundation; bounded Tested, 2026-11-05.** Independent

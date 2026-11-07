@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-artifact-pilot",
+  "title": "Artifact pilot with exact source nominations",
+  "group": "WCE",
+  "package": "WCE10",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What can the source-scoped candidate arms discover on the independently frozen eligible pair population?",
+  "answers": [
+    "WCE-R19"
+  ],
+  "method": "Registered native execution with exact selected source and independent assessment boundaries.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/artifact/run_artifact_journey.py docs/design_review/evidence/2026-11-06_wce-completion-repair/artifact/attempt003 --release release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847",
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/artifact/run_artifact_journey.py docs/design_review/evidence/2026-11-06_wce-completion-repair/artifact/attempt004 --retained-attempt docs/design_review/evidence/2026-11-06_wce-completion-repair/artifact/attempt003",
+    "uv run ci structure list --run 205 --kind artifact_identity --max-bytes 8000000 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-references/source-reference.json",
+      "role": null,
+      "sha256": "48dad02962d5f7f93db00b2fbc0426798b04c85510b64d6bfefa4badd1131354"
+    },
+    {
+      "path": "artifact/run_artifact_journey.py",
+      "role": null,
+      "sha256": "023f197aa4355f84dd5ef2652900a513a78dd3fd3541e7fbca23444c7675d1de"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "artifact/attempt003/artifact/inspection.json",
+      "role": null,
+      "sha256": "d957982217f36b61d76d804fdffb99a7c3336bfd3201c0d9725903b44971b59a"
+    },
+    {
+      "path": "artifact/attempt003/fresh-mcp/result.json",
+      "role": null,
+      "sha256": "8c458b6f70f72bd0e1b70c10719f5563d3dc837cb6e47ee86428b77e5ebaf12c"
+    },
+    {
+      "path": "artifact/attempt004/result.json",
+      "role": null,
+      "sha256": "29c5a77c102164d1efc8af209c9003ac0ffcce13c444310a6e8470764578c02a"
+    },
+    {
+      "path": "artifact/attempt004/pilot-result.json",
+      "role": null,
+      "sha256": "28e74c6267ec496baa4d959b7b68db1994d72e449194be47203ab071a61cb656"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Retained artifact occurrences",
+      "value": 142,
+      "of": null,
+      "unit": "occurrences",
+      "note": "All are source-backed; alias state is unknown."
+    },
+    {
+      "name": "Source-supported pairs represented",
+      "value": 10,
+      "of": 13,
+      "unit": "pairs",
+      "note": "Three exact native-only captions lack projected capture."
+    },
+    {
+      "name": "External source nominations",
+      "value": 25,
+      "of": null,
+      "unit": "edges",
+      "note": "Exact cue and caption references under the scoped producer."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native run205/cut283 uses 25 exact scoped nominations. Ordinary Reader, CLI, fresh MCP and portable verification passed. The successful detached selection explicitly includes the scoped predecessor population. Three independently supported caption pairs lack projected capture. Observed aliases and explicit alias absence are unavailable in the inspected source frame.",
+  "consumed_by": [
+    "WCE10",
+    "WCE11",
+    "WCE12"
+  ]
+}

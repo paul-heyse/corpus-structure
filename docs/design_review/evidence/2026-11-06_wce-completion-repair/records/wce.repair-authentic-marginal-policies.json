@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-authentic-marginal-policies",
+  "title": "Native source-conditioned table policy comparison",
+  "group": "WCE",
+  "package": "WCE08",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "On matched authentic marginal roles, what changes across feasibility, independent weighting, coupling and sensitivity?",
+  "answers": [
+    "WCE-R18"
+  ],
+  "method": "Independent source judgments and exact executed observations, with separately bounded conclusions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/table/run_table_policy.py docs/design_review/evidence/2026-11-06_wce-completion-repair/table/marginal-attempt003 --frame marginal-role-reference.json --release release:aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-references/marginal-role-reference.json",
+      "role": null,
+      "sha256": "45eccf5d8072d56aa938a98ca4bfa858bd3ebcc1645bd5cde084022e539edbe7"
+    },
+    {
+      "path": "table/run_table_policy.py",
+      "role": null,
+      "sha256": "008b6682dc49f2dd51779944344be31ed3f6f8fc3c663613867bef8a407f423b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "table/marginal-attempt003/comparison.json",
+      "role": null,
+      "sha256": "bae08ddfa621eec375a2171a03c36ba8af1b269f3537a9a5107faec1a2f21aa1"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Matched retained contributions",
+      "value": 358,
+      "of": null,
+      "unit": "contributions",
+      "note": "Exact same set in all seven arms."
+    },
+    {
+      "name": "Source-supported top selections",
+      "value": 9,
+      "of": 9,
+      "unit": "roles",
+      "note": "All weighted arms at every declared scale."
+    },
+    {
+      "name": "Assessed axes with shared factors",
+      "value": 6,
+      "of": 9,
+      "unit": "axes",
+      "note": "Three coupled requests have shared factors."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All seven registered runs and their ordinary export passed. Both weighted arms selected all nine supported interpretations at every tested scale. Coupling changed probabilities and did not improve top selections. This experiment exercises the producer and does not establish native independent reconstruction of every source-conditioned factor.",
+  "consumed_by": [
+    "WCE08",
+    "WCE12"
+  ]
+}

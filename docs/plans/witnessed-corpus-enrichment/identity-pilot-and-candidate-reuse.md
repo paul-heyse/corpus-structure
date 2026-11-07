@@ -196,3 +196,12 @@ source-projection gaps. Uninspected pairs remain unassessed. Exact source occurr
 model proposal standing travel through every read/export; this pilot supplies no public identity.
 Native163 decodes canonical numeric configuration strings at validation without changing stored
 configuration hashes, emitted numeric policy values or semantic release identity.
+
+**Tested, 2026-11-07.** The current artifact journey uses 25 exact retained source-reference
+nomination edges with the matching original captions. Run205/cut283 retains 142 occurrences
+and 116 private candidate pairs. The source-first assessment freezes 67 reference–caption
+pairs, including 13 supported judgments. The projected cohort represents 10 of those
+supported pairs. Three authentic captions remain native-only. All 142 available alias
+states are unknown, so the authentic observed-alias arm remains unavailable. Separate
+blocking, common-support score, sensitivity and threshold results are retained in the
+[pilot evidence](../../design_review/evidence/2026-11-06_wce-completion-repair/artifact/attempt004/pilot-result.json).

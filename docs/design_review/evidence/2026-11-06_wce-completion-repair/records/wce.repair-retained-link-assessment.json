@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "wce.repair-retained-link-assessment",
+  "title": "Actual retained contextual composition assessment",
+  "group": "WCE",
+  "package": "WCE05",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What did the retained contextual route capture, miss or link incorrectly on the frozen affine-transform case?",
+  "answers": [
+    "WCE-R15"
+  ],
+  "method": "Independent source judgments and exact executed observations, with separately bounded conclusions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/composition/adjudicate_nonself.py native-retained002"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "source-references/source-reference.json",
+      "role": null,
+      "sha256": "48dad02962d5f7f93db00b2fbc0426798b04c85510b64d6bfefa4badd1131354"
+    },
+    {
+      "path": "composition/adjudicate_nonself.py",
+      "role": null,
+      "sha256": "b6957d8aead37afd91deeb5695bfc4173c5860b9e31cbd4e6e17926927f1a1a4"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "composition/native-retained002/result.json",
+      "role": null,
+      "sha256": "4b201492eb7355f444955989ce5979d389abc45891e07444400f2fd6b41f7d11"
+    },
+    {
+      "path": "composition/native-retained002/source-judgment.json",
+      "role": null,
+      "sha256": "880cc4cb6f302a20de5691e8d3caa9323c9743edb45e51a5c324899d626edbd1"
+    },
+    {
+      "path": "composition/native-retained002/transports-bounded/result.json",
+      "role": null,
+      "sha256": "93588307ff0d9c32751a079e2458673d522896723e62faf79a3fc1533e2b883f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Retained mentions",
+      "value": 166,
+      "of": null,
+      "unit": "mentions",
+      "note": "Includes nine coarse mentions."
+    },
+    {
+      "name": "Actual candidate lists",
+      "value": 90,
+      "of": null,
+      "unit": "lists",
+      "note": "The exact source assessment grades the named operation opportunity."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Native run189/cut257 and ordinary transports passed. The exact formula Z and its standard-normal target are missing. The selected X links the affine transform to a red-ball count and the independent judgment marks that relation unsupported.",
+  "consumed_by": [
+    "WCE05",
+    "WCE12"
+  ]
+}
