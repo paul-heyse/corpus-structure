@@ -270,6 +270,12 @@ portable decision. [Procedure projection](../../../python/corpus-structure/src/c
 frame sharing the source cue and the authenticated artifact endpoint. Lowercase and
 tab-separated section cues use the same typed discovery and detached decision replay.
 The existing mention-to-caption edge retains its separate meaning.
+In recovered view 162, native run 296/cut 411 emitted the typed edge from
+`shown` in `#/texts/30` at 1297–1302 to `Table 6.1` in `#/texts/37` at
+2320–2329. Its exact work binding came from the sealed artifact replay. The
+no-binding control at run 295/cut 409 retained the action and named cue and emitted
+no scoped artifact or procedure edge. Exact detached replay for the work-bound
+edge passed in `b801a91d3f6f4b6f9fdc887bf5542a29`.
 
 <a id="nce-07-audit"></a>
 **NCE-07-A1 · Finish the lineage and revision distinction.** The observed artifact

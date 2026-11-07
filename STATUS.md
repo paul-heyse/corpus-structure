@@ -53,7 +53,7 @@ _Updated 2026-11-07. The NCE development audit repairs have reached the native, 
 - The current qualifier replay, artifact delivery and both table Reader controls
   passed on 2026-11-07. The seven model provider arms returned real observations.
   Protected fit 3 and its ordinary parameter and feature reads passed on fresh
-  set 30 and evaluation 35. `uv run ci check --view steps --json` passed.
+  set 30 and evaluation 35. Repository checks and the eight native fault tests passed.
 - The private artifact scorer mechanism is complete. Efficacy awaits protected same-lineage assessment.
 - Settle the remaining source opportunities and unrelated factor reconstruction in the WCE
   plan. Live CLI qualification needs a configured production target, purpose roles and

@@ -154,6 +154,8 @@ returned 17, 20, 17, 21 and 21 distinct located roles respectively. They recover
 zero independently expected locations or attachments. The exact-focus clause
 arm matched one of four independent expectations and the adjacent-sentence arm
 matched none. Keep bare and flat for the selected development question.
+Both validators accepted the exact run 288 request and refused resealed schema
+order, overlap policy, threshold and same-passage window substitutions.
 
 <a id="nce-05-audit"></a>
 **NCE-05-A1 · Deliver exact unattached roles with observed loss accounting.** The
