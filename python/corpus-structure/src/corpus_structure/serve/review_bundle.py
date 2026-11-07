@@ -1354,6 +1354,10 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
     closure_reasons: set[bytes] = set()
+    exact_contributions = any(
+        request.selected_task_id is not None or request.contribution_ids
+        for request in selection.selections
+    )
     for name, spec in manifest["relations"].items():
         if not _NAME.fullmatch(name):
             raise ValueError("invalid review relation")
@@ -1532,22 +1536,25 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                         elif name == "inventory":
                             item = payload["row"]
                             index = payload.get("selection_index")
-                            if type(index) is not int or not 0 <= index < len(selection.selections):
+                            if type(index) is int and 0 <= index < len(selection.selections):
+                                request = selection.selections[index]
+                                if (
+                                    request.selected_task_id is not None
+                                    and item.get("selected_task_id") != request.selected_task_id
+                                ):
+                                    raise ValueError(
+                                        "contribution row differs from exact selected task"
+                                    )
+                                if (
+                                    payload.get("population") == "contribution"
+                                    and request.contribution_ids
+                                    and item.get("contribution_id") not in request.contribution_ids
+                                ):
+                                    raise ValueError(
+                                        "contribution row is outside exact selected IDs"
+                                    )
+                            elif exact_contributions:
                                 raise ValueError("contribution row has no selected scope")
-                            request = selection.selections[index]
-                            if (
-                                request.selected_task_id is not None
-                                and item.get("selected_task_id") != request.selected_task_id
-                            ):
-                                raise ValueError(
-                                    "contribution row differs from exact selected task"
-                                )
-                            if (
-                                payload.get("population") == "contribution"
-                                and request.contribution_ids
-                                and item.get("contribution_id") not in request.contribution_ids
-                            ):
-                                raise ValueError("contribution row is outside exact selected IDs")
                             if type(item.get("source_view_id")) is int:
                                 needed_sources.add(item["source_view_id"])
                             needed_sources.update(_item_source_ids(item))
