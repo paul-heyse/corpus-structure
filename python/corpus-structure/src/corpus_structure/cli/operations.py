@@ -26,7 +26,14 @@ from corpus_structure.cli.output import (
     state,
     write_report_text,
 )
-from corpus_structure.cli.recipes import RecipeStep, checkout, run_recipe, run_recipe_steps
+from corpus_structure.cli.recipes import (
+    RecipeCancellation,
+    RecipeStep,
+    StepExcerpt,
+    checkout,
+    run_recipe,
+    run_recipe_steps,
+)
 from corpus_structure.settings import DeploymentProfile, SettingsReport
 
 context_app = typer.Typer(help="Inspect invocation context.")
@@ -65,17 +72,11 @@ class RecipeReport(BaseModel):
     diagnostic: str
 
 
-class RecipeExcerpt(BaseModel):
-    stream: Literal["stdout", "stderr"]
-    text: str
-    truncated: bool
-
-
 class RecipeStepsReport(BaseModel):
     recipe: str
     exit_code: int
     steps: tuple[RecipeStep, ...]
-    excerpts: list[RecipeExcerpt]
+    excerpts: tuple[StepExcerpt, ...]
 
 
 def _render_steps(report: RecipeStepsReport) -> Group:
@@ -88,6 +89,8 @@ def _render_steps(report: RecipeStepsReport) -> Group:
         outcome = step.outcome.replace("_", " ")
         if step.exit_code:
             outcome += f" (exit {step.exit_code})"
+        if step.reason:
+            outcome += f" ({step.reason})"
         retry = ""
         if step.outcome == "failed":
             option = _CHECK_OPTIONS.get(step.name)
@@ -99,7 +102,7 @@ def _render_steps(report: RecipeStepsReport) -> Group:
         parts.append(Text("Step outcomes unavailable"))
     for excerpt in report.excerpts:
         suffix = " (truncated)" if excerpt.truncated else ""
-        parts.extend((Text(f"{report.recipe} {excerpt.stream}{suffix}"), Text(excerpt.text)))
+        parts.extend((Text(f"{excerpt.step} {excerpt.stream}{suffix}"), Text(excerpt.text)))
     return Group(*parts)
 
 
@@ -180,27 +183,14 @@ def check(
         recipe_action(name, json)
         return
     with result_boundary(json):
-        if only:
-            process = run_recipe(name)
-            status = process.returncode
-            outcome = "interrupted" if status in (130, 143) else "failed" if status else "passed"
-            steps = (RecipeStep(name, outcome, status),)
-        else:
-            process, steps = run_recipe_steps(name)
-        excerpts = []
-        if process.returncode:
-            streams: tuple[tuple[Literal["stdout", "stderr"], str], ...] = (
-                ("stdout", process.stdout),
-                ("stderr", process.stderr),
-            )
-            for stream, raw in streams:
-                content = safe_text(raw).strip()
-                if content:
-                    excerpts.append(
-                        RecipeExcerpt(
-                            stream=stream, text=content[-1200:], truncated=len(content) > 1200
-                        )
-                    )
+        try:
+            if only:
+                process, steps, excerpts = run_recipe_steps("ci-check-only", name)
+            else:
+                process, steps, excerpts = run_recipe_steps(name)
+        except RecipeCancellation as error:
+            diagnostic(str(error))
+            raise typer.Exit(128 + error.signum) from None
         emit(
             RecipeStepsReport(
                 recipe=name, exit_code=process.returncode, steps=steps, excerpts=excerpts
@@ -241,14 +231,45 @@ def command_reference(
         raise typer.BadParameter("choose --stdout or --json", param_hint="--stdout")
     if stdout:
         with result_boundary(False):
-            process = run_recipe("ci-reference")
+            try:
+                process = run_recipe("ci-reference", verify_cancelled_group=True)
+            except RecipeCancellation as error:
+                diagnostic(str(error))
+                raise typer.Exit(128 + error.signum) from None
             if process.returncode:
                 diagnostic(safe_text(process.stderr).strip()[-2000:])
                 raise typer.Exit(process.returncode)
             write_report_text(process.stdout)
         return
     with result_boundary(json), result_store(ctx).operation("docs.commands") as result:
-        process = run_recipe("ci-reference")
+        signal = None
+        process = None
+        try:
+            process = run_recipe("ci-reference", verify_cancelled_group=True)
+        except RecipeCancellation as error:
+            signal = error.signum
+            result.defer_settlement()
+        else:
+            if process.returncode in (130, 143):
+                signal = process.returncode - 128
+        if signal is not None:
+            next_action = (
+                "Inspect recipe process custody before retry"
+                if result.manifest.details.get("custody_unsettled")
+                else "ci docs commands"
+            )
+            result.settle("interrupted", signal=signal, next_action=next_action)
+            diagnostic(f"Reference generation interrupted · {next_action}")
+            if json:
+                write_report_text(
+                    jsonlib.dumps(
+                        {"error": {"code": "reference_interrupted", "invocation_id": result.id}}
+                    )
+                    + "\n",
+                    exit_code=128 + signal,
+                )
+            raise typer.Exit(128 + signal)
+        assert process is not None
         if process.returncode:
             raise ResultError(safe_text(process.stderr.strip())[-2000:])
         artifact = result.directory / "commands.md"

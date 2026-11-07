@@ -8,7 +8,6 @@ per call, so a test runner's stream swap and its `COLUMNS` reach them.
 from __future__ import annotations
 
 import os
-import re
 import sys
 from collections.abc import Callable
 from contextlib import suppress
@@ -23,6 +22,7 @@ from rich.pretty import Pretty
 from rich.table import Table
 from rich.text import Text
 
+from corpus_structure._diagnostic_capture import safe_text as safe_text
 from corpus_structure.settings import Settings, SettingsReport, settings_report
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Write the result as JSON to stdout.")]
@@ -51,11 +51,12 @@ def state(ctx: typer.Context) -> CliState:
 
 def _discard_shutdown_output(descriptor: int) -> None:
     # A failed buffered flush is retried during interpreter shutdown.
-    fd = os.open(os.devnull, os.O_WRONLY)
-    try:
-        os.dup2(fd, descriptor)
-    finally:
-        os.close(fd)
+    with suppress(OSError):
+        fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(fd, descriptor)
+        finally:
+            os.close(fd)
 
 
 def _undelivered(exit_code: int) -> None:
@@ -65,10 +66,10 @@ def _undelivered(exit_code: int) -> None:
     if sys.stderr is sys.__stderr__:
         try:
             os.write(2, message.encode())
-        except BrokenPipeError:
+        except OSError:
             _discard_shutdown_output(2)
     else:
-        with suppress(BrokenPipeError):
+        with suppress(OSError):
             sys.stderr.write(message)
             sys.stderr.flush()
     raise typer.Exit(exit_code or 74)
@@ -142,29 +143,6 @@ def emit[Report: BaseModel](
     stdout_console(exit_code=exit_code).print(renderable)
 
 
-_TERMINAL = re.compile(r"\x1b(?:\][^\x07\x1b]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])")
-_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
-_CREDENTIAL = re.compile(
-    r"(://[^:/@\s]+:)[^@/\s]+(?=@)|"
-    r"(?i:(password|token|api[_-]?key)\s*=\s*)(?:'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|[^\s&]+)"
-)
-
-
-def safe_text(value: str) -> str:
-    """Remove terminal controls and redact credentials from complete diagnostic text."""
-    value = _CONTROL.sub("", _TERMINAL.sub("", value))
-    for key, secret in os.environ.items():
-        if secret and (
-            key == "PGPASSWORD"
-            or (
-                key.startswith("CORPUS_")
-                and any(part in key for part in ("PASSWORD", "TOKEN", "API_KEY"))
-            )
-        ):
-            value = value.replace(secret, "**********")
-    return _CREDENTIAL.sub(lambda match: (match[1] or f"{match[2]}=") + "**********", value)
-
-
 def report_fields(*fields: tuple[str, object]) -> Table:
     """Render a short report with literal values and stable labels."""
     table = Table.grid(padding=(0, 1))
@@ -186,4 +164,8 @@ def cli_settings_report(settings: Settings) -> SettingsReport:
 
 
 def diagnostic(value: str) -> None:
-    stderr_console().print(safe_text(value), markup=False, highlight=False)
+    try:
+        stderr_console().print(safe_text(value), markup=False, highlight=False)
+    except OSError:
+        if sys.stderr is sys.__stderr__:
+            _discard_shutdown_output(2)

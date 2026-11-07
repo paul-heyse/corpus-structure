@@ -61,6 +61,9 @@ hygiene: (_bundle "hygiene" hygiene_checks)
 # Read-only repository checks for the installed CLI.
 ci-check: (_bundle "ci-check" "lint-agents adr-lint rules-scan rules-test ruff-check types docs-check deps clippy")
 
+[private]
+ci-check-only step: (_bundle "ci-check-only" step "true")
+
 # Bootstrap from the installed CLI is an explicit effect.
 ci-setup:
     @bash scripts/setup-env
@@ -71,13 +74,14 @@ ruff-check:
 
 # Run each recipe, keep going after a failure, and list the failures
 [private]
-_bundle name steps:
+_bundle name steps exact="false":
     #!/usr/bin/env bash
     set -uo pipefail
     steps=({{ steps }})
     report_fd=${CORPUS_CI_STEP_FD:-}
-    unset CORPUS_CI_STEP_FD
-    if [[ ! $report_fd =~ ^[1-9][0-9]{0,8}$ ]] || (( report_fd < 3 || ${#steps[@]} > 24 )); then
+    step_python=${CORPUS_CI_STEP_PYTHON:-}
+    unset CORPUS_CI_STEP_FD CORPUS_CI_STEP_PYTHON CORPUS_CI_STEP_OUTCOME_FD
+    if [[ ! $report_fd =~ ^[1-9][0-9]{0,8}$ || -z $step_python ]] || (( report_fd < 3 || ${#steps[@]} > 24 )); then
       report_fd=
     fi
     for step in "${steps[@]}"; do
@@ -97,11 +101,13 @@ _bundle name steps:
       record start "$step"
       status=0
       if [[ -n $report_fd ]]; then
-        just "$step" {report_fd}>&- || status=$?
+        "$step_python" -m corpus_structure._diagnostic_capture "$step" "$report_fd" || status=$?
       else
         just "$step" || status=$?
       fi
-      record exit "$step" "$status"
+      if [[ "{{ exact }}" == true ]]; then
+        exit "$status"
+      fi
       if (( status != 0 )); then
         failed+=("$step")
       fi
@@ -153,11 +159,30 @@ model action="check":
 
 # ast-grep scan over the tree (rules/ grows from design-review findings)
 rules-scan:
-    @if ls rules/*.yml >/dev/null 2>&1; then ast-grep scan; else echo "rules-scan: not_run (no rules yet)"; fi
+    @just _rules rules-scan scan
 
 # ast-grep rule fixtures
 rules-test:
-    @if ls rules/*.yml >/dev/null 2>&1; then ast-grep test --skip-snapshot-tests; else echo "rules-test: not_run (no rules yet)"; fi
+    @just _rules rules-test test --skip-snapshot-tests
+
+[private]
+[positional-arguments]
+_rules name +args:
+    #!/usr/bin/env bash
+    name=$1
+    shift
+    outcome_fd=${CORPUS_CI_STEP_OUTCOME_FD:-}
+    unset CORPUS_CI_STEP_OUTCOME_FD
+    if compgen -G 'rules/*.yml' >/dev/null; then
+      if [[ $outcome_fd =~ ^[1-9][0-9]{0,8}$ ]] && (( outcome_fd >= 3 )); then
+        exec ast-grep "$@" {outcome_fd}>&-
+      fi
+      exec ast-grep "$@"
+    fi
+    echo "$name: not_run (no rules yet)"
+    if [[ $outcome_fd =~ ^[1-9][0-9]{0,8}$ ]] && (( outcome_fd >= 3 )); then
+      printf 'no_rules\n' >&"$outcome_fd"
+    fi
 
 # Evidence records (ADR-0010): no args = index + catalog + check; or check | finalize <folder> <id>… |
 # index | catalog | render <template.j2> [-o out] | schema. `index`, `finalize`, `render` edit files.

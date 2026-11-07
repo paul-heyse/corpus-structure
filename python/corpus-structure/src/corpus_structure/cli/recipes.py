@@ -7,6 +7,7 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -14,21 +15,34 @@ from pathlib import Path
 from typing import Literal
 
 import typer
+from pydantic import TypeAdapter, ValidationError
+
+from corpus_structure._diagnostic_capture import EXCERPT_CHARS, StepExcerpt, StepExit
 
 
 class RecipeError(ValueError):
     """A checkout or recipe prerequisite is unavailable."""
 
 
+class RecipeCancellation(RecipeError):
+    """The owner observed a signal but could not establish settlement."""
+
+    def __init__(self, signum: int):
+        self.signum = signum
+        super().__init__("recipe did not report settlement after cancellation")
+
+
 @dataclass(frozen=True)
 class RecipeStep:
     name: str
-    outcome: Literal["passed", "failed", "interrupted", "not_started", "unobserved"]
+    outcome: Literal["passed", "failed", "not_run", "interrupted", "not_started", "unobserved"]
     exit_code: int | None = None
+    reason: str | None = None
 
 
 _STEP_FD = "CORPUS_CI_STEP_FD"
-_STEP_BYTES = 4096  # The _bundle plan and its two records per step fit in this pipe budget.
+_STEP_BYTES = 256 * 1024
+_STEP_EXIT = TypeAdapter(StepExit)
 
 
 def checkout(ctx: typer.Context | None = None) -> Path:
@@ -49,6 +63,7 @@ def run_owned(
     cwd: Path,
     env: dict[str, str] | None = None,
     pass_fds: tuple[int, ...] = (),
+    verify_cancelled_group: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Give recipe supervisors time to settle their own child process groups."""
     proc = subprocess.Popen(
@@ -71,9 +86,8 @@ def run_owned(
             return
         signum = number
         deadline = time.monotonic() + 45
-        if proc.poll() is None:
-            with contextlib.suppress(ProcessLookupError):
-                os.killpg(proc.pid, number)
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, number)
 
     previous = {}
     if threading.current_thread() is threading.main_thread():
@@ -90,10 +104,22 @@ def run_owned(
                 if deadline is not None and time.monotonic() >= deadline:
                     with contextlib.suppress(ProcessLookupError):
                         os.killpg(proc.pid, signal.SIGKILL)
-                    proc.wait(timeout=5)
-                    raise RecipeError(
-                        "recipe did not report settlement after cancellation"
-                    ) from None
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        proc.wait(timeout=5)
+                    assert signum is not None
+                    raise RecipeCancellation(signum) from None
+        if verify_cancelled_group and signum is not None:
+            assert deadline is not None
+            while True:
+                try:
+                    os.killpg(proc.pid, 0)
+                except ProcessLookupError:
+                    break
+                if time.monotonic() >= deadline:
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    raise RecipeCancellation(signum)
+                time.sleep(0.05)
         return subprocess.CompletedProcess(
             argv, proc.returncode if signum is None else 128 + signum, stdout, stderr
         )
@@ -110,6 +136,7 @@ def run_recipe(
     *args: str,
     env: dict[str, str] | None = None,
     pass_fds: tuple[int, ...] = (),
+    verify_cancelled_group: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     root = checkout()
     return run_owned(
@@ -125,63 +152,89 @@ def run_recipe(
         cwd=root,
         env=env,
         pass_fds=pass_fds,
+        verify_cancelled_group=verify_cancelled_group,
     )
 
 
 def run_recipe_steps(
     name: str,
-) -> tuple[subprocess.CompletedProcess[str], tuple[RecipeStep, ...]]:
-    """Collect only owned bundle records, independently of foreign stdout and stderr."""
+    *args: str,
+) -> tuple[subprocess.CompletedProcess[str], tuple[RecipeStep, ...], tuple[StepExcerpt, ...]]:
+    """Drain the owned side channel independently of the recipe's ordinary streams."""
     read_fd, write_fd = os.pipe()
+    body = bytearray()
+
+    def drain() -> None:
+        with os.fdopen(read_fd, "rb") as stream:
+            while chunk := stream.read1(8192):
+                remaining = _STEP_BYTES + 1 - len(body)
+                body.extend(chunk[:remaining])
+
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
     try:
-        try:
-            os.set_blocking(write_fd, False)
-            process = run_recipe(
-                name, env={**os.environ, _STEP_FD: str(write_fd)}, pass_fds=(write_fd,)
-            )
-        finally:
-            os.close(write_fd)
-        try:
-            os.set_blocking(read_fd, False)
-            body = os.read(read_fd, _STEP_BYTES + 1)
-        except BlockingIOError:
-            body = b""
+        process = run_recipe(
+            name,
+            *args,
+            env={
+                **os.environ,
+                _STEP_FD: str(write_fd),
+                "CORPUS_CI_STEP_PYTHON": sys.executable,
+            },
+            pass_fds=(write_fd,),
+        )
     finally:
-        os.close(read_fd)
+        os.close(write_fd)
+        reader.join(timeout=2)
+    if reader.is_alive():
+        return process, (), ()
     interrupted = process.returncode in (130, 143, -signal.SIGINT, -signal.SIGTERM)
-    return process, _recipe_steps(body, interrupted=interrupted)
+    steps, excerpts = _recipe_steps(bytes(body), interrupted=interrupted)
+    return process, steps, excerpts
 
 
-def _recipe_steps(body: bytes, *, interrupted: bool) -> tuple[RecipeStep, ...]:
-    if not body.endswith(b"\n") or len(body) > _STEP_BYTES or not body.isascii():
-        return ()
-    header, *records = [line.split() for line in body.decode("ascii").splitlines()]
-    if not header or header[0] != "plan" or not header[1:]:
-        return ()
-    names = header[1:]
+def _recipe_steps(
+    body: bytes, *, interrupted: bool
+) -> tuple[tuple[RecipeStep, ...], tuple[StepExcerpt, ...]]:
+    if not body.endswith(b"\n") or len(body) > _STEP_BYTES:
+        return (), ()
+    header, *records = body.rstrip(b"\n").split(b"\n")
+    if not header.startswith(b"plan ") or not header.isascii():
+        return (), ()
+    names = header.decode("ascii").split()[1:]
     if len(names) > 24 or len(names) != len(set(names)):
-        return ()
+        return (), ()
     if any(not re.fullmatch(r"[a-zA-Z0-9_-]{1,40}", name) for name in names):
-        return ()
+        return (), ()
     events = iter(records)
     steps = []
+    excerpts = []
     for name in names:
         start = next(events, None)
         if start is None:
             steps.append(RecipeStep(name, "not_started" if interrupted else "unobserved"))
             continue
-        if start != ["start", name]:
-            return ()
-        match next(events, None):
-            case ["exit", exit_name, code] if exit_name == name and code.isdecimal():
-                if len(code) > 3:
-                    return ()
-                status = int(code)
-                if status > 255:
-                    return ()
-                steps.append(RecipeStep(name, "failed" if status else "passed", status))
-            case None:
-                steps.append(RecipeStep(name, "interrupted" if interrupted else "unobserved"))
-            case _:
-                return ()
-    return tuple(steps) if next(events, None) is None else ()
+        if start != f"start {name}".encode():
+            return (), ()
+        end = next(events, None)
+        if end is None:
+            steps.append(RecipeStep(name, "interrupted" if interrupted else "unobserved"))
+            continue
+        try:
+            exit = _STEP_EXIT.validate_json(end, strict=True)
+        except ValidationError:
+            return (), ()
+        if exit.name != name or not 0 <= exit.status <= 255:
+            return (), ()
+        if any(item.step != name or len(item.text) > EXCERPT_CHARS for item in exit.excerpts):
+            return (), ()
+        if exit.interrupted:
+            steps.append(RecipeStep(name, "interrupted"))
+        elif exit.status:
+            steps.append(RecipeStep(name, "failed", exit.status))
+        elif exit.no_rules:
+            steps.append(RecipeStep(name, "not_run", 0, "no rules yet"))
+        else:
+            steps.append(RecipeStep(name, "passed", 0))
+        excerpts.extend(exit.excerpts)
+    return (tuple(steps), tuple(excerpts)) if next(events, None) is None else ((), ())
