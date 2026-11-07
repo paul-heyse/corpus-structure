@@ -1,8 +1,8 @@
 # Managed model and corpus reads
 
-**Status:** Bound inspection and installed native journeys verified in the reporting worktree.
-The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) owns main
-integration and qualification. This plan consumes [O03](../../functional_reviews/cli-reporting_2026-11-07.md#O03)
+**Status:** Bound inspection and installed native journeys verified on main.
+The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) records the
+merged-source verification. This plan consumes [O03](../../functional_reviews/cli-reporting_2026-11-07.md#O03)
 and [O04](../../functional_reviews/cli-reporting_2026-11-07.md#O04).
 
 <a id="CLIR-03"></a>

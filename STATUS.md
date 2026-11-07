@@ -37,8 +37,8 @@ _Updated 2026-11-07. NCE-01 and the selected NCE-02 scope are verified in develo
 ## CLI operations — 2026-11-07
 
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
-- The [CLI reporting repair](docs/plans/cli-reporting_2026-11-07.md#audit-repair-execution) passed
-  targeted branch validation. Main integration waits for the NCE pause point.
+- The [CLI reporting repairs](docs/plans/cli-reporting_2026-11-07.md#merged-source-verification)
+  passed targeted main verification, including the installed native journeys.
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.

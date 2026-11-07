@@ -1,8 +1,8 @@
 # Stream behavior and diagnostics
 
-**Status:** Stream delivery, stage reporting and step diagnostics verified in the reporting worktree.
-The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) owns main
-integration and qualification. This plan consumes
+**Status:** Stream delivery, stage reporting and step diagnostics verified on main.
+The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) records the
+merged-source verification. This plan consumes
 [O06](../../functional_reviews/cli-reporting_2026-11-07.md#O06) and
 [O07](../../functional_reviews/cli-reporting_2026-11-07.md#O07).
 

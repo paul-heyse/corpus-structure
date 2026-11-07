@@ -1,8 +1,8 @@
 # Reporting contracts and test evidence
 
-**Status:** Ordered test views, context and custody verified in the reporting worktree.
-The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) owns main
-integration and qualification. This plan consumes [O01](../../functional_reviews/cli-reporting_2026-11-07.md#O01)
+**Status:** Ordered test views, context and custody verified on main.
+The [coordinator](../cli-reporting_2026-11-07.md#audit-repair-execution) records the
+merged-source verification. This plan consumes [O01](../../functional_reviews/cli-reporting_2026-11-07.md#O01)
 and [O02](../../functional_reviews/cli-reporting_2026-11-07.md#O02).
 
 <a id="CLIR-01"></a>
