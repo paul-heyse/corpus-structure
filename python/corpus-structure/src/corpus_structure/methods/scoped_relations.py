@@ -1021,6 +1021,11 @@ def discover_relations(
                     inspected_count=len(equations),
                     emitted_count=inline_emitted,
                     computation_dependencies=(dependency,),
+                    **(
+                        {"reason": "Some selected inline equations lack mapped native syntax."}
+                        if unavailable
+                        else {}
+                    ),
                 ),
             )
     return dict(

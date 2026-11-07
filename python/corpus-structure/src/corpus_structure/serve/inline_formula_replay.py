@@ -102,6 +102,14 @@ def verify_inline_formula_report(report, source):
     if op["outcome"] != outcome or len(expected) != len(actual):
         raise ValueError("inline formula operation differs from replayed syntax")
 
+    formula_ids = {row["contribution_id"] for row in actual}
+    if formula_ids and any(
+        endpoint["contribution_id"] in formula_ids
+        for row in body["contributions"]
+        if row["kind"] == "relation"
+        for endpoint in row["endpoints"]
+    ):
+        raise ValueError("inline formula occurrence must remain syntax-only evidence")
     for row in actual:
         value = source_python(row["value"])
         pointer, start, end = value["source_pointer"], value["start"], value["end"]
