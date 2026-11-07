@@ -51,9 +51,9 @@ _Updated 2026-11-07. CLI completion audit confirmed partial delivery. The observ
 
 ## Next
 
-- The [next enrichment review](docs/functional_reviews/next-corpus-enrichment_2026-11-07.md)
-  proposes caption recovery, qualified roles and witnessed links first. `just docs-check`
-  passed on 2026-11-07 for the review. Product and provider verification was `not_run`.
+- The [next corpus enrichment series](docs/plans/next-corpus-enrichment_2026-11-07.md)
+  proposes NCE-01 caption recovery and NCE-02 qualified roles first. `just docs-check`
+  passed on 2026-11-07 for the plans. Package implementation and provider checks are `not_run`.
 - Settle the remaining source opportunities and exact native table factor reconstruction in
   the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
   Fitting remains `not_run` pending compatible events and protected evaluations.
