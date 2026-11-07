@@ -33,6 +33,9 @@ dev = [
 ]
 
 [tool.uv]
+# Docling Core caps its CLI dependency below 0.28. Keep this override scoped to the
+# qualified workspace until Docling Core declares compatibility with the selected pin.
+override-dependencies = ["typer==0.28.0"]
 package = false
 # `uv add` writes an exact `==` pin (AGENTS.md, Dependencies).
 add-bounds = "exact"
