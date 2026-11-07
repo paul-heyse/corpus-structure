@@ -11,6 +11,7 @@ from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOut
 from corpus_structure.semantic.artifact_identity import (
     ArtifactCitation,
     ArtifactIdentityProduct,
+    ArtifactNomination,
     ArtifactPairKey,
     ArtifactRecord,
     ArtifactScoringPolicy,
@@ -21,6 +22,7 @@ from corpus_structure.semantic.artifact_identity import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import (
     StructuralInput,
     StructuralProductReport,
@@ -36,7 +38,7 @@ class ArtifactIdentityConfig(StructuralValue):
     work_bindings: tuple[SourceWorkBinding, ...] = ()
     policy: ArtifactScoringPolicy | None = None
     title_threshold: float = Field(default=70, ge=0, le=100)
-    external_pairs: tuple[tuple[str, str], ...] = ()
+    external_nomination_refs: tuple[RetainedContributionRef, ...] = ()
     exclusions: tuple[tuple[str, str], ...] = ()
     known_anchor_ids: tuple[str, ...] = ()
 
@@ -47,13 +49,18 @@ class ArtifactIdentityConfig(StructuralValue):
                 self.structural_input_digest
                 or self.policy
                 or self.work_bindings
-                or self.external_pairs
+                or self.external_nomination_refs
                 or self.exclusions
                 or self.known_anchor_ids
             ):
                 raise ValueError("partial artifact identity config")
         elif self.structural_input_digest != self.inputs.identity or self.policy is None:
             raise ValueError("artifact identity requires exact sources and declared model policy")
+        nomination_ids = {r.contribution_id for r in self.external_nomination_refs}
+        if len(nomination_ids) != len(self.external_nomination_refs) or (
+            self.inputs is not None and not nomination_ids <= set(self.inputs.dependencies)
+        ):
+            raise ValueError("external nomination requires distinct declared dependencies")
         if len(set(self.known_anchor_ids)) != len(self.known_anchor_ids):
             raise ValueError("known artifact anchors repeat")
         if len({b.native_content_digest for b in self.work_bindings}) != len(self.work_bindings):
@@ -111,9 +118,79 @@ def discover_identity_records(frame, inputs, source_ref, source_work):
     return tuple(records)
 
 
+def retained_artifact_nomination(inputs, records, reference, payload) -> ArtifactNomination:
+    """Bind one genuine retained reference relationship to its exact cohort endpoints."""
+    if reference.contribution_id not in inputs.dependencies:
+        raise ValueError("artifact nomination outside declared dependencies")
+    rows = {row["contribution_id"]: row for row in payload["contributions"]}
+    relation = rows.get(reference.contribution_id)
+    if (
+        relation is None
+        or relation["semantic_type"] != "structural.scoped_attachment"
+        or source_python(relation["value"])["relation"] != "artifact_reference_target"
+    ):
+        raise ValueError("artifact nomination requires a retained reference-target relationship")
+    endpoints = relation.get("endpoints", ())
+    if len(endpoints) != 2 or {e["role"] for e in endpoints} != {"attachment", "target"}:
+        raise ValueError("artifact nomination requires two role-bound endpoints")
+    input_sources = {s.source_view_id: s for s in inputs.sources}
+    ids = {}
+    for endpoint in endpoints:
+        row = rows.get(endpoint["contribution_id"])
+        if row is None or not row["anchors"]:
+            raise ValueError("artifact nomination endpoint lacks retained source evidence")
+        if not (
+            row["semantic_type"] == "structural.artifact"
+            or (
+                row["semantic_type"] == "structural.located_participant"
+                and source_python(row["value"])["role"] == "artifact_reference"
+            )
+        ):
+            raise ValueError("artifact nomination endpoint has an incompatible source role")
+        pin = row["pin"]
+        source = input_sources.get(pin["source_view_id"])
+        if source is None or (
+            source.native_task_id,
+            source.native_product_key,
+            source.native_content_digest,
+            source.projection_digest,
+            source.recipe_digest,
+        ) != (
+            pin["native_product_task_id"],
+            pin["product_key"],
+            pin["product_digest"],
+            pin["projection_digest"],
+            pin["recipe_digest"],
+        ):
+            raise ValueError("artifact nomination endpoint lies outside selected sources")
+        expected_role = "reference" if endpoint["role"] == "attachment" else "caption"
+        matches = [
+            record.contribution_id
+            for record in records
+            if record.occurrence_id == row["occurrence_id"]
+            and record.artifact.occurrence_role == expected_role
+            and any(
+                citation.source_ref == source.identity
+                and any(
+                    anchor["pointer"] == citation.source_pointer
+                    and anchor["source_piece"] == citation.text
+                    for anchor in row["anchors"]
+                )
+                for citation in record.citations
+            )
+        ]
+        if len(matches) != 1:
+            raise ValueError("artifact nomination endpoint lacks exactly one selected artifact")
+        ids[endpoint["role"]] = matches[0]
+    left, right = sorted(ids.values())
+    if left == right:
+        raise ValueError("artifact nomination cannot reference its own occurrence")
+    return ArtifactNomination(left=left, right=right, relationship=reference)
+
+
 class ArtifactIdentityMethod:
     name = "structure.artifact_identity"
-    version = "1"
+    version = "2"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -153,36 +230,21 @@ class ArtifactIdentityMethod:
                 record,
             )
         selected = tuple(cohort.values())
+        nominations = []
+        for reference in sorted(cfg.external_nomination_refs, key=lambda ref: ref.contribution_id):
+            ctx.check_active()
+            payload = ctx.reader.retained_source_contribution(reference)
+            nominations.append(retained_artifact_nomination(cfg.inputs, selected, reference, payload))
+        alias, _ = native_alias_candidates(selected)
         pairs = pair_candidates(
             selected,
-            external_pairs=cfg.external_pairs,
+            external_nominations=tuple(nominations),
+            native_alias_pairs=alias,
             title_threshold=cfg.title_threshold,
             exclusions=cfg.exclusions,
             known_anchor_ids=cfg.known_anchor_ids,
         )
-        alias = native_alias_candidates(selected)
-        # Native array blocking is an independently retained generator arm.
-        selected_pairs = {(p.left, p.right): p for p in pairs}
-        for endpoints in alias:
-            if endpoints not in selected_pairs:
-                extra = pair_candidates(
-                    selected,
-                    external_pairs=(endpoints,),
-                    exclusions=cfg.exclusions,
-                    known_anchor_ids=cfg.known_anchor_ids,
-                )
-                selected_pairs[endpoints] = next(p for p in extra if (p.left, p.right) == endpoints)
-            p = selected_pairs[endpoints]
-            selected_pairs[endpoints] = p.model_copy(
-                update={
-                    "candidate_routes": tuple(
-                        dict.fromkeys((*p.candidate_routes, "native_alias_array"))
-                    )
-                }
-            )
-        scored = score_pairs(
-            selected, tuple(selected_pairs[k] for k in sorted(selected_pairs)), cfg.policy
-        )
+        scored = score_pairs(selected, pairs, cfg.policy)
         report = StructuralProductReport(
             kind="artifact_identity",
             inputs=cfg.inputs,
@@ -190,6 +252,7 @@ class ArtifactIdentityMethod:
                 records=selected,
                 pairs=scored,
                 native_alias_pairs=tuple(ArtifactPairKey(left=a, right=b) for a, b in alias),
+                external_nominations=tuple(nominations),
                 policy=cfg.policy,
                 source_mapping_provenance=tuple(sorted(set(provenance))),
                 unbound_source_ids=tuple(unbound),

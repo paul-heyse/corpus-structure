@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
 from hashlib import sha256
 from itertools import combinations
 from typing import Literal
@@ -11,16 +12,35 @@ from pydantic import Field, JsonValue, model_validator
 from rapidfuzz.fuzz import ratio
 
 from .identity import canonical_bytes
+from .retained_contributions import RetainedContributionRef
 from .structural_base import StructuralValue
 
 
+class ArtifactAliasSpan(StructuralValue):
+    """An exact character extent in an authenticated native item."""
+
+    source_pointer: str = Field(min_length=1)
+    start: int = Field(ge=0, strict=True)
+    end: int = Field(gt=0, strict=True)
+    text: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def extent(self):
+        if self.end - self.start != len(self.text) or not self.text.strip():
+            raise ValueError("artifact alias evidence differs from its exact native extent")
+        return self
+
+
 class SourceArtifactOccurrence(StructuralValue):
-    protocol: Literal["source-artifact-occurrence-1"] = "source-artifact-occurrence-1"
+    protocol: Literal["source-artifact-occurrence-2"] = "source-artifact-occurrence-2"
     artifact_kind: Literal["table", "figure", "theorem", "section"]
     source_work: str = Field(min_length=1)
     controlled_code: str | None = None
     title: str | None = None
     aliases: tuple[str, ...] = ()
+    alias_state: Literal["unknown", "known_empty", "observed"] = "unknown"
+    alias_occurrences: tuple[ArtifactAliasSpan, ...] = ()
+    alias_absence: ArtifactAliasSpan | None = None
     revision: str | None = None
     revision_state: Literal["observed", "unknown", "malformed", "unresolved"] = "unknown"
     occurrence_role: Literal["caption", "reference"]
@@ -30,11 +50,54 @@ class SourceArtifactOccurrence(StructuralValue):
 
     @model_validator(mode="after")
     def provenance(self):
+        if self.alias_state == "observed":
+            if (
+                not self.alias_occurrences
+                or tuple(a.text for a in self.alias_occurrences) != self.aliases
+                or len(set(self.alias_occurrences)) != len(self.alias_occurrences)
+                or self.alias_absence is not None
+            ):
+                raise ValueError("observed aliases require distinct exact located evidence")
+        elif (
+            self.aliases
+            or self.alias_occurrences
+            or (self.alias_absence is not None) != (self.alias_state == "known_empty")
+        ):
+            raise ValueError("known empty aliases require explicit source evidence")
         if (self.revision is not None) != (self.revision_state == "observed"):
             raise ValueError("only observed revisions carry an interpreted revision")
         if len(set(self.dependencies)) != len(self.dependencies):
             raise ValueError("artifact dependencies repeat")
         return self
+
+
+_ALIAS = re.compile(r'\s*\((?:alias:|also called|also known as)\s*"([^"\r\n]+)"\s*\)', re.I | re.ASCII)
+_ALIAS_ABSENCE = re.compile(r'\s*\((aliases:\s*none)\s*\)', re.I | re.ASCII)
+
+
+def source_alias_fields(text: str, artifact_end: int, source_pointer: str) -> dict:
+    """Read explicit alias declarations attached to this exact artifact citation."""
+    spans = []
+    cursor = artifact_end
+    while (match := _ALIAS.match(text, cursor)) is not None and match.group(1).strip():
+        start, end = match.span(1)
+        spans.append(dict(source_pointer=source_pointer, start=start, end=end, text=match.group(1)))
+        cursor = match.end()
+    if spans:
+        return dict(
+            aliases=tuple(span["text"] for span in spans),
+            alias_state="observed",
+            alias_occurrences=tuple(spans),
+        )
+    if (absence := _ALIAS_ABSENCE.match(text, artifact_end)) is not None:
+        start, end = absence.span(1)
+        return dict(
+            aliases=(),
+            alias_state="known_empty",
+            alias_occurrences=(),
+            alias_absence=dict(source_pointer=source_pointer, start=start, end=end, text=absence.group(1)),
+        )
+    return dict(aliases=(), alias_state="unknown", alias_occurrences=())
 
 
 class ArtifactCitation(StructuralValue):
@@ -70,10 +133,17 @@ class ArtifactPairKey(StructuralValue):
     right: str = Field(min_length=1)
 
 
+class ArtifactNomination(ArtifactPairKey):
+    relationship: RetainedContributionRef
+
+
+ArtifactRoute = Literal["exact_code", "lexical_title", "external_pairs", "native_alias_array"]
+
+
 class ArtifactPair(StructuralValue):
     left: str
     right: str
-    candidate_routes: tuple[str, ...] = Field(min_length=1)
+    candidate_routes: tuple[ArtifactRoute, ...] = Field(min_length=1)
     scope_state: Literal["compatible", "excluded"]
     revision_relation: Literal["same_observed", "different_observed", "unknown"]
     lexical_score: float = Field(ge=0, le=1)
@@ -97,7 +167,8 @@ def normalized_code(code: str | None) -> str | None:
 def pair_candidates(
     records: tuple[ArtifactRecord, ...],
     *,
-    external_pairs=(),
+    external_nominations: tuple[ArtifactNomination, ...] = (),
+    native_alias_pairs: tuple[tuple[str, str], ...] = (),
     title_threshold=70.0,
     exclusions=(),
     known_anchor_ids=(),
@@ -108,9 +179,13 @@ def pair_candidates(
     by_id = {r.contribution_id: r for r in records}
     if len(by_id) != len(records):
         raise ValueError("artifact record identifiers repeat")
-    external = {tuple(sorted(p)) for p in external_pairs}
-    forbidden = {tuple(sorted(p)) for p in exclusions}
-    if any(len(p) != 2 or p[0] == p[1] or not set(p) <= by_id.keys() for p in external | forbidden):
+    external: dict[tuple[str, str], set[str]] = {}
+    for nomination in external_nominations:
+        key = (min(nomination.left, nomination.right), max(nomination.left, nomination.right))
+        external.setdefault(key, set()).add(nomination.relationship.contribution_id)
+    alias = {(min(left, right), max(left, right)) for left, right in native_alias_pairs}
+    forbidden = {(min(left, right), max(left, right)) for left, right in exclusions}
+    if any(len(p) != 2 or p[0] == p[1] or not set(p) <= by_id.keys() for p in external.keys() | forbidden | alias):
         raise ValueError("pair endpoints must be distinct selected artifact records")
     anchors = frozenset(known_anchor_ids)
     if len(anchors) != len(known_anchor_ids) or not anchors <= by_id.keys():
@@ -124,17 +199,19 @@ def pair_candidates(
         if a.occurrence_id == b.occurrence_id:
             continue
         compatible = (av.source_work, av.artifact_kind) == (bv.source_work, bv.artifact_kind)
-        routes = []
+        routes: list[ArtifactRoute] = []
         code_a, code_b = normalized_code(av.controlled_code), normalized_code(bv.controlled_code)
         if compatible and code_a is not None and code_a == code_b:
             routes.append("exact_code")
         lexical = ratio(av.title, bv.title) / 100 if av.title and bv.title else 0.0
         if compatible and av.title and bv.title and lexical * 100 >= title_threshold:
             routes.append("lexical_title")
-        if compatible and set(av.aliases) & set(bv.aliases):
-            routes.append("alias_array")
         if (left, right) in external:
             routes.append("external_pairs")
+        if (left, right) in alias:
+            if not compatible or not set(alias_tokens(av)) & set(alias_tokens(bv)):
+                raise ValueError("native alias pair lacks compatible observed aliases")
+            routes.append("native_alias_array")
         if not routes:
             continue
         revision = (
@@ -164,7 +241,17 @@ def pair_candidates(
                 scope_state="compatible" if compatible and permitted else "excluded",
                 revision_relation=revision,
                 lexical_score=lexical,
-                dependencies=tuple(sorted(set((left, right, *av.dependencies, *bv.dependencies)))),
+                dependencies=tuple(
+                    sorted(
+                        {
+                            left,
+                            right,
+                            *av.dependencies,
+                            *bv.dependencies,
+                            *external.get((left, right), ()),
+                        }
+                    )
+                ),
             )
         )
     return tuple(result)
@@ -180,22 +267,17 @@ class ArtifactScoringPolicy(StructuralValue):
     title_u: float = Field(gt=0, lt=1)
 
 
-def score_pairs(
-    records: tuple[ArtifactRecord, ...],
-    pairs: tuple[ArtifactPair, ...],
-    policy: ArtifactScoringPolicy,
-) -> tuple[ArtifactPair, ...]:
-    """Score exactly the registered eligible pair IDs using a frozen Splink model."""
+def alias_tokens(artifact: SourceArtifactOccurrence) -> tuple[str, ...]:
+    return tuple(sorted({alias.strip().casefold() for alias in artifact.aliases}))
+
+
+@contextmanager
+def artifact_linker(records: tuple[ArtifactRecord, ...], policy: ArtifactScoringPolicy):
+    """One bounded provider instance for the released fixed model."""
     import duckdb
     from splink import DuckDBAPI, Linker, SettingsCreator
     from splink.comparison_library import ExactMatch
 
-    allowed = tuple(p for p in pairs if p.scope_state == "compatible")
-    if not allowed:
-        return pairs
-    source = {r.contribution_id: r for r in records}
-    if any(p.left not in source or p.right not in source for p in allowed):
-        raise ValueError("scored pair outside selected population")
     payload = [
         dict(
             unique_id=r.contribution_id,
@@ -218,29 +300,57 @@ def score_pairs(
                 u_probabilities=[policy.title_u, 1 - policy.title_u],
             ),
         ],
+        retain_matching_columns=True,
         retain_intermediate_calculation_columns=True,
     )
     with duckdb.connect() as connection:
         api = DuckDBAPI(connection=connection)
-        linker = Linker(api.register(payload, dataset_display_name="artifacts"), settings)
-        table = linker.table_management.register_table(
-            [
-                dict(
-                    join_key_l=p.left,
-                    join_key_r=p.right,
-                    source_dataset_l="artifacts",
-                    source_dataset_r="artifacts",
-                    match_key="external",
-                )
-                for p in allowed
-            ],
-            "owned_artifact_pairs",
-        )
-        linker.table_management.register_blocked_pairs_for_predict(table)
-        predicted = linker.inference.predict().as_record_list()
-    probabilities = {tuple(sorted((r["unique_id_l"], r["unique_id_r"]))): r for r in predicted}
-    if set(probabilities) != {(p.left, p.right) for p in allowed}:
+        yield Linker(api.register(payload, dataset_display_name="artifacts"), settings)
+
+
+def predict_artifact_pairs(linker, allowed: tuple[tuple[str, str], ...]):
+    """Register exactly one deduplicated pair population for a provider prediction."""
+    if not allowed:
+        return {}
+    table = linker.table_management.register_table(
+        [
+            dict(
+                join_key_l=left,
+                join_key_r=right,
+                source_dataset_l="artifacts",
+                source_dataset_r="artifacts",
+                match_key="external",
+            )
+            for left, right in allowed
+        ],
+        "owned_artifact_pairs",
+        overwrite=True,
+    )
+    linker.table_management.register_blocked_pairs_for_predict(table)
+    predictions = linker.inference.predict().as_record_list()
+    scored = {
+        (min(r["unique_id_l"], r["unique_id_r"]), max(r["unique_id_l"], r["unique_id_r"])): r
+        for r in predictions
+    }
+    if len(predictions) != len(allowed) or set(scored) != set(allowed):
         raise ValueError("provider changed selected pair membership")
+    return scored
+
+
+def score_pairs(
+    records: tuple[ArtifactRecord, ...],
+    pairs: tuple[ArtifactPair, ...],
+    policy: ArtifactScoringPolicy,
+) -> tuple[ArtifactPair, ...]:
+    """Score exactly the registered eligible pair IDs using a frozen Splink model."""
+    allowed = tuple((p.left, p.right) for p in pairs if p.scope_state == "compatible")
+    if not allowed:
+        return pairs
+    source = {r.contribution_id for r in records}
+    if any(left not in source or right not in source for left, right in allowed):
+        raise ValueError("scored pair outside selected population")
+    with artifact_linker(records, policy) as linker:
+        probabilities = predict_artifact_pairs(linker, allowed)
     return tuple(
         ArtifactPair.model_validate(
             {
@@ -264,20 +374,22 @@ def pair_identity(pair: ArtifactPair) -> str:
     return sha256(canonical_bytes([pair.left, pair.right])).hexdigest()
 
 
-def native_alias_candidates(records: tuple[ArtifactRecord, ...]) -> tuple[tuple[str, str], ...]:
+def native_alias_candidates(
+    records: tuple[ArtifactRecord, ...], *, count_rules: bool = False
+) -> tuple[tuple[tuple[str, str], ...], tuple[dict[str, JsonValue], ...]]:
     """Actual Splink array blocking; title-derived aliases must not be fabricated."""
     import duckdb
     from splink import DuckDBAPI, Linker, SettingsCreator, block_on
 
     eligible = [r for r in records if r.artifact.aliases]
     if len(eligible) < 2:
-        return ()
+        return (), ()
     payload = [
         dict(
             unique_id=r.contribution_id,
             source_work=r.artifact.source_work,
             artifact_kind=r.artifact.artifact_kind,
-            aliases=list(r.artifact.aliases),
+            aliases=list(alias_tokens(r.artifact)),
         )
         for r in eligible
     ]
@@ -292,17 +404,33 @@ def native_alias_candidates(records: tuple[ArtifactRecord, ...]) -> tuple[tuple[
         api = DuckDBAPI(connection=connection)
         linker = Linker(api.register(payload, dataset_display_name="artifacts"), settings)
         blocked = linker.inference.compute_blocked_pairs_for_predict().as_record_list()
-    return tuple(sorted({tuple(sorted((r["join_key_l"], r["join_key_r"]))) for r in blocked}))
+        counts = (
+            tuple(dict(row) for row in linker.blocking_analysis.count_comparisons_from_blocking_rules(
+                record_sample_proportion=1.0
+            ))
+            if count_rules
+            else ()
+        )
+    pairs = tuple(
+        sorted(
+            {
+                (min(row["join_key_l"], row["join_key_r"]), max(row["join_key_l"], row["join_key_r"]))
+                for row in blocked
+            }
+        )
+    )
+    return pairs, counts
 
 
 class ArtifactIdentityProduct(StructuralValue):
     """One selected source-work cohort, candidate routes and frozen model results."""
 
-    protocol: Literal["artifact-identity-1"] = "artifact-identity-1"
+    protocol: Literal["artifact-identity-2"] = "artifact-identity-2"
     identity_grain: Literal["source_work_artifact_lineage"] = "source_work_artifact_lineage"
     records: tuple[ArtifactRecord, ...] = ()
     pairs: tuple[ArtifactPair, ...] = ()
     native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
+    external_nominations: tuple[ArtifactNomination, ...] = ()
     policy: ArtifactScoringPolicy
     source_mapping_provenance: tuple[str, ...] = ()
     known_anchor_ids: tuple[str, ...] = ()
@@ -317,8 +445,8 @@ class ArtifactIdentityProduct(StructuralValue):
         anchors = frozenset(self.known_anchor_ids)
         if len(anchors) != len(self.known_anchor_ids) or not anchors <= by_id.keys():
             raise ValueError("known anchors must be distinct selected artifact records")
-        keys = {(p.left, p.right) for p in self.pairs}
-        if len(keys) != len(self.pairs):
+        by_pair = {(p.left, p.right): p for p in self.pairs}
+        if len(by_pair) != len(self.pairs):
             raise ValueError("identity pairs repeat")
         for pair in self.pairs:
             if pair.left >= pair.right or not {pair.left, pair.right} <= by_id.keys():
@@ -335,8 +463,34 @@ class ArtifactIdentityProduct(StructuralValue):
                 pair.scope_state != "compatible" or pair.model_id != self.policy.identity
             ):
                 raise ValueError("identity score lacks selected frozen model custody")
-        for native_pair in self.native_alias_pairs:
-            left, right = native_pair.left, native_pair.right
-            if left >= right or not {left, right} <= by_id.keys():
-                raise ValueError("native alias pair outside exact cohort")
+        nomination_ids = set()
+        nominated = set()
+        for nomination in self.external_nominations:
+            relation_id = nomination.relationship.contribution_id
+            key = (nomination.left, nomination.right)
+            pair = by_pair.get(key)
+            if (
+                relation_id in nomination_ids
+                or pair is None
+                or "external_pairs" not in pair.candidate_routes
+                or relation_id not in pair.dependencies
+            ):
+                raise ValueError("external nomination lacks its exact pair and relationship proof")
+            nomination_ids.add(relation_id)
+            nominated.add(key)
+        if nominated != {key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes}:
+            raise ValueError("external pair route lacks an authenticated nomination")
+
+        alias_pairs = {(p.left, p.right) for p in self.native_alias_pairs}
+        if len(alias_pairs) != len(self.native_alias_pairs) or alias_pairs != {
+            key for key, p in by_pair.items() if "native_alias_array" in p.candidate_routes
+        }:
+            raise ValueError("native alias pair ledger differs from candidate routes")
+        for left, right in alias_pairs:
+            a, b = by_id[left].artifact, by_id[right].artifact
+            if (
+                (a.source_work, a.artifact_kind) != (b.source_work, b.artifact_kind)
+                or not set(alias_tokens(a)) & set(alias_tokens(b))
+            ):
+                raise ValueError("native alias pair lacks compatible located alias evidence")
         return self

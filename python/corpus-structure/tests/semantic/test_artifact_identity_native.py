@@ -15,7 +15,7 @@ def artifact_helper_sql():
         .read_text()
     )
     return sql[
-        sql.index("CREATE OR REPLACE FUNCTION ops.artifact_source_records") : sql.index(
+        sql.index("CREATE OR REPLACE FUNCTION ops.artifact_alias_fields") : sql.index(
             "CREATE OR REPLACE FUNCTION ops.validate_structural_product_report"
         )
     ]
@@ -56,7 +56,7 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         score_pairs,
     )
 
-    from .test_artifact_identity import record
+    from .test_artifact_identity import nomination, record
 
     records = (
         record("a", title="Moments"),
@@ -69,19 +69,22 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
         record("h", code="6.2", title="abd"),
     )
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
+    nominations = (nomination("a", "d"),)
     cfg = dict(
         work_bindings=[],
         title_threshold=ratio("abc", "abd"),
-        external_pairs=[["a", "d"]],
+        external_nomination_refs=[n.relationship.model_dump(mode="json") for n in nominations],
         exclusions=[],
         policy=policy.model_dump(mode="json"),
     )
     pairs = score_pairs(
         records,
-        pair_candidates(records, external_pairs=(("a", "d"),), title_threshold=ratio("abc", "abd")),
+        pair_candidates(records, external_nominations=nominations, title_threshold=ratio("abc", "abd")),
         policy,
     )
-    product = ArtifactIdentityProduct(records=records, pairs=pairs, policy=policy).model_dump(
+    product = ArtifactIdentityProduct(
+        records=records, pairs=pairs, policy=policy, external_nominations=nominations
+    ).model_dump(
         mode="json", exclude_none=True
     )
     inputs = {"sources": []}
@@ -94,6 +97,17 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             "CREATE OR REPLACE FUNCTION ops.artifact_source_records(inputs jsonb,config jsonb) "
             "RETURNS jsonb LANGUAGE sql STABLE AS $source$ SELECT '"
             + literal
+            + "'::jsonb $source$",
+            execution_options={"no_parameters": True},
+        )
+        external_literal = json.dumps(
+            [n.model_dump(mode="json") for n in nominations]
+        ).replace("'", "''")
+        conn.exec_driver_sql(
+            "CREATE OR REPLACE FUNCTION ops.artifact_external_nominations("
+            "inputs jsonb,config jsonb,records jsonb) "
+            "RETURNS jsonb LANGUAGE sql STABLE AS $source$ SELECT '"
+            + external_literal
             + "'::jsonb $source$",
             execution_options={"no_parameters": True},
         )
@@ -180,7 +194,7 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             records,
             pair_candidates(
                 records,
-                external_pairs=(("a", "d"),),
+                external_nominations=nominations,
                 title_threshold=ratio("abc", "abd"),
                 exclusions=(("a", "c"),),
                 known_anchor_ids=("a", "b"),
@@ -188,7 +202,8 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             policy,
         )
         guarded = ArtifactIdentityProduct(
-            records=records, pairs=guarded_pairs, policy=policy, known_anchor_ids=("a", "b")
+            records=records, pairs=guarded_pairs, policy=policy, known_anchor_ids=("a", "b"),
+            external_nominations=nominations
         ).model_dump(mode="json", exclude_none=True)
         check(guarded, guarded_cfg)
         for invalid in (["missing"], ["a", "a"]):

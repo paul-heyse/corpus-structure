@@ -3,12 +3,15 @@
 import pytest
 
 from corpus_structure.semantic.artifact_identity import (
+    ArtifactNomination,
     ArtifactRecord,
     ArtifactScoringPolicy,
     SourceArtifactOccurrence,
+    native_alias_candidates,
     normalized_code,
     pair_candidates,
     score_pairs,
+    source_alias_fields,
 )
 
 
@@ -32,7 +35,11 @@ def record(identity, *, work="book", code="5.1", title=None, aliases=(), revisio
             artifact_kind="table",
             controlled_code=code,
             title=title,
-            aliases=aliases,
+            **source_alias_fields(
+                "Table 5.1" + "".join(f' (alias: "{alias}")' for alias in aliases),
+                len("Table 5.1"),
+                "#/texts/" + identity,
+            ),
             revision=revision,
             revision_state="observed" if revision else "unknown",
             occurrence_role="caption" if title else "reference",
@@ -43,22 +50,52 @@ def record(identity, *, work="book", code="5.1", title=None, aliases=(), revisio
     )
 
 
+def nomination(left, right, ordinal=1):
+    return ArtifactNomination(
+        left=left,
+        right=right,
+        relationship=dict(
+            contribution_id="source-contribution:" + format(ordinal, "064x"),
+            project_id="controlled",
+            run_id=1,
+            cut_id=1,
+            release_id="release:controlled",
+            result_revision=1,
+            selected_task_id=1,
+            origin_task_id=1,
+            runtime_fingerprint="runtime:controlled",
+        ),
+    )
+
+
 def test_shared_generators_are_one_pair_with_complete_provenance():
     records = (
         record("a", title="Moments", aliases=("T5",)),
         record("b", title="Moments", aliases=("T5", "T5")),
     )
-    (pair,) = pair_candidates(records, external_pairs=(("b", "a"), ("a", "b")))
-    assert pair.candidate_routes == ("exact_code", "lexical_title", "alias_array", "external_pairs")
-    assert pair.dependencies == ("a", "b", "source:a", "source:b")
+    external = (nomination("a", "b"), nomination("a", "b", ordinal=2))
+    alias, counts = native_alias_candidates(records, count_rules=True)
+    assert alias == (("a", "b"),)
+    assert counts[0]["marginal_comparison_count"] == 1
+    assert counts[0]["cumulative_comparison_count"] == 1
+    assert counts[0]["is_estimate"] is False
+    (pair,) = pair_candidates(records, external_nominations=external, native_alias_pairs=alias)
+    assert pair.candidate_routes == (
+        "exact_code", "lexical_title", "external_pairs", "native_alias_array"
+    )
+    assert pair.dependencies == (
+        "a", "b", *(n.relationship.contribution_id for n in external), "source:a", "source:b"
+    )
     assert pair.model_probability is None and pair.standing == "candidate_relative_private"
-    assert pair_candidates(tuple(reversed(records)), external_pairs=(("a", "b"),)) == (pair,)
+    assert pair_candidates(
+        tuple(reversed(records)), external_nominations=external, native_alias_pairs=alias
+    ) == (pair,)
 
 
 def test_parent_work_and_exclusions_refuse_false_bridges():
     records = (record("a"), record("b", work="another-book"))
     assert pair_candidates(records) == ()
-    (pair,) = pair_candidates(records, external_pairs=(("a", "b"),))
+    (pair,) = pair_candidates(records, external_nominations=(nomination("a", "b"),))
     assert pair.scope_state == "excluded"
     assert (
         pair_candidates((record("a"), record("b")), exclusions=(("a", "b"),))[0].scope_state
@@ -82,11 +119,11 @@ def test_revisions_distinguish_lineage_from_immutable_version():
 def test_external_missing_edge_does_not_grow_a_component():
     records = tuple(record(x, code=None) for x in "abc")
     pairs = pair_candidates(
-        records, external_pairs=(("a", "b"), ("b", "c")), exclusions=(("a", "c"),)
+        records, external_nominations=(nomination("a", "b"), nomination("b", "c", 2)), exclusions=(("a", "c"),)
     )
     assert {(p.left, p.right) for p in pairs} == {("a", "b"), ("b", "c")}
     with pytest.raises(ValueError, match="endpoints"):
-        pair_candidates(records, external_pairs=(("a", "foreign"),))
+        pair_candidates(records, external_nominations=(nomination("a", "foreign"),))
 
 
 def test_actual_splink_scores_exact_registered_pairs():
@@ -104,16 +141,16 @@ def test_actual_splink_scores_exact_registered_pairs():
 
 
 def test_native_alias_blocking_is_source_scoped_and_frozen_model_is_recorded():
-    from corpus_structure.semantic.artifact_identity import native_alias_candidates
-
     records = (
-        record("a", aliases=("T5",)),
-        record("b", aliases=("T5",)),
+        record("a", code=None, aliases=("T5",)),
+        record("b", code=None, aliases=("t5",)),
         record("c", work="another-book", aliases=("T5",)),
     )
-    assert native_alias_candidates(records) == (("a", "b"),)
+    alias, _ = native_alias_candidates(records)
+    assert alias == (("a", "b"),)
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
-    scored = score_pairs(records, pair_candidates(records), policy)
+    scored = score_pairs(records, pair_candidates(records, native_alias_pairs=alias), policy)
+    assert scored[0].candidate_routes == ("native_alias_array",)
     assert scored[0].model_id == policy.identity
     assert "gamma_controlled_code" in {f.name for f in scored[0].model_evidence}
 
@@ -123,7 +160,7 @@ def test_identity_product_rejects_cross_work_scores_and_missing_citations():
 
     records = (record("a"), record("b", work="foreign"))
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
-    pair = pair_candidates(records, external_pairs=(("a", "b"),))[0]
+    pair = pair_candidates(records, external_nominations=(nomination("a", "b"),))[0]
     with pytest.raises(ValueError, match="crosses"):
         ArtifactIdentityProduct(
             records=records,
@@ -261,7 +298,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
             prepared,
             source="run",
             method="structure.artifact_identity",
-            operation_version="1",
+            operation_version=ArtifactIdentityMethod.version,
             configuration_hash="config",
             input_hash="input",
             invocation_key="invocation",
@@ -312,10 +349,61 @@ def test_pair_guard_uses_existing_resolver_without_transitive_bridges(monkeypatc
     assert guarded[0].model_probability is None
     external = pair_candidates(
         (record("a"), record("b", work="foreign")),
-        external_pairs=(("a", "b"),),
+        external_nominations=(nomination("a", "b"),),
         known_anchor_ids=("a", "b"),
     )
     assert external[0].scope_state == "excluded"
     for invalid in (("absent",), ("a", "a")):
         with pytest.raises(ValueError, match="known anchors"):
             pair_candidates(records, known_anchor_ids=invalid)
+
+
+def test_explicit_alias_states_preserve_native_occurrences_and_unknown():
+    raw = 'Table 5.1 (also called "Grid") (alias: "GRID") title'
+    actual = source_alias_fields(raw, len("Table 5.1"), "#/texts/1")
+    assert actual["alias_state"] == "observed"
+    assert actual["aliases"] == ("Grid", "GRID")
+    assert all(raw[a["start"]:a["end"]] == a["text"] for a in actual["alias_occurrences"])
+    unknown = source_alias_fields("Table 5.1 just a title", len("Table 5.1"), "#/texts/1")
+    assert unknown == dict(alias_state="unknown", aliases=(), alias_occurrences=())
+    empty = source_alias_fields("Table 5.1 (aliases: none)", len("Table 5.1"), "#/texts/1")
+    assert empty["alias_state"] == "known_empty"
+    assert empty["alias_absence"]["text"] == "aliases: none"
+    with pytest.raises(ValueError, match="observed aliases"):
+        SourceArtifactOccurrence.model_validate(
+            {**record("a").artifact.model_dump(), "alias_state": "observed", "aliases": ["title"]}
+        )
+
+
+def test_pilot_scores_the_fixed_labeled_support_without_nominating_a_missed_pair():
+    from corpus_structure.evaluate.artifact_pilot import ArtifactPairJudgment, evaluate_artifact_pilot
+    from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
+
+    records = (
+        record("a", title="Moments"), record("b", title="Moments"),
+        record("c", code="??", title="reference"), record("d", code=None)
+    )
+    policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
+    product = ArtifactIdentityProduct(
+        records=records, pairs=score_pairs(records, pair_candidates(records), policy), policy=policy
+    )
+    judgments = tuple(
+        ArtifactPairJudgment(left=l, right=r, case_id=case, judgment=judgment)
+        for l, r, case, judgment in (
+            ("a", "b", "false-code", "unsupported"),
+            ("a", "c", "miss", "supported"),
+            ("c", "d", "unknown-codes", "ambiguous"),
+        )
+    )
+    result = evaluate_artifact_pilot(product, judgments)
+    cases = {c["case_id"]: c for c in result["cases"]}
+    assert cases["miss"]["nomination_routes"] == []
+    assert cases["miss"]["union_model_probability"] is None
+    assert cases["unknown-codes"]["code_state"] == ["malformed", "unknown"]
+    models = result["models"]
+    primary = models["primary"]
+    assert primary["label_accuracy"]
+    assert primary["label_prediction_errors"]["0.5"]
+    assert {(s["left"], s["right"]) for s in primary["scores"]} == {("a", "b"), ("a", "c")}
+    assert models["half_prior_odds"]["policy"]["prior"] < policy.prior
+    assert models["double_prior_odds"]["policy"]["prior"] > policy.prior

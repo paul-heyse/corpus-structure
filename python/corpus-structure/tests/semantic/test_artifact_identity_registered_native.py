@@ -51,7 +51,7 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/structural_products.sql"
     body = sql.read_text()
     helper = body[
-        body.index("CREATE OR REPLACE FUNCTION ops.artifact_source_records") : body.index(
+        body.index("CREATE OR REPLACE FUNCTION ops.artifact_alias_fields") : body.index(
             "CREATE OR REPLACE FUNCTION ops.validate_structural_product_report"
         )
     ]

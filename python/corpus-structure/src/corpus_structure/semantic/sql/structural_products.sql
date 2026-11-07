@@ -425,6 +425,46 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.structural_dossier(jsonb,jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.artifact_alias_fields(raw text,artifact_end integer,pointer_ text)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE alias_re text:='^\s*\((?:alias:|also called|also known as)\s*"([^"\r\n]+)"\s*\)';
+ absent_re text:='^\s*\((aliases:\s*none)\s*\)';
+ cursor_ integer:=artifact_end; start_ integer; end_ integer; matched text[];
+ remaining text; aliases jsonb:='[]'; spans jsonb:='[]';
+BEGIN
+ LOOP
+  remaining:=substring(raw FROM cursor_+1);
+  matched:=regexp_match(remaining COLLATE pg_catalog.pg_c_utf8,alias_re,'i');
+  EXIT WHEN matched IS NULL OR matched[1]~'^[[:space:]]*$';
+  start_:=cursor_+regexp_instr(remaining COLLATE pg_catalog.pg_c_utf8,alias_re,1,1,0,'i',1)-1;
+  end_:=start_+char_length(matched[1]);
+  aliases:=aliases||jsonb_build_array(matched[1]);
+  spans:=spans||jsonb_build_array(jsonb_build_object('source_pointer',pointer_,'start',start_,'end',end_,'text',matched[1]));
+  cursor_:=cursor_+regexp_instr(remaining COLLATE pg_catalog.pg_c_utf8,alias_re,1,1,1,'i')-1;
+ END LOOP;
+ IF jsonb_array_length(spans)>0 THEN
+  RETURN jsonb_build_object('aliases',aliases,'alias_state','observed','alias_occurrences',spans);END IF;
+ remaining:=substring(raw FROM artifact_end+1);
+ matched:=regexp_match(remaining COLLATE pg_catalog.pg_c_utf8,absent_re,'i');
+ IF matched IS NOT NULL THEN
+  start_:=artifact_end+regexp_instr(remaining COLLATE pg_catalog.pg_c_utf8,absent_re,1,1,0,'i',1)-1;
+  RETURN jsonb_build_object('aliases','[]'::jsonb,'alias_state','known_empty','alias_occurrences','[]'::jsonb,
+   'alias_absence',jsonb_build_object('source_pointer',pointer_,'start',start_,'end',start_+char_length(matched[1]),'text',matched[1]));
+ END IF;
+ RETURN jsonb_build_object('aliases','[]'::jsonb,'alias_state','unknown','alias_occurrences','[]'::jsonb);
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_alias_fields(text,integer,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.artifact_alias_span_source_value(span jsonb)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT jsonb_build_object('kind','object','fields',jsonb_build_array(
+  jsonb_build_object('name','source_pointer','position',0,'value',jsonb_build_object('kind','text','text',span->'source_pointer')),
+  jsonb_build_object('name','start','position',1,'value',jsonb_build_object('kind','integer','integer',span->'start')),
+  jsonb_build_object('name','end','position',2,'value',jsonb_build_object('kind','integer','integer',span->'end')),
+  jsonb_build_object('name','text','position',3,'value',jsonb_build_object('kind','text','text',span->'text'))))
+$$;
+REVOKE ALL ON FUNCTION ops.artifact_alias_span_source_value(jsonb) FROM PUBLIC;
+
 -- Reconstruct the source cohort rather than trusting duplicated fields or caller IDs.
 -- A named source container and exact current projection remain the source authority.
 CREATE OR REPLACE FUNCTION ops.artifact_source_records(inputs jsonb,config jsonb)
@@ -433,7 +473,7 @@ DECLARE source_ jsonb; binding jsonb; view_ kb.source_view; piece jsonb; node js
  pin jsonb; anchor_ jsonb; artifact jsonb; value_ jsonb; contribution jsonb; citations jsonb;
  candidates jsonb:='[]'; match_ record; raw text; quote_ text; pointer_ text; source_ref text;
  local_start integer; local_end integer; global_start integer; global_end integer; caption boolean;
- pattern text:=E'(?i)\\m(Table|Figure|Theorem|Section)\\s+([A-Z]?\\d+(?:\\.\\d+)*[A-Za-z]?)';
+ pattern text:=E'(?i)\\m(Table|Figure|Theorem|Section)\\s+([A-Z]?\\d[\\w./-]*)';
 BEGIN
  IF (SELECT count(*)<>count(DISTINCT wb->>'native_content_digest') FROM jsonb_array_elements(config->'work_bindings') wb) THEN
   RAISE EXCEPTION 'artifact source-work bindings repeat' USING ERRCODE='23514'; END IF;
@@ -460,6 +500,8 @@ BEGIN
    FOR match_ IN SELECT parts,n::integer FROM regexp_matches(raw COLLATE pg_catalog.pg_unicode_fast,pattern,'g') WITH ORDINALITY m(parts,n) LOOP
     local_start:=regexp_instr(raw COLLATE pg_catalog.pg_unicode_fast,pattern,1,match_.n)-1;
     local_end:=regexp_instr(raw COLLATE pg_catalog.pg_unicode_fast,pattern,1,match_.n,1)-1;
+    IF right(match_.parts[2],1)='.' THEN
+     match_.parts[2]:=left(match_.parts[2],-1);local_end:=local_end-1;END IF;
     global_start:=(piece->>'start')::integer+local_start;
     global_end:=(piece->>'start')::integer+local_end;
     quote_:=substring(raw FROM local_start+1 FOR local_end-local_start);
@@ -470,23 +512,26 @@ BEGIN
     WHERE p->>'source_ref'=source_ref AND (p->>'start')::integer<=global_start
      AND (p->>'end')::integer>=global_end;
     IF jsonb_array_length(citations)=0 THEN CONTINUE; END IF;
-    artifact:=jsonb_strip_nulls(jsonb_build_object('protocol','source-artifact-occurrence-1',
+    artifact:=jsonb_strip_nulls(jsonb_build_object('protocol','source-artifact-occurrence-2',
      'artifact_kind',lower(match_.parts[1]),'source_work',binding->>'source_work',
      'controlled_code',match_.parts[2],
      'title',CASE WHEN caption THEN nullif(btrim(substring(raw FROM local_end+1),E' .:\n'),'') END,
-     'aliases','[]'::jsonb,'revision_state','unknown',
+     'revision_state','unknown',
      'occurrence_role',CASE WHEN caption THEN 'caption' ELSE 'reference' END,
      'scope',pointer_,'source_pointer',pointer_,
-     'dependencies',jsonb_build_array('native:'||view_.native_task_id::text)));
+     'dependencies',jsonb_build_array('native:'||view_.native_task_id::text)))
+     ||ops.artifact_alias_fields(raw,local_end,pointer_);
     -- SourceValue retains the producer's declared field ordering, independently of JSONB order.
     SELECT jsonb_build_object('kind','object','fields',jsonb_agg(jsonb_build_object(
-     'name',key,'position',position,'value',CASE WHEN jsonb_typeof(artifact->key)='array'
-      THEN jsonb_build_object('kind','array','items',COALESCE((SELECT jsonb_agg(
-       jsonb_build_object('kind','text','text',x) ORDER BY n)
-       FROM jsonb_array_elements_text(artifact->key) WITH ORDINALITY a(x,n)),'[]'))
+     'name',key,'position',position,'value',CASE
+      WHEN key='alias_absence' THEN ops.artifact_alias_span_source_value(artifact->key)
+      WHEN jsonb_typeof(artifact->key)='array' THEN jsonb_build_object('kind','array','items',COALESCE((SELECT jsonb_agg(
+       CASE WHEN key='alias_occurrences' THEN ops.artifact_alias_span_source_value(x)
+        ELSE jsonb_build_object('kind','text','text',x) END ORDER BY n)
+       FROM jsonb_array_elements(artifact->key) WITH ORDINALITY a(x,n)),'[]'))
       ELSE jsonb_build_object('kind','text','text',artifact->key) END) ORDER BY position)) INTO value_
     FROM (SELECT key,(row_number() OVER(ORDER BY n)-1)::integer position FROM unnest(ARRAY[
-     'protocol','artifact_kind','source_work','controlled_code','title','aliases','revision',
+     'protocol','artifact_kind','source_work','controlled_code','title','aliases','alias_state','alias_occurrences','alias_absence','revision',
      'revision_state','occurrence_role','scope','source_pointer','dependencies']) WITH ORDINALITY f(key,n)
      WHERE artifact ? key) fields;
     anchor_:=jsonb_build_object('pin',pin,'space','native','pointer',pointer_,
@@ -495,7 +540,7 @@ BEGIN
      data.canonical_json(anchor_||jsonb_build_object('pin',pin-'source_view_id')),'UTF8')),'hex'));
     contribution:=jsonb_build_object('contract','RetainedContributionSemantics','kind','occurrence',
      'semantic_type','structural.artifact','operation_key','contribution-operation:'||encode(sha256(convert_to(
-      data.canonical_json(jsonb_build_array(jsonb_build_array('structure.scoped_relations','1',pin),'{}'::jsonb)),'UTF8')),'hex'),
+      data.canonical_json(jsonb_build_array(jsonb_build_array('structure.scoped_relations','2',pin),'{}'::jsonb)),'UTF8')),'hex'),
      'item_key',pointer_||':artifact_reference:'||global_start::text||':'||global_end::text,
      'pin',pin,'anchors',jsonb_build_array(anchor_),
      'occurrence_id',ops.source_contribution_occurrence(jsonb_build_array(anchor_)),
@@ -538,6 +583,61 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.artifact_lexical_score(text,text) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.artifact_external_nominations(inputs jsonb,config jsonb,records jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE held record; relation_ jsonb; endpoint jsonb; endpoint_row jsonb; src jsonb; pin_ jsonb;
+ expected_role text; record_id text; ids text[]; output jsonb:='[]';
+BEGIN
+ IF (SELECT count(*)<>count(DISTINCT r->>'contribution_id')
+     FROM jsonb_array_elements(config->'external_nomination_refs') r) THEN
+  RAISE EXCEPTION 'artifact external nomination references repeat' USING ERRCODE='23514';END IF;
+ FOR held IN SELECT * FROM ops.resolve_retained_source_contributions(config->'external_nomination_refs')
+  ORDER BY reference->>'contribution_id' LOOP
+  IF NOT (inputs->'dependencies') ? (held.reference->>'contribution_id') THEN
+   RAISE EXCEPTION 'artifact external nomination outside declared dependencies' USING ERRCODE='23514';END IF;
+  SELECT r INTO STRICT relation_ FROM jsonb_array_elements(held.contributions) r
+   WHERE r->>'contribution_id'=held.reference->>'contribution_id'
+    AND r->>'semantic_type'='structural.scoped_attachment'
+    AND data.record_source_json(r->'value')->>'relation'='artifact_reference_target';
+  IF jsonb_array_length(relation_->'endpoints')<>2 OR
+    NOT EXISTS(SELECT FROM jsonb_array_elements(relation_->'endpoints') e WHERE e->>'role'='attachment') OR
+    NOT EXISTS(SELECT FROM jsonb_array_elements(relation_->'endpoints') e WHERE e->>'role'='target') THEN
+   RAISE EXCEPTION 'artifact external nomination requires reference and caption endpoints' USING ERRCODE='23514';END IF;
+  ids:='{}';
+  FOR endpoint IN SELECT e FROM jsonb_array_elements(relation_->'endpoints') e LOOP
+   SELECT r INTO STRICT endpoint_row FROM jsonb_array_elements(held.contributions) r
+    WHERE r->>'contribution_id'=endpoint->>'contribution_id'
+     AND (r->>'semantic_type'='structural.artifact' OR
+      (r->>'semantic_type'='structural.located_participant' AND data.record_source_json(r->'value')->>'role'='artifact_reference'));
+   pin_:=endpoint_row->'pin';
+   SELECT s INTO STRICT src FROM jsonb_array_elements(inputs->'sources') s
+    WHERE s->'source_view_id'=pin_->'source_view_id'
+     AND s->'native_task_id'=pin_->'native_product_task_id'
+     AND s->'native_product_key'=pin_->'product_key'
+     AND s->'native_content_digest'=pin_->'product_digest'
+     AND s->'projection_digest'=pin_->'projection_digest'
+     AND s->'recipe_digest'=pin_->'recipe_digest';
+   expected_role:=CASE endpoint->>'role' WHEN 'attachment' THEN 'reference' ELSE 'caption' END;
+   SELECT r->>'contribution_id' INTO STRICT record_id FROM jsonb_array_elements(records) r
+    WHERE r->>'occurrence_id'=endpoint_row->>'occurrence_id'
+     AND r->'artifact'->>'occurrence_role'=expected_role
+     AND EXISTS (SELECT FROM jsonb_array_elements(r->'citations') c
+      CROSS JOIN LATERAL jsonb_array_elements(endpoint_row->'anchors') a
+      WHERE c->>'source_ref'=encode(sha256(convert_to(data.canonical_json(src),'UTF8')),'hex')
+       AND c->>'source_pointer'=a->>'pointer' AND c->>'text'=a->>'source_piece');
+   ids:=array_append(ids,record_id);
+  END LOOP;
+  IF ids[1]=ids[2] THEN
+   RAISE EXCEPTION 'artifact external nomination cannot reference itself' USING ERRCODE='23514';END IF;
+  output:=output||jsonb_build_array(jsonb_build_object('left',least(ids[1],ids[2]),
+   'right',greatest(ids[1],ids[2]),'relationship',held.reference));
+ END LOOP;
+ RETURN output;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'artifact external nomination cannot resolve exact cohort endpoints' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.artifact_external_nominations(jsonb,jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_artifact_identity(inputs jsonb,config jsonb,product jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; expected_pairs jsonb:='[]';
@@ -546,6 +646,7 @@ DECLARE expected_records jsonb; pair_ jsonb; a jsonb; b jsonb; routes jsonb; exp
  code_gamma integer; title_gamma integer; code_mw double precision; title_mw double precision;
  field_ jsonb; expected_value double precision; model_id text; expected_provenance jsonb; unbound jsonb; anchors jsonb;
  parameter_name text; parameter_value jsonb; parameter_text text; decoded_value double precision;
+ alias_ boolean; expected_alias_pairs jsonb:='[]'; nominations jsonb; pair_nomination_ids jsonb;
  title_threshold double precision; config_policy jsonb:='{}';
  python_space text:=chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||chr(28)||chr(29)||chr(30)||chr(31)||chr(32)||chr(133)||chr(160)||chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288);
 BEGIN
@@ -586,9 +687,9 @@ BEGIN
  END LOOP;
  IF product->>'identity_grain' IS DISTINCT FROM 'source_work_artifact_lineage'
   OR jsonb_typeof(config->'work_bindings') IS DISTINCT FROM 'array'
-  OR jsonb_typeof(config->'external_pairs') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(config->'external_nomination_refs') IS DISTINCT FROM 'array'
   OR jsonb_typeof(config->'exclusions') IS DISTINCT FROM 'array'
-  OR NOT policy ?& ARRAY['prior','code_m','code_u','title_m','title_u'] OR product->>'protocol'<>'artifact-identity-1' OR product->>'standing'<>'candidate_relative_private'
+  OR NOT policy ?& ARRAY['prior','code_m','code_u','title_m','title_u'] OR product->>'protocol'<>'artifact-identity-2' OR product->>'standing'<>'candidate_relative_private'
   OR policy IS DISTINCT FROM config_policy OR EXISTS(SELECT FROM jsonb_each(policy) p
    WHERE (p.value#>>'{}')::double precision<=0 OR (p.value#>>'{}')::double precision>=1)
   OR (SELECT count(*) FROM jsonb_each(policy))<>5 THEN
@@ -602,9 +703,10 @@ BEGIN
  SELECT COALESCE(jsonb_agg(src->'source_view_id' ORDER BY n),'[]') INTO unbound
  FROM jsonb_array_elements(inputs->'sources') WITH ORDINALITY s(src,n)
  WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(config->'work_bindings') wb WHERE wb->>'native_content_digest'=src->>'native_content_digest');
+ nominations:=ops.artifact_external_nominations(inputs,config,expected_records);
  IF COALESCE(product->'source_mapping_provenance','[]') IS DISTINCT FROM expected_provenance
   OR COALESCE(product->'unbound_source_ids','[]') IS DISTINCT FROM unbound
-  OR COALESCE(product->'native_alias_pairs','[]')<>'[]'::jsonb THEN
+  OR product->'external_nominations' IS DISTINCT FROM nominations THEN
   RAISE EXCEPTION 'artifact source mapping/unavailable/alias population differs' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(id ORDER BY id),'[]') INTO anchors
  FROM jsonb_array_elements_text(COALESCE(config->'known_anchor_ids','[]')) selected(id);
@@ -619,7 +721,10 @@ BEGIN
  FOR a,b IN SELECT left_,right_ FROM jsonb_array_elements(expected_records) left_,jsonb_array_elements(expected_records) right_
   WHERE left_->>'contribution_id'<right_->>'contribution_id' AND left_->>'occurrence_id'<>right_->>'occurrence_id' LOOP
   compatible:=(a->'artifact'->>'source_work'=b->'artifact'->>'source_work' AND a->'artifact'->>'artifact_kind'=b->'artifact'->>'artifact_kind');
-  external_:=COALESCE(config->'external_pairs','[]') @> jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')) OR COALESCE(config->'external_pairs','[]') @> jsonb_build_array(jsonb_build_array(b->>'contribution_id',a->>'contribution_id'));
+  SELECT COALESCE(jsonb_agg(n->'relationship'->'contribution_id'),'[]') INTO pair_nomination_ids
+   FROM jsonb_array_elements(nominations) n
+   WHERE n->>'left'=a->>'contribution_id' AND n->>'right'=b->>'contribution_id';
+  external_:=jsonb_array_length(pair_nomination_ids)>0;
   IF NOT compatible AND NOT external_ THEN CONTINUE; END IF;
   code_a:=CASE WHEN btrim(a->'artifact'->>'controlled_code') COLLATE pg_catalog.pg_unicode_fast ~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$' THEN lower(btrim(a->'artifact'->>'controlled_code')) END;
   code_b:=CASE WHEN btrim(b->'artifact'->>'controlled_code') COLLATE pg_catalog.pg_unicode_fast ~ '^[A-Za-z]?\d+([.\-]\d+)*[A-Za-z]?$' THEN lower(btrim(b->'artifact'->>'controlled_code')) END;
@@ -627,6 +732,14 @@ BEGIN
   IF compatible AND code_a IS NOT NULL AND code_a=code_b THEN routes:=routes||'"exact_code"'::jsonb; END IF;
   IF compatible AND COALESCE(a->'artifact'->>'title','')<>'' AND COALESCE(b->'artifact'->>'title','')<>'' AND lexical*100 >=title_threshold THEN routes:=routes||'"lexical_title"'::jsonb; END IF;
   IF external_ THEN routes:=routes||'"external_pairs"'::jsonb; END IF;
+  alias_:=compatible AND EXISTS(SELECT FROM jsonb_array_elements_text(a->'artifact'->'aliases') x
+   JOIN jsonb_array_elements_text(b->'artifact'->'aliases') y ON
+    casefold(btrim(x,python_space) COLLATE pg_catalog.pg_unicode_fast)=
+    casefold(btrim(y,python_space) COLLATE pg_catalog.pg_unicode_fast));
+  IF alias_ THEN
+   routes:=routes||'"native_alias_array"'::jsonb;
+   expected_alias_pairs:=expected_alias_pairs||jsonb_build_array(jsonb_build_object('left',a->>'contribution_id','right',b->>'contribution_id'));
+  END IF;
   IF routes='[]'::jsonb THEN CONTINUE; END IF;
   expected_pairs:=expected_pairs||jsonb_build_array(jsonb_build_array(a->>'contribution_id',b->>'contribution_id'));
   SELECT p INTO STRICT pair_ FROM jsonb_array_elements(product->'pairs') p WHERE p->>'left'=a->>'contribution_id' AND p->>'right'=b->>'contribution_id';
@@ -634,7 +747,7 @@ BEGIN
   IF pair_->'candidate_routes' IS DISTINCT FROM routes OR pair_->>'standing'<>'candidate_relative_private'
    OR pair_->>'revision_relation'<>'unknown' OR pair_->>'scope_state' IS DISTINCT FROM (CASE WHEN excluded THEN 'excluded' ELSE 'compatible' END)
    OR abs((pair_->>'lexical_score')::double precision-lexical)>1e-12
-   OR pair_->'dependencies' IS DISTINCT FROM (SELECT jsonb_agg(value ORDER BY value) FROM (SELECT DISTINCT value FROM jsonb_array_elements_text(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')||(a->'artifact'->'dependencies')||(b->'artifact'->'dependencies'))) d) THEN
+   OR pair_->'dependencies' IS DISTINCT FROM (SELECT jsonb_agg(value ORDER BY value) FROM (SELECT DISTINCT value FROM jsonb_array_elements_text(jsonb_build_array(a->>'contribution_id',b->>'contribution_id')||(a->'artifact'->'dependencies')||(b->'artifact'->'dependencies')||pair_nomination_ids)) d) THEN
    RAISE EXCEPTION 'artifact candidate route/scope/dependencies differ from exact frozen cohort' USING ERRCODE='23514'; END IF;
   IF excluded THEN
    IF pair_->>'model_probability' IS NOT NULL OR pair_->>'model_id' IS NOT NULL OR COALESCE(pair_->'model_evidence','[]')<>'[]'::jsonb THEN RAISE EXCEPTION 'excluded artifact pair carries a model score' USING ERRCODE='23514'; END IF;
@@ -659,7 +772,9 @@ BEGIN
  END LOOP;
  IF jsonb_array_length(product->'pairs')<>jsonb_array_length(expected_pairs) THEN
   RAISE EXCEPTION 'artifact candidate population is incomplete or has extra pairs' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(config->'external_pairs','[]')||COALESCE(config->'exclusions','[]')) ep
+ IF product->'native_alias_pairs' IS DISTINCT FROM (SELECT COALESCE(jsonb_agg(p ORDER BY p->>'left',p->>'right'),'[]') FROM jsonb_array_elements(expected_alias_pairs) p) THEN
+  RAISE EXCEPTION 'artifact alias blocking differs from exact eligible observed aliases' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(config->'exclusions','[]')) ep
   WHERE jsonb_array_length(ep)<>2 OR ep->>0=ep->>1 OR EXISTS(SELECT FROM jsonb_array_elements_text(ep) endpoint WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(expected_records) r WHERE r->>'contribution_id'=endpoint))) THEN
   RAISE EXCEPTION 'artifact configured pair endpoint lies outside source cohort' USING ERRCODE='23514'; END IF;
 EXCEPTION WHEN no_data_found OR too_many_rows THEN
