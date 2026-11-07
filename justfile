@@ -74,10 +74,37 @@ ruff-check:
 _bundle name steps:
     #!/usr/bin/env bash
     set -uo pipefail
+    steps=({{ steps }})
+    report_fd=${CORPUS_CI_STEP_FD:-}
+    unset CORPUS_CI_STEP_FD
+    if [[ ! $report_fd =~ ^[1-9][0-9]{0,8}$ ]] || (( report_fd < 3 || ${#steps[@]} > 24 )); then
+      report_fd=
+    fi
+    for step in "${steps[@]}"; do
+      if [[ ! $step =~ ^[a-zA-Z0-9_-]{1,40}$ ]]; then
+        report_fd=
+      fi
+    done
+    record() {
+      if [[ -n $report_fd ]]; then
+        printf '%s\n' "$*" 2>/dev/null >&"$report_fd" || :
+      fi
+    }
+    record plan "${steps[@]}"
     failed=()
-    for step in {{ steps }}; do
+    for step in "${steps[@]}"; do
       echo "== just $step"
-      just "$step" || failed+=("$step")
+      record start "$step"
+      status=0
+      if [[ -n $report_fd ]]; then
+        just "$step" {report_fd}>&- || status=$?
+      else
+        just "$step" || status=$?
+      fi
+      record exit "$step" "$status"
+      if (( status != 0 )); then
+        failed+=("$step")
+      fi
     done
     if [ ${#failed[@]} -gt 0 ]; then
       echo "{{ name }}: ${#failed[@]} failed: ${failed[*]} (re-run one with just <id>)"

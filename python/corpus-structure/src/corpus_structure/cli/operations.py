@@ -12,10 +12,21 @@ from typing import Annotated, Literal
 
 import typer
 from pydantic import BaseModel
+from rich.console import Group
+from rich.table import Table
+from rich.text import Text
 
 from corpus_structure.cli.managed import result_boundary, result_store
-from corpus_structure.cli.output import JsonOpt, cli_settings_report, emit, safe_text, state
-from corpus_structure.cli.recipes import checkout, run_recipe
+from corpus_structure.cli.output import (
+    JsonOpt,
+    cli_settings_report,
+    diagnostic,
+    emit,
+    safe_text,
+    state,
+    write_report_text,
+)
+from corpus_structure.cli.recipes import RecipeStep, checkout, run_recipe, run_recipe_steps
 from corpus_structure.settings import DeploymentProfile, SettingsReport
 
 context_app = typer.Typer(help="Inspect invocation context.")
@@ -24,6 +35,16 @@ evidence_app = typer.Typer(help="Check and retain evidence.")
 adr_app = typer.Typer(help="Maintain architecture decisions.")
 release_app = typer.Typer(help="Check the bound semantic release.")
 host_app = typer.Typer(help="Operate the checkout's dedicated development cluster.")
+
+_CHECK_RECIPES = {
+    "types": "types",
+    "lint": "ruff-check",
+    "docs": "docs-check",
+    "deps": "deps",
+    "rules": "rules-scan",
+    "adr": "adr-lint",
+}
+_CHECK_OPTIONS = {recipe: option for option, recipe in _CHECK_RECIPES.items()}
 
 
 class ContextReport(BaseModel):
@@ -44,6 +65,44 @@ class RecipeReport(BaseModel):
     diagnostic: str
 
 
+class RecipeExcerpt(BaseModel):
+    stream: Literal["stdout", "stderr"]
+    text: str
+    truncated: bool
+
+
+class RecipeStepsReport(BaseModel):
+    recipe: str
+    exit_code: int
+    steps: tuple[RecipeStep, ...]
+    excerpts: list[RecipeExcerpt]
+
+
+def _render_steps(report: RecipeStepsReport) -> Group:
+    table = Table.grid(padding=(0, 2))
+    table.add_column()
+    table.add_column()
+    table.add_column()
+    parts: list[Text | Table] = [Text(f"{report.recipe} exited {report.exit_code}")]
+    for step in report.steps:
+        outcome = step.outcome.replace("_", " ")
+        if step.exit_code:
+            outcome += f" (exit {step.exit_code})"
+        retry = ""
+        if step.outcome == "failed":
+            option = _CHECK_OPTIONS.get(step.name)
+            retry = f"ci check --only {option}" if option else f"just {step.name}"
+        table.add_row(Text(step.name), Text(outcome), Text(retry))
+    if report.steps:
+        parts.append(table)
+    else:
+        parts.append(Text("Step outcomes unavailable"))
+    for excerpt in report.excerpts:
+        suffix = " (truncated)" if excerpt.truncated else ""
+        parts.extend((Text(f"{report.recipe} {excerpt.stream}{suffix}"), Text(excerpt.text)))
+    return Group(*parts)
+
+
 def recipe_action(name: str, json: bool, *args: str, no_sync: bool = False) -> None:
     with result_boundary(json):
         env = {**os.environ, "UV_NO_SYNC": "1"} if no_sync else None
@@ -56,6 +115,7 @@ def recipe_action(name: str, json: bool, *args: str, no_sync: bool = False) -> N
                 diagnostic=safe_text(process.stderr)[-6000:],
             ),
             json=json,
+            exit_code=process.returncode,
         )
         if process.returncode:
             raise typer.Exit(process.returncode)
@@ -106,20 +166,50 @@ def setup(json: JsonOpt = False) -> None:
 def check(
     only: Annotated[
         Literal["types", "lint", "docs", "deps", "rules", "adr"] | None,
-        typer.Option(help="Run one repository check."),
+        typer.Option(help="Run one repository check.", metavar="CHECK"),
     ] = None,
     json: JsonOpt = False,
+    view: Annotated[
+        Literal["steps"] | None,
+        typer.Option(help="Report ordered step outcomes.", rich_help_panel="Reporting"),
+    ] = None,
 ) -> None:
-    """Run read-only repository checks."""
-    recipes = {
-        "types": "types",
-        "lint": "ruff-check",
-        "docs": "docs-check",
-        "deps": "deps",
-        "rules": "rules-scan",
-        "adr": "adr-lint",
-    }
-    recipe_action(recipes[only] if only else "ci-check", json)
+    """Run read-only repository checks and show which steps settled."""
+    name = _CHECK_RECIPES[only] if only else "ci-check"
+    if json and view is None:
+        recipe_action(name, json)
+        return
+    with result_boundary(json):
+        if only:
+            process = run_recipe(name)
+            status = process.returncode
+            steps = (RecipeStep(name, "failed" if status else "passed", status),)
+        else:
+            process, steps = run_recipe_steps(name)
+        excerpts = []
+        if process.returncode:
+            streams: tuple[tuple[Literal["stdout", "stderr"], str], ...] = (
+                ("stdout", process.stdout),
+                ("stderr", process.stderr),
+            )
+            for stream, raw in streams:
+                content = safe_text(raw).strip()
+                if content:
+                    excerpts.append(
+                        RecipeExcerpt(
+                            stream=stream, text=content[-1200:], truncated=len(content) > 1200
+                        )
+                    )
+        emit(
+            RecipeStepsReport(
+                recipe=name, exit_code=process.returncode, steps=steps, excerpts=excerpts
+            ),
+            json=json,
+            render=_render_steps,
+            exit_code=process.returncode,
+        )
+        if process.returncode:
+            raise typer.Exit(process.returncode)
 
 
 def format_source(json: JsonOpt = False) -> None:
@@ -133,10 +223,29 @@ def docs_check(json: JsonOpt = False) -> None:
 
 
 @docs_app.command("commands")
-def command_reference(ctx: typer.Context, json: JsonOpt = False) -> None:
-    """Generate the installed command reference as a managed artifact."""
+def command_reference(
+    ctx: typer.Context,
+    json: JsonOpt = False,
+    stdout: Annotated[
+        bool,
+        typer.Option(
+            "--stdout", help="Write Markdown directly to stdout.", rich_help_panel="Reporting"
+        ),
+    ] = False,
+) -> None:
+    """Generate the installed command reference for reading or managed retrieval."""
     from corpus_structure.cli.managed import Delivery, ResultError
 
+    if stdout and json:
+        raise typer.BadParameter("choose --stdout or --json", param_hint="--stdout")
+    if stdout:
+        with result_boundary(False):
+            process = run_recipe("ci-reference")
+            if process.returncode:
+                diagnostic(safe_text(process.stderr).strip()[-2000:])
+                raise typer.Exit(process.returncode)
+            write_report_text(process.stdout)
+        return
     with result_boundary(json), result_store(ctx).operation("docs.commands") as result:
         process = run_recipe("ci-reference")
         if process.returncode:
