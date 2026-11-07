@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 import typer
 
 from corpus_structure.cli.golden import output, reference_protocol, reference_session
-from corpus_structure.cli.output import JsonOpt
+from corpus_structure.cli.output import JsonOpt, emit, report_fields
 
 eval_app = typer.Typer(
     help="Grade completed knowledge against independent semantic references.", no_args_is_help=True
@@ -216,7 +216,25 @@ def operation_event_availability(
             run_id=run,
             evaluation_id=evaluation,
         )
-    output(result, json)
+    if json:
+        output(result, json)
+        return
+    emit(
+        result,
+        json=False,
+        render=lambda report: report_fields(
+            ("Fitting availability", report.status),
+            ("Project", report.project_id),
+            ("Run / cut", f"{report.run_id} / {report.cut_id}"),
+            ("Release", report.release_id),
+            ("Compatible events", report.compatible_events),
+            (
+                "Evaluation",
+                report.evaluation_id if report.evaluation_id is not None else "unselected",
+            ),
+            ("Next action", report.next_action),
+        ),
+    )
 
 
 @eval_app.command("operation-event-fit")

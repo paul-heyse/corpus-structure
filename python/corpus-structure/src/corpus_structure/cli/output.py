@@ -20,6 +20,8 @@ import typer
 from pydantic import BaseModel
 from rich.console import Console, RenderableType
 from rich.pretty import Pretty
+from rich.table import Table
+from rich.text import Text
 
 from corpus_structure.settings import Settings, SettingsReport, settings_report
 
@@ -53,7 +55,7 @@ def _undelivered(exit_code: int) -> None:
     if sys.stdout is sys.__stdout__:
         fd = os.open(os.devnull, os.O_WRONLY)
         try:
-            os.dup2(fd, sys.stdout.fileno())
+            os.dup2(fd, 1)
         finally:
             os.close(fd)
     with suppress(BrokenPipeError):
@@ -149,6 +151,16 @@ def safe_text(value: str) -> str:
         ):
             value = value.replace(secret, "**********")
     return _CREDENTIAL.sub(lambda match: (match[1] or f"{match[2]}=") + "**********", value)
+
+
+def report_fields(*fields: tuple[str, object]) -> Table:
+    """Render a short report with literal values and stable labels."""
+    table = Table.grid(padding=(0, 1))
+    table.add_column(style="bold")
+    table.add_column()
+    for label, value in fields:
+        table.add_row(label, Text(safe_text(str(value))))
+    return table
 
 
 def cli_settings_report(settings: Settings) -> SettingsReport:

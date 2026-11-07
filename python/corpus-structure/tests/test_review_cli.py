@@ -154,3 +154,57 @@ def test_review_retry_requires_settled_cleanup(cli, tmp_path, monkeypatch):
     retry = cli("review", "retry", manifest["id"], "--json")
     assert retry.exit_code == 1
     assert "proof that the previous capture settled" in json.loads(retry.stdout)["error"]["message"]
+
+
+def test_managed_inspection_matches_detached_and_rejects_replacement(cli, tmp_path, monkeypatch):
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.serve.contributions import ContributionRequest
+    from corpus_structure.serve.review_bundle import ReviewSelection, write_review_bundle
+
+    root = tmp_path / "managed"
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(root))
+    with ResultStore(root).operation("review.export") as invocation:
+        bundle = invocation.directory / "bundle"
+        selection = ReviewSelection(
+            selections=(ContributionRequest(run_id=1),), completeness="inventory"
+        )
+        write_review_bundle(selection, bundle, [("contributions", {"id": "known"})])
+        invocation.publish("bundle", bundle)
+
+    detached = cli("review", "inspect", str(bundle), "--json")
+    managed = cli("review", "inspect", "--result", invocation.id, "--json")
+    assert detached.exit_code == managed.exit_code == 0, managed.output
+    assert json.loads(managed.stdout) == {"result_id": invocation.id, **json.loads(detached.stdout)}
+    assert json.loads(managed.stdout)["relations"] == {"contributions": 1}
+    assert cli("review", "inspect", str(bundle), "--result", invocation.id).exit_code == 2
+
+    bundle.rename(bundle.with_name("previous"))
+    bundle.mkdir()
+    replaced = cli("review", "inspect", "--result", invocation.id, "--json")
+    assert replaced.exit_code == 1
+    assert "differs from its owner publication" in json.loads(replaced.stdout)["error"]["message"]
+
+
+def test_piped_review_selection_is_bounded_before_delivery(cli, monkeypatch):
+    from corpus_structure.cli import review
+    from corpus_structure.cli.app import app
+
+    admitted = []
+
+    def deliver(_ctx, request, destination, *, exact_closure, json):
+        admitted.append((request.selections[0].run_id, destination, exact_closure, json))
+
+    monkeypatch.setattr(review, "_deliver_review", deliver)
+    args = ["review", "export", "-", "--exact-closure", "--json"]
+    passed = cli.runner.invoke(app, args, input=b'{"selections":[{"run_id":17}]}')
+    assert passed.exit_code == 0, passed.output
+    assert admitted == [(17, None, True, True)]
+
+    oversized = cli.runner.invoke(app, args, input=b"x" * (8 * 1024 * 1024 + 1))
+    assert oversized.exit_code == 1
+    assert "8 MiB limit" in json.loads(oversized.stdout)["error"]["message"]
+    assert admitted == [(17, None, True, True)]
+
+    malformed = cli.runner.invoke(app, args, input=b"{")
+    assert malformed.exit_code == 1
+    assert admitted == [(17, None, True, True)]

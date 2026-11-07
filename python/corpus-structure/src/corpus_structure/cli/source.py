@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import json as jsonlib
+from collections import Counter
 from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
 from pydantic import BaseModel, JsonValue, RootModel
 
-from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
-from corpus_structure.serve.native_source import NativeExportFormat
+from corpus_structure.serve.native_source import NativeExportFormat, NativeSourceRequest
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
 
@@ -23,6 +24,15 @@ class NativeProductReport(BaseModel):
     release_id: str
     health: dict[str, JsonValue]
     runtime_report: dict[str, JsonValue] | None
+
+
+class SourceCoverageReport(BaseModel):
+    selection: NativeSourceRequest
+    release_id: str
+    outcome: str
+    page_outcomes: dict[str, int]
+    page_rows: int | None
+    next_cursor: str | None
 
 
 @app.command("inspect")
@@ -56,13 +66,17 @@ def inspect(
     limit: int = 100,
     max_rows: int = 10000,
     max_bytes: int = 1048576,
+    view: Literal["summary", "full"] | None = None,
     json: JsonOpt = False,
 ):
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
+    from corpus_structure.serve.native_source import inspect_native_source
 
+    coverage = native_view == "manifest" and collection == "coverage"
+    if view == "summary" and not coverage:
+        raise typer.BadParameter("summary requires --native-view manifest --collection coverage")
     cancellation = BorrowerCancellation()
     with (
         failure_boundary(json, expected=(ValueError,)),
@@ -71,31 +85,69 @@ def inspect(
         ) as engine,
         read_snapshot(engine, cancellation=cancellation) as conn,
     ):
-        emit(
-            inspect_native_source(
-                conn,
-                NativeSourceRequest(
-                    run_id=run,
-                    task_id=producing_task,
-                    product_key=product,
-                    content_digest=native_digest,
-                    view=native_view,
-                    pointer=pointer,
-                    section_pointer=section,
-                    membership=membership,
-                    cell_index=cell,
-                    occurrence_id=occurrence,
-                    artifact_digest=artifact_digest,
-                    collection=collection,
-                    cursor=cursor,
-                    limit=limit,
-                    max_rows=max_rows,
-                    max_bytes=max_bytes,
-                ),
-                cancellation=cancellation,
+        response = inspect_native_source(
+            conn,
+            NativeSourceRequest(
+                run_id=run,
+                task_id=producing_task,
+                product_key=product,
+                content_digest=native_digest,
+                view=native_view,
+                pointer=pointer,
+                section_pointer=section,
+                membership=membership,
+                cell_index=cell,
+                occurrence_id=occurrence,
+                artifact_digest=artifact_digest,
+                collection=collection,
+                cursor=cursor,
+                limit=limit,
+                max_rows=max_rows,
+                max_bytes=max_bytes,
             ),
-            json=json,
+            cancellation=cancellation,
         )
+
+    if not (coverage and (view == "summary" or (view is None and not json))):
+        emit(response, json=json)
+        return
+    page = response.rows[0] if response.rows else {}
+    rows = page.get("rows")
+    page_outcomes = (
+        Counter(
+            str(row.get("outcome", "unavailable")) if isinstance(row, dict) else "unavailable"
+            for row in rows
+        )
+        if isinstance(rows, list)
+        else Counter()
+    )
+    emit(
+        SourceCoverageReport(
+            selection=response.selection,
+            release_id=response.release_id,
+            outcome=response.outcome,
+            page_rows=len(rows) if isinstance(rows, list) else None,
+            page_outcomes=dict(page_outcomes),
+            next_cursor=response.next_cursor,
+        ),
+        json=json,
+        render=lambda report: report_fields(
+            ("Run", report.selection.run_id),
+            ("Producer", f"{report.selection.task_id} · {report.selection.product_key}"),
+            ("Release", report.release_id),
+            ("Outcome", report.outcome),
+            (
+                "Coverage page rows",
+                report.page_rows if report.page_rows is not None else "unavailable",
+            ),
+            (
+                "Page outcomes",
+                ", ".join(f"{key}: {count}" for key, count in sorted(report.page_outcomes.items()))
+                or "none",
+            ),
+            ("Continuation", report.next_cursor or "none"),
+        ),
+    )
 
 
 def register(root: typer.Typer):
@@ -323,7 +375,7 @@ def native_request(
             code_commit="native-source-cli-v2",
         )
         if result.status == "failed":
-            emit(RootModel(result), json=json)
+            emit(RootModel(result), json=json, exit_code=1)
             raise typer.Exit(1)
         if output is not None:
             artifacts = table("kb.source_artifact")

@@ -51,3 +51,51 @@ typer.run(report)
     )
     assert process.returncode == status
     assert process.stderr == b"ci: stdout closed before report delivery completed\n"
+
+
+def test_headless_json_keeps_terminal_stage_diagnostics_separate(tmp_path, monkeypatch):
+    import errno
+    import json
+    import pty
+
+    from corpus_structure.cli.managed import ResultStore
+
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path))
+    monkeypatch.setenv("TERM", "xterm")
+    monkeypatch.setenv("NO_COLOR", "1")
+    reader, terminal = pty.openpty()
+    try:
+        with ResultStore(tmp_path).operation("test", scope={"lane": "ordinary"}) as result:
+            result.stage("ordinary", lane_counts={"ordinary": {"selected": 3, "passed": 1}})
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "from corpus_structure.cli.app import main; main()",
+                    "results",
+                    "watch",
+                    result.id,
+                    "--seconds",
+                    "0.01",
+                    "--json",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=terminal,
+                check=False,
+                timeout=15,
+            )
+            assert process.returncode == 0
+            assert json.loads(process.stdout)["custody"] == "unsettled"
+    finally:
+        os.close(terminal)
+    with os.fdopen(reader, "rb", buffering=0) as stream:
+        chunks = []
+        try:
+            while chunk := stream.read(4096):
+                chunks.append(chunk)
+        except OSError as error:
+            if error.errno != errno.EIO:
+                raise
+    diagnostic = b"".join(chunks)
+    assert b"selected=3, passed=1" in diagnostic
+    assert b"\x1b[" not in diagnostic

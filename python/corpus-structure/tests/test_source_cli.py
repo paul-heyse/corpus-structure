@@ -280,3 +280,55 @@ def test_current_inspection_preserves_exact_product_and_companion_selector(
     assert json.loads(result.stdout)["rows"] == [{"outcome": "unknown"}]
     old = cli("source", "inspect", "17", "4")
     assert old.exit_code != 0
+
+
+def test_source_coverage_summary_keeps_page_counts_and_continuation(
+    cli, source_runtime, monkeypatch
+):
+    from corpus_structure.serve import native_source
+
+    def inspect(conn, request, *, cancellation):
+        assert conn is source_runtime.connection
+        assert request.collection == "coverage"
+        return native_source.NativeSourceResponse(
+            selection=request,
+            release_id="release-17",
+            health={},
+            rows=[{"rows": [{"outcome": "missing"}, {"outcome": "ready"}]}],
+            next_cursor="next-coverage-page",
+            population_complete=False,
+        )
+
+    monkeypatch.setattr(native_source, "inspect_native_source", inspect)
+    args = (
+        "source",
+        "inspect",
+        "17",
+        "--producing-task",
+        "23",
+        "--product",
+        "native_document",
+        "--native-digest",
+        "a" * 64,
+        "--native-view",
+        "manifest",
+        "--collection",
+        "coverage",
+    )
+    full = cli(*args, "--json")
+    assert full.exit_code == 0, full.output
+    assert "rows" in json.loads(full.stdout)
+
+    projected = cli(*args, "--view", "summary", "--json")
+    assert projected.exit_code == 0, projected.output
+    assert json.loads(projected.stdout) == {
+        "selection": json.loads(full.stdout)["selection"],
+        "release_id": "release-17",
+        "outcome": "source_ready",
+        "page_outcomes": {"missing": 1, "ready": 1},
+        "page_rows": 2,
+        "next_cursor": "next-coverage-page",
+    }
+    human = cli(*args)
+    assert human.exit_code == 0, human.output
+    assert "missing: 1, ready: 1" in human.stdout

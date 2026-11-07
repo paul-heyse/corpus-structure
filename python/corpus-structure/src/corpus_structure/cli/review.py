@@ -13,7 +13,14 @@ from typing import TYPE_CHECKING, Annotated, Any
 import typer
 from pydantic import JsonValue, RootModel
 
-from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.cli.output import (
+    JsonOpt,
+    diagnostic,
+    emit,
+    read_request_bytes,
+    report_fields,
+    state,
+)
 
 if TYPE_CHECKING:
     from corpus_structure.core.db.cancellation import OperationCancellation
@@ -86,6 +93,7 @@ def _deliver_review(
         selection_path.write_bytes(body)
         result.publish("selection", selection_path)
         result.stage("capture")
+        diagnostic(f"Review {result.id} · capture")
         bundle = result.directory / "bundle"
 
         def retain_binding(binding: str) -> None:
@@ -108,8 +116,8 @@ def _deliver_review(
             )
         except BaseException as error:
             received = interrupted()
-            diagnostic = getattr(error, "database_diagnostic", None)
-            native = getattr(diagnostic, "failure", None)
+            database_diagnostic = getattr(error, "database_diagnostic", None)
+            native = getattr(database_diagnostic, "failure", None)
             if (
                 cancellation.cleanup_failures
                 or getattr(error, "__notes__", ())
@@ -143,11 +151,13 @@ def _deliver_review(
                         }
                     ),
                     json=True,
+                    exit_code=128 + received,
                 )
             raise typer.Exit(128 + received) from error
         result.publish("bundle", bundle)
         result.stage("published")
     delivered = store.deliver(result.id, "bundle", destination)
+    diagnostic(f"Review {result.id} · published")
     emit(
         RootModel[dict[str, JsonValue]].model_validate(
             {**manifest, "invocation_id": result.id, "destination": str(delivered)}
@@ -159,7 +169,7 @@ def _deliver_review(
 @app.command("export-evaluated")
 def export_evaluated_review(
     ctx: typer.Context,
-    selection: Path,
+    selection: Annotated[str, typer.Argument(help="A JSON selection path or '-' for stdin.")],
     destination: Annotated[Path | None, typer.Argument()] = None,
     *,
     project: Annotated[str, typer.Option()],
@@ -180,7 +190,7 @@ def export_evaluated_review(
     from corpus_structure.serve.review_bundle import ReviewSelection
 
     with failure_boundary(json, expected=(OSError, ValueError)):
-        request = ReviewSelection.model_validate_json(selection.read_bytes())
+        request = ReviewSelection.model_validate_json(read_request_bytes(selection))
         settings = state(ctx).settings()
         cohorts = tuple((False, project, value) for value in assessment_set or ()) + tuple(
             (True, group_project or project, value) for value in group_set or ()
@@ -222,7 +232,7 @@ def export_evaluated_review(
 @app.command("export")
 def export_review(
     ctx: typer.Context,
-    selection: Path,
+    selection: Annotated[str, typer.Argument(help="A JSON selection path or '-' for stdin.")],
     destination: Annotated[Path | None, typer.Argument()] = None,
     exact_closure: Annotated[
         bool, typer.Option(help="Include only exact retained predecessors.")
@@ -234,7 +244,7 @@ def export_review(
     from corpus_structure.serve.review_bundle import ReviewSelection
 
     with failure_boundary(json, expected=(OSError, ValueError)):
-        request = ReviewSelection.model_validate_json(selection.read_bytes())
+        request = ReviewSelection.model_validate_json(read_request_bytes(selection))
         _deliver_review(ctx, request, destination, exact_closure=exact_closure, json=json)
 
 
@@ -290,14 +300,44 @@ def verify_review(bundle: Path, json: JsonOpt = False):
 
 
 @app.command("inspect")
-def inspect_review(bundle: Path, json: JsonOpt = False):
-    """Verify a detached bundle and summarize its declared coverage."""
+def inspect_review(
+    ctx: typer.Context,
+    bundle: Annotated[Path | None, typer.Argument()] = None,
+    result_id: Annotated[str | None, typer.Option("--result", metavar="RESULT_ID")] = None,
+    json: JsonOpt = False,
+):
+    """Verify a detached bundle or managed result and summarize its coverage."""
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.serve.review_bundle import inspect_review_bundle
 
-    with failure_boundary(json, expected=(OSError, ValueError)):
-        result = inspect_review_bundle(bundle)
-    emit(RootModel[dict[str, JsonValue]].model_validate(result), json=json)
+    if (bundle is None) == (result_id is None):
+        raise typer.BadParameter("supply a detached bundle path or --result, exactly one")
+    with failure_boundary(json, expected=(OSError, ValueError, ResultError)):
+        if bundle is not None:
+            report = inspect_review_bundle(bundle)
+            subject = str(bundle)
+        else:
+            assert result_id is not None
+            store = result_store(ctx)
+            with store.lease(result_id):
+                manifest = store.show(result_id)
+                if manifest.action not in {"review.export", "review.export-evaluated"}:
+                    raise ResultError("result is not a managed review export")
+                with store.open_artifact(result_id, "bundle") as (_, descriptor):
+                    report = {"result_id": result_id, **inspect_review_bundle(descriptor)}
+            subject = result_id
+
+    emit(
+        RootModel[dict[str, JsonValue]].model_validate(report),
+        json=json,
+        render=lambda _: report_fields(
+            ("Verified review", subject),
+            ("Coverage", report["completeness"]),
+            ("Source completeness", report["original_source_completeness"]),
+            ("Relations", len(report["relations"])),
+        ),
+    )
 
 
 def register(root: typer.Typer):

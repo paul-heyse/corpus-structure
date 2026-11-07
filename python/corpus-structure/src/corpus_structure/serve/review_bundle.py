@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
+import stat
 import sys
 from collections.abc import Callable, Iterable, Mapping
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict
 from hashlib import file_digest, sha256
 from pathlib import Path
@@ -1025,13 +1027,42 @@ def _named_rows(name, values):
             close()
 
 
-def _member(root: Path, name: str) -> Path:
+@contextmanager
+def _member(
+    root: int,
+    name: str,
+    *,
+    digest: str | None = None,
+    size: int | None = None,
+):
     if Path(name).name != name or name in {"", ".", ".."}:
         raise ValueError("invalid review member path")
-    path = root / name
-    if path.is_symlink() or not path.is_file():
-        raise ValueError("review member missing or not an ordinary file")
-    return path
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
+    except OSError as error:
+        raise ValueError("review member missing or not an ordinary file") from error
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("review member missing or not an ordinary file")
+        if size is not None and before.st_size != size:
+            raise ValueError("review file integrity differs")
+        if digest is not None:
+            if file_digest(stream, "sha256").hexdigest() != digest:
+                raise ValueError("review file integrity differs")
+            stream.seek(0)
+        yield stream
+        after = os.fstat(fd)
+        if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            raise ValueError("review member changed during verification")
+
+
+def _relation_member(root: int, file: Mapping[str, Any]):
+    return _member(root, file["path"], digest=file["sha256"], size=file["bytes"])
 
 
 def _verify_dossier_structural_closure(root, manifest, dossiers, products, scopes, assertions):
@@ -1044,7 +1075,7 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
     raw_reports = {}
     spec = manifest["relations"].get("reports")
     if spec is not None:
-        with _member(root, spec["files"]["jsonl"]["path"]).open("rb") as stream:
+        with _relation_member(root, spec["files"]["jsonl"]) as stream:
             for line in stream:
                 raw = json.loads(json.loads(line)["payload_json"])
                 if raw["origin_task_id"] in origin_ids:
@@ -1158,7 +1189,7 @@ def _detached_relation(root, manifest, name):
     spec = manifest["relations"].get(name)
     if spec is None:
         return
-    with _member(root, spec["files"]["jsonl"]["path"]).open("rb") as stream:
+    with _relation_member(root, spec["files"]["jsonl"]) as stream:
         for line in stream:
             yield json.loads(json.loads(line)["payload_json"])
 
@@ -1487,9 +1518,23 @@ def _verify_predicate_closure(root, manifest):
             )
 
 
-def verify_review_bundle(root: Path) -> dict[str, Any]:
-    """Offline integrity and JSONL/Parquet equivalence; no database or model access."""
-    manifest = json.loads(_member(root, "manifest.json").read_bytes())
+def verify_review_bundle(root: Path | int) -> dict[str, Any]:
+    """Verify a detached path or borrow an authenticated directory descriptor."""
+    if isinstance(root, int):
+        return _verify_review_bundle(root)
+    try:
+        descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    except OSError as error:
+        raise ValueError("review member missing or not an ordinary file") from error
+    try:
+        return _verify_review_bundle(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _verify_review_bundle(root: int) -> dict[str, Any]:
+    with _member(root, "manifest.json") as stream:
+        manifest = json.load(stream)
     if manifest.get("format") != FORMAT:
         raise ValueError("unsupported review format")
     selection = ReviewSelection.model_validate(manifest["selection"])
@@ -1497,9 +1542,9 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     if digest != manifest["selection_digest"] or manifest["completeness"] != selection.completeness:
         raise ValueError("review selection differs")
     expected = {"manifest.json", manifest["overview"]["path"]}
-    overview = _member(root, manifest["overview"]["path"])
-    if _digest(overview) != manifest["overview"]["sha256"]:
-        raise ValueError("review overview differs")
+    with _member(root, manifest["overview"]["path"]) as overview:
+        if file_digest(overview, "sha256").hexdigest() != manifest["overview"]["sha256"]:
+            raise ValueError("review overview differs")
     present_sources: set[int] = set()
     needed_sources: set[int] = set()
     needed_reports: set[int] = set()
@@ -1542,18 +1587,16 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
         for suffix in ("jsonl", "parquet"):
             file = spec["files"][suffix]
             expected.add(file["path"])
-            path = _member(root, file["path"])
-            if _digest(path) != file["sha256"] or path.stat().st_size != file["bytes"]:
-                raise ValueError("review file integrity differs")
             logical = LogicalRows(schema, ("row_id",))
             if suffix == "parquet":
-                parquet = pq.ParquetFile(path)
-                if not parquet.schema_arrow.equals(schema, check_metadata=True):
-                    raise ValueError("review parquet schema differs")
-                for batch in parquet.iter_batches(batch_size=128):
-                    logical.write(batch)
+                with _relation_member(root, file) as stream:
+                    parquet = pq.ParquetFile(stream)
+                    if not parquet.schema_arrow.equals(schema, check_metadata=True):
+                        raise ValueError("review parquet schema differs")
+                    for batch in parquet.iter_batches(batch_size=128):
+                        logical.write(batch)
             else:
-                with path.open("rb") as stream:
+                with _relation_member(root, file) as stream:
                     pending = []
                     for line in stream:
                         row = json.loads(line)
@@ -1848,9 +1891,9 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
             ):
                 raise ValueError("structural source differs from exported original pin")
         if structural_reports:
-            sources_path = _member(root, manifest["relations"]["sources"]["files"]["jsonl"]["path"])
+            sources = manifest["relations"]["sources"]["files"]["jsonl"]
             pending_sources = {entry[0] for entry in structural_reports}
-            with sources_path.open("rb") as source_stream:
+            with _relation_member(root, sources) as source_stream:
                 for line in source_stream:
                     source = json.loads(json.loads(line)["payload_json"])
                     for source_id, start, end, digest in structural_reports:
@@ -1865,12 +1908,12 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                 raise ValueError("structural source excerpt members are missing")
         if not needed_reports <= present_reports | omitted_reports:
             raise ValueError("review required report members are missing")
-    if {path.name for path in root.iterdir()} != expected:
+    if set(os.listdir(root)) != expected:
         raise ValueError("review package has undeclared or missing members")
     return manifest
 
 
-def inspect_review_bundle(root: Path) -> dict[str, Any]:
+def inspect_review_bundle(root: Path | int) -> dict[str, Any]:
     manifest = verify_review_bundle(root)
     return {
         "format": FORMAT,

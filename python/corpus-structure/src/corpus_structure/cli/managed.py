@@ -803,6 +803,7 @@ def watch_result(
         store = result_store(ctx)
         deadline = time.monotonic() + seconds
         stage = None
+        lane_counts: dict[str, dict[str, int]] = {}
         cursors: dict[str, tuple[int, bool]] = {}
         diagnostics = Diagnostics()
         with store.lease(result):
@@ -811,8 +812,20 @@ def watch_result(
                 item = store._inspection(directory)
                 if item.stage != stage:
                     if item.settled is None and seconds:
-                        diagnostic(item.stage)
+                        diagnostic(f"Result {result} · {item.stage}")
                     stage = item.stage
+                if seconds:
+                    for lane in _diagnostic_lanes(item):
+                        counts = item.details.get("lane_counts", {}).get(lane)
+                        if counts and counts != lane_counts.get(lane):
+                            lane_counts[lane] = counts
+                            summary = ", ".join(
+                                f"{key}={counts[key]}"
+                                for key in ("selected", "passed", "failed", "blocked", "skipped")
+                                if type(counts.get(key)) is int
+                            )
+                            if summary:
+                                diagnostic(f"Result {result} · {lane} · {summary}")
                 done = item.settled is not None or time.monotonic() >= deadline
                 for lane in _diagnostic_lanes(item):
                     cursors[lane] = _receipt_events(
