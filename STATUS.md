@@ -37,8 +37,8 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
 ## CLI operations — 2026-11-07
 
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
-- The [file-free CLI reporting review](docs/functional_reviews/cli-reporting_2026-11-07.md)
-  prioritizes direct test and model preview reads. Scoped Rich and Typer probes passed.
+- The [CLI reporting series](docs/plans/cli-reporting_2026-11-07.md) proposes compact test and leased model reads first. Stream compatibility is open.
+  On 2026-11-07, `uv run ci docs check` failed at a concurrent NCE draft link. Publication passed with that draft excluded.
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.
