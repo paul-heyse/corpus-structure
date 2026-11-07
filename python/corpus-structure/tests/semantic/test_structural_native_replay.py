@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.methods.structural_products import compare_clauses, read_clause
 from corpus_structure.semantic.structural_admission import structural_statement
@@ -247,3 +248,67 @@ def test_native_representation_projects_only_selected_member_closure(semantic_db
     )
     assert result["citations"][0]["source"] == inputs.sources[0].model_dump(mode="json")
     assert result["supported_facets"] == []
+
+
+def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
+    from methods.test_m1_source_preparation import native_table_source, table_cell
+    from methods.test_scoped_relations import complete_native_fields
+
+    from corpus_structure.methods.scoped_relations import discover_relations
+    from corpus_structure.semantic.observations import source_python
+    from corpus_structure.semantic.proposals import native_source_frame
+
+    note_text = "Only the Heads row uses percentages."
+    view = complete_native_fields(
+        native_table_source(
+            (
+                table_cell("Probability %", 0, 1, column_header=True),
+                table_cell("Heads", 1, 0, row_header=True),
+                table_cell("50", 1, 1),
+                table_cell("50", 2, 1),
+            ),
+            note=note_text,
+        )
+    )
+    rows = discover_relations(native_source_frame(view, ()))["contributions"]
+    note = next(r for r in rows if source_python(r["value"]).get("role") == "note")
+    (anchor,) = note["anchors"]
+    original = {item["self_ref"]: dict(item) for item in view.items}
+
+    def bind(conn, items):
+        conn.execute(
+            text("SELECT set_config('test.note_native_items',:items,true)"),
+            {"items": json.dumps(items)},
+        )
+
+    replay = text(
+        "SELECT ops.validate_source_table_note_scope(NULL::kb.source_view,CAST(:rows AS jsonb))"
+    )
+    with semantic_db_engine.connect() as conn, conn.begin():
+        # Isolate the installed scope guard after the owned raw-item boundary.
+        conn.exec_driver_sql("""
+            CREATE OR REPLACE FUNCTION ops.read_pdf_published_items(
+                p_task bigint,p_product text,p_digest text,p_pointers text[])
+            RETURNS TABLE(product_id text,revision_id text,pointer text,ordinal bigint,
+                label text,parent_pointer text,section_pointer text,content_layer text,
+                text text,native_json jsonb) LANGUAGE sql STABLE AS $$
+                SELECT NULL::text,NULL::text,p,NULL::bigint,NULL::text,NULL::text,
+                    NULL::text,NULL::text,item->>'text',item
+                FROM unnest(p_pointers) p
+                CROSS JOIN LATERAL (
+                    SELECT current_setting('test.note_native_items')::jsonb->p AS item
+                ) value
+            $$
+        """)
+        bind(conn, original)
+        conn.execute(replay, {"rows": json.dumps(rows)})
+
+        prefix = "Do not apply the following statement. "
+        original[anchor["pointer"]]["text"] = prefix + note_text
+        anchor["start"], anchor["end"] = len(prefix), len(prefix) + len(note_text)
+        bind(conn, original)
+        with (
+            pytest.raises(DBAPIError, match="requires the whole original note"),
+            conn.begin_nested(),
+        ):
+            conn.execute(replay, {"rows": json.dumps(rows)})

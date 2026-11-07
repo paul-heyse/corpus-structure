@@ -329,18 +329,13 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
     assert report["product_counts"]["candidate_lists"] == 1
     assert report["product_counts"]["relationship_decisions"] == 1
     assert [p["outcome"] for p in phases] == ["succeeded", "succeeded", "failed", "not_run"]
-    assert [p["emitted_count"] for p in phases] == [0, 1, 0, 0]
+    assert [p["emitted_count"] for p in phases] == [0, 0, 0, 0]
     assert result.contributions is not None
-    proposal = next(
-        c for c in result.contributions if c["semantic_type"] == "contextual.relationship"
-    )
-    source_product = result.contributions[0]
-    assert proposal["members"] == (source_product["contribution_id"],)
-    assert proposal["anchors"] == source_product["anchors"]
-    statement = source_python(proposal["value"])
-    assert statement["target"]["term"]["text"] == "Mean" and statement["relation"] == "denotes"
-    assert statement["scope"] == "chapter5" and statement["effective_version"] is None
-    assert proposal["score_state"] == "missing" and "score" not in proposal
+    assert len(result.contributions) == 2
+    assert all(row["semantic_type"] == "contextual.located_mention" for row in result.contributions)
+    (decision,) = report["relationship_decisions"]
+    assert decision["outcome"] == "insufficient_evidence"
+    assert not decision["selected_edges"]
     assert first["emitted_count"] == 2
     assert "controlled late read failure" in phases[-2]["reason"]
 

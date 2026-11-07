@@ -1185,7 +1185,8 @@ above, not those two.
 | authenticated retained source occurrence | actual producer contribution, exact component target inventory and vectors | fixed candidate list, compatible relationship edges and explicit competing alternatives | deterministic + encoder; selected nondefault configuration |
 
 **Implemented; actual bounded E5/source/Reader/export behavior Tested,2026-11-06.** The registered
-`retrieve.contextual/3` method consumes actual retained occurrences. `locate.definition_terms/1`
+`retrieve.contextual/5` consumes actual retained occurrences. Label matches may rank
+candidates. Selecting a relationship requires located producer evidence. `locate.definition_terms/1`
 projects term roles from exact retained component references, preserving their original source
 coordinates; it supplies locations rather than a new independent semantic judgment. Source views
 without an eligible emitted definition stay explicitly unrequested/inapplicable for that route.

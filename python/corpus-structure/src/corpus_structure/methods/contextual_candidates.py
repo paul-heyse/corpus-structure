@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from dataclasses import asdict
 from typing import Literal
 
@@ -32,7 +33,13 @@ from corpus_structure.semantic.contributions import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.source_contexts import record_source_pin
+from corpus_structure.semantic.source_contexts import (
+    ContextRefused,
+    NativeSourceContext,
+    SourceSlice,
+    evidence_anchor,
+    record_source_pin,
+)
 
 from .contextual_embeddings import (
     E5,
@@ -179,6 +186,44 @@ def retained_definition_witnesses(
                 )
             )
     return tuple(found)
+
+
+def coincident_component_terms(frame, view, semantic_targets, pin):
+    """Index component terms only when they are the same physical occurrence."""
+    source_pin = {
+        "native_product_key": pin["product_key"],
+        "native_content_digest": pin["product_digest"],
+        "projection_digest": pin["projection_digest"],
+        "recipe_digest": pin["recipe_digest"],
+    }
+    local = {
+        target_id: target["term"]
+        for target_id, target in semantic_targets.items()
+        if all(target["term"].get("source", {}).get(k) == v for k, v in source_pin.items())
+    }
+    if not local:
+        return {}
+    context = NativeSourceContext(
+        frame,
+        (),
+        (SourceSlice(view.ref.id, 0, len(frame.text)),),
+        "coincident retained component terms",
+        "coincident-component-term-1",
+        "exact source projection",
+        max_chars=len(frame.text),
+        max_pieces=max(1, len(view.pieces)),
+    )
+    by_occurrence = defaultdict(list)
+    for target_id, term in local.items():
+        try:
+            pieces = context.map_span(
+                term["start"], term["end"], literal=term["text"], allow_multiple=True
+            )
+        except ContextRefused:
+            continue
+        anchors = tuple(evidence_anchor(context, piece, native=True)[0] for piece in pieces)
+        by_occurrence[occurrence_identity(anchors)].append(target_id)
+    return by_occurrence
 
 
 class ProducerRelationshipRecipe(BaseModel):
@@ -340,7 +385,7 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
 
 class ContextualCandidates:
     name = "retrieve.contextual"
-    version = "3"
+    version = "5"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -414,6 +459,11 @@ class ContextualCandidates:
                 raise ValueError("selected retained occurrence producer is unavailable")
             source_products, contexts, coordinates = retained_occurrences(
                 upstream, nodes, pin, operation_key, cfg.semantic_types
+            )
+            own_terms = (
+                coincident_component_terms(frame, view, semantic_targets, pin)
+                if any("denotes" in c.relation_kinds for c in cfg.relationship_constraints)
+                else {}
             )
             products = list(source_products)
             inputs = [
@@ -516,31 +566,9 @@ class ContextualCandidates:
                 )
                 try:
                     available = {c.target_id for c in candidate_list.candidates}
-                    witnesses = tuple(
-                        RelationshipWitness(
-                            "component-label:"
-                            + source_product["contribution_id"]
-                            + ":"
-                            + target.target_id,
-                            occurrence,
-                            target.target_id,
-                            "denotes",
-                            frame.unit_ref,
-                            cfg.scope,
-                            cfg.effective_version,
-                            (source_product["contribution_id"],),
-                            "producer_group",
-                            "unassessed",
-                        )
-                        for source_product in source_products
-                        for target in inventory.targets
-                        if source_product["occurrence_id"] == occurrence
-                        and any("denotes" in c.relation_kinds for c in cfg.relationship_constraints)
-                        and target.target_id in available
-                        and mention.lower()
-                        in {target.label.lower(), *(a.lower() for a in target.aliases)}
-                    )
-                    witnesses += producer_relationship_witnesses(
+                    # Labels rank candidates. Only located producer relationships
+                    # supply a witness for selecting an edge.
+                    witnesses = producer_relationship_witnesses(
                         upstream,
                         source_products,
                         occurrence,
@@ -550,6 +578,25 @@ class ContextualCandidates:
                         frame.unit_ref,
                         cfg.scope,
                         cfg.effective_version,
+                    )
+                    witnesses += tuple(
+                        RelationshipWitness(
+                            "coincident-component-term:"
+                            + operation_identity(source_product["contribution_id"], target_id),
+                            occurrence,
+                            target_id,
+                            "denotes",
+                            frame.unit_ref,
+                            cfg.scope,
+                            cfg.effective_version,
+                            (source_product["contribution_id"],),
+                            "producer_group",
+                            "unassessed",
+                        )
+                        for source_product in source_products
+                        if source_product["occurrence_id"] == occurrence
+                        for target_id in own_terms.get(occurrence, ())
+                        if target_id in available
                     )
                     if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
                         witnesses += retained_definition_witnesses(
@@ -570,7 +617,7 @@ class ContextualCandidates:
                         effective_version=cfg.effective_version,
                         constraints=cfg.relationship_constraints,
                         witnesses=witnesses,
-                        insufficient_reason="no exact full-term component label witness",
+                        insufficient_reason="no source-grounded relationship witness",
                     )
                 except (ValueError, TimeoutError, OSError) as error:
                     _propagate_cancellation(error, ctx.check_active)

@@ -1128,7 +1128,7 @@ def test_artifact_nomination_refuses_incomplete_or_substituted_source_closure(tm
             value for name, value in rows if name == "reports" and value["origin_task_id"] == 100
         )
         raw["configuration"]["external_nomination_refs"] = []
-        error = "differs from original registered producer and nomination configuration"
+        error = "differs from its registered producer and nomination configuration"
     root = tmp_path / "artifact"
     with pytest.raises(ValueError, match=error):
         write_review_bundle(request, root, iter(rows))
