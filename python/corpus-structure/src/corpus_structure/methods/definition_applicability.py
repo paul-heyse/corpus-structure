@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
 
@@ -41,6 +41,11 @@ from corpus_structure.semantic.structural_products import (
     StructuralValue,
     definition_component,
 )
+
+if TYPE_CHECKING:
+    from spacy.tokens import Span
+
+    from corpus_structure.ingest.annotation_views import AnnotationView
 
 
 class DefinitionComponentsConfig(StructuralValue):
@@ -355,6 +360,99 @@ def definition_scopes(
     return scopes
 
 
+def _nominal_signature(span: Span, head: int):
+    return tuple(
+        (
+            token.lemma_.casefold(),
+            token.pos_,
+            tuple(token.morph.get("Number", None)),
+            (token.dep_, token.head.i - span.start) if token.i != head else None,
+        )
+        for token in span
+    )
+
+
+def _naming_antecedent(
+    view: AnnotationView,
+    passage: StructuralPassage,
+    match: AnnotationRuleMatch,
+    content_role: str,
+) -> LocatedDefinitionSpan | None:
+    """Resolve a sentence-initial demonstrative to a unique preceding restricted nominal."""
+    if (match.rule, match.variant) != ("naming", "passive_called_term"):
+        return None
+    role = next((role for role in match.roles if role.role == content_role), None)
+    if role is None or role.status != "complete" or len(role.nodes) < 2:
+        return None
+    start, end = role.nodes[0], role.nodes[-1] + 1
+    doc, product = view.doc, view.product
+    if (
+        role.nodes != tuple(range(start, end))
+        or not start
+        or doc[start].sent.start != start
+        or doc[start].lower_ not in {"this", "that", "these", "those"}
+        or doc[start].dep_ != "det"
+        or doc[start].head.i != role.head
+        or doc[role.head].pos_ != "NOUN"
+    ):
+        return None
+
+    prior = doc[start - 1].sent
+    if product.tokens[prior.start].start < passage.start:
+        return None
+    head_offset = role.head - start - 1
+    signature = _nominal_signature(doc[start + 1 : end], role.head)
+    candidates = [
+        i
+        for i in range(prior.start, prior.end - len(signature) + 1)
+        if _nominal_signature(doc[i : i + len(signature)], i + head_offset) == signature
+    ]
+    if len(candidates) != 1:
+        return None
+    (nominal,) = candidates
+    if nominal == prior.start:
+        return None
+    article, head = doc[nominal - 1], doc[nominal + head_offset]
+    if article.lower_ != "the" or article.dep_ != "det" or article.head != head:
+        return None
+
+    markers = [
+        i
+        for i in range(nominal + len(signature), prior.end - 2)
+        if doc[i].lower_ == "such" and doc[i + 1].lower_ == "that"
+    ]
+    if len(markers) != 1 or head not in doc[markers[0] + 1].ancestors:
+        return None
+    restriction = doc[markers[0] + 2 : prior.end]
+    # Mathematical tokens may attach outside the nominal subtree. An independent
+    # finite clause, quotation or sentence-internal terminator defeats the suffix.
+    if not any(not token.is_punct for token in restriction) or any(
+        token.is_quote
+        or token.text in {";", ":"}
+        or (
+            token.i >= restriction.start
+            and "Fin" in token.morph.get("VerbForm", None)
+            and head not in token.ancestors
+        )
+        for token in prior
+    ):
+        return None
+    piece = product.tokens[start].piece_indices
+    if len(piece) != 1 or any(
+        token.piece_indices != piece for token in product.tokens[prior.start : end]
+    ):
+        return None
+    first, last = product.tokens[article.i].start, product.tokens[prior.end - 1].end
+    if not passage.start <= first < last <= passage.end:
+        return None
+    return LocatedDefinitionSpan(
+        passage_id=passage.passage_id,
+        start=first,
+        end=last,
+        text=passage.text[first - passage.start : last - passage.start],
+    )
+
+
 def components_from_named_matches(
     passage: StructuralPassage,
     matches: tuple[AnnotationRuleMatch, ...],
@@ -362,6 +460,7 @@ def components_from_named_matches(
     scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
     term_role: str,
     content_role: str,
+    antecedents: Mapping[AnnotationRuleMatch, LocatedDefinitionSpan] | None = None,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
@@ -412,9 +511,10 @@ def components_from_named_matches(
             )
         if len(selected) != 2:
             continue
+        antecedent = antecedents.get(match) if antecedents is not None else None
         component = definition_component(
             term=selected[0],
-            content=selected[1],
+            content=antecedent if antecedent is not None else selected[1],
             interpretation="explanation"
             if match.rule in {"naming", "explanation"}
             else "definition",
@@ -426,6 +526,12 @@ def components_from_named_matches(
                 f"Named rule {match.rule}/{match.variant} binds explicit "
                 f"{term_role}/{content_role} roles; semantic attachment remains "
                 "independently unassessed."
+                + (
+                    " The demonstrative refers to the unique preceding restricted nominal "
+                    "in the same retained source piece."
+                    if antecedent is not None
+                    else ""
+                )
             ),
         )
         components[component.component_id] = component
@@ -574,6 +680,13 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
             if matches
             else {}
         )
+        antecedents = {
+            match: antecedent
+            for match, scope in scopes.items()
+            if scope.disposition == "supported"
+            and (antecedent := _naming_antecedent(restored, passage, match, cfg.content_role))
+            is not None
+        }
         for rule, variant, state in result.availability:
             selected = [
                 match for match in matches if (match.rule, match.variant) == (rule, variant)
@@ -594,6 +707,11 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                             nodes=match.nodes,
                             roles=[asdict(role) for role in match.roles],
                             definition_scope=asdict(scopes[match]) if match in scopes else None,
+                            **(
+                                {"content_antecedent": antecedents[match].model_dump(mode="json")}
+                                if match in antecedents
+                                else {}
+                            ),
                         )
                         for match in selected
                     ],
@@ -606,6 +724,7 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                 scopes=scopes,
                 term_role=cfg.term_role,
                 content_role=cfg.content_role,
+                antecedents=antecedents,
             )
         )
         found.extend(
@@ -672,7 +791,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "6"
+    version = "7"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
