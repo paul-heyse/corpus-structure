@@ -1,0 +1,277 @@
+{
+  "date": "2026-11-07",
+  "deployment": {
+    "result_id": "3c2a87cfded645bbbd839d2a5d7ac861",
+    "stage": "deployed",
+    "revision": "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd86cdff1",
+    "changed": [],
+    "predecessor": "semantic_nce06_heading_catalog",
+    "release": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+    "target_profile": "development",
+    "acquired_target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 25921445,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "maintenance"
+    }
+  },
+  "controls": [
+    {
+      "run": {
+        "cut_id": 355,
+        "project_id": "wce-gs120-method-development-20261106",
+        "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+        "result_revision": 1,
+        "run_id": 255,
+        "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+      },
+      "resolution": {
+        "designator": "5.2",
+        "eligible_target_ids": [
+          "section-heading:50c7118d72650a39ec710d44e77d374ca319ecea7bb3157378cc7e4a3e0531b9"
+        ],
+        "occurrence_id": "source-occurrence:c20060301e8b92acbd0e35de83cdf400d694f753504320265b298094518a7922",
+        "outcome": "selected"
+      },
+      "selected_headings": [
+        {
+          "target_id": "section-heading:50c7118d72650a39ec710d44e77d374ca319ecea7bb3157378cc7e4a3e0531b9",
+          "label": "5.2 Important Densities",
+          "pointer": "#/texts/40",
+          "original_views": [
+            116
+          ]
+        }
+      ],
+      "channels": [
+        "alias",
+        "dense",
+        "lexical",
+        "witness"
+      ],
+      "delivery": {
+        "run_id": 255,
+        "cut_id": 355,
+        "relationships": 1
+      },
+      "bundle": "9fb5a6581bd64d0d8d76dc04ccc144af",
+      "verified_selection_digest": "24f068dd76766272b896340243f694ae4ab57a0ac47ad22a838b8a062ebd64e8"
+    },
+    {
+      "run": {
+        "cut_id": 351,
+        "project_id": "wce-gs120-method-development-20261106",
+        "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+        "result_revision": 1,
+        "run_id": 254,
+        "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+      },
+      "resolution": {
+        "designator": "6.3",
+        "eligible_target_ids": [
+          "section-heading:25196efd91350cb7793d803c1a846876ce985e97f244f2eb2b94220c48eb6671"
+        ],
+        "occurrence_id": "source-occurrence:0df340ead66b0180a24bbfaf71da0e536e8b1334e93808ef181792f4051f738d",
+        "outcome": "selected"
+      },
+      "selected_headings": [
+        {
+          "target_id": "section-heading:25196efd91350cb7793d803c1a846876ce985e97f244f2eb2b94220c48eb6671",
+          "label": "6.3 Continuous Random Variables",
+          "pointer": "#/texts/91",
+          "original_views": [
+            142
+          ]
+        }
+      ],
+      "channels": [
+        "alias",
+        "dense",
+        "lexical",
+        "witness"
+      ],
+      "delivery": {
+        "run_id": 254,
+        "cut_id": 351,
+        "relationships": 1
+      },
+      "bundle": "cf64e8368bbd42d3965f30e3e9a2c5a1",
+      "verified_selection_digest": "0c3ffebbec37230575add905b56a59a77d090809d3055459a59805d103991f3a"
+    },
+    {
+      "run": {
+        "cut_id": 353,
+        "project_id": "wce-gs120-method-development-20261106",
+        "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+        "result_revision": 1,
+        "run_id": 256,
+        "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+      },
+      "resolution": {
+        "designator": "5.1",
+        "eligible_target_ids": [
+          "section-heading:83992d5dca860ceb9ff370bf916ebffed922f1df4cb489d9c11063863cd8c803"
+        ],
+        "occurrence_id": "source-occurrence:f044bfe52c9021ff08a3cc8902d4183d4f5a0044c6f31f3529502b0050cfc2a4",
+        "outcome": "selected"
+      },
+      "selected_headings": [
+        {
+          "target_id": "section-heading:83992d5dca860ceb9ff370bf916ebffed922f1df4cb489d9c11063863cd8c803",
+          "label": "5.1 Important Distributions",
+          "pointer": "#/texts/2",
+          "original_views": [
+            110
+          ]
+        }
+      ],
+      "channels": [
+        "alias",
+        "dense",
+        "lexical",
+        "witness"
+      ],
+      "delivery": {
+        "run_id": 256,
+        "cut_id": 353,
+        "relationships": 1
+      },
+      "bundle": "b27fe93e74f54d24b6b8e4d1d35d7d7e",
+      "verified_selection_digest": "6c3cfd4cf495c6b4cdf8924b19964e7b0b0f446416c771b6c95ef88ffbd6e86c"
+    },
+    {
+      "run": {
+        "cut_id": 347,
+        "project_id": "wce-gs120-method-development-20261106",
+        "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+        "result_revision": 1,
+        "run_id": 252,
+        "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+      },
+      "resolution": {
+        "designator": "10.3",
+        "eligible_target_ids": [],
+        "occurrence_id": "source-occurrence:35d63d3d5da50d504618bd14ab0d59098b562294734181ae5bfabe9f33c83417",
+        "outcome": "no_compatible_candidate"
+      },
+      "selected_headings": [],
+      "channels": [
+        "alias",
+        "dense",
+        "lexical",
+        "witness"
+      ],
+      "delivery": {
+        "run_id": 252,
+        "cut_id": 347,
+        "relationships": 1
+      },
+      "bundle": "1fd05ddac61845f6becb318a817209fe",
+      "verified_selection_digest": "e0ad05cb64e1c0d457fb2c116eeed0482f0258af7275592b7cc6e6e9c847e64c"
+    },
+    {
+      "run": {
+        "cut_id": 357,
+        "project_id": "wce-gs120-method-development-20261106",
+        "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+        "result_revision": 1,
+        "run_id": 257,
+        "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+      },
+      "resolution": {
+        "designator": "5.2",
+        "eligible_target_ids": [],
+        "occurrence_id": "source-occurrence:c20060301e8b92acbd0e35de83cdf400d694f753504320265b298094518a7922",
+        "outcome": "outside_inventory"
+      },
+      "selected_headings": [],
+      "channels": [
+        "alias",
+        "dense",
+        "lexical",
+        "witness"
+      ],
+      "delivery": {
+        "run_id": 257,
+        "cut_id": 357,
+        "relationships": 1
+      },
+      "bundle": "1cdac1e6b65948d286b470a054b9fa5f",
+      "verified_selection_digest": "58a63be34ad5689aff60a5e52cc7d64ef9a4a4bbbe472013cce4613dcbc27d7a"
+    }
+  ],
+  "scoped": {
+    "run": {
+      "cut_id": 350,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+      "result_revision": 1,
+      "run_id": 253,
+      "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+    },
+    "standard_normal": "source-contribution:7558a88fb107cf1e7b6e2b3d137abb47ac4cea36936cd1218245f170bbe12195",
+    "table_6_1": "source-contribution:41fa5ac11a23f9548f870d5440a01f14b2277b7cc5fcdac626d4343191204618",
+    "unresolved_external": "source-contribution:c1437be5f325ebd5dfe44b9d24546e16c466ad0ecd3f0f2758beac5db4603a42",
+    "cli_mcp": [
+      {
+        "run_id": 253,
+        "cut_id": 350,
+        "relationships": 30,
+        "source_view_id": 117
+      },
+      {
+        "run_id": 253,
+        "cut_id": 350,
+        "relationships": 151,
+        "source_view_id": 159
+      }
+    ],
+    "bundle": "a651db2f475b4f79a26b3ccbdcff1113",
+    "verified_selection_digest": "56110cd2b8b54e176032c1ced895bf4d814670ab0861305d8aac69c4c7c37260"
+  },
+  "affine_x": {
+    "run": {
+      "cut_id": 359,
+      "project_id": "wce-gs120-method-development-20261106",
+      "release_id": "release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+      "result_revision": 1,
+      "run_id": 258,
+      "runtime_id": "runtime:2e0c0c0836fb98f8ce60ea62991c599d35b0f5f96d29bf9b4e3f89b65680366f"
+    },
+    "assessment": {
+      "outcome": "passed",
+      "occurrence": "source-occurrence:ebc4ebfc7e4b4262b1236aad4d78de9fd282293cb536347c6a8dcc450db3d5d9",
+      "target": "312f1acf0514ee313c0cfb83613311410058a0314c48ab4f1d1d8aec802ddf42",
+      "decision": "insufficient_evidence"
+    },
+    "bundle": "73e97689de4b412f8851790219fddf76",
+    "cli_mcp": {
+      "run_id": 258,
+      "cut_id": 359,
+      "rows": 183
+    }
+  },
+  "native_refusals": {
+    "outcome": "passed",
+    "run": 255,
+    "checks": {
+      "forged_heading_pointer": "heading report differs from complete selected target inventory",
+      "omitted_complete_witness": "witness channel differs from complete exact source and target custody",
+      "changed_retained_token_binding": "named cue fails released retained token predicate"
+    }
+  },
+  "managed_checks": {
+    "affected_release": "2fe0f88a26a3415fb0ec1aafbbee4688",
+    "native_contextual_release": "0b05b3a582fc4a679505553661118989",
+    "affected_native_initial": "241f9094285845a3be8934544a34992f",
+    "affected_native_exact_retry": "e21abbf96f504b388ef8a1b050e01bcb",
+    "released_shape_initial": "05dba50f400b49f687b0295f913a9c2a",
+    "released_shape_exact_retry": "436556ad11af413baed632fe75e02ddb",
+    "detached_tamper_exact_retry": "2bac6b7b46ec42c0846c801575d4e0e4",
+    "final_portable_selection": "60fdd263c4624d4da1a2b8c77b8d3d1d",
+    "scoped_detached_retry": "1f84f563fdf547a2bd159bd4546538ec"
+  },
+  "development_head": "semantic_nce06_heading_release"
+}

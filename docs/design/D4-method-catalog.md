@@ -1392,9 +1392,13 @@ have been removed.
 **Implemented, 2026-11-07.** The current routes use `structure.compare/3`,
 `structure.dossier/2` and `structure.artifact_identity/2` on retained evidence. Comparison
 binds two retained predicate readings and their host qualifier populations.
-`structure.scoped_relations/6` produces exact scoped candidates, source-witnessed links,
-and declared table policy inputs. `retrieve.contextual/6` preserves exact source nominations
-through exploratory ranking and can serve them when exploratory retrieval is unavailable.
+`structure.scoped_relations/7` produces exact scoped candidates, source-witnessed links,
+and declared table policy inputs. Named cues use the retained annotation block and its
+exact source roles. Inheritance projects already admitted qualifier and host decisions.
+`retrieve.contextual/7` preserves exact source nominations through exploratory ranking
+and can serve them when exploratory retrieval is unavailable. Its heading inventory
+authenticates each original heading and its selected citations. Cross-packet work
+bindings require the release's attested native-product and document digests.
 `structure.definition_components/8` retains independently located model roles and the raw
 directed attachment. `structure.clause_classification/1` records private observations on
 authenticated exact focuses. Later scoped interpretation can cite the observation and report

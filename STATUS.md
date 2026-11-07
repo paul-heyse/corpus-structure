@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. Selected NCE-01 through NCE-06 paths are verified in development. Full NCE-06 delivery, live qualification and WCE12 remain open._
+_Updated 2026-11-07. NCE-06 witnessed links are verified on the selected development frame. Live qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -49,11 +49,10 @@ _Updated 2026-11-07. Selected NCE-01 through NCE-06 paths are verified in develo
 
 ## Next
 
-- The [next corpus enrichment series](docs/plans/next-corpus-enrichment_2026-11-07.md#nce-03-through-nce-06-development-execution)
-  owns development evidence for comparison, private model observations and witnessed links.
-  Revision `semantic_nce03_06_witness_fence` is installed. The matched provider arms give no
-  adoption evidence. Generic cross-view section headings, broader dependency-based cue
-  recipes, and live adoption remain open.
+- The [NCE-06 closeout](docs/plans/next-corpus-enrichment_2026-11-07.md#nce-06-closeout)
+  owns the cross-view heading, retained cue and inheritance results. Revision
+  `semantic_nce06_heading_release` is installed. NCE-07 can use these witnessed
+  endpoints under the [artifact nomination plan](docs/plans/next-corpus-enrichment/witnessed-links-and-artifact-identity.md#NCE-07).
 - Settle the remaining source opportunities and exact native table factor reconstruction in
   the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
   Fitting remains `not_run` pending compatible events and protected evaluations.

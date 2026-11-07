@@ -28,6 +28,14 @@ reconstructed from its retained model envelope or witnessed source rule. Exact c
 nomination preserves a source-supported target and its route before exploratory ranking.
 [NCE execution evidence](../design_review/evidence/2026-11-07_nce-comparison-model-links/README.md)
 
+**Implemented, 2026-11-07.** A section citation names a heading occurrence under an
+authenticated work revision and selected source inventory. Overlapping views retain
+separate citations of that occurrence. Heading navigation, a definition component
+located in the section, and scoped naming retain distinct meanings. A complete
+inspection may establish competing targets or no compatible candidate. A broader
+authenticated catalog can establish that a target lies outside the selected inventory.
+[NCE-06 closeout](../design_review/evidence/2026-11-07_nce06-closeout/README.md)
+
 **Implemented; bounded Tested,2026-11-06.** Located definition components retain named roles, exact source pieces, basis, scope and dependencies. Interpretation, independent assessment and public standing are separate; component support never qualifies a whole report. Domain relationship constraints distinguish compatible selected edges from exclusive alternatives. Logical relationship identity binds source-resolved target meaning and qualifiers; opaque retrieval IDs, evidence-basis IDs and assessment wording remain provenance. Inventory-local semantic groups retain every qualifying origin without establishing global concept identity.
 
 **Accepted target,2026-11-06.** WCE04–WCE05 migrate affected producers, native effects and

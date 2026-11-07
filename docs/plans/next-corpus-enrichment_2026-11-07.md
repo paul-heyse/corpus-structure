@@ -246,7 +246,7 @@ and withheld an interval consequence. Native replay checked the selected reading
 and detached checks refused substituted references. Run 228 produced the same comparison identity
 and passed Reader, CLI, fresh MCP and exact detached delivery.
 
-**NCE-06 · Partially delivered and Tested in development, 2026-11-07.** The scoped link replay
+**NCE-06 · Initial development slice, Tested 2026-11-07.** The scoped link replay
 in run 240, cut 339 bound the exact formula `Z` to the retained
 standard-normal declaration and the dice procedure text to the recovered Table 6.1 caption.
 It retained the Box and Muller citation with an unavailable external endpoint. Contextual
@@ -255,13 +255,8 @@ The equivalent scoped replay in run 226 and the contextual run passed exact deta
 The cross-view definition case uses a controlled
 fixture, including encoder failure, omission of the witness channel and top-k exclusion.
 
-Named links currently use bounded lexical forms and exact native membership checks. They
-support same-view section headings and cross-view definition targets within an authenticated
-native packet. Generic cross-view headings have no authenticated target type in the current
-inventory. The broader spaCy `Matcher` and `DependencyMatcher` recipes and corresponding
-acceptance remain open. Retained examples include generic `see Section` cues for 5.2, 6.3,
-5.1 and 10.3. Their heading endpoints need their own authenticated inventory and native and
-detached closure before they can qualify as cross-view navigation.
+That slice used bounded lexical forms and same-packet target custody. The [NCE-06 closeout](#nce-06-closeout)
+records the later heading inventory, retained annotation recipes, and their acceptance.
 
 **NCE-04 and NCE-05 · Tested in development, 2026-11-07.** The pinned GLiNER2.5 definition arms
 admitted the same three source windows. Bare and described retained 17 and 20 exact role proposals
@@ -288,3 +283,39 @@ does not establish transfer or policy adoption.
 | `uv run ci test --json` | `not_run` for this increment under the operator's affected-selection scope. |
 
 [Replay and delivery evidence](../design_review/evidence/2026-11-07_nce-comparison-model-links/records/nce.comparison-model-links-development.json)
+
+## NCE-06 closeout
+
+**Implemented and Tested in development, 2026-11-07.** `structure.scoped_relations/7`
+locates named reference and declaration arguments using retained spaCy token and
+dependency columns. It projects list and clause inheritance from admitted qualifier
+hosts. `retrieve.contextual/7` authenticates heading targets and their original selected
+citations. A release-owned map binds native excerpt products to the same parent PDF.
+Exact witnesses enter before exploratory ranking. The ordinary contribution read
+exposes both traversal directions over the retained relationship.
+
+Development revision `semantic_nce06_heading_release` produced the following results.
+
+| Control | Run and cut | Observed outcome |
+| --- | --- | --- |
+| Section 5.2 | 255 / 355 | Selected “5.2 Important Densities,” view 116 |
+| Section 6.3 | 254 / 351 | Selected “6.3 Continuous Random Variables,” view 142 |
+| Section 5.1 | 256 / 353 | Selected “5.1 Important Distributions,” view 110 |
+| Section 10.3 | 252 / 347 | Retained the cue with no compatible heading in the inspected GS120 inventory |
+| Section 5.2, heading supplied only in the broader catalog | 257 / 357 | Retained the outside-inventory outcome without nominating the catalog target |
+| Scoped regression | 253 / 350 | Recovered the standard-normal declaration and the Table 6.1 caption link. Retained the unavailable Box and Muller endpoint. |
+| Contextual regression | 258 / 359 | Kept the red-ball candidate and withheld the unsupported affine-`X` edge |
+
+The three selected headings passed exact Reader traversal in both directions. The five
+heading outcomes matched installed CLI and fresh MCP and passed detached exact closure.
+The scoped regression passed installed CLI, fresh MCP and exact detached replay.
+The contextual refusal passed exact detached replay.
+The native guards refused a changed heading pointer, a removed witness channel and
+an altered retained token binding in a rollback-only probe. Controlled ambiguity,
+encoder failure and incomplete coverage passed the affected fixture selection.
+The final affected application selection passed 145 tests in
+`2fe0f88a26a3415fb0ec1aafbbee4688`. The native contextual selection passed 22 in
+`0b05b3a582fc4a679505553661118989`. The two earlier native runtime-pin failures passed
+on exact retry in `e21abbf96f504b388ef8a1b050e01bcb`. The full suite was `not_run`
+under the selected affected-test scope.
+[Closeout evidence](../design_review/evidence/2026-11-07_nce06-closeout/records/nce.witnessed-heading-closeout.json)

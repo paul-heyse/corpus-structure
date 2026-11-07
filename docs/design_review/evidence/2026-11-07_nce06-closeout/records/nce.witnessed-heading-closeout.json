@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "id": "nce.witnessed-heading-closeout",
+  "title": "Exact witnessed section headings and scoped link closeout",
+  "group": "NCE",
+  "package": "NCE-06",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the current source and contextual methods preserve exact witnessed navigation, ambiguity and unavailable targets on the declared GS120 selection?",
+  "answers": [
+    "NCE-06"
+  ],
+  "method": "Freeze original cues and headings from retained native source packets, run current scoped and contextual methods, compare exact Reader and transport results, and replay complete detached closure. Test forged proofs against the installed native validation body in a rollback-only connection.",
+  "commands": [
+    "uv run ci model change deploy 7ceed1d542164f888d767b89d1aaed6a --json",
+    "uv run python docs/design_review/evidence/2026-11-07_nce06-closeout/replay_headings.py build/nce06-closeout/replay --release release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272",
+    "uv run python docs/design_review/evidence/2026-11-07_nce06-closeout/replay_headings.py build/nce06-closeout/replay-outside --release release:78093e9fcd9b80e0e4f84c824e3efd82fce4821f14e04825b7f4ebddc1e22272 --outside",
+    "uv run python docs/design_review/evidence/2026-11-07_nce06-closeout/check_native_refusals.py 255",
+    "uv run ci contributions list --run 255 --source-view 110 --method retrieve.contextual --include-details --include-relationships --limit 1000 --page-bytes 16000000 --json",
+    "uv run ci test retry 05dba50f400b49f687b0295f913a9c2a --lane ordinary --json",
+    "uv run ci check --view steps --json",
+    "uv run ci review verify build/ci/9fb5a6581bd64d0d8d76dc04ccc144af/bundle --json",
+    "uv run ci review verify build/ci/cf64e8368bbd42d3965f30e3e9a2c5a1/bundle --json",
+    "uv run ci review verify build/ci/b27fe93e74f54d24b6b8e4d1d35d7d7e/bundle --json",
+    "uv run ci review verify build/ci/1fd05ddac61845f6becb318a817209fe/bundle --json",
+    "uv run ci review verify build/ci/1cdac1e6b65948d286b470a054b9fa5f/bundle --json",
+    "uv run ci review verify build/ci/73e97689de4b412f8851790219fddf76/bundle --json",
+    "uv run ci review verify build/ci/a651db2f475b4f79a26b3ccbdcff1113/bundle --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_headings.py",
+      "role": "independent exact source and target expectations and native journey",
+      "sha256": "c47910c5785bcba3b3880768e16ba7bb0830beade7be92e346e3729852491d49"
+    },
+    {
+      "path": "check_delivery.py",
+      "role": "installed CLI and fresh MCP relationship equality",
+      "sha256": "3bd162359203ca9bf71317a1de87f59fce702c5a32492646bcad3aacf70fffc1"
+    },
+    {
+      "path": "check_native_refusals.py",
+      "role": "native admission tamper controls on the exact heading cut",
+      "sha256": "635020adb706f3010c295e771da109e5ecf4bd5861e02f4dfca531f8df7ef71d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "development-results.json",
+      "role": "dated native, delivery, detached and affected-test receipts",
+      "sha256": "39c9d2f670f35effca1673aa1c9ae3c35ddd290c5c62ac5ed2958c13bc9a7dc1"
+    }
+  ],
+  "depends_on": [
+    "2026-11-07_nce-comparison-model-links/nce.comparison-model-links-development"
+  ],
+  "results": [
+    {
+      "name": "Authentic cross-packet heading selections",
+      "value": 3,
+      "of": 3,
+      "unit": "cues",
+      "note": null
+    },
+    {
+      "name": "Exact heading closure and transport controls",
+      "value": 5,
+      "of": 5,
+      "unit": "controls",
+      "note": null
+    },
+    {
+      "name": "Native tamper refusals",
+      "value": 3,
+      "of": 3,
+      "unit": "controls",
+      "note": null
+    },
+    {
+      "name": "Affected application, recipe and portable tests",
+      "value": 145,
+      "of": 145,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Final native contextual tests",
+      "value": 22,
+      "of": 22,
+      "unit": "tests",
+      "note": null
+    },
+    {
+      "name": "Final affected portable and witnessed cue tests",
+      "value": 60,
+      "of": 60,
+      "unit": "tests",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The selected GS120 frame supports three exact cross-packet section citations. Section 10.3 retains its cue with no compatible represented heading. An authenticated broader catalog establishes the distinct outside-inventory case. The scoped control preserves the Z declaration, Table 6.1 procedure link and unavailable external endpoint. Contextual selection withholds the false affine X edge. Controlled coverage includes ambiguous headings, reused scope cues, encoder failure and incomplete inspection.",
+  "consumed_by": [
+    "NCE-06",
+    "NCE-07",
+    "NCE-09",
+    "NCE-10"
+  ]
+}
