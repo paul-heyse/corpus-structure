@@ -40,8 +40,9 @@ direction and credible future workflows can all support a proposal. A capability
 an existing caller or failure report to merit consideration; explain its plausible consumer and
 value rather than inventing demand. Distinguish demonstrated needs from hypotheses.
 
-Use available [capability overviews](../../../docs/libraries/README.md) to broaden awareness,
-then Context7 and primary sources when consequential details need resolution. Consider native
+Use available [capability overviews](../../../docs/libraries/README.md) to broaden awareness.
+Choose reference sources according to the repository's library-research guidance and the
+uncertainty being resolved when consequential details need resolution. Consider native
 functionality, system tools, services, libraries and existing repository capabilities. Follow
 promising mechanisms beyond familiar basic usage. Organize the inquiry around what they enable;
 catalog presence alone does not justify adoption. Several tools may serve one opportunity, and

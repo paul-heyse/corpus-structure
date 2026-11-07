@@ -39,8 +39,8 @@ need and consequential uncertainty.
 
 ## Research mechanisms and conditions
 
-Use Context7 as the first documentation lookup, then primary documentation, release information,
-tagged source, installed implementation or upstream tests where consequential details remain.
+Choose reference sources according to the repository's library-research guidance and the
+uncertainty being resolved.
 Match the evidence to the release, build, runtime and configuration actually considered. Distinguish
 installed availability from an upgrade-dependent route and released behavior from development work.
 

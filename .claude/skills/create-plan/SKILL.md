@@ -102,11 +102,12 @@ where an extension would be expressed, what it would reuse and what should remai
 These scenarios clarify the reason for a boundary; they need not expand implementation scope.
 
 Explain consequential decisions through their benefits, costs and assumptions. Consider library
-capabilities and alternatives where they affect the design, using the repository's overview, Context7 and primary-source
-research routes. Preserve enough rationale for an implementer to recognize
-evidence that would reopen a decision. Relate an expected benefit to its mechanism and workload
-or conditions, and consider material integration, lifecycle and maintenance obligations qualitatively.
-Quantitative benefits need a baseline and measurement route; unmeasured benefits remain hypotheses.
+capabilities and alternatives where they affect the design, using the repository's library-research
+guidance to choose sources for the uncertainty being resolved. Preserve enough rationale for an
+implementer to recognize evidence that would reopen a decision. Relate an expected benefit to its
+mechanism and workload or conditions, and consider material integration, lifecycle and maintenance
+obligations qualitatively. Quantitative benefits need a baseline and measurement route; unmeasured
+benefits remain hypotheses.
 
 Where the target materially depends on library functionality, carry the selected concrete
 mechanisms and precise source references from the review or research into the relevant target

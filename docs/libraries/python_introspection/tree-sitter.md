@@ -966,3 +966,738 @@ Taken together, these capabilities can replace considerable bespoke parsing, rec
 The major architectural boundary is equally clear: Tree-sitter knows how Python source is written and structurally organized, but not in general what identifiers refer to or what the code will do. Its syntax trees are therefore a strong foundation for richer code intelligence, while semantic resolution, persistent symbol identity and safe program transformations require additional mechanisms.
 
 The most consequential capabilities to recognize beyond basic parsing are the query subsystem's structural expressiveness, scoped execution, incremental parse reuse, structural-change reporting, parser-state lookahead, included-range parsing and the Python grammar's ready-made highlighting/tagging queries. These mechanisms can be combined to build systems that are substantially more capable than a conventional one-shot AST traversal, without confusing their syntax-level guarantees with semantic ones.
+
+# Tree-sitter for Python — Technical Capability Addendum
+
+Research date: November 7, 2026\
+Version scope: `tree-sitter` 0.26.0 and `tree-sitter-python` 0.25.0\
+Companion document: Tree-sitter for Python — Comprehensive Technical Capability Reference, October 30, 2026
+
+This addendum supplements the original reference with additional native capabilities, advanced grammar mechanisms, and implementation-level qualifications. It is organized around the original document's capability families and addresses functionality that was omitted or insufficiently developed, without reproducing the existing explanations.
+
+Both target versions remain the latest published stable releases as of the research date. The Python binding, Python grammar, underlying C engine, and separate Tree-sitter development tools are distinguished wherever their responsibilities differ.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+1
+
+
+
+## 1. Structural extraction and advanced syntax navigation
+
+Extends original §§3–4.
+
+### 1.1 Repeated grammar fields and complete relationship extraction
+
+A grammar field does not necessarily identify exactly one child. Tree-sitter supports fields assigned to multiple children of a production, and the Python binding exposes both singular and plural field-access operations.
+
+| API                                      | Semantics                                                    |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| `Node.child_by_field_name(name)`         | Returns the first child associated with the field, or `None` |
+| `Node.children_by_field_name(name)`      | Returns all children associated with the field               |
+| `Node.child_by_field_id(id)`             | Singular lookup using a numerical field identifier           |
+| `Node.children_by_field_id(id)`          | Plural lookup using a numerical field identifier             |
+| `Node.field_name_for_child(index)`       | Retrieves the field name for an indexed child                |
+| `Node.field_name_for_named_child(index)` | Retrieves the field name using a named-child index           |
+
+The distinction matters when grammar productions encode one-to-many relationships directly in the node's fields rather than through a dedicated list node.
+
+In `tree-sitter-python` 0.25.0, the `_import_list` production associates a repeated `name` field with imported names. Similarly, an `if_statement` can have multiple `alternative` children representing `elif` and `else` clauses.
+
+For example:
+
+```
+source = b"import os, sys, collections as col\n"tree = parser.parse(source)statement = tree.root_node.named_children[0]names = statement.children_by_field_name("name")for node in names:    print(source[node.start_byte:node.end_byte])
+```
+
+Conceptually, the result contains three imported-name structures rather than just the first. This is an illustrative example, not an executed test.
+
+An extractor using only `child_by_field_name("name")` would silently omit information in productions where the field is repeated.
+
+The broader architectural implication is that grammar-field cardinality is part of the extraction contract. For a reusable syntax index, the generated grammar schema and the accessor chosen together determine whether the extraction is complete.
+
+The plural accessors avoid implementing custom sibling scans merely to recover repeated field assignments. Conversely, traversing `named_children` alone can lose the grammatical role represented by those assignments.
+
+Sources:
+
+- Python `Node` API: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Node.html`
+- Tagged Python grammar: `https://github.com/tree-sitter/tree-sitter-python/blob/v0.25.0/grammar.js`
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+py-tree-sitter 0.26.0 documentation+1
+
+### 1.2 Location-directed `TreeCursor` navigation
+
+Beyond ordinary depth-first movement, the Python binding exposes cursor operations that navigate directly according to source location or an existing cursor position.
+
+`TreeCursor.goto_first_child_for_byte(byte)` moves to the first child of the current node that contains or starts after the specified byte offset. `goto_first_child_for_point(point)` provides the corresponding row/column operation.
+
+These methods return the selected child's index, or `None` when no child qualifies. This differs from navigation methods such as `goto_first_child()`, which return a Boolean.
+
+They are useful when a parser consumer already knows an approximate source location and wants to descend through the syntax hierarchy without scanning every sibling.
+
+Additional cursor facilities include:
+
+- `goto_last_child()` and `goto_previous_sibling()` for reverse movement.
+- `depth` and `descendant_index` for expressing the current position relative to the cursor's original root.
+- `copy()` for retaining an independent traversal position.
+- `reset(node)` and `reset_to(other_cursor)` for repositioning an existing cursor.
+
+`reset_to()` is particularly useful because it copies another cursor's position without discarding the relevant parent-navigation information. It can therefore support independent traversal branches without repeatedly constructing a navigation path from the root.
+
+A significant performance qualification applies to reverse navigation: the official documentation notes that `goto_last_child()` and `goto_previous_sibling()` may be slower than their forward equivalents because positions sometimes need to be reconstructed by traversing preceding children.
+
+The `depth` and `descendant_index` properties are relative to the cursor's starting node, not global document identifiers. They are useful as traversal coordinates, but they are not persistent source identities.
+
+Source: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.TreeCursor.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+py-tree-sitter 0.26.0 documentation
+
+
+
+## 2. Coordinate relocation and source-state management
+
+Extends original §§4, 6, and 8.
+
+### 2.1 Relocating independently parsed syntax trees
+
+`Tree.root_node_with_offset(offset_bytes, offset_extent)` exposes a root-node view whose positions are shifted forward by a specified byte offset and row/column extent.
+
+Unlike `Parser.included_ranges`, which parses selected regions while retaining their coordinates within the original input, this method allows an independently parsed fragment to be positioned within a larger document's coordinate system.
+
+For example, suppose the source text of a Python fragment begins at byte 1,200, row 30, column 4 of a containing document.
+
+```
+fragment = b"result = transform(value)\n"fragment_tree = parser.parse(fragment)root = fragment_tree.root_node_with_offset(    1200,    (30, 4),)
+```
+
+The returned node view uses the supplied positional displacement. Descendant positions are interpreted through that same displaced root context.
+
+This enables structural analysis of self-contained fragments without requiring every parsing operation to include all preceding source content. A higher-level document system can consequently preserve source-relative locations while parsing fragments separately.
+
+There are three important qualifications.
+
+First, relocation does not modify the underlying syntax tree or source buffer. It changes the positional context of a node view.
+
+Second, position relocation does not reconstruct transformed source mappings. If a fragment was unescaped, dedented, decoded, or normalized before parsing, an additive offset may not preserve the correspondence between all fragment positions and their original locations.
+
+Third, `Node.text` needs special care with relocated nodes. In the 0.26.0 binding, `Node.text` uses node byte offsets against the source object retained by the original tree. An offset-root node still references that tree's original fragment source. Consequently, shifted positions and the retained source buffer need not share the same origin; `Node.text` should not be assumed to retrieve the correct fragment text from an offset node.
+
+An explicit source mapping is more reliable whenever text extraction and relocated positions must be used together.
+
+Sources:
+
+- Tree API: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Tree.html`
+- Tagged `Node.text` implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/node.c`
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+py-tree-sitter 0.26.0 documentation+2
+
+### 2.2 Node-level edit indicators
+
+`Node.has_changes` reports whether a node has been marked as edited. It exposes edit-related state directly at the node level.
+
+This is a separate mechanism from `Tree.changed_ranges()` and should be understood as part of the old-tree editing lifecycle.
+
+A useful conceptual distinction is:
+
+| Mechanism                       | Information represented                                                  |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `Node.has_changes`              | Whether the node is marked as affected by editing                        |
+| `Tree.changed_ranges(new_tree)` | Regions where old and new tree hierarchies differ                        |
+| Original edit operations        | Which source bytes were actually modified                                |
+| Downstream semantic analysis    | Whether those modifications affect interpreted relationships or behavior |
+
+A node may be marked as changed even when a later parse reconstructs an equivalent syntactic hierarchy. Conversely, a structural changed-range comparison cannot serve as a complete record of source-text modifications.
+
+The value of `has_changes` is therefore local inspection of the parser's edit state, not authoritative comparison of two source snapshots.
+
+It can support selective reconsideration of already identified syntax subtrees, especially when combined with the original edit positions and the subsequent tree comparison.
+
+However, it does not eliminate the need for separate text-level invalidation or provide a semantic dependency tracker.
+
+Source: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Node.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+py-tree-sitter 0.26.0 documentation
+
+
+
+### 2.3 Independent coordinate editing: `Point.edit()` versus `Range.edit()`
+
+Version 0.26.0 introduced edit helpers that can adjust stored source coordinates independently of `Tree` and `Node` objects.
+
+Their mutation and return semantics are different.
+
+`Point.edit()` operates on an immutable, tuple-derived `Point` and returns a two-element result:
+
+```
+updated_point, updated_byte = point.edit(    start_byte=edit_start,    old_end_byte=old_end,    new_end_byte=new_end,    start_point=edit_start_point,    old_end_point=old_end_point,    new_end_point=new_end_point,)
+```
+
+The result contains the adjusted point and its corresponding byte-offset value. The original `Point` is not mutated.
+
+`Range.edit()` modifies an existing `Range` object in place and returns `None`.
+
+Both accept the six-coordinate description of a source edit used by the other editing APIs.
+
+These methods are useful for maintaining diagnostics, selections, source annotations, and other position-bearing objects without creating a parallel implementation of every coordinate-shift rule.
+
+Their limitation is that they perform positional adjustment, not semantic remapping. A location inside replaced source does not automatically acquire a meaningful relationship to whatever syntax replaced it.
+
+The helpers also do not independently maintain an association with a source snapshot; callers must ensure that edits are applied in the correct sequence.
+
+Sources:
+
+- Point API: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Point.html`
+- Range API: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Range.html`
+- Tagged 0.26.0 API signatures: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/__init__.pyi`
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+py-tree-sitter 0.26.0 documentation+2
+
+## 3. Query interpretation, metadata, and completeness
+
+Extends original §5.
+
+### 3.1 Property assertions are metadata, not automatically evaluated semantic conditions
+
+Tree-sitter queries distinguish executable predicates from properties and assertions intended for interpretation by a surrounding system.
+
+This distinction is particularly important for `#is?` and `#is-not?`.
+
+The Python 0.26.0 binding recognizes these constructs during query compilation and stores their meaning in the compiled query's pattern-assertion metadata.
+
+`Query.pattern_assertions(pattern_index)` returns a dictionary whose values contain an optional property value and a Boolean indicating whether the assertion is positive or negative.
+
+For example, consider:
+
+```
+((identifier) @reference
+  (#is-not? local))
+```
+
+The assertion communicates that the pattern is intended to apply to identifiers that are not local.
+
+However, the Python binding does not independently construct a lexical-scope model or determine whether a particular identifier is local.
+
+Inspection of its tagged query implementation confirms that `#is?` and `#is-not?` are compiled into the assertion dictionary rather than the ordinary executable predicate list.
+
+Thus, executing this query through `QueryCursor` does not by itself establish that its matches satisfy the stated locality condition.
+
+This is distinct from text predicates such as `#eq?` and `#match?`, for which the binding implements evaluation using captured source text.
+
+It is also distinct from a custom predicate callable, which can apply application-defined conditions during query execution.
+
+A system using property assertions needs an appropriate source of property knowledge and must integrate that knowledge into its own interpretation or filtering.
+
+This distinction is significant because the Tree-sitter CLI and highlighting ecosystem can supply supporting logic or contextual knowledge that generic Python query execution does not provide.
+
+Sources:
+
+- Query API: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Query.html`
+- Tagged predicate compilation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/query.c`
+- Upstream predicate conventions: `https://tree-sitter.github.io/tree-sitter/using-parsers/queries/3-predicates-and-directives.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+### 3.2 Compiled-query schema inspection and validation
+
+The query object exposes additional metadata that can be useful for validating reusable structural rules or discovering their output contracts.
+
+`Query.capture_name(index)` retrieves a capture name by index. Combined with `capture_count` and `capture_quantifier(pattern_index, capture_index)`, it allows examination of a query's capture schema independently of any particular source file.
+
+`Query.string_count` and `string_value(index)` expose the compiled query's string-literal table.
+
+These are distinct from the source-level pattern offsets already covered by the guide. Together, the APIs allow a system to inspect what captures and literals have been compiled into a rule definition, rather than relying entirely on parsing the query source as text.
+
+A further native facility is `QueryError`, raised when query compilation fails.
+
+Compilation errors can involve invalid query syntax, nonexistent node kinds, invalid field names, invalid capture references, impossible pattern structures, malformed predicates, or invalid regular expressions.
+
+For example:
+
+```
+from tree_sitter import Query, QueryErrortry:    query = Query(language, query_source)except QueryError as exc:    raise ValueError(        f"Query is incompatible or invalid: {exc}"    ) from exc
+```
+
+This represents a useful validation boundary for grammar-specific query resources.
+
+An invalid structural rule can be rejected before it is applied across an input collection. Nevertheless, successful query compilation only establishes compatibility with the grammar's query schema. It does not prove that a query will match any particular source, produce complete results, or represent a valid semantic relationship.
+
+A 0.26.0 implementation caveat: Tagged source inspection shows that `Query.string_value(index)` checks the requested index against `ts_query_capture_count()` rather than `ts_query_string_count()`. This is a likely bounds-validation defect when the two counts differ. The observation is based on source inspection, not an executed reproduction, and should be treated as an implementation caution rather than a documented guarantee.
+
+Source: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/query.c`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+### 3.3 Query supertype constraints and typed missing-node patterns
+
+Two specialized query forms extend the capabilities described in the original query-syntax section.
+
+Qualified supertype patterns. A grammar supertype can describe a category of syntax without necessarily appearing as a visible node in the resulting tree.
+
+A query can match the entire supertype category or qualify a specific subtype.
+
+For a grammar declaring the relevant relationship, the syntax is:
+
+```
+(expression) @any_expression
+
+(expression/binary_operator) @binary_expression
+```
+
+The first pattern matches the supertype's category. The second restricts matching to a particular subtype in that category.
+
+The names are grammar-dependent; the qualification must correspond to a valid supertype/subtype relationship in the compiled language.
+
+This can express grammatical classification that would otherwise require manually maintaining a list of concrete node kinds or testing node-type relationships after matching.
+
+Typed missing-node patterns. The generic `(MISSING)` pattern can be constrained to a particular expected node kind.
+
+For example:
+
+```
+(MISSING identifier) @missing_identifier
+```
+
+Unlike an ordinary identifier match, this targets a parser-inserted missing identifier.
+
+This distinction is useful when classifying recovery cases or producing diagnostics more specific than the presence of an error somewhere in the tree.
+
+Neither mechanism should be mistaken for a semantic validator. A supertype describes grammar membership, and a missing-node pattern observes the parser's chosen recovery representation.
+
+Source: `https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+Tree-sitter+1
+
+
+
+### 3.4 Query termination and the meaning of complete results
+
+Query execution has at least two distinct ways to terminate without yielding every otherwise eligible match.
+
+The first is a configured match limit. This governs simultaneously active native matches rather than the total size of the result collection. Exceeding it is reported through `QueryCursor.did_exceed_match_limit`.
+
+The second is intentional termination through a query progress callback.
+
+The underlying progress-callback contract uses a truthy return value to request termination. Because the Python implementation passes through the callback's truth value, a callback that returns `True` requests stopping the query.
+
+The binding materializes the matches or captures that the native cursor produces before it stops. Accordingly, interrupted execution can yield a partial result collection.
+
+A result set should therefore be distinguished according to whether execution was allowed to complete and whether the native match limit was exceeded.
+
+An important implication is that `did_exceed_match_limit == False` is not sufficient evidence of complete execution. The query may have terminated early for another reason.
+
+Where completeness matters, the caller must separately retain the termination state of its callback and check the native match-limit indicator.
+
+Sources:
+
+- Tagged query cursor implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/query_cursor.c`
+- Underlying C API: `https://github.com/tree-sitter/tree-sitter/blob/v0.25.10/lib/include/tree_sitter/api.h`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+## 4. Python grammar coverage and parser-state mechanisms
+
+Extends original §§3 and 7.
+
+### 4.1 Python 3.14 template-string syntax
+
+The Python grammar's string handling includes recognition of `t`-prefixed template strings introduced in CPython 3.14.
+
+Python template strings use syntax closely related to f-strings, but their runtime result is a `string.templatelib.Template`, which preserves static string segments and interpolation information rather than immediately formatting everything into a conventional string.
+
+Inspection of `tree-sitter-python` 0.25.0's external scanner shows that both `t` and `T` prefixes activate the same formatted-string scanning flag used for `f` and `F`.
+
+Consequently, the grammar can recognize interpolation-bearing regions within template-string literals.
+
+An important distinction is that this scanner behavior does not imply the grammar exposes an entirely separate template-string node family. The scanner uses the existing formatted-string mechanism, so consumers that need to distinguish an f-string from a t-string should inspect the source prefix rather than infer that distinction from the presence of interpolation nodes alone.
+
+The grammar's recognition of template-string syntax is also not equivalent to evaluating the resulting `Template` object or enforcing all of CPython's version-specific syntactic constraints.
+
+This is a useful example of how a grammar can recognize a modern Python construct without providing the associated language semantics.
+
+Sources:
+
+- Tagged Python external scanner: `https://github.com/tree-sitter/tree-sitter-python/blob/v0.25.0/src/scanner.c`
+- Python 3.14 template-string documentation: `https://docs.python.org/3.14/library/string.templatelib.html`
+- Python 3.14 lexical grammar: `https://docs.python.org/3.14/reference/lexical_analysis.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+### 4.2 Stateful external scanning and incremental parser correctness
+
+The original reference identifies the Python grammar's external scanner but does not explain how its internal state participates in incremental parsing.
+
+This is an important architectural mechanism.
+
+Python's lexical interpretation depends on context extending beyond the current token. Indentation levels, open string delimiters, and interpolation state all influence which tokens can be recognized at a particular position.
+
+The `tree-sitter-python` scanner maintains explicit state that includes:
+
+- An indentation stack.
+- A stack of active string delimiters and their flags.
+- A flag describing whether scanning is inside an interpolated string.
+
+The scanner implements serialization and deserialization functions that allow this state to be stored in, and restored from, the parser's reusable syntax representation.
+
+In the tagged 0.25.0 implementation, serialized state includes the interpolation flag, delimiter information, and indentation values.
+
+This makes incremental reuse more sophisticated than simply recognizing that an unchanged source substring can retain the same syntax nodes.
+
+The parser also needs compatible lexical context.
+
+For example, a change near the opening delimiter of a multiline string can alter how text much later in the file is interpreted. Similarly, an indentation change can alter block structure over a large subsequent region.
+
+Tree-sitter's external-scanner state mechanism helps preserve the contextual information required to resume parsing from reused structures.
+
+A further distinction is that scanner-state serialization is bounded by the engine's serialization buffer. The Python scanner explicitly limits what it writes to that buffer, including bounding delimiter information and indentation serialization.
+
+This implementation detail helps explain why external scanners require careful state design. Compact, correct serialization is part of the grammar's incremental-parsing contract, not merely an optimization for source loading.
+
+These facilities also establish an important boundary: the Python binding consumes the compiled grammar and its scanner. The binding does not expose the Python scanner's indentation stack or delimiter stack as ordinary Python-level analysis objects.
+
+Sources:
+
+- Python scanner implementation: `https://github.com/tree-sitter/tree-sitter-python/blob/v0.25.0/src/scanner.c`
+- Upstream external scanner specification: `https://tree-sitter.github.io/tree-sitter/creating-parsers/4-external-scanners.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+### 4.3 Grammar metadata: ABI compatibility versus grammar identity
+
+`Language` exposes metadata useful for identifying the compiled grammar and interpreting parser compatibility.
+
+The capabilities not fully developed in the original reference include:
+
+| Property                     | Meaning                                          |
+| ---------------------------- | ------------------------------------------------ |
+| `Language.name`              | Name associated with the compiled language       |
+| `Language.semantic_version`  | Grammar's semantic version, when available       |
+| `Language.parse_state_count` | Number of parser states in the generated grammar |
+| `Language.abi_version`       | Generated parser ABI version                     |
+| `Language.node_kind_count`   | Number of distinct node kinds                    |
+| `Language.field_count`       | Number of distinct field names                   |
+
+The distinction between `abi_version` and `semantic_version` is particularly important.
+
+ABI compatibility establishes whether the parsing engine can load and operate the generated grammar. It does not establish that two grammar releases produce interchangeable syntax trees or query results.
+
+A grammar's semantic version describes the grammar as a separately versioned artifact. The underlying Tree-sitter C API specifically describes this metadata as relevant to potential query incompatibilities across grammar versions.
+
+The Python binding's type annotations permit `Language.name` and `Language.semantic_version` to be `None`. Consumers should therefore avoid treating either as universally available.
+
+`parse_state_count`, by contrast, describes part of the generated parser's internal state-machine complexity. It is useful for grammar inspection and diagnostic work, but it should not be interpreted as a direct measure of parsing speed or grammar quality.
+
+For systems that depend on a stable query schema, grammar identity and grammar-version compatibility are more specific concerns than whether `Parser.language` accepts the grammar.
+
+Sources:
+
+- Language API: `https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.Language.html`
+- Tagged Python type declarations: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/__init__.pyi`
+- Underlying API's grammar metadata: `https://github.com/tree-sitter/tree-sitter/blob/v0.25.10/lib/include/tree_sitter/api.h`
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+py-tree-sitter 0.26.0 documentation+2
+
+## 5. Source representation and direct buffer parsing
+
+Extends original §§3.1 and 8.1.
+
+### 5.1 Concrete syntax preservation does not imply storage of every source character as a node
+
+Tree-sitter's concrete syntax representation preserves considerably more source-level structure than a conventional abstract syntax tree, but its syntax nodes should not be mistaken for a complete token-by-token encoding of every source byte.
+
+The Python grammar's `extras` include comments, whitespace, and line-continuation syntax.
+
+Comments can appear as explicit extra nodes. Ordinary whitespace, by contrast, is generally consumed through the grammar's extras mechanism without creating a corresponding node for every whitespace character.
+
+The source text therefore contains information not necessarily represented as individual tree nodes.
+
+This matters when considering lossless transformations or source reconstruction.
+
+Tree-sitter provides source-relative positions and retains access to source text through the binding's source association, but the tree hierarchy alone is not a general-purpose source-reconstruction format.
+
+A system can exploit node boundaries to preserve unchanged source spans, yet still needs the actual source text to reproduce intervening whitespace and formatting faithfully.
+
+The grammar's treatment of extras also explains why comments and whitespace should not be conflated: both can occur outside ordinary productions, but they are not necessarily represented in the same way.
+
+Source: `https://github.com/tree-sitter/tree-sitter-python/blob/v0.25.0/grammar.js`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### 5.2 Direct parsing accepts Python buffer-protocol objects
+
+The Python 0.26.0 parser accepts objects supporting Python's buffer protocol, not just immutable `bytes`.
+
+The tagged implementation obtains a `Py_buffer` through `PyObject_GetBuffer(..., PyBUF_SIMPLE)` before invoking the native direct-buffer parsing operation.
+
+This allows suitable contiguous bytes-like objects to be supplied without first explicitly constructing a separate Python `bytes` object.
+
+Examples include suitable `memoryview` and `bytearray` instances.
+
+However, the interface does not imply that arbitrary strided, non-contiguous, or structured buffers will be accepted directly. The relevant requirement is compatibility with the buffer request made by the binding.
+
+There is an additional source-lifetime implication.
+
+The Python `Tree` retains a reference to the original source object. `Node.text` subsequently accesses that object to recover the byte span associated with a node.
+
+If a mutable source object is changed after parsing without a corresponding tree update and reparse, its contents may no longer match the syntax tree's stored positions and structure.
+
+The parser does not enforce immutable source snapshots.
+
+Consequently, the availability of mutable buffer input should be distinguished from the correctness guarantees of immutable source-to-tree correspondence.
+
+For source collections or other analysis workloads that retain syntax trees, the source object's stability is a correctness concern independent of parser performance.
+
+Sources:
+
+- Tagged parser implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/parser.c`
+- Tagged node text implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/node.c`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+## 6. Concurrency and API implementation qualifications
+
+Extends original §§8, 10, and 12.
+
+### 6.1 Native execution and CPython's GIL
+
+The original guide appropriately avoids assuming that native C execution automatically provides parallel throughput across Python threads.
+
+For version 0.26.0, the tagged binding implementation permits a more specific observation.
+
+The ordinary direct-buffer parsing path calls `ts_parser_parse_string_encoding()` without enclosing that operation in a Python GIL-release region.
+
+Similarly, `QueryCursor.matches()` and `QueryCursor.captures()` execute their native query loops without explicitly releasing the GIL.
+
+This matters for conventional GIL-enabled CPython.
+
+Multiple Python threads performing independent CPU-bound parse or query operations should not be expected to execute those operations concurrently simply because the underlying engine is implemented in C.
+
+This does not establish a quantitative throughput limit, nor does it rule out parallel execution through other mechanisms. It also should not be generalized without qualification to alternative Python interpreter configurations.
+
+The binding does release the GIL around certain other native operations, such as DOT graph output, but that behavior should not be extrapolated to parsing and query execution.
+
+The architectural distinction is between native-code execution, which avoids many Python-level interpretation costs, and native-code execution that explicitly permits simultaneous progress by multiple Python threads.
+
+Sources:
+
+- Tagged parser implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/parser.c`
+- Tagged query cursor implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/query_cursor.c`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+### 6.2 Included-range argument validation
+
+The 0.26.0 binding contains a small but consequential discrepancy between its type declarations and runtime implementation.
+
+The Python type stub describes `Parser.included_ranges` as accepting a `Sequence[Range]`.
+
+However, the tagged C setter explicitly checks whether the supplied object is a Python `list`.
+
+Assigning a tuple or another general sequence therefore does not satisfy that runtime check, despite its apparent compatibility with the declared type.
+
+The binding also checks that individual elements are `Range` objects and passes the resulting ranges to the native parser, which rejects overlapping ranges.
+
+For exact version-specific behavior, this is another case where the tagged implementation is more authoritative than the broader type annotation.
+
+Source: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/parser.c`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### 6.3 Parser cancellation and resumable native state
+
+The query-termination discussion has a related parser-level implication.
+
+The underlying Tree-sitter C API documents that a parser interrupted by its progress callback can retain sufficient state to resume parsing on a subsequent call.
+
+`Parser.reset()` instructs the parser to abandon that retained state and begin a subsequent parse from the beginning.
+
+This makes cancellation a stateful parser-lifecycle event, not merely a failed function call.
+
+In the Python 0.26.0 binding, a parse interrupted through the progress callback can produce a `ValueError` because the native parser returned no tree.
+
+The callback is passed through the Python binding to the underlying engine, where a truthy result requests cancellation.
+
+The caller should therefore distinguish an interrupted parse from an ordinary source file containing syntax errors: Tree-sitter can return a useful tree for malformed source, whereas an interrupted parse may return no tree at all.
+
+This also explains why `Parser.reset()` matters when a caller abandons one parsing operation and reuses the parser for unrelated input.
+
+The additional detail does not change the original guide's cancellation model, but clarifies the underlying retained-state behavior.
+
+Sources:
+
+- Tagged parser implementation: `https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/parser.c`
+- Underlying Tree-sitter parser API: `https://github.com/tree-sitter/tree-sitter/blob/v0.25.10/lib/include/tree_sitter/api.h`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+## 7. Extensibility beyond the Python binding: custom grammar tooling
+
+Extends original §8.
+
+The existing reference covers loading compiled grammars and executing grammar-aware queries. A further capability boundary worth documenting is Tree-sitter's native grammar-development ecosystem.
+
+This functionality belongs primarily to the Tree-sitter CLI and parser generator, rather than the `py-tree-sitter` runtime binding.
+
+The distinction matters when existing grammars do not represent the desired syntax constructs, when a domain-specific language requires its own parser, or when a language grammar needs to be maintained as its syntax evolves.
+
+### 7.1 Grammar generation and generated schema artifacts
+
+Tree-sitter grammars are defined using a JavaScript-based grammar DSL.
+
+The grammar specifies syntax productions, field assignments, supertype relationships, precedence, associativity, conflicts, lexical rules, and optional externally recognized tokens.
+
+`tree-sitter generate` translates the grammar definition into generated artifacts.
+
+These include:
+
+| Generated artifact    | Role                                                           |
+| --------------------- | -------------------------------------------------------------- |
+| `src/parser.c`        | Generated native parsing implementation                        |
+| `src/grammar.json`    | Structured representation of the grammar                       |
+| `src/node-types.json` | Generated schema for syntax nodes and fields                   |
+| Tree-sitter C headers | Interfaces required by generated parsers and external scanners |
+
+The generated `node-types.json` is especially relevant to consumers of the Python binding.
+
+It supplies grammar-level type and field information that can complement runtime `Language` introspection.
+
+That combination offers an alternative to maintaining handwritten assumptions about every node kind or field relationship.
+
+The important boundary is that grammar generation produces a parser and schema; it does not automatically supply semantic analysis, symbol resolution, or application-specific interpretation of the resulting syntax.
+
+Source: `https://tree-sitter.github.io/tree-sitter/cli/generate.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+Tree-sitter
+
+
+
+### 7.2 Grammar-specific mechanisms for resolving syntactic ambiguity
+
+Tree-sitter's grammar DSL supports several mechanisms beyond ordinary context-free productions.
+
+Static and dynamic precedence, associativity, conflict declarations, lexical precedence, named fields, aliases, inline rules, and supertypes influence how parsing ambiguities are resolved and how the resulting tree is presented to consumers.
+
+These mechanisms can alter the grammar's observable syntax representation even when the source language being parsed has not changed.
+
+For example, the choice to use an alias or inline a rule can affect which node names and structural relationships consumers observe.
+
+The distinction matters for parser extensibility because a grammar's representation is partly a design decision rather than an unavoidable consequence of a programming language's syntax.
+
+A grammar can be shaped to produce structures useful for downstream analysis, but that flexibility also means query compatibility depends on the grammar's actual generated schema.
+
+The Python grammar demonstrates several of these mechanisms, including explicit conflicts involving contextual syntax, inline rules, supertypes, and field assignments.
+
+Sources:
+
+- Grammar DSL: `https://tree-sitter.github.io/tree-sitter/creating-parsers/2-the-grammar-dsl.html`
+- Grammar design: `https://tree-sitter.github.io/tree-sitter/creating-parsers/3-writing-the-grammar.html`
+- Python grammar: `https://github.com/tree-sitter/tree-sitter-python/blob/v0.25.0/grammar.js`
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+Tree-sitter+2
+
+### 7.3 Native grammar tests and parser diagnostics
+
+The Tree-sitter CLI includes facilities for developing and testing compiled grammars.
+
+`tree-sitter test` uses a corpus format in which input source is paired with its expected syntax-tree representation.
+
+These tests verify the grammar's observable parsing behavior, including the structural representation of valid and invalid source.
+
+`tree-sitter generate` creates or updates the generated parser implementation, while `tree-sitter build` can compile a parser into a native shared library or WebAssembly module.
+
+The CLI also offers `tree-sitter parse`, which can inspect parsing results and supports operations such as parsing source after supplied edits.
+
+These facilities support a validation layer distinct from the Python binding's runtime parsing and query execution.
+
+For instance, a grammar change can be evaluated against expected syntax-tree output before consumers are updated to accommodate a different node schema.
+
+Corpus tests can provide a stable contract for a grammar's representation, though they cannot by themselves establish complete coverage of the underlying programming language.
+
+Sources:
+
+- Grammar corpus testing: `https://tree-sitter.github.io/tree-sitter/creating-parsers/5-writing-tests.html`
+- Parser compilation: `https://tree-sitter.github.io/tree-sitter/cli/build.html`
+- Parsing CLI: `https://tree-sitter.github.io/tree-sitter/cli/parse.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+Tree-sitter+2
+
+## 8. Capability interactions introduced by the addendum
+
+The additional mechanisms are particularly useful when considered together rather than as isolated API additions.
+
+### Grammar-aware extraction
+
+Generated node schemas, repeated-field accessors, supertype queries, and compiled-query introspection provide complementary information about the structure of a language grammar.
+
+Together, they can support structural extraction systems whose behavior is explicitly grounded in grammar fields and node relationships, reducing the need for manually maintained syntax heuristics.
+
+The qualification is that grammar compatibility and query compilation do not establish semantic correctness.
+
+### Incremental source analysis
+
+`Node.has_changes`, `Tree.changed_ranges()`, original edit positions, and `Point.edit()` / `Range.edit()` expose complementary views of source modification.
+
+Their composition can reduce bespoke coordinate-maintenance and subtree-selection logic, while preserving the important distinction between parser edit state, structural differences, and semantic invalidation.
+
+### Fragment-oriented parsing
+
+Read callbacks, independently parsed fragments, offset-root views, and included ranges provide different ways to separate source storage from parsing context.
+
+They make it possible to work with larger or composite source representations without always requiring a single materialized source file for every parsing operation.
+
+The main integration responsibility is maintaining correct source snapshots and coordinate mappings, especially when the text presented to a parser has been transformed.
+
+### Extensible language analysis
+
+Grammar generation, external scanners, corpus tests, and runtime grammar introspection form a broader extensibility mechanism.
+
+The parser generator defines the syntax representation; the compiled grammar determines what the runtime can recognize; the Python binding exposes structural analysis; and downstream consumers interpret those structures.
+
+The separation allows specialized parsing capabilities to be introduced without implementing an entirely new parsing engine, while keeping schema evolution, query compatibility, and semantic interpretation as distinct responsibilities.
+
+Taken together, these additions complete several important parts of Tree-sitter's advanced capability picture: grammar-field cardinality, fragment coordinate relocation, node-level edit state, query metadata semantics, scanner-state persistence, modern Python template strings, and the operational boundary between runtime bindings and grammar-development tools.

@@ -757,3 +757,719 @@ The most useful primary references for further investigation are grouped below.
 The API documentation and implementation references are maintained upstream and may evolve independently of a specific release. The discussion here targets the stable 0.51.0 capability surface, while source-level implementation details should be rechecked against the installed version whenever behavior is consequential.
 
 Overall: `ast-grep-py` offers considerably more than embedded structural grep. Its most significant capabilities are a composable native rule engine, grammar-aware relational search, rich metavariable capture and transformation, precise source coordinate handling, navigable syntax-tree objects, and programmable source edits. Together, they enable substantial structural analysis and codemod functionality without constructing a custom Tree-sitter query engine or AST-walking framework. Its natural limits arise where structural syntax analysis must become semantic analysis, or where in-memory operations must become a fully managed repository-scale workflow.
+
+# ast-grep-py — Addendum: Advanced Matching Semantics, Rule Composition, and Integration Details
+
+Supplement to: ast-grep-py — Comprehensive Python Library Overview\
+Original target: 0.51.0\
+Updated target: 0.51.1\
+Research date: November 7, 2026
+
+## Scope and version notes
+
+This addendum extends the original reference with advanced pattern interpretation, recursive utility rules, cross-node capture propagation, declarative transformation pipelines, selector behavior, and consequential correctness distinctions. It also clarifies several API constraints that the original guide describes too broadly.
+
+The additions primarily concern combinations of existing capabilities rather than new top-level Python APIs. They are relevant to structural extraction, syntax-aware indexing, compositional source analysis, and transformations that would otherwise require custom tree traversal or Python-side filtering.
+
+`ast-grep-py` 0.51.1 was published on November 2, 2026. Its relevant upstream changes include a correction to dynamic-language metavariable-sigil expansion and fixes affecting the broader ast-grep engine and distribution. The release does not establish a new Python API family.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+1
+
+
+
+The material below distinguishes Python-exposed functionality from semantics established by the shared Rust engine. Examples are illustrative and source-derived; they have not been separately executed against the published 0.51.1 wheel.
+
+Primary references:
+
+- Release: [https://github.com/ast-grep/ast-grep/releases/tag/0.51.1](https://github.com/ast-grep/ast-grep/releases/tag/0.51.1?utm_source=chatgpt.com)
+- Python API: [https://ast-grep.github.io/guide/api-usage/py-api.html](https://ast-grep.github.io/guide/api-usage/py-api.html?utm_source=chatgpt.com)
+- Python binding types: [https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/\_\_init\_\_.py](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/__init__.py?utm_source=chatgpt.com)
+
+## 1. Effective pattern nodes and structural matching boundaries
+
+Extends original §§3.1–3.2.
+
+### 1.1 Pattern parsing and effective-node extraction are separate operations
+
+When compiling a structural pattern, ast-grep first parses the supplied source-language text into a syntax tree, then extracts the syntax node that will serve as the actual pattern.
+
+This second operation is essential: parsing an expression as a standalone source file often produces multiple wrapper nodes that are not intended to constrain a structural search.
+
+For JavaScript, parsing `foo(bar)` typically produces a hierarchy resembling:
+
+```
+program
+└── expression_statement
+    └── call_expression       ← effective pattern node
+        ├── identifier
+        └── arguments
+            └── identifier
+```
+
+By default, ast-grep selects a leaf node or the innermost node with multiple children, according to its documented heuristic. The resulting matcher generally targets the most specific syntax construct that retains the pattern's relevant structural information.
+
+For `foo(bar)`, the effective node is `call_expression`, not the outer `expression_statement`.
+
+This changes more than the search scope. The effective node determines the match's syntax kind and source range, the structural level at which relational predicates operate, and the source span targeted by a subsequent replacement.
+
+In particular, a pattern matching a call expression does not necessarily select its enclosing statement or trailing semicolon.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+### 1.2 Explicit selectors control match granularity
+
+The `selector` property of an object-style pattern overrides the default effective-node selection.
+
+For example:
+
+```
+from ast_grep_py import SgRootsource = """console.log("first");console.log("second");"""root = SgRoot(source, "javascript").root()calls = root.find_all(    pattern="console.log($ARG)")statements = root.find_all(    pattern={        "context": "console.log($ARG);",        "selector": "expression_statement",    })
+```
+
+The first matcher targets call expressions. The second explicitly targets their enclosing expression statements.
+
+Selecting the statement is consequential when working with statement-level sibling relationships, precise edits, or statement-level source ranges.
+
+It is therefore useful to distinguish two reasons for selecting an explicit node:
+
+Grammar disambiguation: A larger syntactic context allows an otherwise ambiguous or invalid fragment to parse as the intended grammar construct.
+
+Match-boundary control: The parser already understands the input, but its default effective node is not the syntax unit that the operation needs.
+
+These are separate concerns, although the same `context`/`selector` mechanism addresses both.
+
+The latter is particularly important with `precedes` and `follows`, since the surrounding nodes inspected by those predicates depend on the structural level of the target.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+Source: [https://ast-grep.github.io/advanced/pattern-parse.html](https://ast-grep.github.io/advanced/pattern-parse.html?utm_source=chatgpt.com)
+
+## 2. Metavariable recognition, unnamed syntax, and variadic matching
+
+Extends original §§3.1 and 4.2.
+
+### 2.1 Metavariables are recognized syntax nodes, not textual placeholders
+
+A metavariable is not recognized merely because its text begins with `$`. It must satisfy the metavariable naming convention and correspond to an appropriate node in the parsed pattern.
+
+Ordinary metavariable names use uppercase letters, underscores, and digits, but cannot begin with a digit. Consequently, `$ARG`, `$ARG_1`, and `$_` are valid forms, while `$arg`, `$MixedCase`, and `$123` are not recognized as ordinary metavariables.
+
+More importantly, the metavariable must occupy a recognized syntax-node boundary.
+
+| Pattern fragment | Recognition                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `$A`             | Single structural metavariable                                                        |
+| `$A.$B`          | Separate metavariables where the grammar parses the components into appropriate nodes |
+| `$A.method($B)`  | Captures receiver and argument nodes                                                  |
+| `obj.on$EVENT`   | Does not capture an identifier suffix                                                 |
+| `"Hello $WORLD"` | Does not capture a substring within the string literal                                |
+| `a $OP b`        | Cannot generally capture an operator through an ordinary code-shaped pattern          |
+
+This explains why ast-grep's structural matching cannot be treated as a text-template engine. The matcher operates on grammar nodes, while textual interpolation and substring matching operate within node contents.
+
+When the desired variable component is only part of an identifier or string, regex refinement and text transformations may provide the missing operation. When it is a punctuation or operator token, unnamed-node matching may be appropriate.
+
+These mechanisms solve different problems and should not be conflated.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep+1
+
+
+
+### 2.2 Capturing operators and unnamed syntax using field-constrained relations
+
+The `$$NAME` metavariable form permits matching unnamed syntax nodes. Combined with a grammar field and a relational predicate, it can extract tokens that cannot be represented by a generic expression metavariable.
+
+For example, in a language grammar exposing a `binary_expression` node with an `operator` field:
+
+```
+rule = {    "kind": "binary_expression",    "has": {        "field": "operator",        "pattern": "$$OP",    },}
+```
+
+The `has` relation inspects the operator field, while `$$OP` matches the unnamed operator token.
+
+This allows an expression to remain the primary match while exposing its operator as a metavariable capture.
+
+The distinction is important for structural classification because an operator is often represented as a concrete token rather than a named expression node. Without this mechanism, an analyzer might otherwise enumerate children, identify the operator's source span, and extract its text manually.
+
+The same principle can apply to other grammar-defined punctuation, keywords, and modifiers when the relevant field relationship and node representation are available.
+
+This is a documented core-engine capability expressible through the Python `Rule` configuration. Field names and operator-node representation remain language-grammar-specific.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+### 2.3 Variadic metavariables have structural stopping behavior
+
+The original guide establishes that `$$$NAME` matches zero or more nodes, but the matching termination rule is also significant.
+
+When a variadic metavariable is followed by additional pattern nodes, ast-grep consumes source nodes until the following pattern node can match. Upstream characterizes this as behavior analogous to non-greedy textual matching.
+
+For example, a pattern containing an argument sequence followed by a fixed final argument structurally constrains where the variadic capture ends.
+
+This does not make `$$$` equivalent to a regular-expression wildcard. It still operates over the syntax-tree node sequence, including potentially unnamed separators, subject to the parsed pattern's structure.
+
+Because capture boundaries depend on following syntax, a variadic metavariable placed between several similar nodes can behave differently from one placed at the end of a pattern. That distinction matters when deriving ordered argument lists, statement sequences, or replacement spans.
+
+Source: [https://ast-grep.github.io/advanced/pattern-parse.html](https://ast-grep.github.io/advanced/pattern-parse.html?utm_source=chatgpt.com)
+
+## 3. Recursive structural matching through utility rules
+
+Extends original §6.2.
+
+### 3.1 Utility rules can define recursive structural predicates
+
+The `utils` and `matches` mechanisms support more than factoring repeated predicates. Utility definitions can reference themselves recursively, provided the recursion advances through syntax-tree relationships.
+
+This enables recognition of arbitrarily nested structural forms without implementing recursive traversal in Python.
+
+For example, consider JavaScript numeric literals surrounded by any number of parenthesized expressions:
+
+```
+123
+(123)
+((123))
+(((123)))
+```
+
+An ordinary `kind: number` rule recognizes the literal but not its enclosing parenthesized expressions.
+
+A recursive utility rule can recognize both:
+
+```
+from ast_grep_py import SgRootsource = "(((123)))"config = {    "rule": {        "matches": "is-number"    },    "utils": {        "is-number": {            "any": [                {"kind": "number"},                {                    "kind": "parenthesized_expression",                    "has": {                        "matches": "is-number"                    }                }            ]        }    }}root = SgRoot(source, "javascript").root()matches = root.find_all(config)
+```
+
+The utility recognizes a node when either condition holds: the node is a numeric literal, or it is a parenthesized expression containing a child that recursively satisfies the same utility.
+
+The recursive structure corresponds to the grammar:
+
+\\[ N \rightarrow \text{number}\\;|\\;(\\,N\\,) \\]
+
+This is a useful conceptual distinction. Rather than expressing a fixed maximum nesting depth, the rule describes a recursively recognizable syntax family.
+
+Similar constructions can recognize parenthesized expressions, recursively nested declarations, particular expression trees, and other structurally recursive forms, subject to the language grammar and the expressiveness of ast-grep's relational rules.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+### 3.2 Structural recursion versus invalid dependency cycles
+
+Ast-grep distinguishes recursion that advances through the syntax tree from recursive references that repeatedly evaluate the same node.
+
+A direct dependency such as:
+
+```
+utils:
+  recursive:
+    matches: recursive
+```
+
+does not establish structural progress and creates an invalid dependency cycle.
+
+By contrast:
+
+```
+utils:
+  recursive:
+    has:
+      matches: recursive
+```
+
+recurses through a descendant relationship. Each recursive evaluation operates on a structurally different node.
+
+The same principle applies to recursion through `inside`, which advances toward enclosing syntax nodes.
+
+Upstream explicitly permits self-reference through relational components while disallowing cyclic dependencies through same-node composite components.
+
+This restriction is important when designing recursive recognizers: a recursive utility must have an appropriate base case and make progress through the relevant structural relationship.
+
+Architectural implication: Recursive utilities allow a declarative matcher to recognize certain grammar-like structural families without constructing a separate tree-walking engine. They do not constitute a general-purpose parser generator or semantic recursion system; recognition remains constrained by the existing Tree-sitter syntax tree and ast-grep's rule vocabulary.
+
+Sources:
+
+[https://ast-grep.github.io/guide/rule-config/utility-rule.html](https://ast-grep.github.io/guide/rule-config/utility-rule.html?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/\_\_init\_\_.py](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/__init__.py?utm_source=chatgpt.com)
+
+## 4. Capture propagation and rule evaluation semantics
+
+Extends original §§4.1, 4.2, and 5.2.
+
+### 4.1 Relational predicates can contribute metavariable captures
+
+Relational predicates are frequently described as Boolean conditions on a target node. However, their nested matchers can also contribute metavariable bindings to the successful match.
+
+For example, an expression can be selected as the target while an `inside` rule captures information from an enclosing declaration.
+
+Conversely, a declaration can be the target while a `has` rule captures information from a qualifying descendant.
+
+The resulting match can therefore contain information from multiple structural locations.
+
+Conceptually, a matching configuration may produce:
+
+| Component                 | Structural role                    | Information available                    |
+| ------------------------- | ---------------------------------- | ---------------------------------------- |
+| Primary target            | Node satisfying the principal rule | Target kind, text, range                 |
+| `inside` match            | Qualifying enclosing node          | Captures from an enclosing declaration   |
+| `has` match               | Qualifying descendant node         | Captures from a nested expression        |
+| Other successful subrules | Additional structural conditions   | Captures established by those predicates |
+
+Upstream explicitly documents using metavariables captured within relational rules in subsequent fixes. The Python binding exposes the shared engine's capture environment through `get_match()` and `get_multiple_matches()`.
+
+The resulting composition can support structured extraction without separately locating, navigating to, and correlating every related node in Python.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep+1
+
+
+
+There are important limits. Capture availability depends on which predicates actually matched, and captures from unsuccessful or negated branches should not be assumed to exist. The existence of a structural relationship also does not establish semantic name binding, lexical scope identity, or executable dependency.
+
+### 4.2 Explicit `all` lists control evaluation order
+
+Ast-grep supports combining several predicates within one rule object:
+
+```
+{    "pattern": "$A + $B",    "inside": {        "kind": "return_statement"    }}
+```
+
+Such predicates are logically combined, but the ordinary rule-object representation does not guarantee their evaluation order.
+
+This can become significant when one predicate establishes a metavariable binding that another predicate relies upon.
+
+For ordered evaluation, use an explicit `all` list:
+
+```
+{    "all": [        {            "pattern": "$A + $B"        },        {            "inside": {                "kind": "return_statement"            }        }    ]}
+```
+
+The `all` operator guarantees evaluation in list order.
+
+This distinction matters primarily for capture-dependent matching, rather than independent Boolean conditions. Reordering independent conditions does not generally change their logical result, but reordering capture-producing and capture-consuming predicates can change how their match environments are constructed.
+
+Source: [https://ast-grep.github.io/guide/rule-config/composite-rule.html](https://ast-grep.github.io/guide/rule-config/composite-rule.html?utm_source=chatgpt.com)
+
+### 4.3 Composite predicates apply to one candidate node
+
+Another consequential semantic distinction is that `all` and `any` quantify over predicates, not over sets of independently matching nodes.
+
+Consider:
+
+```
+has:
+  all:
+    - kind: number
+    - kind: string
+```
+
+This requires one qualifying descendant to be both a number node and a string node. It does not express the requirement that the target contain one numeric descendant and one string descendant.
+
+The latter requires separate relational predicates:
+
+```
+all:
+  - has:
+      kind: number
+  - has:
+      kind: string
+```
+
+Both `has` conditions are evaluated against the same outer target, but each can find a different qualifying child.
+
+This distinction is important for declaratively recognizing structures containing multiple required components—for example, declarations containing several required statements, objects containing multiple properties, or functions containing different classes of expressions.
+
+With the default `stopBy: neighbor`, these relations search the immediate structural neighborhood. `stopBy: end` extends the search through the relevant descendant or ancestor direction.
+
+The broader pattern is that ast-grep expresses structural existential conditions through relational predicates and combines those conditions through composite rules. Its `all` and `any` operators should not be interpreted as general quantifiers over independently selected syntax-node collections.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+### 4.4 `field` availability differs among relational operators
+
+The four relational operators share `stopBy`, but they do not have identical configuration surfaces.
+
+| Relational operator | `stopBy`  | `field`       |
+| ------------------- | --------- | ------------- |
+| `inside`            | Supported | Supported     |
+| `has`               | Supported | Supported     |
+| `precedes`          | Supported | Not supported |
+| `follows`           | Supported | Not supported |
+
+The `field` option constrains grammatical relationships involving enclosing or contained syntax. It is not a general field restriction on arbitrary sibling searches.
+
+This corrects an ambiguity in the original §4.2, which presents the two controls together without distinguishing their availability.
+
+For sibling-based analysis requiring additional field constraints, the relevant conditions may need to be expressed through separate structural predicates rather than by placing `field` directly on `precedes` or `follows`.
+
+Source: [https://ast-grep.github.io/reference/rule.html](https://ast-grep.github.io/reference/rule.html?utm_source=chatgpt.com)
+
+## 5. Chained transformations and derived capture values
+
+Extends original §6.3.
+
+### 5.1 Transformations form ordered text-processing pipelines
+
+The native `transform` mechanism supports sequential derivation: the output of one transformation can become the source of another.
+
+This extends its usefulness beyond isolated case conversion or regex replacement.
+
+For example:
+
+```
+from ast_grep_py import SgRootsource = "audit(debug_long_name)"config = {    "rule": {        "pattern": "audit($NAME)"    },    "transform": {        "UNPREFIXED": {            "replace": {                "source": "$NAME",                "replace": "^debug_",                "by": ""            }        },        "NORMALIZED": {            "convert": {                "source": "$UNPREFIXED",                "toCase": "camelCase"            }        }    }}root = SgRoot(source, "python").root()match = root.find(config)if match is not None:    normalized = match.get_transformed("NORMALIZED")    # Expected: "longName"
+```
+
+The first transformation removes a prefix from the captured identifier text. The second converts the derived value to camel case.
+
+The underlying sequence is:
+
+```
+Captured syntax node
+    debug_long_name
+          │
+          ▼
+Regex replacement
+    long_name
+          │
+          ▼
+Case conversion
+    longName
+          │
+          ▼
+get_transformed("NORMALIZED")
+```
+
+The derived values are strings, not new AST nodes. They do not gain independent source ranges or structural relationships.
+
+Importantly, the transformation chain is defined once within the matcher configuration rather than implemented through repeated Python callbacks over individual captures.
+
+The official transformation documentation explicitly supports references to earlier transformed variables. The Python API exposes `transform` in `Config`, and upstream Python tests establish that transformed values can be retrieved through `get_transformed()`. The specific multi-stage example above is illustrative rather than an independently executed test.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep+1
+
+
+
+Sources:
+
+[https://ast-grep.github.io/guide/rewrite/transform.html](https://ast-grep.github.io/guide/rewrite/transform.html?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/tests/test_rule.py](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/tests/test_rule.py?utm_source=chatgpt.com)
+
+### 5.2 Regex capture groups are local to transformations
+
+The `replace` transformation supports Rust-regex capture groups, including named groups such as `(?<NAME>...)`, which can be referenced in the corresponding replacement text.
+
+These capture groups are distinct from structural metavariables.
+
+For example:
+
+```
+transform:
+  RENAMED:
+    replace:
+      source: $ORIGINAL
+      replace: '^debug(?<SUFFIX>.*)$'
+      by: 'release$SUFFIX'
+```
+
+Here, `ORIGINAL` is an ast-grep metavariable established by structural matching, while `SUFFIX` is a capture group belonging to the regular expression.
+
+The regex capture is available to the `by` replacement within that transformation. It should not be assumed to become an independent structural capture accessible through `get_match("SUFFIX")`.
+
+The atomic `regex` rule also does not export regex capture groups as structural metavariables.
+
+These distinctions are relevant when choosing between structural extraction, regex-based text derivation, and Python-side postprocessing.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep
+
+
+
+### 5.3 Conditional text generation from variadic captures
+
+A more subtle transformation technique is to derive optional text from the presence or absence of a variadic capture.
+
+Consider:
+
+```
+transform:
+  MAYBE_COMMA:
+    replace:
+      source: $$$ARGS
+      replace: '^.+'
+      by: ', '
+```
+
+When `$$$ARGS` is empty, the replacement produces no comma. When it contains text, the transformation generates the separator.
+
+The broader ast-grep project uses this technique when adding arguments to calls: a separator is required only if existing arguments are present.
+
+This provides a limited form of conditional text generation without a dedicated conditional-expression operator.
+
+It is useful for constructing replacements whose punctuation depends on matched syntax, but it should not be mistaken for arbitrary branching logic. The result depends on the text of the captured sequence and the behavior of the regex transformation.
+
+For Python callers, the derived value can be retrieved and incorporated into a programmatically constructed replacement string. The Python binding does not automatically interpolate CLI-style `fix` templates passed to `SgNode.replace()`.
+
+Source: [https://ast-grep.github.io/guide/rewrite/transform.html](https://ast-grep.github.io/guide/rewrite/transform.html?utm_source=chatgpt.com)
+
+### 5.4 Regex syntax and correctness limitations
+
+Ast-grep's regex facilities use Rust's `regex` syntax rather than Python `re` or PCRE semantics.
+
+Most importantly, the matching engine does not support arbitrary lookaround assertions or backreferences.
+
+That limitation is relevant to both atomic regex predicates and regex replacement transformations.
+
+A further distinction is that regex rules operate on source text, while structural metavariables represent syntax nodes. Regex-based transformations cannot guarantee that their output respects source-language token boundaries or identifier validity.
+
+For example, normalizing an identifier through string replacement does not establish that the result is a valid identifier in the target language, nor that replacing it preserves symbol identity.
+
+This reinforces the difference between declarative text transformation and semantic refactoring.
+
+Sources:
+
+[https://ast-grep.github.io/guide/rule-config/atomic-rule.html](https://ast-grep.github.io/guide/rule-config/atomic-rule.html?utm_source=chatgpt.com)
+
+[https://ast-grep.github.io/reference/yaml/transformation.html](https://ast-grep.github.io/reference/yaml/transformation.html?utm_source=chatgpt.com)
+
+## 6. Advanced ESQuery positional selection
+
+Extends original §§4.3–4.4.
+
+### 6.1 Positional selection over filtered siblings
+
+Ast-grep's limited ESQuery-style `kind` syntax supports an `of` clause within `:nth-child`.
+
+For example:
+
+```
+kind: array > :nth-child(1 of number)
+```
+
+This corresponds to a filtered positional rule:
+
+```
+all:
+  - nthChild:
+      position: 1
+      ofRule:
+        kind: number
+  - inside:
+      kind: array
+```
+
+Rather than selecting the first named child unconditionally, the positional predicate considers the sibling population filtered by the specified rule.
+
+This is useful when a construct contains several kinds of children and an operation needs the first, last, or periodically positioned node of a particular category.
+
+For example, an array containing mixed expressions can be inspected according to the positions of its numeric elements rather than their positions among all named children.
+
+This is distinct from applying `kind: number` and `nthChild: 1` independently: the latter constrains the node's ordinary sibling position, while `ofRule` changes the population over which that position is calculated.
+
+### 6.2 Reverse positional selection
+
+The `:nth-last-child` selector corresponds to `nthChild` with reverse counting:
+
+```
+nthChild:
+  position: 1
+  reverse: true
+```
+
+It selects a node according to its position from the end of the relevant sibling population.
+
+The `ofRule` filtering mechanism and reverse counting provide a compact native vocabulary for structural position queries that might otherwise require enumerating siblings and filtering them in Python.
+
+These features remain constrained by the syntax-tree representation. In particular, `nthChild` counts named nodes, not arbitrary punctuation tokens.
+
+The upstream Python type declarations do not fully represent the available object-form options; this distinction is addressed in §7 below.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep+1
+
+
+
+Source: [https://ast-grep.github.io/reference/rule/esquery](https://ast-grep.github.io/reference/rule/esquery?utm_source=chatgpt.com)
+
+## 7. Runtime configuration versus Python type declarations
+
+Extends original §§4.3, 6, and 8.2.
+
+The published Python interface includes `TypedDict` declarations for rule configurations, contextual patterns, positional predicates, and custom-language registration.
+
+These declarations aid static checking and discovery, but they are not always a complete or exact representation of the configuration accepted by the native Rust engine.
+
+Several discrepancies are consequential.
+
+| Python declaration | Important distinction                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Pattern`          | Its fields are declared in a non-`total=False` `TypedDict`, even though the underlying configuration permits optional `selector` and `strictness` |
+| `NthChild`         | The declaration includes `nth`, `position`, and `ofRule`, but does not accurately reflect the documented optionality and omits `reverse`          |
+| `Relation`         | Exposes `field` without distinguishing relational operators; the engine permits it only for `inside` and `has`                                    |
+| `CustomLang`       | Omits the `extensions` property accepted by the native language-registration structure and used in upstream tests                                 |
+| `Config`           | Exposes `rule`, `constraints`, `utils`, and `transform`, but not the complete set of fields available to CLI YAML configurations                  |
+
+These are different categories of mismatch.
+
+A type declaration may incorrectly require fields that are optional at runtime. It may also omit a runtime-supported field, or permit a property that is invalid for some members of a broader configuration family.
+
+For example, the documented `nthChild` configuration supports:
+
+```
+{    "nthChild": {        "position": 1,        "reverse": True,        "ofRule": {            "kind": "identifier"        }    }}
+```
+
+The native rule vocabulary supports `reverse`, but the Python declaration does not expose it in the corresponding type.
+
+This does not necessarily mean the runtime rejects the configuration. Conversely, a field appearing in a `TypedDict` does not establish that it is valid in every context where the type is used.
+
+These distinctions can matter when using statically checked Python to construct sophisticated declarative matchers.
+
+The authoritative evidence is distributed across the published Python API, the configuration deserializer, upstream tests, and the relevant engine documentation. Runtime behavior should be interpreted in the context of a particular package release rather than assumed from development-branch typing alone.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+Sources:
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/\_\_init\_\_.py](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/ast_grep_py/__init__.py?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/tests/test_register_lang.py](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/tests/test_register_lang.py?utm_source=chatgpt.com)
+
+[https://ast-grep.github.io/reference/rule.html](https://ast-grep.github.io/reference/rule.html?utm_source=chatgpt.com)
+
+## 8. Version-sensitive custom-language behavior and source coordinates
+
+Extends original §§2.2 and 8.3.
+
+### 8.1 Metavariable expansion changes in 0.51.1
+
+Ast-grep 0.51.1 includes a correction to dynamic-language pattern expansion: expansion now replaces metavariable sigils rather than indiscriminately replacing occurrences of the configured character.
+
+This matters to custom-language parsers that rely on `meta_var_char` and `expando_char`.
+
+Such configurations exist to accommodate grammars whose lexical rules cannot directly parse the default metavariable notation. The expansion mechanism therefore participates in the interpretation of source-language patterns.
+
+The 0.51.1 correction addresses how the engine distinguishes metavariable syntax from ordinary source text during expansion.
+
+Its relevance is greatest when a custom grammar uses syntax containing characters that overlap with the metavariable sigil. Incorrect expansion can alter the input passed to the language parser and consequently change the resulting effective pattern.
+
+The release change should be understood as a correction to existing functionality, not a new Python binding API.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Sources:
+
+[https://github.com/ast-grep/ast-grep/releases/tag/0.51.1](https://github.com/ast-grep/ast-grep/releases/tag/0.51.1?utm_source=chatgpt.com)
+
+[https://ast-grep.github.io/advanced/custom-language.html](https://ast-grep.github.io/advanced/custom-language.html?utm_source=chatgpt.com)
+
+### 8.2 Interoperability among character, byte, and UTF-16 source positions
+
+The original guide correctly notes that the Python binding exposes Unicode-character offsets rather than raw Tree-sitter byte offsets.
+
+An additional integration distinction is that external tools may use different coordinate representations.
+
+| Coordinate system         | Typical context                                              | Consequence                                                                      |
+| ------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Unicode code-point index  | Python source-string indexing and ast-grep-py edit positions | Multibyte UTF-8 characters count as one code point                               |
+| UTF-8 byte offset         | Native Tree-sitter and byte-oriented source infrastructure   | Non-ASCII characters can occupy multiple bytes                                   |
+| UTF-16 code-unit position | Common language-server and editor protocol representation    | Characters outside the Basic Multilingual Plane occupy two code units            |
+| Line/column coordinates   | Syntax ranges and compiler diagnostics                       | Column interpretation must be reconciled with the producer's encoding convention |
+
+For ASCII-only source, these representations frequently coincide. With non-ASCII input, they can diverge.
+
+Consider:
+
+```
+source = "a😀b"
+```
+
+The `b` begins at code-point index 2 in Python. In UTF-8, it begins at byte offset 5. In UTF-16, it follows three code units.
+
+The distinction matters when correlating ast-grep matches with diagnostics, applying external edits, or storing source locations produced by different analysis engines.
+
+The binding's native implementation maintains a `UnicodePosition` conversion structure that maps between character and byte offsets. That does not establish automatic conversion to every external coordinate convention.
+
+Coordinates must also refer to the same source snapshot. Even correctly converted offsets can identify the wrong syntax after earlier source modifications.
+
+Source: [https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/unicode_position.rs](https://github.com/ast-grep/ast-grep/blob/main/crates/pyo3/src/unicode_position.rs?utm_source=chatgpt.com)
+
+## 9. Combined architectural significance
+
+The capabilities developed in this addendum are especially valuable when used together.
+
+A declarative `Config` can combine a structurally precise pattern, relational context, captures from several syntax locations, recursive utility predicates, metavariable constraints, and chained text transformations.
+
+Conceptually, the resulting analysis operation is:
+
+```
+Parse source into syntax tree
+            │
+            ▼
+Select effective pattern node
+            │
+            ▼
+Evaluate structural predicates
+  • target syntax
+  • ancestors / descendants
+  • sibling relationships
+  • recursive utility rules
+            │
+            ▼
+Accumulate metavariable captures
+            │
+            ▼
+Apply capture constraints
+            │
+            ▼
+Derive transformed string values
+            │
+            ▼
+Return matching syntax nodes
+and associated captured information
+```
+
+This composition can replace substantial custom machinery for recognizing recursively nested structures, correlating local syntax, extracting named components, filtering captures, and normalizing extracted text.
+
+Its principal architectural advantage is that several related operations can remain within the native Rust matcher instead of requiring repeated extraction and Python-side inspection of intermediate nodes.
+
+The benefit is conditional on how much of the analysis can genuinely be represented through ast-grep's structural rule vocabulary. Highly dynamic predicates, cross-file correlation, arbitrary aggregation, symbol resolution, and semantic reasoning remain outside that vocabulary.
+
+The resulting abstraction is best understood as a composable structural recognition and extraction engine, with limited native text derivation, rather than a general semantic-analysis framework.
+
+This addendum establishes the additional expressiveness available from that composition while preserving the original guide's distinction between structural recognition, source transformation, and semantic program analysis.

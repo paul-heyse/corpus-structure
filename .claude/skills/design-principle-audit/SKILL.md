@@ -63,7 +63,8 @@ Keep established diagnoses, hypotheses and unexamined areas distinguishable usin
 evidence vocabulary. Read decisive sources and include material contrary evidence. Source reasoning
 may suffice; probes help when they resolve a consequential uncertainty. Qualitative execution-fit
 assessment needs no cost model or benchmark campaign; quantitative claims still need measurements.
-Library questions use the repository's overview, Context7 and primary-source research route.
+Choose reference sources according to the repository's library-research guidance and the
+uncertainty being resolved.
 
 A solution lead may be useful context, but the audit need not choose a remedy, adoption priority or
 implementation package. Preserve enough explanation for a later reviewer to challenge the diagnosis

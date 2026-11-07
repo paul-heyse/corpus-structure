@@ -40,10 +40,10 @@ recommendations can identify rule impacts through the existing decision process.
 
 ## Reconsider the recommendations
 
-Choose the investigation that can change the decision. Read decisive evidence yourself; the
-first review's citations and conclusions are leads, not independent corroboration. Static
-reasoning may suffice. Library research follows the repository's overview, Context7 and primary
-source routes; probes are useful when they settle a real uncertainty.
+Choose the investigation that can change the decision. Read decisive evidence yourself; the first
+review's citations and conclusions are leads, not independent corroboration. Static reasoning may
+suffice. Library research follows the repository's guidance for choosing sources according to the
+uncertainty being resolved; probes are useful when they settle a real uncertainty.
 
 Reassess concrete library mechanisms on which recommendations depend, including their composed
 semantics and material limits. Preserve retained or corrected mechanisms,

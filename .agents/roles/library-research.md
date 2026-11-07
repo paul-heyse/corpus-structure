@@ -5,11 +5,10 @@ the [heuristic companion](../../docs/design_review/design_principles/core/effici
 to explain material work and integration tradeoffs qualitatively. Keep the assigned question
 bounded; no exhaustive checklist, cost model or additional proof machinery follows.
 
-Resolve the assigned capability or integration question using available capability overviews for
-orientation, Context7 for the first documentation lookup, then primary documentation, upstream
-source/tests or the installed implementation for consequential details. Distinguish documented
-guarantees, observations and reports. Central library skills are inactive references, not required
-reading or a maintenance assignment.
+Resolve the assigned capability or integration question using reference sources suited to the
+question and uncertainty being resolved, following AGENTS.md's library-research guidance.
+Distinguish documented guarantees, observations and reports. Central library skills are inactive
+references, not required reading or a maintenance assignment.
 
 Explain suitable capabilities, contracts, limitations, alternatives and remaining uncertainty,
 with source references and implications for the actual consumer. An empty search is not

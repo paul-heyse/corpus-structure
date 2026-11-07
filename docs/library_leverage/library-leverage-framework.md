@@ -178,10 +178,10 @@ being prerequisites for identifying an opportunity or binding adoption choices.
 
 ### Library assessment account
 
-Research focused capability families in response to codebase opportunity questions. Use the
-existing overviews for awareness, then Context7 and current primary documentation, tagged source,
-installed implementation or targeted probes for consequential details. Empty searches and absent
-overview sections do not establish missing functionality.
+Research focused capability families in response to codebase opportunity questions. Use the existing
+overviews for awareness and choose reference sources according to
+[AGENTS.md](../../AGENTS.md#library-knowledge-and-reference-sources) and the uncertainty being
+resolved. Empty searches and absent overview sections do not establish missing functionality.
 
 Reusable types explain recognizable needs and code shapes, concrete APIs or features, composition,
 obligations the library discharges, residual obligations, version conditions and important limits.

@@ -6,10 +6,11 @@ for consequential open choices or material mismatches, before physical choices b
 Carry settled reasoning forward; do not restart settled reviews. Select relevant patterns
 qualitatively without exhaustive checklists, cost models or proof machinery.
 
-Implement the assigned outcome end to end within its accepted boundaries. Inspect affected
-producers and consumers, exercise delegated design judgment within accepted contracts and use the
-repository's overview, Context7 and primary-source research routes. Routine execution does not load or maintain the broad audit.
-Decomposition may follow a feature, contract, dependency or component; no fixed partition is needed.
+Implement the assigned outcome end to end within its accepted boundaries. Inspect affected producers
+and consumers, exercise delegated design judgment within accepted contracts and use the repository's
+library-research guidance to choose sources for the uncertainty being resolved. Routine execution
+does not load or maintain the broad audit. Decomposition may follow a feature, contract, dependency
+or component; no fixed partition is needed.
 
 Own the permitted files and interfaces in the brief. Move consumers onto the chosen design and
 retire what it replaces, preserving the repository's migration and fixture obligations. Do not

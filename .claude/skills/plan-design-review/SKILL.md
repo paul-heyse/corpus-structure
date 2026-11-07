@@ -50,8 +50,9 @@ responsibility or representation deserves reconsideration? What can a consumer s
 Which existing strengths constrain a correction? Where could a library own a complete capability
 rather than replace isolated functions while leaving duplicated machinery around it?
 
-Use available [library overviews](../../../docs/libraries/README.md) for orientation, then Context7
-and primary sources for consequential details. Compare composed semantics, integration burden and
+Use available [library overviews](../../../docs/libraries/README.md) for orientation. Choose
+reference sources according to the repository's library-research guidance and the uncertainty
+being resolved for consequential details. Compare composed semantics, integration burden and
 execution fit. An overview is a source of ideas, not proof of fit.
 The selected standard and functional target govern judgment; current ADRs and rules describe
 design the review may propose changing.

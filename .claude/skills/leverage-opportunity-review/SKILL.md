@@ -54,10 +54,11 @@ early consideration without becoming a rule that blocks a better mechanism. Avoi
 cross product or a fixed number of alternatives.
 
 Research deeper capability semantics and composition when they could change the choice. Use the
-host's overview, Context7 and primary-source routes; preserve recognizable APIs/features, why
-they matter, version conditions and evidence. Direct new research is permitted. Communicate
-corrections and new reusable knowledge for integration into the library collection without making
-another scheduled assessment pass a prerequisite to finishing the judgment.
+host's library-research guidance to choose sources for the uncertainty being resolved; preserve
+recognizable APIs/features, why they matter, version conditions and evidence. Direct new research is
+permitted. Communicate corrections and new reusable knowledge for integration into the library
+collection without making another scheduled assessment pass a prerequisite to finishing the
+judgment.
 
 ## Make the comparative judgment
 

@@ -803,3 +803,810 @@ The library is especially capable where source structure and source fidelity are
 Its limits are equally important: lexical analysis is not whole-program execution analysis, repository-qualified names are not complete runtime symbol resolution, external type inference has its own dependencies, and some advanced parser configuration and experimental generation behaviors require version-specific verification.
 
 The central architectural opportunity is to use LibCST as a source-preserving structural foundation, then attach only the additional semantic analysis, external validation, and execution machinery that the problem genuinely requires.
+
+# LibCST 1.9.0 — Capability Addendum
+
+Research date: November 7, 2026\
+Target release: LibCST 1.9.0 (stable, released July 29, 2026)\
+Purpose: Supplement the existing LibCST — Comprehensive Python Library Reference with verified capabilities, implementation distinctions, and limitations not adequately developed in the original document.
+
+The additions concentrate on reusable transformation commands, contemporary Python grammar representations, advanced declarative matching, annotation reconciliation, module-resolution utilities, structural introspection, and finer-grained semantic analysis.
+
+The addendum describes functionality available in the tagged 1.9.0 release unless explicitly noted otherwise. The current PyPI and GitHub release listings identify 1.9.0 as the latest stable release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+1
+
+
+
+## 1. Shipped codemods: reusable migration operations
+
+LibCST includes a collection of executable codemod commands in `libcst.codemod.commands`. These are concrete source transformations built on its codemod infrastructure, not merely examples demonstrating how to implement a transformation.
+
+The commands address several established migration problems, including semantic-aware symbol renaming, modernization of typing constructs, string-format conversions, import cleanup, and targeted source normalization.
+
+### 1.1 Available transformation families
+
+| Capability                    | Released commands                                                                                                                | Behavior and scope                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Symbol renaming               | `RenameCommand`                                                                                                                  | Renames qualified local or imported objects, including relevant imports and references                      |
+| Generic type modernization    | `RenameTypingGenericAliases`                                                                                                     | Converts supported `typing` aliases, such as `typing.List` to `list`, through a sequence of rename codemods |
+| Union modernization           | `ConvertUnionToOrCommand`                                                                                                        | Rewrites imported `typing.Union[...]` expressions into PEP 604 union syntax                                 |
+| Type comment migration        | `ConvertTypeComments`                                                                                                            | Converts supported PEP 484-style type comments into annotation syntax                                       |
+| Variadic callable repair      | `FixVariadicCallableCommmand`                                                                                                    | Corrects the specific form `Callable[[...], T]` to `Callable[..., T]`                                       |
+| String formatting             | `ConvertFormatStringCommand`, `ConvertPercentFormatStringCommand`                                                                | Converts supported `.format()` and percent-formatting expressions into f-strings                            |
+| Redundant string formatting   | `UnnecessaryFormatString`                                                                                                        | Removes f-string prefixes where interpolation is unnecessary                                                |
+| Dataclass migration           | `ConvertNamedTupleToDataclassCommand`                                                                                            | Converts supported `typing.NamedTuple` class declarations to frozen dataclass declarations                  |
+| Import management             | `EnsureImportPresentCommand`, `RemoveUnusedImportsCommand`                                                                       | Adds requested imports or removes imports classified as unused                                              |
+| Type annotation normalization | `StripStringsCommand`                                                                                                            | Converts appropriate string-based type annotations to expression annotations                                |
+| Formatting                    | `AddTrailingCommas`                                                                                                              | Adds trailing commas to supported function parameter lists and calls                                        |
+| Pyre directives               | `AddPyreStrictCommand`, `AddPyreUnsafeCommand`, `RemovePyreStrictCommand`, `RemovePyreUnsafeCommand`, `FixPyreDirectivesCommand` | Inserts, removes, or repairs Pyre-specific module directives                                                |
+
+These command names were verified against the tagged source. Notably, `FixVariadicCallableCommmand` contains three consecutive `m` characters in `Commmand`; this is the actual released class name.
+
+Primary source: `https://github.com/Instagram/LibCST/tree/v1.9.0/libcst/codemod/commands`
+
+### 1.2 Qualified-symbol renaming
+
+`RenameCommand` is more capable than a conventional name-replacement visitor because it incorporates `QualifiedNameProvider` and import-management visitors.
+
+It accepts an old and new dotted name and supports an additional colon-delimited syntax for controlling how a replacement import is structured.
+
+For example, the distinction between specifying `package.module.function` and `package:module.function` affects the import representation generated by the command.
+
+The command handles matching imported names, associated aliases, and import cleanup as part of the transformation. Consequently, it can replace much of the custom logic required to propagate an API rename through individual modules.
+
+The qualification mechanism is nevertheless static. It does not establish runtime object identity, infer all dynamically redirected references, or guarantee that external consumers of renamed exports remain compatible.
+
+Its name-based and import-aware behavior should also be distinguished from a complete repository-wide symbol-renaming engine: processing multiple files with the command does not automatically establish a globally consistent symbol graph.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/rename.py`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 1.3 Typing modernization as composable transformations
+
+The typing-related commands illustrate an important architectural distinction: many modernization operations can be expressed as independent, reusable transformations rather than a monolithic Python-version-upgrade pass.
+
+`RenameTypingGenericAliases` is implemented as a `MagicArgsCodemodCommand` that yields configured instances of `RenameCommand`. Its released mapping includes `typing.List`, `Tuple`, `Dict`, `FrozenSet`, `Set`, and `Type`, replacing them with their corresponding built-in generic-capable types.
+
+`ConvertUnionToOrCommand` recognizes `typing.Union` using qualified-name metadata, rather than matching every subscript whose visible name happens to be `Union`. It constructs `BinaryOperation` nodes using `BitOr`, including nested operations for unions with multiple arguments, and schedules removal of an unused `typing.Union` import.
+
+These commands target language features introduced in particular Python versions. For example, built-in collection generics require Python 3.9+, while `X | Y` type-union syntax requires Python 3.10+ in the ordinary supported typing context.
+
+`FixVariadicCallableCommmand` is narrower still: it corrects a particular malformed variadic callable annotation, not arbitrary callable-type syntax.
+
+The commands are useful independently or in combination, but their composition does not automatically establish target-interpreter compatibility. The effects of postponed annotation evaluation, runtime annotation consumers, and syntax-version requirements remain relevant.
+
+Sources:
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/rename_typing_generic_aliases.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/convert_union_to_or.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/fix_variadic_callable.py`
+
+### 1.4 String modernization and preservation limits
+
+String-format conversion illustrates why a shipped codemod should not be confused with an unrestricted equivalence-preserving rewrite.
+
+`ConvertFormatStringCommand` specifically recognizes `.format()` calls on literal strings. It parses format fields and constructs `FormattedString` and `FormattedStringExpression` nodes, including supported conversions and format specifications.
+
+The command exposes `--allow-strip-comments` and `--allow-await` options. These make two consequential transformation policies explicit: whether source comments may be discarded and whether conversions involving `await` expressions may proceed.
+
+`ConvertPercentFormatStringCommand` is deliberately narrower. Its implementation concentrates on simple `%s` formatting patterns and supported expressions rather than the complete percent-formatting language.
+
+These restrictions matter because changing string-formatting mechanisms may affect expression evaluation order, repeated evaluations, formatting behavior, and source comments. A syntactically valid f-string is not necessarily a semantics-preserving replacement for every original formatting expression.
+
+The availability of conservative checks is an important part of these commands' value: unsupported constructs can remain unchanged rather than being subjected to an overgeneralized substitution.
+
+Sources:
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/convert_format_to_fstring.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/convert_percent_format_to_fstring.py`
+
+### 1.5 Type-comment conversion has substantial built-in logic
+
+`ConvertTypeComments` deserves particular attention because its implementation addresses considerably more than replacing `# type:` text with annotation syntax.
+
+It handles supported type comments on ordinary assignments, `for` statements, `with` statements, and function definitions. For assignments involving multiple bindings, it can create separate annotation declarations while retaining the original assignment.
+
+The command also implements precedence rules for competing type information. Existing annotations take precedence over type comments; inline parameter comments take precedence over function-level comments where both are present.
+
+By default, non-built-in annotation expressions are quoted. This avoids introducing immediate name-resolution errors when migrating type comments that previously had no runtime annotation evaluation.
+
+The implementation checks that binding and annotation structures have compatible arities and skips conversions it cannot reconcile. It also attempts to retain original type comments when the corresponding transformation fails.
+
+There are operational qualifications. The command uses Python's `ast` functionality for interpreting type comments, including `ast.unparse`, and the tagged command documentation recommends single-job execution using `--jobs=1`.
+
+This functionality could otherwise require bespoke parsing, annotation matching, statement rewriting, and error recovery.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/convert_type_comments.py`
+
+### 1.6 Dataclass conversion is declaration-level, not application-level
+
+`ConvertNamedTupleToDataclassCommand` recognizes a class inheriting from `typing.NamedTuple` using qualified-name metadata.
+
+It removes the matching base, adds `@dataclass(frozen=True)`, and coordinates the required `dataclasses.dataclass` import.
+
+The command explicitly limits its conversion to the class declaration. It does not transform every `NamedTuple`-specific method, attribute, or usage pattern.
+
+This is a consequential limitation because `NamedTuple` and frozen dataclasses have different tuple semantics, inheritance characteristics, generated methods, and runtime representations. The command is a source-level modernization primitive, not a proof of behavioral equivalence.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/convert_namedtuple_to_dataclass.py`
+
+## 2. Contemporary Python grammar: specialized CST representations
+
+LibCST's support for modern Python syntax involves more than accepting newer grammar versions. It provides dedicated node types for language constructs whose structure and semantics cannot be adequately represented through older Python syntax abstractions.
+
+This allows syntax-aware analysis and transformations to distinguish these constructs directly, while retaining the concrete spelling, punctuation, and whitespace needed for source-preserving modifications.
+
+### 2.1 Structural pattern matching
+
+Python's structural pattern matching syntax is represented through a specialized family of CST nodes.
+
+| Node                                         | Represented construct                                      |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| `Match`                                      | The complete `match` statement                             |
+| `MatchCase`                                  | A `case` clause with its pattern, optional guard, and body |
+| `MatchAs`                                    | Capture patterns, wildcard patterns, and `as` patterns     |
+| `MatchClass`                                 | Class patterns with positional and keyword subpatterns     |
+| `MatchMapping`                               | Mapping patterns                                           |
+| `MatchList`, `MatchTuple`                    | Sequence patterns                                          |
+| `MatchOr`                                    | Alternative patterns separated by `\\|`                    |
+| `MatchStar`                                  | Starred sequence captures                                  |
+| `MatchKeywordElement`, `MatchMappingElement` | Components of class and mapping patterns                   |
+
+These representations preserve the distinction between ordinary expressions and the pattern-specific constructs introduced by PEP 634.
+
+For example, a bare name in a capture pattern establishes a binding, whereas a dotted value pattern refers to a value that must be compared against the subject. These may look similar at the lexical level but have substantially different meanings.
+
+LibCST's specialized pattern nodes allow an analysis to identify these cases without manually reconstructing the pattern grammar.
+
+The pattern AST can also expose information about guards, nested alternatives, and potential name captures. This is useful for structural inspection, migration of pattern syntax, and analysis of possible bindings.
+
+However, the availability of these nodes does not imply that LibCST computes exhaustiveness, reachability, type narrowing, or behavioral equivalence across pattern alternatives. Those require additional semantic analysis.
+
+The 1.9.0 release also includes a grammar correction permitting a trailing comma after `**rest` in supported class patterns.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/statement.py`
+
+### 2.2 PEP 695 generic declarations and type aliases
+
+LibCST represents Python's newer generic declaration syntax with dedicated nodes, rather than requiring consumers to infer declarations exclusively from assignments involving `typing.TypeVar`.
+
+Relevant nodes include `TypeAlias`, `TypeParameters`, `TypeParam`, `TypeVar`, `TypeVarTuple`, and `ParamSpec`.
+
+The representation supports constructs such as:
+
+```
+type Result[T] = T | Noneclass Container[T]:    def get(self) -> T:        ...def identity[T](value: T) -> T:    return value
+```
+
+`TypeAlias` directly represents the `type` statement. `TypeParameters` captures the parameter list attached to a generic function, class, or type-alias declaration.
+
+`FunctionDef` and `ClassDef` expose `type_parameters` fields, allowing generic declaration syntax to be examined without interpreting a collection of decorator calls or assignments.
+
+The type-parameter nodes distinguish ordinary type variables, variadic type variables, and parameter specifications. Their fields represent supported bounds, constraints, defaults, and corresponding punctuation.
+
+This opens the possibility of extracting generic type declarations and their structural relationships directly from source, including relationships between type parameters and the declarations that introduce them.
+
+Importantly, this representation is not equivalent to type checking. It does not resolve arbitrary type expressions, establish subtyping relationships, or infer whether generic instantiations satisfy declared bounds.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/statement.py`
+
+### 2.3 Template string literals: PEP 750
+
+Python 3.14 introduced template string literals, commonly called t-strings, through PEP 750.
+
+Unlike f-strings, which evaluate to strings, t-strings produce structured `string.templatelib.Template` objects containing literal strings and interpolation information.
+
+LibCST 1.9.0 exposes three primary node types for these expressions.
+
+| Node                        | Role                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `TemplatedString`           | Complete t-string expression, including prefix, delimiters, and ordered parts       |
+| `TemplatedStringText`       | Literal text between interpolated expressions                                       |
+| `TemplatedStringExpression` | Embedded expression, including supported conversion and format-specification syntax |
+
+`TemplatedStringExpression` exposes the underlying expression as a `BaseExpression`. Its additional fields include `conversion`, `format_spec`, and the whitespace and punctuation associated with the interpolation.
+
+This structural representation is particularly relevant because t-strings are designed to preserve information about interpolations rather than immediately flattening everything into a string.
+
+An analysis can separately inspect a literal template fragment and the Python expression responsible for a dynamic value. This makes t-string-aware refactoring or source inspection possible without implementing a custom template parser.
+
+A useful distinction is that LibCST models the source representation of t-strings. It does not evaluate the expression, construct a runtime `Template` object during parsing, or provide the escaping and rendering policies needed by an application consuming that object.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/expression.py`
+
+### 2.4 Python 3.15 explicit lazy imports
+
+LibCST 1.9.0 adds `LazyImport` and `LazyImportFrom` as dedicated nodes for the explicit lazy-import syntax introduced by PEP 810.
+
+For example:
+
+```
+lazy import package.modulelazy from package.module import feature
+```
+
+`LazyImport` retains the imported aliases, semicolon, and whitespace associated with the `lazy import` statement.
+
+`LazyImportFrom` additionally models the source module, relative-import dots, imported names, and optional parentheses.
+
+This means a syntax analyzer can distinguish an explicitly lazy import from an ordinary import directly through the node type.
+
+The distinction matters because explicit lazy imports change when imported modules are loaded, when related failures may occur, and when import-time side effects execute.
+
+Python 3.15 places contextual restrictions on lazy imports, including their permitted scope and incompatibility with star imports. A transformation should account for those language rules independently of its ability to construct and serialize a CST node.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.python.org\&sz=32)
+
+Python 3.15.2 documentation+1
+
+
+
+There is an additional LibCST-specific qualification: support for parsing lazy-import nodes should not automatically be interpreted as full support throughout every metadata provider and import-management visitor.
+
+Inspection of the tagged 1.9.0 `ScopeProvider`, `GatherImportsVisitor`, `RemoveImportsVisitor`, and `GatherUnusedImportsVisitor` implementations shows explicit handling for ordinary `Import` and `ImportFrom` nodes, but not corresponding explicit handlers for `LazyImport` and `LazyImportFrom`.
+
+Because the lazy-import classes are separate node types, ordinary import-specific handlers do not automatically dispatch for them. Consequently, it would be unsafe to assume that every existing import-analysis or cleanup mechanism recognizes lazy imports identically to eager imports.
+
+This is a conclusion from the released source, not a claim based on exhaustive runtime testing. It is an important boundary between grammar coverage and downstream semantic-tooling coverage.
+
+Sources:
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/statement.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/metadata/scope_provider.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_gather_imports.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_gather_unused_imports.py`
+
+## 3. Advanced declarative matching and context-sensitive transformations
+
+The matcher system supports a higher-level programming model than the basic pattern-recognition APIs might suggest.
+
+In particular, it enables declarative visitor dispatch, ancestry-sensitive filtering, structural captures, and directly constructed replacement operations.
+
+These capabilities can eliminate custom traversal-state management and many repetitive visitor implementations.
+
+### 3.1 Matcher-decorated visitors and transformers
+
+`MatcherDecoratableVisitor` and `MatcherDecoratableTransformer` extend the ordinary visitor abstractions with matcher-controlled callbacks.
+
+The primary decorator mechanisms are `@m.visit`, `@m.leave`, `@m.call_if_inside`, and `@m.call_if_not_inside`.
+
+The first two invoke methods when the current CST node matches a specified pattern.
+
+The latter two restrict a callback according to whether the node occurs within a matching structural context.
+
+For example, the following illustrative transformer renames a particular call shape only when encountered inside a function definition:
+
+```
+import libcst as cstimport libcst.matchers as mclass RenameInsideFunctions(m.MatcherDecoratableTransformer):    @m.call_if_inside(m.FunctionDef())    @m.leave(m.Call(func=m.Name("old_api")))    def rename_call(        self,        original_node: cst.Call,        updated_node: cst.Call,    ) -> cst.Call:        return updated_node.with_changes(            func=cst.Name("new_api")        )
+```
+
+This removes the need to maintain an explicit stack tracking whether traversal is currently inside a function.
+
+The matcher determines the syntactic target, while the context decorator determines where that target is eligible.
+
+The example is structurally selective, not symbol-safe. It does not establish that every `old_api` occurrence resolves to the same imported function.
+
+Context matching is especially useful when a transformation depends on syntactic ancestry, such as restricting an operation to annotations, decorators, particular function bodies, or selected statement forms.
+
+The two decorator mechanisms compose with ordinary `visit_<Node>` and `leave_<Node>` methods, but callback ordering must be understood.
+
+Decorated visit callbacks run before conventional `visit_<Node>` callbacks. Decorated leave callbacks run afterward, receiving the node resulting from the conventional leave callback.
+
+The order among multiple matching decorated callbacks of the same kind is not guaranteed. Accordingly, transformations that depend on a specific sequencing of independent decorated callbacks should use explicit orchestration instead.
+
+Source: `https://libcst.readthedocs.io/en/latest/matchers.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+### 3.2 Capture-driven structural replacement
+
+`SaveMatchedNode` allows a matcher to bind selected subtrees to named captures.
+
+With `extract` and `extractall`, these captures are returned as dictionaries containing the matched CST nodes or sequences.
+
+The more consequential capability is that `libcst.matchers.replace` accepts either a fixed replacement node or a callback of the form:
+
+```
+replacement(matched_node, captures)
+```
+
+The callback receives the node being replaced together with the values captured by the matcher.
+
+This supports pattern-directed transformations without requiring a separately implemented `CSTTransformer` for every rewrite.
+
+A transformation can therefore recognize a complex nested shape, capture the pieces it needs, and construct a replacement using the original expression nodes.
+
+For example, a migration that wraps or unwraps selected expressions can capture those expressions structurally and reuse them in the generated replacement.
+
+This is particularly valuable when the transformation is local and can be expressed as a substitution rule, rather than requiring extensive traversal state or coordination across multiple statements.
+
+`replace` also supports a `metadata_resolver` argument, enabling patterns that depend on resolved metadata. A `MetadataWrapper` can be supplied directly, giving the operation access to metadata without separately managing a transformer instance.
+
+However, the same node-identity and metadata-lifecycle rules described in the primary reference still apply. Metadata computed on the original tree should not be assumed to describe arbitrary replacement nodes.
+
+Source: `https://libcst.readthedocs.io/en/latest/matchers.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+### 3.3 Sequence matching and pattern expressiveness
+
+Sequence-valued fields are an important source of subtle matcher behavior.
+
+By default, a sequence pattern describes the complete sequence. A pattern that names one argument does not implicitly mean that the argument may appear anywhere among arbitrary additional arguments.
+
+LibCST supplies sequence quantifiers to make these requirements explicit:
+
+| Matcher      | Semantics                                                                |
+| ------------ | ------------------------------------------------------------------------ |
+| `AtLeastN`   | At least a specified number of consecutive elements matching a condition |
+| `AtMostN`    | At most a specified number of matching elements                          |
+| `ZeroOrMore` | Arbitrary-length matching sequence, including an empty sequence          |
+| `ZeroOrOne`  | Optional single matching element                                         |
+| `DoNotCare`  | A single unconstrained element                                           |
+
+These can be combined with concrete matchers to recognize patterns with fixed leading or trailing elements, optional components, and variable-length regions.
+
+For instance, a call containing a particular final argument can be matched using `ZeroOrMore` before the final argument matcher.
+
+Additional expressive mechanisms include `TypeOf`, which supports patterns spanning selected node classes, and composition through `OneOf`, `AllOf`, and negation.
+
+The operators `|`, `&`, and `~` provide shorthand composition for appropriate matcher objects.
+
+The distinction between an unconstrained field and an unconstrained sequence is consequential. A default `DoNotCare` field means the field's value is not constrained, whereas a `DoNotCare()` element inside an explicitly supplied sequence pattern matches a single sequence position.
+
+Source: `https://libcst.readthedocs.io/en/latest/matchers.html`
+
+### 3.4 Metadata-aware recognition
+
+`MatchMetadata` and `MatchMetadataIfTrue` can constrain pattern recognition using resolved metadata.
+
+An application can combine syntactic shape with properties such as expression context, qualified names, or source locations.
+
+This allows rules to distinguish a name used as a storage target from the same spelling used in a read expression, or to recognize an imported API regardless of its local alias.
+
+The relevant provider must be resolved and accessible through the matcher operation.
+
+This combination makes declarative matching useful for many cases that would otherwise require a custom visitor with explicit metadata lookups and nested conditionals.
+
+It does not make the resulting recognition equivalent to dynamic dispatch resolution or full dataflow analysis. The accuracy of the matcher remains bounded by the underlying metadata provider.
+
+Source: `https://libcst.readthedocs.io/en/latest/matchers.html`
+
+## 4. Advanced type-annotation reconciliation
+
+`ApplyTypeAnnotationsVisitor` implements a configurable reconciliation process between source modules, stub modules, and explicitly supplied annotation data.
+
+Its capabilities extend beyond transferring annotations from a `.pyi` file into corresponding `.py` declarations.
+
+### 4.1 Supported annotation inputs and transformations
+
+The visitor can consume annotations from a stub module or an explicit `Annotations` object. Its implementation can apply annotation information to parameters, return values, and attributes, and can introduce new definitions in supported cases.
+
+The transformation coordinates changes to imports, recognizes existing annotations, and considers whether referenced names are available in the target module.
+
+Its supporting logic also handles type-variable and generic-related declarations in the forms supported by the implementation.
+
+This combination is substantially more capable than manually matching function names and replacing their parameter nodes.
+
+An important architectural distinction is that the visitor performs structural reconciliation of supplied typing information, not inference of missing types from executable behavior.
+
+### 4.2 Configuration controls
+
+The constructor and `store_stub_in_context` expose several consequential options:
+
+| Option                           | Effect                                                                                                   |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `overwrite_existing_annotations` | Allows incoming annotations to replace existing annotations                                              |
+| `use_future_annotations`         | Enables insertion or use of postponed annotation evaluation through the appropriate future import        |
+| `strict_posargs_matching`        | Requires positional parameter names to correspond when matching signatures                               |
+| `strict_annotation_matching`     | Requires existing and incoming annotations to agree when both are present, unless overwriting is enabled |
+| `always_qualify_annotations`     | Prefers qualified annotation references in supported import-reconciliation cases                         |
+
+These options affect whether annotations are applied, how function signatures are matched, and how annotation expressions are represented in the resulting source.
+
+For example, without strict annotation matching, conflicting existing annotations can be preserved while missing annotations elsewhere in a compatible signature are filled.
+
+With strict matching, an existing conflict can cause the corresponding signature to be rejected for reconciliation.
+
+Likewise, relaxing positional-argument name matching permits supported reconciliation by position instead of requiring identical names.
+
+These settings provide distinct approaches for dealing with stubs that are authoritative, incomplete, or potentially inconsistent with their implementations.
+
+### 4.3 Imports, forward references, and generated definitions
+
+The implementation gathers existing imports and global names before applying annotations.
+
+Import information is used to avoid introducing unnecessary duplicate imports and to coordinate newly referenced type names.
+
+Global-name information helps decide when a forward reference should be quoted to avoid an unresolved name during module initialization.
+
+The visitor also tracks categories of changes, including parameter, return, attribute, and global annotations, as well as newly introduced classes and generic-related definitions.
+
+This tracking is used internally to determine whether meaningful type-information changes were made and to avoid retaining certain import-only modifications when no annotations were applied.
+
+The resulting architecture combines structured source/stub matching with import reconciliation and source modification, reducing the need for separate custom implementations of each concern.
+
+The remaining limitation is that successful annotation insertion does not prove annotation correctness. It cannot guarantee that a stub accurately describes the implementation or that the resulting annotations are accepted by every type checker and runtime annotation consumer.
+
+Sources:
+
+`https://libcst.readthedocs.io/en/latest/codemods.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_apply_type_annotations.py`
+
+## 5. Module identity and relative-import resolution helpers
+
+LibCST provides a separate collection of helpers for converting syntactic import information into module names.
+
+These functions complement the repository metadata providers but do not require the same metadata-access pattern.
+
+### 5.1 Relative-import resolution
+
+The module helpers include:
+
+| Function                                               | Responsibility                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `get_absolute_module`                                  | Resolves a module name and relative-import level against a known current module |
+| `get_absolute_module_for_import`                       | Performs the corresponding operation directly from an `ImportFrom` node         |
+| `get_absolute_module_from_package`                     | Resolves relative imports against a known current package                       |
+| `get_absolute_module_from_package_for_import`          | Resolves an `ImportFrom` node against the containing package                    |
+| `get_absolute_module_for_import_or_raise`              | Raises when the corresponding module-based resolution cannot succeed            |
+| `get_absolute_module_from_package_for_import_or_raise` | Raising variant for package-based resolution                                    |
+
+The distinction between current module and current package is important.
+
+Relative imports are defined relative to package context, and a module's own dotted name is not always interchangeable with its containing package.
+
+For example, resolving an import from an `__init__.py` module differs from resolving the same relative syntax in an ordinary module within that package.
+
+These helpers account for the relevant naming distinctions without requiring a caller to implement relative-import dot arithmetic.
+
+When sufficient context is unavailable, the non-raising variants can return `None`.
+
+They are name-resolution utilities, not filesystem-based import resolvers. They do not import the referenced module, verify that it exists, resolve arbitrary import hooks, or establish runtime package loading behavior.
+
+### 5.2 Module/package identity from source paths
+
+`calculate_module_and_package` converts a repository root and source filename into a `ModuleNameAndPackage` result.
+
+It handles special cases such as `__init__.py` and `__main__.py`.
+
+The helper accepts `use_pyproject_toml`, which changes how package identity is calculated by permitting a discovered `pyproject.toml` boundary to determine a nested package root.
+
+This can matter when a repository contains multiple independently packaged source trees.
+
+However, recognizing a `pyproject.toml` boundary is not equivalent to interpreting every possible Python packaging configuration, editable installation, namespace-package arrangement, or custom import mechanism.
+
+The returned names reflect the helper's path-based assumptions.
+
+For systems that already maintain a consistent source-root model, these utilities may avoid implementing custom module-name derivation and relative-import resolution.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/helpers/module.py`
+
+## 6. Structural introspection, inspection output, and source-value helpers
+
+LibCST provides useful introspection facilities beyond traversal and code generation.
+
+These features are especially relevant when the desired result is a structured representation of source syntax rather than a source rewrite.
+
+### 6.1 Tree inspection and Graphviz generation
+
+The `libcst.display` package exposes `dump` and `dump_graphviz`.
+
+`dump` produces a human-readable representation of a CST, including selected nodes and their fields.
+
+`dump_graphviz` produces a Graphviz DOT representation of a tree, including field-labeled parent/child relationships.
+
+The latter does not directly render an image. Its output can be passed to a Graphviz-compatible rendering tool.
+
+Both facilities support selectively including default values, syntax fields, and whitespace fields.
+
+This is important because a full CST contains a substantial amount of information that is often irrelevant to structural analysis, including punctuation nodes, whitespace ownership, and default-valued fields.
+
+Filtering those components can expose a simpler representation without modifying the actual source tree.
+
+The command-line interface also exposes:
+
+```
+python -m libcst.tool print source.py
+python -m libcst.tool print --graphviz source.py
+```
+
+The output is useful for inspecting syntax representations, comparing tree shapes, debugging structural matchers, and understanding why particular transformations interact with fields that are absent from Python's standard AST.
+
+Sources:
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/display/text.py`
+
+`https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/display/graphviz.py`
+
+### 6.2 Generic node-field introspection
+
+The `libcst.helpers` package includes functions for inspecting CST node fields without hard-coding every node type.
+
+These include `get_node_fields`, `get_field_default_value`, `is_default_node_field`, `is_whitespace_node_field`, `is_syntax_node_field`, and `filter_node_fields`.
+
+They operate over the node's dataclass-based field definitions.
+
+The classification helpers identify fields associated with concrete syntax details and whitespace, while `filter_node_fields` allows those categories and default-valued fields to be excluded from an introspective representation.
+
+A consumer can use these functions to build a selective tree projection, structural inspector, or generic analysis interface.
+
+This may be substantially simpler than maintaining a separate visitor implementation or schema for every LibCST node class.
+
+The classifications should not be interpreted as a formal semantic ontology of Python syntax. The implementation uses field names, dataclass metadata, and node-specific conditions to classify certain fields.
+
+The utility is in separating common presentation and inspection concerns from a node's complete underlying representation.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/helpers/node_fields.py`
+
+### 6.3 Lexical traversal through `CSTNode.children`
+
+Every `CSTNode` exposes a `children` property containing its immediate CST children.
+
+Unlike manually enumerating dataclass fields, this property provides child nodes in lexical source order.
+
+Sequence-valued fields contribute their contained child nodes in order.
+
+This offers a simpler general-purpose traversal interface when an operation needs source-ordered CST descendants but does not need detailed field names.
+
+It is distinct from the visitor mechanism: accessing `children` does not automatically resolve metadata, invoke visitor callbacks, or include primitive field values such as strings.
+
+This makes it useful for simple generic tree operations, while field-level introspection remains preferable when attribute identity and punctuation ownership are significant.
+
+Source: `https://libcst.readthedocs.io/en/latest/nodes.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+### 6.4 Literal values: preserving spelling and obtaining interpreted values
+
+LibCST's literal nodes retain their original textual spelling while exposing selected interpreted values.
+
+| Node                 | Relevant properties                                        | Distinction                                                                                 |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `Integer`            | `value`, `evaluated_value`                                 | Preserves numeric spelling while exposing an integer value                                  |
+| `Float`              | `value`, `evaluated_value`                                 | Preserves decimal or exponent notation while exposing a floating-point value                |
+| `Imaginary`          | `value`, `evaluated_value`                                 | Preserves the imaginary literal and exposes its complex value                               |
+| `SimpleString`       | `value`, `prefix`, `quote`, `raw_value`, `evaluated_value` | Separates source spelling, quoting, unprocessed content, and interpreted value              |
+| `ConcatenatedString` | `left`, `right`, `evaluated_value`                         | Represents implicit literal concatenation and evaluates supported literal-only combinations |
+
+The `evaluated_value` properties use Python literal-evaluation functionality for supported literal forms.
+
+This avoids a common source-analysis problem: needing to interpret a literal value while still retaining its exact lexical form.
+
+For example, an analysis can treat `1_000`, `1000`, and `0x3e8` as equivalent integer values without losing the distinction between their original source representations.
+
+Similarly, a `SimpleString` exposes the original quoting and prefix separately from the string's interpreted contents.
+
+`ConcatenatedString` is particularly useful because Python implicitly concatenates adjacent string literals. The corresponding node exposes that concatenation as structure rather than reducing it immediately to a single string.
+
+Its `evaluated_value` can return `None` when the expression includes a component that cannot be statically evaluated through this mechanism, such as a formatted string.
+
+These properties do not constitute general constant propagation. Arbitrary expressions, computed values, dynamic concatenation, and symbolic arithmetic remain outside their scope.
+
+Source: `https://libcst.readthedocs.io/en/latest/nodes.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+### 6.5 Built-in docstring extraction
+
+`Module`, `ClassDef`, and `FunctionDef` expose `get_docstring(clean=True)`.
+
+This method recognizes supported docstring expressions at the beginning of the corresponding body and returns the interpreted string value.
+
+With `clean=True`, it applies the normalization associated with `inspect.cleandoc`. With `clean=False`, it returns the evaluated contents without that cleaning step.
+
+The implementation supports ordinary string literals and supported implicit concatenations.
+
+For example, a documentation extractor can obtain the docstring associated with a function definition without manually navigating the enclosing suite, inspecting its first statement, and evaluating the corresponding literal.
+
+This is useful in combination with source positions, qualified names, and scope information when building structured documentation or source inventories.
+
+It is a docstring-extraction utility, not a documentation parser. It does not parse Sphinx, NumPy, Google-style, or other docstring conventions into semantic sections or validate documentation against function signatures.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/statement.py`
+
+## 7. Additional semantic-analysis distinctions
+
+Several details in LibCST's scope and import-analysis implementations are important for interpreting the meaning and completeness of extracted relationships.
+
+### 7.1 Scope analysis does not resolve arbitrary object attributes
+
+`ScopeProvider` primarily analyzes Python name bindings and accesses.
+
+It also accounts for certain dotted-import structures, but that support should not be confused with arbitrary object-member resolution.
+
+For example:
+
+```
+obj.subsystem.status = value
+```
+
+The syntax tree represents the full attribute chain.
+
+However, ordinary lexical scope analysis does not establish that `obj.subsystem.status` is a statically identifiable field or determine the concrete object whose attribute is modified.
+
+The metadata documentation explicitly distinguishes local name analysis from general attribute-resolution analysis.
+
+This matters for source-intelligence systems that model definitions and references. A qualified name derived through imports and lexical scope is not necessarily the identity of a runtime object member.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+Arbitrary member resolution generally requires additional information, potentially including type inference, class hierarchy analysis, dataflow, or runtime assumptions.
+
+### 7.2 Access classification for type-related references
+
+`Access` objects expose `is_annotation` and `is_type_hint` flags.
+
+These supplement the ordinary relationship between an access and its possible assignments.
+
+They allow downstream analyses to distinguish certain annotation-related references from other lexical accesses, rather than assuming every reference carries the same semantic role.
+
+This can be useful when differentiating runtime name-use relationships from type-related references in source inventories and dependency analyses.
+
+The flags describe LibCST's recognized source contexts. They should not be interpreted as proof that the annotation is valid, that a referenced name denotes a type at runtime, or that the corresponding expression is accepted by a type checker.
+
+There is also a distinction between these flags and the separate string-annotation collection facilities.
+
+A forward reference written as a string does not necessarily produce the same ordinary `ScopeProvider` access relationships as a syntactic name expression.
+
+This is why string-annotation-aware collectors remain relevant even when scope analysis is available.
+
+Source: `https://libcst.readthedocs.io/en/latest/metadata.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://libcst.readthedocs.io\&sz=32)
+
+LibCST documentation
+
+
+
+### 7.3 Import assignment and dotted-name handling
+
+For dotted imports, `ScopeProvider` can generate separate assignment records for successive name components.
+
+For example, an import of `a.b.c` can be associated with assignments corresponding to `a`, `a.b`, and `a.b.c`.
+
+When a reference uses the complete imported name, the scope analysis can associate it with the most specific relevant imported assignment.
+
+This is more informative than treating every import as an indivisible statement.
+
+It enables analyses to distinguish references to an imported package from references to particular imported paths, within the static model's supported rules.
+
+However, the resulting records do not establish that the referenced module or object exists or that its runtime import behavior is known.
+
+Source: `https://libcst.readthedocs.io/en/latest/metadata.html`
+
+### 7.4 Unused-import analysis has configurable protections
+
+`GatherUnusedImportsVisitor` provides more nuanced behavior than simply subtracting referenced names from declared imports.
+
+The tagged implementation considers an imported alias in use when it is directly referenced, explicitly exported, or identified in a supported string type annotation.
+
+It gathers explicit exports using `GatherExportsVisitor` and annotation names through `GatherNamesFromStringAnnotationsVisitor`.
+
+The constructor also accepts `ignored_modules` and `typing_functions`, enabling callers to adjust which modules are excluded from ordinary unused-import analysis and which typing-related functions are relevant to string-annotation recognition.
+
+The visitor exposes two important override points:
+
+| Method                              | Extension role                                                       |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `is_in_use(scope, alias)`           | Customize whether a particular import alias is considered used       |
+| `filter_unused_imports(candidates)` | Apply additional filtering to the candidate unused-import collection |
+
+These extension points can accommodate additional static knowledge without replacing the entire import-gathering mechanism.
+
+They may be preferable to implementing a separate import-dependency analyzer when a requirement extends LibCST's existing definition of import usage.
+
+However, even with these protections, the analysis is not guaranteed to detect every dynamically referenced import, external re-export dependency, or runtime import-system interaction.
+
+This limitation is especially important when considering automatic import removal in libraries exposing public APIs.
+
+Source: `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_gather_unused_imports.py`
+
+## 8. Capability interactions and important boundaries
+
+The additions above reveal several useful capability combinations that are not immediately apparent when considering individual APIs.
+
+### Declarative recognition with localized rewriting
+
+Matcher-decorated visitors, subtree captures, and `m.replace` support an implementation model in which many local source transformations are expressed as pattern-driven substitutions.
+
+This can reduce custom traversal code and limit the amount of state maintained by a transformation.
+
+When the desired operation depends on lexical identity, the same pattern-directed approach can incorporate scope or qualified-name metadata.
+
+However, recognition remains bounded by the precision of the chosen metadata provider, and transformations must respect metadata lifecycle and node identity.
+
+### Annotation reconciliation with import coordination
+
+`ApplyTypeAnnotationsVisitor`, `GatherImportsVisitor`, and the import-modification helpers provide a reusable foundation for transforming source annotations while coordinating dependencies.
+
+This combination can replace separate logic for reading stub declarations, matching signatures, deciding where annotations should be inserted, and introducing imports.
+
+The principal remaining responsibilities concern the correctness of supplied type information, compatibility with the target interpreter, and external validation.
+
+### Syntax extraction with normalized values
+
+Modern syntax nodes, `CSTNode.children`, node-field introspection, source positions, literal evaluation, and docstring extraction collectively support structured source representations that preserve both original syntax and selected normalized information.
+
+For many source-intelligence operations, this combination is substantially more informative than either token scanning or an AST-only representation.
+
+It permits structural facts, concrete source evidence, and interpreted literal values to coexist without requiring a separate parser for each representation.
+
+The boundary is that the resulting facts remain primarily syntactic and lexical. Their presence does not imply full runtime semantic understanding.
+
+### Grammar evolution versus analyzer completeness
+
+The 1.9.0 lazy-import support illustrates an especially important architectural distinction.
+
+A new syntax construct may be represented correctly by the parser and serializer before every higher-level metadata provider, codemod, and helper has been explicitly adapted to that construct.
+
+Consequently, grammar support, semantic-provider coverage, and transformation support are separate capabilities that should be evaluated independently for newly introduced Python features.
+
+This qualification also applies to assumptions about type-system semantics, import behavior, and source transformations. Successful parsing and serialization demonstrate structural support, not necessarily complete semantic support.
+
+## Primary-source additions
+
+The following sources supplement the original reference's source map. URLs point to official documentation or tagged 1.9.0 source so the relevant implementations can be inspected independently.
+
+| Topic                                   | Source                                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Shipped codemod collection              | `https://github.com/Instagram/LibCST/tree/v1.9.0/libcst/codemod/commands`                            |
+| Qualified-symbol renaming               | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/rename.py`                  |
+| Type-comment migration                  | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/convert_type_comments.py`   |
+| Advanced matcher APIs and decorators    | `https://libcst.readthedocs.io/en/latest/matchers.html`                                              |
+| Annotation reconciliation               | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_apply_type_annotations.py` |
+| Contemporary statement and typing nodes | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/statement.py`                         |
+| Template strings and literal nodes      | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/_nodes/expression.py`                        |
+| Module identity and import resolution   | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/helpers/module.py`                           |
+| Structural field introspection          | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/helpers/node_fields.py`                      |
+| Graphviz tree output                    | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/display/graphviz.py`                         |
+| Scope implementation                    | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/metadata/scope_provider.py`                  |
+| Unused-import analysis                  | `https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_gather_unused_imports.py`  |
+
+This addendum covers functionality released in LibCST 1.9.0 and concentrates on capabilities omitted or underdeveloped in the original reference. No repository-specific adoption assumptions are made. All source-level behavioral observations are distinguished from broader semantic guarantees; the illustrative matcher transformation was not independently executed.

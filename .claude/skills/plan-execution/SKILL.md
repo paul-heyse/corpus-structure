@@ -140,16 +140,17 @@ an unavailable prerequisite, a broader migration, a contract contradiction, a re
 longer serves its consumer, or a split that produces excessive coordination. Reconsider affected
 work while continuing independent authorized scope.
 
-Follow the repository binding's
-[review cadence](../../../docs/design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository).
-The foundation assessment belongs to [create-plan](../create-plan/SKILL.md); ordinary execution
-does not repeat it or initiate recurring architecture or domain-model reviews. Reopen a
-consequential question when new evidence warrants it. Library questions follow the repository's
-overview, Context7 and primary-source research routes. Assess material execution tradeoffs qualitatively
-and explain them in plain language. This design consideration requires no numerical estimates,
-cost models, estimators, runtime accounting, execution-planning machinery, instrumentation, formal
-cost proofs or additional proof artifacts; such mechanisms need a separate concrete functional or
-operational requirement. Quantitative claims still need measurements; correctness obligations remain.
+Follow the repository binding's [review
+cadence](../../../docs/design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository).
+The foundation assessment belongs to [create-plan](../create-plan/SKILL.md); ordinary execution does
+not repeat it or initiate recurring architecture or domain-model reviews. Reopen a consequential
+question when new evidence warrants it. Library questions follow the repository's library-research
+guidance for choosing sources according to the uncertainty being resolved. Assess material execution
+tradeoffs qualitatively and explain them in plain language. This design consideration requires no
+numerical estimates, cost models, estimators, runtime accounting, execution-planning machinery,
+instrumentation, formal cost proofs or additional proof artifacts; such mechanisms need a separate
+concrete functional or operational requirement. Quantitative claims still need measurements;
+correctness obligations remain.
 
 Present material sequencing choices, assumptions and unresolved prerequisites in the conversation.
 Use the available planning interface when useful. The approach is sufficiently detailed when

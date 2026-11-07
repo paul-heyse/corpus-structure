@@ -130,8 +130,9 @@ question about ownership, behavior or change remains unresolved; no complete flo
    machinery. A module or semantic kind need not impose an execution stage or storage object.
 
    **Capability orientation.** Available [library overviews](../../../docs/libraries/README.md)
-   can reveal complete capabilities and advanced features worth investigating. Follow Context7
-   and primary-source routes for consequential details. Retained central
+   can reveal complete capabilities and advanced features worth investigating. Choose reference
+   sources according to the repository's library-research guidance and the uncertainty being
+   resolved for consequential details. Retained central
    skill references and old utilization entries, where available, are optional historical leads;
    neither implies current qualification, required adoption or catalog maintenance.
 

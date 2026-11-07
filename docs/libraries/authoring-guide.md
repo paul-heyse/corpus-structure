@@ -43,11 +43,10 @@ which capability belongs to this library, a companion package, an underlying eng
 
 ## Research and evidence
 
-Research current primary sources rather than relying on remembered functionality. Use Context7
-where available as the first documentation lookup, then read the relevant official documentation,
-release notes, tagged upstream source or tests as needed. When Context7 is unavailable, research
-primary sources directly. Use issue discussions for specific unresolved behavior with their
-status and limits visible; announcements alone may not establish a usable API.
+Ground capability claims in attributable sources, with research date and version scope visible. Use
+Context7, official documentation, release information and upstream source/tests as appropriate to
+the claim; no lookup sequence is required. Use issue discussions for specific unresolved behavior
+with their status and limits visible; announcements alone may not establish a usable API.
 
 Follow the requested research scope and state the research date near the beginning. Separate
 released behavior from development-branch, experimental, deprecated or planned functionality.

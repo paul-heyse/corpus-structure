@@ -19,7 +19,7 @@ contradiction or dependency requires it; the whole corpus is not the default rea
 | Review a design or implementation | [Review skill](../.claude/skills/design-review/SKILL.md) → [repository binding](design_review/design_principles/binding/corpus-structure.md) |
 | Explore functional enhancements | [Preparation](../.claude/skills/plan-functional-extension-review/SKILL.md) → [functional-extension review](../.claude/skills/functional-extension-review/SKILL.md) → [opportunity review](functional_reviews/README.md), without a diagnostic audit prerequisite |
 | Improve remaining plan scope | [Plan-improvement review](../.claude/skills/plan-improvement-review/SKILL.md) → [published assessment](plan_improvement_reviews/README.md) of the remaining change footprint; plan revision is separately instructed |
-| Research a library capability | [Library overviews](libraries/README.md) → Context7, then primary sources |
+| Research a library capability | [Library overviews](libraries/README.md); choose sources using [library-research guidance](../AGENTS.md#library-knowledge-and-reference-sources) |
 | Discover and assess library leverage | [Framework and skills](library_leverage/README.md) → concrete codebase opportunities → focused library applicability → comparative option review |
 | Understand why a decision was made | Owner section's `> Decision:` line → [ADR index](adr/README.md) |
 | Maintain this site | [Publishing operations](publishing.md) |

@@ -43,10 +43,10 @@ silently change the intended behavior or weaken acceptance to finish a local ass
 user input only when a material scope or authorization decision requires it.
 
 Implement prerequisite capabilities before production consumers rely on them, and integrate
-contributions with their adjacent consumers. Complete the plan's applicable migration, preservation and retirement
-obligations as part of delivering the target. Follow the repository's overview, Context7 and
-primary-source research routes when library behavior matters. A completed assignment does not by itself
-establish accepted integrated scope.
+contributions with their adjacent consumers. Complete the plan's applicable migration, preservation
+and retirement obligations as part of delivering the target. Choose reference sources according to
+the repository's library-research guidance and the uncertainty being resolved when library behavior
+matters. A completed assignment does not by itself establish accepted integrated scope.
 
 Start library work from the plan's recorded mechanisms and precise references, preserving their
 intended composition, guarantees and advantages. Reassess details when concrete evidence

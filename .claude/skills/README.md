@@ -81,8 +81,9 @@ review due under the binding or automatically change accepted scope.
 
 Central library skills are no longer selected, synchronized, discovered or required here. Retained
 links in an existing project's index can identify historical references without an installed skill.
-Do not rewrite old plans merely for this transition. New capability research uses optional
-[library overviews](../../docs/libraries/README.md), Context7 and current primary sources.
+Do not rewrite old plans merely for this transition. New capability research chooses sources according to
+[AGENTS.md](../../AGENTS.md#library-knowledge-and-reference-sources) and the uncertainty being resolved;
+[library overviews](../../docs/libraries/README.md) provide optional capability orientation.
 
 | Reference | Former indexes | Source |
 |---|---|---|

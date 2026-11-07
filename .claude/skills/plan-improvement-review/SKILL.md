@@ -80,11 +80,11 @@ include:
   mechanism or make a coherent capability usable sooner?
 - What could remain awkward or ineffective if every package were implemented exactly as written?
 
-These are prompts for inquiry, not required sections or a sequence. Consider removal,
-consolidation and better composition alongside additions. Use capability overviews for
-orientation and Context7 followed by primary sources for consequential library or tooling
-questions. Preserve concrete enabling mechanisms, source references and material limitations
-when a recommendation depends on them.
+These are prompts for inquiry, not required sections or a sequence. Consider removal, consolidation
+and better composition alongside additions. Use capability overviews for orientation and choose
+reference sources according to the repository's library-research guidance and the uncertainty being
+resolved for consequential library or tooling questions. Preserve concrete enabling mechanisms,
+source references and material limitations when a recommendation depends on them.
 
 ## Judge the whole intervention
 

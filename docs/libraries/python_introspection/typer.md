@@ -1888,3 +1888,813 @@ The authoritative version-specific source for these observations is:
 `https://github.com/fastapi/typer/tree/0.27.3`
 
 This completes the addendum to the original overview and incorporates the substantive gaps identified in the audit without restating its existing capability discussions.
+
+# Typer — Advanced Parameter Semantics, Completion, and Compatibility Addendum
+
+Target: Typer 0.27.3, with a version update for Typer 0.28.0\
+Research date: November 7, 2026\
+Python: ≥3.10\
+Scope: Additional capabilities, execution semantics, implementation-level constraints, and version-specific corrections not covered adequately by the existing overview and advanced-capabilities addendum.
+
+This addendum extends the existing Typer reference without restating its command model, supported parameter types, configuration precedence, context hierarchy, testing facilities, or previously documented compatibility changes.
+
+The principal additions concern parameter callback evaluation, dynamic shell completion, Boolean option grammars, callback-only parameters, command-group metadata precedence, and less prominent interactive and diagnostic facilities.
+
+Version status. Typer 0.28.0 was released on November 6, 2026. Its release notes identify a fix for a custom `metavar` inadvertently changing an option's default name, alongside documentation and internal updates. Because the existing reference targets 0.27.3, implementation-sensitive findings below remain explicitly scoped to that version. They should not automatically be treated as verified 0.28.0 behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://typer.tiangolo.com\&sz=32)
+
+Typer
+
+
+
+Primary release history: `https://typer.tiangolo.com/release-notes/`
+
+## 1. Dynamic completion: documented inputs versus actual execution
+
+Typer's custom-completion API has a consequential discrepancy between its documented callback signature and the implementation in version 0.27.3.
+
+### 1.1 The documented completion contract
+
+The official documentation describes three injectable callback inputs:
+
+| Annotation      | Documented meaning                                       |
+| --------------- | -------------------------------------------------------- |
+| `str`           | The incomplete value being completed                     |
+| `typer.Context` | The current command execution context                    |
+| `list[str]`     | Raw CLI tokens, including options, arguments, and values |
+
+Typer uses the callback parameter's annotation to identify which value to inject. The order and names of the callback's parameters do not determine their meaning.
+
+A completion function can therefore be declared as:
+
+```
+def complete_resource(    ctx: typer.Context,    args: list[str],    incomplete: str,):    ...
+```
+
+The documentation presents `args` as the raw argument vector leading up to the completion request.
+
+This would theoretically support command-line-aware completion behavior beyond what is available from parsed parameter values alone, including inspecting token order and distinguishing syntactic forms that resolve to identical parsed values.
+
+Source: `https://typer.tiangolo.com/tutorial/options-autocompletion/`
+
+### 1.2 The 0.27.3 implementation supplies an empty argument list
+
+The tagged implementation constructs an adapter around the user-defined completion function in `typer/core.py`.
+
+Its relevant execution path is:
+
+```
+def compat_autocompletion(ctx, param, incomplete):    out = []    for candidate in autocompletion(ctx, [], incomplete):        ...
+```
+
+The second argument is explicitly `[]`.
+
+Consequently, although the annotation-based callback interface accepts `list[str]`, the standard `autocompletion` adapter does not provide the documented raw argument vector in the inspected 0.27.3 implementation.
+
+This is a material compatibility distinction:
+
+- The callback still receives the incomplete value.
+- It still receives the active `Context` when requested.
+- The documented raw-token parameter is supplied as an empty list.
+- Logic requiring the actual preceding token sequence cannot rely on that parameter in this version.
+
+This behavior is directly established by tagged source inspection. It is not an inference from the absence of documentation, and no separate interactive-shell conformance test was performed.
+
+Source: `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/core.py`
+
+### 1.3 Completion results undergo additional prefix filtering
+
+The same adapter transforms returned strings or `(value, help)` tuples into completion items.
+
+Before returning them, it applies an additional condition equivalent to:
+
+```
+if completion_item.value.startswith(incomplete):    results.append(completion_item)
+```
+
+This matters because generating candidates and determining which candidates are displayed are separate operations.
+
+For example, a completion callback might return:
+
+```
+[    "production",    "preproduction",    "staging-production",]
+```
+
+When `incomplete == "prod"`, the standard adapter would retain `production` but exclude `preproduction` and `staging-production`.
+
+A custom callback cannot implement unrestricted fuzzy or substring completion simply by returning additional candidates. The framework's subsequent filtering constrains the results.
+
+The filtering is case-sensitive at this stage because it uses Python's ordinary `str.startswith()` operation.
+
+Source: `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/core.py`
+
+### 1.4 Context-based completion has a different information model
+
+The documented and implementation-supported alternative for inspecting other parsed values is `ctx.params`.
+
+For example:
+
+```
+def complete_name(    ctx: typer.Context,    incomplete: str,):    existing = set(ctx.params.get("name") or [])    candidates = ["alpha", "beta", "gamma"]    return [        item        for item in candidates        if item.startswith(incomplete)        and item not in existing    ]
+```
+
+This illustrative callback supports repeated-option completion without requiring the raw token vector.
+
+However, `ctx.params` and raw CLI tokens are not interchangeable:
+
+| Information                      | `ctx.params`                                   | Raw CLI tokens                 |
+| -------------------------------- | ---------------------------------------------- | ------------------------------ |
+| Converted parameter values       | Yes, for values already processed              | No                             |
+| Parameter names                  | Yes                                            | Present syntactically          |
+| Original option spelling         | Generally not preserved                        | Preserved                      |
+| Ordering of option occurrences   | Not represented as raw token order             | Preserved                      |
+| Repeated option values           | Available in aggregated form                   | Available as individual tokens |
+| Unrecognized or forwarded syntax | Not generally represented as parsed parameters | Potentially available          |
+
+In particular, `ctx.params` reflects values that have been processed in the current completion context; it should not be interpreted as a complete, immutable representation of the command-line invocation.
+
+Architectural significance: Typer provides a convenient context-sensitive completion abstraction, but its 0.27.3 implementation does not establish a general raw-command-line inspection interface through `autocompletion`. Systems requiring more specialized completion grammars may need additional implementation-level customization.
+
+Sources:
+
+`https://typer.tiangolo.com/tutorial/options-autocompletion/`
+
+`https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/_click/core.py`
+
+## 2. Parameter processing order and callback visibility
+
+Typer's parser does not necessarily process parameters in the order they appear in the Python function signature.
+
+The resulting callback behavior is important for validation, initialization, parameter dependencies, and side-effect control.
+
+### 2.1 Processing order is determined by eagerness and invocation order
+
+The vendored parameter engine defines `iter_params_for_processing()`, which orders parameters using the following principles:
+
+1. Eager parameters are processed before non-eager parameters.
+2. Within either category, explicitly supplied parameters follow their order of occurrence in the command-line invocation.
+3. Parameters absent from the command line follow declaration order.
+
+This is not merely an ordering rule for final argument binding. The parser processes each parameter individually, including its type conversion and registered callback.
+
+For example, consider an illustrative command:
+
+```
+from typing import Annotatedimport typerapp = typer.Typer()def inspect_region(value: str):    typer.echo(f"Processing region: {value}")    return valuedef inspect_mode(value: str):    typer.echo(f"Processing mode: {value}")    return value@app.command()def execute(    region: Annotated[        str,        typer.Option(callback=inspect_region),    ] = "us",    mode: Annotated[        str,        typer.Option(callback=inspect_mode),    ] = "safe",):    typer.echo(f"{region=}, {mode=}")
+```
+
+The invocation:
+
+```
+example --mode fast --region eu
+```
+
+processes the explicitly supplied `mode` before `region`, despite the opposite order in the Python signature.
+
+Reversing the option order can reverse the callback order.
+
+Source: `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/_click/core.py`
+
+### 2.2 Defaults also participate in parameter processing
+
+An omitted parameter is not necessarily skipped by the parameter engine.
+
+After selecting a value from the available sources, the implementation performs type conversion, checks requiredness, and invokes the registered parameter callback when present.
+
+Consequently, an optional parameter's callback can execute even when the user has not supplied that parameter.
+
+This has implications for callbacks that:
+
+- Perform validation against external state.
+- Open resources or establish connections.
+- Emit output or diagnostics.
+- Modify invocation context.
+- Perform expensive computation.
+- Trigger early termination.
+
+The absence of a CLI option should not, by itself, be interpreted as suppressing its callback.
+
+A callback requiring explicit user input can inspect `ctx.get_parameter_source()` to distinguish command-line input from defaults, environment variables, and other sources.
+
+The exact source classifications are covered in the existing addendum; the additional point here is that source resolution and callback execution are separate stages.
+
+### 2.3 `ctx.params` may contain only a partially processed parameter set
+
+When a parameter callback runs, other parameters may not yet have been processed.
+
+The implementation adds an exposed parameter value to `ctx.params` after its processing step, which includes its callback.
+
+A callback inspecting `ctx.params` therefore sees values already processed, not necessarily every value supplied in the command line.
+
+The consequence is subtle: two equivalent commands differing only in option order may expose different intermediate context state to their parameter callbacks.
+
+For instance, validation of `--output-format` against `--destination` may be unreliable if the first callback assumes the second parameter has already been populated.
+
+Cross-parameter validation is consequently different from single-parameter validation.
+
+The former generally needs a point in execution where the relevant parameter set is complete. Depending on the application structure, this may be the command body or a group-level mechanism after parsing rather than an individual parameter callback.
+
+This distinction can eliminate the need for elaborate ordering conventions between otherwise independent parameter callbacks.
+
+### 2.4 Eager processing is not an unconditional first operation
+
+`is_eager=True` changes relative parameter processing order, but it should not be interpreted as a universal pre-execution hook.
+
+Eager parameters still participate in parsing and callback processing. Multiple eager parameters are subject to their own ordering rules, and the mechanism does not establish a general dependency graph between callbacks.
+
+Likewise, parsing failures and early exits can prevent later callbacks from running.
+
+Architectural significance: Parameter callbacks are best understood as processing hooks associated with individual parsed values. They are not a general-purpose initialization scheduler or guaranteed whole-command validation stage.
+
+Sources:
+
+`https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/_click/core.py`
+
+`https://typer.tiangolo.com/tutorial/options/callback-and-context/`
+
+`https://typer.tiangolo.com/tutorial/options/version/`
+
+## 3. Expanded Boolean option grammars
+
+Typer's Boolean options support more expressive interfaces than an automatically generated positive/negative flag pair.
+
+The important additional capability is the ability to preserve a distinction between an unspecified preference and an explicitly selected Boolean value.
+
+### 3.1 Tri-state Boolean options
+
+Consider:
+
+```
+from typing import Annotatedimport typerapp = typer.Typer()@app.command()def configure(    enabled: Annotated[        bool | None,        typer.Option("--enable/--disable"),    ] = None,):    if enabled is None:        typer.echo("No explicit preference")    elif enabled:        typer.echo("Enabled")    else:        typer.echo("Disabled")
+```
+
+The command supports:
+
+| Invocation            | Value   | Meaning               |
+| --------------------- | ------- | --------------------- |
+| `configure`           | `None`  | No explicit selection |
+| `configure --enable`  | `True`  | Explicit enablement   |
+| `configure --disable` | `False` | Explicit disablement  |
+
+This enables a distinction between three states using one Python parameter.
+
+It is useful for configuration overlays and partial updates, where omitting a field should have different semantics from setting it to false.
+
+Importantly, `bool | None` alone does not create this behavior. The `None` default establishes the omitted state, while the paired flag declaration supplies explicit positive and negative values.
+
+Typer's official Boolean-option tutorial documents this exact general pattern.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://typer.tiangolo.com\&sz=32)
+
+Typer
+
+
+
+Source: `https://typer.tiangolo.com/tutorial/parameter-types/bool/`
+
+### 3.2 Explicit flag names change the available grammar
+
+Typer supports several Boolean naming patterns.
+
+| Declaration pattern                     | Exposed grammar              | Distinctive behavior                            |
+| --------------------------------------- | ---------------------------- | ----------------------------------------------- |
+| Inferred default Boolean                | `--enabled` / `--no-enabled` | Automatically generated pair                    |
+| `Option("--force")`                     | `--force`                    | Positive flag only                              |
+| `Option("--accept/--reject")`           | `--accept` / `--reject`      | Independently named positive and negative flags |
+| `Option("--force/--no-force", "-f/-F")` | Long and short pairs         | Aliases for both Boolean values                 |
+| `Option(" /--demo", " /-d")`            | `--demo`, `-d`               | Negative-only flags                             |
+
+The negative-only form is particularly unusual.
+
+For example, a parameter with a default of `True` can expose only a flag that switches it to `False`. This is documented by Typer, although the tutorial itself cautions that the resulting interface may be less intuitive.
+
+These grammars affect not only parsing but also generated help and shell completion.
+
+They are alternatives to defining several separate flags and implementing manual reconciliation between them.
+
+### 3.3 Tri-state values and parameter provenance are complementary
+
+A tri-state Boolean represents the semantic value selected by the CLI.
+
+Parameter-source inspection provides a different kind of information: where that value came from.
+
+For example, a `False` value might have been supplied explicitly, inherited from an environment variable, or selected from a configuration-backed default.
+
+When these distinctions matter, combining a nullable Boolean with `ctx.get_parameter_source()` can preserve both the resolved value and its provenance.
+
+Neither mechanism automatically implements a complete configuration-merging policy.
+
+Architectural significance: Explicit Boolean pairs and nullable defaults can express partial configuration changes without introducing a bespoke tri-state string parser. Provenance inspection can supplement this representation when the source of the value also carries meaning.
+
+Source: `https://typer.tiangolo.com/tutorial/parameter-types/bool/`
+
+## 4. Callback-only parameters with `expose_value=False`
+
+Typer distinguishes between processing a CLI parameter and exposing its final value to the Python command function.
+
+The `expose_value` parameter controls this boundary.
+
+### 4.1 Parsing and exposure are separate stages
+
+For an ordinary option, the framework:
+
+1. Resolves its input value.
+2. Converts and validates that value.
+3. Executes its registered parameter callback.
+4. Stores the result in `ctx.params`.
+5. Passes the exposed value to the command function.
+
+Setting `expose_value=False` suppresses the fourth and fifth steps, but does not disable parsing, conversion, or callback execution.
+
+The 0.27.3 implementation makes this separation explicit:
+
+```
+value = self.process_value(ctx, value)if self.expose_value:    ctx.params[self.name] = value
+```
+
+`process_value()` performs conversion and invokes the parameter callback before the exposure check.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+This allows a parameter to perform invocation-related work without becoming an ordinary command input.
+
+Possible uses include an auxiliary flag that modifies context state, a command-specific diagnostic switch, or a parameter whose callback performs an early exit.
+
+### 4.2 The Python function contract still matters
+
+A subtle distinction is that suppressing a CLI parameter does not modify the underlying Python function signature.
+
+If an exposed value is omitted from the eventual call, the command function must still be callable without receiving that argument.
+
+For example, a parameter with a Python default can remain callable even when Typer does not supply its parsed CLI value.
+
+Conversely, declaring a required Python parameter and setting `expose_value=False` does not automatically eliminate the requirement imposed by the Python function itself.
+
+Furthermore, the option's callback must explicitly store any information that later execution needs. Typer does not retain the transformed value in `ctx.params` when exposure is disabled.
+
+### 4.3 Extension stability
+
+The public parameter reference describes `expose_value` as an inherited Click compatibility feature.
+
+The capability is implemented in 0.27.3, but its compatibility designation should be preserved in technical references.
+
+It is therefore distinct from the more central Typer-native mechanisms for parsing and validating command inputs.
+
+Architectural significance: `expose_value=False` enables a distinction between control parameters, which influence invocation behavior, and operation parameters, which become arguments to the underlying Python function.
+
+It can eliminate additional dispatch logic for selected control flags, although it is not a general replacement for explicit command initialization.
+
+Sources:
+
+`https://typer.tiangolo.com/reference/parameters/`
+
+`https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/_click/core.py`
+
+## 5. Subapplication metadata precedence
+
+The existing overview explains how callbacks and names interact during command composition. An additional distinction concerns the precedence of generated help text and external command names.
+
+These attributes have independent resolution rules.
+
+### 5.1 Help descriptions can originate at several levels
+
+Typer can obtain a command group's help text from a callback docstring or explicit application metadata.
+
+The official documentation defines the following order, from lowest to highest precedence:
+
+| Priority | Source of group help text                                      |
+| -------- | -------------------------------------------------------------- |
+| 1        | Docstring of a callback passed to `Typer(callback=...)`        |
+| 2        | Docstring of a function registered using `@sub_app.callback()` |
+| 3        | Docstring of a callback supplied to `add_typer()`              |
+| 4        | Explicit `Typer(help=...)`                                     |
+| 5        | Explicit `add_typer(help=...)`                                 |
+
+This distinguishes two separate kinds of override:
+
+- Replacing the callback used for a composed command group.
+- Replacing the description presented for that group.
+
+An explicit help string takes precedence over help inferred from a callback's docstring, even if that callback is the one ultimately executed.
+
+The distinction matters because lifecycle configuration and user-facing documentation do not need to share identical ownership.
+
+Source: `https://typer.tiangolo.com/tutorial/subcommands/name-and-help/`
+
+### 5.2 External names have a simpler precedence rule
+
+A subapplication can declare its own name:
+
+```
+users_app = typer.Typer(    name="users",    help="Manage users",)
+```
+
+The containing application can override it:
+
+```
+app.add_typer(    users_app,    name="accounts",    help="Manage accounts",)
+```
+
+In this composition, `accounts` becomes the externally visible namespace and the supplied help text becomes its description.
+
+The child application remains independently reusable with its original metadata in another composition.
+
+This is more than a convenience for displaying help. The resolved external name participates in the command grammar and consequently affects completion, documentation generation, and invocation compatibility.
+
+A reusable command module can therefore have a default identity without imposing that identity on every containing application.
+
+### 5.3 Metadata composition does not establish universal override behavior
+
+The name and help precedence rules are specific to the supported Typer composition interface.
+
+They should not be generalized into a rule that every property of a registered command is automatically inherited or overrideable in the same way.
+
+For example, flattening an unnamed subapplication removes the independent group callback boundary, as established in the existing addendum. It also changes the relevance of group-level metadata because the application no longer appears as an independent external namespace.
+
+Architectural significance: Typer separates module ownership from external command presentation. Reusable command groups can supply defaults for names and descriptions while allowing the containing application to establish its public CLI contract.
+
+Source: `https://typer.tiangolo.com/tutorial/subcommands/name-and-help/`
+
+## 6. Additional prompting, environment, and help-display controls
+
+Several less prominent parameters refine how individual CLI options interact with interactive input, environment variables, and generated documentation.
+
+Most are compatibility-oriented controls rather than major Typer-native abstractions.
+
+### 6.1 Conditional prompting with `prompt_required=False`
+
+The parameter reference exposes `prompt_required`, which defaults to `True`.
+
+The documented behavior is that setting it to `False` suppresses automatic prompting when an option is omitted, while permitting a prompt when the option's flag is supplied without a value.
+
+Conceptually, this provides three interaction patterns:
+
+| Invocation condition                 | Intended behavior                 |
+| ------------------------------------ | --------------------------------- |
+| Option omitted                       | Use the default without prompting |
+| Option supplied with a value         | Use the supplied value            |
+| Option flag supplied without a value | Prompt for a value                |
+
+This would allow a CLI to provide optional interactive assistance without prompting during ordinary unattended execution.
+
+However, this capability needs an important version-specific qualification.
+
+The documented behavior should not be assumed fully functional in Typer 0.27.3.
+
+The tagged implementation's `TyperOption.consume_value()` only initiates prompting when its source and prompting conditions permit it. It includes the condition:
+
+```
+self.required or self.prompt_required
+```
+
+For a non-required option with `prompt_required=False`, this disables the ordinary fallback prompt. The associated parser registration does not clearly establish the older Click behavior of treating a value-taking flag without its value as a request for interactive input.
+
+This is consistent with compatibility reports from downstream Typer integrations following the vendoring change.
+
+The relevant distinction is between an API parameter remaining present and its original Click behavior being preserved by Typer's independent parser.
+
+The reference should therefore describe `prompt_required=False` as an exposed compatibility control with uncertain or incomplete flag-without-value behavior in 0.27.3, rather than as a verified native interactive-input facility.
+
+No runtime conformance test was performed for this specific flag combination.
+
+Sources:
+
+`https://typer.tiangolo.com/reference/parameters/`
+
+`https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/core.py`
+
+### 6.2 Disabling automatic environment-variable resolution per option
+
+Typer's hierarchical `auto_envvar_prefix` mechanism is covered in the existing addendum.
+
+A less obvious companion parameter is:
+
+```
+typer.Option(allow_from_autoenv=False)
+```
+
+When automatic environment-variable naming is configured on the context, an individual option can opt out of that mechanism.
+
+The implementation distinguishes between two environment-variable sources:
+
+1. Explicit environment-variable names declared through `envvar`.
+2. Automatically constructed names derived from `auto_envvar_prefix` and the option name.
+
+`allow_from_autoenv=False` disables the second mechanism.
+
+It does not, by itself, disable an explicitly configured `envvar`.
+
+For example:
+
+```
+from typing import Annotatedimport typerapp = typer.Typer(    context_settings={"auto_envvar_prefix": "EXAMPLE"})@app.command()def run(    token: Annotated[        str | None,        typer.Option(            envvar="EXAMPLE_AUTH_TOKEN",            allow_from_autoenv=False,        ),    ] = None,):    ...
+```
+
+This illustrative declaration allows the explicit `EXAMPLE_AUTH_TOKEN` variable but prevents automatic resolution from the option's conventionally derived environment-variable name.
+
+The distinction becomes useful when an application adopts a common environment-variable naming scheme but needs exceptions for selected parameters.
+
+It also separates the question of whether an environment variable may supply a value from the question of which names are eligible to supply that value.
+
+The parameter is marked as inherited compatibility functionality in Typer's reference, although the corresponding conditional is implemented in the 0.27.3 source.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://typer.tiangolo.com\&sz=32)
+
+Typer
+
+
+
+Source: `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/core.py`
+
+### 6.3 Custom textual representations of defaults
+
+`show_default` accepts `bool | str`, rather than only a Boolean.
+
+Besides enabling or suppressing default display, a string value supplies a custom description to be rendered in help.
+
+For example:
+
+```
+@app.command()def run(    output: Annotated[        str,        typer.Option(            show_default="current working directory",        ),    ] = ".",):    ...
+```
+
+The help renderer can present the descriptive text instead of simply printing the literal value `"."`.
+
+This is particularly useful where a default is:
+
+- Dynamically computed.
+- Dependent on the execution environment.
+- Better described semantically than through its raw representation.
+- An implementation-oriented value whose direct display would be misleading.
+
+In the tagged source, a string-valued `show_default` selects an alternative formatting branch for default help text.
+
+It does not modify the actual parameter default or its value-resolution precedence.
+
+A custom description should therefore accurately represent the effective behavior. The ability to substitute help text is a presentation facility, not a mechanism for guaranteeing that a dynamic default resolves as described.
+
+Sources:
+
+`https://typer.tiangolo.com/reference/parameters/`
+
+`https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/core.py`
+
+### 6.4 Interactive choice presentation
+
+Another compatibility-level option is `show_choices`.
+
+When a parameter represents a constrained choice, this controls whether accepted choices are shown inline in the interactive prompt.
+
+This is distinct from the choice-validation mechanism itself.
+
+Disabling choice display does not expand the set of accepted values. It changes the prompt presentation while retaining the underlying type's validation behavior.
+
+It may be relevant to prompts where the accepted values are numerous or where a custom message already explains the available choices.
+
+Source: `https://typer.tiangolo.com/reference/parameters/`
+
+## 7. Context-level diagnostics and controlled termination
+
+Typer's invocation context exposes methods that support more specialized command diagnostics without requiring callers to reconstruct the framework's own help and error representations.
+
+These are separate from ordinary terminal output functions.
+
+### 7.1 Programmatically obtaining help and usage
+
+Two methods provide access to command-specific documentation:
+
+| Method            | Returned information                                |
+| ----------------- | --------------------------------------------------- |
+| `ctx.get_help()`  | Formatted help text for the current command         |
+| `ctx.get_usage()` | Formatted usage description for the current command |
+
+Both return strings rather than printing directly.
+
+The distinction matters because generated help depends on the active command and context.
+
+A nested command may have a different command path, name, and option grammar from the root application.
+
+Obtaining help through the current context preserves the framework's understanding of that invocation boundary.
+
+For example:
+
+```
+def show_usage(ctx: typer.Context):    typer.echo(ctx.get_usage())
+```
+
+This can avoid implementing a separate usage formatter when presenting additional context-sensitive diagnostics.
+
+However, returning Typer's formatted help should not be confused with obtaining a machine-readable command schema. It is a presentation-oriented operation.
+
+Source: `https://typer.tiangolo.com/reference/context/`
+
+### 7.2 `ctx.fail()`, `ctx.abort()`, and `ctx.exit()`
+
+The context provides several distinct termination methods:
+
+| Method              | Execution behavior                                                  |
+| ------------------- | ------------------------------------------------------------------- |
+| `ctx.fail(message)` | Raises a command usage error associated with the current context    |
+| `ctx.abort()`       | Raises `Abort`                                                      |
+| `ctx.exit(code=0)`  | Closes the current context and raises `Exit` with the supplied code |
+
+These are not semantically interchangeable.
+
+`ctx.fail()` is suitable for reporting usage-related failures while retaining the current command context for error presentation.
+
+`ctx.abort()` expresses an aborted invocation rather than a conventional invalid-parameter message.
+
+`ctx.exit()` provides an exit path with an explicit status code.
+
+The tagged implementation invokes `self.close()` before raising `Exit` from `ctx.exit()`, making context cleanup part of its behavior.
+
+That is relevant when the context owns resources registered through `with_resource()` or `call_on_close()`.
+
+Care is still required when interpreting exit behavior outside ordinary standalone command execution. The existing guide explains the difference between CLI termination and in-process testing, and the same distinction applies to context-level exit methods.
+
+### 7.3 Context-derived command identity
+
+`ctx.command_path` provides a representation of the command's position in the invocation hierarchy.
+
+This is useful for diagnostics because the command's externally resolved identity may differ from its Python function name.
+
+For example, a command registered under a subapplication with an overridden name should be identified to the user by its actual CLI path, not necessarily by its original module or function name.
+
+Together, context-derived command identity, usage generation, and contextual errors permit a consistent diagnostic presentation without maintaining an independent command-name registry for ordinary error messages.
+
+Architectural significance: The context API can serve as the authoritative source for invocation-specific help, command identity, and usage failures. This reduces duplication when building more specialized CLI diagnostics.
+
+Sources:
+
+`https://typer.tiangolo.com/reference/context/`
+
+`https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/_click/core.py`
+
+## 8. Additional terminal primitives
+
+Typer 0.27.3 exports two small terminal utilities not described in the original reference's terminal capability discussion.
+
+### 8.1 Single-character input with `typer.getchar()`
+
+`typer.getchar()` reads an individual character from terminal input without requiring the ordinary line-oriented input pattern.
+
+This provides a lower-level interaction mechanism than `typer.prompt()` or `typer.confirm()`.
+
+It can support interfaces involving a single-character user decision, such as advancing through an interactive sequence or responding to a simple selection prompt.
+
+This is a terminal-oriented primitive, not a full keyboard-event system or interactive application framework.
+
+Applications requiring continuous keyboard handling, advanced cursor control, or sophisticated input state may require a more specialized terminal UI library.
+
+### 8.2 Terminal dimensions with `typer.get_terminal_size()`
+
+Typer re-exports Python's `shutil.get_terminal_size`.
+
+It returns terminal dimensions, including columns and lines, through an `os.terminal_size` object.
+
+This can be useful for selecting display widths or adapting simple output layouts.
+
+Because the implementation delegates to Python's standard-library terminal-size mechanism, it inherits that mechanism's fallback behavior when dimensions cannot be obtained from the environment or terminal.
+
+It should not be interpreted as Typer providing a complete responsive-layout engine.
+
+These helpers are minor capabilities, but including them makes the terminal API coverage more complete.
+
+Source: `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/__init__.py`
+
+## 9. Typer 0.28.0: custom metavar behavior
+
+The latest release introduces a relevant correction to option declaration semantics.
+
+### 9.1 The intended distinction between an option name and a metavar
+
+A CLI option has at least two different textual identities:
+
+- Its option name, such as `--output`, which determines how the user supplies the parameter.
+- Its metavar, such as `PATH`, which identifies the expected value in help and usage output.
+
+For example:
+
+```
+@app.command()def process(    output: Annotated[        str,        typer.Option(metavar="PATH"),    ] = "result.json",):    ...
+```
+
+The intended behavior is that `PATH` describes the expected value while the automatically generated option name remains based on `output`.
+
+Changing the metavar should not change the actual command-line option grammar.
+
+### 9.2 The 0.28.0 correction
+
+Typer 0.28.0, released November 6, 2026, fixes a case where assigning a custom metavar inadvertently changed the default option name.
+
+This is significant because metavar customization would ordinarily be understood as a help-display modification rather than an external API change.
+
+The release restores the intended separation between presentation metadata and option identity.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://typer.tiangolo.com\&sz=32)
+
+Typer
+
+
+
+The important compatibility consequence is that commands relying on automatically generated option names and custom metavars may expose different option names across the affected versions.
+
+The changelog establishes the existence and intended scope of the fix. It does not establish that every possible metavar-related invocation pattern has been independently verified here.
+
+### 9.3 Version boundary
+
+| Version | Relevant behavior                                                                  |
+| ------- | ---------------------------------------------------------------------------------- |
+| 0.27.3  | Contains the metavar-related naming defect subsequently corrected                  |
+| 0.28.0  | Fixes unintended changes to default option names when a custom metavar is supplied |
+
+The addendum's other source-derived implementation observations, particularly completion callback arguments and parameter-processing behavior, remain established for 0.27.3.
+
+The 0.28.0 release notes do not report corresponding changes to those mechanisms, but that alone does not establish complete behavioral equivalence between the two versions.
+
+Sources:
+
+`https://typer.tiangolo.com/release-notes/`
+
+`https://pypi.org/project/typer/0.28.0/`
+
+## 10. Capability interactions and remaining boundaries
+
+Several of these additions become more useful when considered together.
+
+### 10.1 Parameter processing and configuration intent
+
+Tri-state Booleans, parameter provenance, and callback ordering address different aspects of the same problem.
+
+A nullable Boolean can distinguish an omitted preference from an explicit value. Parameter-source inspection can distinguish an explicit command-line value from one supplied by the environment or defaults.
+
+However, a parameter callback still executes within the framework's parameter-processing order and may not see the complete set of values.
+
+The combination provides a richer input representation, but it does not automatically provide a fully resolved configuration model or reliable cross-parameter validation.
+
+### 10.2 Control parameters and invocation context
+
+`expose_value=False` permits parameters to influence execution without appearing in the command function's parsed keyword arguments.
+
+Context facilities can then carry the relevant invocation state, produce contextual help, or terminate execution.
+
+This allows certain auxiliary behaviors to be incorporated into Typer's parser lifecycle instead of being implemented through a separate argument preprocessor.
+
+The boundary remains explicit: hidden values must be handled deliberately, and the Python command function must remain callable under the resulting argument set.
+
+### 10.3 Completion and command identity
+
+Command-group naming precedence determines the externally visible command namespace.
+
+Typer can use that structure for generated help and shell completion, while custom completion callbacks can inspect available parsed context state.
+
+These mechanisms reduce the need to maintain separate command-discovery representations.
+
+Nevertheless, the 0.27.3 raw-argument discrepancy and prefix filtering constrain what a custom completion callback can infer or return.
+
+Command discovery through Typer's generated structure is therefore more comprehensive than unrestricted application-defined shell completion.
+
+### 10.4 Presentation controls and public CLI compatibility
+
+Help text, metavars, option names, and argument defaults are related but distinct.
+
+A custom default description changes presentation without changing runtime value selection.
+
+A subapplication's external name can be overridden during composition, changing its public invocation path.
+
+A metavar is intended to alter value presentation rather than option identity, although 0.28.0 was required to correct a defect in that distinction.
+
+The resulting architectural principle is that declarative CLI metadata should be understood in terms of its specific runtime consequences. Not every metadata change is presentation-only, and not every exposed compatibility parameter preserves the behavior associated with its historical implementation.
+
+## 11. Primary source map
+
+| Research area                                    | Direct primary source                                                         |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Current release history                          | `https://typer.tiangolo.com/release-notes/`                                   |
+| Typer 0.28.0 package                             | `https://pypi.org/project/typer/0.28.0/`                                      |
+| Dynamic completion documentation                 | `https://typer.tiangolo.com/tutorial/options-autocompletion/`                 |
+| Completion adapter implementation                | `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/core.py`        |
+| Parameter-processing implementation              | `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/_click/core.py` |
+| Parameter declarations and compatibility options | `https://typer.tiangolo.com/reference/parameters/`                            |
+| Boolean flag grammars                            | `https://typer.tiangolo.com/tutorial/parameter-types/bool/`                   |
+| Subapplication naming and help precedence        | `https://typer.tiangolo.com/tutorial/subcommands/name-and-help/`              |
+| Context diagnostics and termination              | `https://typer.tiangolo.com/reference/context/`                               |
+| Exported terminal utilities                      | `https://raw.githubusercontent.com/fastapi/typer/0.27.3/typer/__init__.py`    |
+| Tagged implementation                            | `https://github.com/fastapi/typer/tree/0.27.3`                                |
+
+## Architectural synthesis
+
+These additions refine Typer's capability model in three important ways.
+
+First, its parameter system is more expressive than basic typed conversion suggests. Tri-state options, source-aware processing, custom Boolean grammars, and selective value exposure can represent user intent and invocation controls without requiring a separate parsing layer.
+
+Second, its execution semantics impose meaningful constraints. Parameter callbacks follow a defined processing order rather than a dependency graph, and the completion adapter in 0.27.3 provides less access to raw invocation syntax than the documentation describes. Understanding these constraints is important when composing advanced validation, dynamic completion, and lifecycle behavior.
+
+Third, Typer's declaration, presentation, and compatibility interfaces should be evaluated separately. Group metadata has defined precedence, contextual diagnostics can reuse the command engine's own representations, and legacy Click-derived controls vary in the guarantees they retain after vendoring.
+
+Together, these capabilities support sophisticated CLIs built around ordinary Python functions, while clarifying where Typer's declarative model ends and more specialized parsing, validation, or interaction machinery may still be required.
