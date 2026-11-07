@@ -60,6 +60,8 @@ applicable artifact discovery controls through `uv run ci test -- PATH`. Keep th
 <a id="NCE-02"></a>
 ## NCE-02 · Retain neutral frames and host-bound qualifications
 
+[Development delivery and remaining evidence boundaries](../next-corpus-enrichment_2026-11-07.md#remaining-nce-02-execution-verification)
+
 **Outcome and prerequisite slices.** First publish a bounded neutral frame candidate and exact
 clause-focus interface from the retained linguistic operation. This is the prerequisite for [NCE-04](model-candidates-and-clause-interpretation.md#NCE-04).
 Then add deterministic interpretation and witnessed attachments on the same identities. The

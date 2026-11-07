@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "nce.qualifier-scope-development",
+  "title": "Native qualifier scope and exact inline formula replay",
+  "group": "NCE",
+  "package": "NCE-02",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the original selected views support the specified private qualifier hosts and inline formula occurrence?",
+  "answers": [
+    "NCE-02"
+  ],
+  "method": "Independently pinned source intervals, bounded native replay, exact Reader/CLI/MCP comparison, and detached closure.",
+  "commands": [
+    "uv run ci model change deploy b77e2fda13c6498da2298f4f1de45399 --json",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/check_qualifier_guard_preflight.py 223 build/nce-source-linguistics/qualifier-scope/current/scoped/configuration.json",
+    "uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/replay_qualifier_scope.py build/nce-source-linguistics/qualifier-scope/corrected --release release:654dce9d0c15e635846202cc5aef405b6d0f4339be3e18110f9040ba971dda3d",
+    "uv run ci contributions list --run 224 --source-view 116 --method structure.scoped_relations --kind relation --include-details --json | uv run python docs/design_review/evidence/2026-11-07_nce-source-linguistics/check_qualifier_delivery.py 224",
+    "uv run ci review export build/nce-source-linguistics/qualifier-scope/corrected/selection.json --exact-closure --json",
+    "uv run ci review verify build/ci/5b469934d6cc459aa5e46529012c1a67/bundle --json",
+    "uv run ci review verify build/ci/746abd8fc8294c6ca2cc5a2426acfe87/bundle --json",
+    "uv run ci check --view steps --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_qualifier_scope.py",
+      "role": "exact retained source replay and independent endpoint checks",
+      "sha256": "3b9435d56332c95128a3b9d7bebd7fea3bbfcfc5b861dba0c18362408629e6f9"
+    },
+    {
+      "path": "check_qualifier_guard_preflight.py",
+      "role": "rollback-only diagnostic on the initial failed run",
+      "sha256": "cf15d48f79e2cee185954ece68752a9f9c87c238805df196c17ad07a16b5cca3"
+    },
+    {
+      "path": "check_qualifier_delivery.py",
+      "role": "CLI, MCP, and installed native refusal checks",
+      "sha256": "d16b7617d80ded08670096466508c721855e8fe11297c24b703ac81cf6cb8b46"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "qualifier-scope.json",
+      "role": "selected source, guards, and managed delivery receipts",
+      "sha256": "cd6de4c95012bcdc8af14e807e2119b9e3055d6268d85f7b263cb7b48283f0d3"
+    }
+  ],
+  "depends_on": [
+    "nce.qualifier-coverage",
+    "nce.constant-density-antecedent"
+  ],
+  "results": [
+    {
+      "name": "Exact private qualifier attachments",
+      "value": 5,
+      "of": null,
+      "unit": "attachments",
+      "note": "Event F, variance, normal parameter pair, σ positivity, and zero-wait population."
+    },
+    {
+      "name": "Exact standalone formula Z occurrence",
+      "value": 1,
+      "of": null,
+      "unit": "occurrences",
+      "note": "Original view 117, native offsets 242–243 in #/texts/30."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The development cut delivers the five exact private qualifier hosts and exact inline Z. Native tests cover explicit list inheritance with two hosts and refuse changed membership and clipped scope. Corpus benefit for list inheritance, formal operand binding, standard-normal target eligibility, and live adoption remain separate.",
+  "consumed_by": [
+    "NCE-02"
+  ]
+}
