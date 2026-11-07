@@ -374,7 +374,40 @@ def tasks(
     emit(listing, json=json, render=_render_tasks)
 
 
+def ingest(
+    ctx: typer.Context,
+    domain: Annotated[str, typer.Option(help="Executable domain pack.")],
+    corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    project: str | None = None,
+    slice: str | None = None,
+    scope: str | None = None,
+    native_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    integrated_source: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    json: JsonOpt = False,
+) -> None:
+    """Prepare the selected corpus source cut without extracting or selecting a result."""
+    from corpus_structure.cli.regenerate import regenerate
+
+    regenerate(
+        ctx,
+        domain,
+        corpus,
+        project=project,
+        slice=slice,
+        scope=scope,
+        native_source=native_source,
+        integrated_source=integrated_source,
+        automated=False,
+        select_result=False,
+        json=json,
+    )
+
+
 def register(app: typer.Typer) -> None:
+    from corpus_structure.cli.status import status
+
+    run_app.command("status")(status)
+    app.command("ingest")(ingest)
     app.add_typer(project_app, name="project")
     app.add_typer(run_app, name="run")
     app.command("tasks")(tasks)

@@ -282,6 +282,8 @@ def test_retained_integrated_cli_lifecycle(
             str(corpus),
             "--resume-run",
             str(run_id),
+            "--select-result",
+            "--activate-release",
             "--json",
         ]
         selected = CliRunner().invoke(

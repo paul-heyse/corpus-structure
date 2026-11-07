@@ -61,7 +61,10 @@ def regenerate(
         typer.Option(help="Resume this existing run; never create replacement occurrences."),
     ] = None,
     automated: Annotated[bool, typer.Option("--automated/--prepare-only")] = True,
-    select_result: Annotated[bool, typer.Option("--select-result/--leave-unselected")] = True,
+    select_result: Annotated[bool, typer.Option("--select-result/--leave-unselected")] = False,
+    activate: Annotated[
+        bool, typer.Option("--activate-release", help="Explicitly activate the run's release.")
+    ] = False,
     json: JsonOpt = False,
 ) -> None:
     """Prepare, ingest, extract, consolidate and infer from actual source documents.
@@ -128,6 +131,8 @@ def regenerate(
             ReleaseConflict,
         ),
     ) as failure:
+        if not automated and (select_result or activate):
+            raise SemanticRefusal("source preparation cannot select a result or activate a release")
         if Path(domain).name != domain:
             raise SemanticRefusal("domain must name a declared pack")
         if native_source is not None and integrated_source is not None:
@@ -261,7 +266,7 @@ def regenerate(
             output = completed or f"result:{project}:{run_id}"
             finalize_bound_run(engine, run_id, output, analytics=settings.analytics)
         generation = None
-        if select_result:
+        if activate or select_result:
             assert prepared is not None
             analyzed = sql_products(prepared.release_id) if has_authored_sql(prepared) else {}
             # Both pointer changes share one transaction and generation fence.
@@ -277,6 +282,10 @@ def regenerate(
                 )
                 token = ActivationToken(selected["active_release_id"], selected["generation"])
                 if token.release_id != prepared.release_id:
+                    if not activate:
+                        raise OperationConflict(
+                            "selecting this run requires explicit --activate-release"
+                        )
                     token = activate_release(
                         conn,
                         project,
@@ -285,10 +294,13 @@ def regenerate(
                         expected_generation=token.generation,
                         sql_admissions=analyzed,
                     )
-                if selected["selected_result_run_id"] == run_id:
-                    generation = token.generation
-                else:
-                    generation = select_completed_result(conn, project, run_id, token.generation)
+                if select_result:
+                    if selected["selected_result_run_id"] == run_id:
+                        generation = token.generation
+                    else:
+                        generation = select_completed_result(
+                            conn, project, run_id, token.generation
+                        )
         emit(
             RegenerationReport(
                 project=project,

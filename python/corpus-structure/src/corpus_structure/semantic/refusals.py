@@ -1,5 +1,6 @@
 """Expected semantic caller failures, separate from database and programming failures."""
 
+import re
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from functools import cache, wraps
@@ -161,6 +162,38 @@ def database_failure_report(
     return report
 
 
+_CREDENTIAL = re.compile(
+    r"(://[^:/@\s]+:)[^@/\s]+(?=@)|(?i:(password|token|api[_-]?key)=)([^\s&]+)"
+)
+
+
+def _safe_refusal_fields(value):
+    if isinstance(value, str):
+        return _CREDENTIAL.sub(lambda match: (match[1] or f"{match[2]}=") + "**********", value)
+    if isinstance(value, dict):
+        return {key: _safe_refusal_fields(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_safe_refusal_fields(item) for item in value]
+    return value
+
+
+def semantic_refusal_report(
+    error: BaseException, *, context: FailureContext | None = None
+) -> dict[str, Any]:
+    """Project the owned refusal meaning independently of its transport envelope."""
+    from pydantic import ValidationError
+
+    message = f"invalid {error.title} input" if isinstance(error, ValidationError) else str(error)
+    return _safe_refusal_fields(
+        {
+            "code": type(error).__name__,
+            "message": message,
+            **semantic_failure_fields(error),
+            "validation": failure_context(error, context).report(error).model_dump(mode="json"),
+        }
+    )
+
+
 def tool_refusals(*expected: type[Exception]):
     """Translate expected exceptions inside FastMCP's tool/logging boundary."""
 
@@ -178,18 +211,7 @@ def tool_refusals(*expected: type[Exception]):
 
                 from fastmcp.exceptions import ToolError
 
-                raise ToolError(
-                    json.dumps(
-                        {
-                            "code": type(error).__name__,
-                            "message": str(error),
-                            **semantic_failure_fields(error),
-                            "validation": failure_context(error)
-                            .report(error)
-                            .model_dump(mode="json"),
-                        }
-                    )
-                ) from error
+                raise ToolError(json.dumps(semantic_refusal_report(error))) from error
             except DATABASE_ERRORS as error:
                 import json
 

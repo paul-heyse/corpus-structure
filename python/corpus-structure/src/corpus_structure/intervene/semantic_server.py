@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import secrets
 import threading
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
@@ -498,6 +499,7 @@ def build_semantic_server(
     *,
     run_id: int | None = None,
     settings: Settings | None = None,
+    read_engine: Engine | None = None,
 ) -> FastMCP:
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict[str, SemanticSession]]:
@@ -547,6 +549,45 @@ def build_semantic_server(
         if run is not None and run != found.run_id:
             raise ToolError("this server is bound to a different semantic run")
         return found
+
+    @contextmanager
+    def source_snapshot(ctx: Context, selected_run: int):
+        """Open source reads under the reader purpose and retain the server scope."""
+        from corpus_structure.semantic.metadata import table
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.semantic.runtime import open_runtime_engine
+
+        active = current(ctx)
+        if isinstance(active, SemanticAgentSession) and selected_run != active.run_id:
+            raise ProposalRefused("this server is bound to a different semantic run")
+
+        @contextmanager
+        def engine_for_source() -> Iterator[Engine]:
+            if read_engine is not None:
+                yield read_engine
+            elif session is not None:
+                # A caller-supplied session owns its engine and compatibility.
+                yield active.engine
+            else:
+                with open_runtime_engine(
+                    settings if settings is not None else Settings(),
+                    "ci-mcp-source",
+                    max_size=1,
+                    purpose="read",
+                ) as reader:
+                    yield reader
+
+        with engine_for_source() as engine, read_snapshot(engine) as conn:
+            if isinstance(active, SemanticProjectSession):
+                runs = table("ops.run")
+                belongs = conn.scalar(
+                    select(runs.c.id).where(
+                        runs.c.id == selected_run, runs.c.project_id == active.project_id
+                    )
+                )
+                if belongs is None:
+                    raise ProposalRefused("run does not belong to this semantic project")
+            yield conn
 
     from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
@@ -649,11 +690,9 @@ def build_semantic_server(
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def find(ctx: Context, request: SourceSearchRequest) -> ToolResult:
         """Find selected PDF source sections, with exact retrievable source handles."""
-        from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.serve.source_search import search_source
 
-        active = bound_run(ctx, request.run_id)
-        with read_snapshot(active.engine) as conn:
+        with source_snapshot(ctx, request.run_id) as conn:
             response = search_source(conn, request)
         return _bounded_mcp_result(response, request.max_bytes)
 
@@ -666,12 +705,9 @@ def build_semantic_server(
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def inspect_source(ctx: Context, request: NativeSourceRequest) -> ToolResult:
         """Inspect pinned source products and qualified origins without interpretation."""
-        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.serve.native_source import inspect_native_source
 
-        active = bound_run(ctx, request.run_id)
-        with read_snapshot(active.engine) as conn:
-            from corpus_structure.serve.native_source import inspect_native_source
-
+        with source_snapshot(ctx, request.run_id) as conn:
             response = inspect_native_source(conn, request)
         return _bounded_mcp_result(response, request.max_bytes)
 

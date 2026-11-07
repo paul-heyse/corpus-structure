@@ -27,6 +27,7 @@ def read_source_contributions(
     prepared,
     run_id: int,
     source_view_id: int | None = None,
+    selected_task_id: int | None = None,
     method: str | None = None,
     operation_key: str | None = None,
     operation_version: str | None = None,
@@ -113,6 +114,8 @@ def read_source_contributions(
         ).add_columns(cut_tasks.c.task_id.is_not(None).label("cut_member"))
     else:
         query = query.add_columns(literal(None).label("cut_member"))
+    if selected_task_id is not None:
+        query = query.where(selected.c.id == selected_task_id)
     if source_view_id is not None:
         query = query.where(selected.c.unit_id == source_view_id)
     if method is not None:

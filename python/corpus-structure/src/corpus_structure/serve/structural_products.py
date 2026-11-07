@@ -82,6 +82,9 @@ class StructuralExportRequest(BaseModel):
         | None
     ) = None
     after_task_id: int = Field(default=0, strict=True, ge=0)
+    selected_task_id: int | None = Field(
+        default=None, strict=True, gt=0, exclude_if=lambda value: value is None
+    )
     limit: int = Field(default=20, strict=True, ge=1, le=100)
     max_bytes: int = Field(default=134_217_728, strict=True, ge=1)
     include_publication: bool = False
@@ -158,6 +161,8 @@ def _read_structural_page(conn: Connection, request: StructuralExportRequest) ->
             selected.c.id > request.after_task_id,
         )
     )
+    if request.selected_task_id is not None:
+        statement = statement.where(selected.c.id == request.selected_task_id)
     if request.kind:
         statement = statement.where(body["kind"].astext == request.kind)
     metadata = tuple(

@@ -35,6 +35,12 @@ class ContributionRequest(BaseModel):
     operation_key: str | None = None
     operation_version: str | None = None
     contribution_id: str | None = None
+    selected_task_id: int | None = Field(
+        default=None, strict=True, gt=0, exclude_if=lambda value: value is None
+    )
+    contribution_ids: tuple[str, ...] = Field(
+        default=(), max_length=1000, exclude_if=lambda value: not value
+    )
     occurrence_id: str | None = Field(
         default=None,
         description=(
@@ -54,10 +60,15 @@ class ContributionRequest(BaseModel):
     page_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=32_000_000)
 
     def selection(self):
-        return self.model_dump(exclude={"cursor", "limit", "max_bytes", "page_bytes"})
+        return self.model_dump(mode="json", exclude={"cursor", "limit", "max_bytes", "page_bytes"})
 
     @model_validator(mode="after")
     def supported_facets(self):
+        if self.contribution_ids and (
+            self.contribution_id is not None
+            or len(set(self.contribution_ids)) != len(self.contribution_ids)
+        ):
+            raise ValueError("choose distinct contribution IDs or one contribution ID")
         if self.include_support and not self.include_publication:
             raise ValueError("local source support requires the publication facet")
         return self
@@ -127,6 +138,8 @@ def _contributions(
         run_id=request.run_id,
         cut_id=cut_id,
         source_view_id=request.source_view_id,
+        selected_task_id=request.selected_task_id,
+        contribution_ids=request.contribution_ids or None,
         method=request.method,
         operation_key=request.operation_key,
         operation_version=request.operation_version,

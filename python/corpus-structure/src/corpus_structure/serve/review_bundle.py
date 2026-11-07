@@ -10,7 +10,9 @@ from __future__ import annotations
 import base64
 import json
 import re
+import sys
 from collections.abc import Callable, Iterable, Mapping
+from contextlib import ExitStack
 from dataclasses import asdict
 from hashlib import file_digest, sha256
 from pathlib import Path
@@ -103,6 +105,14 @@ def _contract_row(prepared):
     }
 
 
+def _structural_predecessors(report):
+    if report.dossier is not None:
+        return report.dossier.predecessors, report.dossier.contribution_predecessors
+    if report.artifact_identity is not None:
+        return (), tuple(n.relationship for n in report.artifact_identity.external_nominations)
+    return (), ()
+
+
 def capture_review_relations(conn, selection: ReviewSelection, cancellation: OperationCancellation):
     """One caller-owned snapshot; shared source and report objects captured once.
 
@@ -174,6 +184,8 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                 original.operation_key,
                 original.operation_version,
                 original.contribution_id,
+                original.contribution_ids,
+                original.selected_task_id,
                 original.occurrence_id,
                 original.kind,
             )
@@ -370,17 +382,8 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         RetainedContributionRef,
                     )
 
-                    if report.dossier is not None:
-                        references = (
-                            *report.dossier.predecessors,
-                            *report.dossier.contribution_predecessors,
-                        )
-                    else:
-                        assert report.artifact_identity is not None
-                        references = tuple(
-                            n.relationship for n in report.artifact_identity.external_nominations
-                        )
-                    for reference in references:
+                    structural, contributions = _structural_predecessors(report)
+                    for reference in (*structural, *contributions):
                         key = (reference.run_id, reference.cut_id)
                         if key not in predecessor_readers:
                             predecessor = bind_completed_result(conn, reference.run_id)
@@ -803,6 +806,108 @@ def write_review_bundle(
         return manifest
 
 
+def _exact_closure(
+    conn, selection: ReviewSelection, cancellation: OperationCancellation
+) -> tuple[ReviewSelection, list[dict[str, Any]]]:
+    """Extend a structural request with only its authenticated retained predecessors."""
+    from corpus_structure.semantic.operations import BoundReader
+
+    if selection.completeness != "selected_source_closure":
+        raise SemanticRefusal("exact closure requires selected_source_closure")
+    pending = list(selection.structural_selections)
+    seen_scopes = set(pending)
+    readers: dict[tuple[int, int], BoundReader] = {}
+    contribution_groups: dict[tuple[int, int], set[str]] = {}
+    seen_references = set()
+    reasons: list[dict[str, Any]] = []
+    budget = PublishedReadBudget(selection.max_source_rows, selection.max_bytes)
+
+    def reader_for(reference):
+        key = (reference.run_id, reference.cut_id)
+        if key not in readers:
+            session = bind_completed_result(conn, reference.run_id)
+            readers[key] = BoundReader(
+                conn, reference.run_id, session.prepared, cut_id=reference.cut_id, analysis=False
+            )
+        return readers[key]
+
+    for request in pending:
+        after = 0
+        while True:
+            cancellation.check_active()
+            page = read_structural_export_page(
+                conn,
+                request.model_copy(
+                    update={
+                        "after_task_id": after,
+                        "max_bytes": min(request.max_bytes, selection.max_bytes - budget.bytes),
+                    }
+                ),
+            )
+            for report in page.reports:
+                cancellation.check_active()
+                budget.value(report)
+                structural, contributions = _structural_predecessors(report)
+                for reference in (*structural, *contributions):
+                    reason = {
+                        "required_by": report.product_id,
+                        "reason": "declared_retained_predecessor",
+                        "reference": reference.model_dump(mode="json"),
+                    }
+                    budget.value(reason)
+                    reasons.append(reason)
+                    if len(reasons) > selection.max_source_rows:
+                        raise SemanticRefusal("exact closure exceeds declared predecessor budget")
+                for reference in structural:
+                    if reference in seen_references:
+                        continue
+                    seen_references.add(reference)
+                    retained = reader_for(reference).retained_structural_report(reference)
+                    budget.value(retained)
+                    dependency = StructuralExportRequest(
+                        run_id=reference.run_id,
+                        cut_id=reference.cut_id,
+                        selected_task_id=reference.selected_task_id,
+                        include_publication=bool(retained["public_assertions"]),
+                        include_support=bool(retained["public_assertions"]),
+                    )
+                    if dependency not in seen_scopes:
+                        pending.append(dependency)
+                        seen_scopes.add(dependency)
+                for reference in contributions:
+                    if reference in seen_references:
+                        continue
+                    seen_references.add(reference)
+                    retained = reader_for(reference).retained_source_contribution(reference)
+                    budget.value(retained)
+                    identifiers = contribution_groups.setdefault(
+                        (reference.run_id, reference.selected_task_id), set()
+                    )
+                    identifiers.update(row["contribution_id"] for row in retained["contributions"])
+                    if len(identifiers) > 1000:
+                        raise SemanticRefusal(
+                            "exact closure exceeds one producer's contribution selection limit"
+                        )
+            if page.next_after_task_id is None:
+                break
+            after = page.next_after_task_id
+    extras = (
+        ContributionRequest(
+            run_id=run,
+            selected_task_id=task,
+            contribution_ids=tuple(sorted(identifiers)),
+            max_bytes=min(selection.max_bytes, 134_217_728),
+        )
+        for (run, task), identifiers in sorted(contribution_groups.items())
+    )
+    return selection.model_copy(
+        update={
+            "selections": tuple(dict.fromkeys((*selection.selections, *extras))),
+            "structural_selections": tuple(pending),
+        }
+    ), reasons
+
+
 def export_review_bundle(
     selection: ReviewSelection,
     destination: Path,
@@ -811,28 +916,48 @@ def export_review_bundle(
     cancellation: OperationCancellation | None = None,
     extra_relations: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
     evaluator_capture: Callable[[Any], Mapping[str, Iterable[Mapping[str, Any]]]] | None = None,
+    exact_closure: bool = False,
 ) -> dict[str, Any]:
     cancellation = cancellation or OperationCancellation()
-
-    def rows():
-        with (
-            open_runtime_engine(
-                settings, "review-export", purpose="evaluate" if evaluator_capture else "read"
-            ) as engine,
-            read_snapshot(engine, cancellation=cancellation.postgresql) as conn,
-        ):
-            yield from capture_review_relations(conn, selection, cancellation)
-            if evaluator_capture is not None:
-                for name, values in evaluator_capture(conn).items():
-                    yield from _named_rows(name, values)
-        for name, values in (extra_relations or {}).items():
-            yield from _named_rows(name, values)
-
+    cancellation.check_active()
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(destination)
     from corpus_structure.serve.review_views import compose_review_views
 
-    return write_review_bundle(
-        selection, destination, compose_review_views(selection, rows()), cancellation=cancellation
-    )
+    # Resolve expansion and capture under the same snapshot. The row owner closes
+    # the snapshot before write_review_bundle verifies and publishes the bundle.
+    with ExitStack() as snapshot:
+        engine = snapshot.enter_context(
+            open_runtime_engine(
+                settings, "review-export", purpose="evaluate" if evaluator_capture else "read"
+            )
+        )
+        conn = snapshot.enter_context(read_snapshot(engine, cancellation=cancellation.postgresql))
+        reasons = []
+        if exact_closure:
+            selection, reasons = _exact_closure(conn, selection, cancellation)
+
+        def rows():
+            try:
+                yield from capture_review_relations(conn, selection, cancellation)
+                yield from _named_rows("closure_dependencies", reasons)
+                if evaluator_capture is not None:
+                    for name, values in evaluator_capture(conn).items():
+                        yield from _named_rows(name, values)
+            except BaseException:
+                snapshot.__exit__(*sys.exc_info())
+                raise
+            else:
+                snapshot.close()
+            for name, values in (extra_relations or {}).items():
+                yield from _named_rows(name, values)
+
+        return write_review_bundle(
+            selection,
+            destination,
+            compose_review_views(selection, rows()),
+            cancellation=cancellation,
+        )
 
 
 def _named_rows(name, values):
@@ -1228,6 +1353,7 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
     contribution_inventory = {}
     required_contracts: set[str] = set()
     captured_contracts: set[str] = set()
+    closure_reasons: set[bytes] = set()
     for name, spec in manifest["relations"].items():
         if not _NAME.fullmatch(name):
             raise ValueError("invalid review relation")
@@ -1277,6 +1403,11 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                                 or payload["run_id"]
                                 != (selection.structural_selections[index].run_id)
                                 or not payload["cut_id"]
+                                or (
+                                    (cut_id := selection.structural_selections[index].cut_id)
+                                    is not None
+                                    and payload["cut_id"] != cut_id
+                                )
                             ):
                                 raise ValueError("structural selected run/cut differs")
                             bound_structural.add(index)
@@ -1284,6 +1415,8 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                             required_contracts.add(payload["release_id"])
                         if name == "contracts":
                             captured_contracts.add(payload["release_id"])
+                        if name == "closure_dependencies":
+                            closure_reasons.add(canonical_bytes(payload))
                         if name == "structural_public_assertions":
                             public_product_ids.add(payload["product_id"])
                             structural_assertions.append(payload)
@@ -1327,6 +1460,19 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                                 StructuralProductReport,
                             )
 
+                            index = payload["selection_index"]
+                            if type(index) is not int or not 0 <= index < len(
+                                selection.structural_selections
+                            ):
+                                raise ValueError("structural product has no selected snapshot")
+                            selected_task = selection.structural_selections[index].selected_task_id
+                            if (
+                                selected_task is not None
+                                and payload["selected_task_id"] != selected_task
+                            ):
+                                raise ValueError(
+                                    "structural product differs from exact selected task"
+                                )
                             report = StructuralProductReport.model_validate(payload["report"])
                             if report.product_id != payload["product_id"]:
                                 raise ValueError("structural product identity differs")
@@ -1385,6 +1531,23 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                             present_reports.add(payload["origin_task_id"])
                         elif name == "inventory":
                             item = payload["row"]
+                            index = payload.get("selection_index")
+                            if type(index) is not int or not 0 <= index < len(selection.selections):
+                                raise ValueError("contribution row has no selected scope")
+                            request = selection.selections[index]
+                            if (
+                                request.selected_task_id is not None
+                                and item.get("selected_task_id") != request.selected_task_id
+                            ):
+                                raise ValueError(
+                                    "contribution row differs from exact selected task"
+                                )
+                            if (
+                                payload.get("population") == "contribution"
+                                and request.contribution_ids
+                                and item.get("contribution_id") not in request.contribution_ids
+                            ):
+                                raise ValueError("contribution row is outside exact selected IDs")
                             if type(item.get("source_view_id")) is int:
                                 needed_sources.add(item["source_view_id"])
                             needed_sources.update(_item_source_ids(item))
@@ -1423,6 +1586,21 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
             logicals[suffix] = logical.digest
         if len(set(logicals.values())) != 1:
             raise ValueError("review serializations disagree")
+    if "closure_dependencies" in manifest["relations"]:
+        declared_reasons = {
+            canonical_bytes(
+                {
+                    "required_by": product.product_id,
+                    "reason": "declared_retained_predecessor",
+                    "reference": reference.model_dump(mode="json"),
+                }
+            )
+            for *_, product in structural_products
+            for group in _structural_predecessors(product)
+            for reference in group
+        }
+        if closure_reasons != declared_reasons:
+            raise ValueError("review closure reasons differ from declared retained predecessors")
     if not public_product_ids <= structural_product_ids:
         raise ValueError("public structural witness has no selected product")
     if selection.completeness == "selected_source_closure":

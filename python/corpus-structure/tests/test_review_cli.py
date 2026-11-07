@@ -55,7 +55,13 @@ def test_mixed_cohort_export_keeps_project_and_authorization_boundaries(cli, tmp
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
     monkeypatch.setattr(review_assessments, "record_review_exposure", record_exposure)
-    monkeypatch.setattr(review_bundle, "export_review_bundle", lambda *args, **kwargs: {"ok": True})
+
+    def export(_request, destination, _settings, **_kwargs):
+        destination.mkdir()
+        return {"ok": True}
+
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
+    monkeypatch.setattr(review_bundle, "export_review_bundle", export)
     result = cli(
         "review",
         "export-evaluated",
@@ -82,3 +88,29 @@ def test_mixed_cohort_export_keeps_project_and_authorization_boundaries(cli, tmp
         ("m1-source-grinstead-snell", False, "selected already-exposed development cohort"),
         ("pce-statistics-structural", True, None),
     ]
+
+
+def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_path, monkeypatch):
+    from corpus_structure.serve import review_bundle
+
+    selected = tmp_path / "selection.json"
+    selected.write_text('{"structural_selections":[{"run_id":205,"cut_id":283}]}')
+    seen = []
+
+    def export(request, destination, _settings, *, exact_closure, **_kwargs):
+        seen.append((request, exact_closure))
+        destination.mkdir()
+        return {"selection": request.model_dump(mode="json")}
+
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
+    monkeypatch.setattr(review_bundle, "export_review_bundle", export)
+    first = cli("review", "export", str(selected), "--exact-closure", "--json")
+    assert first.exit_code == 0, first.output
+    original = json.loads(first.stdout)
+    selected.unlink()
+    retry = cli("review", "retry", original["invocation_id"], "--json")
+    assert retry.exit_code == 0, retry.output
+    retried = json.loads(retry.stdout)
+    assert retried["invocation_id"] != original["invocation_id"]
+    assert seen[0] == seen[1] and seen[1][1] is True
+    assert retried["selection"] == original["selection"]

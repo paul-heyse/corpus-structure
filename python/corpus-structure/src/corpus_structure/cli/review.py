@@ -1,21 +1,71 @@
 """Declared-scope review bundles and offline integrity inspection."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from pydantic import JsonValue, RootModel
 
 from corpus_structure.cli.output import JsonOpt, emit, state
 
+if TYPE_CHECKING:
+    from corpus_structure.serve.review_bundle import ReviewSelection
+
 app = typer.Typer(help="Export pinned evidence and verify detached review bundles.")
+
+
+def _deliver_review(
+    ctx: typer.Context,
+    request: ReviewSelection,
+    destination: Path | None,
+    *,
+    exact_closure: bool,
+    json: bool,
+    evaluator_capture: Callable[[Any], Any] | None = None,
+    previous: str | None = None,
+) -> None:
+    from corpus_structure.cli.managed import result_store
+    from corpus_structure.serve.review_bundle import export_review_bundle
+
+    store = result_store(ctx)
+    if destination is not None and (destination.exists() or destination.is_symlink()):
+        raise FileExistsError(destination)
+    action = "review.export" if evaluator_capture is None else "review.export-evaluated"
+    with store.operation(
+        action, scope={"exact_closure": exact_closure, "previous": previous}
+    ) as result:
+        selection_path = result.directory / "selection.json"
+        selection_path.write_text(request.model_dump_json())
+        result.publish("selection", selection_path)
+        result.stage("capture")
+        bundle = result.directory / "bundle"
+        manifest = export_review_bundle(
+            request,
+            bundle,
+            state(ctx).settings(),
+            evaluator_capture=evaluator_capture,
+            exact_closure=exact_closure,
+        )
+        result.publish("bundle", bundle)
+        result.stage("published")
+    delivered = store.deliver(result.id, "bundle", destination)
+    emit(
+        RootModel[dict[str, JsonValue]].model_validate(
+            {**manifest, "invocation_id": result.id, "destination": str(delivered)}
+        ),
+        json=json,
+    )
 
 
 @app.command("export-evaluated")
 def export_evaluated_review(
     ctx: typer.Context,
     selection: Path,
-    destination: Path,
+    destination: Annotated[Path | None, typer.Argument()] = None,
+    *,
     project: Annotated[str, typer.Option()],
     assessment_set: Annotated[list[int] | None, typer.Option("--assessment-set")] = None,
     group_set: Annotated[list[int] | None, typer.Option("--group-assessment-set")] = None,
@@ -31,7 +81,7 @@ def export_evaluated_review(
         record_review_exposure,
     )
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.review_bundle import ReviewSelection, export_review_bundle
+    from corpus_structure.serve.review_bundle import ReviewSelection
 
     with failure_boundary(json, expected=(OSError, ValueError)):
         request = ReviewSelection.model_validate_json(selection.read_bytes())
@@ -68,20 +118,56 @@ def export_evaluated_review(
                 for group, owner, set_id in cohorts
             )
         )
-        result = export_review_bundle(request, destination, settings, evaluator_capture=capture)
-    emit(RootModel[dict[str, JsonValue]].model_validate(result), json=json)
+        _deliver_review(
+            ctx, request, destination, exact_closure=False, json=json, evaluator_capture=capture
+        )
 
 
 @app.command("export")
-def export_review(ctx: typer.Context, selection: Path, destination: Path, json: JsonOpt = False):
+def export_review(
+    ctx: typer.Context,
+    selection: Path,
+    destination: Annotated[Path | None, typer.Argument()] = None,
+    exact_closure: Annotated[
+        bool, typer.Option(help="Include only exact retained predecessors.")
+    ] = False,
+    json: JsonOpt = False,
+):
     """Export an explicit JSON selection using ordinary reader authority."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.serve.review_bundle import ReviewSelection, export_review_bundle
+    from corpus_structure.serve.review_bundle import ReviewSelection
 
     with failure_boundary(json, expected=(OSError, ValueError)):
         request = ReviewSelection.model_validate_json(selection.read_bytes())
-        result = export_review_bundle(request, destination, state(ctx).settings())
-    emit(RootModel[dict[str, JsonValue]].model_validate(result), json=json)
+        _deliver_review(ctx, request, destination, exact_closure=exact_closure, json=json)
+
+
+@app.command("retry")
+def retry_review(
+    ctx: typer.Context, result_id: str, destination: Path | None = None, json: JsonOpt = False
+):
+    """Retry an ordinary export against the same completed selection."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.managed import result_store
+    from corpus_structure.serve.review_bundle import ReviewSelection
+
+    with failure_boundary(json, expected=(OSError, ValueError)):
+        store = result_store(ctx)
+        with store.lease(result_id):
+            previous = store.show(result_id)
+            if previous.action != "review.export":
+                raise ValueError("retry requires an ordinary review export result")
+            request = ReviewSelection.model_validate_json(
+                store.artifact(result_id, "selection").read_bytes()
+            )
+            _deliver_review(
+                ctx,
+                request,
+                destination,
+                exact_closure=previous.scope.get("exact_closure") is True,
+                previous=result_id,
+                json=json,
+            )
 
 
 @app.command("verify")
