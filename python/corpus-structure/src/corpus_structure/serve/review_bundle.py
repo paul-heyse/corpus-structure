@@ -1840,7 +1840,10 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> dict[str, A
     if not public_product_ids <= structural_product_ids:
         raise ValueError("public structural witness has no selected product")
     if selection.completeness == "selected_source_closure":
+        from .inline_formula_replay import verify_inline_formula_closure
+
         _verify_predicate_closure(root, manifest)
+        verify_inline_formula_closure(root, manifest)
         if not required_contracts <= captured_contracts:
             raise ValueError("structural release contracts are missing")
         if any(index not in structural_scopes for index, _ in structural_members):

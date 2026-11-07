@@ -273,6 +273,7 @@ def discover_relations(
     formula_seconds=0.5,
     max_formula_chars=2048,
     predicate_version="2",
+    inline_equations_enabled=False,
 ):
     """Return participants and relation candidates against actual detached source pieces.
 
@@ -967,16 +968,69 @@ def discover_relations(
         coordinates,
         version=predicate_version,
     )
+    inline_operations = ()
+    inline_emitted = 0
+    if inline_equations_enabled:
+        from .inline_formula_occurrences import (
+            INLINE_FORMULA_OCCURRENCE_FIELDS,
+            INLINE_FORMULA_QUESTION,
+            INLINE_FORMULA_VERSION,
+            inline_equations,
+            inline_symbols,
+        )
+
+        selection = (
+            None
+            if passages is None
+            else tuple((p.passage_id, p.start, p.end, p.effective_version) for p in passages)
+        )
+        equations = tuple(
+            inline_equations(frame.text, source_pieces, items, selection, max_chars=max_formula_chars)
+        )
+        if equations:
+            inline_op = operation_identity(
+                INLINE_FORMULA_QUESTION, INLINE_FORMULA_VERSION, pin, selection
+            )
+            prior_count = len(products)
+            unavailable = False
+            for equation in equations:
+                symbols, outcome = inline_symbols(frame.text, equation, seconds=formula_seconds)
+                formula_diagnostics.append(equation.diagnostic(outcome))
+                unavailable |= outcome != "parsed"
+                for symbol in symbols:
+                    participant(
+                        symbol.start,
+                        symbol.end,
+                        role="formula_symbol",
+                        pointer=equation.pointer,
+                        region=equation.pointer,
+                        extra=INLINE_FORMULA_OCCURRENCE_FIELDS,
+                        operation=inline_op,
+                    )
+            inline_emitted = len(products) - prior_count
+            inline_operations = (
+                dict(
+                    operation_key=inline_op,
+                    question=INLINE_FORMULA_QUESTION,
+                    operation_version=INLINE_FORMULA_VERSION,
+                    outcome=("limited" if inline_emitted else "unsupported")
+                    if unavailable
+                    else ("succeeded" if inline_emitted else "empty"),
+                    inspected_count=len(equations),
+                    emitted_count=inline_emitted,
+                    computation_dependencies=(dependency,),
+                ),
+            )
     return dict(
         contributions=tuple(products),
         coordinates=tuple(coordinates.values()),
-        extra_operations=(*extra_operations, *predicate_operations),
+        extra_operations=(*extra_operations, *predicate_operations, *inline_operations),
         formula_diagnostics=tuple(formula_diagnostics),
         operation=dict(
             operation_key=op,
             question="source_structural_relations",
             operation_version="1",
-            outcome="succeeded" if products else "empty",
+            outcome="succeeded" if len(products) > inline_emitted else "empty",
             inspected_count=len(source_pieces),
             emitted_count=sum(p["operation_key"] == op for p in products),
             computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
@@ -1091,16 +1145,26 @@ class ScopedRelationsMethod:
                 formula_seconds=cfg.formula_seconds,
                 max_formula_chars=cfg.max_formula_chars,
                 predicate_version="3",
+                inline_equations_enabled=True,
             )
+            from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
             from corpus_structure.methods.table_interpretation import table_policy_operations
 
+            formula_keys = {
+                o["operation_key"]
+                for o in output["extra_operations"]
+                if o["question"] == INLINE_FORMULA_QUESTION
+            }
+            table_inputs = tuple(
+                row for row in output["contributions"] if row["operation_key"] not in formula_keys
+            )
             interpretation = table_policy_operations(
-                contributions=output["contributions"],
+                contributions=table_inputs,
                 dependency_ids=tuple(
                     sorted(
                         {
                             dependency
-                            for row in output["contributions"]
+                            for row in table_inputs
                             for dependency in row["computation_dependencies"]
                         }
                         | set(output["operation"]["computation_dependencies"])
