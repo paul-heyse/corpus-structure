@@ -1,0 +1,144 @@
+{
+  "version": "2",
+  "nominal_dependencies": ["amod", "compound", "det", "flat", "nummod"],
+  "nominal_max_tokens": 8,
+  "rules": [
+    {
+      "rule": "section", "variant": "see_or_consult", "kind": "section_citation", "mechanism": "token",
+      "nodes": [
+        {"id": "verb", "attrs": {"LOWER": {"IN": ["see", "consult"]}}},
+        {"id": "section", "attrs": {"LOWER": "section"}}
+      ],
+      "cue": ["verb"]
+    },
+    {
+      "rule": "section", "variant": "refer_to", "kind": "section_citation", "mechanism": "token",
+      "nodes": [
+        {"id": "verb", "attrs": {"LOWER": "refer"}},
+        {"id": "preposition", "attrs": {"LOWER": "to"}},
+        {"id": "section", "attrs": {"LOWER": "section"}}
+      ],
+      "cue": ["verb", "preposition"]
+    },
+    {
+      "rule": "definition", "variant": "as_defined_in", "kind": "definition_reference", "mechanism": "token",
+      "nodes": [
+        {"id": "as", "attrs": {"LOWER": "as"}},
+        {"id": "defined", "attrs": {"LOWER": "defined"}},
+        {"id": "in", "attrs": {"LOWER": "in"}},
+        {"id": "section", "attrs": {"LOWER": "section"}}
+      ],
+      "cue": ["as", "defined", "in"]
+    },
+    {
+      "rule": "external", "variant": "see", "kind": "external_citation", "mechanism": "token",
+      "nodes": [
+        {"id": "verb", "attrs": {"LOWER": "see"}}
+      ],
+      "cue": ["verb"]
+    },
+    {
+      "rule": "acronym", "variant": "parenthesized", "kind": "alias", "mechanism": "token",
+      "nodes": [
+        {"id": "open", "attrs": {"ORTH": "("}},
+        {"id": "acronym", "attrs": {}},
+        {"id": "close", "attrs": {"ORTH": ")"}}
+      ],
+      "cue": ["open"]
+    },
+    {
+      "rule": "hereafter", "variant": "apposition", "kind": "alias", "mechanism": "token",
+      "nodes": [
+        {"id": "comma", "attrs": {"ORTH": ","}},
+        {"id": "hereafter", "attrs": {"LOWER": "hereafter"}}
+      ],
+      "cue": ["hereafter"]
+    },
+    {
+      "rule": "specialization", "variant": "active", "kind": "specializes", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": {"IN": ["specialize", "specialise"]}}},
+        {"id": "subject", "attrs": {"DEP": "nsubj"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"DEP": {"IN": ["dobj", "obj"]}}, "parent": "verb"}
+      ],
+      "cue": ["verb"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "succession", "variant": "active", "kind": "supersedes", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": {"IN": ["supersede"]}}},
+        {"id": "subject", "attrs": {"DEP": "nsubj"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"DEP": {"IN": ["dobj", "obj"]}}, "parent": "verb"}
+      ],
+      "cue": ["verb"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "specialization", "variant": "in", "kind": "specializes", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": {"IN": ["specialize", "specialise"]}}},
+        {"id": "subject", "attrs": {"DEP": "nsubj"}, "parent": "verb"},
+        {"id": "in", "attrs": {"LOWER": "in", "DEP": "prep"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"DEP": {"IN": ["pobj", "obj"]}}, "parent": "in"}
+      ],
+      "cue": ["verb", "in"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "succession", "variant": "passive_by", "kind": "supersedes", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": "supersede"}},
+        {"id": "argument", "attrs": {"DEP": "nsubjpass"}, "parent": "verb"},
+        {"id": "by", "attrs": {"LOWER": "by", "DEP": "agent"}, "parent": "verb"},
+        {"id": "subject", "attrs": {"DEP": {"IN": ["pobj", "obj"]}}, "parent": "by"}
+      ],
+      "cue": ["verb", "by"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "renaming", "variant": "passive_to", "kind": "renames", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": "rename"}},
+        {"id": "subject", "attrs": {"DEP": "nsubjpass"}, "parent": "verb"},
+        {"id": "to", "attrs": {"LOWER": "to", "DEP": "prep"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"DEP": {"IN": ["pobj", "obj"]}}, "parent": "to"}
+      ],
+      "cue": ["verb", "to"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "renaming", "variant": "active_as", "kind": "renames", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": "rename"}},
+        {"id": "subject", "attrs": {"DEP": {"IN": ["dobj", "obj"]}}, "parent": "verb"},
+        {"id": "as", "attrs": {"LOWER": "as", "DEP": "prep"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"DEP": {"IN": ["pobj", "obj"]}}, "parent": "as"}
+      ],
+      "cue": ["verb", "as"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "hereafter", "variant": "passive_called", "kind": "alias", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": "call"}},
+        {"id": "subject", "attrs": {"DEP": "nsubjpass"}, "parent": "verb"},
+        {"id": "hereafter", "attrs": {"LOWER": "hereafter", "DEP": "advmod"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"DEP": {"IN": ["oprd", "attr", "dobj"]}}, "parent": "verb"}
+      ],
+      "cue": ["hereafter", "verb"], "subject": "subject", "argument": "argument"
+    },
+    {
+      "rule": "procedure", "variant": "direct_artifact", "kind": "procedure_reference", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LOWER": {"IN": ["see", "consult", "use", "follow", "apply"]}, "DEP": "ROOT"}},
+        {"id": "argument", "attrs": {"LOWER": {"IN": ["table", "figure"]}, "DEP": {"IN": ["dobj", "obj"]}}, "parent": "verb"}
+      ],
+      "cue": ["verb"], "subject": "verb", "argument": "argument"
+    },
+    {
+      "rule": "procedure", "variant": "displayed_in", "kind": "procedure_reference", "mechanism": "dependency",
+      "nodes": [
+        {"id": "verb", "attrs": {"LEMMA": {"IN": ["show", "give", "list", "report"]}}},
+        {"id": "subject", "attrs": {"DEP": "nsubjpass", "LEMMA": {"IN": ["result", "output", "reading"]}}, "parent": "verb"},
+        {"id": "in", "attrs": {"LOWER": "in", "DEP": "prep"}, "parent": "verb"},
+        {"id": "argument", "attrs": {"LOWER": {"IN": ["table", "figure"]}, "DEP": {"IN": ["pobj", "obj"]}}, "parent": "in"}
+      ],
+      "cue": ["verb", "in"], "subject": "subject", "argument": "argument"
+    }
+  ]
+}

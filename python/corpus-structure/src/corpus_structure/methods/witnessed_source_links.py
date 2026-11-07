@@ -2,8 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+from corpus_structure.ingest.annotation_views import annotation_view
+from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
+from corpus_structure.methods.annotation_rules import (
+    AnnotationRule,
+    PreparedAnnotationRules,
+    RoleBinding,
+)
+from corpus_structure.semantic.observations import source_python
 
 QUESTION = "source_witnessed_links"
 VERSION = "1"
@@ -95,6 +108,52 @@ def recapped_declarations(text, pieces, items, passages):
 
 
 NAMED_QUESTION = "source_named_links"
+NAMED_VERSION = "2"
+INHERITANCE_QUESTION = "source_scope_inheritance"
+
+
+def qualified_inheritance(contributions):
+    """Project already-qualified list and clause inheritance without reattaching cues."""
+    rows = {row["contribution_id"]: row for row in contributions}
+    qualified = [
+        row
+        for row in contributions
+        if row.get("component", {}).get("kind") == "predicate_qualifier"
+        and row["component"]["qualifier_kind"] in {"condition", "assumption"}
+    ]
+    edges = []
+    for row in qualified:
+        component = row["component"]
+        cue = rows[component["qualifier_contribution_id"]]
+        host = rows[component["host_contribution_id"]]
+        witness = component.get("host_witness")
+        governing = cue["component"].get("governing_token")
+        listed = witness is not None and witness["kind"] == "list_intro"
+        coordinated = (
+            witness is None
+            and governing is not None
+            and governing != host["component"]["predicate_token"]
+        )
+        if listed or coordinated:
+            edges.append((cue, host, row))
+    return len(qualified), tuple(edges)
+
+
+def procedure_artifact_bindings(contributions):
+    """Index settled scoped caption references by the exact located source mention."""
+    rows = {row["contribution_id"]: row for row in contributions}
+    references = {}
+    for row in contributions:
+        if row.get("component", {}).get("attachment_kind") != "artifact_reference_target":
+            continue
+        mention = source_python(rows[row["members"][0]]["value"])
+        key = (mention["source_pointer"], mention["start"], mention["end"])
+        references.setdefault(key, []).append(row["contribution_id"])
+    return {
+        key: tuple(identifiers) for key, identifiers in references.items() if len(identifiers) == 1
+    }
+
+
 _NAME = r"[A-Za-z][A-Za-z0-9_ -]{0,79}?"
 _NAMED_LINK = re.compile(
     r"^(?P<left>" + _NAME + r") (?P<cue>is hereafter called|is renamed to|specializes|supersedes)"
@@ -211,3 +270,297 @@ def named_source_links(text, pieces, items, passages):
                     passage.passage_id,
                     "external_target_unavailable",
                 )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class NamedCueWitness:
+    rule: str
+    variant: str
+    mechanism: str
+    kind: str
+    annotation: str
+    block: str
+    tokens: dict[str, int]
+    subject: tuple[int, int]
+    cue: tuple[int, int]
+    argument: tuple[int, int] | None
+    designator: str | None
+    scope: str
+    effective_version: str | None
+    resolution: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class NamedLinkMatch(NamedLink):
+    witness: NamedCueWitness
+
+    def evidence(self) -> dict[str, Any]:
+        return asdict(self.witness)
+
+
+@dataclass(frozen=True, slots=True)
+class NamedLinkInspection:
+    matches: tuple[NamedLinkMatch, ...]
+    inspected_count: int
+    incomplete: bool
+
+    def outcome(self) -> str:
+        if not self.inspected_count:
+            return "unsupported" if self.incomplete else "empty"
+        if self.incomplete or any(m.resolution != "located" for m in self.matches):
+            return "limited"
+        return "succeeded" if self.matches else "empty"
+
+
+@lru_cache(maxsize=1)
+def _named_recipe():
+    from spacy.lang.en import English
+
+    recipe = json.loads(Path(__file__).with_name("named_link_rules.json").read_bytes())
+    if recipe["version"] != NAMED_VERSION:
+        raise ValueError("named link recipe differs from the released version")
+    variants = {}
+    rules = []
+    for rule in recipe["rules"]:
+        key = (rule["rule"], rule["variant"])
+        variants[key] = rule
+        if rule["mechanism"] == "token":
+            pattern = [node["attrs"] for node in rule["nodes"]]
+            bindings = {"match": RoleBinding(node="match")}
+        else:
+            pattern = [
+                dict(
+                    RIGHT_ID=node["id"],
+                    RIGHT_ATTRS=node["attrs"],
+                    **({"LEFT_ID": node["parent"], "REL_OP": ">"} if "parent" in node else {}),
+                )
+                for node in rule["nodes"]
+            ]
+            bindings = {"cue": RoleBinding(node=rule["cue"][0])}
+        rules.append(
+            AnnotationRule(
+                rule=key[0],
+                variant=key[1],
+                mechanism=rule["mechanism"],
+                pattern=pattern,
+                bindings=bindings,
+            )
+        )
+    return recipe, variants, PreparedAnnotationRules(English().vocab, rules=tuple(rules))
+
+
+_DOTTED_DESIGNATOR = re.compile(r"[ \t]+(?P<code>[0-9]+(?:\.[0-9]+)+)(?!\w|\.[0-9])")
+_CITATION_SUFFIX = re.compile(
+    r"[ \t]+(?P<mention>ISO(?:/IEC)? [0-9]+(?::[0-9]{4})?|RFC [0-9]+"
+    r"|[A-Z][A-Za-z]+ and [A-Z][A-Za-z]+\.[0-9]+)(?=[. ,;)]|$)"
+)
+_INITIAL_WORD = re.compile(r"[A-Z][A-Za-z]*\Z")
+_ACRONYM_WORD = re.compile(r"[A-Z]{2,8}\Z")
+
+
+def _word_run(doc, start, step, sentence):
+    indices = []
+    while 0 <= start < len(doc) and len(indices) < 8:
+        if doc[start].sent.start != sentence or not _INITIAL_WORD.fullmatch(doc[start].text):
+            break
+        indices.append(start)
+        start += step
+    return tuple(sorted(indices))
+
+
+def _nominal_extent(text, tokens, index, recipe):
+    row = tokens[index]
+    indices = [index]
+    for i, other in enumerate(tokens):
+        if (
+            i != index
+            and other.head == index
+            and other.sentence == row.sentence
+            and other.dependency in recipe["nominal_dependencies"]
+        ):
+            indices.append(i)
+    indices.sort()
+    if len(indices) > recipe["nominal_max_tokens"] or indices != list(
+        range(indices[0], indices[-1] + 1)
+    ):
+        return (row.start, row.end), False
+    first, last = tokens[indices[0]], tokens[indices[-1]]
+    # The retained tokenizer treats an initial such as "A." as one token.
+    end = last.end - bool(re.fullmatch(r"[A-Z]\.", text[last.start : last.end]))
+    return (first.start, end), True
+
+
+def _named_roles(text, doc, tokens, piece, rule, nodes, recipe):
+    cue_rows = [tokens[nodes[key]] for key in rule["cue"]]
+    cue = (min(r.start for r in cue_rows), max(r.end for r in cue_rows))
+    kind = rule["kind"]
+    if kind in {"section_citation", "definition_reference"}:
+        section = tokens[nodes["section"]]
+        code = _DOTTED_DESIGNATOR.match(text[section.end : piece["end"]])
+        if code:
+            return (section.start, section.end + code.end()), cue, None, code["code"], True
+    elif kind == "external_citation":
+        citation = _CITATION_SUFFIX.match(text[cue[1] : piece["end"]])
+        if citation:
+            a, b = citation.span("mention")
+            return (cue[1] + a, cue[1] + b), cue, None, None, True
+    elif rule["variant"] == "parenthesized":
+        name = doc[nodes["acronym"]].text
+        left = _word_run(doc, nodes["open"] - 1, -1, doc[nodes["open"]].sent.start)
+        if (
+            len(left) >= 2
+            and _ACRONYM_WORD.fullmatch(name)
+            and "".join(doc[i].text[0] for i in left) == name
+        ):
+            abbreviation = tokens[nodes["acronym"]]
+            return (
+                (tokens[left[0]].start, tokens[left[-1]].end),
+                cue,
+                (abbreviation.start, abbreviation.end),
+                None,
+                True,
+            )
+    elif rule["variant"] == "apposition":
+        sentence = doc[nodes["hereafter"]].sent.start
+        left = _word_run(doc, nodes["comma"] - 1, -1, sentence)
+        right = _word_run(doc, nodes["hereafter"] + 1, 1, sentence)
+        if left and right:
+            return (
+                (tokens[left[0]].start, tokens[left[-1]].end),
+                cue,
+                (tokens[right[0]].start, tokens[right[-1]].end),
+                None,
+                True,
+            )
+    elif kind == "procedure_reference":
+        artifact = tokens[nodes["argument"]]
+        code = _DOTTED_DESIGNATOR.match(text[artifact.end : piece["end"]])
+        if code:
+            return (artifact.start, artifact.end + code.end()), cue, cue, code["code"], True
+    else:
+        left, left_complete = _nominal_extent(text, tokens, nodes[rule["subject"]], recipe)
+        right, right_complete = _nominal_extent(text, tokens, nodes[rule["argument"]], recipe)
+        if text[slice(*left)].casefold() != text[slice(*right)].casefold():
+            return left, cue, right, None, left_complete and right_complete
+    return None
+
+
+def match_named_source_links(
+    text, pieces, items, passages, annotations, *, annotation_errors=()
+) -> NamedLinkInspection:
+    """Find typed link cues on restored annotations and keep their exact source roles."""
+    recipe, variants, prepared = _named_recipe()
+    pieces = {
+        p["item_ref"]: p
+        for p in pieces
+        if p["kind"] == "native_text"
+        and p.get("source_field", "text") == "text"
+        and "cell_index" not in p
+        and items.get(p["item_ref"], {}).get("content_layer") == "body"
+        and items[p["item_ref"]].get("label") in {"text", "paragraph", "list_item"}
+    }
+    by_block = {
+        product.block_id: product
+        for product in annotations
+        if isinstance(product, AnnotationProduct)
+    }
+    matches = []
+    inspected = set()
+    incomplete = bool(annotation_errors)
+    for pointer, piece in pieces.items():
+        selected = [p for p in passages or () if p.start < piece["end"] and piece["start"] < p.end]
+        if not selected:
+            continue
+        annotation = by_block.get(pointer)
+        if annotation is None:
+            incomplete = True
+            continue
+        try:
+            view = annotation_view(
+                annotation, text[annotation.block_start : annotation.block_end], prepared.vocab
+            )
+        except AnnotationUnavailable:
+            incomplete = True
+            continue
+        result = prepared.match(view)
+        incomplete |= any(status != "available" for _, _, status in result.availability)
+        inspected.add(pointer)
+        tokens = annotation.tokens
+        for match in result.matches:
+            rule = variants[match.rule, match.variant]
+            nodes = dict(zip((n["id"] for n in rule["nodes"]), match.nodes, strict=True))
+            sentences = {tokens[index].sentence for index in nodes.values()}
+            if len(sentences) != 1:
+                continue
+            (sentence_index,) = sentences
+            if sentence_index is None:
+                continue
+            found = _named_roles(text, view.doc, tokens, piece, rule, nodes, recipe)
+            if found is None:
+                continue
+            left, cue, right, designator, complete = found
+            sentence = annotation.sentences[sentence_index]
+            prefix = text[sentence.start : cue[0]]
+            quoted = prefix.count('"') % 2 == 1 or prefix.count("“") > prefix.count("”")
+            cautious = bool(
+                match.negation_extents
+                or re.search(r"\b(?:do|does|did) not\s*$", prefix, re.I)
+                or any(
+                    token.head in nodes.values()
+                    and (
+                        (token.dependency == "mark" and token.lemma.lower() in {"if", "unless"})
+                        or (
+                            token.dependency == "aux"
+                            and token.lemma.lower() in {"may", "might", "could", "would"}
+                        )
+                    )
+                    for token in tokens
+                )
+            )
+            kind = rule["kind"]
+            if not complete or quoted or cautious:
+                resolution = "insufficient_evidence"
+            elif kind in {"section_citation", "definition_reference"}:
+                resolution = "target_selection_required"
+            elif kind == "external_citation":
+                resolution = "external_target_unavailable"
+            elif kind == "procedure_reference":
+                resolution = "target_selection_required"
+            else:
+                resolution = "located"
+            for passage in selected:
+                lo, hi = max(passage.start, piece["start"]), min(passage.end, piece["end"])
+                if not all(lo <= a < b <= hi for a, b in (left, cue)):
+                    continue
+                scoped_right = right if right is None or lo <= right[0] < right[1] <= hi else None
+                state = resolution if scoped_right == right else "insufficient_evidence"
+                matches.append(
+                    NamedLinkMatch(
+                        pointer=pointer,
+                        kind=kind,
+                        left=left,
+                        cue=cue,
+                        target_pointer=pointer if state == "located" else None,
+                        right=scoped_right,
+                        scope=passage.scope,
+                        passage=passage.passage_id,
+                        resolution=state,
+                        witness=NamedCueWitness(
+                            rule=match.rule,
+                            variant=match.variant,
+                            mechanism=match.mechanism,
+                            kind=kind,
+                            annotation="annotation:" + annotation.dependency_digest,
+                            block=annotation.block_id,
+                            tokens=nodes,
+                            subject=left,
+                            cue=cue,
+                            argument=scoped_right,
+                            designator=designator,
+                            scope=passage.scope,
+                            effective_version=passage.effective_version,
+                            resolution=state,
+                        ),
+                    )
+                )
+    return NamedLinkInspection(tuple(matches), len(inspected), incomplete)

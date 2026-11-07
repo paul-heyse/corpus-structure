@@ -801,7 +801,7 @@ def test_published_capture_keeps_selected_revision_after_reading_original_source
     monkeypatch.setattr(
         module, "bind_completed_result", lambda conn, run: selected if run == 11 else source
     )
-    monkeypatch.setattr(module, "_contract_row", lambda prepared: dict(release_id=prepared))
+    monkeypatch.setattr(module, "_contract_row", lambda _conn, prepared: dict(release_id=prepared))
     page = SimpleNamespace(
         reports=(predecessor, predecessor),
         task_ids=(310, 311),

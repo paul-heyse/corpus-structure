@@ -54,6 +54,16 @@ class ContributionRequest(BaseModel):
     include_assessment: bool = False
     include_publication: bool = False
     include_support: bool = False
+    include_relationships: bool = Field(default=False, exclude_if=lambda value: not value)
+    relationship_endpoint: str | None = Field(
+        default=None,
+        min_length=1,
+        exclude_if=lambda value: value is None,
+        description="A retained endpoint contribution, citation occurrence, or heading identity.",
+    )
+    relationship_direction: Literal["inbound", "outbound", "both"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     cursor: str | None = None
     limit: int = Field(default=100, strict=True, ge=1, le=1000)
     max_bytes: int = Field(default=8_000_000, strict=True, ge=1, le=134_217_728)
@@ -71,6 +81,12 @@ class ContributionRequest(BaseModel):
             raise ValueError("choose distinct contribution IDs or one contribution ID")
         if self.include_support and not self.include_publication:
             raise ValueError("local source support requires the publication facet")
+        if (self.relationship_endpoint or self.relationship_direction) and not (
+            self.include_relationships
+        ):
+            raise ValueError("relationship traversal requires the relationship facet")
+        if self.relationship_direction and not self.relationship_endpoint:
+            raise ValueError("relationship direction requires an endpoint")
         return self
 
 
@@ -361,12 +377,24 @@ def _contributions(
                 )
             )
         assessments = tuple(assessment_rows)
+    relationships = ()
+    if request.include_relationships:
+        from .contribution_relationships import read_contribution_relationships
+
+        relationships = read_contribution_relationships(
+            conn,
+            inventory.operations,
+            endpoint=request.relationship_endpoint,
+            direction=request.relationship_direction or "both",
+            max_bytes=request.max_bytes,
+        )
     items = tuple(
         dict(population=population, row=json.loads(canonical_bytes(row)))
         for population, rows in (
             ("report", inventory.reports),
             ("operation", inventory.operations),
             ("contribution", inventory.contributions),
+            ("relationship", relationships),
             ("interpretation", interpretations),
             ("assessment", assessments),
             ("local_assertion", local_rows),
@@ -395,6 +423,7 @@ def _contributions(
             reports=len(inventory.reports),
             operations=len(inventory.operations),
             contributions=len(inventory.contributions),
+            **({"relationships": len(relationships)} if request.include_relationships else {}),
             interpretations=len(interpretations),
             assessments=len(assessments),
             local_assertion_witnesses=len(local_rows),

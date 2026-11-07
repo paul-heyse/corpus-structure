@@ -140,6 +140,12 @@ def semantic_target_groups(
                 raise ValueError(
                     "component target meaning requires its exclusive source-resolved variant"
                 )
+        elif target.type_name == "section-heading":
+            if target.target_id not in semantic_targets:
+                raise ValueError("heading inventory requires authenticated target meaning")
+            meaning = _meaning(semantic_targets[target.target_id])
+            if set(meaning) != {"section_heading"} or target.source_binding != target.target_id:
+                raise ValueError("heading requires its own authenticated target variant")
         else:
             meaning = _meaning(dict(curated_target=asdict(target)))
         target_id = identity("semantic-target", meaning)
@@ -285,7 +291,9 @@ def fuse_candidates(
     if not occurrence_id:
         raise ValueError("candidate list requires an occurrence identity")
     if query is None:
-        if set(channels) != {"witness"} or not channels["witness"]:
+        if set(channels) != {"witness"} or (
+            not channels["witness"] and inventory.reliable_type != "section-heading"
+        ):
             raise ValueError("vector-free retrieval requires exact witnesses")
         policy = WITNESS_ONLY_RETRIEVAL_POLICY
     else:

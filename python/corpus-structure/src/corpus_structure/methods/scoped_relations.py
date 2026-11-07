@@ -285,6 +285,7 @@ def discover_relations(
     predicate_version="2",
     inline_equations_enabled=False,
     witnessed_links_enabled=False,
+    named_link_version="1",
 ):
     """Return participants and relation candidates against actual detached source pieces.
 
@@ -392,6 +393,8 @@ def discover_relations(
         witness=None,
         extra_witnesses=(),
         question=None,
+        question_version=None,
+        effective_version=None,
     ):
         extra = tuple(row["contribution_id"] for row in extra_witnesses)
         if witness is not None:
@@ -430,10 +433,14 @@ def discover_relations(
                 kind="scoped_attachment",
                 question=question
                 or ("source_structural_relations" if operation == op else "source_procedure_roles"),
-                question_version="1"
-                if operation == op or question
-                else PROCEDURE_OPERATION_VERSION,
+                question_version=question_version
+                or ("1" if operation == op or question else PROCEDURE_OPERATION_VERSION),
                 scope=region,
+                **(
+                    {"effective_version": effective_version}
+                    if effective_version is not None
+                    else {}
+                ),
                 interpretation=state,
                 bases=(
                     dict(
@@ -1050,10 +1057,15 @@ def discover_relations(
             )
     if witnessed_links_enabled:
         from .witnessed_source_links import (
+            INHERITANCE_QUESTION,
             NAMED_QUESTION,
+            NAMED_VERSION,
             QUESTION,
             VERSION,
+            match_named_source_links,
             named_source_links,
+            procedure_artifact_bindings,
+            qualified_inheritance,
             recapped_declarations,
         )
 
@@ -1123,7 +1135,140 @@ def discover_relations(
                     computation_dependencies=(dependency,),
                 ),
             )
-        named = tuple(named_source_links(frame.text, source_pieces, items, passages))
+        if named_link_version == NAMED_VERSION:
+            named = ()
+            if passages is not None:
+                inspected, inherited = qualified_inheritance(products)
+                inheritance_op = operation_identity(INHERITANCE_QUESTION, "1", pin, selection)
+                for cue, host, qualification in inherited:
+                    component = qualification["component"]
+                    relation(
+                        cue,
+                        host,
+                        "scope_inheritance",
+                        component["scope"],
+                        "matched_cue",
+                        operation=inheritance_op,
+                        extra_witnesses=(qualification,),
+                        question=INHERITANCE_QUESTION,
+                        effective_version=component.get("effective_version"),
+                    )
+                if inherited:
+                    inheritance_outcome = "limited" if annotation_errors else "succeeded"
+                else:
+                    inheritance_outcome = (
+                        "unsupported" if annotation_errors or not annotations else "empty"
+                    )
+                witnessed_operations += (
+                    dict(
+                        operation_key=inheritance_op,
+                        question=INHERITANCE_QUESTION,
+                        operation_version="1",
+                        outcome=inheritance_outcome,
+                        inspected_count=inspected,
+                        emitted_count=len(inherited),
+                        computation_dependencies=tuple(
+                            dict.fromkeys((dependency, *annotation_dependencies))
+                        ),
+                        **(
+                            {"reason": "Some selected qualifier evidence is unavailable."}
+                            if inheritance_outcome in {"limited", "unsupported"}
+                            else {}
+                        ),
+                    ),
+                )
+                inspection = match_named_source_links(
+                    frame.text,
+                    source_pieces,
+                    items,
+                    passages,
+                    annotations,
+                    annotation_errors=annotation_errors,
+                )
+                named_op = operation_identity(NAMED_QUESTION, NAMED_VERSION, pin, selection)
+                first = len(products)
+                artifact_bindings = procedure_artifact_bindings(products)
+                for link in inspection.matches:
+                    evidence = link.evidence()
+                    extra = dict(resolution=link.resolution, named_cue=evidence)
+                    deps = (link.witness.annotation,)
+                    artifact_deps = (
+                        artifact_bindings.get((link.pointer, *link.left), ())
+                        if link.kind == "procedure_reference"
+                        and link.resolution == "target_selection_required"
+                        else ()
+                    )
+                    reading_key = operation_identity(evidence, link.passage)
+                    subject = participant(
+                        *link.left,
+                        role="named_link_subject",
+                        pointer=link.pointer,
+                        region=link.passage,
+                        extra=extra,
+                        dependencies=(*deps, *artifact_deps),
+                        operation=named_op,
+                        reading_key=reading_key,
+                    )
+                    cue = participant(
+                        *link.cue,
+                        role="named_link_cue",
+                        pointer=link.pointer,
+                        region=link.passage,
+                        extra=extra,
+                        dependencies=deps,
+                        operation=named_op,
+                        reading_key=reading_key,
+                    )
+                    if link.right is None or link.target_pointer is None:
+                        continue
+                    target = participant(
+                        *link.right,
+                        role="named_link_target",
+                        pointer=link.target_pointer,
+                        region=link.passage,
+                        extra=extra,
+                        dependencies=deps,
+                        operation=named_op,
+                        reading_key=reading_key,
+                    )
+                    relation(
+                        subject,
+                        target,
+                        link.kind,
+                        link.scope,
+                        "matched_cue",
+                        operation=named_op,
+                        witness=cue,
+                        question=NAMED_QUESTION,
+                        question_version=NAMED_VERSION,
+                        effective_version=link.witness.effective_version,
+                    )
+                outcome = inspection.outcome()
+                witnessed_operations += (
+                    dict(
+                        operation_key=named_op,
+                        question=NAMED_QUESTION,
+                        operation_version=NAMED_VERSION,
+                        outcome=outcome,
+                        inspected_count=inspection.inspected_count,
+                        emitted_count=len(products) - first,
+                        computation_dependencies=tuple(
+                            dict.fromkeys((dependency, *annotation_dependencies))
+                        ),
+                        **(
+                            {"annotation_origin_task_id": annotation_origin_task_id}
+                            if annotation_origin_task_id is not None
+                            else {}
+                        ),
+                        **(
+                            {"reason": "Some selected cue or target coverage remains unresolved."}
+                            if outcome in {"limited", "unsupported"}
+                            else {}
+                        ),
+                    ),
+                )
+        else:
+            named = tuple(named_source_links(frame.text, source_pieces, items, passages))
         if named:
             named_op = operation_identity(NAMED_QUESTION, VERSION, pin, selection)
             first = len(products)
@@ -1204,7 +1349,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "6"
+    version = "7"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -1330,6 +1475,7 @@ class ScopedRelationsMethod:
                 predicate_version="3",
                 inline_equations_enabled=True,
                 witnessed_links_enabled=True,
+                named_link_version="2",
             )
             from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
             from corpus_structure.methods.table_interpretation import table_policy_operations

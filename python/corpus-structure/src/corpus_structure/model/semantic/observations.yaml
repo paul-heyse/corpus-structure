@@ -881,12 +881,12 @@ classes:
       scope: {required: true}
       effective_version: {}
       targets: {range: ContextualTarget, inlined: true, multivalued: true}
-      semantic_groups: {range: ContextualSemanticTargetGroup, inlined: true, multivalued: true, required: true}
+      semantic_groups: {range: ContextualSemanticTargetGroup, inlined: true, multivalued: true}
       reliable_type: {}
       parent: {}
   ContextualTargetMeaning:
     is_a: SourceRecordProduct
-    description: Exactly source-resolved component meaning or an explicitly curator-owned singleton descriptor; native and pure binding enforce the disjoint variants.
+    description: One source-resolved component, exact native heading, or curator-owned singleton descriptor.
     attributes:
       term: {range: StructuralPublicCitation, inlined: true}
       content: {range: StructuralPublicCitation, inlined: true}
@@ -894,6 +894,7 @@ classes:
       scope: {}
       effective_version: {}
       curated_target: {range: ContextualTarget, inlined: true}
+      section_heading: {range: SectionHeadingTarget, inlined: true}
   ContextualSemanticTargetGroup:
     is_a: SourceRecordProduct
     attributes:
@@ -952,7 +953,7 @@ classes:
       witness_id: {required: true}
       occurrence_id: {required: true}
       target_id: {required: true}
-      relation: {required: true, pattern: '^(denotes|alias-of|defined-by|specializes|compared-with|participates-in)$'}
+      relation: {required: true, pattern: '^(denotes|alias-of|defined-by|specializes|compared-with|participates-in|cites-section)$'}
       source_binding: {required: true}
       scope: {required: true}
       effective_version: {}
@@ -1043,6 +1044,24 @@ classes:
       scope: {required: true}
       effective_version: {}
       parent: {}
+  SectionHeadingTarget:
+    is_a: SourceRecordProduct
+    attributes:
+      target_id: {required: true, pattern: '^section-heading:[0-9a-f]{64}$'}
+      designator: {required: true, pattern: '^[0-9]+(?:\.[0-9]+)+$'}
+      label: {required: true}
+      pointer: {required: true}
+      work_id: {required: true}
+      scope: {required: true}
+      effective_version: {}
+      citations: {range: ExternalSourceRef, required: true, inlined: true, multivalued: true, minimum_cardinality: 1}
+  SectionCitationResolution:
+    is_a: SourceRecordProduct
+    attributes:
+      occurrence_id: {required: true}
+      designator: {required: true, pattern: '^[0-9]+(?:\.[0-9]+)+$'}
+      outcome: {required: true, pattern: '^(selected|ambiguous|unavailable_representation|no_compatible_candidate|insufficient_evidence|witness_budget_exceeded|outside_inventory)$'}
+      eligible_target_ids: {multivalued: true}
   StructuralPublicDefinitionComponent:
     attributes:
       term: {required: true, range: StructuralPublicCitation, inlined: true}
@@ -1054,6 +1073,11 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       component_targets: {range: ExtractedComponentTarget, inlined: true, multivalued: true}
+      section_sources: {range: ExternalSourceRef, inlined: true, multivalued: true}
+      section_catalog_sources: {range: ExternalSourceRef, inlined: true, multivalued: true}
+      section_source_origin_task_id: {range: integer, minimum_value: 1}
+      section_targets: {range: SectionHeadingTarget, inlined: true, multivalued: true}
+      section_resolutions: {range: SectionCitationResolution, inlined: true, multivalued: true}
       curated_registry_id: {}
       vector_reuse: {range: ContextualVectorReuse, multivalued: true, inlined: true}
       product_counts: {range: ContextualProductCounts, inlined: true, required: true}

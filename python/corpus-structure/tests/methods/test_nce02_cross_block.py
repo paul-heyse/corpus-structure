@@ -80,6 +80,8 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
         annotations=prepared.annotations,
         passages=None if case == "no_scope" else (passage,),
         predicate_version="3",
+        witnessed_links_enabled=True,
+        named_link_version="2",
     )
     rows = {row["contribution_id"]: row for row in output["contributions"]}
     inherited = [
@@ -99,3 +101,57 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
             and r["host_witness"] == {"kind": "list_intro", "list_group": group}
             for r in inherited
         )
+    projections = [
+        row
+        for row in rows.values()
+        if row.get("component", {}).get("attachment_kind") == "scope_inheritance"
+    ]
+    assert len(projections) == len(inherited)
+    for projection in projections:
+        cue, host = projection["members"]
+        (qualified,) = [
+            row
+            for row in rows.values()
+            if row.get("component", {}).get("kind") == "predicate_qualifier"
+            and tuple(row["members"][:2]) == (cue, host)
+        ]
+        assert qualified["contribution_id"] in projection["computation_dependencies"]
+
+
+@pytest.mark.parametrize(
+    ("clause", "expected_hosts"),
+    [
+        ("we record the input and check the result", ("check",)),
+        ("the analyst records the input and checks the result", ()),
+        ("the analyst records the input and the reviewer checks the result", ()),
+        ("the analyst records the input or checks the result", ()),
+    ],
+)
+def test_scope_inheritance_requires_an_explicit_shared_clause(clause, expected_hosts):
+    text = f"If the test succeeds, {clause}."
+    view = complete_native_fields(source(text, labels=("text",)))
+    view = replace(view, items=tuple(dict(item, content_layer="body") for item in view.items))
+    prepared = prepare_source(view, annotations_only=True)
+    passage = StructuralPassage(
+        passage_id="scope",
+        scope="scope",
+        source_ref="fixture",
+        start=0,
+        end=len(text),
+        text=text,
+    )
+    output = discover_relations(
+        native_source_frame(view, ()),
+        annotations=prepared.annotations,
+        passages=(passage,),
+        predicate_version="3",
+        witnessed_links_enabled=True,
+        named_link_version="2",
+    )
+    rows = {row["contribution_id"]: row for row in output["contributions"]}
+    hosts = tuple(
+        prepared.annotations[0].tokens[rows[row["members"][1]]["component"]["predicate_token"]]
+        for row in rows.values()
+        if row.get("component", {}).get("attachment_kind") == "scope_inheritance"
+    )
+    assert tuple(text[token.start : token.end] for token in hosts) == expected_hosts

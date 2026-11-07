@@ -36,9 +36,23 @@ class RetainedRelationshipDecisionRef(BaseModel):
 
 
 RelationKind = Literal[
-    "denotes", "alias-of", "defined-by", "specializes", "compared-with", "participates-in"
+    "denotes",
+    "alias-of",
+    "defined-by",
+    "specializes",
+    "compared-with",
+    "participates-in",
+    "cites-section",
 ]
-RELATIONS = {"denotes", "alias-of", "defined-by", "specializes", "compared-with", "participates-in"}
+RELATIONS = {
+    "denotes",
+    "alias-of",
+    "defined-by",
+    "specializes",
+    "compared-with",
+    "participates-in",
+    "cites-section",
+}
 
 
 @dataclass(frozen=True)
@@ -199,7 +213,7 @@ def relationship_compatible(
     # Exclusion prevents denotation/alias assignment, not an assertion that two distinct
     # concepts are compared or participate together. No transitive closure occurs here.
     excluded = (occurrence_id, target_id) in exclusions or (target_id, occurrence_id) in exclusions
-    return not (excluded and relation in {"denotes", "alias-of"})
+    return not (excluded and relation in {"denotes", "alias-of", "cites-section"})
 
 
 def select_relationships(
@@ -270,6 +284,10 @@ def select_relationships(
             raise ValueError("duplicate relationship witness")
         if witness.relation not in owners:
             raise ValueError("witness has no declared relationship constraint")
+        if (witness.relation == "cites-section") != (
+            targets[witness.target_id].type_name == "section-heading"
+        ):
+            raise ValueError("section citations require exact heading targets")
         seen.add(witness.witness_id)
         if effective_version is None and targets[witness.target_id].effective_version is not None:
             version_unestablished = True

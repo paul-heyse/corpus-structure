@@ -189,3 +189,76 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
         ("external_citation", "Box and Muller.9", None),
     ]
     assert links[-1].resolution == "external_target_unavailable"
+
+
+def test_retained_named_link_recipe_preserves_roles_and_refuses_inferred_endpoints():
+    from corpus_structure.methods.source_preparation import prepare_source
+    from corpus_structure.methods.witnessed_source_links import match_named_source_links
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    lines = (
+        "For comparison, see Section 5.2.",
+        "The scope is as defined in Section 6.3.",
+        "Central Limit Theorem (CLT).",
+        "Conditional Limit Theory, hereafter CLT, applies only in this experiment.",
+        "Old Control is hereafter called New Control.",
+        "Old Control was renamed to New Control.",
+        "Version B supersedes Version A.",
+        "Version A is superseded by Version C.",
+        "New Control specializes Old Control.",
+        "New Control does not specialize Standard Control.",
+        'The note says "Version D supersedes Version C".',
+        "Use Table 6.1 for this procedure.",
+        "See Box and Muller.9",
+    )
+    view = complete_native_fields(source("\n".join(lines), labels=("text",) * len(lines)))
+    view = replace(view, items=tuple(dict(item, content_layer="body") for item in view.items))
+    prepared = prepare_source(view, annotations_only=True)
+    assert not prepared.annotation_errors
+    passage = StructuralPassage(
+        passage_id="chapter",
+        source_ref="fixture",
+        start=0,
+        end=len(view.text),
+        scope="fixture-work",
+        effective_version="R2",
+        text=view.text,
+    )
+    result = match_named_source_links(
+        view.text,
+        view.pieces,
+        {item["self_ref"]: item for item in view.items},
+        (passage,),
+        prepared.annotations,
+    )
+
+    def literal(extent):
+        return view.text[slice(*extent)] if extent is not None else None
+
+    by_kind = {
+        (match.kind, literal(match.left), literal(match.right)): match for match in result.matches
+    }
+    assert result.inspected_count == len(lines)
+    assert result.outcome() == "limited"
+    for kind, subject, argument, resolution in (
+        ("section_citation", "Section 5.2", None, "target_selection_required"),
+        ("definition_reference", "Section 6.3", None, "target_selection_required"),
+        ("alias", "Central Limit Theorem", "CLT", "located"),
+        ("alias", "Conditional Limit Theory", "CLT", "located"),
+        ("alias", "Old Control", "New Control", "located"),
+        ("renames", "Old Control", "New Control", "located"),
+        ("supersedes", "Version B", "Version A", "located"),
+        ("supersedes", "Version C", "Version A", "located"),
+        ("specializes", "New Control", "Old Control", "located"),
+        ("specializes", "New Control", "Standard Control", "insufficient_evidence"),
+        ("supersedes", "Version D", "Version C", "insufficient_evidence"),
+        ("procedure_reference", "Table 6.1", "Use", "target_selection_required"),
+        ("external_citation", "Box and Muller.9", None, "external_target_unavailable"),
+    ):
+        key = (kind, subject, argument)
+        assert key in by_kind, sorted(by_kind)
+        match = by_kind[key]
+        assert match.resolution == resolution
+        assert (match.witness.scope, match.witness.effective_version) == ("fixture-work", "R2")
+        assert match.witness.tokens and match.witness.annotation.startswith("annotation:")
+        assert (match.target_pointer is not None) == (resolution == "located")

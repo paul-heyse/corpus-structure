@@ -1,6 +1,7 @@
 """Independent source/role and selected-edge projection controls for actual occurrence linking."""
 
 from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,10 +13,12 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.methods.contextual_candidates import (
     ContextualCandidateConfig,
     ContextualCandidates,
+    explicit_definition_section,
     relationship_contributions,
     retained_occurrences,
 )
 from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderResult, identity
+from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.contextual_links import (
     RelationshipConstraint,
     RelationshipWitness,
@@ -111,6 +114,290 @@ def test_coarse_native_occurrence_is_retained_without_an_encoder_span():
 def test_supplied_mention_and_registry_production_bridge_removed():
     with pytest.raises(ValueError):
         ContextualCandidateConfig.model_validate(dict(cases=(), registry_targets=(), scope="s"))
+
+
+def test_typed_definition_cue_cannot_fall_back_to_literal_after_refusal():
+    from corpus_structure.semantic.observations import source_value
+
+    text = 'The phrase "as defined in Section 6.2" is quoted.'
+    start = text.index("Section")
+    marker = dict(
+        kind="definition_reference",
+        designator="6.2",
+        scope="chapter",
+        resolution="insufficient_evidence",
+    )
+    product = dict(
+        anchors=(
+            {
+                "pointer": "#/texts/1",
+                "start": start,
+                "end": start + len("Section 6.2"),
+                "precision": "exact",
+                "source_piece": "Section 6.2",
+            },
+        ),
+        value=source_value(
+            dict(
+                producer_semantic_type="structural.located_participant",
+                producer_value=source_value(dict(role="named_link_subject", named_cue=marker)),
+            )
+        ),
+    )
+    nodes = {"#/texts/1": {"text": text}}
+    assert explicit_definition_section(product, nodes, scope="chapter") is None
+
+
+@pytest.fixture(scope="module")
+def contextual_report_release():
+    from corpus_structure.semantic.observations import observation_inputs
+
+    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    return prepare_release(
+        observation_inputs(SourceBundle("core", (SourceArtifact("core", path.read_bytes()),)))
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "labels",
+        "complete",
+        "budget",
+        "expected",
+        "selected",
+        "provider_available",
+        "catalog_complete",
+    ),
+    [
+        (("6.2 Target",), True, 1, "selected", True, False, None),
+        (("6.2 Target", "7.1 Unrelated"), True, 1, "selected", True, True, None),
+        (("6.2 Target", "6.2 Competitor"), True, 2, "ambiguous", False, False, None),
+        (("6.2 Target", "6.2 Competitor"), True, 1, "witness_budget_exceeded", False, False, None),
+        (("6.2 Target",), False, 1, "unavailable_representation", False, False, None),
+        ((), True, 1, "no_compatible_candidate", False, False, None),
+        ((), True, 1, "outside_inventory", False, False, True),
+        ((), True, 1, "no_compatible_candidate", False, False, False),
+    ],
+)
+def test_retained_cross_view_heading_coverage_precedes_exploration(
+    monkeypatch,
+    labels,
+    complete,
+    budget,
+    expected,
+    selected,
+    provider_available,
+    catalog_complete,
+    contextual_report_release,
+):
+    from corpus_structure.semantic.contextual_registry import SectionHeadingTarget
+    from corpus_structure.semantic.observations import source_value
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import record_source_pin
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+    text = "See Section 6.2."
+    source = view()
+    source = replace(
+        source,
+        text=text,
+        pieces=(dict(source.pieces[0], end=len(text)),),
+        items=(source.items[0], dict(source.items[1], text=text)),
+    )
+    pin = record_source_pin(native_source_frame(source, ()))
+    cue_ref = ExternalSourceRef(
+        project_id="project",
+        run_id=1,
+        cut_id=1,
+        release_id="release",
+        result_revision=0,
+        source_view_id=source.ref.id,
+        native_task_id=source.ref.native_product.task_id,
+        native_product_key=source.ref.native_product.product_key,
+        native_content_digest=source.ref.native_product.content_digest,
+        projection_digest=source.ref.projection_digest,
+        recipe_digest=source.ref.recipe_digest,
+        coordinate_version=2,
+    )
+    destination = cue_ref.model_copy(update={"source_view_id": source.ref.id + 1})
+    outside_ref = cue_ref.model_copy(update={"source_view_id": source.ref.id + 2})
+    targets = []
+    for index, label in enumerate(labels, 2):
+        pointer = f"#/texts/{index}"
+        targets.append(
+            SectionHeadingTarget(
+                target_id=identity(
+                    "section-heading",
+                    [
+                        destination.native_content_digest,
+                        destination.native_product_key,
+                        pointer,
+                        0,
+                        len(label),
+                    ],
+                ),
+                label=label,
+                designator=label.split()[0],
+                pointer=pointer,
+                work_id="work",
+                scope="chapter",
+                citations=(destination,),
+            )
+        )
+    cfg = ContextualCandidateConfig(
+        source_dependency_method="structure.scoped_relations",
+        section_sources=(cue_ref, destination),
+        section_catalog_sources=(outside_ref,) if catalog_complete is not None else (),
+        source_product_digest=source.ref.native_product.content_digest,
+        source_projection_digest=source.ref.projection_digest,
+        scope="chapter",
+        unique_target_budget=budget,
+    )
+    anchor = dict(
+        pin=pin,
+        space="native",
+        pointer="#/texts/1",
+        precision="exact",
+        start=4,
+        end=15,
+        source_piece="Section 6.2",
+    )
+    anchor["anchor_id"] = anchor_identity(anchor)
+    original = dict(
+        kind="occurrence",
+        semantic_type="structural.located_participant",
+        operation_key="producer",
+        item_key="section-mention",
+        pin=pin,
+        anchors=(anchor,),
+        occurrence_id=occurrence_identity((anchor,)),
+        value=source_value(
+            dict(
+                role="named_link_subject",
+                named_cue=dict(
+                    kind="section_citation",
+                    designator="6.2",
+                    scope="chapter",
+                    resolution="target_selection_required",
+                ),
+            )
+        ),
+    )
+    original["contribution_id"] = contribution_identity(original)
+
+    def unavailable(_profile):
+        raise OSError("encoder unavailable")
+
+    monkeypatch.setattr(
+        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation",
+        (lambda _profile: ()) if provider_available else unavailable,
+    )
+
+    def encoded(items, profile, **_kwargs):
+        digest = "a" * 64
+        vectors = tuple(
+            EncodedVector(
+                identity(
+                    "context-vector",
+                    [
+                        item.object_id,
+                        item.source_binding,
+                        profile.profile_id,
+                        digest,
+                        item.representation_digest,
+                    ],
+                ),
+                item.object_id,
+                item.source_binding,
+                profile.profile_id,
+                digest,
+                (1.0,) + (0.0,) * (profile.dimension - 1),
+                item.representation_digest,
+            )
+            for item in items
+        )
+        return EncoderResult(profile.profile_id, (), vectors, ())
+
+    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
+
+    def retrieve(**request):
+        (wrong,) = [target for target in targets if target.designator != "6.2"]
+        return fuse_candidates(
+            occurrence_id=request["occurrence_id"],
+            query=request["query"],
+            inventory=request["inventory"],
+            budget=1,
+            lexical_query=request["lexical_query"],
+            channels={"dense": (ChannelHit(wrong.target_id, 0.9),)},
+        )
+
+    outside_label = "6.2 Outside selected views"
+    outside_target = SectionHeadingTarget(
+        target_id=identity(
+            "section-heading",
+            [
+                outside_ref.native_content_digest,
+                outside_ref.native_product_key,
+                "#/texts/99",
+                0,
+                len(outside_label),
+            ],
+        ),
+        label=outside_label,
+        designator="6.2",
+        pointer="#/texts/99",
+        work_id="work",
+        scope="chapter",
+        citations=(outside_ref,),
+    )
+
+    def heading_inventory(refs, *_):
+        assert refs[:2] == (cue_ref, destination)
+        if len(refs) == 3:
+            assert refs[2] == outside_ref and catalog_complete is not None
+            rows = [*targets, outside_target]
+            coverage = catalog_complete
+        else:
+            rows = targets
+            coverage = complete
+        return {
+            "targets": [target.model_dump(mode="json") for target in rows],
+            "complete": coverage,
+        }
+
+    reader = SimpleNamespace(
+        source_view=lambda _: source,
+        source_result=lambda *_: {"contributions": (original,), "origin_task_id": 1},
+        contextual_section_headings=heading_inventory,
+        cached_contextual_vectors=lambda **_: (),
+        contextual_candidates=retrieve,
+    )
+    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
+    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
+
+    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
+    assert result.contribution_operations is not None
+    for operation in result.contribution_operations:
+        contextual_report_release.validate_python("SourceContributionOperation", operation)
+    report = result.contribution_operations[0]["contextual_enrichment"]
+    (resolution,) = report["section_resolutions"]
+    assert resolution["outcome"] == expected
+    matching = tuple(sorted(target.target_id for target in targets if target.designator == "6.2"))
+    assert resolution["eligible_target_ids"] == matching
+    (decision,) = report["relationship_decisions"]
+    assert bool(decision["selected_edges"]) is selected
+    assert bool(decision["alternative_groups"]) is (expected == "ambiguous")
+    (candidate,) = report["candidate_lists"]
+    assert ("query_vector_id" in candidate) is provider_available
+    channels = {channel["channel"]: channel["hits"] for channel in candidate["channel_results"]}
+    assert len(channels["witness"]) == min(budget, len(matching))
+    if catalog_complete is not None:
+        assert report["section_catalog_sources"] == (outside_ref.model_dump(mode="json"),)
+        assert report["section_targets"] == () and candidate["candidates"] == ()
+    if provider_available:
+        (winner,) = candidate["candidates"]
+        assert winner["target_id"] == matching[0]
+        assert channels["dense"][0]["target_id"] != winner["target_id"]
 
 
 def test_projection_preserves_all_selected_kinds_without_first_alternative():

@@ -868,12 +868,16 @@ def series_native_definitions(connection, *, include_selected=True):
         "validate_source_predicates",
         "validate_witnessed_formula_links",
         "validate_named_source_links",
+        "named_link_nominal",
+        "validate_named_annotation_links",
+        "validate_scope_inheritance",
         "clause_model_concordance",
         "validate_source_contribution_report",
         "project_source_contributions",
         "contextual_identity_value",
         "contextual_nullable_value",
         "contextual_component_section",
+        "contextual_section_headings",
         "validate_contextual_selection",
     ):
         definitions.extend(
@@ -885,7 +889,7 @@ def series_native_definitions(connection, *, include_selected=True):
                 grants=tuple(
                     (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
                 )
-                if name == "contextual_component_section"
+                if name in {"contextual_component_section", "contextual_section_headings"}
                 else (),
             )
         )

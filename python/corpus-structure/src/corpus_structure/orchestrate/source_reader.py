@@ -97,6 +97,16 @@ class ScopedSourceReader:
     def component_semantic_targets(self, targets):
         return self._read(lambda reader: reader.component_semantic_targets(targets))
 
+    def retained_component_section(self, reference, work_digest):
+        return self._read(lambda reader: reader.retained_component_section(reference, work_digest))
+
+    def contextual_section_headings(self, sources, source_view_id, scope, effective_version):
+        return self._read(
+            lambda reader: reader.contextual_section_headings(
+                sources, source_view_id, scope, effective_version
+            )
+        )
+
     def cached_contextual_vectors(self, **request):
         return self._read(lambda reader: reader.cached_contextual_vectors(**request))
 

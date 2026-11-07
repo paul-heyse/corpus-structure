@@ -50,6 +50,8 @@ SEMANTIC_IMPLEMENTATION_NAMES = frozenset(
         "grammar/shipped.lark",
         "text/model.json",
         "libraries.json",
+        "operations/section-packets.json",
+        "operations/named-link-rules.json",
     }
 )
 
@@ -1087,6 +1089,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 *M1_IMPLEMENTATION_SOURCES,
                 ("records/record-contracts.py", "semantic/record_contracts.py"),
                 ("records/observations.py", "semantic/observations.py"),
+                ("operations/section-packets.json", "model/semantic/nce-section-packets.json"),
+                ("operations/named-link-rules.json", "methods/named_link_rules.json"),
                 ("capture/storage.py", "semantic/capture_storage.py"),
                 ("publication/arrow.py", "semantic/arrow_publication.py"),
                 ("graph/ontology.py", "semantic/ontology.py"),
@@ -1727,6 +1731,10 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     }
     required_implementations.update(name for name, _ in POSTGRESQL_IMPLEMENTATION_SOURCES)
     required_implementations.update(name for name, _ in M1_IMPLEMENTATION_SOURCES)
+    if "operations/section-packets.json" in names or "operations/named-link-rules.json" in names:
+        required_implementations.update(
+            {"operations/section-packets.json", "operations/named-link-rules.json"}
+        )
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
         required_implementations.update(
             {

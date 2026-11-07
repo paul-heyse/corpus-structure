@@ -24,7 +24,7 @@ from typing import Any, Literal
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import Connection, func, select
+from sqlalchemy import Connection, func, select, text
 
 from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.semantic.capture_storage import LogicalRows
@@ -45,6 +45,7 @@ from corpus_structure.settings import Settings
 
 FORMAT = "progressive-review-bundle-1"
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+SECTION_PACKET_INPUT = "execution/implementation/operations/section-packets.json"
 
 
 class ReviewComparison(BaseModel):
@@ -92,8 +93,8 @@ def _digest(path: Path) -> str:
         return file_digest(stream, "sha256").hexdigest()
 
 
-def _contract_row(prepared):
-    return {
+def _contract_row(conn, prepared):
+    row: dict[str, Any] = {
         "release_id": prepared.release_id,
         "definitions": [asdict(value) for value in prepared.definitions],
         "registry_rows": [
@@ -105,6 +106,38 @@ def _contract_row(prepared):
             for value in prepared.registry_rows
         ],
     }
+    expected = dict(json.loads(prepared.manifest).get("dependencies", ())).get(SECTION_PACKET_INPUT)
+    if expected is not None:
+        inputs = table("sem.input")
+        content = bytes(
+            conn.execute(
+                select(inputs.c.content).where(
+                    inputs.c.release_id == prepared.release_id,
+                    inputs.c.input_kind == "dependency",
+                    inputs.c.input_name == SECTION_PACKET_INPUT,
+                )
+            ).scalar_one()
+        )
+        if sha256(content).hexdigest() != expected:
+            raise SemanticRefusal("archived section packet mapping differs from release")
+        row["section_packets"] = {
+            "manifest_base64": base64.b64encode(prepared.manifest).decode(),
+            "input_base64": base64.b64encode(content).decode(),
+        }
+    return row
+
+
+def _section_source_refs(report):
+    if report.get("method") != "retrieve.contextual":
+        return ()
+    from corpus_structure.semantic.structural_products import ExternalSourceRef
+
+    config = report.get("configuration") or {}
+    return tuple(
+        ExternalSourceRef.model_validate(ref)
+        for field in ("section_sources", "section_catalog_sources")
+        for ref in config.get(field, ())
+    )
 
 
 def _structural_predecessors(report):
@@ -152,7 +185,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
         session = bind_completed_result(conn, original.run_id)
         if session.binding.release_id not in seen_releases:
             seen_releases.add(session.binding.release_id)
-            yield "contracts", _contract_row(session.prepared)
+            yield "contracts", _contract_row(conn, session.prepared)
         source_ids: set[int] = set()
         report_ids: set[int] = set()
         for item in page.items:
@@ -263,6 +296,26 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
             source_ids.update(_report_source_ids(report["body"]))
             pending_reports.update(_retained_report_ids(report))
             permitted.update(ref.id for ref in selected_source_views(conn, report["origin_run_id"]))
+            for ref in _section_source_refs(report):
+                if ref.project_id != project_id:
+                    raise SemanticRefusal("section source belongs to another project")
+                external = bind_completed_result(conn, ref.run_id)
+                if (
+                    external.completed_cut_id != ref.cut_id
+                    or external.binding.release_id != ref.release_id
+                    or external.binding.data_revision != ref.result_revision
+                ):
+                    raise SemanticRefusal("section source differs from original run/cut/revision")
+                # The native validator checks exact cut membership, projection and source pins.
+                conn.execute(
+                    text("SELECT ops.validate_structural_source(CAST(:source AS jsonb))"),
+                    {"source": ref.model_dump_json()},
+                )
+                source_ids.add(ref.source_view_id)
+                permitted.add(ref.source_view_id)
+                if ref.release_id not in seen_releases:
+                    seen_releases.add(ref.release_id)
+                    yield "contracts", _contract_row(conn, external.prepared)
             yield "reports", {"origin_task_id": report_id, **dict(report)}
         if not source_ids <= permitted:
             raise SemanticRefusal("raw report source is outside selected/original run membership")
@@ -282,7 +335,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
         project_id = conn.scalar(select(run.c.project_id).where(run.c.id == original.run_id))
         if selected_session.binding.release_id not in seen_releases:
             seen_releases.add(selected_session.binding.release_id)
-            yield "contracts", _contract_row(selected_session.prepared)
+            yield "contracts", _contract_row(conn, selected_session.prepared)
         after = 0
         while True:
             cancellation.check_active()
@@ -431,7 +484,7 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         raise SemanticRefusal("structural original run/cut/revision differs")
                     if ref.release_id not in seen_releases:
                         seen_releases.add(ref.release_id)
-                        yield "contracts", _contract_row(source_session.prepared)
+                        yield "contracts", _contract_row(conn, source_session.prepared)
                     run = table("ops.run")
                     if (
                         conn.scalar(select(run.c.project_id).where(run.c.id == ref.run_id))
@@ -614,8 +667,17 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
         values = report["configuration"].get("retained_source_tasks", ())
     elif report.get("method") == "structure.scoped_relations":
         body = report.get("body") or {}
-        values = tuple(_predicate_annotation_origin_ids(body)) + tuple(
-            ref["origin_task_id"] for ref in report["configuration"].get("classification_refs", ())
+        values = (
+            tuple(_predicate_annotation_origin_ids(body))
+            + tuple(
+                op["annotation_origin_task_id"]
+                for op in body.get("contribution_operations", ())
+                if op.get("question") == "source_named_links" and "annotation_origin_task_id" in op
+            )
+            + tuple(
+                ref["origin_task_id"]
+                for ref in report["configuration"].get("classification_refs", ())
+            )
         )
     elif report.get("method") == "structure.clause_classification":
         values = tuple(
@@ -1536,9 +1598,31 @@ def _verify_artifact_nomination_closure(
             raise ValueError("artifact nomination differs from exact retained endpoints")
 
 
+def _retained_review_source_view(source):
+    from corpus_structure.core.method import SourceViewRef
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.source_views import PreparedSourceView
+
+    descriptor = dict(source["ref"])
+    descriptor["native_product"] = ProductReference(**descriptor["native_product"])
+    context = source["context"]
+    return PreparedSourceView(
+        SourceViewRef(**descriptor),
+        source["text"],
+        tuple(context["pieces"]),
+        tuple(context["items"]),
+        tuple(context["ancestors"]),
+        context["health"],
+        integrated_context=(
+            json.loads(context["integrated_context_json"])
+            if "integrated_context_json" in context
+            else None
+        ),
+    )
+
+
 def _verify_predicate_closure(root, manifest):
     """Replay predicate evidence against the retained annotations and physical source pieces."""
-    from corpus_structure.core.method import SourceViewRef
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.predicate_contributions import (
@@ -1546,14 +1630,12 @@ def _verify_predicate_closure(root, manifest):
         publish_predicate_evidence,
     )
     from corpus_structure.semantic.observations import source_python
-    from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import (
         NativeSourceContext,
         SourceSlice,
         record_source_pin,
     )
-    from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.structural_products import StructuralInput
 
     if "reports" not in manifest["relations"]:
@@ -1588,23 +1670,8 @@ def _verify_predicate_closure(root, manifest):
         ):
             raise ValueError("predicate evidence lacks the exact annotation producer")
         source = sources[row["origin_unit_id"]]
-        descriptor = dict(source["ref"])
-        descriptor["native_product"] = ProductReference(**descriptor["native_product"])
-        ref = SourceViewRef(**descriptor)
-        context = source["context"]
-        view = PreparedSourceView(
-            ref,
-            source["text"],
-            tuple(context["pieces"]),
-            tuple(context["items"]),
-            tuple(context["ancestors"]),
-            context["health"],
-            integrated_context=(
-                json.loads(context["integrated_context_json"])
-                if "integrated_context_json" in context
-                else None
-            ),
-        )
+        view = _retained_review_source_view(source)
+        ref = view.ref
         frame = native_source_frame(view, ())
         details = source_python(producer["body"]["parse_detail"])
         configuration = row["configuration"]
@@ -1629,7 +1696,7 @@ def _verify_predicate_closure(root, manifest):
             max_pieces=max(1, len(view.pieces)),
         )
         method_version = row["body"].get("operation_version")
-        version = {"4": "2", "5": "3", "6": "3"}.get(method_version)
+        version = {"4": "2", "5": "3", "6": "3", "7": "3"}.get(method_version)
         if version is None or {
             op["operation_version"]
             for op in row["body"].get("contribution_operations", ())
@@ -1905,6 +1972,10 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                             captured_refs[payload["source_view_id"]] = payload["ref"]
                         elif name == "reports":
                             needed_sources.update(_report_source_ids(payload["body"]))
+                            for ref in _section_source_refs(payload):
+                                needed_sources.add(ref.source_view_id)
+                                structural_refs[ref.identity] = ref
+                                required_contracts.add(ref.release_id)
                             if payload.get("unit_type") == "source_view":
                                 needed_sources.add(payload["origin_unit_id"])
                             needed_reports.update(_retained_report_ids(payload))

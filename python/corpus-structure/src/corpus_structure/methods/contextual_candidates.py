@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import asdict
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
@@ -22,7 +22,9 @@ from corpus_structure.semantic.contextual_links import (
 )
 from corpus_structure.semantic.contextual_registry import (
     ExtractedComponentTarget,
+    SectionHeadingTarget,
     component_target_input,
+    section_target_input,
 )
 from corpus_structure.semantic.contextual_retrieval import (
     ChannelHit,
@@ -45,6 +47,7 @@ from corpus_structure.semantic.source_contexts import (
     evidence_anchor,
     record_source_pin,
 )
+from corpus_structure.semantic.structural_products import ExternalSourceRef
 
 from .contextual_embeddings import (
     E5,
@@ -231,14 +234,24 @@ def coincident_component_terms(frame, view, semantic_targets, pin):
     return by_occurrence
 
 
-def explicit_definition_section(product, nodes):
+def explicit_definition_section(product, nodes, *, scope=None, effective_version=None):
     """Read the exact source marker immediately preceding this selected occurrence."""
     if len(product["anchors"]) != 1:
         return None
     value = source_python(product["value"])
-    if value.get("producer_semantic_type") != "structural.located_participant" or (
-        source_python(value["producer_value"]).get("role") != "named_link_subject"
-    ):
+    if value.get("producer_semantic_type") != "structural.located_participant":
+        return None
+    producer = source_python(value["producer_value"])
+    if producer.get("role") != "named_link_subject":
+        return None
+    if "named_cue" in producer:
+        marker = explicit_section_citation(product, nodes)
+        if (
+            marker is not None
+            and marker["kind"] == "definition_reference"
+            and (marker["scope"], marker.get("effective_version")) == (scope, effective_version)
+        ):
+            return marker["designator"]
         return None
     (anchor,) = product["anchors"]
     if anchor["precision"] != "exact":
@@ -250,6 +263,113 @@ def explicit_definition_section(product, nodes):
     if not re.search(r"\b[Aa]s defined in $", original[: anchor["start"]]):
         return None
     return reference[1]
+
+
+def explicit_section_citation(product, nodes):
+    """Select the exact native carrier from the scoped producer's released cue recipe."""
+    value = source_python(product["value"])
+    if value.get("producer_semantic_type") != "structural.located_participant":
+        return None
+    original = source_python(value["producer_value"])
+    marker = original.get("named_cue")
+    if (
+        original.get("role") != "named_link_subject"
+        or not isinstance(marker, dict)
+        or marker.get("kind") not in {"section_citation", "definition_reference"}
+        or marker.get("resolution") != "target_selection_required"
+        or len(product["anchors"]) != 1
+    ):
+        return None
+    (anchor,) = product["anchors"]
+    match = re.fullmatch(r"Section\s+([0-9]+(?:\.[0-9]+)+)", anchor["source_piece"], re.I)
+    if (
+        anchor["precision"] != "exact"
+        or match is None
+        or marker.get("designator") != match[1]
+        or nodes[anchor["pointer"]]["text"][anchor["start"] : anchor["end"]]
+        != anchor["source_piece"]
+    ):
+        raise ValueError("section citation differs from exact retained source coordinates")
+    return marker
+
+
+SECTION_CONSTRAINT = RelationshipConstraint(
+    "section-citation", ("cites-section",), "citation", "heading", "one"
+)
+
+
+def outside_section_designators(selected, catalog) -> frozenset[str]:
+    """Report positive catalog evidence for physical headings outside selected views."""
+    selected_ids = {target.target_id for target in selected}
+    return frozenset(
+        target.designator for target in catalog if target.target_id not in selected_ids
+    )
+
+
+def section_citation_outcome(
+    marker, ids, *, scope, effective_version, complete, budget, outside=()
+):
+    """The report distinguishes inadequate coverage from a complete empty inspection."""
+    if (marker["scope"], marker.get("effective_version")) != (scope, effective_version):
+        return "insufficient_evidence"
+    if not complete:
+        return "unavailable_representation"
+    if len(ids) > budget:
+        return "witness_budget_exceeded"
+    if len(ids) > 1:
+        return "ambiguous"
+    if ids:
+        return "selected"
+    if marker["designator"] in outside:
+        return "outside_inventory"
+    return "no_compatible_candidate"
+
+
+def section_citation_witnesses(
+    carriers, heading_ids, *, source_binding, scope, effective_version, complete, budget, outside=()
+):
+    """Use all authenticated carriers in scope, withholding edges when coverage is limited."""
+    matching = tuple(
+        (product, marker)
+        for product, marker in carriers
+        if (marker["scope"], marker.get("effective_version")) == (scope, effective_version)
+    )
+    source, marker = (matching or carriers)[0]
+    occurrence = source["occurrence_id"]
+    ids = tuple(heading_ids.get(marker["designator"], ())) if matching else ()
+    outcome = section_citation_outcome(
+        marker,
+        ids,
+        scope=scope,
+        effective_version=effective_version,
+        complete=complete,
+        budget=budget,
+        outside=outside,
+    )
+    resolution = dict(
+        occurrence_id=occurrence,
+        designator=marker["designator"],
+        outcome=outcome,
+        eligible_target_ids=ids,
+    )
+    witnesses = tuple(
+        RelationshipWitness(
+            "section-citation:"
+            + operation_identity(product["contribution_id"], target_id, marker["designator"]),
+            occurrence,
+            target_id,
+            "cites-section",
+            source_binding,
+            scope,
+            effective_version,
+            (product["contribution_id"],),
+            "explicit_source_cue",
+            "unassessed" if outcome in {"selected", "ambiguous"} else "ambiguous",
+        )
+        for product, _ in matching
+        for target_id in ids[:budget]
+    )
+    return resolution, witnesses
 
 
 class ProducerRelationshipRecipe(BaseModel):
@@ -334,8 +454,16 @@ class ContextualCandidateConfig(BaseModel):
     source_dependencies: Literal["source_view_product"] = "source_view_product"
     source_dependency_method: str = Field(default="extract.m1_candidates", min_length=1)
     semantic_types: tuple[str, ...] = ()
-    target_components: tuple[ExtractedComponentTarget, ...] = Field(min_length=1, max_length=256)
-    relationship_constraints: tuple[RelationshipConstraint, ...] = Field(min_length=1)
+    target_components: tuple[ExtractedComponentTarget, ...] = Field(default=(), max_length=256)
+    section_sources: tuple[ExternalSourceRef, ...] = Field(
+        default=(), max_length=256, exclude_if=lambda value: not value
+    )
+    section_catalog_sources: tuple[ExternalSourceRef, ...] = Field(
+        default=(),
+        max_length=256,
+        exclude_if=lambda value: not value,
+    )
+    relationship_constraints: tuple[RelationshipConstraint, ...] = ()
     relationship_recipes: tuple[ProducerRelationshipRecipe, ...] = ()
     source_product_digest: str = Field(pattern="^[0-9a-f]{64}$")
     source_projection_digest: str = Field(pattern="^[0-9a-f]{64}$")
@@ -344,8 +472,40 @@ class ContextualCandidateConfig(BaseModel):
     unique_target_budget: int = Field(default=10, ge=1, le=100)
     channel_budget: int = Field(default=30, ge=1, le=256)
 
+    @model_validator(mode="after")
+    def exclusive_target_scope(self):
+        if bool(self.target_components) == bool(self.section_sources):
+            raise ValueError("choose exactly one component or section target inventory")
+        if self.unique_target_budget > self.channel_budget:
+            raise ValueError("candidate target budget exceeds the channel budget")
+        if self.section_sources:
+            sources = (*self.section_sources, *self.section_catalog_sources)
+            if (
+                len(sources) > 256
+                or len({ref.source_view_id for ref in sources}) != len(sources)
+                or self.source_dependency_method != "structure.scoped_relations"
+                or self.relationship_recipes
+                or self.relationship_constraints not in ((), (SECTION_CONSTRAINT,))
+            ):
+                raise ValueError(
+                    "section inventory requires distinct source views "
+                    "and the scoped citation recipe"
+                )
+        elif (
+            self.section_catalog_sources
+            or not self.relationship_constraints
+            or any(
+                "cites-section" in constraint.relation_kinds
+                for constraint in self.relationship_constraints
+            )
+        ):
+            raise ValueError("component inventory requires non-heading relationship constraints")
+        return self
 
-def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=()):
+
+def retained_occurrences(
+    upstream, nodes, pin, operation_key, semantic_types=(), *, canonical_producer=False
+):
     """Authenticate selected producer locations; role proposals remain distinct products.
 
     Multiple pieces in one native item may share an encoder context without making
@@ -379,6 +539,12 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
         occurrence = occurrence_identity(anchors)
         if occurrence != original["occurrence_id"]:
             raise ValueError("retained occurrence identity differs from actual source anchors")
+        component, value = original.get("component"), original.get("value")
+        if canonical_producer:
+            # SourceValue records object key order. Heading identities must survive
+            # both PostgreSQL JSONB and canonical detached JSON representations.
+            component = json.loads(canonical_bytes(component))
+            value = json.loads(canonical_bytes(value))
         product = dict(
             contract="RetainedContributionSemantics",
             kind="occurrence",
@@ -394,8 +560,8 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
             value=source_value(
                 dict(
                     producer_semantic_type=original["semantic_type"],
-                    producer_component=original.get("component"),
-                    producer_value=original.get("value"),
+                    producer_component=component,
+                    producer_value=value,
                 )
             ),
             computation_dependencies=(original["contribution_id"], original["operation_key"]),
@@ -411,7 +577,7 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
 
 class ContextualCandidates:
     name = "retrieve.contextual"
-    version = "6"
+    version = "7"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -450,22 +616,55 @@ class ContextualCandidates:
 
     def run(self, units, cfg, ctx):
         profile = E5 if cfg.profile == "e5" else QWEN
-        semantic_targets = ctx.reader.component_semantic_targets(cfg.target_components)
-        registry_id, targets = component_target_input(cfg.target_components)
-        inventory = freeze_inventory(
-            targets,
-            source_selection=registry_id,
-            scope=cfg.scope,
-            effective_version=cfg.effective_version,
-            semantic_targets=semantic_targets,
-        )
-
+        constraints = (SECTION_CONSTRAINT,) if cfg.section_sources else cfg.relationship_constraints
         results = []
         for unit in units:
             ctx.check_active()
             view = ctx.reader.source_view(unit.ref.unit_id)
             frame = native_source_frame(view, ())
             pin = record_source_pin(frame)
+            heading_targets = ()
+            section_complete = True
+            outside_designators: frozenset[str] = frozenset()
+            if cfg.section_sources:
+                if view.ref.id not in {source.source_view_id for source in cfg.section_sources}:
+                    raise ValueError("section inventory must include the original cue source view")
+                headings = ctx.reader.contextual_section_headings(
+                    cfg.section_sources, view.ref.id, cfg.scope, cfg.effective_version
+                )
+                section_complete = headings["complete"]
+                heading_targets = tuple(
+                    SectionHeadingTarget.model_validate(row) for row in headings["targets"]
+                )
+                if cfg.section_catalog_sources:
+                    catalog = ctx.reader.contextual_section_headings(
+                        (*cfg.section_sources, *cfg.section_catalog_sources),
+                        view.ref.id,
+                        cfg.scope,
+                        cfg.effective_version,
+                    )
+                    if catalog["complete"]:
+                        outside_designators = outside_section_designators(
+                            heading_targets,
+                            tuple(
+                                SectionHeadingTarget.model_validate(row)
+                                for row in catalog["targets"]
+                            ),
+                        )
+                registry_id, targets, semantic_targets = section_target_input(
+                    cfg.section_sources, heading_targets
+                )
+            else:
+                semantic_targets = ctx.reader.component_semantic_targets(cfg.target_components)
+                registry_id, targets = component_target_input(cfg.target_components)
+            inventory = freeze_inventory(
+                targets,
+                source_selection=registry_id,
+                scope=cfg.scope,
+                effective_version=cfg.effective_version,
+                reliable_type="section-heading" if cfg.section_sources else None,
+                semantic_targets=semantic_targets,
+            )
             nodes = {
                 node.get("self_ref", node.get("pointer")): node
                 for node in json.loads(frame.native_context)["items"]
@@ -483,18 +682,45 @@ class ContextualCandidates:
             if upstream is None:
                 raise ValueError("selected retained occurrence producer is unavailable")
             source_products, contexts, coordinates = retained_occurrences(
-                upstream, nodes, pin, operation_key, cfg.semantic_types
+                upstream,
+                nodes,
+                pin,
+                operation_key,
+                cfg.semantic_types,
+                canonical_producer=bool(cfg.section_sources),
             )
+            heading_mentions = defaultdict(list)
+            heading_ids = defaultdict(list)
+            section_resolutions = []
+            if cfg.section_sources:
+                for product in source_products:
+                    marker = explicit_section_citation(product, nodes)
+                    if marker is not None:
+                        heading_mentions[product["occurrence_id"]].append((product, marker))
+                source_products = tuple(
+                    product for carriers in heading_mentions.values() for product, _ in carriers
+                )
+                contexts = {
+                    key: value for key, value in contexts.items() if key in heading_mentions
+                }
+                if contexts.keys() != heading_mentions.keys():
+                    raise ValueError("retained section cue lacks a single exact native context")
+                eligible_headings = set(inventory.target_ids)
+                for target in sorted(heading_targets, key=lambda target: target.target_id):
+                    if target.target_id in eligible_headings:
+                        heading_ids[target.designator].append(target.target_id)
             own_terms = (
                 coincident_component_terms(frame, view, semantic_targets, pin)
-                if any("denotes" in c.relation_kinds for c in cfg.relationship_constraints)
+                if any("denotes" in c.relation_kinds for c in constraints)
                 else {}
             )
             section_mentions = {}
             section_targets = defaultdict(list)
-            if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
+            if any("defined-by" in c.relation_kinds for c in constraints):
                 for product in source_products:
-                    section = explicit_definition_section(product, nodes)
+                    section = explicit_definition_section(
+                        product, nodes, scope=cfg.scope, effective_version=cfg.effective_version
+                    )
                     if section is not None:
                         section_mentions.setdefault(product["occurrence_id"], (section, []))[
                             1
@@ -585,9 +811,23 @@ class ContextualCandidates:
                     if query is not None
                     else (inventory.inventory_id,)
                 )
+                section_outcome = None
                 try:
                     exact_witnesses = ()
-                    if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
+                    if cfg.section_sources:
+                        resolution, exact_witnesses = section_citation_witnesses(
+                            heading_mentions[occurrence],
+                            heading_ids,
+                            source_binding=frame.unit_ref,
+                            scope=cfg.scope,
+                            effective_version=cfg.effective_version,
+                            complete=section_complete,
+                            budget=cfg.unique_target_budget,
+                            outside=outside_designators,
+                        )
+                        section_outcome = resolution["outcome"]
+                        section_resolutions.append(resolution)
+                    if any("defined-by" in c.relation_kinds for c in constraints):
                         exact_witnesses += retained_definition_witnesses(
                             upstream,
                             source_products,
@@ -637,9 +877,9 @@ class ContextualCandidates:
                         except (ValueError, DBAPIError, TimeoutError, OSError) as error:
                             _propagate_cancellation(error, ctx.check_active)
                             retrieval_error = error
-                    if retrieval_error is not None and not exact_witnesses:
+                    if retrieval_error is not None and not (cfg.section_sources or exact_witnesses):
                         raise retrieval_error
-                    if exact_witnesses:
+                    if cfg.section_sources or exact_witnesses:
                         evidence = defaultdict(set)
                         for witness in exact_witnesses:
                             evidence[witness.target_id].update(witness.evidence_ids)
@@ -721,10 +961,12 @@ class ContextualCandidates:
                         source_binding=frame.unit_ref,
                         scope=cfg.scope,
                         effective_version=cfg.effective_version,
-                        constraints=cfg.relationship_constraints,
+                        constraints=constraints,
                         witnesses=witnesses,
                         insufficient_reason=(
-                            "explicit definition section is outside the represented "
+                            section_outcome.replace("_", " ")
+                            if section_outcome is not None
+                            else "explicit definition section is outside the represented "
                             "target inventory"
                             if occurrence in section_mentions
                             and not section_targets[section_mentions[occurrence][0]]
@@ -769,6 +1011,15 @@ class ContextualCandidates:
                 candidate_lists=lists,
                 relationship_decisions=decisions,
                 component_targets=tuple(t.model_dump(mode="python") for t in cfg.target_components),
+                section_sources=cfg.section_sources,
+                section_catalog_sources=cfg.section_catalog_sources,
+                section_source_origin_task_id=upstream.get("origin_task_id")
+                if cfg.section_sources
+                else None,
+                section_targets=heading_targets,
+                section_resolutions=tuple(
+                    sorted(section_resolutions, key=lambda row: row["occurrence_id"])
+                ),
                 vector_reuse=tuple(item.reuse for item in cached),
             )
             operation = dict(
@@ -796,7 +1047,11 @@ class ContextualCandidates:
                         canonical_bytes(
                             dict(
                                 input_population="retained-producer-occurrences-1",
-                                target_standing="retained_component_private_proposal",
+                                target_standing=(
+                                    "retained_heading_private_proposal"
+                                    if cfg.section_sources
+                                    else "retained_component_private_proposal"
+                                ),
                                 encoder_implementation=encoded.implementation if encoded else None,
                                 fresh_vector_count=len(encoded.vectors) if encoded else 0,
                                 reused_vector_count=len(cached),

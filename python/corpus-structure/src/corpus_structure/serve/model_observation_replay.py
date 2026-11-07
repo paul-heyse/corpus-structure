@@ -300,7 +300,10 @@ def verify_model_concordance_closure(root, manifest):
             ):
                 raise ValueError("unbound clause model concordance")
             continue
-        if body["method"] != "structure.scoped_relations" or body["operation_version"] != "6":
+        if body["method"] != "structure.scoped_relations" or body["operation_version"] not in {
+            "6",
+            "7",
+        }:
             raise ValueError("model concordance uses the wrong producing method")
         expected = []
         for raw_ref in config["classification_refs"]:

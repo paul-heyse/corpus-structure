@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.methods.contextual_embeddings import identity
 from corpus_structure.semantic.contextual_retrieval import target_representation
-from corpus_structure.semantic.structural_products import RetainedComponentRef
+from corpus_structure.semantic.structural_products import ExternalSourceRef, RetainedComponentRef
 
 
 class RegistryTarget(BaseModel):
@@ -81,3 +81,59 @@ def component_target_input(targets: Sequence[ExtractedComponentTarget]):
         for target, ref in zip(ordered, refs, strict=True)
     )
     return inventory_source, representations
+
+
+class SectionHeadingTarget(BaseModel):
+    """One native heading occurrence with every selected view citation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    target_id: str
+    designator: str = Field(pattern=r"^[0-9]+(?:\.[0-9]+)+$")
+    label: str = Field(min_length=1)
+    pointer: str = Field(min_length=1)
+    work_id: str = Field(min_length=1)
+    scope: str = Field(min_length=1)
+    effective_version: str | None = None
+    citations: tuple[ExternalSourceRef, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def physical_identity(self):
+        physical = {(ref.native_content_digest, ref.native_product_key) for ref in self.citations}
+        citations = [ref.identity for ref in self.citations]
+        if len(physical) != 1 or citations != sorted(set(citations)):
+            raise ValueError("heading citations must bind one physical item in stable order")
+        (product,) = physical
+        if self.target_id != identity(
+            "section-heading", [*product, self.pointer, 0, len(self.label)]
+        ):
+            raise ValueError("heading identity differs from exact native item extent")
+        return self
+
+
+def section_target_input(sources, targets: Sequence[SectionHeadingTarget]):
+    """Prepare target representations from Reader-authenticated heading occurrences."""
+    ordered = tuple(sorted(targets, key=lambda target: target.target_id))
+    registry = identity(
+        "section-heading-inventory",
+        [
+            [s.model_dump(mode="json") for s in sources],
+            [t.model_dump(mode="json") for t in ordered],
+        ],
+    )
+    representations = tuple(
+        target_representation(
+            target.target_id,
+            target.target_id,
+            target.label,
+            target.label,
+            type_name="section-heading",
+            scope=target.scope,
+            effective_version=target.effective_version,
+        )
+        for target in ordered
+    )
+    meanings = {
+        target.target_id: {"section_heading": target.model_dump(mode="json", exclude_none=True)}
+        for target in ordered
+    }
+    return registry, representations, meanings

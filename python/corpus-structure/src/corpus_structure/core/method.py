@@ -450,6 +450,20 @@ class SourcePreparationReader(Protocol):
         """Authenticate and detach source-resolved target meanings before encoder work."""
         ...
 
+    def retained_component_section(self, reference: Any, work_digest: str) -> str | None:
+        """Locate a retained component in its authenticated native section."""
+        ...
+
+    def contextual_section_headings(
+        self,
+        sources: Sequence[Any],
+        source_view_id: int,
+        scope: str,
+        effective_version: str | None,
+    ) -> Mapping[str, Any]:
+        """Detach the complete bounded selected heading inventory and its coverage."""
+        ...
+
     def cached_contextual_vectors(
         self, *, profile_id: str, targets: Sequence[TargetRepresentation]
     ) -> tuple[CachedTargetVector, ...]:

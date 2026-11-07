@@ -1008,6 +1008,284 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
 END $$;
 REVOKE ALL ON FUNCTION ops.validate_named_source_links(kb.source_view,jsonb,jsonb,jsonb) FROM PUBLIC;
 
+-- Direct role spans use only contiguous, same-sentence native nominal children.
+CREATE OR REPLACE FUNCTION ops.named_link_nominal(tokens jsonb,head_ integer,recipe jsonb,full_text text)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ WITH members AS (
+  SELECT n-1 idx,token FROM jsonb_array_elements(tokens) WITH ORDINALITY t(token,n)
+  WHERE n-1=head_ OR ((token->>'head')::integer=head_
+   AND token->'sentence'=(tokens->head_)->'sentence'
+   AND (recipe->'nominal_dependencies') ? (token->>'dependency'))
+ ), shape AS (
+  SELECT min(idx) lo,max(idx) hi,count(*) n FROM members
+ )
+ SELECT CASE WHEN n=hi-lo+1 AND n<=(recipe->>'nominal_max_tokens')::integer
+  THEN jsonb_build_array((tokens->lo::integer)->'start',
+   ((tokens->hi::integer)->>'end')::integer-CASE WHEN substring(full_text
+    FROM ((tokens->hi::integer)->>'start')::integer+1
+    FOR ((tokens->hi::integer)->>'end')::integer-((tokens->hi::integer)->>'start')::integer)~'^[A-Z]\.$'
+    THEN 1 ELSE 0 END)
+  ELSE NULL END FROM shape
+$$;
+REVOKE ALL ON FUNCTION ops.named_link_nominal(jsonb,integer,jsonb,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_named_annotation_links(
+ t ops.task,v kb.source_view,config_ jsonb,population jsonb,operation_map jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE recipe jsonb; source_ jsonb; source_key text; origin_id bigint; body jsonb; op jsonb;
+ row_ jsonb; meaning jsonb; proof jsonb; annotation jsonb; tokens jsonb; rule jsonb; node jsonb;
+ attribute record; token jsonb; idx integer; prior_idx integer; sentence_ jsonb; lo integer; hi integer;
+ word_ text; value_ text; cue_span jsonb; subject_span jsonb; arg_span jsonb; piece jsonb; native jsonb;
+ link_ jsonb; subject_row jsonb; target_row jsonb; cue_row jsonb; passage jsonb; role_span jsonb;
+ anchor_ jsonb; full_text text:=v.projection->>'text'; cue_lo integer; cue_hi integer; prefix text;
+ kind_ text; suffix text[]; initials text; artifact_refs text[]; actual_refs text[];
+BEGIN
+ PERFORM ops.validate_structural_input(config_->'inputs');
+ SELECT s INTO STRICT source_ FROM jsonb_array_elements(config_->'inputs'->'sources') s
+  WHERE (s->>'source_view_id')::bigint=v.id;
+ source_key:=encode(sha256(convert_to(data.canonical_json(source_),'UTF8')),'hex');
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT recipe FROM sem.input
+ WHERE release_id=t.release_id AND input_kind='dependency'
+  AND input_name='execution/implementation/operations/named-link-rules.json';
+ SELECT o INTO STRICT op FROM jsonb_each(operation_map) x(key,o) WHERE o->>'question'='source_named_links';
+ IF op->>'operation_version' IS DISTINCT FROM recipe->>'version' THEN
+  RAISE EXCEPTION 'named cue operation differs from released annotation recipe' USING ERRCODE='23514'; END IF;
+ SELECT r.body,r.task_id INTO body,origin_id
+ FROM ops.cut_task c JOIN ops.task selected ON selected.id=c.task_id
+ JOIN ops.task_result r ON r.task_id=c.origin_task_id
+ JOIN ops.method_config cfg ON cfg.id=selected.method_config_id
+ JOIN ops.method m ON m.id=cfg.method_id
+ WHERE c.cut_id=(source_->>'cut_id')::bigint AND selected.run_id=(source_->>'run_id')::bigint
+  AND selected.unit_id=v.id AND selected.unit_type='source_view'
+  AND c.origin_task_id=coalesce(selected.reused_task_id,selected.id)
+  AND selected.status IN ('done','reused') AND m.name='extract.m1_annotations' AND m.version='2';
+ IF (op->>'annotation_origin_task_id')::bigint IS DISTINCT FROM origin_id
+  AND NOT (origin_id IS NULL AND op->>'outcome' IN ('empty','unsupported')) THEN
+  RAISE EXCEPTION 'named cue operation lacks original annotation producer' USING ERRCODE='23514'; END IF;
+ FOR row_ IN SELECT c FROM jsonb_array_elements(population) c
+  WHERE c->>'operation_key'=op->>'operation_key' AND c->>'kind'='occurrence'
+ LOOP
+  meaning:=data.record_source_json(row_->'value'); proof:=meaning->'named_cue';
+  anchor_:=row_->'anchors'->0;
+  IF row_->>'semantic_type' IS DISTINCT FROM 'structural.located_participant'
+   OR jsonb_array_length(row_->'anchors') IS DISTINCT FROM 1
+   OR anchor_->>'precision' IS DISTINCT FROM 'exact' OR anchor_->>'space' IS DISTINCT FROM 'native'
+   OR origin_id IS NULL OR proof IS NULL OR proof->>'block' IS DISTINCT FROM anchor_->>'pointer' THEN
+   RAISE EXCEPTION 'named cue lacks retained source role and annotation' USING ERRCODE='23514'; END IF;
+  SELECT p INTO STRICT piece FROM jsonb_array_elements(v.projection->'pieces') p
+   WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index' AND coalesce(p->>'source_field','text')='text'
+    AND p->>'item_ref'=proof->>'block';
+  SELECT native_json INTO STRICT native FROM ops.read_pdf_published_items(
+   v.native_task_id,v.native_product_key,v.native_content_digest,ARRAY[piece->>'item_ref']);
+  SELECT a INTO STRICT annotation FROM jsonb_array_elements(data.record_source_json(body->'parse_detail')->'annotations') a
+   WHERE 'annotation:'||(a->>'dependency_digest')=proof->>'annotation' AND a->>'block_id'=proof->>'block';
+  SELECT p INTO STRICT passage FROM jsonb_array_elements(config_->'inputs'->'passages') p
+   WHERE p->>'source_ref'=source_key AND p->>'passage_id'=meaning->>'region'
+    AND p->>'scope'=proof->>'scope'
+    AND (p->>'effective_version') IS NOT DISTINCT FROM proof->>'effective_version';
+  SELECT r INTO STRICT rule FROM jsonb_array_elements(recipe->'rules') r
+   WHERE r->>'rule'=proof->>'rule' AND r->>'variant'=proof->>'variant'
+    AND r->>'kind'=proof->>'kind' AND r->>'mechanism'=proof->>'mechanism';
+  IF native->>'content_layer' IS DISTINCT FROM 'body' OR native->>'label' NOT IN ('text','paragraph','list_item')
+   OR (SELECT count(*) FROM jsonb_object_keys(proof->'tokens'))<>jsonb_array_length(rule->'nodes') THEN
+   RAISE EXCEPTION 'named cue differs from selected native text or recipe nodes' USING ERRCODE='23514'; END IF;
+  tokens:=annotation->'tokens'; prior_idx:=NULL; sentence_:=NULL; cue_lo:=NULL; cue_hi:=NULL;
+  FOR node IN SELECT value FROM jsonb_array_elements(rule->'nodes') LOOP
+   idx:=(proof->'tokens'->>(node->>'id'))::integer;
+   token:=tokens->idx;
+   IF idx IS NULL OR idx<0 OR token IS NULL OR token->>'sentence' IS NULL
+    OR (sentence_ IS NOT NULL AND sentence_ IS DISTINCT FROM token->'sentence')
+    OR (rule->>'mechanism'='token' AND prior_idx IS NOT NULL AND idx<>prior_idx+1)
+    OR (node ? 'parent' AND (token->>'head')::integer IS DISTINCT FROM
+      (proof->'tokens'->>(node->>'parent'))::integer) THEN
+    RAISE EXCEPTION 'named cue differs from retained token sequence or dependency' USING ERRCODE='23514'; END IF;
+   sentence_:=token->'sentence'; prior_idx:=idx;
+   lo:=(token->>'start')::integer; hi:=(token->>'end')::integer;
+   word_:=substring(full_text FROM lo+1 FOR hi-lo);
+   FOR attribute IN SELECT * FROM jsonb_each(node->'attrs') LOOP
+    value_:=CASE attribute.key WHEN 'ORTH' THEN word_ WHEN 'LOWER' THEN lower(word_)
+      WHEN 'DEP' THEN token->>'dependency' ELSE token->>lower(attribute.key) END;
+    IF (jsonb_typeof(attribute.value)='string' AND value_ IS DISTINCT FROM attribute.value#>>'{}')
+     OR (jsonb_typeof(attribute.value)='object' AND NOT coalesce(attribute.value->'IN' ? value_,false)) THEN
+     RAISE EXCEPTION 'named cue fails released retained token predicate' USING ERRCODE='23514'; END IF;
+   END LOOP;
+   IF rule->'cue' ? (node->>'id') THEN cue_lo:=least(cue_lo,lo); cue_hi:=greatest(cue_hi,hi); END IF;
+  END LOOP;
+  cue_span:=jsonb_build_array(cue_lo,cue_hi);
+  subject_span:=proof->'subject'; arg_span:=proof->'argument'; kind_:=proof->>'kind';
+  IF cue_span IS DISTINCT FROM proof->'cue' THEN
+   RAISE EXCEPTION 'named cue extent differs from recipe tokens' USING ERRCODE='23514'; END IF;
+  IF kind_ IN ('section_citation','definition_reference','procedure_reference') THEN
+   token:=tokens->((proof->'tokens'->>CASE WHEN kind_='procedure_reference' THEN 'argument' ELSE 'section' END)::integer);
+   lo:=(token->>'start')::integer; hi:=(token->>'end')::integer;
+   suffix:=regexp_match(substring(full_text FROM hi+1 FOR (piece->>'end')::integer-hi),
+    '^([ 	]+([0-9]+(?:\.[0-9]+)+))(?!\w|\.[0-9])');
+   IF suffix IS NULL OR subject_span IS DISTINCT FROM jsonb_build_array(lo,hi+char_length(suffix[1]))
+    OR proof->>'designator' IS DISTINCT FROM suffix[2]
+    OR (proof->>'resolution' NOT IN ('insufficient_evidence','target_selection_required')) THEN
+    RAISE EXCEPTION 'named cue designator or captured target semantics differs' USING ERRCODE='23514'; END IF;
+  ELSIF kind_='external_citation' THEN
+   suffix:=regexp_match(substring(full_text FROM cue_hi+1 FOR (piece->>'end')::integer-cue_hi),
+    '^([ 	]+)(ISO(?:/IEC)? [0-9]+(?::[0-9]{4})?|RFC [0-9]+|[A-Z][A-Za-z]+ and [A-Z][A-Za-z]+\.[0-9]+)(?=[. ,;)]|$)');
+   IF suffix IS NULL OR subject_span IS DISTINCT FROM jsonb_build_array(
+     cue_hi+char_length(suffix[1]),cue_hi+char_length(suffix[1])+char_length(suffix[2]))
+    OR proof->>'resolution' NOT IN ('external_target_unavailable','insufficient_evidence') THEN
+    RAISE EXCEPTION 'external citation differs from retained cue and unresolved target' USING ERRCODE='23514'; END IF;
+  ELSIF proof->>'resolution'='located' THEN
+   IF rule->>'mechanism'='dependency' THEN
+    IF subject_span IS DISTINCT FROM ops.named_link_nominal(tokens,(proof->'tokens'->>(rule->>'subject'))::integer,recipe,full_text)
+     OR arg_span IS DISTINCT FROM ops.named_link_nominal(tokens,(proof->'tokens'->>(rule->>'argument'))::integer,recipe,full_text) THEN
+     RAISE EXCEPTION 'named declaration lacks exact nominal arguments' USING ERRCODE='23514'; END IF;
+   ELSE
+    lo:=(subject_span->>0)::integer; hi:=(subject_span->>1)::integer;
+    word_:=substring(full_text FROM lo+1 FOR hi-lo);
+    IF word_ !~ '^[A-Z][A-Za-z]*( [A-Z][A-Za-z]*){0,7}$' THEN
+     RAISE EXCEPTION 'local name lacks bounded source words' USING ERRCODE='23514'; END IF;
+    lo:=(arg_span->>0)::integer; hi:=(arg_span->>1)::integer;
+    value_:=substring(full_text FROM lo+1 FOR hi-lo);
+    IF rule->>'variant'='parenthesized' THEN
+     token:=tokens->((proof->'tokens'->>'acronym')::integer);
+     SELECT string_agg(left(w,1),'' ORDER BY n) INTO initials FROM unnest(string_to_array(word_,' ')) WITH ORDINALITY p(w,n);
+     IF value_!~'^[A-Z]{2,8}$' OR initials IS DISTINCT FROM value_
+      OR arg_span IS DISTINCT FROM jsonb_build_array(token->'start',token->'end')
+      OR substring(full_text FROM (subject_span->>1)::integer+1 FOR cue_lo-(subject_span->>1)::integer) !~ '^[ 	]*$' THEN
+      RAISE EXCEPTION 'acronym differs from exact adjacent full name and abbreviation' USING ERRCODE='23514'; END IF;
+    ELSIF value_ !~ '^[A-Z][A-Za-z]*( [A-Z][A-Za-z]*){0,7}$'
+     OR substring(full_text FROM cue_hi+1 FOR lo-cue_hi) !~ '^[ 	]*$'
+     OR substring(full_text FROM (subject_span->>1)::integer+1 FOR cue_lo-(subject_span->>1)::integer) !~ '^[ 	]*,[ 	]*$' THEN
+     RAISE EXCEPTION 'hereafter declaration lacks exact adjacent source names' USING ERRCODE='23514'; END IF;
+   END IF;
+  END IF;
+  IF proof->>'resolution' IN ('located','target_selection_required') THEN
+   lo:=((annotation->'sentences')->(sentence_#>>'{}')::integer->>'start')::integer;
+   prefix:=substring(full_text FROM lo+1 FOR cue_lo-lo);
+   IF (length(prefix)-length(replace(prefix,'"','')))%2=1
+    OR length(prefix)-length(replace(prefix,'“',''))>length(prefix)-length(replace(prefix,'”',''))
+    OR prefix~*'\y(do|does|did) not[[:space:]]*$'
+    OR EXISTS(SELECT FROM jsonb_array_elements(tokens) tok
+     WHERE (tok->>'head')::integer IN (SELECT value::integer FROM jsonb_each_text(proof->'tokens'))
+      AND (tok->>'dependency'='neg'
+       OR (tok->>'dependency'='mark' AND lower(tok->>'lemma') IN ('if','unless'))
+       OR (tok->>'dependency'='aux' AND lower(tok->>'lemma') IN ('may','might','could','would')))) THEN
+    RAISE EXCEPTION 'quoted, negated or conditional named cue cannot settle target authority' USING ERRCODE='23514'; END IF;
+  END IF;
+  role_span:=CASE meaning->>'role' WHEN 'named_link_subject' THEN subject_span
+   WHEN 'named_link_cue' THEN cue_span WHEN 'named_link_target' THEN arg_span ELSE NULL END;
+  lo:=(role_span->>0)::integer; hi:=(role_span->>1)::integer;
+  IF role_span IS NULL OR lo IS NULL OR hi IS NULL OR lo<greatest((piece->>'start')::integer,(passage->>'start')::integer)
+   OR hi>least((piece->>'end')::integer,(passage->>'end')::integer) OR hi<=lo
+   OR meaning->'start' IS DISTINCT FROM role_span->0 OR meaning->'end' IS DISTINCT FROM role_span->1
+   OR meaning->>'source_pointer' IS DISTINCT FROM anchor_->>'pointer'
+   OR (anchor_->>'start')::integer+(piece->>'start')::integer<>lo
+   OR (anchor_->>'end')::integer+(piece->>'start')::integer<>hi
+   OR meaning->>'text' IS DISTINCT FROM substring(full_text FROM lo+1 FOR hi-lo)
+   OR (meaning->>'role'='named_link_target' AND proof->>'resolution'<>'located') THEN
+   RAISE EXCEPTION 'named link role differs from exact original scoped extent' USING ERRCODE='23514'; END IF;
+  IF meaning->>'role'='named_link_subject' THEN
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(population) c,
+    LATERAL (SELECT data.record_source_json(c->'value') val) m
+    WHERE c->>'operation_key'=op->>'operation_key'
+     AND m.val->>'role'='named_link_cue' AND m.val->>'region'=meaning->>'region'
+     AND m.val->'named_cue'=proof) THEN
+    RAISE EXCEPTION 'named subject lacks its exact original cue contribution' USING ERRCODE='23514';
+   END IF;
+   IF kind_='procedure_reference' AND proof->>'resolution'='target_selection_required' THEN
+    SELECT array_agg(r->>'contribution_id' ORDER BY r->>'contribution_id') INTO artifact_refs
+    FROM jsonb_array_elements(population) r JOIN LATERAL jsonb_array_elements(population) mention
+     ON mention->>'contribution_id'=r->'members'->>0
+    CROSS JOIN LATERAL (SELECT data.record_source_json(mention->'value') val) m
+    WHERE r->'component'->>'attachment_kind'='artifact_reference_target'
+     AND m.val->>'source_pointer'=meaning->>'source_pointer'
+     AND m.val->'start'=meaning->'start' AND m.val->'end'=meaning->'end';
+    SELECT array_agg(r->>'contribution_id' ORDER BY r->>'contribution_id') INTO actual_refs
+    FROM jsonb_array_elements(population) r
+    WHERE r->'component'->>'attachment_kind'='artifact_reference_target'
+     AND row_->'computation_dependencies' ? (r->>'contribution_id');
+    IF actual_refs IS DISTINCT FROM (CASE WHEN cardinality(artifact_refs)=1 THEN artifact_refs END) THEN
+     RAISE EXCEPTION 'procedure cue differs from its exact scoped artifact relationship' USING ERRCODE='23514';
+    END IF;
+   END IF;
+  END IF;
+ END LOOP;
+ FOR link_ IN SELECT r FROM jsonb_array_elements(population) r WHERE r->>'operation_key'=op->>'operation_key' AND r->>'kind'='relation' LOOP
+  SELECT r INTO STRICT subject_row FROM jsonb_array_elements(population) r WHERE r->>'contribution_id'=link_->'members'->>0;
+  SELECT r INTO STRICT target_row FROM jsonb_array_elements(population) r WHERE r->>'contribution_id'=link_->'members'->>1;
+  SELECT r INTO STRICT cue_row FROM jsonb_array_elements(population) r
+   WHERE link_->'computation_dependencies' ? (r->>'contribution_id') AND r->>'operation_key'=op->>'operation_key'
+    AND data.record_source_json(r->'value')->>'role'='named_link_cue';
+  proof:=data.record_source_json(subject_row->'value')->'named_cue';
+  IF subject_row->>'operation_key' IS DISTINCT FROM op->>'operation_key'
+   OR target_row->>'operation_key' IS DISTINCT FROM op->>'operation_key'
+   OR data.record_source_json(subject_row->'value')->>'role' IS DISTINCT FROM 'named_link_subject'
+   OR data.record_source_json(target_row->'value')->>'role' IS DISTINCT FROM 'named_link_target'
+   OR proof IS DISTINCT FROM data.record_source_json(cue_row->'value')->'named_cue'
+   OR proof IS DISTINCT FROM data.record_source_json(target_row->'value')->'named_cue'
+   OR proof->>'resolution' IS DISTINCT FROM 'located'
+   OR link_->'component'->>'attachment_kind' IS DISTINCT FROM proof->>'kind'
+   OR link_->'component'->>'scope' IS DISTINCT FROM proof->>'scope'
+   OR (link_->'component'->>'effective_version') IS DISTINCT FROM proof->>'effective_version'
+   OR link_->'endpoints' IS DISTINCT FROM jsonb_build_array(
+    jsonb_build_object('role','attachment','contribution_id',subject_row->>'contribution_id'),
+    jsonb_build_object('role','target','contribution_id',target_row->>'contribution_id')) THEN
+   RAISE EXCEPTION 'named declaration edge differs from its exact cue and direction' USING ERRCODE='23514'; END IF;
+ END LOOP;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'named annotation link cannot resolve exact released source roles' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_named_annotation_links(ops.task,kb.source_view,jsonb,jsonb,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_scope_inheritance(population jsonb,operation_map jsonb)
+RETURNS void LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE op jsonb; expected jsonb; actual jsonb; inspected integer;
+BEGIN
+ SELECT o INTO STRICT op FROM jsonb_each(operation_map) x(key,o)
+ WHERE o->>'question'='source_scope_inheritance';
+ WITH rows AS MATERIALIZED (
+  SELECT c->>'contribution_id' AS id,c->'component' AS component
+  FROM jsonb_array_elements(population) c WHERE c ? 'component'
+ ), qualifiers AS (
+  SELECT q.id,q.component, cue.component AS cue, host.component AS host
+  FROM rows q
+  JOIN rows cue ON cue.id=q.component->>'qualifier_contribution_id'
+  JOIN rows host ON host.id=q.component->>'host_contribution_id'
+  WHERE q.component->>'kind'='predicate_qualifier'
+   AND q.component->>'qualifier_kind' IN ('condition','assumption')
+ ), selected AS (
+  SELECT id,component FROM qualifiers
+  WHERE component->'host_witness'->>'kind'='list_intro'
+   OR (NOT component ? 'host_witness' AND cue ? 'governing_token'
+    AND cue->'governing_token'<>host->'predicate_token')
+ )
+ SELECT (SELECT count(*) FROM qualifiers),coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+  'qualifier',id,'cue',component->>'qualifier_contribution_id','host',component->>'host_contribution_id',
+  'scope',component->>'scope','effective_version',component->>'effective_version')) ORDER BY id),'[]')
+ INTO inspected,expected FROM selected;
+ SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+  'qualifier',q->>'contribution_id','cue',r->'endpoints'->0->>'contribution_id',
+  'host',r->'endpoints'->1->>'contribution_id','scope',r->'component'->>'scope',
+  'effective_version',r->'component'->>'effective_version')) ORDER BY q->>'contribution_id'),'[]')
+ INTO actual FROM jsonb_array_elements(population) r
+ LEFT JOIN LATERAL (
+  SELECT candidate FROM jsonb_array_elements(population) candidate
+  WHERE candidate->'component'->>'kind'='predicate_qualifier'
+   AND r->'computation_dependencies' ? (candidate->>'contribution_id')
+ ) qualifying(q) ON true
+ WHERE r->>'operation_key'=op->>'operation_key'
+  AND r->>'kind'='relation' AND r->'component'->>'attachment_kind'='scope_inheritance';
+ IF actual IS DISTINCT FROM expected OR (op->>'inspected_count')::integer IS DISTINCT FROM inspected
+  OR (op->>'emitted_count')::integer IS DISTINCT FROM jsonb_array_length(expected)
+  OR op->>'operation_version' IS DISTINCT FROM '1'
+  OR EXISTS(SELECT FROM jsonb_array_elements(population) r
+   WHERE r->>'operation_key'=op->>'operation_key' AND (
+    r->>'kind' IS DISTINCT FROM 'relation' OR r->'component'->>'attachment_kind' IS DISTINCT FROM 'scope_inheritance'
+    OR jsonb_array_length(r->'endpoints') IS DISTINCT FROM 2
+    OR r->'endpoints'->0->>'role' IS DISTINCT FROM 'attachment'
+    OR r->'endpoints'->1->>'role' IS DISTINCT FROM 'target')) THEN
+  RAISE EXCEPTION 'scope inheritance differs from admitted qualifier and host population' USING ERRCODE='23514';
+ END IF;
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_scope_inheritance(jsonb,jsonb) FROM PUBLIC;
+
 -- The original definition component and physical layout establish its section.
 CREATE OR REPLACE FUNCTION ops.contextual_component_section(ref jsonb,work_digest text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -1045,6 +1323,81 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
 END $$;
 REVOKE ALL ON FUNCTION ops.contextual_component_section(jsonb,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.contextual_component_section(jsonb,text) TO corpus_sem_reader,corpus_sem_writer;
+
+-- A heading is an exact source occurrence. The release packet map extends work
+-- custody across independently published excerpts, without equating their pointers.
+CREATE OR REPLACE FUNCTION ops.contextual_section_headings(
+ release_ text,sources jsonb,source_view bigint,scope_ text,effective_version text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE packets jsonb; source_ jsonb; source_work text; source_digest text;
+ targets jsonb; complete boolean;
+BEGIN
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT packets FROM sem.input
+ WHERE release_id=release_ AND input_kind='dependency'
+  AND input_name='execution/implementation/operations/section-packets.json';
+ IF packets->'version' IS DISTINCT FROM '1'::jsonb
+  OR jsonb_typeof(packets->'packets') IS DISTINCT FROM 'object'
+  OR jsonb_typeof(packets->'native_products') IS DISTINCT FROM 'object'
+  OR jsonb_typeof(sources) IS DISTINCT FROM 'array'
+  OR jsonb_array_length(sources) NOT BETWEEN 1 AND 256
+  OR scope_ IS NULL OR scope_=''
+  OR (SELECT count(*)<>count(DISTINCT s) FROM jsonb_array_elements(sources) s)
+  OR NOT EXISTS(SELECT FROM jsonb_array_elements(sources) s WHERE (s->>'source_view_id')::bigint=source_view)
+ THEN RAISE EXCEPTION 'invalid selected heading source inventory' USING ERRCODE='23514'; END IF;
+ FOR source_ IN SELECT value FROM jsonb_array_elements(sources) LOOP
+  PERFORM ops.validate_structural_source(source_);
+ END LOOP;
+ SELECT CASE WHEN packets->'native_products'->>v.native_content_digest=d.content_hash
+  THEN packets->'packets'->>d.content_hash END,v.native_content_digest
+ INTO STRICT source_work,source_digest FROM kb.source_view v
+ JOIN kb.document d ON d.id=v.document_id WHERE v.id=source_view;
+ WITH refs AS MATERIALIZED (
+  SELECT s,v.native_task_id,v.native_product_key,v.native_content_digest,v.projection,
+   CASE WHEN packets->'native_products'->>v.native_content_digest=d.content_hash
+    THEN packets->'packets'->>d.content_hash END AS work
+  FROM jsonb_array_elements(sources) s
+  JOIN kb.source_view v ON v.id=(s->>'source_view_id')::bigint
+  JOIN kb.document d ON d.id=v.document_id
+ ), eligible AS MATERIALIZED (
+  SELECT * FROM refs WHERE native_content_digest=source_digest OR (work IS NOT NULL AND work=source_work)
+ ), heading_pieces AS (
+  SELECT r.s,r.native_product_key,r.native_content_digest,n.native_json->>'self_ref' AS pointer,
+   n.native_json->>'text' AS label,
+   (regexp_match(n.native_json->>'text','^(?:Section )?([0-9]+(?:\.[0-9]+)+)(?:\s|$)'))[1] AS designator
+  FROM eligible r
+  CROSS JOIN LATERAL (
+   SELECT array_agg(DISTINCT p->>'item_ref') AS pointers
+   FROM jsonb_array_elements(r.projection->'pieces') p
+   WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index'
+    AND coalesce(p->>'source_field','text')='text'
+  ) a
+  CROSS JOIN LATERAL ops.read_pdf_published_items(
+   r.native_task_id,r.native_product_key,r.native_content_digest,a.pointers) n
+  WHERE a.pointers IS NOT NULL AND n.native_json->>'content_layer'='body'
+   AND n.native_json->>'label'='section_header'
+ ), grouped AS (
+  SELECT native_content_digest,native_product_key,pointer,label,designator,
+   jsonb_agg(s ORDER BY encode(sha256(convert_to(data.canonical_json(s),'UTF8')),'hex')) AS citations
+  FROM heading_pieces WHERE designator IS NOT NULL
+  GROUP BY native_content_digest,native_product_key,pointer,label,designator
+ ), represented AS (
+  SELECT jsonb_build_object(
+   'target_id','section-heading:'||encode(sha256(convert_to(data.canonical_json(
+    jsonb_build_array(native_content_digest,native_product_key,pointer,0,char_length(label))),'UTF8')),'hex'),
+   'designator',designator,'label',label,'pointer',pointer,'citations',citations,
+   'work_id',coalesce('parent-pdf:'||source_work,'native-packet:'||source_digest),
+   'scope',scope_,'effective_version',effective_version) AS target FROM grouped
+ )
+ SELECT (SELECT coalesce(jsonb_agg(target ORDER BY target->>'target_id'),'[]') FROM represented),
+  NOT EXISTS(SELECT FROM refs WHERE native_content_digest<>source_digest
+   AND (work IS NULL OR source_work IS NULL)) INTO targets,complete;
+ RETURN jsonb_build_object('targets',targets,'complete',complete);
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'heading inventory cannot resolve exact release or source' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.contextual_section_headings(text,jsonb,bigint,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.contextual_section_headings(text,jsonb,bigint,text,text)
+ TO corpus_sem_reader,corpus_sem_writer;
 
 CREATE OR REPLACE FUNCTION ops.clause_model_concordance(refs jsonb,source_view bigint,population jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
@@ -1121,7 +1474,7 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6') THEN
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('3','4','5','6','7') THEN
   PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
   SELECT params INTO STRICT table_config FROM ops.method_config WHERE id=t.method_config_id;
   table_mode:=table_config->>'interpretation_mode';
@@ -1143,7 +1496,7 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_each(operation_map) o
   WHERE o.value->>'question'='source_formula_occurrences'
    AND (p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-    OR p_envelope->>'operation_version' NOT IN ('5','6')
+    OR p_envelope->>'operation_version' NOT IN ('5','6','7')
     OR o.value->>'operation_version' IS DISTINCT FROM '1')) THEN
   RAISE EXCEPTION 'formula occurrence operation requires its released producer' USING ERRCODE='23514';
  END IF;
@@ -1467,26 +1820,91 @@ BEGIN
    RAISE EXCEPTION 'located mention differs from selected producer source and role' USING ERRCODE='23514'; END IF;
  END LOOP;
  -- Contextual reports remain private, source-bound operation products.
+ IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='7'
+  AND EXISTS(SELECT FROM ops.method_config cfg WHERE cfg.id=t.method_config_id
+   AND jsonb_array_length(coalesce(cfg.params->'section_sources','[]'))>0)
+  AND (SELECT count(*) FROM jsonb_array_elements(p_envelope->'contribution_operations') o
+   WHERE o ? 'contextual_enrichment')<>1 THEN
+  RAISE EXCEPTION 'heading selection requires its complete contextual operation report' USING ERRCODE='23514';
+ END IF;
  FOR op IN SELECT value FROM jsonb_array_elements(p_envelope->'contribution_operations') LOOP
   IF NOT op ? 'contextual_enrichment' THEN CONTINUE; END IF;
   DECLARE report jsonb:=op->'contextual_enrichment'; profile jsonb; vec jsonb; inv jsonb;
    candidate_list jsonb; candidate jsonb; decision jsonb; witness jsonb; target_product jsonb;
    profile_map jsonb; vector_map jsonb; inventory_map jsonb; list_map jsonb; expected text; expected_candidates jsonb; normalized_target jsonb; channel_report jsonb; expected_hits jsonb; registry_id text; registry_targets jsonb; reuse_row jsonb; reuse_task ops.task; reuse_run ops.run; current_runtime text;
    reuse_digests jsonb:='{}'; reuse_values jsonb:='{}'; origin_body jsonb; origin_vectors jsonb; meaning_group jsonb; member_id text; expected_meaning jsonb;
+   contextual_config jsonb; heading_inventory jsonb; heading_targets jsonb; heading_source text;
+   heading_row jsonb; heading_ids jsonb; heading_full_hits jsonb; heading_outcome text;
+   heading_origin bigint; heading_body jsonb; heading_constraints jsonb; heading_witnesses jsonb;
+   heading_catalog jsonb; heading_catalog_sources jsonb;
   BEGIN
+   SELECT params INTO STRICT contextual_config FROM ops.method_config WHERE id=t.method_config_id;
+   IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='7'
+    AND jsonb_array_length(coalesce(contextual_config->'section_sources','[]'))>0 THEN
+    heading_inventory:=ops.contextual_section_headings(t.release_id,contextual_config->'section_sources',v.id,
+     contextual_config->>'scope',contextual_config->>'effective_version');
+    heading_targets:=heading_inventory->'targets';
+    heading_catalog_sources:=coalesce(contextual_config->'section_catalog_sources','[]');
+    IF jsonb_array_length(heading_catalog_sources)>0 THEN
+     IF EXISTS(SELECT FROM jsonb_array_elements(contextual_config->'section_sources'||heading_catalog_sources) s
+      GROUP BY s->>'source_view_id' HAVING count(*)>1) THEN
+      RAISE EXCEPTION 'selected heading and outside catalog sources must be distinct' USING ERRCODE='23514';
+     END IF;
+     heading_catalog:=ops.contextual_section_headings(t.release_id,
+      contextual_config->'section_sources'||heading_catalog_sources,v.id,
+      contextual_config->>'scope',contextual_config->>'effective_version');
+    END IF;
+    heading_source:='section-heading-inventory:'||encode(sha256(convert_to(data.canonical_json(
+     jsonb_build_array(contextual_config->'section_sources',heading_targets)),'UTF8')),'hex');
+    SELECT upstream.task_id,upstream.body INTO STRICT heading_origin,heading_body
+    FROM ops.task selected JOIN ops.task_result upstream ON upstream.task_id=coalesce(selected.reused_task_id,selected.id)
+    JOIN ops.method_config cfg ON cfg.id=selected.method_config_id JOIN ops.method method ON method.id=cfg.method_id
+    WHERE selected.run_id=t.run_id AND selected.unit_id=v.id AND selected.unit_type='source_view'
+     AND selected.status IN ('done','empty','reused') AND method.name='structure.scoped_relations' AND method.version='7';
+    heading_constraints:=jsonb_build_array(jsonb_build_object(
+     'constraint_id','section-citation','relation_kinds',jsonb_build_array('cites-section'),
+     'occurrence_role','citation','target_role','heading','multiplicity','one','exhaustive',false));
+    IF jsonb_strip_nulls(heading_targets) IS DISTINCT FROM coalesce(report->'section_targets','[]')
+     OR report->'section_sources' IS DISTINCT FROM contextual_config->'section_sources'
+     OR coalesce(report->'section_catalog_sources','[]') IS DISTINCT FROM heading_catalog_sources
+     OR report->'section_source_origin_task_id' IS DISTINCT FROM to_jsonb(heading_origin)
+     OR report ? 'curated_registry_id' OR jsonb_array_length(coalesce(report->'component_targets','[]'))<>0
+     OR jsonb_array_length(report->'inventories')<>1
+     OR EXISTS(
+      SELECT FROM jsonb_array_elements(heading_body->'contributions') c,
+       LATERAL (SELECT data.record_source_json(c->'value') val) meaning
+      WHERE c->>'semantic_type'='structural.located_participant'
+       AND meaning.val->>'role'='named_link_subject'
+       AND meaning.val->'named_cue'->>'resolution'='target_selection_required'
+       AND meaning.val->'named_cue'->>'kind' IN ('section_citation','definition_reference')
+       AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') cc
+        WHERE cc->>'semantic_type'='contextual.located_mention'
+         AND cc->'computation_dependencies'->>0=c->>'contribution_id'))
+     OR (SELECT count(*)<>count(DISTINCT r->>'occurrence_id')
+      FROM jsonb_array_elements(report->'section_resolutions') r)
+     OR (SELECT count(DISTINCT c->>'occurrence_id') FROM jsonb_array_elements(p_envelope->'contributions') c
+      WHERE c->>'semantic_type'='contextual.located_mention')
+        <>jsonb_array_length(coalesce(report->'section_resolutions','[]'))
+     OR jsonb_array_length(coalesce(report->'section_resolutions','[]'))<>jsonb_array_length(report->'candidate_lists')
+     OR jsonb_array_length(report->'candidate_lists')<>jsonb_array_length(report->'relationship_decisions') THEN
+     RAISE EXCEPTION 'heading report differs from complete selected target inventory' USING ERRCODE='23514';
+    END IF;
+   ELSIF report ?| ARRAY['section_targets','section_resolutions','section_catalog_sources'] THEN
+    RAISE EXCEPTION 'section heading report lacks its selected source configuration' USING ERRCODE='23514';
+   END IF;
    IF EXISTS(SELECT FROM jsonb_each(report->'product_counts') product_count
       WHERE (product_count.value#>>'{}')::integer<>jsonb_array_length(report->product_count.key)) THEN
     RAISE EXCEPTION 'contextual product counts differ from actual typed populations' USING ERRCODE='23514'; END IF;
    IF jsonb_array_length(COALESCE(report->'component_targets','[]'))>0 THEN
     PERFORM ops.validate_component_targets(report->'component_targets');
    END IF;
-   IF p_envelope->>'method'='retrieve.contextual' AND jsonb_strip_nulls(report->'component_targets') IS DISTINCT FROM
+   IF heading_inventory IS NULL AND p_envelope->>'method'='retrieve.contextual' AND jsonb_strip_nulls(report->'component_targets') IS DISTINCT FROM
     (SELECT jsonb_strip_nulls(params->'target_components') FROM ops.method_config WHERE id=t.method_config_id) THEN
     RAISE EXCEPTION 'contextual source targets differ from complete frozen input population' USING ERRCODE='23514'; END IF;
    registry_id:=NULL; registry_targets:='[]'::jsonb;
    IF (EXISTS(SELECT FROM ops.method_config cfg JOIN ops.method m ON m.id=cfg.method_id
         WHERE cfg.id=t.method_config_id AND (cfg.params ? 'registry_targets' OR m.name='retrieve.contextual'))
-        OR jsonb_array_length(report->'inventories')>0) AND NOT report ? 'curated_registry_id' AND jsonb_array_length(COALESCE(report->'component_targets','[]'))=0 THEN
+        OR jsonb_array_length(report->'inventories')>0) AND heading_inventory IS NULL AND NOT report ? 'curated_registry_id' AND jsonb_array_length(COALESCE(report->'component_targets','[]'))=0 THEN
     RAISE EXCEPTION 'contextual target input requires its registered curated registry custody' USING ERRCODE='23514'; END IF;
    IF report ? 'curated_registry_id' THEN
     SELECT COALESCE(jsonb_agg(jsonb_build_object('target_id',x->'target_id','label',x->'label',
@@ -1526,7 +1944,9 @@ BEGIN
     IF profile IS NULL OR vec->>'vector_id' IS DISTINCT FROM expected
      OR (vec->>'source_binding' IS DISTINCT FROM p_envelope->>'source' AND NOT EXISTS(
       SELECT FROM jsonb_array_elements(registry_targets) rt WHERE rt->>'target_id'=vec->>'object_id'
-       AND vec->>'source_binding'='curated-target:'||encode(sha256(convert_to(data.canonical_json(rt),'UTF8')),'hex')) AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(report->'component_targets','[]')) ct WHERE ct->'reference'->>'component_id'=vec->>'object_id' AND vec->>'source_binding'='definition-component:'||encode(sha256(convert_to(data.canonical_json(ct->'reference'),'UTF8')),'hex')))
+       AND vec->>'source_binding'='curated-target:'||encode(sha256(convert_to(data.canonical_json(rt),'UTF8')),'hex')) AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(report->'component_targets','[]')) ct WHERE ct->'reference'->>'component_id'=vec->>'object_id' AND vec->>'source_binding'='definition-component:'||encode(sha256(convert_to(data.canonical_json(ct->'reference'),'UTF8')),'hex'))
+      AND NOT EXISTS(SELECT FROM jsonb_array_elements(coalesce(heading_targets,'[]')) h
+       WHERE h->>'target_id'=vec->>'object_id' AND vec->>'source_binding'=h->>'target_id'))
      OR public.vector_dims((vec->'values')::text::public.vector)<>(profile->>'dimension')::integer
      OR abs(public.vector_norm((vec->'values')::text::public.vector)-1)>0.00001 THEN
      RAISE EXCEPTION 'contextual vector profile/source/value binding differs' USING ERRCODE='23514'; END IF;
@@ -1561,6 +1981,13 @@ BEGIN
      RAISE EXCEPTION 'reused vector differs from immutable original report/result' USING ERRCODE='23514'; END IF;
    END LOOP;
    FOR inv IN SELECT value FROM jsonb_array_elements(report->'inventories') LOOP
+    IF heading_inventory IS NOT NULL AND (inv->>'source_selection' IS DISTINCT FROM heading_source
+     OR inv->>'scope' IS DISTINCT FROM contextual_config->>'scope'
+     OR inv->>'effective_version' IS DISTINCT FROM contextual_config->>'effective_version'
+     OR inv->>'reliable_type' IS DISTINCT FROM 'section-heading'
+     OR jsonb_array_length(inv->'targets')<>jsonb_array_length(heading_targets)) THEN
+     RAISE EXCEPTION 'heading inventory differs from declared representation scope' USING ERRCODE='23514';
+    END IF;
     expected:='concept-inventory:'||encode(sha256(convert_to(data.canonical_json(
      jsonb_build_object('source_selection',inv->'source_selection','scope',inv->'scope',
       'effective_version',inv->'effective_version','reliable_type',inv->'reliable_type','parent',inv->'parent',
@@ -1592,6 +2019,16 @@ BEGIN
        OR target_product->>'label' IS DISTINCT FROM witness->>'label' OR target_product->>'description' IS DISTINCT FROM witness->>'description'
        OR target_product->>'source_binding' IS DISTINCT FROM 'definition-component:'||encode(sha256(convert_to(data.canonical_json(witness->'reference'),'UTF8')),'hex') THEN
        RAISE EXCEPTION 'component target descriptor differs from authenticated located content' USING ERRCODE='23514'; END IF;
+     ELSIF heading_inventory IS NOT NULL THEN
+      IF NOT EXISTS(SELECT FROM jsonb_array_elements(heading_targets) h
+       WHERE h->>'target_id'=target_product->>'target_id'
+        AND h->>'target_id'=target_product->>'source_binding'
+        AND h->>'label'=target_product->>'label' AND h->>'label'=target_product->>'description'
+        AND h->>'scope'=target_product->>'scope' AND target_product->>'type_name'='section-heading'
+        AND (h->>'effective_version') IS NOT DISTINCT FROM target_product->>'effective_version'
+        AND target_product->>'parent' IS NULL AND coalesce(target_product->'aliases','[]')='[]') THEN
+       RAISE EXCEPTION 'heading representation lacks exact original source custody' USING ERRCODE='23514';
+      END IF;
      ELSIF registry_id IS NULL OR NOT EXISTS(SELECT FROM jsonb_array_elements(registry_targets) registry_target
        WHERE registry_target=normalized_target-'source_binding'-'representation_digest'
         AND target_product->>'source_binding'='curated-target:'||encode(sha256(convert_to(data.canonical_json(registry_target),'UTF8')),'hex')) THEN
@@ -1619,6 +2056,9 @@ BEGIN
       IF starts_with(target_product->>'source_binding','definition-component:') THEN
        SELECT ct INTO STRICT witness FROM jsonb_array_elements(report->'component_targets') ct WHERE ct->'reference'->>'component_id'=member_id;
        expected_meaning:=ops.component_semantic_target(witness->'reference');
+      ELSIF heading_inventory IS NOT NULL THEN
+       SELECT jsonb_build_object('section_heading',jsonb_strip_nulls(h)) INTO STRICT expected_meaning
+       FROM jsonb_array_elements(heading_targets) h WHERE h->>'target_id'=member_id;
       ELSE expected_meaning:=jsonb_build_object('curated_target',jsonb_strip_nulls(target_product)); END IF;
       IF meaning_group->'meaning' IS DISTINCT FROM expected_meaning THEN
        RAISE EXCEPTION 'semantic target member differs from authenticated source meaning' USING ERRCODE='23514'; END IF;
@@ -1661,7 +2101,66 @@ BEGIN
       OR EXISTS(SELECT FROM jsonb_array_elements(ch->'hits') h WHERE NOT EXISTS(
        SELECT FROM jsonb_array_elements(inv->'targets') tg WHERE tg->>'target_id'=h->>'target_id'))) THEN
      RAISE EXCEPTION 'candidate channel policy/budgets/eligible population differs' USING ERRCODE='23514'; END IF;
-    IF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version'='6'
+    IF heading_inventory IS NOT NULL THEN
+     SELECT r INTO STRICT heading_row FROM jsonb_array_elements(report->'section_resolutions') r
+     WHERE r->>'occurrence_id'=candidate_list->>'occurrence_id';
+     IF NOT EXISTS(
+      SELECT FROM jsonb_array_elements(p_envelope->'contributions') c,
+       LATERAL (SELECT data.record_source_json(c->'value') val) occurrence,
+       LATERAL (SELECT data.record_source_json(occurrence.val->'producer_value') val) cue
+      WHERE c->>'semantic_type'='contextual.located_mention'
+       AND c->>'occurrence_id'=candidate_list->>'occurrence_id'
+       AND cue.val->>'role'='named_link_subject'
+       AND cue.val->'named_cue'->>'kind' IN ('section_citation','definition_reference')
+       AND cue.val->'named_cue'->>'resolution'='target_selection_required'
+       AND cue.val->'named_cue'->>'designator'=heading_row->>'designator') THEN
+      RAISE EXCEPTION 'section resolution lacks its original retained citation' USING ERRCODE='23514';
+     END IF;
+     SELECT coalesce(jsonb_agg(jsonb_build_object('target_id',id,'score',1,'evidence',evidence)
+      ORDER BY id),'[]'),coalesce(jsonb_agg(id ORDER BY id),'[]')
+     INTO heading_full_hits,heading_ids FROM (
+      SELECT h->>'target_id' id,jsonb_agg(DISTINCT c->>'contribution_id' ORDER BY c->>'contribution_id') evidence
+      FROM jsonb_array_elements(heading_targets) h,
+       jsonb_array_elements(p_envelope->'contributions') c,
+       LATERAL (SELECT data.record_source_json(c->'value') val) occurrence,
+       LATERAL (SELECT data.record_source_json(occurrence.val->'producer_value')->'named_cue' val) cue
+      WHERE c->>'semantic_type'='contextual.located_mention'
+       AND c->>'occurrence_id'=candidate_list->>'occurrence_id'
+       AND cue.val->>'kind' IN ('section_citation','definition_reference')
+       AND cue.val->>'resolution'='target_selection_required'
+       AND cue.val->>'scope'=contextual_config->>'scope'
+       AND (cue.val->>'effective_version') IS NOT DISTINCT FROM contextual_config->>'effective_version'
+       AND h->>'designator'=cue.val->>'designator' AND h->>'designator'=heading_row->>'designator'
+      GROUP BY h->>'target_id'
+     ) eligible;
+     heading_outcome:=CASE
+      WHEN NOT EXISTS(
+       SELECT FROM jsonb_array_elements(p_envelope->'contributions') c,
+        LATERAL (SELECT data.record_source_json(c->'value') val) occurrence,
+        LATERAL (SELECT data.record_source_json(occurrence.val->'producer_value')->'named_cue' val) cue
+       WHERE c->>'semantic_type'='contextual.located_mention'
+        AND c->>'occurrence_id'=candidate_list->>'occurrence_id'
+        AND cue.val->>'scope'=contextual_config->>'scope'
+        AND (cue.val->>'effective_version') IS NOT DISTINCT FROM contextual_config->>'effective_version'
+      ) THEN 'insufficient_evidence'
+      WHEN NOT (heading_inventory->>'complete')::boolean THEN 'unavailable_representation'
+      WHEN jsonb_array_length(heading_ids)>(candidate_list->>'unique_target_budget')::integer THEN 'witness_budget_exceeded'
+      WHEN heading_ids='[]' AND (heading_catalog->>'complete')::boolean AND EXISTS(
+       SELECT FROM jsonb_array_elements(heading_catalog->'targets') h
+       WHERE h->>'designator'=heading_row->>'designator'
+        AND NOT EXISTS(SELECT FROM jsonb_array_elements(heading_targets) s
+         WHERE s->>'target_id'=h->>'target_id')
+      ) THEN 'outside_inventory'
+      WHEN jsonb_array_length(heading_ids)=0 THEN 'no_compatible_candidate'
+      WHEN jsonb_array_length(heading_ids)=1 THEN 'selected' ELSE 'ambiguous' END;
+     IF heading_row->'eligible_target_ids' IS DISTINCT FROM heading_ids
+      OR heading_row->>'outcome' IS DISTINCT FROM heading_outcome THEN
+      RAISE EXCEPTION 'section resolution differs from complete exact heading population' USING ERRCODE='23514';
+     END IF;
+     SELECT coalesce(jsonb_agg(h ORDER BY n),'[]') INTO expected_hits
+     FROM jsonb_array_elements(heading_full_hits) WITH ORDINALITY x(h,n)
+     WHERE n<=(candidate_list->>'unique_target_budget')::integer;
+    ELSIF p_envelope->>'method'='retrieve.contextual' AND p_envelope->>'operation_version' IN ('6','7')
      AND EXISTS(SELECT FROM ops.method_config cfg,
       LATERAL jsonb_array_elements(cfg.params->'relationship_constraints') q
       WHERE cfg.id=t.method_config_id AND q->'relation_kinds' ? 'defined-by') THEN
@@ -1681,13 +2180,22 @@ BEGIN
          OR (occurrence.val->>'producer_semantic_type'='structural.located_participant'
           AND meaning.val->>'role'='named_link_subject'
           AND jsonb_array_length(c->'anchors')=1
-          AND substring(c->'anchors'->0->>'source_piece' FROM '^Section ([0-9]+(?:\.[0-9]+)+)$')
-           =ops.contextual_component_section(ct->'reference',v.native_content_digest)
-          AND EXISTS(SELECT FROM jsonb_array_elements(v.projection->'pieces') p
-           WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index'
-            AND p->>'item_ref'=c->'anchors'->0->>'pointer'
-            AND substring(v.projection->>'text' FROM (p->>'start')::integer+1 FOR
-             (c->'anchors'->0->>'start')::integer)~'\y[Aa]s defined in $'))
+          AND (
+           (meaning.val ? 'named_cue'
+            AND meaning.val->'named_cue'->>'kind'='definition_reference'
+            AND meaning.val->'named_cue'->>'resolution'='target_selection_required'
+            AND meaning.val->'named_cue'->>'scope'=contextual_config->>'scope'
+            AND (meaning.val->'named_cue'->>'effective_version') IS NOT DISTINCT FROM contextual_config->>'effective_version'
+            AND meaning.val->'named_cue'->>'designator'
+             =ops.contextual_component_section(ct->'reference',v.native_content_digest))
+           OR (NOT meaning.val ? 'named_cue'
+            AND substring(c->'anchors'->0->>'source_piece' FROM '^Section ([0-9]+(?:\.[0-9]+)+)$')
+             =ops.contextual_component_section(ct->'reference',v.native_content_digest)
+            AND EXISTS(SELECT FROM jsonb_array_elements(v.projection->'pieces') p
+             WHERE p->>'kind'='native_text' AND NOT p ? 'cell_index'
+              AND p->>'item_ref'=c->'anchors'->0->>'pointer'
+              AND substring(v.projection->>'text' FROM (p->>'start')::integer+1 FOR
+               (c->'anchors'->0->>'start')::integer)~'\y[Aa]s defined in $'))))
         )
         AND EXISTS(SELECT FROM jsonb_array_elements(inv->'targets') tg WHERE tg->>'target_id'=ct->'reference'->>'component_id')
        GROUP BY ct->'reference'->>'component_id'
@@ -1695,7 +2203,8 @@ BEGIN
     ELSE expected_hits:='[]'; END IF;
     SELECT value INTO channel_report FROM jsonb_array_elements(candidate_list->'channel_results')
      WHERE value->>'channel'='witness';
-    IF (expected_hits='[]' AND channel_report IS NOT NULL)
+    IF (heading_inventory IS NOT NULL AND expected_hits IS DISTINCT FROM channel_report->'hits')
+     OR (heading_inventory IS NULL AND expected_hits='[]' AND channel_report IS NOT NULL)
      OR (expected_hits<>'[]' AND expected_hits IS DISTINCT FROM channel_report->'hits')
      OR jsonb_array_length(expected_hits)>(candidate_list->>'unique_target_budget')::integer THEN
      RAISE EXCEPTION 'witness channel differs from complete exact source and target custody' USING ERRCODE='23514';
@@ -1781,6 +2290,31 @@ BEGIN
      OR decision->>'effective_version' IS DISTINCT FROM inv->>'effective_version' THEN
      RAISE EXCEPTION 'relationship differs from frozen question/scope' USING ERRCODE='23514'; END IF;
     PERFORM ops.validate_contextual_selection(decision,candidate_list,inv);
+    IF heading_inventory IS NOT NULL THEN
+     SELECT r INTO STRICT heading_row FROM jsonb_array_elements(report->'section_resolutions') r
+     WHERE r->>'occurrence_id'=decision->>'occurrence_id';
+     SELECT coalesce(jsonb_agg(w ORDER BY w->>'witness_id'),'[]') INTO heading_witnesses
+     FROM jsonb_array_elements(candidate_list->'channel_results') ch,
+      LATERAL jsonb_array_elements(ch->'hits') hit,
+      LATERAL jsonb_array_elements_text(hit->'evidence') e,
+      LATERAL (SELECT jsonb_strip_nulls(jsonb_build_object(
+       'witness_id','section-citation:contribution-operation:'||encode(sha256(convert_to(data.canonical_json(
+        jsonb_build_array(jsonb_build_array(e,hit->>'target_id',heading_row->>'designator'),'{}'::jsonb)),'UTF8')),'hex'),
+       'occurrence_id',decision->>'occurrence_id','target_id',hit->>'target_id',
+       'relation','cites-section','source_binding',decision->>'source_binding',
+       'scope',decision->>'scope','effective_version',decision->>'effective_version',
+       'evidence_ids',jsonb_build_array(e),'basis','explicit_source_cue',
+       'support_state',CASE WHEN heading_row->>'outcome' IN ('selected','ambiguous') THEN 'unassessed' ELSE 'ambiguous' END
+      )) w) expected_witness
+     WHERE ch->>'channel'='witness';
+     IF decision->'constraints' IS DISTINCT FROM heading_constraints
+      OR decision ? 'proposal' OR coalesce(decision->'exclusions','[]')<>'[]'
+      OR decision->'witnesses' IS DISTINCT FROM heading_witnesses
+      OR decision->>'outcome' IS DISTINCT FROM (CASE WHEN heading_row->>'outcome' IN ('selected','ambiguous')
+       THEN heading_row->>'outcome' ELSE 'insufficient_evidence' END) THEN
+      RAISE EXCEPTION 'section decision differs from exact heading witnesses and coverage' USING ERRCODE='23514';
+     END IF;
+    END IF;
     IF decision->>'outcome' IN ('local_sense','new_concept') THEN
      witness:=decision->'proposal';
      IF witness IS NULL OR witness->>'kind' IS DISTINCT FROM decision->>'outcome'
@@ -1945,7 +2479,7 @@ BEGIN
        AND (p->>'start')::bigint+(anchor_->>'end')::bigint=(formula_meaning->>'end')::bigint)
     OR EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') link_
       WHERE link_->>'kind'='relation'
-       AND (p_envelope->>'operation_version'<>'6' OR
+       AND (p_envelope->>'operation_version' NOT IN ('6','7') OR
         operation_map->(link_->>'operation_key')->>'question' IS DISTINCT FROM 'source_witnessed_links')
        AND link_->'endpoints' @>
        jsonb_build_array(jsonb_build_object('contribution_id',contribution->>'contribution_id')))
@@ -2017,7 +2551,7 @@ BEGIN
  END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_envelope->'contributions') c
   WHERE c->'component'->>'kind' IN ('predicate_frame','predicate_reading','predicate_cue','predicate_qualifier')) THEN
-  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6') THEN
+  IF p_envelope->>'method'<>'structure.scoped_relations' OR p_envelope->>'operation_version' NOT IN ('4','5','6','7') THEN
    RAISE EXCEPTION 'predicate evidence requires its released producer' USING ERRCODE='23514';
   END IF;
   SELECT jsonb_object_agg(c->>'contribution_id',c) INTO predicate_population
@@ -2026,21 +2560,31 @@ BEGIN
    'structural.predicate_cue','structural.predicate_reading','structural.predicate_qualification');
   PERFORM ops.validate_source_predicates(
    t,v,predicate_population,table_config||jsonb_build_object('_predicate_operations',operation_map,
-    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('5','6') THEN '3' ELSE '2' END));
+    '_predicate_version',CASE WHEN p_envelope->>'operation_version' IN ('5','6','7') THEN '3' ELSE '2' END));
  END IF;
  IF EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_witnessed_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' IS DISTINCT FROM '6' THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7') THEN
    RAISE EXCEPTION 'witnessed links require their released source producer' USING ERRCODE='23514'; END IF;
   PERFORM ops.validate_witnessed_formula_links(v,table_config,p_envelope->'contributions',operation_map);
  END IF;
- IF EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_named_links') THEN
+ IF (p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='7'
+    AND table_config->>'inputs' IS NOT NULL)
+  OR EXISTS(SELECT FROM jsonb_each(operation_map) o WHERE o.value->>'question'='source_named_links') THEN
   IF p_envelope->>'method' IS DISTINCT FROM 'structure.scoped_relations'
-   OR p_envelope->>'operation_version' IS DISTINCT FROM '6' THEN
+   OR p_envelope->>'operation_version' NOT IN ('6','7') THEN
    RAISE EXCEPTION 'named links require their released source producer' USING ERRCODE='23514'; END IF;
-  PERFORM ops.validate_named_source_links(v,table_config,p_envelope->'contributions',operation_map);
+  IF p_envelope->>'operation_version'='7' THEN
+   PERFORM ops.validate_named_annotation_links(t,v,table_config,p_envelope->'contributions',operation_map);
+  ELSE
+   PERFORM ops.validate_named_source_links(v,table_config,p_envelope->'contributions',operation_map);
+  END IF;
  END IF;
- IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='6'
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='7'
+  AND table_config->>'inputs' IS NOT NULL THEN
+  PERFORM ops.validate_scope_inheritance(p_envelope->'contributions',operation_map);
+ END IF;
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version' IN ('6','7')
   AND (COALESCE(table_config->'classification_refs','[]')<>'[]'::jsonb
    OR data.record_source_json(p_envelope->'parse_detail') ? 'clause_model_concordance') THEN
   IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(table_config->'classification_refs','[]')) ref

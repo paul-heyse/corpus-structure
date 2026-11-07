@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from typing import Literal
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 
 from corpus_structure.methods.contextual_embeddings import (
@@ -14,12 +16,14 @@ from corpus_structure.methods.contextual_embeddings import (
     validate_vector,
 )
 from corpus_structure.semantic.contextual_links import RelationshipDecision, select_relationships
+from corpus_structure.semantic.contextual_registry import SectionHeadingTarget, section_target_input
 from corpus_structure.semantic.contextual_retrieval import (
     CandidateList,
     FrozenInventory,
     freeze_inventory,
     fuse_candidates,
 )
+from corpus_structure.semantic.structural_products import ExternalSourceRef
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,28 @@ class CachedTargetVector:
     reuse: VectorReuse
 
 
+class SectionCitationResolution(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    occurrence_id: str = Field(min_length=1)
+    designator: str = Field(pattern=r"^[0-9]+(?:\.[0-9]+)+$")
+    outcome: Literal[
+        "selected",
+        "ambiguous",
+        "unavailable_representation",
+        "no_compatible_candidate",
+        "insufficient_evidence",
+        "witness_budget_exceeded",
+        "outside_inventory",
+    ]
+    eligible_target_ids: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def ordered_eligible_targets(self):
+        if tuple(sorted(set(self.eligible_target_ids))) != self.eligible_target_ids:
+            raise ValueError("section citation requires distinct, stably ordered target identities")
+        return self
+
+
 def enrichment_report(
     *,
     profiles: Sequence[EncoderProfile],
@@ -45,6 +71,11 @@ def enrichment_report(
     relationship_decisions: Sequence[RelationshipDecision] = (),
     curated_registry_id: str | None = None,
     component_targets: Sequence[dict] = (),
+    section_sources: Sequence[ExternalSourceRef] = (),
+    section_catalog_sources: Sequence[ExternalSourceRef] = (),
+    section_source_origin_task_id: int | None = None,
+    section_targets: Sequence[SectionHeadingTarget] = (),
+    section_resolutions: Sequence[dict] = (),
     vector_reuse: Sequence[VectorReuse] = (),
 ) -> dict:
     """A typed report payload for SourceContributionOperation.contextual_enrichment.
@@ -52,6 +83,57 @@ def enrichment_report(
     The ordinary bind_report/completion owner validates its released shape and native source
     closure, then projects it atomically. This function does not write rows or grant authority.
     """
+    section_payload = {}
+    if section_sources:
+        if component_targets or curated_registry_id is not None:
+            raise ValueError("section heading inventory has exclusive source authority")
+        if type(section_source_origin_task_id) is not int or section_source_origin_task_id <= 0:
+            raise ValueError("section heading report lacks original scoped producer custody")
+        registry, representations, meanings = section_target_input(section_sources, section_targets)
+        if len(inventories) != 1:
+            raise ValueError("heading report requires one exact inventory")
+        (inventory,) = inventories
+        if inventory != freeze_inventory(
+            representations,
+            source_selection=registry,
+            scope=inventory.scope,
+            effective_version=inventory.effective_version,
+            reliable_type="section-heading",
+            semantic_targets=meanings,
+        ):
+            raise ValueError("heading inventory differs from authenticated target representation")
+        resolutions = tuple(
+            SectionCitationResolution.model_validate(row) for row in section_resolutions
+        )
+        by_occurrence = {decision.occurrence_id: decision for decision in relationship_decisions}
+        occurrences = [row.occurrence_id for row in resolutions]
+        if occurrences != sorted(set(occurrences)) or set(occurrences) != by_occurrence.keys():
+            raise ValueError("section resolutions must cover every distinct citation decision")
+        for row in resolutions:
+            expected_outcome = (
+                row.outcome if row.outcome in {"selected", "ambiguous"} else "insufficient_evidence"
+            )
+            if by_occurrence[row.occurrence_id].outcome != expected_outcome or not set(
+                row.eligible_target_ids
+            ) <= set(inventory.target_ids):
+                raise ValueError("section coverage disagrees with its contextual decision")
+        section_payload = dict(
+            section_sources=[ref.model_dump(mode="json") for ref in section_sources],
+            section_source_origin_task_id=section_source_origin_task_id,
+            section_targets=[t.model_dump(mode="json") for t in section_targets],
+            section_resolutions=[row.model_dump(mode="json") for row in resolutions],
+        )
+        if section_catalog_sources:
+            section_payload["section_catalog_sources"] = [
+                ref.model_dump(mode="json") for ref in section_catalog_sources
+            ]
+    elif (
+        section_catalog_sources
+        or section_targets
+        or section_resolutions
+        or section_source_origin_task_id is not None
+    ):
+        raise ValueError("heading report requires original selected source references")
     if component_targets:
         from .contextual_registry import ExtractedComponentTarget, component_target_input
 
@@ -197,6 +279,7 @@ def enrichment_report(
             inventories=[asdict(i) for i in inventories],
             candidate_lists=[asdict(c) for c in candidate_lists],
             relationship_decisions=[asdict(d) for d in relationship_decisions],
+            **section_payload,
         )
     )
     assert isinstance(cleaned, dict)

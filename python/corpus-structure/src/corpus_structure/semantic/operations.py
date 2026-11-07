@@ -1116,6 +1116,24 @@ class BoundReader:
             {"reference": json.dumps(reference.model_dump(mode="json")), "digest": work_digest},
         ).scalar_one()
 
+    def contextual_section_headings(self, sources, source_view_id, scope, effective_version):
+        """Resolve a complete heading population against the consuming release."""
+        return self.conn.execute(
+            text(
+                "SELECT ops.contextual_section_headings(:release, CAST(:sources AS jsonb), "
+                ":source_view, :scope, :effective_version)"
+            ),
+            {
+                "release": self.prepared.release_id,
+                "sources": canonical_bytes(
+                    [source.model_dump(mode="json") for source in sources]
+                ).decode(),
+                "source_view": source_view_id,
+                "scope": scope,
+                "effective_version": effective_version,
+            },
+        ).scalar_one()
+
     def retained_structural_report(self, reference):
         """Authenticate one completed original report and its separately published support."""
         import json
@@ -1291,7 +1309,7 @@ class BoundReader:
         # Return detached decoded columns; the enclosing stored envelope remains
         # the one persistence and source-product custody owner.
         body = dict(body)
-        if method == "extract.m1_annotations":
+        if method in {"extract.m1_annotations", "structure.scoped_relations"}:
             body["origin_task_id"] = row["origin_task_id"]
         if body.get("parse_detail") is not None:
             body["parse_detail"] = source_python(body["parse_detail"])
