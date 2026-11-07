@@ -43,7 +43,7 @@ configs:
         bindings:
           defining_cue: {node: cue}
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: defining
         variant: passive_as
         mechanism: dependency
@@ -55,7 +55,7 @@ configs:
         bindings:
           defining_cue: {node: cue}
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: defining
         variant: active_to_be
         mechanism: dependency
@@ -67,9 +67,9 @@ configs:
         - {LEFT_ID: be, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: {IN: [attr, acomp]}}}
         bindings:
           defining_cue: {node: cue}
-          definition_scope_guard: {node: cue, expansion: subtree, max_tokens: 128}
+          defining_content_predicate: {node: be}
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: defining
         variant: passive_to_be
         mechanism: dependency
@@ -81,9 +81,9 @@ configs:
         - {LEFT_ID: be, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: {IN: [attr, acomp]}}}
         bindings:
           defining_cue: {node: cue}
-          definition_scope_guard: {node: cue, expansion: subtree, max_tokens: 128}
+          defining_content_predicate: {node: be}
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: naming
         variant: active_called_term
         mechanism: dependency
@@ -93,8 +93,8 @@ configs:
         - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: oprd, POS: {IN: [NOUN, PROPN]}}}
         bindings:
           defining_cue: {node: cue}
-          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32, nominal_prepositions: [of]}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: naming
         variant: passive_called_term
         mechanism: dependency
@@ -104,8 +104,8 @@ configs:
         - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: oprd, POS: {IN: [NOUN, PROPN]}}}
         bindings:
           defining_cue: {node: cue}
-          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defined_term: {node: term, expansion: noun_chunk, max_tokens: 32, nominal_prepositions: [of]}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: defining
         variant: passive_following_display
         mechanism: dependency
@@ -177,7 +177,7 @@ configs:
         bindings:
           defining_cue: {node: cue}
           defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
-          defining_content: {node: content, expansion: subtree, max_tokens: 64}
+          defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
       - rule: symbol_declaration
         variant: denotes
         mechanism: dependency

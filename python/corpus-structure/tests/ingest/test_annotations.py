@@ -680,7 +680,11 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
 
     from corpus_structure.ingest.annotation_views import annotation_view
     from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
-    from corpus_structure.methods.definition_applicability import components_from_named_matches
+    from corpus_structure.methods.definition_applicability import (
+        components_from_named_matches,
+        definition_scopes,
+    )
+    from corpus_structure.methods.predicate_frames import predicate_frame_result
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.structural_products import StructuralPassage
 
@@ -735,7 +739,13 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         scope="test",
     )
     components = components_from_named_matches(
-        passage, matches, term_role="defined_term", content_role="defining_content"
+        passage,
+        matches,
+        scopes=definition_scopes(
+            matches, predicate_frame_result(view), content_role="defining_content"
+        ),
+        term_role="defined_term",
+        content_role="defining_content",
     )
     assert bool(components) is expected
     if expected:
@@ -751,7 +761,11 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
 
     from corpus_structure.ingest.annotation_views import annotation_view
     from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
-    from corpus_structure.methods.definition_applicability import components_from_named_matches
+    from corpus_structure.methods.definition_applicability import (
+        components_from_named_matches,
+        definition_scopes,
+    )
+    from corpus_structure.methods.predicate_frames import predicate_frame_result
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.structural_products import StructuralPassage
 
@@ -830,7 +844,13 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         scope="test",
     )
     (component,) = components_from_named_matches(
-        passage, matches, term_role="defined_term", content_role="defining_content"
+        passage,
+        matches,
+        scopes=definition_scopes(
+            matches, predicate_frame_result(view), content_role="defining_content"
+        ),
+        term_role="defined_term",
+        content_role="defining_content",
     )
     assert (component.term.start, component.term.end, component.term.text) == (371, 379, "the mean")
     assert (component.content.start, component.content.end, component.content.text) == (

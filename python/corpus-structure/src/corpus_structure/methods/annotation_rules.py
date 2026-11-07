@@ -29,6 +29,13 @@ class RoleBinding(BaseModel):
     expansion: Literal["exact", "subtree", "conjuncts", "noun_chunk"] = "exact"
     max_tokens: int = Field(default=64, ge=1, le=256)
     stop_words: tuple[str, ...] = ("if", "unless", "except")
+    nominal_prepositions: tuple[str, ...] = Field(default=(), exclude_if=lambda words: not words)
+
+    @model_validator(mode="after")
+    def nominal_complements(self):
+        if self.nominal_prepositions and self.expansion != "noun_chunk":
+            raise ValueError("nominal complements require a base noun chunk")
+        return self
 
 
 class AnnotationRule(BaseModel):
@@ -146,6 +153,19 @@ class PreparedAnnotationRules:
                 required.update(attributes[key] for key in predicates if key in attributes)
         return required
 
+    @staticmethod
+    def _nominal_complements(doc, head, noun_chunks, allowed):
+        """Extend a base noun chunk through one explicitly permitted nominal preposition."""
+        expanded = set(noun_chunks[head])
+        for prep in doc[head].children:
+            if prep.dep_ != "prep" or prep.lower_ not in allowed:
+                continue
+            objects = [child for child in prep.children if child.dep_ == "pobj"]
+            if len(objects) != 1 or objects[0].i not in noun_chunks:
+                return expanded, "partial", "nominal complement lacks one retained noun chunk"
+            expanded.update({prep.i, *noun_chunks[objects[0].i]})
+        return expanded, "complete", None
+
     def match(self, view: AnnotationView) -> AnnotationRuleResult:
         view.check_layout()
         if view.doc.vocab is not self.vocab:
@@ -216,6 +236,10 @@ class PreparedAnnotationRules:
                             if binding.expansion == "subtree"
                             else {head, *(t.i for t in doc[head].conjuncts)}
                         )
+                        if binding.nominal_prepositions and head in noun_chunks:
+                            expanded, status, reason = self._nominal_complements(
+                                doc, head, noun_chunks, binding.nominal_prepositions
+                            )
                         scoped = {
                             i
                             for i in expanded

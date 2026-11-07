@@ -7,17 +7,23 @@ independent assessment or publication standing.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from types import SimpleNamespace
 from typing import Any, Literal, Self
 
 from pydantic import Field, JsonValue, RootModel, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
-from corpus_structure.methods.annotation_rules import AnnotationRule
+from corpus_structure.methods.annotation_rules import AnnotationRule, AnnotationRuleMatch
 from corpus_structure.methods.gliner import GlinerInput, GlinerPack, GlinerProfile, GlinerRefused
 from corpus_structure.methods.gliner_worker import GlinerWorker, GlinerWorkerError
+from corpus_structure.methods.predicate_frames import (
+    PREDICATE_FRAME_VERSION,
+    FrameCue,
+    PredicateFrameResult,
+    predicate_frame_result,
+)
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
@@ -208,8 +214,123 @@ def located_entity_count(raw, passage, cfg):
     return len(located)
 
 
+type DefinitionDisposition = Literal[
+    "supported", "negated", "contrasted", "attributed", "qualified", "unresolved"
+]
+
+
+@dataclass(frozen=True)
+class DefinitionScope:
+    act_host: int
+    act_polarity: Literal["positive", "negative", "unresolved"]
+    disposition: DefinitionDisposition
+    act_cues: tuple[FrameCue, ...] = ()
+    content_cues: tuple[FrameCue, ...] = ()
+
+
+_SCOPE_CUES = frozenset(
+    {
+        "negation", "condition", "exception", "modality", "attribution",
+        "contrast", "quotation", "assumption", "example", "order",
+    }
+)
+
+
+def definition_scopes(
+    matches: tuple[AnnotationRuleMatch, ...],
+    result: PredicateFrameResult,
+    *,
+    content_role: str,
+) -> dict[AnnotationRuleMatch, DefinitionScope]:
+    """Assess exact predicate ownership before projecting a definition pair."""
+    by_head: dict[int, dict[FrameCue, None]] = {}
+    for frame in result.frames:
+        by_head.setdefault(frame.predicate.tokens[0], {}).update(
+            dict.fromkeys(cue for cue in frame.cues if cue.kind in _SCOPE_CUES)
+        )
+    unowned = tuple(cue for cue in result.unresolved_cues if cue.kind in _SCOPE_CUES)
+    for cue in unowned:
+        origin = cue.origin
+        if origin is not None and origin in by_head:
+            by_head[origin][cue] = None
+    scopes = {}
+    for match in matches:
+        roles = {role.role: role for role in match.roles}
+        act = roles.get("defining_cue") or roles.get("copular_cue")
+        if act is None:
+            continue
+        if act.status != "complete" or act.head not in by_head:
+            scopes[match] = DefinitionScope(act.head, "unresolved", "unresolved")
+            continue
+
+        content = roles.get(content_role)
+        content_nodes = set(content.nodes) if content else set()
+        content_predicate = roles.get("defining_content_predicate")
+        scope_guard = roles.get("definition_scope_guard")
+        content_heads = content_nodes & by_head.keys()
+        if content_predicate is not None:
+            content_heads.add(content_predicate.head)
+        elif scope_guard is not None:
+            # A retained recipe may request the broader defining subtree. Its
+            # bounds remain conservative until it names a content predicate.
+            content_heads.update(set(scope_guard.nodes) & by_head.keys())
+        content_heads.discard(act.head)
+        act_cues = tuple(by_head[act.head])
+        content_candidates = (
+            *(cue for head in sorted(content_heads & by_head.keys()) for cue in by_head[head]),
+            *(
+                cue for cue in unowned
+                if cue.basis.tokens and set(cue.basis.tokens) <= content_nodes
+            ),
+        )
+        content_cues = tuple(
+            dict.fromkeys(cue for cue in content_candidates if cue not in act_cues)
+        )
+        act_negation = tuple(cue for cue in act_cues if cue.kind == "negation")
+        polarity: Literal["positive", "negative", "unresolved"] = (
+            "unresolved" if any(cue.status != "located" for cue in act_negation)
+            else "negative" if act_negation
+            else "positive"
+        )
+        act_kinds = {cue.kind for cue in act_cues}
+        disposition: DefinitionDisposition
+        if (
+            any(cue.status != "located" for cue in (*act_cues, *content_cues))
+            or (
+                content_predicate is not None
+                and (
+                    content_predicate.status != "complete" or content_predicate.head not in by_head
+                )
+            )
+            or (scope_guard is not None and scope_guard.status != "complete")
+        ):
+            disposition = "unresolved"
+        elif polarity == "negative":
+            disposition = "negated"
+        elif "contrast" in act_kinds:
+            disposition = "contrasted"
+        elif "attribution" in act_kinds:
+            disposition = "attributed"
+        elif act_cues or any(
+            cue.kind not in {"condition", "negation", "quotation"}
+            or not set(cue.span.tokens) <= content_nodes
+            for cue in content_cues
+        ):
+            # The pair cannot carry a qualification outside its exact content.
+            disposition = "qualified"
+        else:
+            disposition = "supported"
+        scopes[match] = DefinitionScope(act.head, polarity, disposition, act_cues, content_cues)
+    return scopes
+
+
 def components_from_named_matches(
-    passage: StructuralPassage, matches, *, term_role: str, content_role: str
+    passage: StructuralPassage,
+    matches: tuple[AnnotationRuleMatch, ...],
+    *,
+    scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
+    term_role: str,
+    content_role: str,
 ) -> tuple[LocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
@@ -229,16 +350,13 @@ def components_from_named_matches(
             key = (match.rule, match.variant, cue.extents)
             readings.setdefault(key, set()).add((term.extents, content.extents))
     for match in matches:
-        if match.negation_extents:
+        scope = scopes.get(match)
+        if scope is None or scope.disposition != "supported":
             continue
         roles = {role.role: role for role in match.roles}
         cue = roles.get("defining_cue")
         if cue is not None and len(readings.get((match.rule, match.variant, cue.extents), ())) > 1:
             # A competing retained binding is not resolved by surface order.
-            continue
-        guard = roles.get("definition_scope_guard")
-        if guard is not None and guard.status != "complete":
-            # A head value alone cannot stand in for a conditional definition.
             continue
         selected = []
         for name in (term_role, content_role):
@@ -283,7 +401,14 @@ def components_from_named_matches(
     return tuple(components[key] for key in sorted(components))
 
 
-def components_from_following_display(passage, matches, display_spans, *, term_role):
+def components_from_following_display(
+    passage: StructuralPassage,
+    matches: tuple[AnnotationRuleMatch, ...],
+    display_spans: tuple[tuple[int, int], ...],
+    *,
+    scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
+    term_role: str,
+) -> tuple[LocatedDefinitionComponent, ...]:
     """Join an explicit named following-content cue to its adjacent native display.
 
     Source-owned display geometry supplies the defining element, not a model score.
@@ -293,12 +418,12 @@ def components_from_following_display(passage, matches, display_spans, *, term_r
     labels = [
         role
         for match in matches
-        if not match.negation_extents
         for role in match.roles
         if role.role == "definition_label" and role.status == "complete" and role.extents
     ]
     for match in matches:
-        if match.negation_extents:
+        scope = scopes.get(match)
+        if scope is None or scope.disposition != "supported":
             continue
         roles = {role.role: role for role in match.roles}
         labelled = "definition_label_required" in roles
@@ -375,7 +500,7 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
     from corpus_structure.ingest.annotation_views import annotation_view
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+    from corpus_structure.methods.annotation_rules import PreparedAnnotationRules
 
     if retained is None:
         retained = reader.structural_source_annotations(
@@ -384,9 +509,14 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
     frame, products, errors = retained.source, retained.annotations, retained.errors
     if errors:
         return NamedDefinitionResult((), False, (), "; ".join(errors))
-    rules = tuple(AnnotationRule.model_validate(rule) for rule in cfg.annotation_rules)
-    prepared = PreparedAnnotationRules(English().vocab, rules=rules)
+    prepared = PreparedAnnotationRules(English().vocab, rules=cfg.annotation_rules)
     found, operations = [], []
+    display_spans = tuple(
+        span
+        for product in products
+        for span in product.display_spans
+        if passage.start <= span[0] < span[1] <= passage.end
+    )
     for product in products:
         if product.block_start >= passage.end or product.block_end <= passage.start:
             continue
@@ -397,7 +527,17 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
             required=(),
         )
         result = prepared.match(restored)
-        matches = result.matches
+        matches = tuple(
+            match for match in result.matches
+            if all(passage.start <= start < end <= passage.end for start, end in match.extents)
+        )
+        scopes = (
+            definition_scopes(
+                matches, predicate_frame_result(restored), content_role=cfg.content_role
+            )
+            if matches
+            else {}
+        )
         for rule, variant, state in result.availability:
             selected = [
                 match for match in matches if (match.rule, match.variant) == (rule, variant)
@@ -408,34 +548,33 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
                     source_ref=passage.source_ref,
                     annotation_task_id=retained.annotation_task_id,
                     block_id=product.block_id,
+                    dependency_digest=product.dependency_digest,
                     rule=rule,
                     variant=variant,
                     availability=state,
                     matched_count=len(selected),
-                    negation_extents=[
-                        extent for match in selected for extent in match.negation_extents
-                    ],
-                    role_outcomes=[
-                        dict(role=role.role, outcome=role.status)
+                    matches=[
+                        dict(
+                            nodes=match.nodes,
+                            roles=[asdict(role) for role in match.roles],
+                            definition_scope=asdict(scopes[match]) if match in scopes else None,
+                        )
                         for match in selected
-                        for role in match.roles
                     ],
                 )
             )
         found.extend(
             components_from_named_matches(
-                passage, matches, term_role=cfg.term_role, content_role=cfg.content_role
+                passage,
+                matches,
+                scopes=scopes,
+                term_role=cfg.term_role,
+                content_role=cfg.content_role,
             )
-        )
-        display_spans = tuple(
-            span
-            for retained in products
-            for span in retained.display_spans
-            if passage.start <= span[0] < span[1] <= passage.end
         )
         found.extend(
             components_from_following_display(
-                passage, matches, display_spans, term_role=cfg.term_role
+                passage, matches, display_spans, scopes=scopes, term_role=cfg.term_role
             )
         )
     available = any(operation["availability"] == "available" for operation in operations)
@@ -449,63 +588,6 @@ def retained_annotation_components(reader, inputs, passage, cfg, *, retained=Non
             "No selected retained linguistic rule operation is executable; "
             "no source absence is established."
         ),
-    )
-
-
-def retained_named_components(
-    reader, inputs: StructuralInput, passage: StructuralPassage, cfg: DefinitionComponentsConfig
-):
-    """Consume the selected actual WCE03 producer, never caller-supplied role labels."""
-    from corpus_structure.semantic.observations import source_python
-
-    source = next(ref for ref in inputs.sources if ref.identity == passage.source_ref)
-    result = reader.source_result(source.source_view_id, "extract.m1_candidates")
-    if result is None:
-        return NamedDefinitionResult((), False, (), "selected named-candidate producer unavailable")
-    matches = []
-    for row in result.get("contributions", ()):
-        if not row.get("semantic_type", "").startswith("source_rule."):
-            continue
-        pin = row.get("pin", {})
-        expected = {
-            "source_view_id": source.source_view_id,
-            "native_product_task_id": source.native_task_id,
-            "product_key": source.native_product_key,
-            "product_digest": source.native_content_digest,
-            "projection_digest": source.projection_digest,
-            "recipe_digest": source.recipe_digest,
-        }
-        if any(pin.get(key) != value for key, value in expected.items()):
-            raise ValueError("named candidate differs from original source custody")
-        match = source_python(row["value"])
-        if "negation_extents" not in match:
-            return NamedDefinitionResult(
-                (), False, (), "Selected named candidates lack current polarity evidence."
-            )
-        if match.get("protocol") != "named-annotation-match-2":
-            raise ValueError("named candidate requires current role contract")
-        roles = tuple(
-            SimpleNamespace(
-                **{
-                    **role,
-                    "nodes": tuple(role["nodes"]),
-                    "extents": tuple(tuple(v) for v in role["extents"]),
-                }
-            )
-            for role in match["roles"]
-        )
-        matches.append(SimpleNamespace(**{**match, "roles": roles}))
-    operations = tuple(dict(operation) for operation in result.get("contribution_operations", ()))
-    available = any(
-        operation.get("outcome") in {"succeeded", "empty", "limited"} for operation in operations
-    )
-    return NamedDefinitionResult(
-        components_from_named_matches(
-            passage, matches, term_role=cfg.term_role, content_role=cfg.content_role
-        ),
-        available,
-        operations,
-        "Consumed selected source-authenticated named candidates.",
     )
 
 
@@ -554,7 +636,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "5"
+    version = "6"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -617,8 +699,8 @@ class DefinitionComponentsMethod:
                         retained=annotation_sources[passages[passage_id].source_ref],
                     )
                     if cfg.annotation_rules
-                    else retained_named_components(
-                        ctx.reader, cfg.inputs, passages[passage_id], cfg
+                    else NamedDefinitionResult(
+                        (), False, (), "No exact rule recipe was selected for annotation replay."
                     )
                 )
                 components.extend(named.components)
@@ -783,7 +865,8 @@ class DefinitionComponentsMethod:
             .model_validate_json(
                 canonical_bytes(
                     dict(
-                        version="located-definition-extraction-1",
+                        version="located-definition-extraction-2",
+                        predicate_frame_version=PREDICATE_FRAME_VERSION,
                         raw_reports=raw_reports,
                         named_rule_operations=named_rule_operations,
                         annotation_inputs=[

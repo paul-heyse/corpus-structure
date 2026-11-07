@@ -13,6 +13,7 @@ from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
     DefinitionComponentsConfig,
     DefinitionComponentsMethod,
+    DefinitionScope,
     assess_applicability,
     components_from_named_matches,
     decode_definition_components,
@@ -267,14 +268,19 @@ def test_named_roles_use_bindings_not_surface_order():
     match = AnnotationRuleMatch(
         "call", "reversed", "dependency", (5, 2), ((22, 56),), (), (), "d", (content, term)
     )
+    scope = DefinitionScope(2, "positive", "supported")
     found = components_from_named_matches(
-        passage, (match,), term_role="term", content_role="content"
+        passage, (match,), scopes={match: scope}, term_role="term", content_role="content"
     )
     assert len(found) == 1 and found[0].term.text == "variance"
     unavailable = replace(match, roles=(replace(term, status="unavailable"), content))
     assert (
         components_from_named_matches(
-            passage, (unavailable,), term_role="term", content_role="content"
+            passage,
+            (unavailable,),
+            scopes={unavailable: scope},
+            term_role="term",
+            content_role="content",
         )
         == ()
     )
@@ -290,22 +296,30 @@ def test_following_display_requires_explicit_cue_and_direct_native_element():
     match = AnnotationRuleMatch(
         "defining", "follows", "dependency", (0, 4), ((10, 39),), (), (), "d", (term, cue)
     )
+    scopes = {match: DefinitionScope(3, "positive", "supported")}
     found = components_from_following_display(
-        passage, (match,), ((41, 48),), term_role="defined_term"
+        passage, (match,), ((41, 48),), scopes=scopes, term_role="defined_term"
     )
     assert (
         len(found) == 1 and found[0].term.text == "Density" and found[0].content.text == "f(x)=x."
     )
     assert found[0].basis == "native_geometry"
+    no_cue = replace(match, roles=(term,))
     assert (
         components_from_following_display(
-            passage, (replace(match, roles=(term,)),), ((41, 48),), term_role="defined_term"
+            passage,
+            (no_cue,),
+            ((41, 48),),
+            scopes={no_cue: scopes[match]},
+            term_role="defined_term",
         )
         == ()
     )
     # A non-adjacent display cannot be attached across intervening prose.
     assert (
-        components_from_following_display(passage, (match,), ((43, 48),), term_role="defined_term")
+        components_from_following_display(
+            passage, (match,), ((43, 48),), scopes=scopes, term_role="defined_term"
+        )
         == ()
     )
 
@@ -567,19 +581,26 @@ def test_labelled_copula_display_requires_same_block_explicit_definition_label()
     )
     label = replace(term, role="definition_label", extents=((10, 22),), nodes=(0, 1))
     label_match = replace(match, rule="definition_context", roles=(label,))
+    scopes = {match: DefinitionScope(4, "positive", "supported")}
     assert (
-        components_from_following_display(passage, (match,), ((36, 43),), term_role="defined_term")
+        components_from_following_display(
+            passage, (match,), ((36, 43),), scopes=scopes, term_role="defined_term"
+        )
         == ()
     )
     (found,) = components_from_following_display(
-        passage, (label_match, match), ((36, 43),), term_role="defined_term"
+        passage, (label_match, match), ((36, 43),), scopes=scopes, term_role="defined_term"
     )
     assert found.term.text == "Variance" and found.content.text == "f(x)=x."
     # An intervening reference is source content, not punctuation or a formula.
     reference_passage = inputs("Definition 1. Variance is Equation 2\nf(x)=x.").passages[0]
     assert (
         components_from_following_display(
-            reference_passage, (label_match, match), ((47, 54),), term_role="defined_term"
+            reference_passage,
+            (label_match, match),
+            ((47, 54),),
+            scopes=scopes,
+            term_role="defined_term",
         )
         == ()
     )
