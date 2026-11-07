@@ -14,6 +14,33 @@ from corpus_structure.evaluate.semantic import ReferenceError
 from corpus_structure.semantic.refusals import SemanticRefusal
 
 
+def test_model_preview_delivers_preparation_error_when_report_schema_is_unavailable(
+    cli, monkeypatch, tmp_path
+):
+    from corpus_structure.cli import failures
+    from corpus_structure.schema import model_change
+    from corpus_structure.semantic.types import Diagnostic, PreparationError
+
+    original = PreparationError((Diagnostic("unknown_range", "Example", "range is missing"),))
+    fallback = PreparationError((Diagnostic("unknown_range", "Report", "report is invalid"),))
+
+    def refuse_preview(*args, **kwargs):
+        raise original
+
+    def refuse_report(*args, **kwargs):
+        raise fallback
+
+    monkeypatch.setattr(model_change, "prepare_preview", refuse_preview)
+    monkeypatch.setattr(failures, "semantic_refusal_report", refuse_report)
+    request = tmp_path / "change.yaml"
+    request.write_text("{}\n")
+    result = cli("model", "change", "preview", str(request), "--json")
+    assert result.exit_code == 1
+    error = json.loads(result.stdout)["error"]
+    assert error["code"] == "PreparationError"
+    assert [d["location"] for d in error["diagnostics"]] == ["Example"]
+
+
 @pytest.mark.parametrize("command", ["golden", "eval", "regenerate"])
 @pytest.mark.parametrize(
     "kind", ["refusal", "serialization", "fencing", "unknown", "bug", "cancel"]

@@ -88,11 +88,15 @@ def failure_boundary(
             diagnostic(f"{detail['message']}: {', '.join(fields)}")
             raise typer.Exit(1) from None
         if json:
-            detail: dict[str, Any] = (
-                {"code": type(error).__name__, "message": str(error)}
-                if not report_expected_validation and isinstance(error, expected)
-                else semantic_refusal_report(error, context=context)
-            )
+            detail: dict[str, Any] = {"code": type(error).__name__, "message": str(error)}
+            if report_expected_validation or not isinstance(error, expected):
+                try:
+                    detail = semantic_refusal_report(error, context=context)
+                except PreparationError:
+                    if not isinstance(error, PreparationError):
+                        raise
+                    # The report compiler can depend on the same invalid declarations.
+                    # Keep the original preparation diagnostics deliverable.
             detail["message"] = safe_text(detail["message"])
             if getattr(error, "reason", None) is not None:
                 detail["reason"] = safe_text(str(error.reason))
