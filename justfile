@@ -16,12 +16,34 @@ check: test py-test
 # Parallel ordinary functional lane; the exclusive fault lane follows separately when required.
 [positional-arguments]
 test-all *args:
-    @uv run python scripts/test_receipts.py run --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-$$" -- "$@"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -n ${CORPUS_CI_RECEIPT_DIR:-} ]]; then
+      options=(--managed-lane ordinary --out-dir "$CORPUS_CI_RECEIPT_DIR")
+      if [[ -n ${CORPUS_CI_SELECTION_FILE:-} ]]; then
+        options+=(--selection-file "$CORPUS_CI_SELECTION_FILE")
+      fi
+      if [[ ${CORPUS_CI_PYTHON_ONLY:-0} == 1 ]]; then
+        options+=(--python-only)
+      fi
+      exec uv run --no-sync python scripts/test_receipts.py run "${options[@]}" -- "$@"
+    fi
+    exec uv run python scripts/test_receipts.py run --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-$$" -- "$@"
 
 # Exclusive shared-cluster authentication fault controls; run after the parallel lane finishes.
 [positional-arguments]
 test-native-faults *args:
-    @CORPUS_TEST_NATIVE_AUTH_CRASH=1 uv run python scripts/test_receipts.py run --python-only --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-faults-$$" -- -n 0 -m shared_cluster_fault tests/scripts/test_native_auth.py "$@"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CORPUS_TEST_NATIVE_AUTH_CRASH=1
+    if [[ -n ${CORPUS_CI_RECEIPT_DIR:-} ]]; then
+      options=(--managed-lane fault --out-dir "$CORPUS_CI_RECEIPT_DIR")
+      if [[ -n ${CORPUS_CI_SELECTION_FILE:-} ]]; then
+        options+=(--selection-file "$CORPUS_CI_SELECTION_FILE")
+      fi
+      exec uv run --no-sync python scripts/test_receipts.py run "${options[@]}" -- "$@"
+    fi
+    exec uv run python scripts/test_receipts.py run --python-only --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-faults-$$" -- -n 0 -m shared_cluster_fault tests/scripts/test_native_auth.py "$@"
 
 turn_end_steps := "adr-index fmt"
 ready_steps := "doctor-check"
@@ -35,6 +57,17 @@ ready: (_bundle "ready" ready_steps)
 
 # Scope end, after `test-all`: every non-functional check; fix what fails (`just <id>` re-runs one)
 hygiene: (_bundle "hygiene" hygiene_checks)
+
+# Read-only repository checks for the installed CLI.
+ci-check: (_bundle "ci-check" "lint-agents adr-lint rules-scan rules-test ruff-check types docs-check deps clippy")
+
+# Bootstrap from the installed CLI is an explicit effect.
+ci-setup:
+    @bash scripts/setup-env
+
+# Ruff inspection without the fixes applied by the maintenance recipe.
+ruff-check:
+    uv run ruff check --quiet
 
 # Run each recipe, keep going after a failure, and list the failures
 [private]

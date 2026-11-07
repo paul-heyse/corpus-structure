@@ -7,6 +7,7 @@ never interprets the number of skips as provider coverage or invents an assertio
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import importlib.metadata
 import json
@@ -253,8 +254,17 @@ def run_python(
     timeout: float = SESSION_TIMEOUT,
     test_timeout: float = TEST_TIMEOUT,
     cwd: Path = ROOT,
+    managed: bool = False,
 ) -> dict[str, Any]:
     env = dict(os.environ)
+    if managed:
+        for name in (
+            "PYTEST_ADDOPTS",
+            "PYTEST_PLUGINS",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+            "PYTEST_XDIST_AUTO_NUM_WORKERS",
+        ):
+            env.pop(name, None)
     # A fresh pytest session owns its worker identity; nested xdist workers set theirs.
     for name in ("PYTEST_XDIST_WORKER", "PYTEST_XDIST_WORKER_COUNT", "PYTEST_XDIST_TESTRUNUID"):
         env.pop(name, None)
@@ -305,27 +315,67 @@ def run_rust(directory: Path, *, timeout: float = SESSION_TIMEOUT) -> None:
                 },
             )
             return
-    junit = ROOT / "target/nextest/qualification/junit.xml"
-    before = junit.stat().st_mtime_ns if junit.exists() else None
-    env = {**os.environ, "INSTA_UPDATE": "no"}
-    process = run_process(
-        [
-            "cargo",
+    try:
+        listing = read_json(directory / "nextest-list.stdout")
+        target = Path(listing["rust-build-meta"]["target-directory"]).resolve()
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        _rust_report_unavailable(
+            directory, f"nextest target directory could not be established: {error}"
+        )
+        return
+    junit = target / "nextest" / "qualification" / "junit.xml"
+    junit.parent.mkdir(parents=True, exist_ok=True)
+    with supervision(directory) as control, (junit.parent / ".junit.lock").open("a") as lock:
+        deadline = time.monotonic() + timeout
+        while not control.interruption:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    _rust_report_unavailable(
+                        directory, "timed out waiting for the nextest report lock"
+                    )
+                    return
+                time.sleep(0.05)
+        else:
+            _rust_report_unavailable(
+                directory, control.interruption or "nextest lock wait interrupted"
+            )
+            return
+        # Hold the lock through copy so another invocation cannot replace this report
+        # between nextest exiting and receipt capture.
+        before = junit.stat().st_mtime_ns if junit.exists() else None
+        run_process(
+            [
+                "cargo",
+                "nextest",
+                "run",
+                "--release",
+                "--workspace",
+                "--profile",
+                "qualification",
+                "--no-tests=warn",
+            ],
+            directory,
             "nextest",
-            "run",
-            "--release",
-            "--workspace",
-            "--profile",
-            "qualification",
-            "--no-tests=warn",
-        ],
-        directory,
-        "nextest",
-        env=env,
-        timeout=timeout,
+            env={**os.environ, "INSTA_UPDATE": "no"},
+            timeout=timeout,
+        )
+        if junit.exists() and junit.stat().st_mtime_ns != before:
+            shutil.copyfile(junit, directory / "nextest.junit.xml")
+
+
+def _rust_report_unavailable(directory: Path, reason: str) -> None:
+    write_json(
+        directory / "rust-state.json",
+        {
+            "status": "incomplete",
+            "applicability": "unknown",
+            "functional_coverage": False,
+            "reason": reason,
+        },
     )
-    if junit.exists() and junit.stat().st_mtime_ns != before:
-        shutil.copyfile(junit, directory / "nextest.junit.xml")
 
 
 def _cancelled(process: dict[str, Any]) -> bool:
@@ -616,13 +666,22 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         errors.append("supervising runner interrupted")
     errors.extend(_group_cleanup_errors(process))
     statuses = [value["status"] for value in nodes.values()]
-    process_failed = process.get("returncode") not in (None, 0)
+    empty_selection = (
+        not nodes
+        and not errors
+        and not worker_loss
+        and not collection_errors
+        and process.get("returncode") in (0, 5)
+    )
+    process_failed = process.get("returncode") not in (None, 0) and not empty_selection
     if collection_errors or "failed" in statuses:
         status = "failed"
     elif errors or worker_loss:
         status = "incomplete"
     elif "blocked" in statuses:
         status = "blocked"
+    elif empty_selection:
+        status = "not_run"  # A complete empty pytest selection establishes no coverage.
     elif process_failed:
         status = "failed"
     elif not nodes or any(s in {"not_run", "incomplete"} for s in statuses):
@@ -647,6 +706,7 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "session_finishes": session_finishes,
         "reporting_complete": not errors and not worker_loss,
         "identity_valid": identity_valid,
+        "empty_selection": empty_selection,
         "native_contexts": native_events,
         "native_provenance": native_provenance,
         "session_contexts": [e for e in companion if e.get("event") == "session_start"],
@@ -939,12 +999,68 @@ def write_unresolved(
     }
 
 
+def _forwardable_selector(value: str) -> bool:
+    if not value or value.startswith(("-", "@")) or any(c in value for c in ("\0", "\n", "\r")):
+        return False
+    path = (ROOT / value.split("::", 1)[0]).resolve()
+    return any(
+        path.is_relative_to(ROOT / root) for root in ("tests", "python/corpus-structure/tests")
+    )
+
+
+def validate_pytest_args(args: list[str]) -> bool:
+    """Allow managed pytest selectors and display controls without replacing owner policy."""
+    has_selector = False
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == "-k":
+            index += 1
+            if index == len(args) or not args[index].strip() or args[index].startswith(("-", "@")):
+                raise ValueError("-k requires a keyword expression")
+        elif arg not in {"-q", "-qq", "-v", "-vv", "--quiet", "--verbose"}:
+            if not _forwardable_selector(arg):
+                raise ValueError(f"unsupported managed pytest argument: {arg!r}")
+            has_selector = True
+        index += 1
+    return has_selector
+
+
+def _managed_pytest_args(
+    args: list[str], *, lane: str, directory: Path, selection_file: Path | None
+) -> list[str]:
+    has_selector = validate_pytest_args(args)
+    if selection_file is not None:
+        if (
+            args
+            or selection_file.parent.resolve() != directory.parent
+            or selection_file.is_symlink()
+            or not selection_file.is_file()
+        ):
+            raise ValueError("retry requires its own selection file beside the lane workspace")
+        nodes = selection_file.read_text().splitlines()
+        if not nodes or any("::" not in node or not _forwardable_selector(node) for node in nodes):
+            raise ValueError("retry selection must contain canonical test node IDs")
+        args = nodes
+        has_selector = True
+    if lane == "fault":
+        selectors = [] if has_selector else ["tests/scripts/test_native_auth.py"]
+        return ["-n", "0", "-m", "shared_cluster_fault", *selectors, *args]
+    return ["-n", "auto", "--dist=loadgroup", "-m", "not shared_cluster_fault", *args]
+
+
+def _after_separator(args: list[str]) -> list[str]:
+    return args[1:] if args[:1] == ["--"] else args
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
     run = sub.add_parser("run")
     run.add_argument("--out-dir", type=Path, required=True)
     run.add_argument("--python-only", action="store_true")
+    run.add_argument("--managed-lane", choices=("ordinary", "fault"))
+    run.add_argument("--selection-file", type=Path)
     run.add_argument("--test-timeout", type=_positive_timeout, default=TEST_TIMEOUT)
     run.add_argument("--command-timeout", type=_positive_timeout, default=SESSION_TIMEOUT)
     run.add_argument("pytest_args", nargs=argparse.REMAINDER)
@@ -953,7 +1069,15 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--required-from", action="append", type=Path, default=[])
     inspect.add_argument("--write-unresolved", type=Path)
     inspect.add_argument("--selection-lane", choices=("ordinary", "fault"), default="ordinary")
+    validate = sub.add_parser("validate-pytest")
+    validate.add_argument("pytest_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if args.action == "validate-pytest":
+        try:
+            validate_pytest_args(_after_separator(args.pytest_args))
+        except ValueError as error:
+            parser.error(str(error))
+        return 0
     if args.action == "classify":
         try:
             result = classify(args.receipt_dir, args.required_from)
@@ -968,7 +1092,30 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(str(error))
     else:
         directory = args.out_dir.resolve()
-        directory.mkdir(parents=True, exist_ok=False)
+        pytest_args = _after_separator(args.pytest_args)
+        try:
+            if args.managed_lane:
+                if (
+                    not args.out_dir.is_absolute()
+                    or directory.name != args.managed_lane
+                    or not directory.parent.is_dir()
+                    or args.out_dir.is_symlink()
+                ):
+                    raise ValueError(
+                        "managed receipt directory must be a lane in its result workspace"
+                    )
+                pytest_args = _managed_pytest_args(
+                    pytest_args,
+                    lane=args.managed_lane,
+                    directory=directory,
+                    selection_file=args.selection_file,
+                )
+                args.python_only |= args.managed_lane == "fault"
+            elif args.selection_file is not None:
+                raise ValueError("retry selection files require a managed lane")
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        directory.mkdir(parents=not args.managed_lane, exist_ok=False, mode=0o700)
         with supervision(directory) as control:
             versions: dict[str, str | None] = {}
             for package in (
@@ -995,13 +1142,15 @@ def main(argv: list[str] | None = None) -> int:
                     "session_timeout": args.command_timeout,
                     "test_timeout": args.test_timeout,
                     "python_only": args.python_only,
+                    "managed_lane": args.managed_lane,
                 },
             )
-            pytest_args = args.pytest_args
-            if pytest_args[:1] == ["--"]:
-                pytest_args = pytest_args[1:]
             process = run_python(
-                directory, pytest_args, timeout=args.command_timeout, test_timeout=args.test_timeout
+                directory,
+                pytest_args,
+                timeout=args.command_timeout,
+                test_timeout=args.test_timeout,
+                managed=bool(args.managed_lane),
             )
             if not args.python_only and not _cancelled(process):
                 run_rust(directory, timeout=args.command_timeout)

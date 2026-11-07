@@ -781,8 +781,9 @@ def test_cli_watchdog_overrides_and_cancellation(
     observed: dict[str, object] = {}
 
     def python_child(
-        directory: Path, args: list[str], *, timeout: float, test_timeout: float
+        directory: Path, args: list[str], *, timeout: float, test_timeout: float, managed: bool
     ) -> dict[str, object]:
+        assert not managed
         observed["python"] = (args, timeout, test_timeout)
         receipt(directory, [report("setup"), report("call"), report("teardown")], selected=("a",))
         return {"interruption": "KeyboardInterrupt"} if cancel else {"returncode": 0}
@@ -1246,3 +1247,109 @@ def test_uncollected_report_pass_cannot_cover_current_required_node(tmp_path, ma
     assert result["receipts"][0]["nodes"]["a"]["status"] == "passed"
     assert result["required_node_coverage"]["status"] == "unresolved"
     assert result["required_unresolved"] == ["a"]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["-p", "no:qualification_plugin"],
+        ["-o", "addopts="],
+        ["--report-log", "caller.jsonl"],
+        ["-m", "shared_cluster_fault"],
+        ["-n", "0"],
+        ["@caller.txt"],
+        ["-k", "--quiet"],
+        ["tests/../../main.py"],
+    ],
+)
+def test_managed_pytest_forwarding_rejects_policy_overrides(args: list[str]) -> None:
+    from test_receipts import validate_pytest_args
+
+    with pytest.raises(ValueError):
+        validate_pytest_args(args)
+
+
+def test_managed_fault_retry_keeps_only_owned_selection(tmp_path: Path) -> None:
+    from test_receipts import _managed_pytest_args
+
+    selection = tmp_path / "retry.txt"
+    node = "tests/scripts/test_native_auth.py::test_crash_recovery[spaces and $literal]"
+    selection.write_text(node + "\n")
+    args = _managed_pytest_args(
+        [], lane="fault", directory=tmp_path / "fault", selection_file=selection
+    )
+    assert args == ["-n", "0", "-m", "shared_cluster_fault", node]
+    assert _managed_pytest_args(
+        ["-k", "recovery and not held"],
+        lane="fault",
+        directory=tmp_path / "fault",
+        selection_file=None,
+    ) == [
+        "-n",
+        "0",
+        "-m",
+        "shared_cluster_fault",
+        "tests/scripts/test_native_auth.py",
+        "-k",
+        "recovery and not held",
+    ]
+    selection.write_text("-p\nno:qualification_plugin\n")
+    with pytest.raises(ValueError, match="canonical"):
+        _managed_pytest_args(
+            [], lane="fault", directory=tmp_path / "fault", selection_file=selection
+        )
+
+
+def test_receipt_distinguishes_empty_selection_from_test_failure(tmp_path: Path) -> None:
+    directory = receipt(tmp_path, [], selected=(), returncode=5)
+    stream(
+        directory / "events-controller-12.jsonl",
+        [{"event": "collection_finish", "selected": [], "pid": 12, "worker": "controller"}],
+    )
+    outcome = classify([directory])
+    assert outcome["status"] == "not_run"
+    assert outcome["receipts"][0]["empty_selection"]
+    assert outcome["receipts"][0]["process"]["returncode"] == 5
+
+
+def test_nextest_holds_actual_target_report_lock_through_capture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import fcntl
+
+    import test_receipts
+
+    report_directory = tmp_path / "shared-target" / "nextest" / "qualification"
+    junit = report_directory / "junit.xml"
+    copyfile = shutil.copyfile
+
+    def assert_locked() -> None:
+        with (
+            (report_directory / ".junit.lock").open("a") as competing,
+            pytest.raises(BlockingIOError),
+        ):
+            fcntl.flock(competing, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def process(
+        argv: list[str], directory: Path, prefix: str, **kwargs: object
+    ) -> dict[str, object]:
+        assert argv
+        if prefix == "nextest-list":
+            (directory / "nextest-list.stdout").write_text(
+                json.dumps(
+                    {"rust-build-meta": {"target-directory": str(tmp_path / "shared-target")}}
+                )
+            )
+        if prefix == "nextest":
+            assert_locked()
+            junit.write_text("<testsuites/>")
+        return {"returncode": 0}
+
+    def capture(source: Path, destination: Path) -> Path:
+        assert_locked()
+        return copyfile(source, destination)
+
+    monkeypatch.setattr(test_receipts, "run_process", process)
+    monkeypatch.setattr(shutil, "copyfile", capture)
+    test_receipts.run_rust(tmp_path, timeout=2)
+    assert (tmp_path / "nextest.junit.xml").read_text() == "<testsuites/>"
