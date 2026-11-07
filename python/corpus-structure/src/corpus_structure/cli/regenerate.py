@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
@@ -30,8 +31,10 @@ class RegenerationReport(BaseModel):
 
 def regenerate(
     ctx: typer.Context,
-    domain: Annotated[str, typer.Option(help="Explicit executable domain pack.")],
-    corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    domain: Annotated[
+        str | None, typer.Option(help="Executable domain pack for a new run.")
+    ] = None,
+    corpus: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
     project: Annotated[str | None, typer.Option()] = None,
     slice: Annotated[
         str | None,
@@ -133,8 +136,6 @@ def regenerate(
     ) as failure:
         if not automated and (select_result or activate):
             raise SemanticRefusal("source preparation cannot select a result or activate a release")
-        if Path(domain).name != domain:
-            raise SemanticRefusal("domain must name a declared pack")
         if native_source is not None and integrated_source is not None:
             raise SemanticRefusal("native-source and integrated-source are mutually exclusive")
         if resume_run is not None and (native_source is not None or integrated_source is not None):
@@ -158,6 +159,10 @@ def regenerate(
         native_product = product_pin(native_source, "native")
         integrated_product = product_pin(integrated_source, "integrated")
         if resume_run is None:
+            if domain is None or corpus is None:
+                raise SemanticRefusal("a new run requires --domain and --corpus")
+            if Path(domain).name != domain:
+                raise SemanticRefusal("domain must name a declared pack")
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
             failure.bind(prepared, "regenerate")
             source_id = f"source:{project}:{prepared.release_id}"
@@ -182,6 +187,7 @@ def regenerate(
         with open_runtime_engine(settings, "ci-regenerate", purpose="write") as engine:
             if resume_run is None:
                 assert prepared is not None and source_id is not None
+                assert domain is not None and corpus is not None
                 with engine.begin() as conn:
                     init_bound_project(
                         conn,
@@ -216,7 +222,10 @@ def regenerate(
                 run_id = resume_run
                 runs = table("ops.run")
                 with engine.connect() as conn:
-                    row = conn.execute(select(runs).where(runs.c.id == run_id)).mappings().one()
+                    try:
+                        row = conn.execute(select(runs).where(runs.c.id == run_id)).mappings().one()
+                    except NoResultFound as error:
+                        raise OperationConflict(f"no semantic run {run_id}") from error
                     if row["project_id"] != project:
                         raise OperationConflict("resume run has another project")
                     prepared = load_release(conn, row["release_id"])
@@ -241,7 +250,7 @@ def regenerate(
                     )
                     impact = compared.model_dump(mode="json")
                     advice = compatibility_advice(compared)
-            stderr_console().print(f"semantic run {run_id}; resume with --resume-run {run_id}")
+            stderr_console().print(f"semantic run {run_id}; resume with ci run resume {run_id}")
             if not automated:
                 emit(
                     RegenerationReport(

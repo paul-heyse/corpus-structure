@@ -290,6 +290,32 @@ def run_cancel(
     emit(report, json=json, render=lambda r: _table("cancelled", r))
 
 
+@run_app.command("resume")
+def run_resume(
+    ctx: typer.Context,
+    run_id: Annotated[int, typer.Argument(metavar="RUN")],
+    project: Annotated[str | None, typer.Option(help="Project owning the retained run.")] = None,
+    automated: Annotated[bool, typer.Option("--automated/--prepare-only")] = True,
+    select_result: Annotated[
+        bool, typer.Option(help="Select this exact completed result.")
+    ] = False,
+    activate_release: Annotated[bool, typer.Option(help="Activate the retained release.")] = False,
+    json: JsonOpt = False,
+) -> None:
+    """Resume the run using its retained source and release binding."""
+    from corpus_structure.cli.regenerate import regenerate
+
+    regenerate(
+        ctx,
+        project=project,
+        resume_run=run_id,
+        automated=automated,
+        select_result=select_result,
+        activate=activate_release,
+        json=json,
+    )
+
+
 @run_app.command("finalize")
 def run_finalize(
     ctx: typer.Context,

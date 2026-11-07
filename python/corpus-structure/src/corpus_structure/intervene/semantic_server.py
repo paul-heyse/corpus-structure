@@ -502,7 +502,7 @@ def build_semantic_server(
     read_engine: Engine | None = None,
 ) -> FastMCP:
     @lifespan
-    async def open_session(server: FastMCP) -> AsyncIterator[dict[str, SemanticSession]]:
+    async def open_session(server: FastMCP) -> AsyncIterator[dict[str, SemanticSession | Settings]]:
         if session is not None:
             yield {"session": session}
             return
@@ -518,7 +518,7 @@ def build_semantic_server(
                 if run_id is not None
                 else SemanticProjectSession(engine, selected.runtime.default_project)
             )
-            yield {"session": active}
+            yield {"session": active, "settings": selected}
 
     server = FastMCP(
         MCP_SERVER_NAME,
@@ -570,7 +570,7 @@ def build_semantic_server(
                 yield active.engine
             else:
                 with open_runtime_engine(
-                    settings if settings is not None else Settings(),
+                    ctx.lifespan_context["settings"],
                     "ci-mcp-source",
                     max_size=1,
                     purpose="read",

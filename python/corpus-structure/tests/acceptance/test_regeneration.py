@@ -178,10 +178,13 @@ def test_retained_integrated_cli_lifecycle(
     resumed = CliRunner().invoke(
         app,
         [
-            *args[: args.index("--integrated-source")],
-            *args[args.index("--integrated-source") + 2 :],
-            "--resume-run",
+            "run",
+            "resume",
             str(report["run_id"]),
+            "--project",
+            "acceptance",
+            "--prepare-only",
+            "--json",
         ],
         obj=CliState(settings_factory=lambda: settings),
     )
@@ -273,15 +276,11 @@ def test_retained_integrated_cli_lifecycle(
 
         monkeypatch.setattr("corpus_structure.intervene.automated.extract_run", forbidden_provider)
         select_args = [
-            "regenerate",
-            "--domain",
-            domain,
+            "run",
+            "resume",
+            str(run_id),
             "--project",
             "acceptance",
-            "--corpus",
-            str(corpus),
-            "--resume-run",
-            str(run_id),
             "--select-result",
             "--activate-release",
             "--json",
