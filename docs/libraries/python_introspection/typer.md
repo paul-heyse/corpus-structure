@@ -1739,6 +1739,25 @@ The initial overview covered Rich markup modes but not this environment-level co
 
 ## 9. Version-specific corrections and unsupported compatibility surfaces
 
+### 9.0 Typer 0.28.0 behavior update
+
+**Verified 2026-11-07 on Python 3.14.10 with Rich 15.0.0.** Typer 0.28.0 was released
+on 2026-11-06. Its release notes identify an option-name correction. The rest of this
+addendum describes 0.27.3 except where a 0.28.0 result is called out. [Tagged release notes](https://github.com/fastapi/typer/blob/0.28.0/docs/release-notes.md#0280-2026-11-06)
+
+| Capability | Behavior in the paired 0.27.3 and 0.28.0 fixtures |
+|---|---|
+| Inferred option name and custom metavar | With an `item_count` parameter and `Option(metavar="ITEM-COUNT")`, 0.27.3 accepted `--ITEM-COUNT` and 0.28.0 accepted `--item-count`. Both showed the custom value label. An explicit `--explicit-alias` remained callable. The tagged 0.28.0 inference derives the flag from the parameter name, independent of its metavar. Scripts relying on the old inferred casing need an explicit alias or a spelling update. [Option construction](https://github.com/fastapi/typer/blob/0.28.0/typer/main.py#L1361-L1365) |
+| Shell completion | For Bash completion with an earlier `--profile special` option, a callback accepting `Context`, `list[str]` and `str` saw the parsed profile and default item, an empty raw argument list and incomplete value `a`. The adapter filtered the returned `alpha` and `beta` suggestions to `alpha`. This establishes the tested Bash path. Use safe, potentially partial parsed context where it suffices. [Tagged completion adapter](https://github.com/fastapi/typer/blob/0.28.0/typer/core.py) · [Completion documentation](https://typer.tiangolo.com/tutorial/options-autocompletion/) |
+| Callback order and option provenance | The fixture's explicitly supplied later option ran before the first option's default callback, and saw an empty `ctx.params` at that point. With both defaults, callbacks ran in declaration order. A paired `--strict/--no-strict` with default `None` returned `None` with `DEFAULT`, and the explicit flags returned `True` or `False` with `COMMANDLINE`. Use final validation for cross-parameter relationships. [Tagged parameter engine](https://github.com/fastapi/typer/blob/0.28.0/typer/_click/core.py) · [Context reference](https://typer.tiangolo.com/reference/context/) |
+| Extra arguments and parser boundary | With `allow_extra_args=True`, a lone extra positional token arrived in `ctx.args` identically with and without a preceding `--`. Unrecognized options still failed with exit 2 in this fixture. If a contract requires an explicit separator, validate the raw invocation at the owning entry point before forwarding. [Tagged parsing implementation](https://github.com/fastapi/typer/blob/0.28.0/typer/_click/parser.py) |
+| Installed help, usage and generated Markdown | Selected installed commands passed root and nested help and `typer --app APP MODULE utils docs --name NAME`. The unknown-option case exited 2 with stderr diagnostics and empty stdout. Use `CliRunner.invoke()` for grammar and a fresh process for installed stream and environment behavior. [Markdown generator](https://github.com/fastapi/typer/blob/0.28.0/typer/cli.py#L278-L312) · [Tagged test runner](https://github.com/fastapi/typer/blob/0.28.0/typer/testing.py) |
+
+The release delta supplies the option-name correction. The other rows are focused compatibility
+observations. They do not establish identical behavior across shells, custom command subclasses,
+embedded environments or all option combinations.
+
+
 ### 9.1 `chain=True` is exposed but not implemented in the standard 0.27.3 execution path
 
 Typer's public constructor, callback and `add_typer()` signatures retain the `chain` parameter inherited from the Click-based API.

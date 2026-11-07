@@ -39,8 +39,13 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
 - The [CLI operations plan](docs/plans/cli-operations_2026-11-07.md) owns the proposed queue
   and the operator's routing, retention and model-effect decisions. The
   [functional review](docs/functional_reviews/typer-cli-target_2026-11-07.md) supplies the
-  baseline and opportunities. `just docs-check` passed for the plan. Product qualification
-  is `not_run` for the documentation change.
+  baseline and opportunities.
+- The [CLI improvement review](docs/plan_improvement_reviews/cli-operations_2026-11-07.md)
+  proposes Typer 0.28.0 and bounded, action-driven CLI diagnostics. It assumes no delivery
+  from the cancelled observability plan. The [library probes](docs/design_review/evidence/2026-11-07_cli-typer-028/README.md)
+  passed the Typer comparison and reproduced a Tree-sitter query callback failure.
+  `just evidence`, `just docs-check` and `just turn-end` passed. Product qualification is
+  `not_run` for this review.
 
 ## Next
 
@@ -48,5 +53,5 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
   the WCE plan. The authentic table-note and alias examples remain unavailable in their
   inspected frames. Operation fitting remains `not_run` pending compatible events and
   protected evaluations.
-- When CLI execution is selected, start with CLI-00 to carry the accepted rules into their
-  durable owners and schedule the first design/target review.
+- The CLI improvement review is ready for plan revision. CLI-00 remains the first execution
+  package in the current coordinator.

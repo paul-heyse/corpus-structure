@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [CLI operations and Python introspection](cli-operations_2026-11-07.md):
+  Typer 0.28.0 transition, invocation and receipt boundaries, staged model changes,
+  bounded source discovery, shared refusals and action-driven diagnostics.
+
 - [Test-resolution tooling and WCE assessment](test-audit-resolution-tooling_2026-11-06.md):
   proposed distributed harness conformance, scoped preparation, independent WCE cases and
   diagnostics; conditional SQL/private-cluster capabilities and post-implementation qualification.

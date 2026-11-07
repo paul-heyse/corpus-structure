@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "cli.typer028",
+  "title": "Typer option and installed command compatibility",
+  "group": "CLI",
+  "package": "CLI-01",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What changes on Typer 0.28.0 and do representative adapter contracts still hold?",
+  "answers": [],
+  "method": "Run the same fixtures and installed commands against both releases on CPython 3.14.10, then exercise independent just and Rich controls.",
+  "commands": [
+    ".venv/bin/python docs/design_review/evidence/2026-11-07_cli-typer-028/probe.py --compare"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "probe source",
+      "sha256": "a78fb28ebc12cfaf895efdf79152ede6a89c0724dc7386138d93ca01aceb1a3f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/typer.txt",
+      "role": "probe transcript",
+      "sha256": "7d93423f7bc58dd3b48f4b07ebb448bff9b0537ffc6edd02ecf3de4edb46860b"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Compared versions",
+      "value": "0.27.3 and 0.28.0",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Installed command checks per version",
+      "value": 4,
+      "of": null,
+      "unit": "commands",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Observed inferred option rename and bounded compatibility for explicit alias, callback order, completion, usage and docs. Separate controls establish literal argv and terminal-control rendering behavior.",
+  "consumed_by": [
+    "CLI-01",
+    "CLI-03",
+    "CLI-08"
+  ]
+}

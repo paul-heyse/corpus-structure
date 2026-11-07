@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "cli.tree-query-cancel",
+  "title": "Tree-sitter query cancellation failure",
+  "group": "CLI",
+  "package": "CLI-04",
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the installed query callback supply a safe in-process deadline?",
+  "answers": [],
+  "method": "Compare the same paired query and input on CPython 3.14.10, tree-sitter 0.26.0 and Python grammar 0.25.0 in separate subprocesses.",
+  "commands": [
+    ".venv/bin/python -B -X faulthandler docs/design_review/evidence/2026-11-07_cli-typer-028/tree_query.py",
+    ".venv/bin/python -B -X faulthandler docs/design_review/evidence/2026-11-07_cli-typer-028/tree_query.py --cancel"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "tree_query.py",
+      "role": "probe source",
+      "sha256": "2cb9b253488f466a5c876a7a94bedf0973ea4f76de7ad6e552eea1dd651d8df7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/tree-query.txt",
+      "role": "probe transcript",
+      "sha256": "f643de26f06c7773ba883b8924f6b0b342871c6dc4770099150e2d788c699977"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Ordinary paired matches",
+      "value": 5000,
+      "of": null,
+      "unit": "matches",
+      "note": null
+    },
+    {
+      "name": "Callback subprocess status",
+      "value": "SIGSEGV before callback",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The query callback path segfaulted. Use an external deadline if this binding is selected or qualify a corrected exact combination.",
+  "consumed_by": [
+    "CLI-04",
+    "CLI-08"
+  ]
+}
