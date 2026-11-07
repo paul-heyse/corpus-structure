@@ -1,14 +1,14 @@
 # Status
 
-_Updated 2026-11-07. WCE repair journeys and the declared functional test union passed within their selected scopes. WCE12 remains open._
+_Updated 2026-11-07. CLI operations are installed on main. The selected functional union was reconciled. WCE12 remains open._
 
 ## Current authority
 
 - The [WCE repair disposition](docs/plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
   owns findings, package states and combined qualification. ADR-0067 governs current-only
   migration. ADR-0068 selects Grinstead–Snell physical pages 191–310 as the shared frame.
-- Product `07d25b840` includes native165 `semantic_wce_lineage_20261107` and
-  `retrieve.contextual/5`. The dedicated PostgreSQL cluster serves release
+- The WCE product baseline `07d25b840` includes native165 `semantic_wce_lineage_20261107` and
+  `retrieve.contextual/5`. The dedicated PostgreSQL cluster contains archived release
   `aca99be726fab56c9212f26ff9cc96d13630e2a36d044188b37d85913f5b7847` on port5434.
   The contextual-only correction has its own runtime binding under that release.
 
@@ -24,7 +24,7 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
 - Both table weighting modes selected all nine supported readings at each declared scale.
   The artifact reference includes 13 supported pairs, three with native-only captions.
 
-## Verification — 2026-11-07
+## WCE verification — 2026-11-07
 
 - The initial `just test-all -n auto` recorded 5,066 passes and four failures. The final
   affected `just test-all -n auto` selection passed 148 and `just test-native-faults`
@@ -34,16 +34,20 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
 - The earlier native GC fault retains its diagnostic limit. The current campaigns recorded
   no worker loss. Original failures and earlier attempt receipts remain available.
 
-## Proposed CLI operations series — 2026-11-07
+## CLI operations — 2026-11-07
 
-- The [CLI operations plan](docs/plans/cli-operations_2026-11-07.md) owns CLI-00–08,
-  O01–O07, I01–I10 and the accepted routing, retention and model-effect decisions.
-  The revised plans schedule Typer 0.28.0 and bounded, receipt-first diagnostics with
-  no dependency on the cancelled observability plan.
-- The [library probes](docs/design_review/evidence/2026-11-07_cli-typer-028/README.md)
-  passed the isolated Typer comparison and reproduced a Tree-sitter query callback
-  failure on 2026-11-07. `just docs-check` and `just turn-end` passed for the revised plans.
-  Product qualification is `not_run` for the plan revision.
+- [CLI-00–08](docs/plans/cli-operations_2026-11-07.md#execution-disposition--2026-11-07) owns
+  the assembled review and qualification. ADR-0069 governs routing, retention and explicit
+  effects. Typer 0.28.0 uses a workspace resolver override for Docling Core's CLI dependency.
+- Targeted managed test `a92491e73591416d93ddf279e9b1f768` passed 28 nodes. Native exact
+  review export and replay agreed for run205/cut283. Fresh reader-only MCP stdio passed its
+  exact response budget and refused one byte less.
+- `uv run ci db status --maintenance --json` passed on `18/corpus`, port5434, and read
+  `semantic_wce_lineage_20261107` as `paul`. The ordinary reader reports the migration table
+  as private. Native interruption, replay and explicit activation passed on isolated PostgreSQL.
+- `uv run ci test --json` at `88fd5d108` passed 5,093 ordinary tests and eight serial fault
+  controls. Four stdio tests passed on exact retry. `ci test coverage` reported 5,105 covered
+  nodes and zero unresolved. The original failure and source-context differences remain recorded.
 
 ## Next
 
@@ -51,6 +55,5 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
   the WCE plan. The authentic table-note and alias examples remain unavailable in their
   inspected frames. Operation fitting remains `not_run` pending compatible events and
   protected evaluations.
-- Start CLI-00 for authority adoption and the first design/target review. The
-  [CLI-01 Typer pin slice](docs/plans/cli-operations/command-context-output.md#typer-0280-transition)
-  precedes installed command migration.
+- Native orphan assessment and live deployment to a configured production service remain
+  open in the CLI plan. The development and isolated PostgreSQL journeys are verified.

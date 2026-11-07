@@ -358,26 +358,30 @@ def test_current_cli_stdio_journey_and_settlement(
         log_file=tmp_path / "stdio-stderr.log",
     )
 
+    def writer_principals():
+        with semantic_db_engine.connect() as conn:
+            return (
+                conn.exec_driver_sql(
+                    "SELECT usename FROM pg_stat_activity WHERE datname=current_database() "
+                    "AND application_name='ci-mcp-semantic'"
+                )
+                .scalars()
+                .all()
+            )
+
     async def journey():
         with anyio.CancelScope() as cancellation:
             async with Client(transport) as client:
                 names = {tool.name for tool in await client.list_tools()}
                 assert {"queue_next", "read_unit", "read_instructions", "propose_claims"} <= names
-                with semantic_db_engine.connect() as conn:
-                    sessions = (
-                        conn.exec_driver_sql(
-                            "SELECT usename FROM pg_stat_activity WHERE datname=current_database() "
-                            "AND application_name='ci-mcp-semantic'"
-                        )
-                        .scalars()
-                        .all()
-                    )
-                    assert sessions and set(sessions) == {"corpus_sem_writer"}
+                assert writer_principals() == []
+                if mode == "early_exit":
+                    return
+                assert (await client.call_tool("queue_status", {"run": run})).structured_content
+                assert set(writer_principals()) == {"corpus_sem_writer"}
                 if mode == "cancelled":
                     cancellation.cancel()
                     await anyio.sleep(0)
-                if mode == "early_exit":
-                    return
                 unit = await lease_and_read(client, run, task)
                 if mode == "tool_failure":
                     with pytest.raises(

@@ -96,10 +96,11 @@ def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_pat
     selected = tmp_path / "selection.json"
     selected.write_text('{"structural_selections":[{"run_id":205,"cut_id":283}]}')
     seen = []
+    source_binding = "bound-source"
 
     def export(request, destination, _settings, *, exact_closure, retain_binding, **_kwargs):
+        retain_binding(source_binding)
         seen.append((request, exact_closure))
-        retain_binding("bound-source")
         destination.mkdir()
         return {"selection": request.model_dump(mode="json")}
 
@@ -115,3 +116,8 @@ def test_managed_review_export_retries_the_recorded_exact_selection(cli, tmp_pat
     assert retried["invocation_id"] != original["invocation_id"]
     assert seen[0] == seen[1] and seen[1][1] is True
     assert retried["selection"] == original["selection"]
+    source_binding = "different-source"
+    changed = cli("review", "retry", original["invocation_id"], "--json")
+    assert changed.exit_code == 1
+    assert "differ from the original" in json.loads(changed.stdout)["error"]["message"]
+    assert len(seen) == 2

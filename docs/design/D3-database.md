@@ -2138,9 +2138,13 @@ when the database holds work that is costly to redo: the first adjudicated dev g
 (P0-E-3), or agent interventions and directions worth keeping; then pgBackRest (installed) with
 WAL archiving, and a logical `pg_dump` for version-independent copies.
 
-**Operation.** `just db-up`, `just db-down`, `just db-status` (`pg_ctlcluster`, `pg_lsclusters`);
-`pg_activity -p 5434` for live sessions; pgBadger over the cluster log for a period's slow
-statements. The interim project-local cluster that preceded it was retired on 2026-10-28, after S6.
+**Operation.** Use `ci host up`, `ci host down` and `ci host status` for the dedicated cluster.
+Their `just` recipes own `pg_ctlcluster` and `pg_lsclusters`. `ci db status` checks the configured
+database as its reader. `ci db status --maintenance` reads the private installed migration revision
+with a read-only transaction through the maintenance profile. Use `ci model change deploy` for a
+registered change against its pinned deployment target. Direct `ci db migrate` is the development
+and explicit recovery route. `pg_activity -p 5434` can inspect live sessions and pgBadger can analyze
+the cluster log. [System tools and their callers](../libraries/postgresql/system-tool-usage.md)
 
 ## Production-efficiency target
 

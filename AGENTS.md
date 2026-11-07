@@ -71,15 +71,15 @@ status (ADR-0069).
 
 | When | Run |
 |---|---|
-| During a design/implementation phase | Compile checks and targeted tests or probes for the scope just implemented. No integrated gate after a slice or commit. |
-| After all functional scope in the plan is implemented | `just test-all`: classified Python/Rust functional results in `build/test-receipts/qualification/`; `just check` remains the developer route. Then applicable `just hygiene` checks; fix what fails and re-run a single check with `just <id>`. Qualification accounts for the same source/context and required union |
+| During a design/implementation phase | Compile checks and targeted `uv run ci test -- PATH` or probes for the scope just implemented. No integrated gate after a slice or commit. |
+| After all functional scope in the plan is implemented | `uv run ci test` runs applicable functional lanes and returns the managed result ID. `uv run ci check` runs repository checks. `just test-all`, `just test-native-faults` and `just hygiene` are the underlying qualification routes. Account for the same source/context and required union. |
 | End of a turn that changed files | The root agent runs `just turn-end` (ADR index, formatting with ruff's safe auto-fixes). Subagents don't |
 | After a dependency, toolchain or process-skill change, or an environment-shaped failure | `just ready` (tool check) |
-| Dependency policy | `just deps`, a `hygiene` check: every registry dependency is pinned exactly (`=x.y.z`) and every git dependency by its `rev`; each declared family (`[workspace.metadata.pins]` in `Cargo.toml`) resolves to one version, its members exact; cargo-deny checks bans and sources |
+| Dependency policy | `uv run ci check --only deps`: every registry dependency is pinned exactly (`=x.y.z`) and every git dependency by its `rev`; each declared family (`[workspace.metadata.pins]` in `Cargo.toml`) resolves to one version, its members exact; cargo-deny checks bans and sources |
 | Decisions | `just adr new <slug> --title "…"`, `just adr supersede ADR-NNNN <slug>`, `just adr revisit`; `just turn-end` regenerates the index; `just adr-lint` runs within `just hygiene` |
 | Documentation changes | `just docs-test` for publisher/resolver changes; `docs-check` (publication) runs within `just hygiene`. First run: `just bootstrap-docs`; preview: `just docs-serve`. No product gate solely for docs. |
-| Tools present? | `just doctor`, or `just ready` |
-| PostgreSQL (D3 §13) | `just db-provision` creates or reconciles the dedicated cluster `18/corpus` (port 5434, sudo, idempotent) from `ops/postgresql/`; `just db-up`, `just db-down`, `just db-status`. The application and the database tests use it unless `CORPUS_DATABASE__URL` names another server; `main` (5432) belongs to other projects and is never changed |
+| Tools present? | `uv run ci doctor` or the bootstrap `just ready` recipe |
+| PostgreSQL (D3 §13) | `uv run ci host provision` creates or reconciles `18/corpus` (port 5434, sudo, idempotent) from `ops/postgresql/`. Use `ci host up`, `ci host down` and `ci host status` for cluster operations. `ci db status` uses the configured reader, and `--maintenance` reads the private migration revision. The application and database tests use the dedicated cluster unless `CORPUS_DATABASE__URL` names another server. Port 5432 belongs to other projects. |
 | Prepare a checkout | `bash scripts/setup-env` uses existing lockfiles. Review `.envrc`, then `direnv allow` for activation; ignored `.envrc.local` holds personal overrides. Activation performs no installs, builds or service startup. |
 | Template changes | `copier update --defaults`, then review the diff like any other change (`.copier-answers.yml` is never edited by hand) |
 

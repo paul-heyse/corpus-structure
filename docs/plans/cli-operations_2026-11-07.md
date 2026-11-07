@@ -1,7 +1,7 @@
 # CLI operations and managed results
 
-**Status:** Executing. Installed operations and targeted evidence are recorded below. Owns the CLI
-operations target, execution queue, and dispositions for O01–O07 and I01–I10.
+**Status:** Implemented in the recorded scope. Native orphan assessment and a live production
+deployment context remain open. Owns CLI-00–08 and dispositions for O01–O07 and I01–I10.
 **Created:** 2026-11-07. **Revised:** 2026-11-07.
 
 ## Outcome and baseline
@@ -19,7 +19,8 @@ change classifiers, native candidate and publication paths at `f8c76f767`. The r
 installed smoke checks establish that help can run with invalid application settings, native candidate
 and review export require destination arguments, `ci test` is absent, and an unknown option under
 `--json` exits 2 with stderr text. Current implementation and verification claims remain with their
-owners. The entire design below is **Proposed**.
+owners. The proposed target is retained below. Current implementation and qualification are in
+the [execution disposition](#execution-disposition--2026-11-07).
 
 This revision integrates the [CLI improvement review](../plan_improvement_reviews/cli-operations_2026-11-07.md)
 at `aae1f5429`. Typer 0.27.3 remains the repository baseline. Typer 0.28.0 is the target. The
@@ -163,19 +164,44 @@ set the evidence boundary. The sections below own the package-level evidence and
 | Package | Current implementation and evidence |
 |---|---|
 | CLI-00 | Adopted under ADR-0069, D8 and D9. Initial and assembled target reviews recorded. |
-| CLI-01 | Installed Typer 0.28.0 with a workspace resolver override for the Docling Core CLI constraint. `just ready` passed. Existing Python Docling consumer and managed CLI controls passed on the pin slice. |
-| CLI-02 | Installed managed result publication, second-process lookup, explicit holds, one-day/seven-day GC policy, no-replace delivery and bounded watch. F01 corrections include recovery protection and unsettled child custody. |
-| CLI-03 | Installed `ci test` routes ordinary and exclusive native lanes through `just`, retaining actual pytest-xdist and nextest ownership. Scoped forwarding passed. The first full campaign `fab86740c6c44d4187c3d105e87876a0` was interrupted after a source edit changed the runtime pin. The child group settled. This receipt supplies cancellation evidence. |
+| CLI-01 | Installed Typer 0.28.0 with a workspace resolver override for the Docling Core CLI constraint. `just ready` passed. Existing Python Docling consumer and managed CLI controls passed on the pin slice. Installed help and Bash completion passed with an invalid database URL. Generated command reference `f738ea3d0ec246eeb4015d66752e3fcf`. |
+| CLI-02 | Installed managed result publication, second-process lookup, explicit holds, one-day/seven-day GC policy, no-replace delivery and bounded watch. F01 corrections include registered candidate and recovery protection, late-hold refusal and unsettled child custody. Final-source targeted managed campaign `a92491e73591416d93ddf279e9b1f768` passed 28 nodes. |
+| CLI-03 | Installed `ci test` routes ordinary and exclusive native lanes through `just`, retaining pytest-xdist and nextest ownership. Scoped forwarding passed. The first full campaign `fab86740c6c44d4187c3d105e87876a0` and subsequent `50e67591b89644ec8844ebb4b25284de` were interrupted after source edits changed runtime identity. Their receipts preserve settlement. The intentional one-node failure `81662a195f114780a95017fdebb5abe7` remained failed. `ci test retry` passed that node as `65af9af2222f489397507913919568e4`; coverage reported the original failure, exact replacement and changed source. |
 | CLI-04 | Shared declaration validation, inspectable preview, archive comparison and bounded AST/ast-grep discovery implemented. F02 binds the reviewed prepared release before candidate authoring. |
-| CLI-05 | Exact apply and recovery, managed rollback-only native authoring and registered deployment implemented. Development candidate `1551a8ce2e5845679c459d8fdf86bc91` ran on `corpus_structure_dev`. An isolated PostgreSQL test passed interruption after migration, replay, admission and separate activation. F02a owns the remaining distinct-target and registration journey. |
-| CLI-06 | Installed ingest and run continuation, read-purpose status, native review export, shared CLI/MCP refusal and replay binding implemented. Retained run 205/cut 283 exported and verified detached without extraction. F04/F05 assembled controls are being qualified. |
+| CLI-05 | Exact apply and recovery, rollback-only native authoring, checkout registration and distinct pinned deployment implemented. Development candidate `1551a8ce2e5845679c459d8fdf86bc91` ran on `corpus_structure_dev`. Real isolated PostgreSQL passed interruption after migration, replay, admission and separate activation. Installed registration and replay passed in a controlled checkout and refused a different file. Live production deployment is `blocked` pending a configured service and its effect authority. |
+| CLI-06 | Installed ingest and run continuation, read-purpose status, native review export, shared CLI/MCP refusal and replay binding implemented. Retained run 205/cut 283 exported as `5e5cc1d8004b4001a3b51f745403c23b` and replayed as `8879a247e9ea49cc9f6cfb3bf71adc89`. The selection digest agreed and detached verification passed. A changed PostgreSQL socket route refused before replay. Fresh reader-only stdio passed the 1,895-byte response bound and refused 1,894 bytes, a wrong run and a writer action. Run status reports its observed cut, release and completed realization. Native orphan assessment remains unavailable. |
 | CLI-07 | Added read and explicit maintenance health, release check and activation, host recipe routes and current README examples. The installed registry removed inert commands. Reader status and maintenance revision passed against 18/corpus. |
-| CLI-08 | Assembled review and qualification in progress. Final source, context and required selection must be reconciled before closure. |
+| CLI-08 | Assembled review recorded. The declared functional node union was covered by the ordinary and fault lanes plus the exact stdio replacement below. The live production lane is `blocked` as recorded in CLI-05. |
 
 The PostgreSQL tooling review selected installed `psql` for maintenance diagnosis and the existing
 template-backed native fixture for exact predecessor testing. `psql -X -w -p 5434 -U paul -d corpus_structure_dev`
 read `semantic_wce_lineage_20261107`; `uv run ci db status --maintenance --json` agreed. The ordinary
 reader reports the migration revision as private. Dedicated-cluster status passed through
 `uv run ci host status --json`. Backup/restore remains conditional on a recovery scope and owner.
+Review replay binds the acquired libpq peer, database OID and completed roots. It also includes
+PostgreSQL's system identifier where the purpose role can read `pg_control_system()`.
 [Tool inventory](../libraries/postgresql/system-tool-usage.md) ·
 [Ubuntu tooling options](../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md#87-ephemeral-database-state-cloning-and-migration-testing)
+
+#### Functional receipts
+
+`uv run ci test --json` at product `88fd5d108` produced `53329800b8004ffcb55e29b991af2d1d`.
+Ordinary pytest selected 5,097 nodes on 16 xdist workers, passed 5,093 and failed four stdio
+assertions that still required eager writer acquisition. The serial fault lane passed all eight
+selected nodes. Both lanes reported zero worker losses and settled child ownership. Nextest listed
+zero Rust tests, recorded as `not_run`. Toolchain `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)`.
+
+The stdio assertions now check that startup has no writer, queue use acquires the writer role,
+and early exit, cancellation, tool failure and completion still settle. `uv run ci test retry
+53329800b8004ffcb55e29b991af2d1d --lane ordinary --json` recollected the original selection and
+passed those four cases in `f00a8efcf0e8485abe8f77f3335c203f`. `uv run ci test coverage
+53329800b8004ffcb55e29b991af2d1d f00a8efcf0e8485abe8f77f3335c203f --json` preserved the original
+`failed` attempt and reported 5,105 required nodes covered, 890 native-required, zero unresolved.
+Source differences between these receipts reflect documentation and the targeted test contract
+change. The test bodies changed only in those four modes. Both receipts remain available by
+managed ID. The later replay-fingerprint correction was exercised by a focused installed
+campaign `ef669eabac224aea82bb5c900bdf4dd0` and the native export, replay and changed-route
+refusal above. The 5,105-node union is scoped to the cited receipts and their source contexts.
+Final review and custody checks passed 12 nodes under `uv run pytest -n auto
+python/corpus-structure/tests/test_review_cli.py python/corpus-structure/tests/test_cli_managed.py`.
+`just hygiene` and `just turn-end` passed.

@@ -979,17 +979,21 @@ def _review_binding(conn: Connection, selection: ReviewSelection) -> str:
     if len(rows) != len(run_ids):
         raise SemanticRefusal("review requires a completed result for every selected run")
     database = conn.exec_driver_sql(
-        "SELECT current_database(), d.oid, current_setting('port') "
+        "SELECT current_database(), d.oid, current_setting('port'), "
+        "CASE WHEN has_function_privilege('pg_catalog.pg_control_system()', 'EXECUTE') "
+        "THEN (SELECT system_identifier FROM pg_catalog.pg_control_system()) END "
         "FROM pg_catalog.pg_database d WHERE d.datname = current_database()"
     ).one()
-    endpoint = conn.engine.url
+    driver = conn.connection.driver_connection
+    if driver is None:
+        raise SemanticRefusal("review source connection is unavailable")
+    endpoint = driver.info
     return sha256(
         canonical_bytes(
             _json(
                 {
                     "database": list(database),
-                    "host": endpoint.host or endpoint.query.get("host"),
-                    "port": endpoint.port or endpoint.query.get("port"),
+                    "host": endpoint.hostaddr or endpoint.host,
                     "roots": [dict(row) for row in rows],
                 }
             )
