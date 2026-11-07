@@ -55,7 +55,11 @@ def output(result, json):
     if hasattr(result, "model_dump"):
         result = result.model_dump(mode="json")
     if json:
-        typer.echo(jsonlib.dumps(result, ensure_ascii=False, allow_nan=False, default=str))
+        from corpus_structure.cli.output import write_report_text
+
+        write_report_text(
+            jsonlib.dumps(result, ensure_ascii=False, allow_nan=False, default=str) + "\n"
+        )
     else:
         from rich.pretty import Pretty
 

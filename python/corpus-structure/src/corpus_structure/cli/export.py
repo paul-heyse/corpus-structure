@@ -78,9 +78,12 @@ def export(
             records=records,
             include_record_diagnostics=include_record_diagnostics,
         )
-        typer.echo(
+        from corpus_structure.cli.output import write_report_text
+
+        report = (
             __import__("json").dumps({"path": str(out), "manifest": manifest}) if json else str(out)
         )
+        write_report_text(report + "\n")
 
 
 def register(app: typer.Typer):

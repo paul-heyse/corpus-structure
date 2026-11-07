@@ -11,7 +11,7 @@ from typing import Any
 import typer
 from pydantic import ValidationError
 
-from corpus_structure.cli.output import diagnostic, safe_text
+from corpus_structure.cli.output import diagnostic, safe_text, write_report_text
 from corpus_structure.semantic.refusals import (
     DATABASE_ERRORS,
     FailureContext,
@@ -48,7 +48,9 @@ def failure_boundary(
     except DATABASE_ERRORS as error:
         detail = database_failure_report(error, context=context)
         if json:
-            typer.echo(jsonlib.dumps({"error": _safe_diagnostic(detail)}))
+            write_report_text(
+                jsonlib.dumps({"error": _safe_diagnostic(detail)}) + "\n", exit_code=1
+            )
         else:
             failure = detail["failure"]
             diagnostic(
@@ -105,7 +107,9 @@ def failure_boundary(
                     {key: value for key, value in asdict(item).items() if value is not None}
                     for item in error.diagnostics
                 ]
-            typer.echo(jsonlib.dumps({"error": _safe_diagnostic(detail)}))
+            write_report_text(
+                jsonlib.dumps({"error": _safe_diagnostic(detail)}) + "\n", exit_code=1
+            )
         else:
             diagnostic(f"refused: {error}")
         raise typer.Exit(1) from None
