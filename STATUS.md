@@ -37,7 +37,8 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
 ## CLI operations — 2026-11-07
 
 - The [ci skill](.claude/skills/ci/SKILL.md) documents routine routes and repair ownership.
-  `uv run ci docs check`, targeted execution, result retrieval and exact retry passed.
+- The [file-free CLI reporting review](docs/functional_reviews/cli-reporting_2026-11-07.md)
+  prioritizes direct test and model preview reads. Scoped Rich and Typer probes passed.
 - The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
   verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
   explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.
@@ -46,7 +47,7 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
   is at operational revision `semantic_cli_run_supervisor` with the same corpus physical model.
 - The [reconciled CLI qualification](docs/plans/cli-operations_2026-11-07.md#reconciled-functional-and-nonfunctional-results)
   covers 5,119 required nodes with zero unresolved after the affected checks and exact retry.
-  Rust was `not_run` with an empty selection. `uv run ci check --json` and `just turn-end` passed.
+  Rust was `not_run` with an empty selection. `uv run ci check --json` passed.
 
 ## Next
 
@@ -56,5 +57,4 @@ _Updated 2026-11-07. CLI audit repairs verified in development. Live production 
 - Settle the remaining source opportunities and exact native table factor reconstruction in
   the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
   Fitting remains `not_run` pending compatible events and protected evaluations.
-- Resume live CLI qualification once the production target and its purpose roles are configured
-  and the exact deployment and selection effects are authorized.
+- Live CLI qualification needs a configured production target, purpose roles and effect authority.

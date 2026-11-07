@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "cli.reporting-streams",
+  "title": "Bounded CLI rendering and stream controls",
+  "group": "CLI reporting",
+  "package": null,
+  "finalized": "2026-11-07",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a compact terminal report and a typed stdin/stdout exchange use the installed Rich and Typer pins without scratch files?",
+  "answers": [],
+  "method": "Render independently specified synthetic report shapes in memory and assert exact streams in subprocess pipe and stderr PTY controls, including SIGINT after live context entry.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-07_cli-reporting/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "probe source",
+      "sha256": "dd44457f752a4859d83a04da7afb913c109567893d859175175e4997347a910f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.json",
+      "role": "probe observations",
+      "sha256": "bdeda1233ad652f602c9e4d4328e04754418f271409d96fe29ac7ee1250140f9"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Summary lines at 44 and 100 columns",
+      "value": 7,
+      "of": null,
+      "unit": "lines",
+      "note": null
+    },
+    {
+      "name": "Pretty output at 44 columns",
+      "value": 10247,
+      "of": null,
+      "unit": "lines",
+      "note": null
+    },
+    {
+      "name": "Pretty output at 100 columns",
+      "value": 5125,
+      "of": null,
+      "unit": "lines",
+      "note": null
+    },
+    {
+      "name": "Clean JSON stdout with pipe and stderr PTY",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Cursor restored on SIGINT after context entry",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The pinned stack supports file-free typed pipe composition and a selected terminal summary. Explicit terminal policy is necessary because NO_COLOR still permits cursor control.",
+  "consumed_by": [
+    "cli-reporting"
+  ]
+}

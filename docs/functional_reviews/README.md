@@ -80,6 +80,13 @@ for a routine development and production command surface, resolved context, mana
 test reconciliation, terminal and machine output, controlled model changes and corpus operations.
 The recommendations draw on observed Codex workflows and the eight introspection overviews.
 
+## File-free CLI reporting — 2026-11-07
+
+The [CLI reporting review](cli-reporting_2026-11-07.md) develops O01–O07 for direct owner-backed
+reports, selected detail, typed pipes, and bounded Rich presentation. It prioritizes test
+failure and coverage inspection and managed model preview reads. The review records the
+installed broken-pipe behavior and the conditions for adding diagnostic capture.
+
 ## Next corpus enrichment increment — 2026-11-07
 
 The [next enrichment review](next-corpus-enrichment_2026-11-07.md) reconciles both passes of
