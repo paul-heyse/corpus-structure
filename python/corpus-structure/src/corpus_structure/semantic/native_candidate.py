@@ -1102,7 +1102,9 @@ def candidate_admission_sql(
     predecessor=None,
     predecessor_state: Path | None = None,
     predecessor_source=None,
+    target_metadata=metadata,
 ):
+    from .contracts import compile_execution_model, trusted_execution_inputs
     from .native_products import current_authoring_provenance
     from .source_view_native import native_admission_sql
 
@@ -1117,11 +1119,19 @@ def candidate_admission_sql(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
     desired = {item.identity for item in selected}
+    physical_sources = target_metadata.info.get("physical_sources")
+    execution = (
+        compile_execution_model(trusted_execution_inputs(physical_sources=physical_sources))
+        if physical_sources
+        else None
+    )
     return native_admission_sql(
         definition_sql(products),
+        model=execution,
         base_admission=source.admission,
-        authoring_provenance=current_authoring_provenance(),
+        authoring_provenance=current_authoring_provenance(execution),
         native_objects=selected,
+        target_metadata=target_metadata,
         retire=retire | (source.retirements - desired),
     )
 
@@ -1408,6 +1418,7 @@ def _prepare_series_authoring(
         product_authoring.desired,
         retire=retire,
         predecessor_source=source,
+        target_metadata=target_metadata,
     )
     guard_definition = next(
         item
@@ -1431,6 +1442,7 @@ def _prepare_series_authoring(
         (*product_authoring.desired, *guard_authoring.desired),
         retire=retire,
         predecessor_source=source,
+        target_metadata=target_metadata,
     )
     admission_after = _admission_definitions(
         connection, admission, source="native-admission:forward"

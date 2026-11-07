@@ -12,20 +12,52 @@ from difflib import unified_diff
 from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.schema import change, model, preparation
 from corpus_structure.schema.change import ChangeRecord
+from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
+_PHYSICAL = (preparation.MODEL_PATH / "semantic" / "physical.yaml").as_posix()
 
-class ChangeRequest(BaseModel):
+
+class NativeEffect(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, serialize_by_alias=True)
+
+    kind: Literal["function", "view", "trigger"]
+    schema_name: str = Field(alias="schema")
+    name: str
+    arguments: tuple[str, ...] = ()
+    relation: str | None = None
+
+    def identity(self):
+        from corpus_structure.semantic.native_objects import NativeIdentity
+
+        if (self.kind == "trigger") != bool(self.relation) or (
+            self.kind != "function" and self.arguments
+        ):
+            raise model.ModelError(["native effect has inconsistent arguments or trigger relation"])
+        if not self.schema_name or not self.name:
+            raise model.ModelError(["native effect requires a schema and name"])
+        return NativeIdentity.from_payload(self.model_dump(by_alias=True))
+
+
+class NativeIntent(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    retire: tuple[NativeEffect, ...] = ()
+    recreate: tuple[NativeEffect, ...] = ()
+
+
+class ChangeRequest(NativeIntent):
     baseline: str = "HEAD"
     core: str | None = None
     system: str | None = None
+    physical: str | None = None
     change: ChangeRecord | None = None
     archive_release: str | None = None
     packs: tuple[str, ...] = ()
@@ -41,6 +73,21 @@ class FileEffect(BaseModel):
     path: str
     before: str | None
     after: str
+
+
+class ChangeEffects(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    compatibility: dict[str, tuple[str, ...]]
+    routes: dict[str, str]
+    generated: tuple[str, ...]
+    physical: tuple[str, str] | None
+    native: bool
+    native_basis: tuple[str, ...]
+    admission: bool
+    admission_applicable: bool
+    release: Literal["unchanged", "changed", "uncompared", "not_applicable"]
+    checks: tuple[str, ...]
 
 
 class ChangePreview(BaseModel):
@@ -61,8 +108,12 @@ class ChangePreview(BaseModel):
     target: str | None
     target_profile: DeploymentProfile | None = None
     authoring_target: str | None = None
+    target_identity: StorageTarget | None = None
+    authoring_identity: StorageTarget | None = None
+    effects: ChangeEffects
     comparison: dict | None = None
     local_release: str | None = None
+    release_manifest_sha256: str | None = None
     discovery: dict | None = None
 
 
@@ -115,6 +166,90 @@ def _diff(path: str, before: str | None, after: str) -> str:
     )
 
 
+def native_intent(retire: tuple[NativeEffect, ...], recreate: tuple[NativeEffect, ...]):
+    removed = frozenset(item.identity() for item in retire)
+    replaced = frozenset(item.identity() for item in recreate)
+    if len(removed) != len(retire) or len(replaced) != len(recreate) or removed & replaced:
+        raise model.ModelError(["native retirement and recreation must be unique and disjoint"])
+    return removed, replaced
+
+
+def _physical_closure(root: Path, content: str, *, baseline: str | None = None) -> dict[str, str]:
+    base = Path(_PHYSICAL).parent
+    sources: dict[str, str] = {}
+
+    def visit(path: str, value: str) -> None:
+        if path in sources:
+            return
+        sources[path] = value
+        document = yaml.safe_load(value)
+        if not isinstance(document, dict):
+            raise model.ModelError([f"invalid physical declaration: {path}"])
+        for imported in document.get("imports", ()):
+            if imported == "linkml:types":
+                continue
+            if not isinstance(imported, str) or Path(imported).name != imported or ":" in imported:
+                raise model.ModelError([f"unsupported physical import in {path}"])
+            relative = (base / (imported + ".yaml")).as_posix()
+            source = (
+                _git(root, "show", f"{baseline}:{relative}") if baseline else _read(root, relative)
+            )
+            if source is None:
+                raise model.ModelError([f"missing physical import: {relative}"])
+            visit(relative, source)
+
+    visit(_PHYSICAL, content)
+    return sources
+
+
+def _physical_bytes(sources: dict[str, str]) -> dict[str, bytes]:
+    base = Path(_PHYSICAL).parent
+    return {
+        Path(path).relative_to(base).as_posix(): value.encode() for path, value in sources.items()
+    }
+
+
+def _physical_id(sources: dict[str, str]) -> str:
+    from corpus_structure.semantic.metadata import physical_sources_id
+
+    return physical_sources_id(_physical_bytes(sources))
+
+
+def physical_release_sources(root: Path, proposed: str | None = None) -> dict[str, bytes] | None:
+    content = _read(root, _PHYSICAL) if proposed is None else proposed
+    return None if content is None else _physical_bytes(_physical_closure(root, content))
+
+
+def _compile_physical(sources: dict[str, str]):
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    from corpus_structure.schema.relational import compile_metadata
+
+    with TemporaryDirectory(prefix="cs-physical-preview-") as directory:
+        root = Path(directory)
+        for path, content in sources.items():
+            (root / Path(path).name).write_text(content, encoding="utf-8")
+        try:
+            metadata = compile_metadata(
+                SchemaView(str(root / Path(_PHYSICAL).name)), target="semantic"
+            )
+        except (ValueError, TypeError, KeyError) as error:
+            raise model.ModelError([f"invalid physical declaration: {error}"]) from error
+    metadata.info["physical_model_id"] = _physical_id(sources)
+    metadata.info["physical_sources"] = _physical_bytes(sources)
+    return metadata
+
+
+def approved_physical_metadata(root: Path, preview: ChangePreview):
+    source = _read(root, _PHYSICAL)
+    if source is None or preview.effects.physical is None:
+        raise model.ModelError(["native candidate lacks the approved physical declaration"])
+    sources = _physical_closure(root, source)
+    if _physical_id(sources) != preview.effects.physical[1]:
+        raise model.ModelError(["applied physical inputs differ from the approved preview"])
+    return _compile_physical(sources)
+
+
 def prepare_preview(
     root: Path,
     request: ChangeRequest,
@@ -122,8 +257,12 @@ def prepare_preview(
     target: str | None = None,
     target_profile: DeploymentProfile = "development",
     authoring_target: str | None = None,
+    target_identity: StorageTarget | None = None,
+    authoring_identity: StorageTarget | None = None,
     comparison: dict | None = None,
     local_release: str | None = None,
+    release_manifest_sha256: str | None = None,
+    expected_physical: str | None = None,
 ) -> ChangePreview:
     root = root.resolve()
     baseline = _ref(root, request.baseline)
@@ -158,6 +297,12 @@ def prepare_preview(
         revision = model.revision(new)
         changed = change.diff(old, new)
         native = request.native_predecessor
+        if request.physical is not None or request.retire or request.recreate:
+            if not native:
+                raise model.ModelError(
+                    ["physical and native object effects require a native predecessor"]
+                )
+            native_intent(request.retire, request.recreate)
         if bool(native or request.deployment) != bool(target):
             raise model.ModelError(["a deployment preview requires a configured target binding"])
         if request.deployment_profile and (
@@ -184,6 +329,39 @@ def prepare_preview(
             generated = preparation.prepare(
                 new, model.read_log(before / "revisions.yaml"), before=old, record=request.change
             )
+        compatibility: dict[str, list[str]] = {}
+        for (element, _, _), classification in change.derived(
+            old, new, request.change.name_map if request.change else {}
+        ).items():
+            compatibility.setdefault(classification, []).append(element)
+    physical = None
+    if native:
+        physical_input = _read(root, _PHYSICAL)
+        if physical_input is None:
+            raise model.ModelError(["native preview requires the trusted physical declaration"])
+        original_physical = _physical_closure(
+            root, _git(root, "show", f"{baseline}:{_PHYSICAL}"), baseline=baseline
+        )
+        requested_physical = _physical_closure(
+            root, physical_input if request.physical is None else request.physical
+        )
+        _compile_physical(requested_physical)
+        physical = (_physical_id(original_physical), _physical_id(requested_physical))
+        if expected_physical is not None and expected_physical != physical[1]:
+            raise model.ModelError(["physical release inputs changed during preview"])
+        original.update(original_physical)
+        current.update(
+            {
+                path: _read(root, path)
+                for path in original_physical.keys() | requested_physical.keys()
+            }
+        )
+        source.update(requested_physical)
+        for path in _git(
+            root, "ls-files", "-z", "--", str(preparation.PACKAGE_PATH / "semantic")
+        ).split("\0"):
+            if path.endswith((".py", ".sql")):
+                current[path] = _read(root, path)
     staged = {path: content for path, content in source.items() if content is not None} | generated
     prior = {path: _read(root, path) for path in staged}
     files = tuple(
@@ -201,6 +379,37 @@ def prepare_preview(
         for name in item.element.split(":")[-1].replace("#", ".").split(".")
         if name.isidentifier()
     }
+    identifiers.update(item.name for item in (*request.retire, *request.recreate))
+    for item in (comparison or {}).get("changes", ()):
+        for ref in (item["model_ref"], *item.get("consumers", ())):
+            identifiers.update(
+                token for token in ref.replace(":", ".").split(".") if token.isidentifier()
+            )
+    release_effect = (
+        ("unchanged" if request.archive_release == local_release else "changed")
+        if comparison
+        else "uncompared"
+        if local_release
+        else "not_applicable"
+    )
+    admission = bool(target and local_release)
+    native_basis = tuple(
+        reason
+        for applies, reason in (
+            (bool(compatibility.get("relational-additive")), "canonical_relational_change"),
+            (physical is not None and physical[0] != physical[1], "trusted_physical_change"),
+            (bool(request.retire), "explicit_native_retirement"),
+            (bool(request.recreate), "explicit_native_recreation"),
+        )
+        if applies
+    )
+    if native and not native_basis:
+        native_basis = ("explicit_native_authoring",)
+    checks = ["canonical_validation", "revision_log", "exact_file_bytes"]
+    if native:
+        checks.extend(("physical_compilation", "acquired_predecessor", "native_admission"))
+    if admission:
+        checks.extend(("prepared_release_identity", "release_admission", "acquired_target"))
     return ChangePreview(
         workspace=str(root),
         head=head,
@@ -213,17 +422,36 @@ def prepare_preview(
         files=files,
         patch="".join(_diff(file.path, prior[file.path], file.after) for file in files),
         source_diff="".join(
-            _diff(path, original[path], content)
+            _diff(path, original.get(path), content)
             for path, content in source.items()
-            if content is not None and content != original[path]
+            if content is not None and content != original.get(path)
         ),
         request=request,
         target=target,
         target_profile=target_profile if target else None,
         authoring_target=authoring_target,
+        target_identity=target_identity,
+        authoring_identity=authoring_identity,
+        effects=ChangeEffects(
+            compatibility={
+                kind: tuple(sorted(set(elements))) for kind, elements in compatibility.items()
+            },
+            routes={kind: change.route(kind) for kind in compatibility},
+            generated=tuple(file.path for file in files if file.path in generated),
+            physical=physical,
+            native=bool(native),
+            native_basis=native_basis,
+            admission=admission,
+            admission_applicable=bool(local_release),
+            release=release_effect,
+            checks=tuple(checks),
+        ),
         comparison=comparison,
         local_release=local_release,
-        discovery=locate_consumers(root, head, identifiers) if identifiers else None,
+        release_manifest_sha256=release_manifest_sha256,
+        discovery=locate_consumers(root, head, identifiers, comparison=comparison)
+        if identifiers or comparison
+        else None,
     )
 
 
@@ -253,7 +481,7 @@ def apply_preview(
     root: Path,
     preview: ChangePreview,
     *,
-    native_fence: AbstractContextManager[None] | None = None,
+    native_fence: AbstractContextManager[StorageTarget] | None = None,
     report: Callable[[str], None] | None = None,
 ) -> list[str]:
     """Apply only the approved files. Exact after-bytes make interrupted work retryable."""

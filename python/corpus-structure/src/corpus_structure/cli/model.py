@@ -10,8 +10,9 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel
 
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, state
+from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, state
 from corpus_structure.cli.schema import refusal
+from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
 app = typer.Typer(help="Check the model and prepare canonical changes.")
@@ -26,6 +27,7 @@ class ModelResult(BaseModel):
     predecessor: str | None = None
     release: str | None = None
     target_profile: DeploymentProfile | None = None
+    acquired_target: StorageTarget | None = None
 
 
 class CheckResult(BaseModel):
@@ -42,10 +44,11 @@ def check(json_: JsonOpt = False) -> None:
         done = run_recipe("model", "check")
         if done.stderr:
             diagnostic(done.stderr)
-        if not json_ and done.stdout:
-            typer.echo(done.stdout, nl=False)
+        report = safe_text(done.stdout)
+        if not json_ and report:
+            typer.echo(report, nl=False)
         else:
-            emit(CheckResult(exit_code=done.returncode, report=done.stdout), json=json_)
+            emit(CheckResult(exit_code=done.returncode, report=report), json=json_)
         if done.returncode:
             raise typer.Exit(done.returncode)
 
@@ -56,21 +59,25 @@ def _load_artifact(store, result_id: str, action: str, role: str) -> bytes:
     manifest = store.show(result_id)
     if manifest.action != action or manifest.outcome != "passed":
         raise ResultError(f"{result_id} is not a successful {action} result")
-    raw = store.artifact(result_id, role).read_bytes()
+    raw = store.read_artifact(result_id, role)
     if sha256(raw).hexdigest() != manifest.details.get("sha256"):
         raise ResultError("result artifact no longer matches its settled digest")
     return raw
 
 
-def _prepare_release(root, names):
+def _prepare_release(root, names, *, physical_sources: dict[str, bytes] | None = None):
     from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.model_change import physical_release_sources
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
     from corpus_structure.semantic.regeneration import prepare_packs
 
     if not names or any(
         not name or name in {".", ".."} or Path(name).name != name for name in names
     ):
         raise ModelError(["select one or more declared domain pack names"])
-    return prepare_packs(tuple(root / "domains" / name for name in names))
+    sources = physical_release_sources(root) if physical_sources is None else physical_sources
+    execution = trusted_execution_inputs(physical_sources=sources) if sources is not None else None
+    return prepare_packs(tuple(root / "domains" / name for name in names), execution=execution)
 
 
 @changes.command("preview")
@@ -89,8 +96,14 @@ def preview(
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.recipes import checkout
     from corpus_structure.schema.model import ModelError
-    from corpus_structure.schema.model_change import ChangePreview, ChangeRequest, prepare_preview
+    from corpus_structure.schema.model_change import (
+        ChangePreview,
+        ChangeRequest,
+        physical_release_sources,
+        prepare_preview,
+    )
     from corpus_structure.schema.model_deployment import (
+        capture_target,
         deployment_settings,
         target_fingerprint,
         verify_predecessor,
@@ -113,28 +126,38 @@ def preview(
                     else Path(request).read_text(encoding="utf-8")
                 )
                 bound = ChangeRequest.model_validate(yaml.safe_load(raw))
-            if bound.archive_release and (bound.core is not None or bound.system is not None):
-                raise ModelError(
-                    [
-                        "compare an archived release against local pack inputs, "
-                        "then stage declaration edits separately"
-                    ]
-                )
             target = None
             profile: DeploymentProfile = "development"
             authoring_target = None
+            target_identity = None
+            authoring_identity = None
             if bound.native_predecessor or bound.deployment:
                 settings = state(ctx).settings()
                 profile, destination = deployment_settings(settings, bound.deployment_profile)
                 target = target_fingerprint(destination)
                 if bound.native_predecessor:
                     authoring_target = target_fingerprint(settings)
-                    verify_predecessor(settings, authoring_target, bound.native_predecessor)
+                    authoring_identity = verify_predecessor(
+                        settings, authoring_target, bound.native_predecessor
+                    )
+                target_identity = (
+                    authoring_identity
+                    if profile == "development" and authoring_identity is not None
+                    else capture_target(destination, purpose="maintenance")
+                )
             impact = None
             local = None
             release = None
+            physical_id = None
             if bound.archive_release or target is not None:
-                _, _, _, local = _prepare_release(root, bound.packs)
+                from corpus_structure.semantic.metadata import physical_sources_id
+
+                physical_sources = physical_release_sources(root, bound.physical)
+                if physical_sources is not None:
+                    physical_id = physical_sources_id(physical_sources)
+                _, _, _, local = _prepare_release(
+                    root, bound.packs, physical_sources=physical_sources
+                )
                 release = local.release_id
             if bound.archive_release:
                 from corpus_structure.semantic.operation_reporting import compare_semantic_releases
@@ -158,8 +181,14 @@ def preview(
                 target=target,
                 target_profile=profile,
                 authoring_target=authoring_target,
+                target_identity=target_identity,
+                authoring_identity=authoring_identity,
                 comparison=impact,
                 local_release=release,
+                expected_physical=physical_id,
+                release_manifest_sha256=sha256(local.manifest).hexdigest()
+                if local is not None
+                else None,
             )
             artifact = result.directory / "preview.json"
             artifact.write_text(staged.model_dump_json(), encoding="utf-8")
@@ -179,6 +208,7 @@ def preview(
                 predecessor=bound.native_predecessor,
                 release=release,
                 target_profile=staged.target_profile,
+                acquired_target=staged.target_identity,
             ),
             json=json_,
         )
@@ -201,13 +231,18 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             )
 
             native = None
-            if staged.request.native_predecessor:
-                if not staged.authoring_target:
+            if staged.effects.native:
+                if (
+                    not staged.authoring_target
+                    or staged.authoring_identity is None
+                    or not staged.request.native_predecessor
+                ):
                     raise ModelError(["preview lacks the bound development authoring target"])
                 native = predecessor_fence(
                     state(ctx).settings(),
                     staged.authoring_target,
                     staged.request.native_predecessor,
+                    staged.authoring_identity,
                 )
 
             settled: list[str] = []
@@ -221,7 +256,14 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 apply_preview(checkout(ctx), staged, native_fence=native, report=report)
             except BaseException as error:
                 outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
-                result.settle(outcome, settled_paths=settled, error_type=type(error).__name__)
+                details = (
+                    {"next_action": f"ci model change apply {change}"}
+                    if outcome == "interrupted"
+                    else {}
+                )
+                result.settle(
+                    outcome, settled_paths=settled, error_type=type(error).__name__, **details
+                )
                 raise
             result.settle(settled_paths=settled, revision=staged.revision)
         emit(
@@ -243,7 +285,12 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
     from corpus_structure.cli.recipes import checkout
     from corpus_structure.cli.schema import author_native_candidate, publish_native_candidate
     from corpus_structure.schema.model import ModelError
-    from corpus_structure.schema.model_change import ChangePreview, check_preview
+    from corpus_structure.schema.model_change import (
+        ChangePreview,
+        approved_physical_metadata,
+        check_preview,
+        native_intent,
+    )
     from corpus_structure.schema.model_deployment import (
         Candidate,
         migration_wrapper,
@@ -269,26 +316,44 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             revision = staged.request.native_revision or (
                 record.alembic_revision if record else None
             )
-            if not staged.target or not staged.target_profile:
+            if (
+                not staged.effects.admission
+                or not staged.target
+                or not staged.target_profile
+                or staged.target_identity is None
+            ):
                 raise ModelError(["preview does not authorize a target-bound candidate"])
             with writer_lock(root):
                 check_preview(root, staged, applied=True)
                 _, _, _, prepared = _prepare_release(root, staged.request.packs)
-                if prepared.release_id != staged.local_release:
+                if (
+                    prepared.release_id != staged.local_release
+                    or sha256(prepared.manifest).hexdigest() != staged.release_manifest_sha256
+                ):
                     raise ModelError(
                         ["prepared release identity differs from the reviewed preview"]
                     )
                 products: dict[str, bytes] = {}
-                if revision:
+                if staged.effects.native:
                     settings = state(ctx).settings()
-                    if target_fingerprint(settings) != staged.authoring_target:
+                    if (
+                        staged.authoring_identity is None
+                        or target_fingerprint(settings) != staged.authoring_target
+                    ):
                         raise ModelError(["development authoring target differs from the preview"])
+                    retired, recreated = native_intent(
+                        staged.request.retire, staged.request.recreate
+                    )
                     result.stage("rollback-only authoring")
                     native, products = author_native_candidate(
                         settings,
                         None,
                         None,
                         expected_predecessor=staged.request.native_predecessor,
+                        expected_target=staged.authoring_identity,
+                        target_metadata=approved_physical_metadata(root, staged),
+                        retire=retired,
+                        recreate=recreated,
                     )
                     report = publish_native_candidate(result, native, products)
                 else:
@@ -339,12 +404,14 @@ def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) 
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate, "model.candidate", "deployment")
             )
-            wrapper = store.artifact(candidate, "wrapper")
-            if wrapper.read_bytes() != migration_wrapper(binding):
+            if store.read_artifact(candidate, "wrapper") != migration_wrapper(binding):
                 raise ModelError(["managed migration wrapper differs from the reviewed candidate"])
             root = checkout(ctx)
-            with writer_lock(root):
-                paths = register_candidate(root, binding, store.artifact(candidate, "candidate"))
+            with (
+                writer_lock(root),
+                store.open_artifact(candidate, "candidate") as (_, directory_fd),
+            ):
+                paths = register_candidate(root, binding, directory_fd)
             store.hold(candidate, _registration_hold(candidate))
             result.settle(paths=paths, revision=binding.revision)
         emit(
@@ -402,7 +469,14 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                     )
                 except BaseException as error:
                     outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
-                    result.settle(outcome, settled_effects=applied, error_type=type(error).__name__)
+                    details = (
+                        {"next_action": f"ci model change deploy {candidate}"}
+                        if outcome == "interrupted"
+                        else {}
+                    )
+                    result.settle(
+                        outcome, settled_effects=applied, error_type=type(error).__name__, **details
+                    )
                     raise
             store.release(candidate, _registration_hold(candidate))
             result.settle(settled_effects=applied, release=binding.release)
@@ -414,6 +488,7 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
                 predecessor=binding.predecessor,
                 release=binding.release,
                 target_profile=binding.target_profile,
+                acquired_target=binding.target_identity,
             ),
             json=json_,
         )

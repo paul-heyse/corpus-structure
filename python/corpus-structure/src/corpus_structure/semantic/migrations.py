@@ -15,9 +15,13 @@ ALEMBIC_DIR = Path(__file__).resolve().parents[3] / "semantic_alembic"
 VERSION_TABLE = "semantic_alembic_version"
 
 
-def alembic_config(connection: Connection | None = None) -> Config:
+def alembic_config(
+    connection: Connection | None = None, *, script_location: Path | None = None
+) -> Config:
     config = Config()
-    config.set_main_option("script_location", str(ALEMBIC_DIR))
+    config.set_main_option(
+        "script_location", str(ALEMBIC_DIR if script_location is None else script_location)
+    )
     if connection is not None:
         config.attributes["connection"] = connection
     return config
@@ -45,7 +49,11 @@ def migration_fence(connection: Connection) -> None:
 
 
 def upgrade(
-    connection: Connection, target: str = "head", *, expected_predecessor: str | None = None
+    connection: Connection,
+    target: str = "head",
+    *,
+    expected_predecessor: str | None = None,
+    script_location: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Migrate on the caller's connection and transaction; never open a second connection."""
     migration_fence(connection)
@@ -57,7 +65,7 @@ def upgrade(
             raise MigrationPredecessorError(
                 f"expected native predecessor {expected_predecessor}, found {actual}"
             )
-    config = alembic_config(connection)
+    config = alembic_config(connection, script_location=script_location)
     command.upgrade(config, target)
     return list(config.attributes.get("applied", []))
 

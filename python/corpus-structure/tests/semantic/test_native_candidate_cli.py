@@ -68,7 +68,7 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
     from alembic.operations.ops import UpgradeOps
     from sqlalchemy.engine import make_url
 
-    from corpus_structure.semantic import migrations, native_candidate, runtime
+    from corpus_structure.semantic import migrations, native_candidate, runtime, storage_target
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     settings = Settings(
@@ -109,25 +109,49 @@ def test_native_candidate_uses_maintenance_and_rolls_back(
         assert events[-1] == "rollback"
         events.append("closed")
 
-    def prepare(conn, *, owned_authoring, predecessor_state):
+    def prepare(conn, *, owned_authoring, predecessor_state, target_metadata, retire, recreate):
         assert owned_authoring is True
         assert predecessor_state is None
         assert events[-1] == "begin"
+        assert "data.project" in target_metadata.tables
+        assert {item.name for item in retire} == {"old_fixture"}
+        assert {item.name for item in recreate} == {"new_fixture"}
         if fail:
             raise SemanticRefusal("candidate refused")
         return SimpleNamespace(upgrade_ops=UpgradeOps([])), SimpleNamespace(desired=())
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
+    monkeypatch.setattr(storage_target, "verify_declared_route", lambda *_: None)
+    monkeypatch.setattr(
+        storage_target,
+        "acquired_target",
+        lambda _, *, purpose: storage_target.StorageTarget(
+            database=database or "ordinary",
+            database_oid=10,
+            system_identifier="1",
+            host="/socket",
+            port=5434,
+            purpose=purpose,
+        ),
+    )
+    monkeypatch.setattr(migrations, "migration_fence", lambda _: None)
     monkeypatch.setattr(migrations, "current_revision", lambda conn: "106")
     monkeypatch.setattr(native_candidate, "prepare_series_candidate", prepare)
     monkeypatch.setattr(native_candidate, "series_native_definitions", lambda conn: ())
     monkeypatch.setattr(native_candidate, "candidate_admission_sql", lambda *a, **kw: "SELECT 1;")
     out = tmp_path / "candidate"
+    intent = tmp_path / "intent.yaml"
+    intent.write_text(
+        "retire: [{kind: view, schema: data, name: old_fixture}]\n"
+        "recreate: [{kind: view, schema: data, name: new_fixture}]\n"
+    )
     arguments = [] if database is None else ["--authoring-database", database]
     result = cli(
         "schema",
         "native-candidate",
         *arguments,
+        "--intent",
+        str(intent),
         "--out",
         str(out),
         "--json",

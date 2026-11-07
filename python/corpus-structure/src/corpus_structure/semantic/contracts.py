@@ -1023,13 +1023,30 @@ def trusted_execution_schema() -> SourceBundle:
     )
 
 
-def trusted_execution_inputs() -> ExecutionModelInputs:
+def trusted_execution_inputs(
+    *, physical_sources: Mapping[str, bytes] | None = None
+) -> ExecutionModelInputs:
     """Read bundled code-owned definitions once at an explicit application entry boundary."""
     root = files("corpus_structure").joinpath("model", "semantic")
+    physical = physical_sources or {}
+    replacements = {
+        artifact: physical[filename]
+        for filename, artifact in (
+            ("physical.yaml", "pdf/record-physical.yaml"),
+            ("pdf-records.yaml", "pdf/record-model.yaml"),
+            ("pdf-staging.yaml", "pdf/staging-model.yaml"),
+        )
+        if filename in physical
+    }
     return ExecutionModelInputs(
         trusted_execution_schema(),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
-        semantic_implementation_inputs(analysis_implementation_inputs()),
+        tuple(
+            SourceArtifact(item.name, replacements[item.name])
+            if item.name in replacements
+            else item
+            for item in semantic_implementation_inputs(analysis_implementation_inputs())
+        ),
     )
 
 

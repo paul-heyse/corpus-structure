@@ -257,13 +257,12 @@ def derived_publication_sql():
     )
 
 
-def current_admission_fields(model=None) -> dict:
+def current_admission_fields(model=None, *, target_metadata=metadata) -> dict:
     """Model-owned admission fields; immutable predecessors own unchanged native programs."""
     from dataclasses import asdict
 
     from .contracts import compile_execution_model, trusted_execution_inputs
     from .identity import canonical_bytes
-    from .metadata import PHYSICAL_MODEL_ID
 
     model = compile_execution_model(trusted_execution_inputs()) if model is None else model
     for operation in model.operations:
@@ -271,7 +270,7 @@ def current_admission_fields(model=None) -> dict:
             model.require_operation(operation.id)
     check_sources = [
         (relation.fullname, str(check.name), str(check.sqltext))
-        for relation in sorted(metadata.tables.values(), key=lambda item: item.fullname)
+        for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname)
         for check in sorted(
             (item for item in relation.constraints if isinstance(item, CheckConstraint)),
             key=lambda item: str(item.name),
@@ -280,7 +279,7 @@ def current_admission_fields(model=None) -> dict:
     descriptor: dict[str, Any] = {
         "physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()
     }
-    descriptor["physical_relations"] = sorted(metadata.tables)
+    descriptor["physical_relations"] = sorted(target_metadata.tables)
     descriptor["views"] = [
         {
             "relation": "data.selected_fact",
@@ -311,7 +310,7 @@ def current_admission_fields(model=None) -> dict:
 
     descriptor["analytical_abi"] = analytical_compiler
     descriptor["execution_abi"] = EXECUTION_COMPILER_VERSION
-    descriptor["physical_id"] = PHYSICAL_MODEL_ID
+    descriptor["physical_id"] = target_metadata.info["physical_model_id"]
     descriptor.update(current_authoring_provenance(model).descriptor_fields())
     return descriptor
 

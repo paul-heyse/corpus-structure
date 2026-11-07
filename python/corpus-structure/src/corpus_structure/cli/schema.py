@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 from pydantic import BaseModel
@@ -11,6 +11,12 @@ from rich.table import Table
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit
+from corpus_structure.semantic.storage_target import StorageTarget
+
+if TYPE_CHECKING:
+    from sqlalchemy import MetaData
+
+    from corpus_structure.semantic.native_objects import NativeIdentity
 
 
 def refusal(json, *, expected=(), context=None):
@@ -178,6 +184,7 @@ class NativeCandidateResult(BaseModel):
     ordinary_operations: int
     products: list[ArtifactRow]
     result_id: str | None = None
+    acquired_target: StorageTarget | None = None
 
 
 def _render_native_candidate(result):
@@ -238,6 +245,10 @@ def author_native_candidate(
     predecessor_state: Path | None,
     *,
     expected_predecessor: str | None = None,
+    expected_target: StorageTarget | None = None,
+    target_metadata: MetaData | None = None,
+    retire: frozenset[NativeIdentity] = frozenset(),
+    recreate: frozenset[NativeIdentity] = frozenset(),
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
@@ -246,6 +257,7 @@ def author_native_candidate(
 
     from corpus_structure.semantic.alembic_native import NativeTransitionOp
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.native_candidate import (
         candidate_admission_sql,
@@ -255,6 +267,12 @@ def author_native_candidate(
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.storage_target import (
+        acquired_target,
+        assert_explicit_route,
+        verify_declared_route,
+        verify_target,
+    )
 
     source = make_url(settings.database.url)
     if authoring_database is None:
@@ -280,21 +298,34 @@ def author_native_candidate(
             )
         }
     )
+    if assert_explicit_route(selected)["dbname"] != authoring_database:
+        raise SemanticRefusal("configured authoring database conflicts with its libpq route")
+    target_metadata = metadata if target_metadata is None else target_metadata
     with (
         open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,
         engine.connect() as conn,
     ):
         transaction = conn.begin()
         try:
-            if expected_predecessor is not None:
-                migration_fence(conn)
+            verify_declared_route(conn, selected)
+            target = (
+                acquired_target(conn, purpose="maintenance")
+                if expected_target is None
+                else verify_target(conn, expected_target, purpose="maintenance")
+            )
+            migration_fence(conn)
             predecessor = current_revision(conn)
             if predecessor is None:
                 raise SemanticRefusal("native authoring requires a migrated semantic database")
             if expected_predecessor is not None and predecessor != expected_predecessor:
                 raise SemanticRefusal("native authoring predecessor differs from the preview")
             script, authoring = prepare_series_candidate(
-                conn, owned_authoring=True, predecessor_state=predecessor_state
+                conn,
+                owned_authoring=True,
+                predecessor_state=predecessor_state,
+                target_metadata=target_metadata,
+                retire=retire,
+                recreate=recreate,
             )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:
@@ -312,6 +343,7 @@ def author_native_candidate(
                 authoring.desired,
                 retire=frozenset(item.identity for item in native if item.after is None),
                 predecessor_state=predecessor_state,
+                target_metadata=target_metadata,
             )
             products = {
                 "native_candidate.py": python_source.encode(),
@@ -333,6 +365,7 @@ def author_native_candidate(
         output="",
         native_operations=len(native),
         ordinary_operations=len(upgrade_ops.ops) - len(native),
+        acquired_target=target,
         products=[
             ArtifactRow(kind=name, hash=sha256(content).hexdigest())
             for name, content in products.items()
@@ -361,23 +394,50 @@ def native_candidate_(
         ),
     ] = None,
     predecessor_state: Annotated[Path | None, typer.Option("--predecessor-state")] = None,
+    intent: Annotated[
+        Path | None, typer.Option(help="YAML retirement and recreation declaration.")
+    ] = None,
     json_: JsonOpt = False,
 ):
     """Compare/render a managed native candidate with rollback-only maintenance authority."""
+    import yaml
+
     from corpus_structure.cli.managed import ResultError, result_store
     from corpus_structure.cli.output import state
+    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.model_change import NativeIntent, native_intent
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
     from corpus_structure.semantic.refusals import SemanticRefusal
 
-    with refusal(json_, expected=(NativeAuthoringError, SQLSyntaxError, ResultError)):
+    with refusal(
+        json_,
+        expected=(
+            NativeAuthoringError,
+            SQLSyntaxError,
+            ResultError,
+            ModelError,
+            yaml.YAMLError,
+            OSError,
+        ),
+    ):
         if out is not None and out.exists():
             raise SemanticRefusal("native authoring delivery requires a new directory")
         store = result_store(ctx)
         with store.operation("schema.native-candidate") as result:
             result.stage("rollback-only authoring")
+            requested = (
+                NativeIntent()
+                if intent is None
+                else NativeIntent.model_validate(yaml.safe_load(intent.read_bytes()))
+            )
+            retire, recreate = native_intent(requested.retire, requested.recreate)
             report, products = author_native_candidate(
-                state(ctx).settings(), authoring_database, predecessor_state
+                state(ctx).settings(),
+                authoring_database,
+                predecessor_state,
+                retire=retire,
+                recreate=recreate,
             )
             report = publish_native_candidate(result, report, products)
             result.settle(predecessor=report.predecessor, target=report.database)

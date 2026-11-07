@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -9,12 +10,20 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import ChangePreview, checked_path, generator_fingerprint
+from corpus_structure.semantic.runtime import Purpose
+from corpus_structure.semantic.storage_target import (
+    StorageTarget,
+    acquired_target,
+    assert_explicit_route,
+    verify_declared_route,
+    verify_target,
+)
 from corpus_structure.settings import DeploymentProfile, Settings
 
 _NATIVE_PRODUCTS = (
@@ -35,10 +44,14 @@ class Candidate(BaseModel):
     target: str
     target_profile: DeploymentProfile = "development"
     authoring_target: str | None = None
+    target_identity: StorageTarget | None = None
+    authoring_identity: StorageTarget | None = None
     release: str
+    release_manifest_sha256: str | None = None
     packs: tuple[str, ...]
     files: dict[str, str | None]
     hashes: dict[str, str]
+    wrapper_sha256: str | None = None
 
     @classmethod
     def from_preview(
@@ -55,7 +68,7 @@ class Candidate(BaseModel):
             )
         if preview.local_release != release:
             raise ModelError(["prepared release identity differs from the reviewed preview"])
-        return cls(
+        binding = cls(
             workspace=preview.workspace,
             model_revision=preview.revision,
             generator=preview.generator,
@@ -64,7 +77,10 @@ class Candidate(BaseModel):
             target=preview.target,
             target_profile=preview.target_profile,
             authoring_target=preview.authoring_target,
+            target_identity=preview.target_identity,
+            authoring_identity=preview.authoring_identity,
             release=release,
+            release_manifest_sha256=preview.release_manifest_sha256,
             packs=preview.request.packs,
             files={
                 **preview.inputs,
@@ -75,6 +91,11 @@ class Candidate(BaseModel):
             },
             hashes={name: sha256(content).hexdigest() for name, content in products.items()},
         )
+        if revision:
+            binding = binding.model_copy(
+                update={"wrapper_sha256": sha256(migration_wrapper(binding)).hexdigest()}
+            )
+        return binding
 
 
 def deployment_settings(
@@ -94,6 +115,8 @@ def target_fingerprint(settings: Settings) -> str:
     from sqlalchemy.engine import make_url
 
     source = make_url(settings.database.url)
+    if source.query.get("dbname") not in {None, source.database}:
+        raise ModelError(["configured PostgreSQL database conflicts with its libpq route"])
     if source.database in {
         None,
         "",
@@ -112,26 +135,47 @@ def target_fingerprint(settings: Settings) -> str:
     return sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
+def capture_target(settings: Settings, *, purpose: Purpose) -> StorageTarget:
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    assert_explicit_route(settings)
+    with (
+        open_runtime_engine(settings, "ci-model-bind", purpose=purpose) as engine,
+        engine.begin() as conn,
+    ):
+        verify_declared_route(conn, settings)
+        return acquired_target(conn, purpose=purpose)
+
+
 @contextmanager
-def predecessor_fence(settings: Settings, target: str, predecessor: str) -> Generator[None]:
+def predecessor_fence(
+    settings: Settings, target: str, predecessor: str, identity: StorageTarget | None = None
+) -> Generator[StorageTarget]:
     from corpus_structure.semantic.migrations import current_revision, migration_fence
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     if target_fingerprint(settings) != target:
         raise ModelError(["configured target differs from the model preview"])
+    assert_explicit_route(settings)
     with (
         open_runtime_engine(settings, "ci-model-predecessor", purpose="maintenance") as engine,
         engine.begin() as conn,
     ):
+        verify_declared_route(conn, settings)
+        actual = (
+            acquired_target(conn, purpose="maintenance")
+            if identity is None
+            else verify_target(conn, identity, purpose="maintenance")
+        )
         migration_fence(conn)
         if current_revision(conn) != predecessor:
             raise ModelError(["installed native predecessor differs from the model preview"])
-        yield
+        yield actual
 
 
-def verify_predecessor(settings: Settings, target: str, predecessor: str) -> None:
-    with predecessor_fence(settings, target, predecessor):
-        pass
+def verify_predecessor(settings: Settings, target: str, predecessor: str) -> StorageTarget:
+    with predecessor_fence(settings, target, predecessor) as actual:
+        return actual
 
 
 def _migration_names(binding: Candidate) -> dict[str, str]:
@@ -191,7 +235,51 @@ def downgrade():
 '''.encode()
 
 
-def register_candidate(root: Path, binding: Candidate, products: Path) -> tuple[str, ...]:
+def _versions() -> Path:
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
+    return ALEMBIC_DIR / "versions"
+
+
+def _declared_revision_paths(versions: Path, revision: str) -> set[Path]:
+    paths = set()
+    for path in versions.glob("*.py"):
+        if path.name == "__init__.py":
+            continue
+        try:
+            tree = ast.parse(path.read_bytes(), filename=path.name)
+        except (OSError, SyntaxError) as error:
+            raise ModelError([f"cannot inspect migration declaration: {path.name}"]) from error
+        declarations = [
+            node.value.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and any(
+                isinstance(target, ast.Name) and target.id == "revision" for target in node.targets
+            )
+        ]
+        if len(declarations) != 1 or not isinstance(declarations[0], str):
+            raise ModelError([f"migration requires one literal revision ID: {path.name}"])
+        if declarations[0] == revision:
+            paths.add(path)
+    return paths
+
+
+def _approved_wrapper(binding: Candidate) -> bytes:
+    if missing := {product for _, product, _ in _NATIVE_PRODUCTS} - binding.hashes.keys():
+        raise ModelError(
+            ["native candidate lacks required products: " + ", ".join(sorted(missing))]
+        )
+    content = migration_wrapper(binding)
+    if sha256(content).hexdigest() != binding.wrapper_sha256:
+        raise ModelError(
+            ["registered migration wrapper differs from the approved executable bytes"]
+        )
+    return content
+
+
+def register_candidate(root: Path, binding: Candidate, products: Path | int) -> tuple[str, ...]:
     """Install exact migration products under the caller's checkout writer lock."""
     from alembic.script import ScriptDirectory
 
@@ -199,21 +287,30 @@ def register_candidate(root: Path, binding: Candidate, products: Path) -> tuple[
 
     _verify_candidate_files(root, binding)
     names = _migration_names(binding)
-    script = ScriptDirectory.from_config(alembic_config())
-    versions = (Path(script.dir) / "versions").relative_to(root)
+    versions = _versions().relative_to(root)
     wrapper = checked_path(root, (versions / f"{binding.revision}.py").as_posix())
-    if script.get_current_head() != binding.predecessor and not wrapper.is_file():
-        raise ModelError(["installed migration head differs from the candidate predecessor"])
+    if _declared_revision_paths(root / versions, binding.revision or "") - {wrapper}:
+        raise ModelError(["candidate revision is declared by a different migration wrapper"])
     staged = {}
     for kind, product, _ in _NATIVE_PRODUCTS:
-        content = (products / product).read_bytes()
+        if isinstance(products, int):
+            fd = os.open(product, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=products)
+            with os.fdopen(fd, "rb") as artifact:
+                content = artifact.read()
+        else:
+            content = (products / product).read_bytes()
         if sha256(content).hexdigest() != binding.hashes.get(product):
             raise ModelError([f"candidate artifact differs: {product}"])
         staged[checked_path(root, (versions / names[kind]).as_posix())] = content
-    staged[wrapper] = migration_wrapper(binding)
+    staged[wrapper] = _approved_wrapper(binding)
     for path, content in staged.items():
         if path.exists() and path.read_bytes() != content:
             raise ModelError([f"migration file already has different content: {path.name}"])
+    if (
+        not wrapper.is_file()
+        and ScriptDirectory.from_config(alembic_config()).get_current_head() != binding.predecessor
+    ):
+        raise ModelError(["installed migration head differs from the candidate predecessor"])
     for path, content in staged.items():
         if path.exists():
             continue
@@ -225,46 +322,51 @@ def register_candidate(root: Path, binding: Candidate, products: Path) -> tuple[
     return tuple(path.relative_to(root).as_posix() for path in staged)
 
 
-def _verify_installed_revision(binding: Candidate) -> None:
+def _verify_installed_revision(root: Path, binding: Candidate) -> dict[str, bytes]:
     """Only the repository migration owner may execute an admitted frozen revision."""
-    from alembic.script import ScriptDirectory
-    from alembic.util.exc import CommandError
-
-    from corpus_structure.semantic.migrations import alembic_config
-
     if binding.revision is None:
-        return
-    scripts = ScriptDirectory.from_config(alembic_config())
-    try:
-        script = scripts.get_revision(binding.revision)
-    except CommandError as error:
-        raise ModelError(
-            ["install the registered revision with its frozen candidate artifacts"]
-        ) from error
-    if (
-        script is None
-        or script.revision != binding.revision
-        or script.down_revision != binding.predecessor
-    ):
-        raise ModelError(
-            ["installed migration differs from the exact candidate revision and predecessor"]
-        )
-    if Path(script.path).name == f"{binding.revision}.py" and (
-        Path(script.path).read_bytes() != migration_wrapper(binding)
-    ):
-        raise ModelError(["registered migration wrapper differs from the generated candidate"])
+        return {}
+    names = _migration_names(binding)
+    versions = _versions().relative_to(root)
+    wrapper = checked_path(root, (versions / f"{binding.revision}.py").as_posix())
+    wrapper_bytes = _approved_wrapper(binding)
+    if not wrapper.is_file() or wrapper.read_bytes() != wrapper_bytes:
+        raise ModelError(["install the exact approved migration wrapper at its canonical path"])
+    if _declared_revision_paths(root / versions, binding.revision) != {wrapper}:
+        raise ModelError(["candidate revision is declared by a different migration wrapper"])
+    frozen = {wrapper.name: wrapper_bytes}
     for kind, product, _ in _NATIVE_PRODUCTS:
-        name = getattr(script.module, f"NATIVE_{kind}_FILE", None)
-        digest = getattr(script.module, f"NATIVE_{kind}_SHA256", None)
-        if (
-            not isinstance(name, str)
-            or Path(name).name != name
-            or digest != binding.hashes.get(product)
-        ):
-            raise ModelError([f"installed migration does not bind the candidate's {product}"])
-        content = Path(script.path).with_name(name).read_bytes()
-        if sha256(content).hexdigest() != digest:
+        name = names[kind]
+        path = checked_path(root, (versions / name).as_posix())
+        if not path.is_file():
+            raise ModelError([f"installed migration artifact is missing: {name}"])
+        content = path.read_bytes()
+        if sha256(content).hexdigest() != binding.hashes[product]:
             raise ModelError([f"installed migration artifact differs: {name}"])
+        frozen[name] = content
+    return frozen
+
+
+@contextmanager
+def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path | None]:
+    frozen = _verify_installed_revision(root, binding)
+    if not frozen:
+        yield None
+        return
+    source = _versions()
+    # Load the exact frozen bytes from a private fresh path. Python cannot reuse a
+    # checkout __pycache__ entry, and later edits cannot change this candidate.
+    with TemporaryDirectory(prefix="ci-model-migration-") as directory:
+        location = Path(directory)
+        versions = location / "versions"
+        versions.mkdir()
+        (location / "env.py").symlink_to(source.parent / "env.py")
+        for file in source.iterdir():
+            if file.name not in frozen and file.is_file():
+                (versions / file.name).symlink_to(file)
+        for name, content in frozen.items():
+            (versions / name).write_bytes(content)
+        yield location
 
 
 def _verify_candidate_files(root: Path, binding: Candidate) -> None:
@@ -301,37 +403,64 @@ def deploy_candidate(
     if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])
     bundle, deps, profile, prepared = deployment
-    if prepared.release_id != binding.release:
+    if prepared.release_id != binding.release or (
+        binding.release_manifest_sha256 is not None
+        and sha256(prepared.manifest).hexdigest() != binding.release_manifest_sha256
+    ):
         raise ModelError(["prepared release identity differs from the candidate"])
-    _verify_installed_revision(binding)
+    if binding.target_identity is None:
+        raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
+    assert_explicit_route(destination)
+
+    def verify(conn, purpose: Purpose) -> None:
+        verify_declared_route(conn, destination)
+        verify_target(conn, binding.target_identity, purpose=purpose)
+
     with (
+        _verified_script_location(root, binding) as script_location,
         open_runtime_engine(destination, "ci-model-migrate", purpose="maintenance") as maintenance,
         maintenance.connect() as conn,
+        open_runtime_engine(destination, "ci-model-admit", purpose="admit") as admission,
+        admission.connect() as writer,
+        open_runtime_engine(destination, "ci-model-verify", purpose="read") as reader,
     ):
+        # Verify all acquired purpose routes before the first durable effect. Recheck any
+        # later borrower before use, including the fresh post-admission reader snapshot.
+        with writer.begin(), reader.begin() as check:
+            verify(writer, "admit")
+            verify(check, "read")
         if binding.revision is not None:
             with conn.begin():
-                upgrade(conn, binding.revision, expected_predecessor=binding.predecessor)
+                verify(conn, "maintenance")
+                upgrade(
+                    conn,
+                    binding.revision,
+                    expected_predecessor=binding.predecessor,
+                    script_location=script_location,
+                )
             report("migration")
         with conn.begin():
+            verify(conn, "maintenance")
             migration_fence(conn)
             if binding.revision is not None and current_revision(conn) != binding.revision:
                 raise ModelError(["native revision changed before archive/admission"])
-            with open_runtime_engine(destination, "ci-model-admit", purpose="admit") as admission:
-                with admission.begin() as writer:
-                    persist_release(writer, bundle, deps, profile, prepared)
-                report("archive")
-                with open_runtime_engine(destination, "ci-model-verify", purpose="read") as reader:
-                    if has_authored_sql(prepared):
-                        with reader.connect() as sql_connection:
-                            analyzed = analyze_archived_sql(sql_connection, binding.release)
-                    else:
-                        analyzed = None
-                    with admission.begin() as writer:
-                        if analyzed is not None:
-                            admit_archived_sql(writer, binding.release, analyzed=analyzed)
-                        admit_release(prepared, connection=writer)
-                    report("admission")
-                    with read_snapshot(reader) as snapshot:
-                        if open_release(snapshot, binding.release).release_id != binding.release:
-                            raise ModelError(["admitted release does not match the candidate"])
-                    report("verified")
+            with writer.begin():
+                verify(writer, "admit")
+                persist_release(writer, bundle, deps, profile, prepared)
+            report("archive")
+            analyzed = None
+            if has_authored_sql(prepared):
+                with reader.connect() as sql_connection:
+                    verify(sql_connection, "read")
+                    analyzed = analyze_archived_sql(sql_connection, binding.release)
+            with writer.begin():
+                verify(writer, "admit")
+                if analyzed is not None:
+                    admit_archived_sql(writer, binding.release, analyzed=analyzed)
+                admit_release(prepared, connection=writer)
+            report("admission")
+            with read_snapshot(reader) as snapshot:
+                verify(snapshot, "read")
+                if open_release(snapshot, binding.release).release_id != binding.release:
+                    raise ModelError(["admitted release does not match the candidate"])
+            report("verified")

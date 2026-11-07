@@ -56,6 +56,7 @@ def native_admission_sql(
     authoring_provenance: NativeAuthoringProvenance | None = None,
     native_objects=(),
     retire=(),
+    target_metadata=metadata,
 ):
     from hashlib import sha256
 
@@ -65,11 +66,18 @@ def native_admission_sql(
     if base_admission is None:
         raise ValueError("native admission requires an explicit frozen predecessor")
     descriptor = _admission_descriptor(base_admission)
-    descriptor.update(current_admission_fields(model))
+    descriptor.update(current_admission_fields(model, target_metadata=target_metadata))
     descriptor.pop("base_derived_protocol", None)
     descriptor.pop("parsing_relationship_profiles", None)
+    retired_views = {f"{item.schema}.{item.name}" for item in retire if item.kind == "view"}
+    retired_triggers = {
+        (f"{item.schema}.{item.relation}", item.name) for item in retire if item.kind == "trigger"
+    }
+    descriptor["views"] = [
+        item for item in descriptor["views"] if item["relation"] not in retired_views
+    ]
     owned_relations = (
-        set(metadata.tables)
+        set(target_metadata.tables)
         | {
             item.identity.schema + "." + item.identity.name
             for item in native_objects
@@ -78,18 +86,20 @@ def native_admission_sql(
         | {item["relation"] for item in descriptor["views"]}
     )
     descriptor["readers"] = [
-        item for item in descriptor["readers"] if item["relation"] in owned_relations
+        item
+        for item in descriptor["readers"]
+        if item["relation"] in owned_relations and item["relation"] not in retired_views
     ]
     owned_indexes = {
         (relation.schema + "." if relation.schema else "") + str(index.name)
-        for relation in metadata.tables.values()
+        for relation in target_metadata.tables.values()
         for index in relation.indexes
     }
     descriptor["indexes"] = [
         item for item in descriptor["indexes"] if item["index"] in owned_indexes
     ]
     descriptor["checks"] = [
-        item for item in descriptor["checks"] if item["relation"] in metadata.tables
+        item for item in descriptor["checks"] if item["relation"] in target_metadata.tables
     ]
     if authoring_provenance is not None:
         # This explicit authoring witness affects no enforcement field. In
@@ -156,17 +166,20 @@ def native_admission_sql(
     # Existing admitted relations evolve from the same current physical model as
     # explicitly added relations. Frozen predecessor columns are not current authority.
     tables = {
-        name: relation_descriptor(metadata.tables[name])
+        name: relation_descriptor(target_metadata.tables[name])
         for name in tables
-        if name in metadata.tables
+        if name in target_metadata.tables
     }
     # Removed stored relations cannot retain trigger or table admission authority.
     # Current views are separately owned NativeObjects, never stored-table metadata.
     descriptor["triggers"] = [
-        trigger for trigger in descriptor["triggers"] if trigger["relation"] in metadata.tables
+        trigger
+        for trigger in descriptor["triggers"]
+        if trigger["relation"] in target_metadata.tables
+        and (trigger["relation"], trigger["name"]) not in retired_triggers
     ]
     for name in extra_relations:
-        relation = metadata.tables[name]
+        relation = target_metadata.tables[name]
         tables[name] = relation_descriptor(relation)
         descriptor["triggers"] = [
             t
@@ -208,7 +221,7 @@ def native_admission_sql(
         ):
             raise ValueError("unsupported managed immutable guard shape")
         relation = native.identity.schema + "." + native.identity.relation
-        tables[relation] = relation_descriptor(metadata.tables[relation])
+        tables[relation] = relation_descriptor(target_metadata.tables[relation])
         descriptor["triggers"] = [
             item
             for item in descriptor["triggers"]

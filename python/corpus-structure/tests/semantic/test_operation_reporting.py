@@ -568,10 +568,10 @@ def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
     assert observation["original_report"].startswith("sha256:")
 
 
-def test_actual_schema_check_reports_retained_located_coverage(cli, semantic_application_settings):
+def test_actual_schema_check_reports_retained_located_coverage(cli):
     import json
 
-    checked = cli("schema", "check", "--json", settings=lambda: semantic_application_settings)
+    checked = cli("schema", "check", "--json")
     assert checked.exit_code == 0, checked.output
     located = json.loads(checked.stdout)["validation"]
     assert located["release_id"] == json.loads(checked.stdout)["release_id"]

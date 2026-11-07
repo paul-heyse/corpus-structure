@@ -64,7 +64,7 @@ class PackInputs:
     execution: ExecutionModelInputs
 
 
-def acquire_pack(pack: Path) -> PackInputs:
+def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -> PackInputs:
     """Acquire explicit inputs and bind operation dependencies to one compiled execution recipe."""
     source = pack / "semantic.yaml"
     if not source.is_file():
@@ -96,7 +96,7 @@ def acquire_pack(pack: Path) -> PackInputs:
             SourceArtifact("semantic_core", core.read_bytes()),
         ),
     )
-    execution = trusted_execution_inputs()
+    execution = trusted_execution_inputs() if execution is None else execution
     from .contracts import compile_execution_model
 
     execution_model = compile_execution_model(execution)
@@ -359,8 +359,10 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
 
 def prepare_packs(
     packs: tuple[Path, ...],
+    *,
+    execution: ExecutionModelInputs | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
     packs = tuple(sorted({pack.resolve() for pack in packs}))
-    acquired = tuple(acquire_pack(pack) for pack in packs)
+    acquired = tuple(acquire_pack(pack, execution=execution) for pack in packs)
     bundle, deps, profile = compose_pack_inputs(acquired)
     return bundle, deps, profile, prepare_release(bundle, deps, profile)
