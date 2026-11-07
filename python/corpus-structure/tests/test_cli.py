@@ -224,6 +224,26 @@ def test_installed_coverage_refuses_substituted_receipt_member(cli, tmp_path):
     assert "must not be read" not in result.output
 
 
+def test_unsettled_test_attempt_cannot_supply_retry_or_coverage(cli, tmp_path):
+    from corpus_structure.cli.managed import ResultStore
+
+    with ResultStore(tmp_path).operation("test", scope={"lane": "ordinary"}) as attempt:
+        ordinary = attempt.directory / "ordinary"
+        ordinary.mkdir()
+        attempt.publish("ordinary", ordinary)
+        attempt.defer_settlement()
+        attempt.settle("failed", lanes={"ordinary": "failed"})
+    env = {"CORPUS_CI_RESULTS": str(tmp_path)}
+    retry = cli("test", "retry", attempt.id, "--json", env=env)
+    assert retry.exit_code == 1
+    assert f"ci results recover {attempt.id}" in json.loads(retry.stdout)["error"]["message"]
+    coverage = cli("test", "coverage", attempt.id, "--json", env=env)
+    assert coverage.exit_code == 0
+    report = json.loads(coverage.stdout)
+    assert report["missing_lanes"] == ["ordinary"]
+    assert report["attempt_outcomes"] == {attempt.id: "failed"}
+
+
 @pytest.mark.parametrize(
     "arguments", [["--help"], ["schema", "--help"], ["mcp", "--help"], ["experiment"]]
 )

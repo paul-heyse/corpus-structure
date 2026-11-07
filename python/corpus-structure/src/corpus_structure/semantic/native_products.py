@@ -15,19 +15,21 @@ from sqlalchemy.schema import (
     CreateIndex,
     CreateTable,
     DefaultClause,
+    MetaData,
 )
 
 from .metadata import metadata
 from .prepared_sql import PreparedSQL
 
 
-def selected_fact_query():
+def selected_fact_query(target_metadata: MetaData | None = None):
     """The fixed accepted-fact projection uses the same scoped relationship keys."""
     from sqlalchemy import and_, select
 
+    target_metadata = metadata if target_metadata is None else target_metadata
     fact, selection = (
-        metadata.tables["data.fact"].alias("f"),
-        metadata.tables["data.selection"].alias("s"),
+        target_metadata.tables["data.fact"].alias("f"),
+        target_metadata.tables["data.selection"].alias("s"),
     )
     return select(fact).select_from(
         fact.join(
@@ -257,13 +259,14 @@ def derived_publication_sql():
     )
 
 
-def current_admission_fields(model=None, *, target_metadata=metadata) -> dict:
+def current_admission_fields(model=None, *, target_metadata: MetaData | None = None) -> dict:
     """Model-owned admission fields; immutable predecessors own unchanged native programs."""
     from dataclasses import asdict
 
     from .contracts import compile_execution_model, trusted_execution_inputs
     from .identity import canonical_bytes
 
+    target_metadata = metadata if target_metadata is None else target_metadata
     model = compile_execution_model(trusted_execution_inputs()) if model is None else model
     for operation in model.operations:
         if operation.implementation is not None:
@@ -283,7 +286,7 @@ def current_admission_fields(model=None, *, target_metadata=metadata) -> dict:
     descriptor["views"] = [
         {
             "relation": "data.selected_fact",
-            "query": str(selected_fact_query().compile(dialect=dialect())),
+            "query": str(selected_fact_query(target_metadata).compile(dialect=dialect())),
         }
     ]
     from .effect_support import SUPPORTED_EFFECT_VERSIONS, SUPPORTED_EFFECTS

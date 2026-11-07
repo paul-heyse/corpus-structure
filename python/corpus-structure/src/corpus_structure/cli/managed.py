@@ -416,11 +416,21 @@ class ResultStore:
                 )
             lane = manifest.stage
             _require_drained_test_lane(directory / lane, lane)
+            from corpus_structure.cli.testing import _supervisor
+
+            receipt = directory / lane
+            next_action = f"ci test --lane {lane}"
+            with suppress(RecipeError, ResultError), _artifact_fd(directory, lane) as fd:
+                classification = _supervisor(
+                    "classify", "--summary", "--receipt-dir", str(receipt), opened={receipt: fd}
+                )
+                if classification["retryable"]:
+                    next_action = f"ci test retry {result_id} --lane {lane}"
             invocation.publish(lane, directory / lane)
             invocation.confirm_settlement()
             invocation.settle(
                 "interrupted",
-                next_action=f"ci test retry {result_id}",
+                next_action=next_action,
                 recovered_lane=lane,
             )
             return manifest

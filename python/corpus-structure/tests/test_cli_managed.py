@@ -185,7 +185,7 @@ with ResultStore(Path(sys.argv[1])).operation("test") as result:
     )
     settled = store.recover(result_id)
     assert settled.outcome == "interrupted"
-    assert settled.details["next_action"] == f"ci test retry {result_id}"
+    assert settled.details["next_action"] == "ci test --lane ordinary"
     assert store.artifact(result_id, "ordinary") == lane
 
 

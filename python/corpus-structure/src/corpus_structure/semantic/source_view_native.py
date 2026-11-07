@@ -1,5 +1,7 @@
 """Frozen forward realization of native section views and their actual consumers."""
 
+from sqlalchemy import MetaData
+
 from .metadata import metadata
 from .native_products import NativeAuthoringProvenance
 
@@ -56,7 +58,7 @@ def native_admission_sql(
     authoring_provenance: NativeAuthoringProvenance | None = None,
     native_objects=(),
     retire=(),
-    target_metadata=metadata,
+    target_metadata: MetaData | None = None,
 ):
     from hashlib import sha256
 
@@ -65,6 +67,7 @@ def native_admission_sql(
 
     if base_admission is None:
         raise ValueError("native admission requires an explicit frozen predecessor")
+    target_metadata = metadata if target_metadata is None else target_metadata
     descriptor = _admission_descriptor(base_admission)
     descriptor.update(current_admission_fields(model, target_metadata=target_metadata))
     descriptor.pop("base_derived_protocol", None)

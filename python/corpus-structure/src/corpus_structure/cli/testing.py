@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from corpus_structure.cli.managed import (
     Invocation,
+    Manifest,
     ResultError,
     ResultStore,
     result_boundary,
@@ -212,12 +213,15 @@ def run_tests(
             _finish(result, outcomes, json)
 
 
-def _receipts(store: ResultStore, result_id: str, stack: ExitStack) -> dict[str, tuple[Path, int]]:
-    result = store.show(result_id)
+def _receipts(
+    store: ResultStore, result: Manifest, stack: ExitStack
+) -> dict[str, tuple[Path, int]]:
     if result.action not in {"test", "test.retry"} or result.settled is None:
         raise ResultError("a settled test result is required")
+    if result.details.get("custody_unsettled"):
+        return {}
     return {
-        role: stack.enter_context(store.open_artifact(result_id, role)) for role in result.artifacts
+        role: stack.enter_context(store.open_artifact(result.id, role)) for role in result.artifacts
     }
 
 
@@ -236,7 +240,8 @@ def coverage(
         store = result_store(ctx)
         for result in dict.fromkeys(results):
             leases.enter_context(store.lease(result))
-        scopes = [_receipts(store, result, leases) for result in results]
+        manifests = [store.show(result) for result in results]
+        scopes = [_receipts(store, manifest, leases) for manifest in manifests]
         opened = dict(item for scope in scopes for item in scope.values())
         args = [
             token
@@ -244,7 +249,6 @@ def coverage(
             for path, _ in scope.values()
             for token in ("--receipt-dir", str(path))
         ]
-        manifests = [store.show(result) for result in results]
         initial = manifests[0]
         declared = initial.scope.get("lane")
         required = set(
@@ -315,7 +319,10 @@ def retry(
     with result_boundary(json):
         store = result_store(ctx)
         with store.lease(original), ExitStack() as receipts_open:
-            receipts = _receipts(store, original, receipts_open)
+            manifest = store.show(original)
+            if manifest.details.get("custody_unsettled"):
+                raise ResultError(f"settle the predecessor with ci results recover {original}")
+            receipts = _receipts(store, manifest, receipts_open)
             with store.operation(
                 "test.retry",
                 scope={
