@@ -22,10 +22,37 @@ inspection, while effects use the explicitly resolved selection.
 [Current orchestration adapter](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py) ·
 [Run authority](../../design/D6-orchestration-metrics-policies.md)
 
+### Shared refusals and read authority
+
 Use the existing query, source, structure, contributions, evaluation and review operations.
-`NativeSourceRequest` and `inspect_native_source()` are the reference for projecting shared
-inputs, results and refusals across transports. Resolve effective project, semantic result and
-scope once before read/export. For portable review export, add a named exact-closure selection
+`NativeSourceRequest` and `inspect_native_source()` supply the reference contract. The
+CLI and MCP currently project overlapping refusal fields separately. Construct the safe
+refusal fields once at the semantic owner, then use the CLI typed JSON/exit and FastMCP
+`ToolError` protocol adapters. Preserve the owned code, applicability and remedy in each.
+For source inspection, resolve the read purpose explicitly. The current MCP read-only
+snapshot uses the write-purpose queue pool. Use a read-purpose connection for pure reads
+and retain the separate queue purpose for work actions. Resolve project, semantic result
+and scope once. Authorization and exposure remain with the application read and export owners.
+
+Preserve FastMCP **4.1.3** `ToolResult` structured/text content and
+`_bounded_mcp_result()` accounting for text, structured content and stamped metadata.
+CLI budgets its own JSON body. A request may fit one transport and exceed the other.
+Compare payload and refusal meaning across installed CLI and registered and fresh stdio
+MCP at the exact UTF-8 boundaries. Use `Context.report_progress()` to project existing
+events only when the request carries a progress token. For an actual remote consumer
+of an already published artifact, investigate an exact-ID `@mcp.resource` URI template
+with independent authorization and bounded reads. Publication and role checks remain
+with the existing owner.
+[Shared source operation](../../../python/corpus-structure/src/corpus_structure/serve/native_source.py) ·
+[Semantic refusals](../../../python/corpus-structure/src/corpus_structure/semantic/refusals.py) ·
+[MCP budget and server](../../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py) ·
+[FastMCP 4.1.3 ToolResult](https://github.com/PrefectHQ/fastmcp/blob/v4.1.3/fastmcp_slim/fastmcp/tools/base.py) ·
+[Context progress](https://github.com/PrefectHQ/fastmcp/blob/v4.1.3/fastmcp_slim/fastmcp/server/context.py) ·
+[Resource templates](https://gofastmcp.com/servers/resources)
+
+### Exact export and continuation
+
+For portable review export, add a named exact-closure selection
 mode at the owner, using `ReviewSelection`, `capture_review_relations()`, `export_review_bundle()`
 and `verify_review_bundle()`. Derive required retained predecessors under existing snapshot,
 role and byte bounds. Report inclusion reasons, actionable missing/inaccessible dependencies
@@ -35,7 +62,9 @@ external delivery is a copy of the settled result. Retry an interrupted export a
 completed cut, with a new invocation ID. An expired result or missing dependency does not
 authorize new PDF conversion, recognition, fitting or other provider work. Where a fitting
 request has no compatible events or protected evaluation, surface the current applicability
-report and route remediation to its producer or assessment owner.
+report and route remediation to its producer or assessment owner. Publish the operation's
+outcome, settled effects and exact cut or missing dependency to the
+[CLI-02 diagnostic view](managed-results-and-testing.md#action-driven-diagnostics).
 [Source read owner](../../../python/corpus-structure/src/corpus_structure/serve/native_source.py) ·
 [Review closure and verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
 [Fitting availability evidence](../../design_review/evidence/2026-11-06_wce-gs120/assessment/operation-fit-availability/README.md)
@@ -44,8 +73,10 @@ report and route remediation to its producer or assessment owner.
 destination-free exact closure, independently verify the bundle and retrieve it by ID. Exercise
 a missing scoped predecessor, a bound refusal, and an interrupted export retried from retained
 data. Check through the provider boundary that retained reads start no new extraction.
-Demonstrate ambiguity refusal for a mutating command, and reconcile a genuine supported run
-transition through the application owner. Preserve product-specific output distinctions.
+Demonstrate ambiguity refusal for a mutating command and reconcile a genuine supported run
+transition through the application owner. Test wrong run and denied role, read-purpose use
+and unchanged queue capability. Compare an equivalent admitted read and a typed refusal
+across CLI and MCP. Include a multibyte output that fits the CLI and fails the MCP budget.
 
 <a id="CLI-07"></a>
 ## CLI-07 · Expose operations and migrate callers
@@ -72,6 +103,13 @@ missing privileges, unexpected predecessor and partial deployment with exact rem
 [Host recipes](../../../justfile) ·
 [PostgreSQL Ubuntu tooling](../../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md) ·
 [Ubuntu `pg_ctlcluster` reference](https://manpages.ubuntu.com/manpages/noble/en/man1/pg_ctlcluster.1.html)
+
+For `ci doctor` and named status routes, project the existing owner checks with the resolved
+target, role, failure and direct remedy. Investigate a bounded existing service-log read only
+for a named operator who needs to distinguish a failure status misses. Select an explicit
+source, privilege and read bound, and invoke the owned recipe for host work. Compare the
+operator's next action with the status-only route before adoption. Apply the
+[CLI-02 value and custody rules](managed-results-and-testing.md#action-driven-diagnostics).
 
 Backup and restore are conditional. First identify the operator, source and database custody,
 durable backup storage, recovery point/scope and intended restore target. Evaluate PostgreSQL
@@ -113,12 +151,14 @@ replacements, unavailable prerequisites and genuinely empty selections. Test rea
 and native interfaces where required by a changed capability. Use retained corpus inputs to
 test exact reads and delivery. A mocked provider cannot establish provider qualification.
 
-Use a fresh installed subprocess in a headless development checkout for context, zero-argument
-test, failed-test retry, coverage, model check and native candidate. Use an actual redirected
-consumer for machine output and interruption, a second process for result/hold/cleanup, and
-selected typed CLI/MCP or detached parity controls where contract consumers change. Cover
-explicit model apply/recovery, real target-bound deployment roles and exact corpus export
-against retained data. Record outcome, command, source and context for each selected obligation.
+Use a fresh installed subprocess in a headless development checkout for context, help and
+completion, zero-argument test, failed-test retry, coverage, model check and native candidate.
+Use an actual redirected consumer for safe diagnostics and clean JSON. Exercise literal recipe
+forwarding, concurrent receipts and cancellation, and use a second process for result hold,
+export and cleanup races. Verify the correct next action by ID with a known failure and with
+diagnostics unavailable. Cover rejected revision with zero writes, ambiguous source matches,
+explicit model apply/recovery and real target-bound deployment roles. Exercise CLI/MCP refusal
+meaning, purpose and exact UTF-8 bounds and detached verification of exact export on retained data. Record outcome, command, source and context for each selected obligation.
 A failed or blocked required obligation stays open in the coordinator. Publish only the
 evidence closure that remains useful after qualification.
 [Repository acceptance policy](../../design_review/design_principles/binding/corpus-structure.md) ·

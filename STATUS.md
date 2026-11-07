@@ -36,16 +36,14 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
 
 ## Proposed CLI operations series — 2026-11-07
 
-- The [CLI operations plan](docs/plans/cli-operations_2026-11-07.md) owns the proposed queue
-  and the operator's routing, retention and model-effect decisions. The
-  [functional review](docs/functional_reviews/typer-cli-target_2026-11-07.md) supplies the
-  baseline and opportunities.
-- The [CLI improvement review](docs/plan_improvement_reviews/cli-operations_2026-11-07.md)
-  proposes Typer 0.28.0 and bounded, action-driven CLI diagnostics. It assumes no delivery
-  from the cancelled observability plan. The [library probes](docs/design_review/evidence/2026-11-07_cli-typer-028/README.md)
-  passed the Typer comparison and reproduced a Tree-sitter query callback failure.
-  `just evidence`, `just docs-check` and `just turn-end` passed. Product qualification is
-  `not_run` for this review.
+- The [CLI operations plan](docs/plans/cli-operations_2026-11-07.md) owns CLI-00–08,
+  O01–O07, I01–I10 and the accepted routing, retention and model-effect decisions.
+  The revised plans schedule Typer 0.28.0 and bounded, receipt-first diagnostics with
+  no dependency on the cancelled observability plan.
+- The [library probes](docs/design_review/evidence/2026-11-07_cli-typer-028/README.md)
+  passed the isolated Typer comparison and reproduced a Tree-sitter query callback
+  failure on 2026-11-07. `just docs-check` and `just turn-end` passed for the revised plans.
+  Product qualification is `not_run` for the plan revision.
 
 ## Next
 
@@ -53,5 +51,6 @@ _Updated 2026-11-07. WCE repair journeys and the declared functional test union 
   the WCE plan. The authentic table-note and alias examples remain unavailable in their
   inspected frames. Operation fitting remains `not_run` pending compatible events and
   protected evaluations.
-- The CLI improvement review is ready for plan revision. CLI-00 remains the first execution
-  package in the current coordinator.
+- Start CLI-00 for authority adoption and the first design/target review. The
+  [CLI-01 Typer pin slice](docs/plans/cli-operations/command-context-output.md#typer-0280-transition)
+  precedes installed command migration.

@@ -2,7 +2,8 @@
 
 **Proposed.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
 Owns CLI-02 and CLI-03. The receipt supervisor owns process evidence and classification.
-Domain data, observability archives and published evidence have separate custody.
+Domain data and published evidence have separate custody. CLI-02 also owns the bounded
+diagnostic retrieval and retention used by other packages.
 
 <a id="CLI-02"></a>
 ## CLI-02 · Create, retrieve and expire managed results
@@ -32,8 +33,12 @@ needed. Stage on the destination filesystem for external copies and refuse an oc
 A manifest can expose settled artifacts only after publication. For the supported local Linux
 state root, use Python 3.14 `fcntl.flock()` with stable per-result lock identity to coordinate
 producer, export, hold updates and cleanup, or reuse an existing equivalent coordination
-primitive at that boundary. Check eligibility again while holding the owner lock. Preserve
-lock identity across competing discovery and deletion, including abandoned producer recovery.
+primitive at that boundary. Use the same stable lock identity when a reader acquires an export lease or a consumer adds
+a hold. Check eligibility again while holding that lock. Acquire a dependency hold before
+starting dependent work. If the required result has expired, refuse the late hold. Keep the
+lock identity stable across competing discovery and deletion, including abandoned producer
+recovery. A manifest becoming visible is a publication event. Expiry eligibility follows
+settlement and the hold policy.
 Only managed paths proven inside the owned root may be removed. Treat path substitution and
 untrusted manifest paths as refusal conditions. Stage and identify incomplete publication
 so a later inspection or retry can recover. Atomic rename gives visibility atomicity. A
@@ -59,11 +64,66 @@ keeps its references. Compact raw test data only after demonstrating the retaine
 still supports classification, replacement and audit. Rich's terminal capture is presentation.
 [Durable evidence custody](../../design_review/evidence/README.md)
 
+### Action-driven diagnostics
+
+Use the producer's status, receipt or typed refusal first. Each retained or emitted diagnostic
+must help answer an operator question. Introduce new capture only when that answer would otherwise
+be lost, and identify the consumer, next action, expected volume and storage and processing burden.
+
+| Operator decision | Source and presentation |
+|---|---|
+| Can I retry a failed check? | `ci results show RESULT` projects lane, stage, failure code, retryability and receipt ID. `watch RESULT` follows complete new records from the live owner. Use a bounded child excerpt if the receipt alone cannot explain the failure. |
+| Can I resume a change or export? | Project the owned outcome and settled effects with the exact preview, target, predecessor or cut needed to resume. CLI-05 and CLI-06 supply those bindings. |
+| Which service, target or role needs attention? | `ci doctor` and named health/status actions use the owner's existing check and its remedy. CLI-07 owns any further authorized host read. |
+
+Use invocation/result identity, meaningful stage or code, source and an optional attempt reference.
+Select actionable warnings, errors and phase transitions needed for operator control. Omit per-item
+success chatter, routine SQL or provider payloads and duplicated receipt events. Bound bytes, count
+and excerpts before formatting or persistence. If a named consumer needs live or foreign diagnostics
+that the owner cannot retain, use a bounded invocation-local JSONL sidecar under the same expiry and
+holds. Limit reads by cursor, bytes and complete records. A partial final line while active can be
+retried at the same cursor. Report invalid settled output as corrupt and report truncation or
+unavailability explicitly. `scripts/test_receipts.py:read_stream()` materializes the settled input
+for classification. Use incremental byte offsets for live watch. Diagnostic availability is separate
+from settlement, authority and verified coverage. CLI-01 owns terminal projection and the diagnostic
+sidecar follows CLI-02 custody.
+[Receipt owner](../../../scripts/test_receipts.py) ·
+[Safe output](command-context-output.md#safe-output-and-progress)
+
+**Logging selection.** Start with typed owner events and an invocation-scoped stdlib
+`logging.StreamHandler` for useful foreign records, with filtering and redaction before delivery.
+Qualify structlog **26.1.0** only if a real mixed application/stdlib journey needs shared structured
+fields that the small stdlib route cannot preserve without duplicative code. Compare that journey
+with the receipt-only path. Use `structlog.contextvars.bound_contextvars()` and
+`merge_contextvars()` in the producing context, `structlog.stdlib.LoggerFactory`,
+`ProcessorFormatter.wrap_for_formatter` for structured events, and `foreign_pre_chain` and
+`ProcessorFormatter.remove_processors_meta` at the stdlib formatter boundary. Capture and redact
+approved fields before any buffering. Keep the first useful path synchronous and local, and pass
+explicit approved IDs across thread and process boundaries. A listener cannot reconstruct producer
+context, and `logging.handlers.QueueHandler.prepare()` can flatten record information.
+Compare final stderr and any sidecar in a fresh process. `structlog.testing.capture_logs()`
+does not establish behavior of the configured processors.
+[Python 3.14 StreamHandler](https://docs.python.org/3.14/library/logging.handlers.html#logging.StreamHandler) ·
+[Structlog 26.1.0 context](https://www.structlog.org/en/26.1.0/contextvars.html) ·
+[Stdlib integration](https://www.structlog.org/en/26.1.0/standard-library.html) ·
+[Structlog testing](https://www.structlog.org/en/26.1.0/testing.html) ·
+[QueueHandler.prepare](https://docs.python.org/3.14/library/logging.handlers.html#logging.handlers.QueueHandler.prepare)
+
+External JSON/ECS formatting needs a concrete collector. Additional routing or failure-context
+buffering needs an evidenced gap beyond bounded excerpts and a resource and drain contract.
+Distributed tracing or hosted query needs a decision spanning services that current status and
+IDs cannot resolve. Metrics, incident storage, support exports and a faster logging backend
+require their own consumer and cost case. I10 records the tool-specific comparisons and prior
+evidence. [I10 review](../../plan_improvement_reviews/cli-operations_2026-11-07.md#I10)
+
 **Acceptance.** Retrieve settled and running invocations from a second process. Deliver to an
 optional destination and verify identity and content. Race GC with an active export, producer,
 or dependency hold, and with interrupted publication. Use controlled time to prove both expiry
-boundaries and exact collection eligibility. Protected candidates and durable evidence remain
-accessible. A missing local delivery never triggers an implicit provider or extraction rerun.
+boundaries and exact collection eligibility. Exercise an expired identity with a late hold,
+an interrupted publication and an unsettled child. Protected candidates and durable evidence
+remain accessible. Show the correct next action from a known failed or interrupted invocation
+by ID. Include a partial live tail, corrupt settled input, a noisy source, and disabled or failed
+diagnostics with the primary outcome intact. A missing local delivery never triggers an implicit provider or extraction rerun.
 
 <a id="CLI-03"></a>
 ## CLI-03 · Route tests and maintenance through owned recipes
@@ -75,10 +135,12 @@ interface to accept an internally allocated result workspace and preserve direct
 Use one managed invocation containing separate native lane receipts. Keep the existing
 supervisor's responsibility for child process groups, exit records and cleanup. Treat a missing
 required lane prerequisite as blocked and a valid empty selection as its own outcome. A lane
-selector or declared pytest selector is a deliberate narrower run. After a command-specific
-`--`, accept bounded pytest passthrough. Keep CLI parsing strict elsewhere and keep the user's
-argument vector intact through `just` and the supervisor. Reserve receipt paths, required plugins
-and qualification policy for their owner.
+selector or declared pytest selector is a deliberate narrower run. After the explicit command-specific
+`--`, validate the literal suffix with the test owner before forwarding. Support selectors and
+options whose impact on scope the receipt can represent. Reject attempts to override receipt
+paths, required plugins, lane policy or safety controls. Keep the argv intact through `just`
+and the supervisor. The command surface owns recognizing the separator.
+[CLI-01 recipe boundary](command-context-output.md#routes-and-invocation-intent)
 
 **Native tooling.** Reuse pytest-xdist **3.8.0** `-n auto` and `--dist=loadgroup` for the ordinary
 parallel lane, strict markers and config, and the existing exclusion of shared-cluster faults.
@@ -87,15 +149,19 @@ the native harness can acquire its existing exclusive lease. Diagnose parallel f
 actual resolved lanes and selectors in receipts. Reuse `cargo nextest list --release --workspace --message-format json` and
 `cargo nextest run --release --workspace --profile qualification --no-tests=warn` through
 the supervisor. Preserve `INSTA_UPDATE=no`. The profile currently writes to a shared JUnit
-path per target directory. Bind report collection to the invoking campaign by isolating the
-report path or serializing report-producing nextest work and receipt capture at that boundary.
-Preserve shared compilation caches. The supervisor's existing process-group use of Python 3.14 `subprocess.Popen(start_new_session=True)`
+path per target directory. In the receipt supervisor, serialize nextest report production
+through report capture for invocations sharing that target/report. Hold the lock across both
+operations, including direct recipe callers of the same supervisor, and release after the
+receipt settles. Preserve shared compilation caches and keep ordinary pytest outside that lock.
+Revisit the lock only if a supported invocation-specific report path can preserve the profile
+and caches. The supervisor's existing process-group use of Python 3.14 `subprocess.Popen(start_new_session=True)`
 and its settlement record are the child boundary. Forward cancellation through the additional recipe process layer to the
 receipt supervisor before any forced teardown. The inner supervisor owns its separate
-worker process groups. An empty native selection or startup warning cannot establish passing
+worker process groups. Wait for actual settlement and record escalation or unreachable ownership
+separately from a normal cancellation. An empty native selection or startup warning cannot establish passing
 functionality. Record actual toolchain versions with applicable results.
 [xdist 3.8.0 distribution source](https://github.com/pytest-dev/pytest-xdist/blob/v3.8.0/docs/distribution.rst) ·
-[nextest run options](https://nexte.st/docs/running/) ·
+[nextest run options](https://nexte.st/docs/running/) · [nextest profile JUnit path](https://nexte.st/docs/machine-readable/junit/#configuration) ·
 [Python process supervision API](https://docs.python.org/3.14/library/subprocess.html#subprocess.Popen) ·
 [Existing recipes](../../../justfile) · [Receipt supervisor](../../../scripts/test_receipts.py)
 
@@ -119,7 +185,7 @@ Return a small typed outcome for short actions. Do not copy all tool streams.
 **Acceptance.** Demonstrate native argv through the installed CLI and the actual recipe owner,
 including a zero-argument campaign, an explicit narrower selection, and an unavailable exclusive
 prerequisite. Exercise a failed ordinary attempt, applicable replacement and exclusive lane.
-Verify the declared union without rewriting the failed receipt. Cancel an installed invocation
+Verify the declared union against independently known gaps without rewriting the failed receipt. Cancel an installed invocation
 and confirm child-group settlement or explicit cleanup failure. Retry by ID from a second process. Exercise concurrent campaigns to
 verify receipt isolation and exclusive native prerequisites. Check with a deliberately fixable source issue and demonstrate that only the explicit fix path
 writes it.

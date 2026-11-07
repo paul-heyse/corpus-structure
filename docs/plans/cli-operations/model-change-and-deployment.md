@@ -23,7 +23,11 @@ dependency coverage and keep source locations where available.
 
 Refactor the local generation boundary so the full revision request and log validate before any
 write. The current `schema generate` can write Stage A outputs before `record_root()` refuses a
-revision. Reuse load/check/render and compare generated outputs in memory or staging. Preview
+revision. First extract the pure preparation boundary in the canonical owner. Reuse load/check/render
+and compare generated outputs in memory or staging. Both the preview and `just model generate`
+use that boundary. Stage A artifacts and the revision log are written only by the apply path
+after preparation succeeds. This slice can proceed before managed-result delivery or optional
+source tools. Installed preview publishes through CLI-02. Preview
 returns the declared and generated patch, compatibility and change record, applicability by effect,
 independent checks and unresolved impact. Bind it to worktree/source, exact inputs, tool and generator
 versions, and the native predecessor where native authoring is applicable. A provenance- or
@@ -35,26 +39,38 @@ custody hold before any dependent work starts.
 
 ### Introspection and edit decisions
 
-Canonical generation remains the selected realization for derived representations. Qualify
-narrow source tools against actual consumers. Candidate matches and lexical bindings establish
-what they observed. Dynamic references, external consumers and semantic compatibility retain
-explicit unknowns or domain-owner findings.
+Canonical generation remains the selected realization for derived representations. Attach
+bounded candidate discovery to the existing semantic impact report's declared consumers and
+unknowns. Candidate evidence carries source snapshot/digest, analyzer, rule and grammar where
+applicable, coordinates and units, and inspected scope. Distinguish inspected no-hit, skipped,
+unresolved, failed and truncated. A structural match may locate a consumer for review. Domain
+and native owners establish semantic impact and retirement. An empty search provides no authority
+to remove an unresolved consumer.
+[Existing semantic impact reporting](../../../python/corpus-structure/src/corpus_structure/semantic/operation_reporting.py)
 
 | Mechanism and disposition | Intended use, limit and adoption trigger |
 |---|---|
-| Python 3.14.10 `ast.parse()`, `ast.NodeVisitor`, `ast.get_source_segment()`, `symtable.symtable()` | Use for bounded read-only inventory of declarations, annotations and lexical bindings when needed. Parse and compile changed syntax in the pinned interpreter. Locations and lexical resolution aid review without importing target modules. Use an independently selected fixture with shadowing and dynamic references to establish what remains unknown. [AST API](https://docs.python.org/3.14/library/ast.html#ast.NodeVisitor) · [Symbol table API](https://docs.python.org/3.14/library/symtable.html#symtable.symtable) |
-| Existing ast-grep 0.51.0 `scan --json=stream` | Select for on-demand consumer shape searches using rule fields and bounded relational constraints. Report scope, skipped inputs and tool outcomes. If proposing edits, inspect replacement offsets and account for overlapping matches. Experimental outline serves navigation only. [Scan options](https://ast-grep.github.io/reference/cli/scan.html) · [Rule composition](https://ast-grep.github.io/reference/rule.html) |
-| LibCST `parse_module(bytes)`, `MetadataWrapper`, `ScopeProvider` or `QualifiedNameProvider`, `ContextAwareTransformer` or `CodemodCommand` | Conditional on a recurring, explicitly mapped handwritten Python edit requiring trivia preservation. Use matchers, import helpers and skip diagnostics. Qualify repository Python syntax, byte round-trip, exact expected output, and ambiguous import/re-export refusal before selecting an exact pin. [Codemod API](https://libcst.readthedocs.io/en/latest/codemods.html) · [Metadata API](https://libcst.readthedocs.io/en/latest/metadata.html) · [Parser API](https://libcst.readthedocs.io/en/latest/parser.html) |
-| ast-grep-py `SgRoot`, `SgNode.find_all()`, `SgNode.commit_edits()` | Conditional on repeated in-process correlation on the same Python-owned source snapshot outperforming the integration simplicity of existing CLI discovery. Qualify version and grammar, no-match and skipped-input outcomes, overlap, and character offsets against CLI byte offsets before pinning. [Python binding API](https://ast-grep.github.io/guide/api-usage/py-api.html) |
-| Tree-sitter Python binding `Query` and `QueryCursor.matches()` | Conditional on a concrete mixed-language scenario where paired field captures are needed. Record grammar/version, source snapshot, parse recovery, locations and unsupported or truncated coverage. Qualify each grammar and compare with existing discovery. A persistent index requires a demonstrated repeated workload. [QueryCursor API](https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.QueryCursor.html) |
-| FastMCP 4.1.3 typed `@mcp.tool` and `ToolResult` | Use `NativeSourceRequest` and `inspect_native_source()` as the shared CLI/MCP operation control. Project one changed field and one typed refusal through installed CLI and fresh stdio MCP. New model-changing MCP tools are outside this selected scope. The generated server-backed Cyclopts CLI is a candidate only if remote tool access itself becomes required. [FastMCP tools](https://gofastmcp.com/docs/servers/tools) · [Shared source owner](../../../python/corpus-structure/src/corpus_structure/serve/native_source.py) |
+| **Selected** Python 3.14.10 `ast.parse(type_comments=True)`, `ast.NodeVisitor`, `ast.get_source_segment()` | Inventory declarations and call sites in scoped Python files without imports. Use `symtable.symtable()` only for lexical claims and preserve ambiguity when it cannot be uniquely joined to a node. Account for decorators, comprehension/class scopes and type parameters. Use `compile(..., "exec", dont_inherit=True)` for an independent compile-only check, with optional `ast.compare()` for structural comparison. Handwritten edits must retain trivia. [AST](https://docs.python.org/3.14/library/ast.html#ast.get_source_segment) · [Symbol tables](https://docs.python.org/3.14/library/symtable.html) · [Compile](https://docs.python.org/3.14/library/functions.html#compile) |
+| **Selected** ast-grep 0.51.0 `scan --json=stream` | Use explicit scope and rules, contextual `pattern` selectors and ordered relational `all` when they simplify discovery. `--inspect entity` can report execution details subject to input mode. Experimental outline serves navigation. Normalize and test CLI byte offsets against Python-facing coordinates before combining observations. [Scan](https://ast-grep.github.io/reference/cli/scan.html) · [Context selectors](https://ast-grep.github.io/advanced/pattern-parse.html) · [Composite rules](https://ast-grep.github.io/guide/rule-config/composite-rule.html) |
+| **Conditional** ast-grep-py 0.51.1 `SgRoot` and `SgNode.find_all()` | Investigate only for several related queries over one pinned Python snapshot where repeated CLI traversal materially matters. Compare exact grammar, custom metavariables, skipped inputs, output and offset conversion. Keep advanced transformations and rewriting conditional on an independently supported edit case. [Python API](https://ast-grep.github.io/guide/api-usage/py-api.html) · [0.51.1 release](https://github.com/ast-grep/ast-grep/releases/tag/0.51.1) |
+| **Conditional** Tree-sitter 0.26.0 `Query` and `QueryCursor.matches()` | Investigate a concrete paired-field or recovery workload beyond the existing route. Preserve capture pairing, grammar identity, recovery and termination. `did_exceed_match_limit` describes active match pressure. Bound input, output and duration independently. The installed 0.26.0 binding with Python grammar 0.25.0 segfaulted before its progress callback. Use an isolated worker with an external deadline or qualify a corrected exact binding before using the callback. Persistent indexing requires a repeated workload. [Query cursor](https://tree-sitter.github.io/py-tree-sitter/classes/tree_sitter.QueryCursor.html) · [Tagged callback](https://github.com/tree-sitter/py-tree-sitter/blob/v0.26.0/tree_sitter/binding/query_cursor.c#L128-L145) · [Probe](../../design_review/evidence/2026-11-07_cli-typer-028/README.md) |
+| **Conditional** LibCST 1.9.0 `RenameCommand(CodemodContext, old_name, new_name)` | Try the shipped command before a custom transformer for a recurring handwritten edit with an explicit qualified mapping. Use `parse_module(bytes)`, `MetadataWrapper`, qualified-name metadata and import helpers on allowlisted uniquely supported occurrences. Name membership can match ambiguous candidates and some relative/star imports are skipped. Keep the explicit manual patch route for ambiguous or unsupported cases. `ByteSpanPositionProvider` reports UTF-8 units, so convert for other encodings. Require exact expected diffs and source-byte matches before apply. [Tagged rename](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/commands/rename.py#L204-L300) · [Name metadata](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/metadata/name_provider.py#L25-L71) · [Byte spans](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/metadata/span_provider.py#L87-L111) |
+
+A qualified Python rename differs from a model name mapping and cannot choose migration, admission or
+release effects. Keep broad rewrites, annotation reconciliation, incremental storage and new grammars
+conditional on a demonstrated workload. Use the [CLI-06 shared source operation](corpus-and-operations.md#shared-refusals-and-read-authority)
+for Reader, CLI and MCP consumer controls.
 
 **Acceptance.** Preview an additive SQL-visible field, a rename without then with explicit mapping,
 and a provenance-only change. Verify applicable effects and generated diffs against independent
 expectations. The provenance case avoids DB access. A rejected revision leaves generated files and
-the log untouched. An archived-to-local comparison leaves release/archive state untouched.
+the log untouched through both preview and the existing generator entry. An archived-to-local
+comparison leaves release/archive state untouched. Check Unicode and CRLF, decorators, shadowing,
+alias-only and excluded inputs, and parse-valid/compile-invalid text. For a qualified rename, also
+test re-exports, relative/star imports and ambiguous references against independent expected diffs.
 Use the native165 relation-retirement case to trace affected Reader, CLI, MCP and detached
-consumers. Verify any chosen introspection tool's reported gaps.
+consumers. Verify the old native signature is absent with the native authority, independent of
+candidate discovery. Verify any chosen introspection tool's reported gaps.
 [Native165 repair](../witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
 
 <a id="CLI-05"></a>
@@ -86,7 +102,8 @@ and runtime binding.
 Deploy only when explicitly requested against a resolved target and approved change. Compose
 existing migration, archive/admission and verification operations under their current roles.
 A later failure reports which stages settled and leaves resumable evidence for the exact target
-and predecessor. Activation uses the release owner's compare-and-set path and explicit intent.
+and predecessor. Publish this from the operation owner to the
+[CLI-02 diagnostic view](managed-results-and-testing.md#action-driven-diagnostics) for resume by ID. Activation uses the release owner's compare-and-set path and explicit intent.
 Selecting a completed run remains a separate explicit domain effect. Runtime-only repairs keep
 semantic release identity when meaning and output contracts are preserved. Retire replaced
 destination-required authoring and manual multi-step bypasses once installed callers use the

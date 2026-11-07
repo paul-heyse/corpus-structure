@@ -1,6 +1,6 @@
 # CLI operations and managed results
 
-**Status:** Proposed. Owns the CLI operations target, execution queue and O01–O07 dispositions.
+**Status:** Proposed. Owns the CLI operations target, execution queue, and dispositions for O01–O07 and I01–I10.
 **Created:** 2026-11-07. **Revised:** 2026-11-07.
 
 ## Outcome and baseline
@@ -20,6 +20,13 @@ and review export require destination arguments, `ci test` is absent, and an unk
 `--json` exits 2 with stderr text. Current implementation and verification claims remain with their
 owners. The entire design below is **Proposed**.
 
+This revision integrates the [CLI improvement review](../plan_improvement_reviews/cli-operations_2026-11-07.md)
+at `aae1f5429`. Typer 0.27.3 remains the repository baseline. Typer 0.28.0 is the target. The
+2026-11-07 isolated comparison covered selected installed help, usage and generated reference plus
+option, completion and callback fixtures. The same evidence records a Tree-sitter query progress
+callback failure on binding 0.26.0 with Python grammar 0.25.0. These results inform the plan within
+their probe scope. [CLI library evidence](../design_review/evidence/2026-11-07_cli-typer-028/README.md)
+
 ## Foundation and target
 
 | Existing foundation | Reuse and needed change |
@@ -32,8 +39,9 @@ owners. The entire design below is **Proposed**.
 A managed result records an invocation and its minimal recoverable output. Its references may name
 authoritative runs, cuts, releases or evidence. A result ID stays stable across copies. A retry owns
 a new invocation and references the original. One CLI rendering convention projects the typed result
-to a terminal or JSON. Diagnostic events, published evidence and database state keep their own
-lifecycle and authority. [D2 model](../design/D2-schema-and-guidelines.md) · [D3 database](../design/D3-database.md) ·
+to a terminal or JSON. Diagnostics help the operator choose an action using existing status,
+receipts and refusals. Optional retained diagnostics belong to the managed result. Published
+evidence and database state keep their existing custody and authority. [D2 model](../design/D2-schema-and-guidelines.md) · [D3 database](../design/D3-database.md) ·
 [D6 orchestration](../design/D6-orchestration-metrics-policies.md) · [D8 interfaces](../design/D8-agent-and-query-interfaces.md) ·
 [D9 workflows](../design/D9-repository-and-phase0.md)
 
@@ -52,7 +60,7 @@ and full-screen terminal applications have no identified workload in the review.
 
 ## Decisions and ownership
 
-The review names three rule impacts without IDs. The planning IDs below give them stable references.
+The functional extension review names three rule impacts without IDs. The planning IDs below give them stable references.
 The operator settled each during authoring on 2026-11-07. The adopted decisions below govern this
 proposed implementation. CLI-00 schedules durable owner changes ahead of affected implementation.
 
@@ -65,29 +73,34 @@ proposed implementation. CLI-00 schedules durable owner changes ahead of affecte
 The [test audit resolution](test-audit-resolution_2026-11-05.md) owns the test substrate and
 qualification semantics. The [WCE plan](witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
 owns corpus findings and prior repair receipts. Use a retained compatible WCE cut for a CLI journey
-where available. WCE12 remains separately owned. The [observability plan](structured-logging-observability_2026-11-01.md)
-owns event storage/query, incidents, and diagnostic and support views (`LOG-03`, `LOG-04`, `LOG-06`,
-`LOG-08`, `LOG-09`). Use its delivered interfaces where available. CLI output and managed product
-exports can progress on existing operation status and receipts. Integrate shared presentation once
-available without duplicating diagnostic commands or transferring evidence custody. The existing
-[evidence owner](../design_review/evidence/README.md) governs deliberate promotion and durable retention.
+where available. WCE12 remains separately owned. Treat the observability plan as cancelled for this series.
+CLI-01 owns safe presentation, CLI-02 owns bounded diagnostic retrieval and retention, CLI-03
+supplies test receipts and CLI-06/07 supply existing product and host outcomes. LOG packages
+are historical context. Prior [logging investigations](../design_review/evidence/2026-11-01_logging-events-history/README.md)
+supply scoped evidence about library options. The existing [evidence owner](../design_review/evidence/README.md)
+governs deliberate promotion and durable retention.
 
 ## Execution queue and coverage
 
-All packages are proposed. CLI-00 carries accepted shared rules into their owners and obtains the design/target review at the
-first substantial stage. A bounded slice uses change/target review under the accepted contracts.
+CLI-03 is the first end-to-end exercise of the CLI-02 custody and diagnostic contract. Reuse its
+working contract for native candidates and exports. Pure model preparation in CLI-04 can proceed
+from the declaration and release owners while the managed-result slice is underway.
+
+All packages are proposed. CLI-00 carries accepted shared rules into their owners and obtains
+the design/target review at the first substantial stage. A bounded slice uses change/target
+review under the accepted contracts.
 Before another substantial stage, changed authority or §B decision, and at the assembled boundary,
 apply the [repository review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository).
 
 | Package | Owned delivery | Required input |
 |---|---|---|
 | CLI-00 | Adopt CLI-RC01–03 in affected authorities, and establish review scope and cutover policy. | This proposal and relevant D2/D3/D6/D8/D9 contracts. |
-| [CLI-01](cli-operations/command-context-output.md#CLI-01) | Command routing, lazy context and output on an existing operation. | CLI-00 routing decision and settled shared boundaries. |
-| [CLI-02](cli-operations/managed-results-and-testing.md#CLI-02) | Managed invocation identity, manifest, publication and custody. | CLI-RC02 adopted for expiry and deletion. CLI-01 output contract for installed adapters. |
-| [CLI-03](cli-operations/managed-results-and-testing.md#CLI-03) | Installed test and maintenance operations, first full managed result journey. | CLI-01 and working CLI-02 creation/retrieval, existing test supervisor and policy. |
-| [CLI-04](cli-operations/model-change-and-deployment.md#CLI-04) | Typed declaration preview and local-vs-archived semantic comparison. | Existing declaration and prepared-release classifiers. Installed preview uses CLI-01 and CLI-02; classifier work is independently preparable. |
+| [CLI-01](cli-operations/command-context-output.md#CLI-01) | Typer 0.28.0 transition, then command routing, lazy context and safe output on an existing operation. | CLI-00 routing decision and settled shared boundaries. Installed command migration follows the qualified pin slice. |
+| [CLI-02](cli-operations/managed-results-and-testing.md#CLI-02) | Managed invocation identity, publication, custody and diagnostic retrieval. | CLI-RC02 adopted for expiry and deletion. CLI-01 output contract for installed adapters. |
+| [CLI-03](cli-operations/managed-results-and-testing.md#CLI-03) | Installed test and maintenance operations, first full managed result and diagnostic journey. | CLI-01 and working CLI-02 creation/retrieval, existing test supervisor and policy. |
+| [CLI-04](cli-operations/model-change-and-deployment.md#CLI-04) | Typed declaration preview and local-vs-archived semantic comparison. | Existing declaration and prepared-release classifiers. Installed preview uses CLI-01 and the CLI-02 custody contract first exercised in CLI-03. Pure preparation is independent. |
 | [CLI-05](cli-operations/model-change-and-deployment.md#CLI-05) | Apply preview, prepare native candidate and compose explicit deployment. | Accepted CLI-RC03, working CLI-04 and candidate custody from CLI-02. |
-| [CLI-06](cli-operations/corpus-and-operations.md#CLI-06) | Corpus, run, read and exact export journeys. | Existing project, supervision and export operations, CLI-01 and CLI-02. Discovery and closure analysis can start independently of CLI-05. |
+| [CLI-06](cli-operations/corpus-and-operations.md#CLI-06) | Corpus and run journeys, shared refusal meaning, explicit read purpose and exact export. | Existing project, supervision and export operations and CLI-01. Managed export consumes CLI-02 custody after its first exercise in CLI-03. Discovery and closure analysis can start independently of CLI-05. |
 | [CLI-07](cli-operations/corpus-and-operations.md#CLI-07) | Health, host and release actions, caller cutover and retirement. | CLI-01/03/05/06 replacements as each caller migrates. Conditional backup/restore is separately gated. |
 | [CLI-08](cli-operations/corpus-and-operations.md#CLI-08) | Verify the assembled developer and production journeys, publish and hand off. | Integrated selected scope and same-source/context acceptance evidence. |
 
@@ -101,11 +114,27 @@ apply the [repository review cadence](../design_review/design_principles/binding
 | [O06](../functional_reviews/typer-cli-target_2026-11-07.md#O06) | CLI-04/05. Preview, applicable effects, recovery and predecessor checks. Select a codemod only for a qualified recurring transformation. |
 | [O07](../functional_reviews/typer-cli-target_2026-11-07.md#O07) | CLI-06/07/08. Exact retained closure, correct authority and release state, actionable missing fitting prerequisites and privileged operations. |
 
+### Improvement review dispositions
+
+| Item | Disposition and owner | Closure or adoption condition |
+|---|---|---|
+| [I01](../plan_improvement_reviews/cli-operations_2026-11-07.md#I01) | Scheduled · [CLI-01](cli-operations/command-context-output.md#typer-0280-transition). | Qualify exact pin, installed grammar, help and reference generation before command migration. |
+| [I02](../plan_improvement_reviews/cli-operations_2026-11-07.md#I02) | Scheduled · [CLI-01](cli-operations/command-context-output.md#CLI-01), consumed by CLI-03/07. | Verify typed intent, harmless completion and literal, policy-checked recipe forwarding. |
+| [I03](../plan_improvement_reviews/cli-operations_2026-11-07.md#I03) | Scheduled correction · [CLI-01](cli-operations/command-context-output.md#safe-output-and-progress). | Verify redaction, terminal-control handling and JSON/exit isolation before migrating consumers. |
+| [I04](../plan_improvement_reviews/cli-operations_2026-11-07.md#I04) | Scheduled · [CLI-03](cli-operations/managed-results-and-testing.md#CLI-03). | Verify authentic cancellation, isolated receipts and exact retry coverage across concurrent campaigns. |
+| [I05](../plan_improvement_reviews/cli-operations_2026-11-07.md#I05) | Scheduled · [CLI-02](cli-operations/managed-results-and-testing.md#CLI-02), first exercised in CLI-03. | Verify settlement, held/expired identities, publication and concurrent export/GC before reuse. |
+| [I06](../plan_improvement_reviews/cli-operations_2026-11-07.md#I06) | Scheduled correction · [CLI-04/05](cli-operations/model-change-and-deployment.md#CLI-04). | Rejected revision leaves all files unchanged. Native effects remain exact, explicit and resumable. |
+| [I07](../plan_improvement_reviews/cli-operations_2026-11-07.md#I07) | Scheduled bounded discovery with conditional tool alternatives · [CLI-04](cli-operations/model-change-and-deployment.md#introspection-and-edit-decisions), consumed by CLI-05/07. | Exercise provenance, coordinates and coverage. Evaluate ast-grep-py or Tree-sitter only for the specified workload. |
+| [I08](../plan_improvement_reviews/cli-operations_2026-11-07.md#I08) | Conditional · [CLI-04/05](cli-operations/model-change-and-deployment.md#introspection-and-edit-decisions). | Adopt LibCST only for a recurring, explicitly mapped qualified rename that passes independent patch and ambiguity controls. |
+| [I09](../plan_improvement_reviews/cli-operations_2026-11-07.md#I09) | Scheduled · [CLI-06](cli-operations/corpus-and-operations.md#shared-refusals-and-read-authority) and CLI-07/08. Remote artifact resource remains conditional. | Verify shared refusal meaning, read purpose, transport-specific UTF-8 bounds and exact export. |
+| [I10](../plan_improvement_reviews/cli-operations_2026-11-07.md#I10) | Scheduled receipt-first diagnostics · [CLI-02](cli-operations/managed-results-and-testing.md#action-driven-diagnostics), projected by CLI-01 and supplied by CLI-03/06/07. | Demonstrate the correct next action by result ID. Optional capture, structlog and service logs require the consumer and value cases in their owning packages. |
+
 Conditional investigations stay beside their consumers. CLI-02 owns lookup/index and expiry-marker
 triggers. CLI-01 owns any later structured usage-error envelope. CLI-04 owns the conditional
 introspection and edit tools. CLI-07 owns the backup/restore decision. CLI-06 reports unavailable
 fitting inputs through the existing capability and leaves their creation with the producer/assessment
-owner. Each investigation states the evidence and the decision it changes.
+owner. Each investigation states the evidence and the decision it changes. Optional mechanisms remain
+outside the required qualification union until selected.
 
 ## Completion and evidence
 
@@ -116,8 +145,10 @@ establishes its dated scope and can supply retained inputs. This CLI plan adds n
 re-extract sources to verify retained reads or delivery. Observe repeated friction again after use if
 benefit assessment is warranted. No timing or disk-savings claim is made at authoring.
 
-**Authoring verification, 2026-11-07.** `just docs-check` passed for the plan publication.
+**Initial authoring verification, 2026-11-07.** `just docs-check` passed for the original plan publication.
 The installed `typer --app app corpus_structure.cli.app utils docs --name ci` command passed
 with an intentionally invalid database URL. `just --justfile "$PWD/justfile" --working-directory
 "$PWD" --show test-all` passed, inspecting the existing recipe without launching tests.
-Product qualification is `not_run` for this documentation change.
+
+**Revision verification, 2026-11-07.** `just docs-check` and `just turn-end` passed.
+Product qualification is `not_run` for the documentation revision.
