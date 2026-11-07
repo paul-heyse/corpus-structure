@@ -16,7 +16,16 @@ def verify_inline_formula_report(report, source):
     from corpus_structure.methods.scoped_relations import ScopedRelationsConfig
 
     body = report["body"]
-    cfg = ScopedRelationsConfig.model_validate(report["configuration"])
+    configuration = report["configuration"]
+    # The registry stores floats as decimal strings. Replay only the input
+    # binding and parser settings, whose validators accept that representation.
+    cfg = ScopedRelationsConfig.model_validate(
+        {
+            key: configuration[key]
+            for key in ("inputs", "structural_input_digest", "max_formula_chars", "formula_seconds")
+            if key in configuration
+        }
+    )
     source_id = source["source_view_id"]
     selection = None
     if cfg.inputs is not None:

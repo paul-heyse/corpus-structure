@@ -9,7 +9,7 @@ historical contrast and constant-density cases. Those cases keep their original 
 expectations. Caption reachability and independently supported semantic attachment remain
 distinct outcomes. [Frozen caption and reference controls](../2026-11-06_wce-completion-repair/source-references/README.md) · [Frozen benefit account](../2026-11-06_wce-gs120/assessment/benefit-account/README.md)
 
-The final development revision is `semantic_nce_evidence_guards`. Candidate
+The initial NCE development revision was `semantic_nce_evidence_guards`. Candidate
 `9dbcdb9368b549cd8ba15fb485185db0` followed the installed preview, apply, register and
 deploy route. The development deployment passed on 2026-11-07 with managed result
 `ed6a7e3d17614853a6e4a4051d453a6e`. It admitted release
@@ -45,7 +45,7 @@ PostgreSQL compilation diagnosis identified the PL/pgSQL expression that needed 
   Two more caption occurrences became available in view 159. The exact guard retry
   passed, and the three malformed projection controls were refused.
   [Source views](caption-replay.json) · [Pair controls](caption-controls.json) · [Native guard](caption-guard.json)
-- **NCE-02, partial.** Scoped run 217/cut 303 and definition run 218/cut 305 used the
+- **NCE-02 initial slice.** Scoped run 217/cut 303 and definition run 218/cut 305 used the
   original retained linguistic products. The full probability subject now attaches to
   the integral. Huygens' assumption and historical contrast remain visible and the
   performed definition was withheld. That definition run retains the local constant-density
@@ -54,7 +54,7 @@ PostgreSQL compilation diagnosis identified the PL/pgSQL expression that needed 
   places part of the equation outside the nominal subtree. The bounded rule uses the matching
   noun phrase, the attached “such that” restriction and the original sentence boundary.
   [Linguistic controls](linguistic-controls.json) · [Antecedent replay](antecedent.json) · [Native host guard](predicate-guard.json)
-- **Additional qualifier replay, partial.** Native run 219 exposed an incorrect provisional
+- **Initial qualifier replay, partial.** Native run 219 exposed an incorrect provisional
   host for Event F. Run 220, cut 309 retains the complete compound antecedent with unresolved
   host candidates and withholds the attachment. The variance, parameter and zero-wait cases
   retain located frame context. The normal-density statement explicitly names “with parameters
@@ -65,7 +65,8 @@ PostgreSQL compilation diagnosis identified the PL/pgSQL expression that needed 
   sentences in one exercise item. They need a dedicated premise-to-host witness for the
   shared X and Y. The zero-wait phrase clarifies the population counted in that clause.
   Its relation to Little’s law, the equilibrium premises and the proof require separate
-  evidence. Cross-block layout inheritance remains open.
+  evidence. This initial replay lacked a cross-block layout witness. The completion replay
+  below covers the explicit list fixture and the normal parameter note.
   [Additional qualifier cases](additional-qualifiers.json)
 - **Consumer delivery, passed.** The CLI and fresh MCP returned the same retained frame.
   `uv run ci review verify BUNDLE_PATH --json` passed on the exact-closure export and
@@ -107,10 +108,33 @@ complete location for the restriction.
 · [SymPy assumptions](https://docs.sympy.org/latest/modules/assumptions/refine.html)
 · [Z3 solver guide](https://microsoft.github.io/z3guide/docs/logic/intro/)
 
+## Qualifier scope completion
+
+**Tested in development, 2026-11-07.** Scoped relations v5 replayed the same original
+Event F, positive-variance, normal-parameter and zero-wait selections and added the frozen
+inline formula occurrence view. Run 224, cut 315 contains the five expected attachments and
+exact Z. Population inclusion has its own qualifier kind. The normal positivity note cites
+the admitted parameterization relation as its cross-block witness. The three conditional
+premises retain their exact source wording as escape conditions. The list inheritance
+mechanism passed a two-item native fixture and refused changed membership and clipped scope.
+The retained “following two densities” lead-in in view 146 produced zero inherited qualifiers.
+Its coordinate and native pointer are in the replay receipt.
+
+Run 223 failed in the enclosing predicate admission function because PostgreSQL grouped a
+JSON containment expression incorrectly. The rollback-only preflight passed on all five
+original views after the fix. The exact forward candidate deployed to development as
+`semantic_nce02_scope_guard`. The current Reader, installed CLI and fresh MCP agreed, and
+both current and archived v4 detached bundles verified. Fresh MCP registration initially
+refused the stale generated report-schema artifact. Regeneration restored registration.
+The initial detached exports refused a canonical decimal string in an unrelated table
+setting. Inline formula replay now validates the retained source binding and parser
+settings it uses.
+[Replay and managed receipts](qualifier-scope.json) · [Finalized record](records/nce.qualifier-scope-development.json)
+
 ## Records
 
 <!-- evidence-index:start -->
-Generated by `just evidence index` from `records/`; do not edit by hand. 4 current, 0 superseded.
+Generated by `just evidence index` from `records/`; do not edit by hand. 5 current, 0 superseded.
 
 
 **NCE**
@@ -121,4 +145,5 @@ Generated by `just evidence index` from `records/`; do not edit by hand. 4 curre
 | [Exact retained antecedent for constant-density naming](records/nce.constant-density-antecedent.json) | NCE-02 | passed | NCE-02 | 2026-11-07 |
 | [Retained clause and definition replay](records/nce.predicate-native-replay.json) | NCE-02 | partial | NCE-02 | 2026-11-07 |
 | [Additional frozen qualifier opportunities](records/nce.qualifier-coverage.json) | NCE-02 | partial | NCE-02 | 2026-11-07 |
+| [Native qualifier scope and exact inline formula replay](records/nce.qualifier-scope-development.json) | NCE-02 | passed | NCE-02 | 2026-11-07 |
 <!-- evidence-index:end -->

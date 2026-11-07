@@ -1,6 +1,6 @@
 # Next corpus enrichment
 
-**Status:** NCE-01 delivered in development. NCE-02 partially delivered. **Revised:** 2026-11-07. This coordinator owns the series,
+**Status:** NCE-01 delivered in development. NCE-02 delivered in development. **Revised:** 2026-11-07. This coordinator owns the series,
 its source dispositions and combined completion. The scope comes from the
 [Next corpus enrichment review](../functional_reviews/next-corpus-enrichment_2026-11-07.md)
 at `8277b7445`, including its integrated corrections and conditional opportunities. Existing
@@ -189,19 +189,20 @@ the review.
   definitions v7, run 222 and cut 313, resolves “This set of points” to the full preceding
   level-set expression and retains the local mention in the named operation. Both exact spans
   match the independent frozen case on original view 147. [Linguistic replay](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md)
-- Development uses revision `semantic_nce_evidence_guards` and the admitted NCE release
-  recorded in the evidence account. The current CLI, fresh MCP and detached bundle passed
+- The first development slice used revision `semantic_nce_evidence_guards` and its admitted
+  NCE release. The installed CLI, fresh MCP and detached bundle passed
   the bounded read and replay controls. The detached bundle carries original annotation
   reports. Native admission refused a competing predicate host even when it appeared in
   the submitted candidate list.
-- **Remaining NCE-02 work.** Native run 220, cut 309 retains the full compound Event F
-  antecedent and withholds the unsupported host. The replay locates variance,
-  normal-parameter and zero-wait context with their semantic attachments still open.
-  Normal parameterization has an exact same-sentence host and needs its own retained-parse
-  and native guard recipe. The variance premise and queue convention need distinct scope
-  and host witnesses. Explicit cross-block layout inheritance, formal interpretation and
-  production adoption remain open.
-  [Additional qualifier cases](../design_review/evidence/2026-11-07_nce-source-linguistics/additional-qualifiers.json)
+- **NCE-02 · Development delivery, bounded Tested, 2026-11-07.** Scoped relations v5,
+  predicate operations v3, run 224 and cut 315 admitted the full Event F antecedent on the
+  defining act, the positive-variance premise on the correlation definition, the normal
+  parameter pair and witnessed σ positivity, and zero-wait inclusion on the counting clause.
+  Native offsets 242–243 in view 117 retain the standalone inline formula Z occurrence.
+  Explicit list inheritance passed the two-host native fixture and its scope refusals.
+  Authentic list-inheritance benefit, source bindings for further formal interpretation,
+  the eligible standard-normal target, and live adoption remain separate obligations.
+  [Current replay](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#qualifier-scope-completion)
 
 ### Selected execution verification
 
@@ -212,5 +213,26 @@ the review.
 | `uv run ci test --json -- PATH…` | `passed`, 69 affected definition, annotation and native replay tests on the final antecedent source, result `80dab1360371491a9ce83bb5426ecd78`. Exact file selections are in the [antecedent evidence](../design_review/evidence/2026-11-07_nce-source-linguistics/README.md#antecedent-decision). |
 | `uv run ci test coverage ORIGINAL RETRY EVENT_F PREDICATE ANTECEDENT --json` | The managed account preserves the original failure and source differences. The original 5,144 selected nodes have zero unresolved after replacement. The operator selected affected tests and exact retries for final verification. |
 
-The antecedent comparison, ordinary Reader delivery and detached verification are separate
-from the broader qualifier opportunities still open above.
+The antecedent comparison, ordinary Reader delivery and detached verification cover the
+constant-density case. The qualifier replay below has its own source selections and receipts.
+
+### Remaining NCE-02 execution verification
+
+- `uv run ci model change deploy b77e2fda13c6498da2298f4f1de45399 --json` passed,
+  result `d1e2ef49b2e7403f978ffb89930b03db`. Development head is `semantic_nce02_scope_guard`.
+  Initial run 223 failed during native publication. The forward correction passed the full
+  predicate guard on five original-view payloads in rollback-only preflight.
+- `uv run ci test --json -- PATH…` passed the 234 affected-node selection
+  `a91b21f4449f42dba798542369d7c1ce` and the seven table-policy nodes
+  `ce5df474d36b44cd9fec6ae2ccec5add`. The corrective native selection passed
+  in `a01b3e04fa8e4bd1a45a55a5d7f5ff47` (33 nodes). Report registration passed 41 nodes in
+  `d3806f6affaa499e967e2c1ecea56ad9` and detached replay passed 63 nodes in
+  `554d911f3ded4971b265daeec9ae594d`. These selections can overlap. The full suite
+  was `not_run` for this slice under the operator's affected-selection scope.
+- `uv run ci test coverage AFFECTED CORRECTED_NATIVE REPORT_REGISTRATION DETACHED_REPLAY
+  --view unresolved --limit 20 --json` passed with 234 required nodes covered and zero
+  unresolved in the initial affected selection. The recorded source contexts differ. Native
+  admission, report registration and detached replay have their own affected checks above.
+- Development run 224 and cut 315 passed exact Reader, CLI and fresh MCP checks.
+  `uv run ci review verify` passed for current bundle `5b469934d6cc459aa5e46529012c1a67` and archived v4 bundle
+  `746abd8fc8294c6ca2cc5a2426acfe87`. [Current replay record](../design_review/evidence/2026-11-07_nce-source-linguistics/records/nce.qualifier-scope-development.json)

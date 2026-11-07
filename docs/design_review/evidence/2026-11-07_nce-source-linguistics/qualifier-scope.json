@@ -1,0 +1,184 @@
+{
+  "cases": {
+    "116": [
+      {
+        "cue": "source-contribution:8fcb7386483fca7ab96e4388d9fce4cb05698579b01bda48bf77e44c0a449cb1",
+        "host": "source-contribution:ba7e28283d675721c688fbafa2a51dd1efc619ede210dcb8f72240bbc975f42c",
+        "kind": "parameterization",
+        "predicate": "defined",
+        "source_extent": [
+          14593,
+          14616
+        ],
+        "text": "with parameters µ and σ",
+        "variant": "nominal_parameter_pair",
+        "witness": null
+      },
+      {
+        "cue": "source-contribution:cfb0e1d3f58d82303e77b6fd5bc4203362f0c761eb01143df4c207674aaa9f7d",
+        "host": "source-contribution:ba7e28283d675721c688fbafa2a51dd1efc619ede210dcb8f72240bbc975f42c",
+        "kind": "assumption",
+        "predicate": "defined",
+        "source_extent": [
+          14967,
+          14995
+        ],
+        "text": "it is assumed to be positive",
+        "variant": "parameter_positive",
+        "witness": {
+          "kind": "parameter_note",
+          "parameterization": "source-contribution:64e718e7018c6f17f0739b84bfad81168f537ab23c3d388f26f7e9706f885490"
+        }
+      }
+    ],
+    "117": [
+      {
+        "occurrence": "source-contribution:140d226b5b7bcaaf444938b7ae71e876e38c97515f2b08b8495fc326005727f1",
+        "variant": "formula_z"
+      }
+    ],
+    "131": [
+      {
+        "cue": "source-contribution:02c6427dea825ff7cdd006b85680bf23de2813c1251c775fe81f84a5b46e5e9f",
+        "host": "source-contribution:a1a88889b5ece4af98ac93fd009125bd5b6099bdaf8f1932f9b30ac0cff9e377",
+        "kind": "condition",
+        "predicate": "defined",
+        "source_extent": [
+          39,
+          121
+        ],
+        "text": "If F is any event and X is a random variable with sample space Ω = {x1, x2, . . .}",
+        "variant": "event_compound_then",
+        "witness": null
+      }
+    ],
+    "145": [
+      {
+        "cue": "source-contribution:1f73a4c91ed11be3f1b884c41c372f10b7a41c64b4772072b4ede6380374211d",
+        "host": "source-contribution:27bc659d8c7e9865351c1a4ed5a7e5251b4660a191af675e56336aa38cbc562e",
+        "kind": "population_inclusion",
+        "predicate": "counting",
+        "source_extent": [
+          2933,
+          2975
+        ],
+        "text": "even those that do not have to wait at all",
+        "variant": "customer_population_inclusion",
+        "witness": null
+      }
+    ],
+    "146": [
+      {
+        "cue": "source-contribution:49db2b9b4b29cbc2a2f9c5aeff2c7955e6141a9d7bc0f5de5183442789839cf5",
+        "host": "source-contribution:2c3aa4df4fb2b147190d11074484ba273ac28ad8d73d6bbd39c62d3b24f5a61a",
+        "kind": "assumption",
+        "predicate": "defined",
+        "source_extent": [
+          5559,
+          5613
+        ],
+        "text": "Let X and Y be random variables with positive variance",
+        "variant": "adjacent_variance_premise",
+        "witness": null
+      }
+    ]
+  },
+  "run": {
+    "cut_id": 315,
+    "project_id": "wce-gs120-method-development-20261106",
+    "release_id": "release:654dce9d0c15e635846202cc5aef405b6d0f4339be3e18110f9040ba971dda3d",
+    "result_revision": 1,
+    "run_id": 224,
+    "runtime_id": "runtime:c98a92a97894d479dbe9d7847449c67eb87a0268185133813ac864a298a312f0"
+  },
+  "delivery": {
+    "outcome": "passed",
+    "run_id": 224,
+    "cut_id": 315,
+    "cli_mcp_matches": [
+      "source-contribution:9c96704cddc9d8b5345e62c2a801c274d815e584c77e9949cbdd04f06d794fdc",
+      "source-contribution:33b4b8bb1f507a5f4a6d086539f25921bdba89ece60d53cc5089bdafa1f7977b",
+      "source-contribution:83141afef679f4553699cfd0059c2f485b845f5da558afe501b4b3c80a255b64",
+      "source-contribution:f5d539de767d35c24da7ccbdbe6086e59e0748cc728c3235357a2b56f610ced7",
+      "source-contribution:583fcdb7e9bda41b5d10f88ab1d77161c793aeda13fdc2ebf24ad25de5711ada",
+      "source-contribution:2a215f2aa5125f169c8c3b107a9b964b4ff0aef4e0b6aa82aad14d6c7e9fdfcb",
+      "source-contribution:af08dfbc0d58324b50430ff045f1217f621a5f5fc85e9815061d58226539a7f4",
+      "source-contribution:b79079e989a891d8539cd4f324482a724516445c470204f109cc379a4e0707e0",
+      "source-contribution:d2e2d4874cbd8855e2ba928bae44d6fca92746a5c16d8c53b86655ca60507428",
+      "source-contribution:ea680110aca06bdddf7913b62489c506fad8ad63c39bb73b539ad5e9a5f8c4db",
+      "source-contribution:c903240e5869df7dcbd98938ff3b5bae993916fe0bb0915f1a5420d7a5f1978d",
+      "source-contribution:bb04d0ffac0e09de36d333dfffc14e603d1398c796fb10993c72422e1fd27dc9",
+      "source-contribution:e26b6726d7e03e01008286bc2216da93cece6ba044781a5412556df8cbf014db",
+      "source-contribution:e1ba1af6263f770d31aadd53637a308414c230ff2d2fc1c7800c7aa5b179548b",
+      "source-contribution:dc170fbd99ab8af64a94b37de590fd6d45cceafbfa5290748bb24dc3d9de149b",
+      "source-contribution:e928f852eb0ccbeef06d053e0b02c9fa2d4a036c70bd2cc4f794fafc9fe856bb",
+      "source-contribution:a98bd8df20c142d88e1d3e07d2a8d3af3f74aebce449fff44f8b6ef3028914b0",
+      "source-contribution:40832c964745a1ac82bb094d034a5c5233c398cc2cbb3d3243f64999823a0b33",
+      "source-contribution:958501d0b12ddfb64f6a101d62f51d86f70912e41c5bc3dd67bda2b0b81459e0",
+      "source-contribution:0d7bab235031b3f6d71da93db148023517ea7c5a3e70b3c729170470e6f96aac",
+      "source-contribution:6a5c3e87222e90b2039c0351dc37784d1c63d8169e2b0f4b37f73ceab00f3d7a",
+      "source-contribution:6602fde8d33e910b32c09132164277fee7ff24d7da58d47cf1e31fbcc6ba02e8",
+      "source-contribution:8f4d2c0ff7e2d5495c9d03fe2b8a542820f9c14dbc00e80f43641b4a480b7b67",
+      "source-contribution:5dae773a84004e1e83aa0c3f8d072ff1d9457046878870b7765650c363b0bd08",
+      "source-contribution:c443e076909cb2e7d2375b98cf30d10d72b4612d0e92bce3bfcb582cf226fa32",
+      "source-contribution:1f35ebcbbfb4208c831d342a2d28ac18edeadbc8f585111daa97f045db4617e2",
+      "source-contribution:6900e03dfcf3e7c27a85c0d317963fadf87bd1db84792135d5b9c78caaf600f6",
+      "source-contribution:8479ae15b0268860a56a35fbc0f07317c9232a1b53ee702393b611409d1b57e8",
+      "source-contribution:64e718e7018c6f17f0739b84bfad81168f537ab23c3d388f26f7e9706f885490",
+      "source-contribution:0579b3b7be3b741889ee86ce0c2bbda5ee8d4780311aae057f1248501f1557ba",
+      "source-contribution:745ef195694889a268237d955fb93256751273fe065f1d1674f68d11ebca0f9e",
+      "source-contribution:2f02c8669b445350ba5abf7f80269f89d24549feb6387d5b6405191c724e5896",
+      "source-contribution:c17e41f78288edbef57eaba5d063e56f78e41b6cbc293ac6e9f7846494234bff"
+    ],
+    "native": {
+      "event_f_exact": "passed",
+      "event_f_wrong_and_clipped": "refused",
+      "sigma_exact": "passed",
+      "sigma_wrong_witness_and_clipped": "refused"
+    }
+  },
+  "exact_closure_bundle": {
+    "outcome": "passed",
+    "result": "5b469934d6cc459aa5e46529012c1a67",
+    "selection_digest": "c66f9686547570848f3741608180c69b2d5976890c6475919f2c1e68566ca2b4"
+  },
+  "archived_v4_bundle": {
+    "outcome": "passed",
+    "result": "746abd8fc8294c6ca2cc5a2426acfe87",
+    "selection_digest": "cc951cb840a48701c85d6bc1c6fa80c835462e747ee67878e13731afcfc2a58c"
+  },
+  "detached_export_failures": [
+    "aa039117deea445e92fb5fc1658cc147",
+    "824f9ecf628c475fbfe6a951719efc4f"
+  ],
+  "list_negative_control": {
+    "outcome": "passed",
+    "source_view": 146,
+    "selection": [
+      4737,
+      5184
+    ],
+    "lead_in": "#/texts/172",
+    "inherited_qualifiers": 0
+  },
+  "initial_failed_run": 223,
+  "development_deploy": "d1e2ef49b2e7403f978ffb89930b03db",
+  "rollback_only_preflight": {
+    "outcome": "passed",
+    "run": 223,
+    "source_views": [
+      131,
+      146,
+      116,
+      145,
+      117
+    ]
+  },
+  "managed_tests": {
+    "affected": "a91b21f4449f42dba798542369d7c1ce",
+    "table_policy": "ce5df474d36b44cd9fec6ae2ccec5add",
+    "corrected_native": "a01b3e04fa8e4bd1a45a55a5d7f5ff47",
+    "report_registration": "d3806f6affaa499e967e2c1ecea56ad9",
+    "detached_replay": "554d911f3ded4971b265daeec9ae594d"
+  }
+}

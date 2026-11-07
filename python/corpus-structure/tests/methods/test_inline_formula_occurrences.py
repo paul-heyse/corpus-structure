@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.methods.scoped_relations import ScopedRelationsConfig, discover_relations
+from corpus_structure.orchestrate.registry import canonical_numbers
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
@@ -135,7 +136,7 @@ def test_detached_verifier_rejects_wrong_symbol_or_link(tampering):
     report = json.loads(
         canonical_bytes(
             {
-                "configuration": ScopedRelationsConfig().model_dump(mode="json"),
+                "configuration": canonical_numbers(ScopedRelationsConfig().model_dump(mode="json")),
                 "body": {
                     "contribution_operations": output["extra_operations"],
                     "contributions": output["contributions"],

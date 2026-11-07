@@ -671,7 +671,7 @@ BEGIN
     OR (c ? 'cross_block_hosts' AND (
      NOT coalesce(c->>'variant'=ANY(cross_recipes) AND c->>'cue_kind'='assumption',false)
      OR coalesce(jsonb_array_length(c->'candidate_tokens'),0)<>0
-     OR NOT c->'dependencies' @> c->'cross_block_hosts'
+     OR NOT ((c->'dependencies') @> (c->'cross_block_hosts'))
      OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'cross_block_hosts') i GROUP BY i HAVING count(*)>1)
      OR EXISTS(SELECT FROM jsonb_array_elements_text(c->'cross_block_hosts') i
       WHERE p_population->i->'component'->>'kind' IS DISTINCT FROM 'predicate_frame'
