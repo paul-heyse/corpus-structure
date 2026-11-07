@@ -16,15 +16,15 @@ from corpus_structure.semantic.structural_products import (
 )
 
 
-def derive_contribution_members(inputs, reference, payload):
+def derive_contribution_members(inputs, reference, payload, *, root=None):
     """Consume only detached owned-reader output; authenticate again at native replay."""
     rows = {r["contribution_id"]: r for r in payload["contributions"]}
-    root = rows.get(reference.contribution_id)
-    if root is None or any(contribution_identity(r) != key for key, r in rows.items()):
+    selected = rows.get(reference.contribution_id)
+    if selected is None or any(contribution_identity(r) != key for key, r in rows.items()):
         raise ValueError("retained contribution differs from immutable contents")
     if reference.contribution_id not in inputs.dependencies:
         raise ValueError("dossier contribution outside declared dependencies")
-    if root["semantic_type"] not in {
+    if selected["semantic_type"] not in {
         "structural.located_participant",
         "structural.scoped_attachment",
         "structural.artifact",
@@ -130,14 +130,19 @@ def derive_contribution_members(inputs, reference, payload):
             ),
         )
     )
-    meaning = source_python(root["value"])
+    if root is not None and (
+        selected["kind"] != "relation"
+        or not any(citation.span in (root.term, root.content) for citation in citations)
+    ):
+        return ()
+    meaning = source_python(selected["value"])
     raw_role = meaning.get("role", meaning.get("relation", "unresolved_sense"))
     role = (
         raw_role
         if raw_role in {"exception", "revision", "conflict", "open_question"}
         else (
             "relationship"
-            if root["kind"] == "relation"
+            if selected["kind"] == "relation"
             else "terminology"
             if raw_role in {"header", "row_label", "symbol", "declaration"}
             else "usage"
@@ -154,6 +159,7 @@ def derive_contribution_members(inputs, reference, payload):
                 role=role,
                 citations=[c.model_dump(mode="json") for c in citations],
                 scope=scope,
+                **({"sense": root.component_id} if root is not None else {}),
             )
         )
     ).hexdigest()
@@ -164,7 +170,7 @@ def derive_contribution_members(inputs, reference, payload):
             passage_id=primary.passage_id,
             citation=primary,
             role=role,
-            sense="unresolved",
+            sense=root.component_id if root is not None else "unresolved",
             scope=scope,
             relation_product_id=reference.contribution_id,
             contribution_ref=reference,

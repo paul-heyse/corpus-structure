@@ -38,7 +38,8 @@ def threshold_inputs(left, right, scope="scope"):
     ],
 )
 def test_exact_threshold_difference(left, right, removed, added):
-    value = threshold_inputs(left, right)
+    basis = "\nComparison basis: annual gross revenue."
+    value = threshold_inputs(left + basis, right + basis)
     report = compare_clauses(
         value, left=read_clause(value.passages[0]), right=read_clause(value.passages[1])
     )
@@ -51,11 +52,13 @@ def test_exact_threshold_difference(left, right, removed, added):
     assert endpoint(d.removed_interval) == removed
     assert endpoint(d.added_interval) == added
     assert d.typed_outcome == "different"
+    assert d.left.typed.basis_evidence.text == basis[1:]
     assert report.comparison.applicability == "unestablished"
 
 
 def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
     for left, right in (
+        ("revenue > 25000 USD", "revenue > 50000 USD"),
         ("revenue > 25000", "revenue > 50000"),
         ("x > 2 kg and y > 3 kg", "x > 5 kg"),
     ):
@@ -65,6 +68,22 @@ def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
         )
         assert report.comparison is not None
         assert report.comparison.dimensions[5].typed_outcome == "unknown"
+        assert report.comparison.dimensions[5].removed_interval is None
+
+
+def test_succession_keeps_the_source_direction_when_comparison_is_reversed():
+    inputs = threshold_inputs("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1.")
+    older, newer = tuple(
+        p.model_copy(update={"parent": "rule", "effective_version": version})
+        for p, version in zip(inputs.passages, ("R1", "R2"), strict=True)
+    )
+    inputs = inputs.model_copy(update={"passages": (older, newer)})
+    result = compare_clauses(inputs, left=read_clause(newer), right=read_clause(older)).comparison
+    assert result is not None and result.applicability == "successive_revisions"
+    assert result.left_id == newer.passage_id
+    assert result.succession is not None
+    assert (result.succession.older_id, result.succession.newer_id) == ("a", "b")
+    assert result.succession.evidence.text == "Revision R2 supersedes revision R1."
 
 
 def members():
@@ -195,6 +214,7 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
 
 def test_cued_clause_dimensions_keep_original_roles_conditions_and_exceptions():
     text = "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed."
+    text += "\nComparison basis: annual gross revenue."
     value = threshold_inputs(text, text.replace("25000", "50000"))
     fields = {f.dimension: f for f in read_clause(value.passages[0]).fields}
     assert {k: f.lexical_value for k, f in fields.items() if k != "threshold_unit"} == {

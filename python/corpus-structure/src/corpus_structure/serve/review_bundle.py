@@ -849,7 +849,7 @@ def _member(root: Path, name: str) -> Path:
 
 def _verify_dossier_structural_closure(root, manifest, dossiers, products, scopes, assertions):
     """Replay declared structural predecessors across their exact selected snapshots."""
-    from corpus_structure.methods.structural_products import derive_dossier_members
+    from corpus_structure.methods.structural_products import derive_dossier_members, dossier_root
     from corpus_structure.semantic.structural_admission import structural_claim_id
     from corpus_structure.semantic.structural_products import StructuralProductReport
 
@@ -862,6 +862,7 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
                 raw = json.loads(json.loads(line)["payload_json"])
                 if raw["origin_task_id"] in origin_ids:
                     raw_reports[raw["origin_task_id"]] = raw
+    roots = {}
     for report in dossiers:
         references = report.dossier.predecessors
         reference_ids = {ref.product_id for ref in references}
@@ -941,7 +942,20 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
                     ),
                 )
             )
-        expected_members, expected_facets = derive_dossier_members(report.inputs, retained)
+        root_ref = report.dossier.root_component
+        if root_ref is None:
+            raise ValueError("current dossier requires exact root component custody")
+        raw = raw_reports.get(root_ref.origin_task_id, {}).get("body", {})
+        if (raw.get("method"), raw.get("operation_version")) != (
+            root_ref.operation_id,
+            root_ref.operation_version,
+        ):
+            raise ValueError("dossier root differs from its original producer operation")
+        component = dossier_root(root_ref, retained)
+        roots[report.product_id] = component
+        expected_members, expected_facets = derive_dossier_members(
+            report.inputs, retained, root=component
+        )
         if actual != {member.member_id: member for member in expected_members}:
             raise ValueError(
                 "dossier structural membership differs from declared predecessor evidence"
@@ -950,9 +964,10 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
             facet.facet_id: facet for facet in expected_facets
         }:
             raise ValueError("dossier supported facets differ from declared predecessor assertions")
+    return roots
 
 
-def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory):
+def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
     """Replay source membership from exact detached selected raw producer custody."""
     from corpus_structure.methods.dossier_contributions import derive_contribution_members
 
@@ -1054,6 +1069,7 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
                 contributions=list(closure.values()),
                 sources=[sources[key] for key in sorted(source_ids)],
             ),
+            root=roots[report.product_id],
         )
         if derived != (member,):
             raise ValueError(
@@ -1303,8 +1319,9 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
             raise ValueError("structural release contracts are missing")
         if any(index not in structural_scopes for index, _ in structural_members):
             raise ValueError("structural product has no selected snapshot")
+        dossier_roots = {}
         if dossier_reports:
-            _verify_dossier_structural_closure(
+            dossier_roots = _verify_dossier_structural_closure(
                 root,
                 manifest,
                 dossier_reports,
@@ -1319,6 +1336,7 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                 dossier_source_members,
                 contribution_scopes,
                 contribution_inventory,
+                dossier_roots,
             )
         for run_id, unit_id in graded_units:
             if unit_id not in assessment_units or not _covers_assessment_unit(

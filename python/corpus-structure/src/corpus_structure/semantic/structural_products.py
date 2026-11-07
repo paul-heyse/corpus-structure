@@ -305,9 +305,24 @@ class TypedPremise(StructuralValue):
     quantity: str | None = None
     unit: str | None = None
     basis: str | None = None
+    basis_evidence: LocatedDefinitionSpan | None = None
 
     @model_validator(mode="after")
     def faithful_parse(self) -> Self:
+        if self.basis is not None or self.basis_evidence is not None:
+            from .structural_parsing import COMPARISON_BASIS
+
+            witness = self.basis_evidence
+            match = COMPARISON_BASIS.fullmatch(witness.text) if witness is not None else None
+            if (
+                self.state != "parsed"
+                or witness is None
+                or witness.passage_id != self.span.passage_id
+                or match is None
+                or not self.basis
+                or match[1].strip() != self.basis
+            ):
+                raise ValueError("typed basis requires its exact comparison-basis declaration")
         if self.state == "parsed":
             from .structural_parsing import parse_threshold
 
@@ -387,6 +402,12 @@ class DimensionComparison(StructuralValue):
     reason: Nonempty = "No source-qualified typed comparison has been established."
 
 
+class RevisionSuccession(StructuralValue):
+    older_id: Nonempty
+    newer_id: Nonempty
+    evidence: LocatedDefinitionSpan
+
+
 class ComparisonProduct(StructuralValue):
     left_id: Nonempty
     right_id: Nonempty
@@ -397,6 +418,18 @@ class ComparisonProduct(StructuralValue):
         "co_applicable", "successive_revisions", "differently_scoped", "unestablished"
     ] = "unestablished"
     applicability_reason: Nonempty = "No complete applicability premises have been established."
+    succession: RevisionSuccession | None = None
+
+    @model_validator(mode="after")
+    def succession_custody(self) -> Self:
+        if (self.succession is not None) != (self.applicability == "successive_revisions"):
+            raise ValueError("successive revisions require their directed source witness")
+        if self.succession and (
+            {self.succession.older_id, self.succession.newer_id} != {self.left_id, self.right_id}
+            or self.succession.evidence.passage_id != self.succession.newer_id
+        ):
+            raise ValueError("succession witness differs from compared revisions")
+        return self
 
 
 MemberRole = Literal[
@@ -495,6 +528,7 @@ class DossierRepresentation(StructuralValue):
 
 class DossierProduct(StructuralValue):
     root_id: Nonempty
+    root_component: RetainedComponentRef | None = None
     members: tuple[DossierMember, ...]
     predecessors: tuple[RetainedStructuralRef, ...] = ()
     contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
@@ -506,6 +540,12 @@ class DossierProduct(StructuralValue):
 
     @model_validator(mode="after")
     def membership(self) -> Self:
+        if self.root_component is not None and (
+            self.root_id != self.root_component.component_id
+            or not any(p.product_id == self.root_component.product_id for p in self.predecessors)
+            or any(member.sense != self.root_id for member in self.members)
+        ):
+            raise ValueError("dossier membership differs from its exact root sense")
         ids = {m.member_id for m in self.members}
         if len(ids) != len(self.members):
             raise ValueError("duplicate dossier member")
@@ -623,7 +663,35 @@ class StructuralProductReport(StructuralValue):
                 if reading.component_ref.product_id not in self.inputs.dependencies:
                     raise ValueError("applicability component is not a declared dependency")
         if self.comparison:
+            from .structural_parsing import REVISION_SUCCESSION
+
+            by_id = {p.passage_id: p for p in self.inputs.passages}
+
+            def exact(span: LocatedDefinitionSpan) -> bool:
+                passage = by_id.get(span.passage_id)
+                return (
+                    passage is not None
+                    and passage.start <= span.start < span.end <= passage.end
+                    and passage.text[span.start - passage.start : span.end - passage.start]
+                    == span.text
+                )
+
             cited.update((self.comparison.left_id, self.comparison.right_id))
+            if succession := self.comparison.succession:
+                older, newer = by_id.get(succession.older_id), by_id.get(succession.newer_id)
+                match = REVISION_SUCCESSION.fullmatch(succession.evidence.text)
+                if (
+                    older is None
+                    or newer is None
+                    or not older.parent
+                    or older.parent != newer.parent
+                    or older.scope != newer.scope
+                    or older.effective_version == newer.effective_version
+                    or match is None
+                    or match.groups() != (newer.effective_version, older.effective_version)
+                    or not exact(succession.evidence)
+                ):
+                    raise ValueError("succession differs from its exact original source")
             if tuple(d.dimension for d in self.comparison.dimensions) != DIMENSIONS:
                 raise ValueError("comparison requires every ordered dimension, including unknowns")
             for dimension in self.comparison.dimensions:
@@ -655,22 +723,8 @@ class StructuralProductReport(StructuralValue):
                             cited.add(span.passage_id)
                         if side.typed is not None:
                             span = side.typed.span
-                            selected = next(
-                                (
-                                    p
-                                    for p in self.inputs.passages
-                                    if p.passage_id == span.passage_id
-                                ),
-                                None,
-                            )
-                            if (
-                                selected is None
-                                or not selected.start <= span.start < span.end <= selected.end
-                                or selected.text[
-                                    span.start - selected.start : span.end - selected.start
-                                ]
-                                != span.text
-                            ):
+                            basis = side.typed.basis_evidence
+                            if not exact(span) or (basis is not None and not exact(basis)):
                                 raise ValueError(
                                     "typed field differs from its exact original source"
                                 )

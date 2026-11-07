@@ -180,10 +180,14 @@ def structural_statement(
                     if side.typed is not None:
                         item[name]["typed"] = {
                             **side.typed.model_dump(
-                                mode="json", exclude_none=True, exclude={"span"}
+                                mode="json", exclude_none=True, exclude={"span", "basis_evidence"}
                             ),
                             "span": span_citation(side.typed.span),
                         }
+                        if side.typed.basis_evidence:
+                            item[name]["typed"]["basis_evidence"] = span_citation(
+                                side.typed.basis_evidence
+                            )
             dimensions.append(item)
         statement["comparison"] = {
             "left": citation(value.left_id),
@@ -193,6 +197,12 @@ def structural_statement(
             "identity_standing": value.identity_standing,
             "applicability": value.applicability,
         }
+        if value.succession:
+            statement["comparison"]["succession"] = {
+                "older": citation(value.succession.older_id),
+                "newer": citation(value.succession.newer_id),
+                "evidence": span_citation(value.succession.evidence),
+            }
     if report.dossier is not None:
         value = report.dossier
         statement["dossier"] = {

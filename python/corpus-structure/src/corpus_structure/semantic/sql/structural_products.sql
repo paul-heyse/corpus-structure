@@ -225,8 +225,14 @@ GRANT EXECUTE ON FUNCTION ops.resolve_retained_relationship_decision(jsonb) TO c
 CREATE OR REPLACE FUNCTION ops.structural_threshold_field(passage jsonb)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE pattern text:='>=|<=|>|<|=|≥|≤|[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[^\W\d][\w.-]*|[^\s]';
- raw text:=passage->>'text'; tokens jsonb:='[]'; item record; i integer; begin_ integer; end_ integer; field_ text; parts text[]; fields jsonb:='[]'; symbol text; op text; value_ text; unit_ text;
+ raw text:=passage->>'text'; tokens jsonb:='[]'; item record; i integer; begin_ integer; end_ integer; field_ text; parts text[]; fields jsonb:='[]'; symbol text; op text; value_ text; unit_ text; basis_pattern text:='^Comparison basis:[ \t]*([^\n\r.]+?)[ \t]*\.?[ \t]*$'; basis_ text; witness jsonb;
 BEGIN
+ IF (SELECT count(*) FROM regexp_matches(raw,basis_pattern,'gn'))=1 THEN
+  basis_:=nullif(btrim((regexp_match(raw,basis_pattern,'n'))[1],E' \t'),'');
+  begin_:=regexp_instr(raw,basis_pattern,1,1,0,'n')-1;
+  end_:=regexp_instr(raw,basis_pattern,1,1,1,'n')-1;
+  IF basis_ IS NOT NULL THEN witness:=jsonb_build_object('passage_id',passage->>'passage_id','start',(passage->>'start')::integer+begin_,'end',(passage->>'start')::integer+end_,'text',substring(raw FROM begin_+1 FOR end_-begin_)); END IF;
+ END IF;
  FOR item IN SELECT m[1] text,n::integer FROM regexp_matches(raw,'('||pattern||')','g') WITH ORDINALITY a(m,n) LOOP
   tokens:=tokens||jsonb_build_array(jsonb_build_object('text',item.text,'start',regexp_instr(raw,pattern,1,item.n)-1,'end',regexp_instr(raw,pattern,1,item.n,1)-1));
  END LOOP;
@@ -241,7 +247,7 @@ BEGIN
   symbol:=nullif(btrim(parts[1]),'');op:=replace(replace(parts[2],'≥','>='),'≤','<=');value_:=data.decimal_canonical(parts[3]::numeric::text);unit_:=parts[4];
   fields:=fields||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('dimension','threshold_unit','lexical_value',field_,'evidence',jsonb_build_array(passage->>'passage_id'),
    'typed',jsonb_build_object('span',jsonb_build_object('passage_id',passage->>'passage_id','start',(passage->>'start')::integer+begin_,'end',(passage->>'start')::integer+end_,'text',field_),
-   'grammar','threshold-lalr-1','state','parsed','value',value_,'comparator',op,'quantity',symbol,'unit',unit_))));
+   'grammar','threshold-lalr-1','state','parsed','value',value_,'comparator',op,'quantity',symbol,'unit',unit_,'basis',basis_,'basis_evidence',witness))));
  END LOOP;
  RETURN CASE WHEN jsonb_array_length(fields)=1 THEN fields->0 ELSE NULL END;
 END $$;
@@ -284,7 +290,7 @@ REVOKE ALL ON FUNCTION ops.structural_clause_fields(jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.structural_comparison(inputs jsonb,left_id text,right_id text)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE a jsonb;b jsonb;x jsonb;y jsonb;xf jsonb;yf jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;
+DECLARE a jsonb;b jsonb;x jsonb;y jsonb;xf jsonb;yf jsonb;p jsonb;q jsonb;d text;dimensions jsonb:='[]';entry jsonb;typed text;reason text;removed jsonb;added jsonb;interval_ jsonb;lo jsonb;hi jsonb;av numeric;bv numeric;lower_side boolean;is_removed boolean;applicability text;why text;newer jsonb;older jsonb;w record;succession jsonb;witnesses integer:=0;start_ integer;end_ integer;pattern_ text:='^Revision ([A-Za-z0-9_-]+) supersedes revision ([A-Za-z0-9_-]+)\.[ \t]*$';
 BEGIN
  SELECT v INTO STRICT a FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=left_id;
  SELECT v INTO STRICT b FROM jsonb_array_elements(inputs->'passages')v WHERE v->>'passage_id'=right_id;
@@ -300,7 +306,7 @@ BEGIN
    IF x IS NOT NULL AND y IS NOT NULL THEN
     entry:=entry||jsonb_build_object('outcome',CASE WHEN x->>'lexical_value'=y->>'lexical_value' THEN 'same_lexical_value' ELSE 'different_lexical_value' END);
     p:=x->'typed';q:=y->'typed';typed:='unknown';removed:=NULL;added:=NULL;reason:='Unknown unit, quantity or basis withholds a stronger typed conclusion.';
-    IF p->>'unit' IS NOT NULL AND q->>'unit' IS NOT NULL AND p->>'quantity' IS NOT NULL AND p->>'quantity'=q->>'quantity' AND p->>'unit'=q->>'unit' AND p->>'basis' IS NOT DISTINCT FROM q->>'basis' THEN
+    IF p->>'unit' IS NOT NULL AND q->>'unit' IS NOT NULL AND p->>'quantity' IS NOT NULL AND p->>'quantity'=q->>'quantity' AND p->>'unit'=q->>'unit' AND nullif(p->>'basis','') IS NOT NULL AND p->>'basis'=q->>'basis' THEN
      reason:='Exact threshold consequence only; other rule dimensions remain separate.';
      IF p->>'comparator' NOT IN ('>','>=','<','<=') OR q->>'comparator' NOT IN ('>','>=','<','<=') OR left(p->>'comparator',1)<>left(q->>'comparator',1) THEN typed:='unsupported';
      ELSE
@@ -323,12 +329,26 @@ BEGIN
   END IF;
   dimensions:=dimensions||jsonb_build_array(entry);
  END LOOP;
+ IF a->>'scope'=b->>'scope' AND nullif(a->>'parent','') IS NOT NULL AND a->>'parent'=b->>'parent' AND a->>'effective_version'<>b->>'effective_version' THEN
+  FOR newer,older IN SELECT a,b UNION ALL SELECT b,a LOOP
+   FOR w IN SELECT m,n::integer FROM regexp_matches(newer->>'text',pattern_,'gn') WITH ORDINALITY x(m,n) LOOP
+    IF w.m[1]=newer->>'effective_version' AND w.m[2]=older->>'effective_version' THEN
+     witnesses:=witnesses+1;
+     start_:=regexp_instr(newer->>'text',pattern_,1,w.n,0,'n')-1;
+     end_:=regexp_instr(newer->>'text',pattern_,1,w.n,1,'n')-1;
+     succession:=jsonb_build_object('older_id',older->>'passage_id','newer_id',newer->>'passage_id',
+      'evidence',jsonb_build_object('passage_id',newer->>'passage_id','start',(newer->>'start')::integer+start_,'end',(newer->>'start')::integer+end_,'text',substring(newer->>'text' FROM start_+1 FOR end_-start_)));
+    END IF;
+   END LOOP;
+  END LOOP;
+ END IF;
  IF a->>'scope' IS DISTINCT FROM b->>'scope' THEN applicability:='differently_scoped';why:='Original source scopes differ.';
+ ELSIF witnesses=1 THEN applicability:='successive_revisions';why:='Exact source text establishes succession.';
  ELSIF a->>'effective_version' IS NULL OR b->>'effective_version' IS NULL THEN applicability:='unestablished';why:='Effective versions are not established.';
  ELSIF a->>'effective_version'<>b->>'effective_version' THEN applicability:='unestablished';why:='Different version labels do not establish succession or authority.';
  ELSIF NOT EXISTS(SELECT FROM unnest(ARRAY['actor','action','object','modality','condition','exception','order_dependency','parent','version']) dimension WHERE xf->dimension IS NULL OR yf->dimension IS NULL OR xf->dimension->>'lexical_value' IS DISTINCT FROM yf->dimension->>'lexical_value') THEN applicability:='co_applicable';why:='All non-threshold dimensions match under explicit scope/version.';
  ELSE applicability:='unestablished';why:='Missing or changed applicability dimensions remain material.';END IF;
- RETURN jsonb_build_object('left_id',left_id,'right_id',right_id,'dimensions',dimensions,'equivalence','not_asserted','identity_standing','not_asserted','applicability',applicability,'applicability_reason',why);
+ RETURN jsonb_build_object('left_id',left_id,'right_id',right_id,'dimensions',dimensions,'equivalence','not_asserted','identity_standing','not_asserted','applicability',applicability,'applicability_reason',why)||CASE WHEN witnesses=1 THEN jsonb_build_object('succession',succession) ELSE '{}'::jsonb END;
 END $$;
 REVOKE ALL ON FUNCTION ops.structural_comparison(jsonb,text,text) FROM PUBLIC;
 
@@ -336,8 +356,12 @@ REVOKE ALL ON FUNCTION ops.structural_comparison(jsonb,text,text) FROM PUBLIC;
 -- Display selection has no authority to create a member or a supported facet.
 CREATE OR REPLACE FUNCTION ops.structural_dossier(inputs jsonb,config jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE reference jsonb;retained jsonb;report jsonb;roles jsonb;role_ jsonb;c jsonb;r jsonb;d jsonb;side jsonb;span_ jsonb;p jsonb;assertion_ jsonb;expected_statement jsonb;assessment text;key_ text;member_ jsonb;members jsonb:='[]';facets jsonb:='[]';seen jsonb:='{}';selected jsonb:='[]';omitted jsonb;represented jsonb;missing jsonb;sections jsonb;budget integer:=(config->>'member_budget')::integer;mandatory integer;candidate record;membership_digest text;facet_digest text;representation jsonb;
+DECLARE reference jsonb;retained jsonb;report jsonb;roles jsonb;role_ jsonb;c jsonb;r jsonb;d jsonb;side jsonb;span_ jsonb;p jsonb;assertion_ jsonb;expected_statement jsonb;assessment text;key_ text;member_ jsonb;members jsonb:='[]';facets jsonb:='[]';seen jsonb:='{}';selected jsonb:='[]';omitted jsonb;represented jsonb;missing jsonb;sections jsonb;budget integer:=(config->>'member_budget')::integer;mandatory integer;candidate record;membership_digest text;facet_digest text;representation jsonb; root_ref jsonb:=nullif(config->'root_component','null'); root_ jsonb; sense_ text;
 BEGIN
+ IF root_ref IS NULL OR NOT COALESCE(config->'predecessors','[]') @> jsonb_build_array(root_ref-ARRAY['component_id','operation_id','operation_version','dependencies']) THEN
+  RAISE EXCEPTION 'dossier requires exact root component predecessor' USING ERRCODE='23514';
+ END IF;
+ root_:=ops.resolve_retained_component(root_ref)->'component';sense_:=root_->>'component_id';
  IF budget<1 OR config->>'policy' NOT IN ('supported-facet-greedy-1','source-order-control-1') OR jsonb_array_length(COALESCE(config->'predecessors','[]'))+jsonb_array_length(COALESCE(config->'contribution_predecessors','[]'))=0 THEN RAISE EXCEPTION 'invalid current dossier selection policy' USING ERRCODE='23514';END IF;
  IF (SELECT count(*)<>count(DISTINCT v->>'product_id') FROM jsonb_array_elements(config->'predecessors')v) THEN RAISE EXCEPTION 'duplicate dossier predecessor' USING ERRCODE='23514';END IF;
  FOR reference IN SELECT value FROM jsonb_array_elements(config->'predecessors') LOOP
@@ -345,35 +369,45 @@ BEGIN
   retained:=ops.resolve_retained_structural_report(reference);report:=retained->'report';roles:='[]';
   IF EXISTS(SELECT FROM jsonb_array_elements(report->'inputs'->'passages') source_passage(value) WHERE NOT inputs->'passages' @> jsonb_build_array(source_passage.value)) THEN RAISE EXCEPTION 'dossier predecessor substitutes original passage' USING ERRCODE='23514';END IF;
   IF report->>'kind'='definition_components' THEN
-   FOR c IN SELECT value FROM jsonb_array_elements(report->'definition_components'->'components') LOOP
+   FOR c IN SELECT value FROM jsonb_array_elements(report->'definition_components'->'components') WHERE value->>'component_id'=sense_ LOOP
     roles:=roles||jsonb_build_array(jsonb_build_object('role','terminology','span',c->'term','component_id',c->>'component_id','definition_interpretation',c->>'interpretation'),jsonb_build_object('role',CASE c->>'interpretation' WHEN 'definition' THEN 'definition' WHEN 'explanation' THEN 'usage' ELSE 'unresolved_sense' END,'span',c->'content','component_id',c->>'component_id','definition_interpretation',c->>'interpretation'));
    END LOOP;
   ELSIF report->>'kind'='definition_applicability' THEN
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(report->'definition'->'readings') rr WHERE rr->'component'->>'component_id'=sense_) THEN CONTINUE;END IF;
    SELECT value INTO STRICT p FROM jsonb_array_elements(inputs->'passages') WHERE value->>'passage_id'=report->'definition'->>'usage_id';
    roles:=roles||jsonb_build_array(jsonb_build_object('role','usage','span',p-ARRAY['source_ref','scope','effective_version','parent']));
-   FOR r IN SELECT value FROM jsonb_array_elements(report->'definition'->'readings') LOOP roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN r->>'outcome'='incompatible' THEN 'relationship' WHEN r->>'outcome' IN ('mention','example','applicable_explanation') THEN 'usage' WHEN r->>'outcome'='unresolved' OR r->'component'->>'interpretation'='unresolved' THEN 'unresolved_sense' WHEN r->'component'->>'interpretation'='explanation' THEN 'usage' ELSE 'definition' END,'span',r->'component'->'content','definition_interpretation',r->'component'->>'interpretation','applicability_outcome',r->>'outcome'));END LOOP;
+   FOR r IN SELECT value FROM jsonb_array_elements(report->'definition'->'readings') WHERE value->'component'->>'component_id'=sense_ LOOP roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN r->>'outcome'='incompatible' THEN 'relationship' WHEN r->>'outcome' IN ('mention','example','applicable_explanation') THEN 'usage' WHEN r->>'outcome'='unresolved' OR r->'component'->>'interpretation'='unresolved' THEN 'unresolved_sense' WHEN r->'component'->>'interpretation'='explanation' THEN 'usage' ELSE 'definition' END,'span',r->'component'->'content','definition_interpretation',r->'component'->>'interpretation','applicability_outcome',r->>'outcome'));END LOOP;
   ELSIF report->>'kind'='qualified_comparison' THEN
+   IF NOT EXISTS(SELECT FROM jsonb_array_elements(report->'comparison'->'dimensions') dim
+    CROSS JOIN LATERAL (SELECT dim->'left' side_ UNION ALL SELECT dim->'right') q
+    WHERE side_->'span' IN (root_->'term',root_->'content') OR side_->'typed'->'span' IN (root_->'term',root_->'content')) THEN CONTINUE;END IF;
    FOR d IN SELECT value FROM jsonb_array_elements(report->'comparison'->'dimensions') LOOP
     FOR side IN SELECT d->'left' UNION ALL SELECT d->'right' LOOP span_:=COALESCE(nullif(side->'span','null'),side->'typed'->'span');IF span_ IS NOT NULL AND span_<>'null' THEN roles:=roles||jsonb_build_array(jsonb_build_object('role',CASE WHEN d->>'dimension'='exception' THEN 'exception' ELSE 'variant' END,'span',span_));END IF;END LOOP;
    END LOOP;
+   IF nullif(report->'comparison'->'succession','null') IS NOT NULL THEN
+    roles:=roles||jsonb_build_array(jsonb_build_object('role','revision','span',report->'comparison'->'succession'->'evidence'));
+   END IF;
   ELSE RAISE EXCEPTION 'dossier predecessors require finite current semantic products' USING ERRCODE='23514';END IF;
   FOR role_ IN SELECT value FROM jsonb_array_elements(roles) LOOP
    span_:=role_->'span';SELECT value INTO STRICT p FROM jsonb_array_elements(inputs->'passages') WHERE value->>'passage_id'=span_->>'passage_id';
-   key_:=encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(jsonb_build_object('product',reference->>'product_id','role',role_->>'role','citation',span_,'definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome'))),'UTF8')),'hex');
+   key_:=encode(sha256(convert_to(data.canonical_json(jsonb_strip_nulls(jsonb_build_object('product',reference->>'product_id','role',role_->>'role','citation',span_,'sense',sense_,'definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome'))),'UTF8')),'hex');
    IF seen ? key_ THEN CONTINUE;END IF;seen:=seen||jsonb_build_object(key_,true);assessment:=NULL;
    IF jsonb_array_length(retained->'public_assertions')>0 AND NOT (report->>'kind'='definition_components' AND role_->>'definition_interpretation'='unresolved') THEN
     expected_statement:=data.structural_public_statement(report,role_->>'component_id');
     SELECT a->>'assessment_id' INTO assessment FROM jsonb_array_elements(retained->'public_assertions')a WHERE a->'statement'=expected_statement AND nullif(a->>'assessment_id','') IS NOT NULL LIMIT 1;
    END IF;
-   member_:=jsonb_strip_nulls(jsonb_build_object('member_id',key_,'passage_id',p->>'passage_id','citation',span_,'role',role_->>'role','sense','unresolved','scope',p->>'scope','effective_version',p->'effective_version','relation_product_id',reference->>'product_id','definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome','qualification',CASE WHEN assessment IS NULL THEN 'proposed' ELSE 'independently_supported' END,'assessment_id',assessment));
+   member_:=jsonb_strip_nulls(jsonb_build_object('member_id',key_,'passage_id',p->>'passage_id','citation',span_,'role',role_->>'role','sense',sense_,'scope',p->>'scope','effective_version',p->'effective_version','relation_product_id',reference->>'product_id','definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome','qualification',CASE WHEN assessment IS NULL THEN 'proposed' ELSE 'independently_supported' END,'assessment_id',assessment));
    members:=members||jsonb_build_array(member_);
    IF assessment IS NOT NULL THEN facets:=facets||jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('facet_id',key_||':'||(role_->>'role'),'kind',concat_ws(':',role_->>'role',role_->>'definition_interpretation',role_->>'applicability_outcome',span_->>'text'),'definition_interpretation',role_->'definition_interpretation','applicability_outcome',role_->'applicability_outcome','scope',p->>'scope','member_id',key_,'assessment_id',assessment,'evidence',jsonb_build_array(p->>'passage_id'))));END IF;
   END LOOP;
  END LOOP;
  IF (SELECT count(*)<>count(DISTINCT v->>'contribution_id') FROM jsonb_array_elements(COALESCE(config->'contribution_predecessors','[]'))v) THEN RAISE EXCEPTION 'duplicate dossier contribution predecessor' USING ERRCODE='23514';END IF;
  -- Aggregate full source membership once; never append to the growing dossier per row.
- SELECT members||COALESCE(jsonb_agg(source_member.value),'[]') INTO members
- FROM ops.dossier_contribution_members(inputs,COALESCE(config->'contribution_predecessors','[]')) AS source_member(value);
+ SELECT members||COALESCE(jsonb_agg(m||jsonb_build_object('sense',sense_,'member_id',
+  encode(sha256(convert_to(data.canonical_json(jsonb_build_object(
+   'contribution_ref',m->'contribution_ref','role',m->'role','citations',m->'contribution_citations','scope',m->'scope','sense',sense_)),'UTF8')),'hex'))),'[]') INTO members
+ FROM ops.dossier_contribution_members(inputs,COALESCE(config->'contribution_predecessors','[]')) AS source_member(m)
+ WHERE m->>'role'='relationship' AND EXISTS(SELECT FROM jsonb_array_elements(m->'contribution_citations') source_citation(item) WHERE item->'span' IN (root_->'term',root_->'content'));
  SELECT COALESCE(jsonb_agg(m ORDER BY source_passage.value->>'source_ref',(m->'citation'->>'start')::bigint,(m->'citation'->>'end')::bigint,m->>'member_id'),'[]') INTO members FROM jsonb_array_elements(members)m JOIN jsonb_array_elements(inputs->'passages')source_passage(value) ON source_passage.value->>'passage_id'=m->>'passage_id';
  SELECT COALESCE(jsonb_agg(f ORDER BY f->>'facet_id'),'[]') INTO facets FROM jsonb_array_elements(facets)f;
  SELECT COALESCE(jsonb_agg(m->'member_id' ORDER BY n),'[]'),count(*) INTO selected,mandatory FROM jsonb_array_elements(members) WITH ORDINALITY row_(m,n) WHERE m->>'role' IN ('exception','revision','conflict');
@@ -387,7 +421,7 @@ BEGIN
  SELECT COALESCE(jsonb_agg(role ORDER BY n),'[]') INTO sections FROM jsonb_array_elements('["definition","terminology","usage","relationship","variant","exception","revision","conflict","unresolved_sense","open_question"]') WITH ORDINALITY r(role,n) WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(members)m WHERE m->'role'=role);
  membership_digest:=encode(sha256(convert_to(data.canonical_json(members),'UTF8')),'hex');facet_digest:=encode(sha256(convert_to(data.canonical_json(facets),'UTF8')),'hex');
  representation:=jsonb_build_object('policy',config->>'policy','member_budget',budget,'selected',selected,'omitted',omitted,'represented_facets',represented,'missing_facets',missing,'mandatory_overflow',mandatory>budget,'membership_digest',membership_digest,'facet_digest',facet_digest);
- RETURN jsonb_build_object('root_id',config->>'root_id','members',members,'predecessors',COALESCE(config->'predecessors','[]'),'contribution_predecessors',COALESCE(config->'contribution_predecessors','[]'),'representatives',selected,'missing_sections',sections,'supported_facets',facets,'representation',representation,'membership_completeness','declared_selection');
+ RETURN jsonb_build_object('root_id',sense_,'root_component',root_ref,'members',members,'predecessors',COALESCE(config->'predecessors','[]'),'contribution_predecessors',COALESCE(config->'contribution_predecessors','[]'),'representatives',selected,'missing_sections',sections,'supported_facets',facets,'representation',representation,'membership_completeness','declared_selection');
 END $$;
 REVOKE ALL ON FUNCTION ops.structural_dossier(jsonb,jsonb) FROM PUBLIC;
 

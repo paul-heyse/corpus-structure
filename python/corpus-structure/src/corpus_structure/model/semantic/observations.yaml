@@ -89,6 +89,12 @@ classes:
       right:
         range: string
         required: true
+  ArtifactNomination:
+    is_a: SourceRecordProduct
+    attributes:
+      left: {required: true}
+      right: {required: true}
+      relationship: {range: RetainedContributionRef, required: true, inlined: true}
   ArtifactRecord:
     is_a: SourceRecordProduct
     attributes:
@@ -140,11 +146,18 @@ classes:
         minimum_value: 0
         maximum_value: 1
         required: true
+  ArtifactAliasOccurrence:
+    is_a: SourceRecordProduct
+    attributes:
+      source_pointer: {required: true}
+      start: {range: integer, minimum_value: 0, required: true}
+      end: {range: integer, minimum_value: 1, required: true}
+      text: {required: true}
   SourceArtifactOccurrence:
     is_a: SourceRecordProduct
     attributes:
       protocol:
-        equals_string: source-artifact-occurrence-1
+        equals_string: source-artifact-occurrence-2
       artifact_kind:
         range: IdentitySourceArtifactOccurrenceArtifactKindValue
         required: true
@@ -158,6 +171,9 @@ classes:
       aliases:
         multivalued: true
         range: string
+      alias_state: {range: ArtifactAliasState, required: true}
+      alias_occurrences: {range: ArtifactAliasOccurrence, inlined: true, multivalued: true}
+      alias_absence: {range: ArtifactAliasOccurrence, inlined: true}
       revision:
         range: string
       revision_state:
@@ -180,7 +196,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       protocol:
-        equals_string: artifact-identity-1
+        equals_string: artifact-identity-2
       identity_grain:
         equals_string: source_work_artifact_lineage
       records:
@@ -195,6 +211,7 @@ classes:
         multivalued: true
         range: ArtifactPairKey
         inlined: true
+      external_nominations: {range: ArtifactNomination, inlined: true, multivalued: true}
       policy:
         range: ArtifactScoringPolicy
         inlined: true
@@ -1007,6 +1024,7 @@ classes:
       quantity: {}
       unit: {}
       basis: {}
+      basis_evidence: {range: LocatedDefinitionSpan, inlined: true}
   StructuralPublicTypedPremise:
     attributes:
       span: {range: StructuralPublicCitation, required: true, inlined: true}
@@ -1017,6 +1035,7 @@ classes:
       quantity: {}
       unit: {}
       basis: {}
+      basis_evidence: {range: StructuralPublicCitation, inlined: true}
   TriggerInterval:
     attributes:
       lower: {}
@@ -1060,11 +1079,23 @@ classes:
         required: true
         multivalued: true
         minimum_cardinality: 1
+  RevisionSuccession:
+    is_a: SourceRecordProduct
+    attributes:
+      older_id: {required: true}
+      newer_id: {required: true}
+      evidence: {range: LocatedDefinitionSpan, required: true, inlined: true}
+  StructuralPublicRevisionSuccession:
+    attributes:
+      older: {range: StructuralPublicCitation, required: true, inlined: true}
+      newer: {range: StructuralPublicCitation, required: true, inlined: true}
+      evidence: {range: StructuralPublicCitation, required: true, inlined: true}
   ComparisonProduct:
     is_a: SourceRecordProduct
     attributes:
       applicability: {required: true, range: StructuralApplicability}
       applicability_reason: {required: true}
+      succession: {range: RevisionSuccession, inlined: true}
       left_id:
         required: true
       right_id:
@@ -1240,6 +1271,7 @@ classes:
   DossierProduct:
     is_a: SourceRecordProduct
     attributes:
+      root_component: {range: RetainedComponentRef, inlined: true}
       contribution_predecessors: {range: RetainedContributionRef, multivalued: true, inlined: true}
       predecessors: {range: RetainedStructuralRef, multivalued: true, inlined: true}
       supported_facets: {range: DossierFacet, multivalued: true, inlined: true}
@@ -1522,6 +1554,7 @@ classes:
         inlined: true
   StructuralPublicComparison:
     attributes:
+      succession: {range: StructuralPublicRevisionSuccession, inlined: true}
       applicability: {required: true, range: StructuralApplicability}
       left:
         range: StructuralPublicCitation
@@ -1634,6 +1667,11 @@ classes:
         inlined: true
 
 enums:
+  ArtifactAliasState:
+    permissible_values:
+      unknown: {}
+      known_empty: {}
+      observed: {}
   IdentityArtifactPairScopeStateValue:
     permissible_values:
       compatible: {}

@@ -16,6 +16,11 @@ from .test_typed_structural_composition import threshold_inputs
     "left,right",
     [
         ("revenue > 25000 USD", "revenue > 50000 USD"),
+        (
+            "revenue > 25000 USD\nComparison basis: annual gross revenue.",
+            "revenue > 50000 USD\nComparison basis: annual gross revenue.",
+        ),
+        ("x > 2 kg", "x > 5 kg\nRevision R2 supersedes revision R1."),
         ("revenue >= 25000 USD", "revenue > 25000 USD"),
         ("revenue < 50000 USD", "revenue <= 25000 USD"),
         ("x > 2", "x > 5"),
@@ -39,6 +44,12 @@ from .test_typed_structural_composition import threshold_inputs
 )
 def test_native_comparison_replays_same_source_route(semantic_db_engine, left, right):
     inputs = threshold_inputs(left, right)
+    if "supersedes" in right:
+        older, newer = tuple(
+            p.model_copy(update={"parent": "rule", "effective_version": version})
+            for p, version in zip(inputs.passages, ("R1", "R2"), strict=True)
+        )
+        inputs = inputs.model_copy(update={"passages": (newer, older)})
     expected = compare_clauses(
         inputs, left=read_clause(inputs.passages[0]), right=read_clause(inputs.passages[1])
     )
@@ -74,6 +85,7 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
     from corpus_structure.semantic.structural_products import (
         DefinitionComponentsProduct,
         LocatedDefinitionSpan,
+        RetainedComponentRef,
         RetainedStructuralRef,
         StructuralProductReport,
         definition_component,
@@ -94,10 +106,21 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
         evidence=(p.passage_id,),
         reason="Explicit source cue.",
     )
+    unrelated = definition_component(
+        term=LocatedDefinitionSpan(passage_id="b", start=0, end=9, text="unrelated"),
+        content=LocatedDefinitionSpan(passage_id="b", start=10, end=27, text="candidate context"),
+        interpretation="definition",
+        basis="matched_cue",
+        scope=inputs.passages[1].scope,
+        evidence=("b",),
+        reason="Separate source and sense.",
+    )
     predecessor = StructuralProductReport(
         kind="definition_components",
         inputs=inputs,
-        definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
+        definition_components=DefinitionComponentsProduct(
+            components=(component, unrelated), stages=()
+        ),
     )
     ref = RetainedStructuralRef(
         product_id=predecessor.product_id,
@@ -113,6 +136,13 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
     inputs = inputs.model_copy(
         update=dict(dependencies=(*inputs.dependencies, predecessor.product_id))
     )
+    root = RetainedComponentRef(
+        **ref.model_dump(),
+        component_id=component.component_id,
+        operation_id="structure.definition_components",
+        operation_version="5",
+        dependencies=predecessor.inputs.dependencies,
+    )
     payload = dict(
         report=predecessor.model_dump(mode="json", exclude_none=True),
         public_assertions=[
@@ -122,17 +152,18 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
             )
         ],
     )
-    members, facets = derive_dossier_members(inputs, ((ref, payload),))
+    members, facets = derive_dossier_members(inputs, ((ref, payload),), root=component)
     report = select_dossier(
         inputs,
-        root_id="root",
+        root_id=root.component_id,
+        root_component=root,
         members=members,
         supported_facets=facets,
         predecessors=(ref,),
         member_budget=1,
     )
     config = dict(
-        root_id="root",
+        root_component=root.model_dump(mode="json"),
         predecessors=[ref.model_dump(mode="json")],
         member_budget=1,
         policy="supported-facet-greedy-1",
@@ -151,6 +182,15 @@ def test_native_dossier_replays_membership_after_reader_boundary(semantic_db_eng
             "CREATE OR REPLACE FUNCTION ops.resolve_retained_structural_report(ref jsonb) "
             "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
             "SELECT current_setting('test.structural_payload')::jsonb $$"
+        )
+        conn.execute(
+            text("SELECT set_config('test.dossier_root',:component,true)"),
+            dict(component=component.model_dump_json(exclude_none=True)),
+        )
+        conn.exec_driver_sql(
+            "CREATE OR REPLACE FUNCTION ops.resolve_retained_component(ref jsonb) "
+            "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
+            "SELECT jsonb_build_object('component',current_setting('test.dossier_root')::jsonb) $$"
         )
         actual = conn.scalar(
             text("SELECT ops.structural_dossier(CAST(:inputs AS jsonb),CAST(:config AS jsonb))"),

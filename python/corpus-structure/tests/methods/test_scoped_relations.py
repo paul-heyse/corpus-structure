@@ -32,7 +32,8 @@ def complete_native_fields(view):
     return replace(view, items=tuple(nodes.values()))
 
 
-def test_native_table_roles_notes_and_units_keep_exact_cell_participants():
+@pytest.mark.parametrize("explicit_scope", [True, False])
+def test_native_table_roles_notes_and_units_keep_exact_cell_participants(explicit_scope):
     view = native_table_source(
         (
             table_cell("Probability %", 0, 1, column_header=True),
@@ -41,7 +42,7 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants():
             table_cell("50", 2, 1),
         ),
         caption="Table 5.1 Coin",
-        note="Values are percentages.",
+        note="Only the Heads row uses percentages." if explicit_scope else "Values are percentages.",
     )
     output = discover_relations(
         native_source_frame(complete_native_fields(view), ()), source_work="actual-parent-sha"
@@ -55,9 +56,17 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants():
         "header",
         "row_label",
         "unit",
-        "note",
         "value_role",
     }
+    note_links = [
+        values[r["contribution_id"]] for r in relations
+        if values[r["contribution_id"]]["relation"] == "note"
+    ]
+    assert len(note_links) == int(explicit_scope)
+    if note_links:
+        assert values[note_links[0]["subject_id"]]["start_row_offset_idx"] == 1
+    (note,) = [value for value in values.values() if value.get("role") == "note"]
+    assert note["table_association"] == "#/tables/0"
     assert all(
         r["standing"] == "retained_private" and r["component"]["interpretation"] == "unassessed"
         for r in relations

@@ -308,11 +308,12 @@ def test_complete_scope_requires_bound_snapshot_and_report(tmp_path):
 
 
 def structural_rows(text="qq"):
-    from corpus_structure.methods.structural_products import select_dossier
     from corpus_structure.semantic.structural_products import (
+        DefinitionComponentsProduct,
         ExternalSourceRef,
         StructuralInput,
         StructuralPassage,
+        StructuralProductReport,
     )
 
     source = source_row(text)
@@ -348,7 +349,11 @@ def structural_rows(text="qq"):
         ),
         dependencies=("source-view:1",),
     )
-    report = select_dossier(inputs, root_id="sense:1", members=())
+    report = StructuralProductReport(
+        kind="definition_components",
+        inputs=inputs,
+        definition_components=DefinitionComponentsProduct(components=(), stages=()),
+    )
     return [
         (
             "structural_selections",
@@ -483,6 +488,7 @@ def cross_cut_dossier_rows():
     from corpus_structure.semantic.structural_products import (
         DefinitionComponentsProduct,
         LocatedDefinitionSpan,
+        RetainedComponentRef,
         RetainedStructuralRef,
         StructuralProductReport,
         definition_component,
@@ -527,6 +533,13 @@ def cross_cut_dossier_rows():
         statement=structural_statement(predecessor, component.component_id),
     )
     assertion["claim_id"] = structural_claim_id(assertion["statement"])
+    root = RetainedComponentRef(
+        **reference.model_dump(),
+        component_id=component.component_id,
+        operation_id="structure.definition_components",
+        operation_version="5",
+        dependencies=predecessor.inputs.dependencies,
+    )
     inputs = inputs.model_copy(
         update=dict(dependencies=(*inputs.dependencies, predecessor.product_id))
     )
@@ -538,10 +551,12 @@ def cross_cut_dossier_rows():
                 dict(report=predecessor.model_dump(mode="json"), public_assertions=[assertion]),
             ),
         ),
+        root=component,
     )
     dossier = select_dossier(
         inputs,
-        root_id="corpus",
+        root_id=root.component_id,
+        root_component=root,
         members=members,
         supported_facets=facets,
         predecessors=(reference,),
@@ -587,6 +602,8 @@ def cross_cut_dossier_rows():
                         runtime_fingerprint=runtime,
                         body=dict(
                             release_id="release:structural",
+                            method="structure.definition_components" if index == 0 else "structure.dossier",
+                            operation_version="5" if index == 0 else "2",
                             structural_product=report.model_dump(mode="json"),
                         ),
                     ),

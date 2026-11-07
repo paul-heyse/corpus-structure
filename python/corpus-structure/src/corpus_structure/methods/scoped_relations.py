@@ -10,7 +10,7 @@ from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.source_preparation import native_table_geometry
-from corpus_structure.semantic.artifact_identity import SourceArtifactOccurrence
+from corpus_structure.semantic.artifact_identity import SourceArtifactOccurrence, normalized_code
 from corpus_structure.semantic.contributions import (
     contribution_identity,
     occurrence_identity,
@@ -40,6 +40,7 @@ class ScopedRelationsConfig(StructuralValue):
     structural_input_digest: str | None = None
     work_bindings: tuple[SourceWorkBinding, ...] = ()
     interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
+    interpretation_weight_scale: Literal[0.5, 1.0, 2.0] = 1.0
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     formula_seconds: float = Field(default=0.5, gt=0)
     max_formula_chars: int = Field(default=2048, gt=0, strict=True)
@@ -59,15 +60,94 @@ class ScopedRelationsConfig(StructuralValue):
 def artifact_spans(text):
     """Locate numbered mentions; never copy nearby captions into references."""
     pattern = re.compile(
-        r"\b(Table|Figure|Theorem|Section)\s+([A-Z]?\d+(?:\.\d+)*[A-Za-z]?)", re.IGNORECASE
+        r"\b(Table|Figure|Theorem|Section)\s+([A-Z]?\d[\w./-]*)", re.IGNORECASE
     )
     for match in pattern.finditer(text):
+        code = match[2].removesuffix(".")
         yield dict(
             start=match.start(),
-            end=match.end(),
+            end=match.start(2) + len(code),
             artifact_kind=match[1].lower(),
-            controlled_code=match[2],
+            controlled_code=code,
         )
+
+
+def _measure_table_geometry(node):
+    """Recognize nested sample-size bands without modifying the native annotations."""
+    data = node.get("data", {})
+    cells = data.get("table_cells", ())
+    bands = [
+        c for c in cells
+        if c.get("start_row_offset_idx") == 0
+        and c.get("end_row_offset_idx") == 1
+        and c.get("end_col_offset_idx", 0) - c.get("start_col_offset_idx", 0) > 1
+        and re.fullmatch(r"n\s*=\s*[\d,]+", c.get("text", "").strip())
+    ]
+    if len(bands) < 2:
+        return node
+    labels = {"frequency", "relative frequency"}
+    measures = [
+        c for c in cells
+        if c.get("start_row_offset_idx") == 1
+        and c.get("end_row_offset_idx") == 2
+        and c.get("text", "").strip().casefold() in labels
+    ]
+    for band in bands:
+        if {
+            c["text"].strip().casefold()
+            for c in measures
+            if band["start_col_offset_idx"] <= c.get("start_col_offset_idx", -1)
+            and c.get("end_col_offset_idx", -1) <= band["end_col_offset_idx"]
+        } != labels:
+            return node
+    row_key = next(
+        (
+            c for c in cells
+            if c.get("start_col_offset_idx") == 0
+            and c.get("end_col_offset_idx") == 1
+            and c.get("start_row_offset_idx") == 1
+            and c.get("text", "").strip().casefold() in {"winning", "outcome"}
+        ),
+        None,
+    )
+    return {
+        **node,
+        "data": {
+            **data,
+            "table_cells": [
+                {**cell, "column_header": True}
+                if cell in bands or cell in measures or cell is row_key
+                else {**cell, "row_header": True}
+                if row_key is not None
+                and cell.get("start_row_offset_idx", -1) >= 2
+                and cell.get("start_col_offset_idx") == 0
+                and cell.get("end_col_offset_idx") == 1
+                else cell
+                for cell in cells
+            ],
+        },
+    }
+
+
+def _note_scope(note: str, cells, targets):
+    """Return only explicitly named rows, column bands, or the whole table."""
+    if re.fullmatch(r"(?:This note applies to )?all rows[.!]?", note.strip(), re.I):
+        return targets
+    named = re.match(r"^(?:Only )?the (.+?) (row|column|band)\b", note.strip(), re.I)
+    if named is None:
+        return ()
+    label, axis = named[1].casefold(), named[2].casefold()
+    paths = "row_path" if axis == "row" else "header_path"
+    qualified = {
+        i
+        for target in targets
+        for i in getattr(target, paths)
+        if cells[i].get("text", "").strip().casefold() == label
+    }
+    if len(qualified) != 1:
+        return ()
+    index = next(iter(qualified))
+    return tuple(target for target in targets if index in getattr(target, paths))
 
 
 def discover_relations(
@@ -104,11 +184,16 @@ def discover_relations(
         if hasattr(frame, "native_product")
         else "native:" + str(pin["native_product_task_id"])
     )
-    op = operation_identity("structure.scoped_relations", "1", pin)
+    op = operation_identity("structure.scoped_relations", "2", pin)
     products, coordinates, participants = [], {}, {}
     formula_diagnostics = []
     annotation_dependencies = tuple("annotation:" + a.dependency_digest for a in annotations)
     items = {item["self_ref"]: item for item in native["items"]}
+    geometry = {
+        pointer: _measure_table_geometry(node)
+        for pointer, node in items.items()
+        if node.get("label") == "table"
+    }
 
     def participant(
         start, end, *, role, pointer, region, extra=None, dependencies=(), operation=op
@@ -238,6 +323,8 @@ def discover_relations(
 
     cell_rows = {}
     text_rows = []
+    artifact_captions = {}
+    artifact_mentions = []
     for piece in source_pieces:
         if piece.get("kind") != "native_text" or piece["start"] == piece["end"]:
             continue
@@ -245,7 +332,7 @@ def discover_relations(
         node = items.get(pointer, {})
         if piece.get("cell_index") is not None:
             index = piece["cell_index"]
-            cell = node.get("data", {}).get("table_cells", ())[index]
+            cell = geometry.get(pointer, node).get("data", {}).get("table_cells", ())[index]
             role = (
                 "header"
                 if cell.get("column_header")
@@ -282,13 +369,15 @@ def discover_relations(
                 )
                 # Caption status comes from the original native label, not surface position.
                 caption = node.get("label") == "caption"
+                from corpus_structure.semantic.artifact_identity import source_alias_fields
+
                 value = SourceArtifactOccurrence.model_validate(
                     dict(
                         artifact_kind=found["artifact_kind"],
                         source_work=source_work,
                         controlled_code=found["controlled_code"],
                         title=text[found["end"] :].strip(" .:\n") or None if caption else None,
-                        aliases=(),
+                        **source_alias_fields(text, found["end"], pointer),
                         revision=None,
                         revision_state="unknown",
                         occurrence_role="caption" if caption else "reference",
@@ -304,11 +393,33 @@ def discover_relations(
                 }
                 artifact["contribution_id"] = contribution_identity(artifact)
                 products.append(artifact)
+                code = normalized_code(found["controlled_code"])
+                if code is None or found["artifact_kind"] not in {"table", "figure"}:
+                    continue
+                key = (found["artifact_kind"], code)
+                parent = (node.get("parent") or {}).get("$ref")
+                expected_parent = "table" if found["artifact_kind"] == "table" else "picture"
+                if caption and items.get(parent, {}).get("label") == expected_parent:
+                    artifact_captions.setdefault(key, []).append(item)
+                elif not caption and re.search(
+                    r"\b(?:in|see|from)\s+$", text[: found["start"]], re.I
+                ):
+                    artifact_mentions.append((key, item, pointer))
+
+    # Contextual nominations add source roles and explicit local caption custody.
+    # This private edge does not authorize a canonical identity merge.
+    for key, mention, region in artifact_mentions:
+        targets = artifact_captions.get(key, ())
+        if len(targets) == 1:
+            relation(mention, targets[0], "artifact_reference_target", region, "matched_cue")
 
     for pointer, node in items.items():
         if node.get("label") != "table":
             continue
-        for target in native_table_geometry(node):
+        table = geometry[pointer]
+        cells = table.get("data", {}).get("table_cells", ())
+        targets = native_table_geometry(table)
+        for target in targets:
             subject = cell_rows.get((pointer, target.cell_index))
             if subject is None:
                 continue
@@ -319,18 +430,18 @@ def discover_relations(
                         relation(subject, header, kind, pointer)
                         raw = node["data"]["table_cells"][index].get("text", "")
                         if re.search(
-                            r"\b(?:mean|variance|probability|count|standard deviation)\b",
+                            r"\b(?:mean|variance|probability|count|frequency|standard deviation)\b",
                             raw,
                             re.IGNORECASE,
                         ):
                             relation(subject, header, "value_role", pointer, "matched_cue")
                         if re.search(r"[%$€£]|\b(?:kg|USD|EUR|seconds|meters)\b", raw):
                             relation(subject, header, "unit", pointer, "matched_cue")
-        # Native note references carry attachment scope. Nearby note prose alone
-        # does not license a table-wide join.
+        # A native footnote pointer establishes the table association. Applicability
+        # inside the table requires its own exact scope cue.
         for ref in node.get("footnotes", ()):
             target_pointer = ref.get("$ref") if isinstance(ref, dict) else None
-            for piece, _note, _text in text_rows:
+            for piece, _note, note_text in text_rows:
                 if piece["item_ref"] != target_pointer:
                     continue
                 note_row = participant(
@@ -339,10 +450,12 @@ def discover_relations(
                     role="note",
                     pointer=target_pointer,
                     region=pointer,
+                    extra={"table_association": pointer},
                 )
-                for (table_pointer, _index), cell in cell_rows.items():
-                    if table_pointer == pointer:
-                        relation(cell, note_row, "note", pointer)
+                for target in _note_scope(note_text, cells, targets):
+                    cell = cell_rows.get((pointer, target.cell_index))
+                    if cell is not None:
+                        relation(cell, note_row, "note", pointer, "matched_cue")
 
     # Symbol declaration is source local and explicitly cued. Each occurrence has
     # independent offsets, so repeated symbols never collapse into one identity.
@@ -631,7 +744,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "1"
+    version = "2"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -737,6 +850,7 @@ class ScopedRelationsMethod:
                 ),
                 source_revision=frame.native_product.content_digest,
                 mode=cfg.interpretation_mode,
+                weight_scale=cfg.interpretation_weight_scale,
             )
             results.append(
                 UnitResult(

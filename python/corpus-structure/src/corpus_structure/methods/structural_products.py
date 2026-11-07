@@ -13,6 +13,7 @@ from pydantic import Field, model_validator
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+from corpus_structure.semantic.structural_parsing import COMPARISON_BASIS, REVISION_SUCCESSION
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
@@ -21,11 +22,47 @@ from corpus_structure.semantic.structural_products import (
     DimensionComparison,
     DossierMember,
     DossierProduct,
+    LocatedDefinitionComponent,
+    LocatedDefinitionSpan,
+    RetainedComponentRef,
     RetainedStructuralRef,
+    RevisionSuccession,
     StructuralInput,
     StructuralProductReport,
     StructuralValue,
 )
+
+def _located(passage, text: str, start: int) -> LocatedDefinitionSpan:
+    return LocatedDefinitionSpan(
+        passage_id=passage.passage_id,
+        start=passage.start + start,
+        end=passage.start + start + len(text),
+        text=text,
+    )
+
+
+def _succession(left, right) -> RevisionSuccession | None:
+    if not left.effective_version or not right.effective_version:
+        return None
+    if (
+        left.effective_version == right.effective_version
+        or not left.parent
+        or left.parent != right.parent
+    ):
+        return None
+    witnesses = []
+    for newer, older in ((left, right), (right, left)):
+        for match in REVISION_SUCCESSION.finditer(newer.text):
+            if match.groups() != (newer.effective_version, older.effective_version):
+                continue
+            witnesses.append(
+                RevisionSuccession(
+                    older_id=older.passage_id,
+                    newer_id=newer.passage_id,
+                    evidence=_located(newer, match[0], match.start()),
+                )
+            )
+    return witnesses[0] if len(witnesses) == 1 else None
 
 
 def _difference(left, right):
@@ -96,6 +133,8 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
                 or not p.quantity
                 or p.quantity != q.quantity
                 or p.unit != q.unit
+                or not p.basis
+                or not q.basis
                 or p.basis != q.basis
             ):
                 reason = "Unknown unit, quantity or basis withholds a stronger typed conclusion."
@@ -117,8 +156,11 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
                 reason=reason,
             )
         )
+    succession = _succession(a, b) if a.scope == b.scope else None
     if a.scope != b.scope:
         applicability, reason = "differently_scoped", "Original source scopes differ."
+    elif succession is not None:
+        applicability, reason = "successive_revisions", "Exact source text establishes succession."
     elif a.effective_version is None or b.effective_version is None:
         applicability, reason = "unestablished", "Effective versions are not established."
     elif a.effective_version != b.effective_version:
@@ -149,6 +191,7 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
             dimensions=tuple(dimensions),
             applicability=applicability,
             applicability_reason=reason,
+            succession=succession,
         ),
     )
 
@@ -157,7 +200,6 @@ def read_clause(passage):
     from corpus_structure.semantic.structural_parsing import clause_fields, threshold_fields
     from corpus_structure.semantic.structural_products import (
         ClauseField,
-        LocatedDefinitionSpan,
         TypedPremise,
     )
 
@@ -187,6 +229,8 @@ def read_clause(passage):
     fields = threshold_fields(passage.text)
     if len(fields) == 1:
         f = fields[0]
+        bases = tuple(COMPARISON_BASIS.finditer(passage.text))
+        basis = bases[0] if len(bases) == 1 and bases[0][1].strip() else None
         readings.append(
             ClauseField(
                 dimension="threshold_unit",
@@ -205,6 +249,10 @@ def read_clause(passage):
                     comparator=f["comparator"],
                     quantity=f["quantity"],
                     unit=f["unit"],
+                    basis=basis[1].strip() if basis is not None else None,
+                    basis_evidence=(
+                        _located(passage, basis[0], basis.start()) if basis is not None else None
+                    ),
                 ),
             )
         )
@@ -215,6 +263,7 @@ def select_dossier(
     inputs,
     *,
     root_id,
+    root_component=None,
     members,
     supported_facets=(),
     predecessors=(),
@@ -297,6 +346,7 @@ def select_dossier(
         inputs=inputs,
         dossier=DossierProduct(
             root_id=root_id,
+            root_component=root_component,
             members=ordered,
             predecessors=tuple(predecessors),
             contribution_predecessors=tuple(contribution_predecessors),
@@ -308,7 +358,27 @@ def select_dossier(
     )
 
 
-def derive_dossier_members(inputs, retained):
+def dossier_root(reference, retained) -> LocatedDefinitionComponent:
+    """Resolve a provisional sense against the exact selected producer result."""
+    selected_ref = RetainedStructuralRef.model_validate(
+        reference.model_dump(exclude={"component_id", "operation_id", "operation_version", "dependencies"})
+    )
+    for ref, payload in retained:
+        if ref != selected_ref:
+            continue
+        report = StructuralProductReport.model_validate(payload["report"])
+        if (
+            report.product_id == ref.product_id
+            and report.definition_components is not None
+            and report.inputs.dependencies == reference.dependencies
+        ):
+            for component in report.definition_components.components:
+                if component.component_id == reference.component_id:
+                    return component
+    raise ValueError("dossier root does not resolve in the exact selected predecessor")
+
+
+def derive_dossier_members(inputs, retained, *, root=None):
     """Derive role spans from actual retained products, never from input inventory."""
     from hashlib import sha256
 
@@ -357,6 +427,8 @@ def derive_dossier_members(inputs, retained):
 
         if report.definition_components:
             for c in report.definition_components.components:
+                if root is not None and c.component_id != root.component_id:
+                    continue
                 roles.extend(
                     (
                         ("terminology", c.term, c.component_id, c.interpretation, None),
@@ -370,6 +442,12 @@ def derive_dossier_members(inputs, retained):
                     )
                 )
         if report.definition:
+            readings = tuple(
+                reading for reading in report.definition.readings
+                if root is None or reading.component.component_id == root.component_id
+            )
+            if not readings:
+                continue
             p = passages[report.definition.usage_id]
             roles.append(
                 (
@@ -382,7 +460,7 @@ def derive_dossier_members(inputs, retained):
                     None,
                 )
             )
-            for r in report.definition.readings:
+            for r in readings:
                 roles.append(
                     (
                         content_role(r.component.interpretation, r.outcome),
@@ -393,6 +471,14 @@ def derive_dossier_members(inputs, retained):
                     )
                 )
         if report.comparison:
+            if root is not None and not any(
+                span in (root.term, root.content)
+                for dimension in report.comparison.dimensions
+                for side in (dimension.left, dimension.right)
+                if side is not None
+                for span in (side.span, side.typed.span if side.typed else None)
+            ):
+                continue
             for d in report.comparison.dimensions:
                 for side in (d.left, d.right):
                     if side:
@@ -407,6 +493,10 @@ def derive_dossier_members(inputs, retained):
                                     None,
                                 )
                             )
+            if report.comparison.succession:
+                roles.append(
+                    ("revision", report.comparison.succession.evidence, None, None, None)
+                )
         for role, span, component_id, interpretation, outcome in roles:
             p = passages[span.passage_id]
             key = sha256(
@@ -415,6 +505,7 @@ def derive_dossier_members(inputs, retained):
                         product=report.product_id,
                         role=role,
                         citation=span.model_dump(mode="json"),
+                        **({"sense": root.component_id} if root is not None else {}),
                         **(
                             {"definition_interpretation": interpretation}
                             if interpretation is not None
@@ -448,7 +539,7 @@ def derive_dossier_members(inputs, retained):
                 passage_id=p.passage_id,
                 citation=span,
                 role=role,
-                sense="unresolved",
+                sense=root.component_id if root is not None else "unresolved",
                 scope=p.scope,
                 effective_version=p.effective_version,
                 relation_product_id=report.product_id,
@@ -502,7 +593,7 @@ class StructuralComparisonConfig(StructuralValue):
 
 class StructuralComparisonMethod:
     name = "structure.compare"
-    version = "1"
+    version = "2"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -541,7 +632,7 @@ class StructuralComparisonMethod:
 class StructuralDossierConfig(StructuralValue):
     inputs: StructuralInput | None = None
     structural_input_digest: str | None = None
-    root_id: str | None = None
+    root_component: RetainedComponentRef | None = None
     predecessors: tuple[RetainedStructuralRef, ...] = ()
     contribution_predecessors: tuple[RetainedContributionRef, ...] = ()
     member_budget: int = Field(default=12, gt=0, strict=True)
@@ -554,15 +645,17 @@ class StructuralDossierConfig(StructuralValue):
         if self.inputs is None:
             if (
                 self.structural_input_digest
-                or self.root_id
+                or self.root_component
                 or self.predecessors
                 or self.contribution_predecessors
             ):
                 raise ValueError("partial dossier config")
         elif (
             self.structural_input_digest != self.inputs.identity
-            or not self.root_id
-            or not (self.predecessors or self.contribution_predecessors)
+            or self.root_component is None
+            or not any(
+                p.product_id == self.root_component.product_id for p in self.predecessors
+            )
         ):
             raise ValueError("dossier requires original inputs and retained predecessors")
         if len({p.product_id for p in self.predecessors}) != len(self.predecessors):
@@ -576,7 +669,7 @@ class StructuralDossierConfig(StructuralValue):
 
 class StructuralDossierMethod:
     name = "structure.dossier"
-    version = "1"
+    version = "2"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -593,24 +686,31 @@ class StructuralDossierMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json")))
 
     def run(self, units, cfg, ctx):
-        if cfg.inputs is None:
+        if cfg.inputs is None or cfg.root_component is None:
             raise ValueError("dossier inputs absent")
         retained = []
         for reference in cfg.predecessors:
             ctx.check_active()
             retained.append((reference, ctx.reader.retained_structural_report(reference)))
-        members, facets = derive_dossier_members(cfg.inputs, retained)
+        root = dossier_root(cfg.root_component, retained)
+        checked = ctx.reader.resolve_definition_component(cfg.root_component)
+        if LocatedDefinitionComponent.model_validate(checked) != root:
+            raise ValueError("dossier root differs from its native component")
+        members, facets = derive_dossier_members(cfg.inputs, retained, root=root)
         from .dossier_contributions import derive_contribution_members
 
         source_members = []
         for reference in cfg.contribution_predecessors:
             ctx.check_active()
             payload = ctx.reader.retained_source_contribution(reference)
-            source_members.extend(derive_contribution_members(cfg.inputs, reference, payload))
+            source_members.extend(
+                derive_contribution_members(cfg.inputs, reference, payload, root=root)
+            )
         members = (*members, *source_members)
         report = select_dossier(
             cfg.inputs,
-            root_id=cfg.root_id,
+            root_id=root.component_id,
+            root_component=cfg.root_component,
             members=members,
             supported_facets=facets,
             predecessors=cfg.predecessors,

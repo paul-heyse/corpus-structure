@@ -40,7 +40,7 @@ REVOKE ALL ON FUNCTION data.retained_definition_citations(jsonb) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb,component_id text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb;
+DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb; witness jsonb;
 BEGIN
  result:=jsonb_build_object('version','structural-public-statement-3','kind',report->>'kind',
   'scope',report->'inputs'->>'scope',
@@ -74,7 +74,9 @@ BEGIN
       'lexical_value',item->side->>'lexical_value','evidence',data.structural_citations(report,item->side->'evidence')));
      IF nullif(item->side->'span','null') IS NOT NULL THEN entry:=jsonb_set(entry,ARRAY[side,'span'],data.structural_citation(report,item->side->'span'->>'passage_id')||((item->side->'span')-'passage_id'));END IF;
      IF nullif(item->side->'typed','null') IS NOT NULL THEN
-      entry:=jsonb_set(entry,ARRAY[side,'typed'],((item->side->'typed')-'span')||jsonb_build_object('span',data.structural_citation(report,item->side->'typed'->'span'->>'passage_id')||((item->side->'typed'->'span')-'passage_id')));
+      entry:=jsonb_set(entry,ARRAY[side,'typed'],((item->side->'typed')-ARRAY['span','basis_evidence'])||jsonb_build_object('span',data.structural_citation(report,item->side->'typed'->'span'->>'passage_id')||((item->side->'typed'->'span')-'passage_id')));
+      witness:=nullif(item->side->'typed'->'basis_evidence','null');
+      IF witness IS NOT NULL THEN entry:=jsonb_set(entry,ARRAY[side,'typed','basis_evidence'],data.structural_citation(report,witness->>'passage_id')||(witness-'passage_id'));END IF;
      END IF;
     END IF;
    END LOOP;
@@ -83,6 +85,13 @@ BEGIN
   result:=result||jsonb_build_object('comparison',jsonb_build_object('left',data.structural_citation(report,value->>'left_id'),
    'right',data.structural_citation(report,value->>'right_id'),'dimensions',items,'equivalence',value->>'equivalence',
    'identity_standing',value->>'identity_standing','applicability',value->>'applicability'));
+  IF nullif(value->'succession','null') IS NOT NULL THEN
+   witness:=value->'succession'->'evidence';
+   result:=jsonb_set(result,ARRAY['comparison','succession'],jsonb_build_object(
+    'older',data.structural_citation(report,value->'succession'->>'older_id'),
+    'newer',data.structural_citation(report,value->'succession'->>'newer_id'),
+    'evidence',data.structural_citation(report,witness->>'passage_id')||(witness-'passage_id')));
+  END IF;
  ELSIF report->>'kind'='dossier' THEN
   value:=report->'dossier';
   SELECT COALESCE(jsonb_agg(v ORDER BY data.canonical_json(v)),'[]') INTO items FROM (
