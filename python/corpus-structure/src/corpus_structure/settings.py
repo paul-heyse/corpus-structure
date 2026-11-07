@@ -12,17 +12,23 @@ ignored, so `settings_report` lists every `CORPUS_*` name that matches no field.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 ENV_PREFIX = "CORPUS_"
 NESTED_DELIMITER = "__"
 MASK = "**********"
+
+
+def ambient_postgresql_routing() -> frozenset[str]:
+    """Return the names of libpq overrides that can redirect an explicit profile."""
+    return frozenset(name for name in ("PGHOSTADDR", "PGSERVICE") if os.environ.get(name))
 
 
 class _Section(BaseModel):
@@ -73,7 +79,7 @@ class DeploymentDatabaseSettings(DatabaseSettings):
     url: str = Field(...)
 
 
-type DeploymentProfile = Literal["development", "deployment"]
+DeploymentProfile = Literal["development", "deployment"]
 
 
 class PathSettings(_Section):
@@ -141,6 +147,34 @@ class Settings(BaseSettings):
     gpu: GpuSettings = GpuSettings()
     analytics: AnalyticsSettings = AnalyticsSettings()
     runtime: RuntimeSettings = RuntimeSettings()
+    ci_results: Path | None = None
+    _origins: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def __init__(self, **values: Any) -> None:
+        super().__init__(**values)
+        for name in type(self).model_fields:
+            value = getattr(self, name)
+            explicit = values.get(name)
+            if isinstance(value, BaseModel):
+                for field in type(value).model_fields:
+                    from_constructor = isinstance(explicit, BaseModel) or (
+                        isinstance(explicit, Mapping) and field in explicit
+                    )
+                    self._origins[f"{name}.{field}"] = (
+                        "constructor"
+                        if from_constructor
+                        else "environment"
+                        if name in self.model_fields_set and field in value.model_fields_set
+                        else "default"
+                    )
+            else:
+                self._origins[name] = (
+                    "constructor"
+                    if name in values
+                    else "environment"
+                    if name in self.model_fields_set
+                    else "default"
+                )
 
     @classmethod
     def settings_customise_sources(
@@ -162,6 +196,7 @@ class SettingsReport(BaseModel):
 
     resolved: dict[str, str]
     unknown_env: tuple[str, ...]
+    origins: dict[str, str] = Field(default_factory=dict)
 
 
 def known_env_names() -> frozenset[str]:
@@ -226,6 +261,9 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
     for section, values in settings.model_dump(mode="json").items():
         if values is None:
             continue
+        if not isinstance(values, dict):
+            resolved[section] = str(values)
+            continue
         for field, value in values.items():
             resolved[f"{section}.{field}"] = "" if value is None else str(value)
     for section, database in (("database", settings.database), ("deployment", settings.deployment)):
@@ -248,4 +286,6 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
         for name in environ
         if name.upper().startswith(ENV_PREFIX) and name.upper() not in known
     )
-    return SettingsReport(resolved=resolved, unknown_env=tuple(unknown))
+    return SettingsReport(
+        resolved=resolved, unknown_env=tuple(unknown), origins=settings._origins.copy()
+    )

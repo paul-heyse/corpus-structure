@@ -14,12 +14,13 @@ import json
 import os
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
@@ -94,25 +95,37 @@ def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
+@contextmanager
+def _open_receipt(path: Path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "r", encoding="utf-8") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError(f"receipt entry is not a regular file: {path.name}")
+        yield stream
+
+
 def read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text())
+    with _open_receipt(path) as stream:
+        return json.load(stream)
 
 
 def read_stream(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     events: list[dict[str, Any]] = []
     errors: list[str] = []
-    if not path.exists():
+    try:
+        with _open_receipt(path) as stream:
+            for index, line in enumerate(stream, 1):
+                try:
+                    data = json.loads(line)
+                    if not isinstance(data, dict):
+                        raise ValueError("event must be an object")
+                    events.append(data)
+                except ValueError as error:
+                    errors.append(f"{path.name}:{index}: {error}")
+                if not line.endswith("\n"):
+                    errors.append(f"{path.name}:{index}: truncated line")
+    except FileNotFoundError:
         return events, [f"missing stream: {path.name}"]
-    for index, line in enumerate(path.read_text().splitlines(keepends=True), 1):
-        try:
-            data = json.loads(line)
-            if not isinstance(data, dict):
-                raise ValueError("event must be an object")
-            events.append(data)
-        except ValueError as error:
-            errors.append(f"{path.name}:{index}: {error}")
-        if not line.endswith("\n"):
-            errors.append(f"{path.name}:{index}: truncated line")
     return events, errors
 
 
@@ -262,6 +275,35 @@ def invocation_context() -> dict[str, Any]:
         except importlib.metadata.PackageNotFoundError:
             versions[package] = None
     return {"source": source_identity(), "python": sys.version, "versions": versions}
+
+
+def native_bindings(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Summarize physical routes and roles without repeating isolated databases per node."""
+    bindings = {}
+    for event in events:
+        context = event.get("context")
+        if not isinstance(context, dict):
+            continue
+        acquired = context.get("acquired")
+        requested = context.get("requested")
+        if not isinstance(acquired, dict) or not isinstance(requested, dict):
+            continue
+        binding = {
+            key: acquired.get(key)
+            for key in (
+                "host",
+                "port",
+                "server_started",
+                "server_version",
+                "current_user",
+                "session_user",
+                "revision",
+                "policy_ref",
+            )
+        }
+        binding["purpose"] = requested.get("purpose")
+        bindings[json.dumps(binding, sort_keys=True)] = binding
+    return [bindings[key] for key in sorted(bindings)]
 
 
 def run_python(
@@ -812,7 +854,7 @@ def classify_rust(directory: Path) -> dict[str, Any]:
     listing = directory / "nextest-list.stdout"
     junit = directory / "nextest.junit.xml"
     try:
-        count = json.loads(listing.read_text())["test-count"]
+        count = read_json(listing)["test-count"]
         result["listed_test_count"] = count
         result["applicability"] = "empty-selection" if count == 0 else "selected"
         if process.get("returncode") not in (0, None):
@@ -823,7 +865,8 @@ def classify_rust(directory: Path) -> dict[str, Any]:
             result["status"] = "not_run"
             result["reason"] = "zero Rust tests establish no functional coverage"
         elif junit.exists():
-            root = ET.parse(junit).getroot()
+            with _open_receipt(junit) as stream:
+                root = ET.parse(stream).getroot()
             cases = list(root.iter("testcase"))
             result["reported_test_count"] = len(cases)
             failures = any(
@@ -848,11 +891,31 @@ def classify_rust(directory: Path) -> dict[str, Any]:
     return result
 
 
-def classify(directories: list[Path], required_from: list[Path] | None = None) -> dict[str, Any]:
+def classify(
+    directories: list[Path],
+    required_from: list[Path] | None = None,
+    *,
+    required_lanes: dict[str, list[Path]] | None = None,
+) -> dict[str, Any]:
     receipts = [classify_receipt(path) for path in directories]
     required: set[str] = set()
     native_required: set[str] = set()
     manifests = _required_manifests(required_from or [])
+    missing_lanes = []
+    lane_selections = {}
+    for lane, candidates in (required_lanes or {}).items():
+        for candidate in candidates:
+            try:
+                selected = _required_manifests([candidate])
+                for manifest in selected:
+                    _node_aliases([manifest])
+            except ValueError, KeyError, TypeError:
+                continue
+            manifests.extend(selected)
+            lane_selections[lane] = str(candidate)
+            break
+        else:
+            missing_lanes.append(lane)
     for manifest in manifests:
         aliases = _node_aliases([manifest])
         required.update(aliases[node] for node in manifest["selected"])
@@ -919,12 +982,14 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
         "rust": rust,
         "required": sorted(required),
         "required_unresolved": missing,
+        "missing_lanes": missing_lanes,
+        "lane_selections": lane_selections,
         "coverage": union,
         "required_node_coverage": {
             "status": "not_declared"
-            if not required_from
+            if not required_from and not required_lanes
             else "covered"
-            if required and not missing
+            if required and not missing and not missing_lanes
             else "unresolved",
             "required": sorted(required),
             "unresolved": missing,
@@ -964,6 +1029,31 @@ def _positive_timeout(value: str) -> float:
     return timeout
 
 
+def _canonical_node_id(node: object) -> bool:
+    return (
+        isinstance(node, str)
+        and not node.startswith(("-", "@"))
+        and not any(char in node for char in "\n\r\0")
+        and "::" in node
+    )
+
+
+def _retryable(result: dict[str, Any]) -> bool:
+    if result["custody_unsettled"] or len(result["receipts"]) != 1:
+        return False
+    receipt = result["receipts"][0]
+    selected = receipt["selected"]
+    if not selected or not receipt["identity_valid"] or receipt["collection_errors"]:
+        return False
+    return all(map(_canonical_node_id, selected)) and (
+        bool(receipt["native_provenance"]["unresolved"])
+        or any(
+            receipt["nodes"][node]["status"] in {"failed", "incomplete", "not_run"}
+            for node in selected
+        )
+    )
+
+
 def write_unresolved(
     result: dict[str, Any],
     destination: Path,
@@ -985,15 +1075,7 @@ def write_unresolved(
     if destination.exists():
         raise ValueError(f"refusing to overwrite {destination}")
     for node in result["required"]:
-        if (
-            not isinstance(node, str)
-            or not node
-            or node.startswith(("-", "@"))
-            or "\n" in node
-            or "\r" in node
-            or "\0" in node
-            or "::" not in node
-        ):
+        if not _canonical_node_id(node):
             raise ValueError(f"not a full canonical test node ID: {node!r}")
     # Validate the whole declared selection, so stale covered IDs cannot conceal stale history.
     scratch = (
@@ -1061,6 +1143,7 @@ def validate_pytest_args(args: list[str]) -> bool:
             index += 1
             if index == len(args) or not args[index].strip() or args[index].startswith(("-", "@")):
                 raise ValueError("-k requires a keyword expression")
+            has_selector = True
         elif arg not in {"-q", "-qq", "-v", "-vv", "--quiet", "--verbose"}:
             if not _forwardable_selector(arg):
                 raise ValueError(f"unsupported managed pytest argument: {arg!r}")
@@ -1073,6 +1156,8 @@ def _managed_pytest_args(
     args: list[str], *, lane: str, directory: Path, selection_file: Path | None
 ) -> list[str]:
     has_selector = validate_pytest_args(args)
+    if lane == "fault" and has_selector:
+        raise ValueError("the exclusive fault lane owns its selection")
     if selection_file is not None:
         if (
             args
@@ -1113,6 +1198,11 @@ def main(argv: list[str] | None = None) -> int:
     inspect.add_argument("--write-unresolved", type=Path)
     inspect.add_argument("--selection-lane", choices=("ordinary", "fault"), default="ordinary")
     inspect.add_argument("--managed-selection", action="store_true")
+    inspect.add_argument("--summary", action="store_true")
+    inspect.add_argument(
+        "--required-lane", action="append", choices=("ordinary", "fault"), default=[]
+    )
+    inspect.add_argument("--required-lane-from", action="append", nargs=2, default=[])
     validate = sub.add_parser("validate-pytest")
     validate.add_argument("--report-selection", action="store_true")
     validate.add_argument("pytest_args", nargs=argparse.REMAINDER)
@@ -1131,7 +1221,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.action == "classify":
         try:
-            result = classify(args.receipt_dir, args.required_from)
+            lanes = {name: [] for name in args.required_lane}
+            for name, path in args.required_lane_from:
+                lanes[name].append(Path(path))
+            result = classify(args.receipt_dir, args.required_from, required_lanes=lanes)
             if args.write_unresolved is not None:
                 result["unresolved_selection"] = write_unresolved(
                     result,
@@ -1204,7 +1297,55 @@ def main(argv: list[str] | None = None) -> int:
             control.persist(directory)
             result = classify([directory])
             write_json(directory / "classification.json", result)
-    print(json.dumps(result, indent=2, sort_keys=True))
+    if args.action == "run" and args.managed_lane:
+        receipt = result["receipts"][0]
+        print(
+            json.dumps(
+                {
+                    "status": result["status"],
+                    "custody_unsettled": result["custody_unsettled"],
+                    "empty": not receipt["selected"] and receipt["reporting_complete"],
+                    "retryable": _retryable(result),
+                    "counts": {"selected": len(receipt["selected"])}
+                    | dict(Counter(node["status"] for node in receipt["nodes"].values())),
+                }
+            )
+        )
+    elif args.action == "classify" and args.summary:
+        print(
+            json.dumps(
+                {
+                    key: result[key]
+                    for key in (
+                        "status",
+                        "required_unresolved",
+                        "required_node_coverage",
+                        "source_contexts_differ",
+                        "missing_lanes",
+                        "lane_selections",
+                    )
+                }
+                | {
+                    "retryable": _retryable(result),
+                    "contexts": [
+                        {
+                            "directory": entry["directory"],
+                            "invocation": entry["invocation"],
+                            "native": entry["native_provenance"]["status"],
+                            "native_required": len(entry["native_provenance"]["required"] or ()),
+                            "native_unresolved": len(
+                                entry["native_provenance"]["unresolved"] or ()
+                            ),
+                            "native_context_count": len(entry["native_contexts"]),
+                            "native_bindings": native_bindings(entry["native_contexts"]),
+                        }
+                        for entry in result["contexts"]
+                    ],
+                }
+            )
+        )
+    else:
+        print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["status"] == "passed" else 1
 
 

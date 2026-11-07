@@ -484,6 +484,12 @@ The [CLI plan](../plans/cli-operations_2026-11-07.md) owns the current cutover a
 
 > Decision: ADR-0069
 
+For the current installed inventory use `ci --help`, group help and `ci docs commands`.
+Use `ci context show` and `ci doctor` for checkout context, `ci test` and `ci results` for
+qualification and retained outcomes, `ci model change` for approved model effects, and
+`ci host roles` for local role reconciliation. Use `--target deployment` on the database and
+release commands when operating the configured deployment profile.
+
 The phase 0 command table below describes its original interface.
 
 `ci` (Typer), output through Rich, compact by default and `--json` for scripts:

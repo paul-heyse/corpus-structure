@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from rich.console import Console, RenderableType
 from rich.pretty import Pretty
 
-from corpus_structure.settings import Settings
+from corpus_structure.settings import Settings, SettingsReport, settings_report
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Write the result as JSON to stdout.")]
 
@@ -70,21 +70,34 @@ def emit(
 _TERMINAL = re.compile(r"\x1b(?:\][^\x07\x1b]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])")
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 _CREDENTIAL = re.compile(
-    r"(://[^:/@\s]+:)[^@/\s]+(?=@)|(?i:(password|token|api[_-]?key)=)([^\s&]+)"
+    r"(://[^:/@\s]+:)[^@/\s]+(?=@)|"
+    r"(?i:(password|token|api[_-]?key)\s*=\s*)(?:'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|[^\s&]+)"
 )
 
 
 def safe_text(value: str) -> str:
-    """Redact credential-shaped values before stripping terminal controls."""
+    """Remove terminal controls and redact credentials from complete diagnostic text."""
+    value = _CONTROL.sub("", _TERMINAL.sub("", value))
     for key, secret in os.environ.items():
-        if (
-            key.startswith("CORPUS_")
-            and any(part in key for part in ("PASSWORD", "TOKEN", "API_KEY"))
-            and secret
+        if secret and (
+            key == "PGPASSWORD"
+            or (
+                key.startswith("CORPUS_")
+                and any(part in key for part in ("PASSWORD", "TOKEN", "API_KEY"))
+            )
         ):
             value = value.replace(secret, "**********")
-    value = _CREDENTIAL.sub(lambda match: (match[1] or f"{match[2]}=") + "**********", value)
-    return _CONTROL.sub("", _TERMINAL.sub("", value))
+    return _CREDENTIAL.sub(lambda match: (match[1] or f"{match[2]}=") + "**********", value)
+
+
+def cli_settings_report(settings: Settings) -> SettingsReport:
+    report = settings_report(settings, os.environ)
+    return report.model_copy(
+        update={
+            "resolved": {name: safe_text(value) for name, value in report.resolved.items()},
+            "unknown_env": tuple(safe_text(name) for name in report.unknown_env),
+        }
+    )
 
 
 def diagnostic(value: str) -> None:

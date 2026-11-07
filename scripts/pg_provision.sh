@@ -41,7 +41,7 @@ installed() {
   done < <(expected)
 }
 
-psql_db() { psql "postgresql:///$1?host=/var/run/postgresql&port=$PORT" -X -q -v ON_ERROR_STOP=1 -tA "${@:2}"; }
+psql_db() { psql "postgresql:///$1?host=/var/run/postgresql&port=$PORT&connect_timeout=5" -X -w -q -v ON_ERROR_STOP=1 -tA "${@:2}"; }
 
 # Fail (status 1) when database $1's record extensions differ from the record.
 verify() {
@@ -54,20 +54,37 @@ verify() {
 }
 
 status() {
-  pg_lsclusters "$VER" "$NAME" 2>/dev/null || { echo "18/$NAME: not created (run just db-provision)"; return 1; }
+  exists || { echo "18/$NAME: not created (run ci host provision)"; return 1; }
+  pg_lsclusters "$VER" "$NAME" 2>/dev/null || { echo "18/$NAME: not created (run ci host provision)"; return 1; }
   if ! psql_db corpus -c "select 'version ' || current_setting('server_version')" 2>/dev/null; then
-    echo "18/$NAME: not reachable as $(id -un) (run just db-up / just db-provision)"
-  else
-    echo "expected extensions $(expected | paste -sd, - | sed 's/,/, /g') ($EXT_RECORD)"
-    local db
-    for db in "${DATABASES[@]}"; do
-      printf '%s extensions %s' "$db" "$(psql_db "$db" -c \
-        "select string_agg(extname || ' ' || extversion, ', ' order by extname) from pg_extension" 2>/dev/null)"
-      if verify "$db" 2>/dev/null; then echo " (as expected)"; else echo " (MISMATCH: just db-provision)"; fi
-    done
+    echo "18/$NAME: not reachable as $(id -un) (run ci host up or ci host provision)"
+    return 1
   fi
-  echo "preload $(sudo -u postgres psql -p "$PORT" -X -tA -c 'show shared_preload_libraries' 2>/dev/null)"
-  echo "checksums $(sudo -u postgres psql -p "$PORT" -X -tA -c 'show data_checksums' 2>/dev/null)"
+  echo "expected extensions $(expected | paste -sd, - | sed 's/,/, /g') ($EXT_RECORD)"
+  local db extensions preload checksums failed=0
+  for db in "${DATABASES[@]}"; do
+    if ! extensions=$(psql_db "$db" -c \
+      "select string_agg(extname || ' ' || extversion, ', ' order by extname) from pg_extension" 2>/dev/null); then
+      echo "$db: extension health unavailable (run ci host provision)"
+      failed=1
+      continue
+    fi
+    printf '%s extensions %s' "$db" "$extensions"
+    if verify "$db" 2>/dev/null; then
+      echo " (as expected)"
+    else
+      echo " (MISMATCH: run ci host provision)"
+      failed=1
+    fi
+  done
+  if preload=$(psql_db corpus -c 'show shared_preload_libraries' 2>/dev/null) &&
+     checksums=$(psql_db corpus -c 'show data_checksums' 2>/dev/null); then
+    printf 'preload %s\nchecksums %s\n' "$preload" "$checksums"
+  else
+    echo "18/$NAME: server settings unavailable to this principal"
+    failed=1
+  fi
+  return "$failed"
 }
 
 provision() {

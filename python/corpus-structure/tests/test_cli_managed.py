@@ -103,6 +103,117 @@ def test_delivery_never_replaces_or_escapes(tmp_path):
     assert store.deliver(result.id, None, copied).read_text() == "output"
 
 
+def test_stored_manifest_cannot_publish_private_files_or_substitute_artifact(tmp_path):
+    store = ResultStore(tmp_path / "state")
+    with store.operation("test") as result:
+        published = result.directory / "receipt"
+        published.write_text("public")
+        (result.directory / "private").write_text("private")
+        result.publish("receipt", published)
+    manifest_path = result.directory / "manifest.json"
+    original = json.loads(manifest_path.read_text())
+    for forged in (".", ".lease", "private"):
+        manifest_path.write_text(json.dumps(original | {"artifacts": {"receipt": forged}}))
+        with pytest.raises(ResultError, match="owner publication"):
+            store.deliver(result.id, None, tmp_path / "copy")
+    manifest_path.write_text(json.dumps(original))
+    published.rename(result.directory / "old")
+    published.write_text("substituted")
+    with pytest.raises(ResultError, match="owner publication"):
+        store.deliver(result.id, None, tmp_path / "copy")
+    assert not (tmp_path / "copy").exists()
+
+
+def test_cleanup_resumes_only_owned_retirement(tmp_path, monkeypatch):
+    from corpus_structure.cli import managed
+
+    store = ResultStore(tmp_path)
+    with store.operation("test") as result:
+        pass
+    expiry = store.show(result.id).expiry()
+    foreign = tmp_path / (".gc-" + "0" * 32)
+    foreign.mkdir()
+    (foreign / "preserve").write_text("unrelated")
+    real_remove = managed.shutil.rmtree
+
+    def interrupted(*args, **kwargs):
+        raise PermissionError("control interrupted retirement")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(managed.shutil, "rmtree", interrupted)
+        with pytest.raises(PermissionError, match="control"):
+            store.collect(apply=True, now=expiry)
+    assert managed.shutil.rmtree is real_remove
+    assert store.collect(apply=False, now=expiry).eligible == [result.id]
+    collection = store.collect(apply=True, now=expiry)
+    assert collection.eligible == collection.removed == [result.id]
+    assert (foreign / "preserve").read_text() == "unrelated"
+
+
+def test_recover_requires_a_drained_child_after_abandonment(tmp_path):
+    child = """
+import json
+import os
+import sys
+from pathlib import Path
+from corpus_structure.cli.managed import ResultStore
+
+with ResultStore(Path(sys.argv[1])).operation("test") as result:
+    print(result.id, flush=True)
+    result.stage("ordinary")
+    result.defer_settlement()
+    lane = result.directory / "ordinary"
+    lane.mkdir()
+    (lane / "invocation.json").write_text(json.dumps({
+        "managed_lane": "ordinary", "argv": ["--out-dir", str(lane)],
+    }))
+    (lane / "runner.process.json").write_text('{"finished": 2}')
+    (lane / "classification.json").write_text('{}')
+    os._exit(0)
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", child, str(tmp_path)], capture_output=True, text=True, check=True
+    )
+    result_id = completed.stdout.strip()
+    store = ResultStore(tmp_path)
+    with pytest.raises(ResultError, match="settlement is unproven"):
+        store.recover(result_id)
+    assert store.collect(apply=True, now=10**12).removed == []
+    lane = tmp_path / result_id / "ordinary"
+    (lane / "pytest.process.json").write_text(
+        '{"finished": 1, "owned_group_cleanup": {"group_present_after_cleanup": false}}'
+    )
+    settled = store.recover(result_id)
+    assert settled.outcome == "interrupted"
+    assert settled.details["next_action"] == f"ci test retry {result_id}"
+    assert store.artifact(result_id, "ordinary") == lane
+
+
+def test_watch_drains_bounded_settled_diagnostics(tmp_path):
+    store = ResultStore(tmp_path)
+    with store.operation("test") as result:
+        result.stage("ordinary")
+        lane = result.directory / "ordinary"
+        lane.mkdir()
+        (lane / "reportlog.jsonl").write_text(
+            '{"when":"call","outcome":"failed","nodeid":"example"}\n{incomplete'
+        )
+        result.publish("ordinary", lane)
+        result.settle("failed", next_action=f"ci test retry {result.id}")
+    completed = subprocess.run(
+        [str(Path(sys.executable).with_name("ci")), "results", "watch", result.id, "--json"],
+        env={**os.environ, "CORPUS_CI_RESULTS": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    status = json.loads(completed.stdout)
+    assert status["expires_at"] == store.show(result.id).expiry()
+    assert status["diagnostics"]["counts"] == {"ordinary.failed": 1}
+    assert status["diagnostics"]["corrupt"] is True
+    assert "Failed: example" in completed.stderr
+
+
 def test_installed_context_and_results(tmp_path):
     command = Path(sys.executable).with_name("ci")
     environment = {**os.environ, "CORPUS_CI_RESULTS": str(tmp_path)}

@@ -85,6 +85,23 @@ def test_missing_finish_keeps_completed_pass(tmp_path: Path) -> None:
     assert result["nodes"]["b"]["status"] == "not_run"
 
 
+def test_required_lane_can_use_full_replacement_when_original_lacks_collection(tmp_path: Path):
+    original = tmp_path / "original"
+    replacement = tmp_path / "replacement"
+    original.mkdir()
+    replacement.mkdir()
+    receipt(replacement, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    original_only = classify([original], required_lanes={"ordinary": [original]})
+    assert original_only["missing_lanes"] == ["ordinary"]
+    resolved = classify(
+        [original, replacement], required_lanes={"ordinary": [original, replacement]}
+    )
+    assert resolved["missing_lanes"] == []
+    assert resolved["lane_selections"] == {"ordinary": str(replacement)}
+    assert resolved["required_node_coverage"]["status"] == "covered"
+    assert resolved["receipts"][0]["status"] == "incomplete"
+
+
 @pytest.mark.parametrize("optional,expected", [(False, "blocked"), (True, "inapplicable")])
 def test_skip_requires_explicit_applicability(
     tmp_path: Path, optional: bool, expected: str
@@ -1283,20 +1300,17 @@ def test_managed_fault_retry_keeps_only_owned_selection(tmp_path: Path) -> None:
         [], lane="fault", directory=tmp_path / "fault", selection_file=selection
     )
     assert args == ["-n", "0", "-m", "shared_cluster_fault", node]
-    assert _managed_pytest_args(
-        ["-k", "recovery and not held"],
-        lane="fault",
-        directory=tmp_path / "fault",
-        selection_file=None,
-    ) == [
-        "-n",
-        "0",
-        "-m",
-        "shared_cluster_fault",
-        "tests/scripts/test_native_auth.py",
-        "-k",
-        "recovery and not held",
-    ]
+    from test_receipts import validate_pytest_args
+
+    assert validate_pytest_args(["-k", "recovery and not held"])
+    assert not validate_pytest_args(["-q"])
+    with pytest.raises(ValueError, match="exclusive fault lane"):
+        _managed_pytest_args(
+            ["-k", "recovery and not held"],
+            lane="fault",
+            directory=tmp_path / "fault",
+            selection_file=None,
+        )
     selection.write_text("-p\nno:qualification_plugin\n")
     with pytest.raises(ValueError, match="canonical"):
         _managed_pytest_args(

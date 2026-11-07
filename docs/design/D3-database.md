@@ -186,7 +186,7 @@ fresh-database migration history. `semantic.releases` archives exact inputs and 
 reconstructs them offline, and activates through a parent-plus-generation comparison.
 `semantic.publication` lends the existing SQLAlchemy transaction to typed psycopg COPY;
 `semantic.routines` supplies the reviewed PostgreSQL gap for protected staging, grants and native
-enforcement. Restricted logins are provisioned separately with `just db-semantic-roles` on
+enforcement. Restricted logins are provisioned separately with `ci host roles` on
 18/corpus:5434. The application never receives migration credentials. The operator's asynchronous
 commit policy remains a regenerable-data choice, not a crash-durable acknowledgement guarantee.
 

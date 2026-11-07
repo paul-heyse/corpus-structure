@@ -21,6 +21,16 @@ from corpus_structure.semantic.refusals import (
 )
 
 
+def _safe_diagnostic(value: Any) -> Any:
+    if isinstance(value, str):
+        return safe_text(value)
+    if isinstance(value, dict):
+        return {key: _safe_diagnostic(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_safe_diagnostic(item) for item in value]
+    return value
+
+
 @contextmanager
 def failure_boundary(
     json: bool,
@@ -38,7 +48,7 @@ def failure_boundary(
     except DATABASE_ERRORS as error:
         detail = database_failure_report(error, context=context)
         if json:
-            typer.echo(jsonlib.dumps({"error": detail}))
+            typer.echo(jsonlib.dumps({"error": _safe_diagnostic(detail)}))
         else:
             failure = detail["failure"]
             diagnostic(
@@ -63,6 +73,20 @@ def failure_boundary(
     except (SemanticRefusal, ValidationError, NativeResultViolation, *expected) as error:
         from corpus_structure.semantic.types import PreparationError
 
+        if isinstance(error, ValidationError) and not json:
+            fields = [
+                ".".join(map(str, issue["loc"]))
+                for issue in error.errors(
+                    include_input=False, include_context=False, include_url=False
+                )
+            ]
+            detail = {
+                "code": "ValidationError",
+                "message": f"invalid {error.title}",
+                "fields": fields,
+            }
+            diagnostic(f"{detail['message']}: {', '.join(fields)}")
+            raise typer.Exit(1) from None
         if json:
             detail: dict[str, Any] = (
                 {"code": type(error).__name__, "message": str(error)}
@@ -77,7 +101,7 @@ def failure_boundary(
                     {key: value for key, value in asdict(item).items() if value is not None}
                     for item in error.diagnostics
                 ]
-            typer.echo(jsonlib.dumps({"error": detail}))
+            typer.echo(jsonlib.dumps({"error": _safe_diagnostic(detail)}))
         else:
             diagnostic(f"refused: {error}")
         raise typer.Exit(1) from None

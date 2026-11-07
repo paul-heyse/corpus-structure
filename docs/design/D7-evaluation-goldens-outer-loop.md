@@ -633,8 +633,10 @@ responds with directions.
 
 ### 8.1 The digest
 
-Produced by `ci digest` (D8 §4) after each working session or experiment batch, at most about two
-pages:
+The original phase 0 design proposed a digest of about two pages after each working session
+or experiment batch. The installed CLI retired the inert digest entry. The
+[CLI plan](../plans/cli-operations_2026-11-07.md#completion-audit) owns its cutover
+disposition. A future digest would summarize the following material.
 
 1. Dev metric changes since the last digest, with intervals; test metrics only at gates, in
    aggregate.

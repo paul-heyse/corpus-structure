@@ -18,9 +18,13 @@ class RecipeError(ValueError):
 
 
 def checkout(ctx: typer.Context | None = None) -> Path:
+    if ctx is not None and (resolved := ctx.meta.get("checkout")) is not None:
+        return resolved
     current = Path.cwd().resolve()
     for candidate in (current, *current.parents):
         if (candidate / "justfile").is_file() and (candidate / "scripts/setup-env").is_file():
+            if ctx is not None:
+                ctx.meta["checkout"] = candidate
             return candidate
     raise RecipeError("run from a prepared corpus-structure checkout")
 
@@ -30,12 +34,14 @@ def run_owned(
     *,
     cwd: Path,
     env: dict[str, str] | None = None,
+    pass_fds: tuple[int, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
     """Give recipe supervisors time to settle their own child process groups."""
     proc = subprocess.Popen(
         argv,
         cwd=cwd,
         env=env,
+        pass_fds=pass_fds,
         start_new_session=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

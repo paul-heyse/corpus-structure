@@ -21,6 +21,7 @@ from rich.table import Table
 
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.serve.database_description import DescriptionDepth
+from corpus_structure.settings import DeploymentProfile
 
 db_app = typer.Typer(help="Create or migrate the database.", no_args_is_help=True)
 
@@ -222,11 +223,14 @@ def migrate(
 @db_app.command("check")
 def check_contract(
     ctx: typer.Context,
-    release: str = typer.Option(..., "--release"),
+    release: Annotated[str, typer.Option("--release")],
+    target: DeploymentProfile = "development",
     json_: JsonOpt = False,
 ) -> None:
     """Read-only native correspondence check for one explicitly archived release."""
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.managed import ResultError
+    from corpus_structure.cli.target import select_target
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
         admit_execution_release,
@@ -236,17 +240,28 @@ def check_contract(
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict, open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.storage_target import (
+        StorageTarget,
+        acquired_target,
+        verify_declared_route,
+    )
 
     class ContractCheck(BaseModel):
         release_id: str
         execution_model_id: str | None
         physical_id: str
+        target: DeploymentProfile
+        acquired: StorageTarget
 
-    with failure_boundary(json_, expected=(ExecutionAdmissionError, ReleaseConflict)):
+    with failure_boundary(json_, expected=(ExecutionAdmissionError, ReleaseConflict, ResultError)):
+        selected, settings = select_target(ctx, target)
         with (
-            open_runtime_engine(state(ctx).settings(), "ci-db-check", purpose="read") as engine,
+            open_runtime_engine(settings, "ci-db-check", purpose="read") as engine,
             read_snapshot(engine) as conn,
         ):
+            if selected == "deployment":
+                verify_declared_route(conn, settings)
+            acquired = acquired_target(conn, purpose="read")
             try:
                 prepared = open_release(conn, release)
             except KeyError as error:
@@ -259,6 +274,8 @@ def check_contract(
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
                 physical_id=PHYSICAL_MODEL_ID,
+                target=selected,
+                acquired=acquired,
             ),
             json=json_,
         )
@@ -306,14 +323,21 @@ def status(
     maintenance: Annotated[
         bool, typer.Option(help="Read the private migration revision as the maintenance principal.")
     ] = False,
+    target: DeploymentProfile = "development",
     json: JsonOpt = False,
 ) -> None:
     """Check database reachability and report the revision if visible."""
     from sqlalchemy import text
 
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.target import select_target
     from corpus_structure.semantic import migrations
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.storage_target import (
+        StorageTarget,
+        acquired_target,
+        verify_declared_route,
+    )
 
     class DatabaseStatus(BaseModel):
         database: str
@@ -322,18 +346,27 @@ def status(
         revision: str | None
         head: str | None
         revision_readable: bool
+        target: DeploymentProfile
+        acquired: StorageTarget
 
-    with (
-        failure_boundary(json, expected=(ValueError,)),
-        open_runtime_engine(
-            state(ctx).settings(),
-            "ci-db-status",
-            purpose="maintenance" if maintenance else "read",
-            timeout=5,
-        ) as engine,
-        engine.connect() as conn,
-    ):
+    from contextlib import ExitStack
+
+    with failure_boundary(json, expected=(ValueError,)), ExitStack() as stack:
+        selected, settings = select_target(ctx, target)
+        purpose = "maintenance" if maintenance else "read"
+        engine = stack.enter_context(
+            open_runtime_engine(
+                settings,
+                "ci-db-status",
+                purpose=purpose,
+                timeout=5,
+            )
+        )
+        conn = stack.enter_context(engine.connect())
         conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        if selected == "deployment":
+            verify_declared_route(conn, settings)
+        acquired = acquired_target(conn, purpose=purpose)
         database, principal, server_version = conn.execute(
             text("select current_database(), current_user, current_setting('server_version')")
         ).one()
@@ -356,6 +389,8 @@ def status(
                 server_version=server_version,
                 revision=migrations.current_revision(conn) if readable else None,
                 revision_readable=readable,
+                target=selected,
+                acquired=acquired,
                 head=migrations.head_revision(),
             ),
             json=json,
