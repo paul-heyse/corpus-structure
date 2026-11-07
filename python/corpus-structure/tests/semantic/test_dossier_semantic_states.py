@@ -11,6 +11,7 @@ from corpus_structure.semantic.structural_admission import structural_claim_id, 
 from corpus_structure.semantic.structural_products import (
     DefinitionComponentsProduct,
     LocatedDefinitionSpan,
+    RetainedComponentRef,
     RetainedStructuralRef,
     StructuralProductReport,
     definition_component,
@@ -222,73 +223,120 @@ def test_native_dossier_and_public_projection_preserve_literal_semantic_states(
     semantic_db_engine, predecessor
 ):
     """Native replay after authenticated reader boundary; no producer-custody claim."""
-    value, reference, payload = retained(predecessor())
-    members, facets = derive_dossier_members(value, ((reference, payload),))
-    report = select_dossier(
-        value, root_id="corpus", members=members, supported_facets=facets, predecessors=(reference,)
-    )
-    config = dict(
-        root_id="corpus",
-        predecessors=[reference.model_dump(mode="json")],
-        contribution_predecessors=[],
-        member_budget=12,
-        policy="supported-facet-greedy-1",
-    )
+    upstream = predecessor()
+    value, reference, payload = retained(upstream)
+    if upstream.definition_components is not None:
+        roots = upstream.definition_components.components
+    else:
+        assert upstream.definition is not None
+        roots = tuple(
+            {r.component.component_id: r.component for r in upstream.definition.readings}.values()
+        )
+    roles, outcomes = set(), set()
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
     with semantic_db_engine.connect() as conn, conn.begin():
-        for name in ("structural_products.sql", "structural_publication.sql"):
+        for name in (
+            "dossier_contributions.sql",
+            "structural_products.sql",
+            "structural_publication.sql",
+        ):
             conn.exec_driver_sql(
                 (sql / name).read_text(), execution_options={"no_parameters": True}
             )
-        conn.execute(
-            text("SELECT set_config('test.dossier_state_payload',:payload,true)"),
-            dict(payload=json.dumps(payload)),
-        )
         conn.exec_driver_sql(
             "CREATE OR REPLACE FUNCTION ops.resolve_retained_structural_report(ref jsonb) "
             "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
-            "SELECT current_setting('test.dossier_state_payload')::jsonb $$"
+            "SELECT current_setting('test.dossier_state_payload')::jsonb->(ref->>'product_id') $$"
         )
-        actual = conn.scalar(
-            text("SELECT ops.structural_dossier(CAST(:i AS jsonb),CAST(:c AS jsonb))"),
-            dict(i=value.model_dump_json(exclude_none=True), c=json.dumps(config)),
+        conn.exec_driver_sql(
+            "CREATE OR REPLACE FUNCTION ops.resolve_retained_component(ref jsonb) "
+            "RETURNS jsonb LANGUAGE sql STABLE AS $$ "
+            "SELECT jsonb_build_object('component',current_setting('test.dossier_root')::jsonb) $$"
         )
-        assert report.dossier is not None
-        assert actual == report.dossier.model_dump(mode="json", exclude_none=True)
-        public = conn.scalar(
-            text("SELECT data.structural_public_statement(CAST(:r AS jsonb),NULL)"),
-            dict(r=report.model_dump_json(exclude_none=True)),
-        )
-        assert public == structural_statement(report)
-        from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
+        for component in roots:
+            bound_inputs, refs = value, ((reference, payload),)
+            root_report, root_ref = upstream, reference
+            if upstream.definition is not None:
+                root_report = StructuralProductReport(
+                    kind="definition_components",
+                    inputs=upstream.inputs,
+                    definition_components=DefinitionComponentsProduct(
+                        components=(component,), stages=()
+                    ),
+                )
+                _, root_ref, root_payload = retained(root_report)
+                refs = (*refs, (root_ref, root_payload))
+                bound_inputs = value.model_copy(
+                    update={"dependencies": (*value.dependencies, root_report.product_id)}
+                )
+            root = RetainedComponentRef(
+                **root_ref.model_dump(),
+                operation_id="structure.definition_components",
+                operation_version="5",
+                component_id=component.component_id,
+                dependencies=root_report.inputs.dependencies,
+            )
+            predecessors = tuple(ref for ref, _ in refs)
+            members, facets = derive_dossier_members(bound_inputs, refs, root=component)
+            report = select_dossier(
+                bound_inputs,
+                root_id=root.component_id,
+                root_component=root,
+                members=members,
+                supported_facets=facets,
+                predecessors=predecessors,
+            )
+            config = dict(
+                root_component=root.model_dump(mode="json"),
+                predecessors=[r.model_dump(mode="json") for r in predecessors],
+                contribution_predecessors=[],
+                member_budget=12,
+                policy="supported-facet-greedy-1",
+            )
+            conn.execute(
+                text("SELECT set_config('test.dossier_state_payload',:payload,true)"),
+                dict(payload=json.dumps({r.product_id: row for r, row in refs})),
+            )
+            conn.execute(
+                text("SELECT set_config('test.dossier_root',:component,true)"),
+                dict(component=component.model_dump_json(exclude_none=True)),
+            )
+            actual = conn.scalar(
+                text("SELECT ops.structural_dossier(CAST(:i AS jsonb),CAST(:c AS jsonb))"),
+                dict(i=bound_inputs.model_dump_json(exclude_none=True), c=json.dumps(config)),
+            )
+            assert report.dossier is not None
+            assert actual == report.dossier.model_dump(mode="json", exclude_none=True)
+            assert all(member["sense"] == root.component_id for member in actual["members"])
+            public = conn.scalar(
+                text("SELECT data.structural_public_statement(CAST(:r AS jsonb),NULL)"),
+                dict(r=report.model_dump_json(exclude_none=True)),
+            )
+            assert public == structural_statement(report)
+            from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
 
-        page_sql = _DOSSIER_SLICE_SQL.replace(
-            "SELECT body->'structural_product' report FROM ops.task_result "
-            "WHERE task_id=:origin_id",
-            "SELECT CAST(:report AS jsonb) report",
-        ).replace("{projection}", "body")
-        page = conn.scalar(
-            text(page_sql),
-            dict(report=report.model_dump_json(exclude_none=True), offset=0, end_offset=12),
-        )
-        assert {m.get("definition_interpretation") for m in page["members"]} >= {
-            "definition",
-            "explanation",
-        }
-        if predecessor is applicability:
-            assert {
-                m.get("applicability_outcome")
+            page_sql = _DOSSIER_SLICE_SQL.replace(
+                "SELECT body->'structural_product' report FROM ops.task_result "
+                "WHERE task_id=:origin_id",
+                "SELECT CAST(:report AS jsonb) report",
+            ).replace("{projection}", "body")
+            page = conn.scalar(
+                text(page_sql),
+                dict(report=report.model_dump_json(exclude_none=True), offset=0, end_offset=12),
+            )
+            roles.update((m.get("definition_interpretation"), m["role"]) for m in page["members"])
+            outcomes.update(
+                m["applicability_outcome"]
                 for m in page["members"]
                 if m.get("applicability_outcome")
-            } == {
-                "applicable_definition",
-                "applicable_explanation",
-                "mention",
-                "example",
-                "incompatible",
-                "unresolved",
-            }
-        assert any(
-            m.get("definition_interpretation") == "explanation" and m["role"] == "usage"
-            for m in actual["members"]
-        )
+            )
+    assert {("definition", "definition"), ("explanation", "usage")} <= roles
+    if predecessor is applicability:
+        assert outcomes == {
+            "applicable_definition",
+            "applicable_explanation",
+            "mention",
+            "example",
+            "incompatible",
+            "unresolved",
+        }
