@@ -914,6 +914,10 @@ class M1Candidates:
                         )
                         for d in assembled.diagnostics
                     ]
+                    if assembled.unattached_roles:
+                        report_entry["unattached_roles"] = [
+                            asdict(role) for role in assembled.unattached_roles
+                        ]
                     incomplete = bool(assembled.diagnostics or native_diagnostics)
                     coverage.append(
                         CoverageDraft(

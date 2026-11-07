@@ -447,6 +447,7 @@ GENERIC = (
     Unsupported(),
     StructuralProducts("structural_definitions", "definition_components"),
     StructuralProducts("structural_applicability", "definition_applicability"),
+    StructuralProducts("structural_clause_observations", "clause_classification"),
     StructuralProducts("structural_comparisons", "qualified_comparison"),
     StructuralProducts("structural_dossiers", "dossier"),
     DossierRepresentationQuery(),

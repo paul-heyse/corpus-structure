@@ -7,9 +7,11 @@ BEGIN
  lexical:=data.require_float_lexical(p->>'hexadecimal');
  digits:=replace(split_part(split_part(ltrim(lexical,'-'),'p',1),'x',2),'.','');
  exponent:=split_part(lexical,'p',2)::integer-52;
- -- Compute exact significand before the final finite float operation. Multiplying
- -- the integer first as numeric also preserves subnormal lexical inputs.
- result:=((('x'||lpad(digits,16,'0'))::bit(64)::bigint)::numeric * power(2::numeric,exponent))::double precision;
+ -- The significand fits in 53 bits, and the binary scale is an exact finite
+ -- power of two, including the smallest subnormal. Decimal numeric powers
+ -- round negative exponents before multiplication and can alter the float.
+ result:=(('x'||lpad(digits,16,'0'))::bit(64)::bigint)::double precision
+  * power(2::double precision,exponent);
  IF left(lexical,1)='-' THEN result:=-result; END IF;
  RETURN result;
 END $fn$;

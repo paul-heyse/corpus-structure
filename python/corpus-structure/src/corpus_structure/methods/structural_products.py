@@ -6,6 +6,7 @@ admission remain separate boundaries; these producers emit only private proposal
 
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import Literal
 
 from pydantic import Field, model_validator
@@ -18,11 +19,15 @@ from corpus_structure.semantic.structural_parsing import (
     REVISION_DECLARATION,
     REVISION_LINEAGE,
     REVISION_SUCCESSION,
+    parse_comparison_literal,
 )
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
+    ClauseField,
+    ClauseFieldGroup,
     ClauseReading,
+    ComparisonLiteral,
     ComparisonProduct,
     DimensionComparison,
     DossierMember,
@@ -113,19 +118,37 @@ def _difference(left, right):
     return (interval, None, "different") if removed else (None, interval, "different")
 
 
-def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
+def compare_clauses(
+    inputs, *, left, right, left_reading=None, right_reading=None, cancelled=lambda: False
+):
     if left.passage_id == right.passage_id:
         raise ValueError("comparison requires distinct original passages")
     passages = {p.passage_id: p for p in inputs.passages}
     if left.passage_id not in passages or right.passage_id not in passages:
         raise ValueError("clause outside selected passage closure")
     a, b = passages[left.passage_id], passages[right.passage_id]
+    grouped = left.groups is not None and right.groups is not None
+    if grouped != (left_reading is not None and right_reading is not None):
+        raise ValueError("grouped comparison requires retained reading references")
     lf, rf = {f.dimension: f for f in left.fields}, {f.dimension: f for f in right.fields}
+    succession = _succession(a, b) if a.scope == b.scope else None
+    compatible = a.scope == b.scope and (
+        a.effective_version == b.effective_version or succession is not None
+    )
     dimensions = []
     for dimension in DIMENSIONS:
         if cancelled():
             raise InterruptedError("structural comparison cancelled")
-        x, y = lf.get(dimension), rf.get(dimension)
+        lg, rg = (left.groups[dimension], right.groups[dimension]) if grouped else (None, None)
+        if lg is not None and rg is not None:
+            x, y = (
+                group.members[0]
+                if group.state == "present" and group.grouping == "singleton"
+                else None
+                for group in (lg, rg)
+            )
+        else:
+            x, y = lf.get(dimension), rf.get(dimension)
         lexical = (
             "unknown"
             if x is None or y is None
@@ -135,7 +158,19 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
         )
         typed, removed, added = "unknown", None, None
         reason = "No complete source-qualified typed premises."
-        if x and y and x.typed and y.typed:
+        if lg is not None and rg is not None:
+            values = tuple(
+                tuple(member.lexical_value for member in group.members) for group in (lg, rg)
+            )
+            if lg.state in {"present", "empty"} and rg.state in {"present", "empty"}:
+                lexical = (
+                    "same_lexical_value" if values[0] == values[1] else "different_lexical_value"
+                )
+            if not compatible:
+                lexical = "incompatible_applicability"
+            elif "unresolved" in (lg.state, rg.state, lg.grouping, rg.grouping):
+                typed = "ambiguous"
+        if (not grouped or compatible) and x and y and x.typed and y.typed:
             p, q = x.typed, y.typed
             if "ambiguous" in {p.state, q.state}:
                 typed = "ambiguous"
@@ -159,8 +194,7 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
             DimensionComparison(
                 dimension=dimension,
                 outcome=lexical,
-                left=x,
-                right=y,
+                **({"left_group": lg, "right_group": rg} if grouped else {"left": x, "right": y}),
                 typed_outcome=typed,
                 removed_interval=removed,
                 added_interval=added,
@@ -170,7 +204,6 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
                 reason=reason,
             )
         )
-    succession = _succession(a, b) if a.scope == b.scope else None
     if a.scope != b.scope:
         applicability, reason = "differently_scoped", "Original source scopes differ."
     elif succession is not None:
@@ -182,10 +215,22 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
             "unestablished",
             "Different version labels do not establish succession or authority.",
         )
-    elif all(
-        d in lf and d in rf and lf[d].lexical_value == rf[d].lexical_value
-        for d in DIMENSIONS
-        if d != "threshold_unit"
+    elif (
+        all(
+            comparison.outcome == "same_lexical_value"
+            and comparison.left_group is not None
+            and comparison.right_group is not None
+            and comparison.left_group.grouping == comparison.right_group.grouping
+            and comparison.left_group.grouping != "unresolved"
+            for comparison in dimensions
+            if comparison.dimension != "threshold_unit"
+        )
+        if grouped
+        else all(
+            d in lf and d in rf and lf[d].lexical_value == rf[d].lexical_value
+            for d in DIMENSIONS
+            if d != "threshold_unit"
+        )
     ):
         applicability, reason = (
             "co_applicable",
@@ -202,6 +247,8 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
         comparison=ComparisonProduct(
             left_id=a.passage_id,
             right_id=b.passage_id,
+            left_reading=left_reading,
+            right_reading=right_reading,
             dimensions=tuple(dimensions),
             applicability=applicability,
             applicability_reason=reason,
@@ -210,67 +257,241 @@ def compare_clauses(inputs, *, left, right, cancelled=lambda: False):
     )
 
 
-def read_clause(passage):
-    from corpus_structure.semantic.structural_parsing import clause_fields, threshold_fields
-    from corpus_structure.semantic.structural_products import (
-        ClauseField,
-        TypedPremise,
+def threshold_readings(passage):
+    from corpus_structure.semantic.structural_parsing import threshold_fields
+    from corpus_structure.semantic.structural_products import TypedPremise
+
+    bases = tuple(COMPARISON_BASIS.finditer(passage.text))
+    basis = bases[0] if len(bases) == 1 and bases[0][1].strip() else None
+    return tuple(
+        ClauseField(
+            dimension="threshold_unit",
+            lexical_value=field["text"],
+            evidence=(passage.passage_id,),
+            typed=TypedPremise(
+                span=_located(passage, field["text"], field["start"]),
+                grammar=field["grammar"],
+                state="parsed",
+                value=field["value"],
+                comparator=field["comparator"],
+                quantity=field["quantity"],
+                unit=field["unit"],
+                basis=basis[1].strip() if basis is not None else None,
+                basis_evidence=(
+                    _located(passage, basis[0], basis.start()) if basis is not None else None
+                ),
+            ),
+        )
+        for field in threshold_fields(passage.text)
     )
 
-    readings = []
-    for dimension, field in clause_fields(passage.text).items():
-        readings.append(
+
+_ROLE_DIMENSIONS = {"actor": "actor", "predicate": "action", "object": "object"}
+_QUALIFIER_DIMENSIONS = {
+    "condition": "condition",
+    "assumption": "condition",
+    "exception": "exception",
+    "modality": "modality",
+    "order": "order_dependency",
+    "dependency": "order_dependency",
+}
+
+
+def comparison_host_evidence(component, frame, frame_id):
+    return (
+        component.get("kind") == "predicate_qualifier"
+        and component.get("host_contribution_id") == frame_id
+    ) or (
+        component.get("kind") == "predicate_cue"
+        and component.get("host_state") == "unresolved"
+        and component.get("scope") == frame.get("scope")
+        and component.get("annotation") == frame.get("annotation")
+        and frame.get("predicate_token") in component.get("candidate_tokens", ())
+    )
+
+
+def _group_fields(passage, members, incomplete):
+    def extents(member):
+        if member.spans is not None:
+            return member.spans
+        if member.typed is not None:
+            return (member.typed.span,)
+        return ()
+
+    def order(member):
+        spans = extents(member)
+        return (spans[0].start if spans else passage.end, member.contribution_id or "")
+
+    ordered = tuple(sorted(members, key=order))
+    if not ordered:
+        return ClauseFieldGroup(state="unresolved" if incomplete else "absent")
+    if incomplete:
+        return ClauseFieldGroup(state="unresolved", grouping="unresolved", members=ordered)
+    if len(ordered) == 1:
+        return ClauseFieldGroup(state="present", grouping="singleton", members=ordered)
+    connectors = []
+    for left, right in pairwise(ordered):
+        left_spans, right_spans = extents(left), extents(right)
+        if not left_spans or not right_spans:
+            return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
+        end, start = left_spans[-1].end, right_spans[0].start
+        gap = passage.text[end - passage.start : start - passage.start]
+        word = gap.strip()
+        if word.lower() not in {"and", "or"}:
+            return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
+        connectors.append(_located(passage, word, end - passage.start + gap.index(word)))
+    words = {span.text.lower() for span in connectors}
+    if len(words) != 1:
+        return ClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
+    return ClauseFieldGroup(
+        state="present",
+        grouping="conjunction" if words == {"and"} else "disjunction",
+        members=ordered,
+        witnesses=tuple(connectors),
+    )
+
+
+def read_retained_clause(passage, source, reference, retained):
+    """Compose the admitted frame roles and the immutable host qualifier population."""
+    if reference.project_id != source.project_id:
+        raise ValueError("reading belongs to another project")
+    rows = {row["contribution_id"]: row for row in retained["contributions"]}
+    reading = rows[reference.contribution_id]
+    component = reading.get("component", {})
+    if component.get("kind") != "predicate_reading":
+        raise ValueError("comparison requires a retained predicate reading")
+    frame = rows[component["frame"]]
+    frame_component = frame.get("component", {})
+    pin = reading["pin"]
+    if (
+        frame_component.get("kind") != "predicate_frame"
+        or frame["pin"] != pin
+        or pin.get("source_view_id") != source.source_view_id
+        or pin.get("product_digest") != source.native_content_digest
+        or pin.get("native_product_task_id") != source.native_task_id
+        or pin.get("projection_digest") != source.projection_digest
+        or pin.get("recipe_digest") != source.recipe_digest
+        or any(
+            part.get("scope") != passage.passage_id
+            or part.get("effective_version") != passage.effective_version
+            for part in (component, frame_component)
+        )
+    ):
+        raise ValueError("retained frame differs from exact selected passage")
+
+    members = {dimension: [] for dimension in DIMENSIONS}
+    incomplete = set()
+
+    def located(dimension, extents, contribution_id, condition=None):
+        spans = []
+        for extent in extents:
+            start, end = extent["start"], extent["end"]
+            if not passage.start <= start < end <= passage.end:
+                raise ValueError("comparison extent outside selected passage")
+            spans.append(
+                _located(
+                    passage,
+                    passage.text[start - passage.start : end - passage.start],
+                    start - passage.start,
+                )
+            )
+        if not spans:
+            incomplete.add(dimension)
+            return
+        literal = parse_comparison_literal(spans[0].text) if len(spans) == 1 else None
+        members[dimension].append(
             ClauseField(
                 dimension=dimension,
-                lexical_value=field["text"],
+                lexical_value=" ".join(span.text for span in spans),
+                spans=tuple(spans),
                 evidence=(passage.passage_id,),
-                span=LocatedDefinitionSpan(
-                    passage_id=passage.passage_id,
-                    start=passage.start + field["start"],
-                    end=passage.start + field["end"],
-                    text=field["text"],
-                ),
+                contribution_id=contribution_id,
+                condition=condition,
+                literal=ComparisonLiteral.model_validate(literal) if literal is not None else None,
             )
         )
-    # These are the authenticated input context, not textually observed version/parent claims.
+
+    focus = None
+    for role in frame_component["frame_members"]:
+        if role["role"] == "focus" and role["outcome"] == "complete" and len(role["extents"]) == 1:
+            focus = role["extents"][0]
+        dimension = _ROLE_DIMENSIONS.get(role["role"])
+        if dimension is not None:
+            located(dimension, role["extents"], role["contribution"])
+            if role["outcome"] != "complete":
+                incomplete.add(dimension)
+    for row in rows.values():
+        qualifier = row.get("component", {})
+        if (
+            qualifier.get("kind") == "predicate_cue"
+            and comparison_host_evidence(qualifier, frame_component, frame["contribution_id"])
+            and (dimension := _QUALIFIER_DIMENSIONS.get(qualifier["cue_kind"]))
+        ):
+            incomplete.add(dimension)
+        if (
+            qualifier.get("kind") == "predicate_qualifier"
+            and qualifier.get("host_contribution_id") == frame["contribution_id"]
+            and (dimension := _QUALIFIER_DIMENSIONS.get(qualifier["qualifier_kind"]))
+        ):
+            cue = rows[qualifier["qualifier_contribution_id"]]
+            if cue["pin"] != pin:
+                raise ValueError("comparison qualifier differs from selected source")
+            located(
+                dimension,
+                cue["component"]["extents"],
+                row["contribution_id"],
+                qualifier.get("condition"),
+            )
     for dimension, value in (("parent", passage.parent), ("version", passage.effective_version)):
-        if value:
-            readings.append(
+        if value is not None:
+            members[dimension].append(
                 ClauseField(
                     dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
                 )
             )
-    fields = threshold_fields(passage.text)
-    if len(fields) == 1:
-        f = fields[0]
-        bases = tuple(COMPARISON_BASIS.finditer(passage.text))
-        basis = bases[0] if len(bases) == 1 and bases[0][1].strip() else None
-        readings.append(
-            ClauseField(
-                dimension="threshold_unit",
-                lexical_value=f["text"],
-                evidence=(passage.passage_id,),
-                typed=TypedPremise(
-                    span=LocatedDefinitionSpan(
-                        passage_id=passage.passage_id,
-                        start=passage.start + f["start"],
-                        end=passage.start + f["end"],
-                        text=f["text"],
-                    ),
-                    grammar=f["grammar"],
-                    state="parsed",
-                    value=f["value"],
-                    comparator=f["comparator"],
-                    quantity=f["quantity"],
-                    unit=f["unit"],
-                    basis=basis[1].strip() if basis is not None else None,
-                    basis_evidence=(
-                        _located(passage, basis[0], basis.start()) if basis is not None else None
-                    ),
-                ),
+    # A threshold has authority only in the admitted focus or a located condition.
+    controls = [
+        (span.start, span.end) for member in members["condition"] for span in member.spans or ()
+    ]
+    if focus is not None:
+        controls.append((focus["start"], focus["end"]))
+    for field in threshold_readings(passage):
+        if (
+            field.dimension == "threshold_unit"
+            and field.typed is not None
+            and any(
+                lo <= field.typed.span.start < field.typed.span.end <= hi for lo, hi in controls
             )
+        ):
+            members[field.dimension].append(field)
+    groups = {
+        dimension: _group_fields(passage, fields, dimension in incomplete)
+        for dimension, fields in members.items()
+    }
+    exception_spans = [span for field in groups["exception"].members for span in field.spans or ()]
+    if focus is not None:
+        start, end = focus["start"] - passage.start, focus["end"] - passage.start
+        exception_spans.append(_located(passage, passage.text[start:end], start))
+    empty = [
+        span
+        for span in exception_spans
+        if span.text.strip().lower().rstrip(".") in {"no exceptions", "exceptions: none"}
+    ]
+    if len(empty) == 1 and (
+        not groups["exception"].members
+        or (
+            len(groups["exception"].members) == 1
+            and len(groups["exception"].members[0].spans or ()) == 1
         )
-    return ClauseReading(passage_id=passage.passage_id, fields=tuple(readings))
+    ):
+        groups["exception"] = ClauseFieldGroup(state="empty", witnesses=tuple(empty))
+    condition = groups["condition"]
+    threshold = groups["threshold_unit"]
+    if threshold.members and "unresolved" in (condition.state, condition.grouping):
+        groups["threshold_unit"] = ClauseFieldGroup(
+            state="unresolved", grouping="unresolved", members=threshold.members
+        )
+    return ClauseReading(passage_id=passage.passage_id, groups=groups)
 
 
 def select_dossier(
@@ -586,16 +807,31 @@ class StructuralComparisonConfig(StructuralValue):
     structural_input_digest: str | None = None
     left_id: str | None = None
     right_id: str | None = None
+    left_reading: RetainedContributionRef | None = None
+    right_reading: RetainedContributionRef | None = None
 
     @model_validator(mode="after")
     def bound_input(self):
         if self.inputs is None:
-            if any((self.structural_input_digest, self.left_id, self.right_id)):
+            if any(
+                (
+                    self.structural_input_digest,
+                    self.left_id,
+                    self.right_id,
+                    self.left_reading,
+                    self.right_reading,
+                )
+            ):
                 raise ValueError("partial comparison config")
         elif (
             self.structural_input_digest != self.inputs.identity
             or self.left_id == self.right_id
             or not {self.left_id, self.right_id} <= {p.passage_id for p in self.inputs.passages}
+            or self.left_reading is None
+            or self.right_reading is None
+            or self.left_reading == self.right_reading
+            or not {self.left_reading.contribution_id, self.right_reading.contribution_id}
+            <= set(self.inputs.dependencies)
         ):
             raise ValueError("comparison requires exact inputs and two selected passages")
         return self
@@ -603,7 +839,7 @@ class StructuralComparisonConfig(StructuralValue):
 
 class StructuralComparisonMethod:
     name = "structure.compare"
-    version = "2"
+    version = "3"
     family = MethodFamily.CONSOLIDATE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.DETERMINISTIC
@@ -620,14 +856,28 @@ class StructuralComparisonMethod:
         return Digest(canonical_bytes(cfg.model_dump(mode="json")))
 
     def run(self, units, cfg, ctx):
-        if cfg.inputs is None:
+        if cfg.inputs is None or cfg.left_reading is None or cfg.right_reading is None:
             raise ValueError("comparison inputs absent")
         ctx.check_active()
         passages = {p.passage_id: p for p in cfg.inputs.passages}
+        sources = {source.identity: source for source in cfg.inputs.sources}
+
+        def side(passage_id, reference):
+            ctx.check_active()
+            passage = passages[passage_id]
+            return read_retained_clause(
+                passage,
+                sources[passage.source_ref],
+                reference,
+                ctx.reader.retained_source_contribution(reference),
+            )
+
         report = compare_clauses(
             cfg.inputs,
-            left=read_clause(passages[cfg.left_id]),
-            right=read_clause(passages[cfg.right_id]),
+            left=side(cfg.left_id, cfg.left_reading),
+            right=side(cfg.right_id, cfg.right_reading),
+            left_reading=cfg.left_reading,
+            right_reading=cfg.right_reading,
         )
         return tuple(
             UnitResult(

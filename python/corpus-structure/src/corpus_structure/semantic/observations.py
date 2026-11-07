@@ -317,6 +317,12 @@ def bind_result(
                 record["source_contribution"] = prepared.validate_json(
                     "SourceContribution", canonical_bytes(record["source_contribution"])
                 ).model_dump(mode="python", exclude_none=True)
+        if "comparison" in structural:
+            for dimension in structural["comparison"]["dimensions"]:
+                for side in ("left_group", "right_group"):
+                    for member in dimension.get(side, {}).get("members", ()):
+                        if "condition" in member:
+                            member["condition"] = source_value(source_python(member["condition"]))
         payload["structural_product"] = structural
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)

@@ -903,7 +903,7 @@ classes:
   ContextualChannelEvidence:
     is_a: SourceRecordProduct
     attributes:
-      channel: {required: true, pattern: '^(alias|lexical|dense)$'}
+      channel: {required: true, pattern: '^(alias|lexical|dense|witness)$'}
       rank: {range: integer, minimum_value: 1, required: true}
       raw_score: {range: contextual_float, required: true}
       evidence: {multivalued: true}
@@ -923,7 +923,7 @@ classes:
   ContextualChannelResult:
     is_a: SourceRecordProduct
     attributes:
-      channel: {required: true, pattern: '^(alias|lexical|dense)$'}
+      channel: {required: true, pattern: '^(alias|lexical|dense|witness)$'}
       hits: {range: ContextualChannelHit, multivalued: true, inlined: true}
   ContextualScopedExclusion:
     is_a: SourceRecordProduct
@@ -937,8 +937,8 @@ classes:
       channel_results: {range: ContextualChannelResult, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
       list_id: {required: true}
       occurrence_id: {required: true}
-      query_vector_id: {required: true}
-      profile_id: {required: true}
+      query_vector_id: {}
+      profile_id: {}
       inventory_id: {required: true}
       policy_id: {required: true}
       unique_target_budget: {range: integer, minimum_value: 1, required: true}
@@ -1143,6 +1143,10 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       span: {range: LocatedDefinitionSpan, inlined: true}
+      spans: {range: LocatedDefinitionSpan, multivalued: true, inlined: true, inlined_as_list: true}
+      contribution_id: {}
+      literal: {range: ComparisonLiteral, inlined: true}
+      condition: {range: SourceValue, inlined: true}
       typed: {range: TypedPremise, inlined: true}
       dimension:
         required: true
@@ -1153,6 +1157,22 @@ classes:
         required: true
         multivalued: true
         minimum_cardinality: 1
+  ComparisonLiteral:
+    attributes:
+      kind: {range: StructuralComparisonLiteralKind, required: true}
+      value: {}
+      unit: {}
+      lower: {}
+      upper: {}
+      lower_closed: {range: boolean}
+      upper_closed: {range: boolean}
+  ClauseFieldGroup:
+    is_a: SourceRecordProduct
+    attributes:
+      state: {range: StructuralFieldPresence, required: true}
+      grouping: {range: StructuralFieldGrouping}
+      members: {range: ClauseField, multivalued: true, inlined: true, inlined_as_list: true}
+      witnesses: {range: LocatedDefinitionSpan, multivalued: true, inlined: true, inlined_as_list: true}
   RevisionSuccession:
     is_a: SourceRecordProduct
     attributes:
@@ -1170,6 +1190,8 @@ classes:
       applicability: {required: true, range: StructuralApplicability}
       applicability_reason: {required: true}
       succession: {range: RevisionSuccession, inlined: true}
+      left_reading: {range: RetainedContributionRef, inlined: true}
+      right_reading: {range: RetainedContributionRef, inlined: true}
       left_id:
         required: true
       right_id:
@@ -1245,6 +1267,45 @@ classes:
     attributes:
       components: {range: LocatedDefinitionComponent, inlined: true, multivalued: true}
       stages: {range: DefinitionStage, inlined: true, multivalued: true}
+      role_candidates: {range: DefinitionRoleCandidate, inlined: true, multivalued: true}
+  DefinitionRoleCandidate:
+    is_a: SourceRecordProduct
+    attributes:
+      role: {required: true, pattern: '^(term|content)$'}
+      span: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      window_start: {required: true, range: integer, minimum_value: 0}
+      window_end: {required: true, range: integer, minimum_value: 1}
+      envelope: {required: true}
+      index: {required: true, range: integer, minimum_value: 0}
+  ClauseFocusSelection:
+    is_a: SourceRecordProduct
+    attributes:
+      passage_id: {required: true}
+      frame: {required: true, range: RetainedContributionRef, inlined: true}
+  ClauseModelLabel:
+    is_a: SourceRecordProduct
+    attributes:
+      label: {required: true}
+      score: {range: contextual_float, minimum_value: 0, maximum_value: 1}
+      accepted: {range: boolean, required: true}
+  ClauseModelReading:
+    is_a: SourceRecordProduct
+    attributes:
+      selection: {required: true, range: ClauseFocusSelection, inlined: true}
+      focus: {required: true, range: LocatedDefinitionSpan, inlined: true}
+      preceding: {range: LocatedDefinitionSpan, inlined: true}
+      following: {range: LocatedDefinitionSpan, inlined: true}
+      context_digest: {required: true, pattern: '^[a-f0-9]{64}$'}
+      envelope: {}
+      function: {range: ClauseModelLabel, inlined: true, multivalued: true}
+      presentation: {range: ClauseModelLabel, inlined: true, multivalued: true}
+      disposition: {required: true, pattern: '^(observed|withheld|failed)$'}
+      reason: {required: true}
+  ClauseClassificationProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      context_policy: {required: true, pattern: '^(exact_focus|adjacent_sentences)$'}
+      readings: {required: true, range: ClauseModelReading, inlined: true, multivalued: true}
   ApplicabilityPremise:
     is_a: SourceRecordProduct
     attributes:
@@ -1297,6 +1358,8 @@ classes:
       added_interval: {range: TriggerInterval, inlined: true}
       assumptions: {multivalued: true}
       reason: {required: true}
+      left_group: {range: ClauseFieldGroup, inlined: true}
+      right_group: {range: ClauseFieldGroup, inlined: true}
       dimension:
         required: true
         range: StructuralDimensionComparisonDimensionValue
@@ -1483,6 +1546,7 @@ classes:
       standing:
         equals_string: private_proposal
       definition_components: {range: DefinitionComponentsProduct, inlined: true}
+      clause_classification: {range: ClauseClassificationProduct, inlined: true}
       definition:
         range: DefinitionProduct
         inlined: true
@@ -1595,6 +1659,9 @@ classes:
   StructuralPublicClauseField:
     attributes:
       span: {range: StructuralPublicCitation, inlined: true}
+      spans: {range: StructuralPublicCitation, multivalued: true, inlined: true, inlined_as_list: true}
+      literal: {range: ComparisonLiteral, inlined: true}
+      condition: {range: SourceValue, inlined: true}
       typed: {range: StructuralPublicTypedPremise, inlined: true}
       dimension:
         range: StructuralClauseFieldDimensionValue
@@ -1608,12 +1675,20 @@ classes:
         required: false
         inlined: true
         inlined_as_list: true
+  StructuralPublicClauseGroup:
+    attributes:
+      state: {range: StructuralFieldPresence, required: true}
+      grouping: {range: StructuralFieldGrouping}
+      members: {range: StructuralPublicClauseField, multivalued: true, inlined: true, inlined_as_list: true}
+      witnesses: {range: StructuralPublicCitation, multivalued: true, inlined: true, inlined_as_list: true}
   StructuralPublicDimension:
     attributes:
       typed_outcome: {required: true, range: StructuralTypedOutcome}
       removed_interval: {range: TriggerInterval, inlined: true}
       added_interval: {range: TriggerInterval, inlined: true}
       assumptions: {multivalued: true}
+      left_group: {range: StructuralPublicClauseGroup, inlined: true}
+      right_group: {range: StructuralPublicClauseGroup, inlined: true}
       dimension:
         range: StructuralClauseFieldDimensionValue
         required: true
@@ -1919,6 +1994,24 @@ enums:
       different_lexical_value: {}
       unknown: {}
       incompatible_applicability: {}
+  StructuralFieldPresence:
+    permissible_values:
+      absent: {}
+      empty: {}
+      present: {}
+      unresolved: {}
+  StructuralFieldGrouping:
+    permissible_values:
+      singleton: {}
+      conjunction: {}
+      disjunction: {}
+      unresolved: {}
+  StructuralComparisonLiteralKind:
+    permissible_values:
+      date: {}
+      identifier: {}
+      quantity: {}
+      range: {}
   StructuralDossierMemberRoleValue:
     permissible_values:
       definition: {}
@@ -1960,6 +2053,7 @@ enums:
   StructuralStructuralProductReportKindValue:
     permissible_values:
       artifact_identity: {}
+      clause_classification: {}
       definition_components: {}
       definition_applicability: {}
       qualified_comparison: {}

@@ -195,6 +195,37 @@ def test_rrf_deduplicates_by_target_and_keeps_raw_channel_evidence():
     assert {e.channel: e.raw_score for e in result.candidates[1].channels}["lexical"] == 100
 
 
+def test_authenticated_witness_precedes_top_k_and_keeps_route_membership():
+    result = fuse_candidates(
+        occurrence_id="occ",
+        query=query(),
+        inventory=inventory(),
+        budget=1,
+        channels={
+            "alias": (ChannelHit("a", 1),),
+            "lexical": (ChannelHit("a", 10),),
+            "dense": (ChannelHit("a", 0.9), ChannelHit("b", 0.3)),
+            "witness": (ChannelHit("b", 1, ("retained-component",)),),
+        },
+    )
+    assert result.policy_id == "exact-source-witness-then-rrf60-1"
+    (winner,) = result.candidates
+    assert winner.target_id == "b"
+    assert {route.channel: route.evidence for route in winner.channels} == {
+        "dense": (),
+        "witness": ("retained-component",),
+    }
+
+    with pytest.raises(ValueError, match="witness population exceeds target budget"):
+        fuse_candidates(
+            occurrence_id="occ",
+            query=query(),
+            inventory=inventory(),
+            budget=1,
+            channels={"witness": (ChannelHit("a", 1), ChannelHit("b", 1))},
+        )
+
+
 def test_equal_rank_ties_use_target_identity_and_unique_budget():
     result = fuse_candidates(
         occurrence_id="occ",

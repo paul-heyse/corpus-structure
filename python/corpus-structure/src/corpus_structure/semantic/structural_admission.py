@@ -157,6 +157,34 @@ def structural_statement(
         }
     if report.comparison is not None:
         value = report.comparison
+
+        def member_statement(member):
+            projected = {
+                "dimension": member.dimension,
+                "lexical_value": member.lexical_value,
+                "evidence": citations(member.evidence),
+            }
+            if member.span is not None:
+                projected["span"] = span_citation(member.span)
+            if member.spans is not None:
+                projected["spans"] = [span_citation(span) for span in member.spans]
+            if member.literal is not None:
+                projected["literal"] = member.literal.model_dump(mode="json", exclude_none=True)
+            if member.condition is not None:
+                projected["condition"] = member.condition
+            if member.typed is not None:
+                projected["typed"] = {
+                    **member.typed.model_dump(
+                        mode="json", exclude_none=True, exclude={"span", "basis_evidence"}
+                    ),
+                    "span": span_citation(member.typed.span),
+                }
+                if member.typed.basis_evidence:
+                    projected["typed"]["basis_evidence"] = span_citation(
+                        member.typed.basis_evidence
+                    )
+            return projected
+
         dimensions = []
         for dimension in value.dimensions:
             item: dict[str, Any] = {"dimension": dimension.dimension, "outcome": dimension.outcome}
@@ -170,24 +198,15 @@ def structural_statement(
             for name in ("left", "right"):
                 side = getattr(dimension, name)
                 if side is not None:
-                    item[name] = {
-                        "dimension": side.dimension,
-                        "lexical_value": side.lexical_value,
-                        "evidence": citations(side.evidence),
+                    item[name] = member_statement(side)
+                group = getattr(dimension, f"{name}_group")
+                if group is not None:
+                    item[f"{name}_group"] = {
+                        "state": group.state,
+                        **({"grouping": group.grouping} if group.grouping else {}),
+                        "members": [member_statement(member) for member in group.members],
+                        "witnesses": [span_citation(span) for span in group.witnesses],
                     }
-                    if side.span is not None:
-                        item[name]["span"] = span_citation(side.span)
-                    if side.typed is not None:
-                        item[name]["typed"] = {
-                            **side.typed.model_dump(
-                                mode="json", exclude_none=True, exclude={"span", "basis_evidence"}
-                            ),
-                            "span": span_citation(side.typed.span),
-                        }
-                        if side.typed.basis_evidence:
-                            item[name]["typed"]["basis_evidence"] = span_citation(
-                                side.typed.basis_evidence
-                            )
             dimensions.append(item)
         statement["comparison"] = {
             "left": citation(value.left_id),

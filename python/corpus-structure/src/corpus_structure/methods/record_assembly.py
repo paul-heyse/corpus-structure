@@ -95,6 +95,16 @@ class AssemblyDiagnostic:
 
 
 @dataclass(frozen=True)
+class UnattachedRecordRole:
+    """Exact role evidence from a decoder group that has no canonical occurrence."""
+
+    group: int
+    role: str
+    group_dependency: str
+    anchors: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
 class AssemblyResult:
     records: tuple[BaseModel, ...]
     diagnostics: tuple[AssemblyDiagnostic, ...]
@@ -102,6 +112,7 @@ class AssemblyResult:
     dependencies: tuple[str, ...]
     raw_report: GlinerReport | None
     native_groups: tuple[NativeRecordGroup, ...] = ()
+    unattached_roles: tuple[UnattachedRecordRole, ...] = ()
 
 
 OCCURRENCE_POLICY = "statistics-reading-occurrence-2"
@@ -389,6 +400,7 @@ def _assemble(
     )
     all_dependencies = set(dependencies)
     records: list[dict[str, Any]] = []
+    unattached_roles = []
     for index, group in enumerate(groups):
         supplement = supplements.get(index, NativeRecordGroup((), "native decoder proposal"))
         if not supplement.reason.strip():
@@ -726,6 +738,24 @@ def _assemble(
             or any(anchors[identity]["pin"] != pin for identity in role_anchors[role])
             for role in occurrence_roles
         ):
+            if report is not None and family == "definition":
+                for role in ("term", "defining_text"):
+                    if role not in group or pack is None:
+                        continue
+                    try:
+                        spans = _decoder_literal_spans(
+                            group[role], fragments=_fragment_field(pack, family, role)
+                        )
+                        pieces = tuple(literal_anchors(spans, role))
+                    except ValueError, TypeError, KeyError:
+                        # The original field and group diagnostics keep the refusal.
+                        continue
+                    if pieces and all(piece["pin"] == pin for piece in pieces):
+                        unattached_roles.append(
+                            UnattachedRecordRole(
+                                index, role, native_group_identity(report, index, group), pieces
+                            )
+                        )
             diagnostics.append(
                 AssemblyDiagnostic(
                     index,
@@ -828,6 +858,7 @@ def _assemble(
         tuple(sorted(all_dependencies)),
         report,
         tuple(supplements.values()),
+        tuple(unattached_roles),
     )
 
 

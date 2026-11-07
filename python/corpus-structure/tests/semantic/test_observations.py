@@ -140,3 +140,76 @@ def test_coverage_is_explicit_and_not_inferred_from_empty_assertion_output():
     assert bound["observations"] == ()
     assert bound["coverage"][0]["outcome"] == "partial"
     assert bound["outcome"] == "empty"
+
+
+def test_bind_grouped_comparison_preserves_encoded_condition_fields():
+    from corpus_structure.methods.structural_products import compare_clauses
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.structural_products import (
+        DIMENSIONS,
+        ClauseField,
+        ClauseFieldGroup,
+        ClauseReading,
+    )
+
+    from .test_typed_structural_composition import threshold_inputs
+
+    inputs = threshold_inputs("If x > 2.", "If x > 5.")
+    left, right = inputs.passages
+    condition = {"kind": "escape", "text": left.text, "details": ["source limitation"]}
+    fields = {dimension: ClauseFieldGroup(state="absent") for dimension in DIMENSIONS}
+    fields["condition"] = ClauseFieldGroup(
+        state="present",
+        grouping="singleton",
+        members=(
+            ClauseField(
+                dimension="condition",
+                lexical_value=left.text,
+                evidence=(left.passage_id,),
+                condition=source_value(condition),
+            ),
+        ),
+    )
+    reference = RetainedContributionRef(
+        contribution_id="source-contribution:" + "1" * 64,
+        project_id="project",
+        run_id=1,
+        cut_id=1,
+        release_id="release",
+        result_revision=1,
+        selected_task_id=1,
+        origin_task_id=1,
+        runtime_fingerprint="runtime",
+    )
+    report = compare_clauses(
+        inputs,
+        left=ClauseReading(passage_id=left.passage_id, groups=fields),
+        right=ClauseReading(
+            passage_id=right.passage_id,
+            groups={dimension: ClauseFieldGroup(state="absent") for dimension in DIMENSIONS},
+        ),
+        left_reading=reference,
+        right_reading=reference.model_copy(
+            update={"contribution_id": "source-contribution:" + "2" * 64}
+        ),
+    )
+    bound = bind_result(
+        prepared(),
+        source="source",
+        method="structure.compare",
+        operation_version="3",
+        configuration_hash="config",
+        input_hash="input",
+        invocation_key="invocation",
+        result=UnitResult(
+            ref=UnitRef(TaskUnitType.RUN, unit_key=inputs.identity),
+            outcome=ObservationOutcome.PRODUCED,
+            structural_product=report.model_dump(mode="json"),
+        ),
+    ).model_dump(mode="json", exclude_none=True)
+    dimension = next(
+        item
+        for item in bound["structural_product"]["comparison"]["dimensions"]
+        if item["dimension"] == "condition"
+    )
+    assert source_python(dimension["left_group"]["members"][0]["condition"]) == condition

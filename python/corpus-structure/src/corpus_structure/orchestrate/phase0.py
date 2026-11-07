@@ -32,6 +32,7 @@ from corpus_structure.core.vocab import (
 )
 from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.artifact_identity import ArtifactIdentityMethod
+from corpus_structure.methods.clause_classification import ClauseClassificationMethod
 from corpus_structure.methods.contextual_candidates import ContextualCandidates
 from corpus_structure.methods.definition_applicability import (
     DefinitionApplicabilityMethod,
@@ -110,6 +111,7 @@ METHODS: tuple[Any, ...] = (
     ScopedRelationsMethod(),
     ArtifactIdentityMethod(),
     DefinitionComponentsMethod(),
+    ClauseClassificationMethod(),
     DefinitionApplicabilityMethod(),
     DefinitionTermsMethod(),
     ContextualCandidates(),

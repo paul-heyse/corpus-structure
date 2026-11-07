@@ -516,3 +516,234 @@ def test_overlapping_roles_choose_only_each_edges_cited_occurrence_carrier():
         assert projected["specializes"]["members"] == (subject_product["contribution_id"],)
         assert projected["compared-with"]["members"] == (unrelated_product["contribution_id"],)
     assert observations[0] == observations[1]
+
+
+@pytest.mark.parametrize("provider_available", [True, False])
+def test_explicit_cross_view_definition_witness_survives_exploration(
+    monkeypatch,
+    provider_available,
+):
+    from corpus_structure.semantic.contextual_registry import ExtractedComponentTarget
+    from corpus_structure.semantic.observations import source_value
+    from corpus_structure.semantic.proposals import native_source_frame
+    from corpus_structure.semantic.source_contexts import record_source_pin
+
+    text = "Use the value as defined in Section 6.2."
+    source = view()
+    source = replace(
+        source,
+        text=text,
+        pieces=(dict(source.pieces[0], end=len(text)),),
+        items=(source.items[0], dict(source.items[1], text=text)),
+    )
+    pin = record_source_pin(native_source_frame(source, ()))
+    start = text.index("Section")
+    anchor = dict(
+        pin=pin,
+        space="native",
+        pointer="#/texts/1",
+        precision="exact",
+        start=start,
+        end=len(text) - 1,
+        source_piece="Section 6.2",
+    )
+    anchor["anchor_id"] = anchor_identity(anchor)
+    original = dict(
+        kind="occurrence",
+        semantic_type="structural.located_participant",
+        operation_key="producer",
+        item_key="section-mention",
+        pin=pin,
+        anchors=(anchor,),
+        occurrence_id=occurrence_identity((anchor,)),
+        value=source_value(dict(role="named_link_subject")),
+    )
+    original["contribution_id"] = contribution_identity(original)
+
+    def target(component, label):
+        return ExtractedComponentTarget.model_validate(
+            dict(
+                reference=dict(
+                    product_id="structural:source",
+                    component_id=component,
+                    operation_id="components",
+                    operation_version="1",
+                    project_id="source",
+                    run_id=1,
+                    cut_id=1,
+                    release_id="release",
+                    result_revision=0,
+                    selected_task_id=1,
+                    origin_task_id=1,
+                    runtime_fingerprint="runtime",
+                    dependencies=("source",),
+                ),
+                label=label,
+                description=f"Definition of {label}",
+                scope="chapter",
+            )
+        )
+
+    wrong, right = target("a" * 64, "Section 6.2"), target("b" * 64, "Expected definition")
+    cfg = ContextualCandidateConfig(
+        target_components=(wrong, right),
+        relationship_constraints=(
+            RelationshipConstraint("definition", ("defined-by",), "usage", "definition", "one"),
+        ),
+        source_product_digest=source.ref.native_product.content_digest,
+        source_projection_digest=source.ref.projection_digest,
+        scope="chapter",
+        unique_target_budget=1,
+    )
+
+    def encoded(items, profile, **_kwargs):
+        if not provider_available:
+            raise OSError("controlled encoder failure")
+        vectors = []
+        for item in items:
+            digest = "a" * 64
+            vectors.append(
+                EncodedVector(
+                    identity(
+                        "context-vector",
+                        [
+                            item.object_id,
+                            item.source_binding,
+                            profile.profile_id,
+                            digest,
+                            item.representation_digest,
+                        ],
+                    ),
+                    item.object_id,
+                    item.source_binding,
+                    profile.profile_id,
+                    digest,
+                    (1.0,) + (0.0,) * (profile.dimension - 1),
+                    item.representation_digest,
+                )
+            )
+        return EncoderResult(profile.profile_id, (), tuple(vectors), ())
+
+    def retrieve(**request):
+        return fuse_candidates(
+            occurrence_id=request["occurrence_id"],
+            query=request["query"],
+            inventory=request["inventory"],
+            budget=1,
+            lexical_query="Section 6.2",
+            channels={
+                "alias": (ChannelHit(wrong.reference.component_id, 1),),
+                "dense": (ChannelHit(wrong.reference.component_id, 0.9),),
+            },
+        )
+
+    looked_up = []
+
+    def retained_component_section(reference, work_digest):
+        # The native-owned port determines section from the target's other view.
+        assert work_digest == pin["product_digest"]
+        looked_up.append(reference.component_id)
+        return "6.2" if reference == right.reference else "6.1"
+
+    reader = SimpleNamespace(
+        source_view=lambda _: source,
+        source_result=lambda *_: dict(contributions=(original,)),
+        component_semantic_targets=lambda _: {
+            t.reference.component_id: {
+                "term": {"text": t.label},
+                "content": {"text": t.description},
+                "interpretation": "definition",
+                "scope": "chapter",
+            }
+            for t in (wrong, right)
+        },
+        retained_component_section=retained_component_section,
+        cached_contextual_vectors=lambda **_: (),
+        contextual_candidates=retrieve,
+    )
+    monkeypatch.setattr(
+        "corpus_structure.methods.contextual_candidates.verify_encoder_implementation", lambda _: ()
+    )
+    monkeypatch.setattr("corpus_structure.methods.contextual_candidates.encode_contexts", encoded)
+    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
+    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
+
+    (result,) = ContextualCandidates().run((unit,), cfg, ctx)
+    assert set(looked_up) == {wrong.reference.component_id, right.reference.component_id}
+    assert result.contribution_operations is not None
+    primary, retrieval, selection = result.contribution_operations
+    report = primary["contextual_enrichment"]
+    (candidate,) = report["candidate_lists"]
+    (winner,) = candidate["candidates"]
+    (decision,) = report["relationship_decisions"]
+    (edge,) = decision["selected_edges"]
+    assert winner["target_id"] == right.reference.component_id
+    assert tuple(edge["member_target_ids"]) == (right.reference.component_id,)
+    assert decision["outcome"] == "selected" and selection["outcome"] == "succeeded"
+    if provider_available:
+        assert candidate["query_vector_id"]
+        assert retrieval["outcome"] == "succeeded"
+    else:
+        assert "query_vector_id" not in candidate and report["vectors"] == ()
+        assert (
+            retrieval["outcome"] == "limited"
+            and "controlled encoder failure" in retrieval["reason"]
+        )
+
+    import json
+
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.serve.contextual_witness_replay import verify_contextual_witness_closure
+
+    stored = json.loads(
+        canonical_bytes(
+            {
+                "origin_task_id": 8,
+                "origin_unit_id": source.ref.id,
+                "method": ContextualCandidates.name,
+                "configuration": cfg.model_dump(mode="json"),
+                "body": {
+                    "operation_version": ContextualCandidates.version,
+                    "contribution_operations": result.contribution_operations,
+                    "contributions": result.contributions,
+                },
+            }
+        )
+    )
+
+    def detached_relation(_root, _manifest, name):
+        if name == "reports":
+            return (stored,)
+        return (
+            {
+                "source_view_id": source.ref.id,
+                "ref": {"native_product": {"content_digest": pin["product_digest"]}},
+                "context": {"items": source.items},
+            },
+        )
+
+    monkeypatch.setattr(
+        "corpus_structure.serve.review_bundle._detached_relation",
+        detached_relation,
+    )
+    monkeypatch.setattr(
+        "corpus_structure.serve.contextual_witness_replay._term_binding",
+        lambda t, *_: (
+            SimpleNamespace(native_content_digest=pin["product_digest"]),
+            None,
+            "6.2" if t.reference == right.reference else "6.1",
+        ),
+    )
+    monkeypatch.setattr(
+        "corpus_structure.serve.contextual_witness_replay._section",
+        lambda code, _term: code,
+    )
+    verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
+    stored_candidate = stored["body"]["contribution_operations"][0]["contextual_enrichment"][
+        "candidate_lists"
+    ][0]
+    stored_candidate["channel_results"] = [
+        ch for ch in stored_candidate["channel_results"] if ch["channel"] != "witness"
+    ]
+    with pytest.raises(ValueError, match="complete source population"):
+        verify_contextual_witness_closure(None, {"relations": {"reports": {}}})

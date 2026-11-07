@@ -430,6 +430,42 @@ def test_located_span_success_survives_empty_or_failed_attachment():
         decode_definition_components(returned, passage, DefinitionComponentsConfig())
 
 
+def test_located_roles_keep_exact_independent_envelope_indices():
+    from corpus_structure.methods.definition_applicability import located_definition_roles
+
+    passage = inputs().passages[0]
+    cfg = DefinitionComponentsConfig()
+    returned = raw(passage.text)
+    returned["relation_extraction"] = {}
+    returned["entities"][cfg.term_entity].insert(0, {"start": -1, "end": 3, "text": "bad"})
+    errors = []
+    term, content = located_definition_roles(
+        returned, passage, cfg, envelope="pinned", errors=errors
+    )
+    assert (term.role, term.index, term.span.text) == ("term", 1, "variance")
+    assert (content.role, content.index, content.span.text) == (
+        "content",
+        0,
+        "expected squared deviation",
+    )
+    assert (term.envelope, content.envelope) == ("pinned", "pinned")
+    assert len(errors) == 1 and errors[0]["index"] == 0
+    assert decode_definition_components(returned, passage, cfg, candidate_errors=[]) == ()
+
+
+def test_description_arm_uses_same_roles_and_relation_with_distinct_native_prompts():
+    baseline = DefinitionComponentsConfig()
+    described = baseline.model_copy(update={"description_arm": "described"})
+    bare_pack = definition_pack("r", baseline)
+    described_pack = definition_pack("r", described)
+    bare = bare_pack.compile().to_dict()
+    updated = described_pack.compile().to_dict()
+    assert list(bare["entities"]) == list(updated["entities"])
+    assert list(bare["relations"]) == list(updated["relations"])
+    assert bare["entity_attributes"] == updated["entity_attributes"]
+    assert bare_pack.fingerprint != described_pack.fingerprint
+
+
 def test_independent_valid_attachment_survives_other_candidates_role_failure():
     passage = inputs().passages[0]
     returned = raw(passage.text)
@@ -477,6 +513,7 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, GlinerReport
+    from corpus_structure.serve.model_observation_replay import _verify_definition_roles
 
     value = inputs()
     returned = raw(value.passages[0].text)
@@ -518,7 +555,7 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
                     request.context_id,
                     request.context_digest,
                     "controlled",
-                    "controlled",
+                    profile.fingerprint,
                     pack.fingerprint,
                     GlinerPreparation(request.text, "", 0, 0, len(request.text)),
                     json.dumps(returned),
@@ -559,6 +596,14 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
             reason="attachment endpoints lack the declared decoded roles",
         )
     ]
+    config = cfg.model_dump(mode="json", exclude_none=True)
+    _verify_definition_roles(report, config, result.parse_detail, "r")
+    # All entity roles and exact source coordinates survive, but the valid directed
+    # relation is gone. The component can no longer be admitted as a model reading.
+    returned["relation_extraction"][cfg.attachment_relation].pop(0)
+    retained[0]["raw_json"] = json.dumps(returned)
+    with pytest.raises(ValueError, match="retained directed attachments"):
+        _verify_definition_roles(report, config, result.parse_detail, "r")
 
 
 def test_labelled_copula_display_requires_same_block_explicit_definition_label():

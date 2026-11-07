@@ -1,6 +1,7 @@
 """Small source-preserving field grammars, prepared once per declared route."""
 
 import re
+from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from typing import Literal, TypedDict
@@ -137,56 +138,63 @@ def threshold_fields(text: str) -> tuple[LocatedThreshold, ...]:
     return tuple(result)
 
 
-# Cued English clause fields are deliberately separate from the numerical grammar.
-# Exact source strings are retained; absent/competing fields remain unknown.
-CLAUSE_NOUN = (
-    r"[A-Za-z][A-Za-z0-9_-]*"
-    r"(?:\s+(?!(?:if|when|unless|except|before|after)\b)[A-Za-z][A-Za-z0-9_-]*){0,7}"
-)
-CLAUSE_END = r"(?=\s+(?:if|when|unless|except|before|after)\b|\.(?=\s|$)|[;\n]|$)"
-CLAUSE_BODY = r"(?:(?!\s+(?:if|when|unless|except|before|after)\b|\.(?=\s|$)|[;\n]).)+"
-CLAUSE_ACTIVE = (
-    r"(?:^|[,;]\s*|\bthen\s+)(" + CLAUSE_NOUN + r")\s+"
-    r"(must|shall|should|may|can)\s+((?!be\b)[A-Za-z]+)\s+(" + CLAUSE_BODY + r")" + CLAUSE_END
-)
-CLAUSE_PASSIVE = (
-    r"(?:^|[,;]\s*|\bthen\s+)(.+?)\s+(must|shall|should|may|can)\s+"
-    r"be\s+([A-Za-z]+)\s+by\s+(" + CLAUSE_NOUN + r")" + CLAUSE_END
-)
-CLAUSE_QUALIFIER = (
-    r"\b(if|when|provided(?:\s+that)?|unless|except(?:\s+(?:when|if))?|before|after)\s+"
-    r"((?:(?!,|\s+(?:unless|except|before|after)\b|\.(?=\s|$)|[;\n]).)+)"
-)
+@lru_cache(maxsize=1)
+def literal_grammar():
+    return Lark(
+        r"""
+        ?start: date | identifier | quantity | bounded_range
+        date: "Date:" DATE
+        identifier: "Identifier:" IDENTIFIER
+        quantity: "Quantity:" NUMBER UNIT
+        bounded_range: "Range:" OPEN NUMBER "," NUMBER CLOSE UNIT
+        DATE: /[0-9]{4}-[0-9]{2}-[0-9]{2}/
+        IDENTIFIER: /[A-Za-z][A-Za-z0-9_.-]*/
+        NUMBER: /[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?/
+        UNIT: /[%$€£]|[A-Za-z][A-Za-z0-9_\/-]*/
+        OPEN: "[" | "("
+        CLOSE: "]" | ")"
+        %import common.WS
+        %ignore WS
+        """,
+        parser="lalr",
+        lexer="contextual",
+        propagate_positions=True,
+    )
 
 
-def clause_fields(text):
-    import re
-
-    found = {}
-
-    def add(dimension, start, end):
-        while start < end and text[start].isspace():
-            start += 1
-        while start < end and text[end - 1].isspace():
-            end -= 1
-        if start < end:
-            found.setdefault(dimension, []).append(dict(start=start, end=end, text=text[start:end]))
-
-    for pattern, roles in (
-        (CLAUSE_PASSIVE, ("object", "modality", "action", "actor")),
-        (CLAUSE_ACTIVE, ("actor", "modality", "action", "object")),
-    ):
-        for match in re.finditer(pattern, text, re.IGNORECASE):
-            for group, role in enumerate(roles, 1):
-                add(role, *match.span(group))
-    for match in re.finditer(CLAUSE_QUALIFIER, text, re.IGNORECASE):
-        cue = match[1].casefold()
-        dimension = (
-            "exception"
-            if cue.startswith(("unless", "except"))
-            else "order_dependency"
-            if cue in {"before", "after"}
-            else "condition"
-        )
-        add(dimension, match.start(), match.end())
-    return {dimension: values[0] for dimension, values in found.items() if len(values) == 1}
+def parse_comparison_literal(text: str) -> dict[str, str | bool] | None:
+    """Parse an explicitly delimited operand, without supplying applicability."""
+    if len(text) > 256:
+        return None
+    try:
+        tree = literal_grammar().parse(text)
+        values = [str(token) for token in tree.children]
+        if tree.data == "date":
+            return {"kind": "date", "value": date.fromisoformat(values[0]).isoformat()}
+        if tree.data == "identifier":
+            return {"kind": "identifier", "value": values[0]}
+        numbers = [
+            Decimal(value) for value in (values[:1] if tree.data == "quantity" else values[1:3])
+        ]
+        if any(number and abs(number.adjusted()) > 100 for number in numbers):
+            return None
+        canonical = [
+            canonical_operand(dict(kind="number", number=number), {})["v"] for number in numbers
+        ]
+        if tree.data == "quantity":
+            return {"kind": "quantity", "value": canonical[0], "unit": values[1]}
+        lower_closed, upper_closed = values[0] == "[", values[3] == "]"
+        if numbers[0] > numbers[1] or (
+            numbers[0] == numbers[1] and not (lower_closed and upper_closed)
+        ):
+            return None
+        return {
+            "kind": "range",
+            "lower": canonical[0],
+            "upper": canonical[1],
+            "lower_closed": lower_closed,
+            "upper_closed": upper_closed,
+            "unit": values[4],
+        }
+    except UnexpectedInput, ValueError, ArithmeticError:
+        return None

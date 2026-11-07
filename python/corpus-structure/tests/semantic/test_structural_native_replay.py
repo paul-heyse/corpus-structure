@@ -7,10 +7,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.methods.structural_products import compare_clauses, read_clause
+from corpus_structure.methods.structural_products import compare_clauses
 from corpus_structure.semantic.structural_admission import structural_statement
 
-from .test_typed_structural_composition import revision_inputs, threshold_inputs
+from .test_typed_structural_composition import read_clause, revision_inputs, threshold_inputs
 
 
 @pytest.mark.parametrize(
@@ -51,9 +51,8 @@ def test_native_comparison_replays_same_source_route(semantic_db_engine, left, r
     inputs = threshold_inputs(left, right)
     if "supersedes" in right:
         inputs = revision_inputs(left, right)
-    expected = compare_clauses(
-        inputs, left=read_clause(inputs.passages[0]), right=read_clause(inputs.passages[1])
-    )
+    a, b = map(read_clause, inputs.passages)
+    expected = compare_clauses(inputs, left=a, right=b)
     sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
     with semantic_db_engine.connect() as conn, conn.begin():
         conn.exec_driver_sql(
@@ -64,11 +63,20 @@ def test_native_comparison_replays_same_source_route(semantic_db_engine, left, r
             execution_options={"no_parameters": True},
         )
         actual = conn.scalar(
-            text("SELECT ops.structural_comparison(CAST(:inputs AS jsonb),:left,:right)"),
+            text("""SELECT ops.structural_compare_lexical(
+                CAST(:inputs AS jsonb),:left,:right,
+                CAST(:left_fields AS jsonb),CAST(:right_fields AS jsonb))
+            """),
             dict(
                 inputs=inputs.model_dump_json(),
                 left=inputs.passages[0].passage_id,
                 right=inputs.passages[1].passage_id,
+                left_fields=json.dumps(
+                    {f.dimension: f.model_dump(mode="json", exclude_none=True) for f in a.fields}
+                ),
+                right_fields=json.dumps(
+                    {f.dimension: f.model_dump(mode="json", exclude_none=True) for f in b.fields}
+                ),
             ),
         )
         comparison = expected.model_dump(mode="json", exclude_none=True)["comparison"]
@@ -312,3 +320,221 @@ def test_native_note_scope_checks_the_whole_original_note(semantic_db_engine):
             conn.begin_nested(),
         ):
             conn.execute(replay, {"rows": json.dumps(rows)})
+
+
+@pytest.mark.parametrize(
+    "connector, expected_group, expected_typed",
+    [
+        ("and", "conjunction", "unknown"),
+        ("or", "disjunction", "unknown"),
+        ("as well as", "unresolved", "ambiguous"),
+    ],
+)
+def test_retained_comparison_groups_exact_occurrences(
+    semantic_db_engine, connector, expected_group, expected_typed
+):
+    from corpus_structure.methods.structural_products import read_retained_clause
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+
+    inputs = threshold_inputs(
+        f"Clerk must file Form {connector} Form if X > 5 kg. No exceptions.",
+        "Reviewer may file Form and Report if X > 7 kg.",
+    )
+
+    def retained_side(passage, source):
+        reference = RetainedContributionRef(
+            contribution_id="source-contribution:" + "a" * 64,
+            project_id=source.project_id,
+            run_id=1,
+            cut_id=1,
+            release_id=source.release_id,
+            result_revision=0,
+            selected_task_id=1,
+            origin_task_id=1,
+            runtime_fingerprint="runtime",
+        )
+        pin = {
+            "source_view_id": source.source_view_id,
+            "native_product_task_id": source.native_task_id,
+            "product_digest": source.native_content_digest,
+            "projection_digest": source.projection_digest,
+            "recipe_digest": source.recipe_digest,
+        }
+
+        def extent(spelling, at=0):
+            start = passage.text.index(spelling, at)
+            return {"start": start, "end": start + len(spelling)}
+
+        first = extent("Form")
+        second = extent("Form" if "Clerk" in passage.text else "Report", first["end"])
+        actor, modal = ("Clerk", "must") if "Clerk" in passage.text else ("Reviewer", "may")
+        component = {"scope": passage.passage_id}
+        rows = [
+            {
+                "contribution_id": reference.contribution_id,
+                "pin": pin,
+                "component": {**component, "kind": "predicate_reading", "frame": "frame"},
+            },
+            {
+                "contribution_id": "frame",
+                "pin": pin,
+                "component": {
+                    **component,
+                    "kind": "predicate_frame",
+                    "frame_members": [
+                        dict(
+                            role="actor",
+                            contribution="actor",
+                            outcome="complete",
+                            extents=[extent(actor)],
+                        ),
+                        dict(
+                            role="predicate",
+                            contribution="predicate",
+                            outcome="complete",
+                            extents=[extent("file")],
+                        ),
+                        dict(
+                            role="object", contribution="first", outcome="complete", extents=[first]
+                        ),
+                        dict(
+                            role="object",
+                            contribution="second",
+                            outcome="complete",
+                            extents=[second],
+                        ),
+                    ],
+                },
+            },
+            {
+                "contribution_id": "modal",
+                "component": dict(
+                    kind="predicate_qualifier",
+                    host_contribution_id="frame",
+                    qualifier_contribution_id="modal-cue",
+                    qualifier_kind="modality",
+                ),
+            },
+            {
+                "contribution_id": "modal-cue",
+                "pin": pin,
+                "component": {"extents": [extent(modal)]},
+            },
+        ]
+        if "No exceptions." in passage.text:
+            rows.extend(
+                (
+                    {
+                        "contribution_id": "exception",
+                        "component": dict(
+                            kind="predicate_qualifier",
+                            host_contribution_id="frame",
+                            qualifier_contribution_id="exception-cue",
+                            qualifier_kind="exception",
+                        ),
+                    },
+                    {
+                        "contribution_id": "exception-cue",
+                        "pin": pin,
+                        "component": {"extents": [extent("No exceptions.")]},
+                    },
+                )
+            )
+        return reference, rows
+
+    left, right = inputs.passages
+    sources = {source.identity: source for source in inputs.sources}
+    ls, rs = sources[left.source_ref], sources[right.source_ref]
+    lr, lrows = retained_side(left, ls)
+    rr, rrows = retained_side(right, rs)
+    # Each comparison side has its own retained producer and original view.
+    rr = rr.model_copy(update={"selected_task_id": 2, "origin_task_id": 2})
+    a = read_retained_clause(left, ls, lr, {"contributions": lrows})
+    b = read_retained_clause(right, rs, rr, {"contributions": rrows})
+    report = compare_clauses(inputs, left=a, right=b, left_reading=lr, right_reading=rr)
+    comparison = report.comparison
+    assert comparison is not None
+    object_ = comparison.dimensions[2]
+    group = object_.left_group
+    assert group is not None
+    assert group.grouping == expected_group
+    assert object_.typed_outcome == expected_typed
+    assert [m.lexical_value for m in group.members] == ["Form", "Form"]
+    assert [m.spans[0].start for m in group.members if m.spans] == [
+        left.text.index("Form"),
+        left.text.rindex("Form"),
+    ]
+    assert comparison.dimensions[0].outcome == "different_lexical_value"
+    assert comparison.dimensions[3].outcome == "different_lexical_value"
+    for index in (4, 5):
+        missing = comparison.dimensions[index].left_group
+        assert missing is not None and missing.state == "absent"
+    exception = comparison.dimensions[6]
+    assert exception.left_group is not None and exception.left_group.state == "empty"
+    assert exception.left_group.witnesses[0].text == "No exceptions."
+    assert exception.right_group is not None and exception.right_group.state == "absent"
+
+    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(
+            (sql / "structural_products.sql").read_text(), execution_options={"no_parameters": True}
+        )
+        conn.exec_driver_sql(
+            (sql / "structural_publication.sql").read_text(),
+            execution_options={"no_parameters": True},
+        )
+        actual = conn.scalar(
+            text("""SELECT ops.comparison_groups(
+                CAST(:passage AS jsonb),CAST(:source AS jsonb),
+                CAST(:ref AS jsonb),CAST(:rows AS jsonb))
+            """),
+            dict(
+                passage=left.model_dump_json(),
+                source=ls.model_dump_json(),
+                ref=lr.model_dump_json(),
+                rows=json.dumps(lrows),
+            ),
+        )
+        assert actual == a.model_dump(mode="json", exclude_none=True)["groups"]
+        public = conn.scalar(
+            text("SELECT data.structural_public_statement(CAST(:report AS jsonb),NULL)"),
+            dict(report=report.model_dump_json(exclude_none=True)),
+        )
+        assert public == structural_statement(report)
+
+
+def test_comparison_literals_are_bounded_and_agree_with_native(semantic_db_engine):
+    from corpus_structure.semantic.structural_parsing import parse_comparison_literal
+
+    cases = (
+        ("Date: 2024-02-29", {"kind": "date", "value": "2024-02-29"}),
+        ("Date: 2026-02-29", None),
+        ("Identifier: Rule.R3", {"kind": "identifier", "value": "Rule.R3"}),
+        ("Quantity: +2.50e1 kg", {"kind": "quantity", "value": "25", "unit": "kg"}),
+        (
+            "Range: [1, 2) kg",
+            dict(
+                kind="range", lower="1", upper="2", lower_closed=True, upper_closed=False, unit="kg"
+            ),
+        ),
+        (
+            "Range: (1, 2] kg",
+            dict(
+                kind="range", lower="1", upper="2", lower_closed=False, upper_closed=True, unit="kg"
+            ),
+        ),
+        ("Range: (1, 1] kg", None),
+        ("Report dated 2024-02-29", None),
+        ("Quantity: 1e1000 kg", None),
+    )
+    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
+    with semantic_db_engine.connect() as conn, conn.begin():
+        conn.exec_driver_sql(
+            (sql / "structural_products.sql").read_text(), execution_options={"no_parameters": True}
+        )
+        for spelling, expected in cases:
+            assert parse_comparison_literal(spelling) == expected
+            assert (
+                conn.scalar(text("SELECT ops.comparison_literal(:value)"), {"value": spelling})
+                == expected
+            )

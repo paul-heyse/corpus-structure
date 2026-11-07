@@ -784,6 +784,7 @@ def series_native_definitions(connection, *, include_selected=True):
     )
     dossier_sql = Path(__file__).with_name("sql").joinpath("dossier_contributions.sql").read_text()
     for name in (
+        "retained_contribution_roots",
         "resolve_retained_source_contributions",
         "resolve_retained_source_contribution",
         "dossier_contribution_member_from_retained",
@@ -819,10 +820,17 @@ def series_native_definitions(connection, *, include_selected=True):
         "artifact_external_nominations",
         "artifact_lexical_score",
         "validate_artifact_identity",
-        "structural_clause_fields",
         "structural_threshold_field",
-        "structural_comparison",
+        "structural_compare_lexical",
+        "comparison_literal",
+        "comparison_member",
+        "comparison_groups",
+        "structural_grouped_comparison",
         "structural_dossier",
+        "definition_role_candidates",
+        "definition_model_components",
+        "clause_model_axis",
+        "validate_clause_classification",
         "validate_structural_product_report",
     ):
         definitions.extend(
@@ -858,10 +866,14 @@ def series_native_definitions(connection, *, include_selected=True):
         "predicate_cue_recipe_matches",
         "predicate_cross_block_host_matches",
         "validate_source_predicates",
+        "validate_witnessed_formula_links",
+        "validate_named_source_links",
+        "clause_model_concordance",
         "validate_source_contribution_report",
         "project_source_contributions",
         "contextual_identity_value",
         "contextual_nullable_value",
+        "contextual_component_section",
         "validate_contextual_selection",
     ):
         definitions.extend(
@@ -870,7 +882,11 @@ def series_native_definitions(connection, *, include_selected=True):
                 native_task_completion_sql(),
                 name=name,
                 source="independent contributions:forward",
-                grants=(),
+                grants=tuple(
+                    (role, "EXECUTE", False) for role in ("corpus_sem_reader", "corpus_sem_writer")
+                )
+                if name == "contextual_component_section"
+                else (),
             )
         )
     for name in (
@@ -1004,6 +1020,7 @@ def series_native_definitions(connection, *, include_selected=True):
         "structural_citations",
         "structural_definition_component",
         "retained_definition_citations",
+        "structural_public_clause_field",
         "structural_public_statement",
         "structural_publication_candidates",
         "validate_structural_assertions",

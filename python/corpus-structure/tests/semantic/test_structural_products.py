@@ -173,18 +173,88 @@ def test_dossier_keeps_all_members_and_mandatory_representatives():
 def test_automatic_comparison_run_and_released_report_roundtrip():
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.structural_products import StructuralProductReport
 
     value = inputs()
+    references = []
+    retained = {}
+    for passage, source, digit in zip(value.passages, value.sources, "ab", strict=True):
+        key = "source-contribution:" + digit * 64
+        references.append(
+            RetainedContributionRef(
+                contribution_id=key,
+                project_id=source.project_id,
+                run_id=source.run_id,
+                cut_id=source.cut_id,
+                release_id=source.release_id,
+                result_revision=source.result_revision,
+                selected_task_id=source.native_task_id + 1,
+                origin_task_id=source.native_task_id + 1,
+                runtime_fingerprint="runtime",
+            )
+        )
+        pin = dict(
+            source_view_id=source.source_view_id,
+            native_product_task_id=source.native_task_id,
+            product_digest=source.native_content_digest,
+            projection_digest=source.projection_digest,
+            recipe_digest=source.recipe_digest,
+        )
+        retained[key] = {
+            "contributions": [
+                dict(
+                    contribution_id=key,
+                    pin=pin,
+                    component=dict(
+                        kind="predicate_reading", frame="frame", scope=passage.passage_id
+                    ),
+                ),
+                dict(
+                    contribution_id="frame",
+                    pin=pin,
+                    component=dict(
+                        kind="predicate_frame",
+                        scope=passage.passage_id,
+                        frame_members=[
+                            dict(
+                                role="predicate",
+                                contribution="action",
+                                outcome="complete",
+                                extents=[dict(start=passage.start, end=passage.end)],
+                            )
+                        ],
+                    ),
+                ),
+            ]
+        }
+    value = value.model_copy(update={"dependencies": (*value.dependencies, *retained)})
     cfg = StructuralComparisonConfig(
-        inputs=value, structural_input_digest=value.identity, left_id="a", right_id="b"
+        inputs=value,
+        structural_input_digest=value.identity,
+        left_id="a",
+        right_id="b",
+        left_reading=references[0],
+        right_reading=references[1],
     )
     method = StructuralComparisonMethod()
     assert method.select(None, cfg)[0].unit_key == value.identity
     result = method.run(
         (SimpleNamespace(ref=UnitRef(TaskUnitType.RUN, unit_key="run")),),
         cfg,
-        SimpleNamespace(check_active=lambda: None),
+        SimpleNamespace(
+            check_active=lambda: None,
+            reader=SimpleNamespace(
+                retained_source_contribution=lambda r: retained[r.contribution_id]
+            ),
+        ),
     )[0]
     assert result.structural_product is not None
     assert result.structural_product["kind"] == "qualified_comparison"
+    report = StructuralProductReport.model_validate(result.structural_product)
+    assert report.comparison is not None
+    action = report.comparison.dimensions[1]
+    assert action.outcome == "different_lexical_value"
+    assert action.left_group is not None and action.left_group.members[0].lexical_value == "hello"
+    assert action.right_group is not None and action.right_group.members[0].lexical_value == "world"
     assert method.select(None, StructuralComparisonConfig()) == ()

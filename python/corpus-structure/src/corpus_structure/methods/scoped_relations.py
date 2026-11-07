@@ -3,9 +3,9 @@
 import json
 import re
 from collections.abc import Iterable
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
@@ -27,7 +27,12 @@ from corpus_structure.semantic.source_contexts import (
     evidence_anchor,
     record_source_pin,
 )
-from corpus_structure.semantic.structural_products import StructuralInput, StructuralValue
+from corpus_structure.semantic.structural_products import (
+    RetainedStructuralRef,
+    StructuralInput,
+    StructuralProductReport,
+    StructuralValue,
+)
 
 
 class SourceWorkBinding(StructuralValue):
@@ -48,18 +53,23 @@ class ScopedRelationsConfig(StructuralValue):
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     formula_seconds: float = Field(default=0.5, gt=0)
     max_formula_chars: int = Field(default=2048, gt=0, strict=True)
+    classification_refs: tuple[RetainedStructuralRef, ...] = ()
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
         if self.interpretation_weight_scale not in (0.5, 1.0, 2.0):
             raise ValueError("table interpretation weight scale must be 0.5, 1, or 2")
         if self.inputs is None:
-            if self.structural_input_digest is not None:
+            if self.structural_input_digest is not None or self.classification_refs:
                 raise ValueError("original annotation inputs and digest must be supplied together")
         elif self.structural_input_digest != self.inputs.identity:
             raise ValueError(
                 "original annotation inputs require their exact structural input digest"
             )
+        elif len(set(self.classification_refs)) != len(self.classification_refs) or any(
+            ref.product_id not in self.inputs.dependencies for ref in self.classification_refs
+        ):
+            raise ValueError("classification requires distinct retained report dependencies")
         return self
 
 
@@ -274,6 +284,7 @@ def discover_relations(
     max_formula_chars=2048,
     predicate_version="2",
     inline_equations_enabled=False,
+    witnessed_links_enabled=False,
 ):
     """Return participants and relation candidates against actual detached source pieces.
 
@@ -379,8 +390,12 @@ def discover_relations(
         operation=op,
         *,
         witness=None,
+        extra_witnesses=(),
+        question=None,
     ):
-        extra = (witness["contribution_id"],) if witness is not None else ()
+        extra = tuple(row["contribution_id"] for row in extra_witnesses)
+        if witness is not None:
+            extra += (witness["contribution_id"],)
         deps = tuple(
             dict.fromkeys(
                 (
@@ -413,10 +428,11 @@ def discover_relations(
             component=dict(
                 protocol="witnessed-component-1",
                 kind="scoped_attachment",
-                question="source_structural_relations"
-                if operation == op
-                else "source_procedure_roles",
-                question_version="1" if operation == op else PROCEDURE_OPERATION_VERSION,
+                question=question
+                or ("source_structural_relations" if operation == op else "source_procedure_roles"),
+                question_version="1"
+                if operation == op or question
+                else PROCEDURE_OPERATION_VERSION,
                 scope=region,
                 interpretation=state,
                 bases=(
@@ -458,6 +474,7 @@ def discover_relations(
         )
         row["contribution_id"] = contribution_identity(row)
         products.append(row)
+        return row
 
     cell_rows = {}
     text_rows = []
@@ -969,6 +986,8 @@ def discover_relations(
         version=predicate_version,
     )
     inline_operations = ()
+    witnessed_operations = ()
+    formula_uses = []
     inline_emitted = 0
     if inline_equations_enabled:
         from .inline_formula_occurrences import (
@@ -1000,7 +1019,7 @@ def discover_relations(
                 formula_diagnostics.append(equation.diagnostic(outcome))
                 unavailable |= outcome != "parsed"
                 for symbol in symbols:
-                    participant(
+                    row = participant(
                         symbol.start,
                         symbol.end,
                         role="formula_symbol",
@@ -1009,6 +1028,7 @@ def discover_relations(
                         extra=INLINE_FORMULA_OCCURRENCE_FIELDS,
                         operation=inline_op,
                     )
+                    formula_uses.append((equation.pointer, symbol.start, symbol.end, row))
             inline_emitted = len(products) - prior_count
             inline_operations = (
                 dict(
@@ -1028,16 +1048,153 @@ def discover_relations(
                     ),
                 ),
             )
+    if witnessed_links_enabled:
+        from .witnessed_source_links import (
+            NAMED_QUESTION,
+            QUESTION,
+            VERSION,
+            named_source_links,
+            recapped_declarations,
+        )
+
+        selection = tuple(
+            (p.passage_id, p.start, p.end, p.effective_version) for p in passages or ()
+        )
+        witness_op = operation_identity(QUESTION, VERSION, pin, selection)
+        links = tuple(recapped_declarations(frame.text, source_pieces, items, passages))
+        prior = len(products)
+        for link in links:
+            uses = [
+                row
+                for pointer, start, end, row in formula_uses
+                if pointer == link.use_pointer
+                and link.equation[0] <= start < end <= link.equation[1]
+                and frame.text[start:end] == link.symbol
+            ]
+            declaration = participants.get(
+                (*link.declaration, "declaration", link.declaration_pointer, op, None)
+            )
+            if declaration is None:
+                continue
+            declarations = [
+                row
+                for row in products
+                if row["operation_key"] == op
+                and row["item_key"].startswith("declares:")
+                and row["members"][1] == declaration["contribution_id"]
+            ]
+            if len(declarations) != 1:
+                continue
+            if len(uses) != 1:
+                continue
+            cue = participant(
+                *link.recap,
+                role="declaration_recap",
+                pointer=link.use_pointer,
+                region=link.passage,
+                operation=witness_op,
+            )
+            target = participant(
+                *link.name,
+                role="declared_name",
+                pointer=link.declaration_pointer,
+                region=link.passage,
+                operation=witness_op,
+            )
+            relation(
+                uses[0],
+                target,
+                "declares",
+                link.scope,
+                "matched_cue",
+                operation=witness_op,
+                extra_witnesses=(cue, declarations[0]),
+                question=QUESTION,
+            )
+        if links:
+            witnessed_operations = (
+                dict(
+                    operation_key=witness_op,
+                    question=QUESTION,
+                    operation_version=VERSION,
+                    outcome="succeeded" if len(products) > prior else "empty",
+                    inspected_count=len(links),
+                    emitted_count=len(products) - prior,
+                    computation_dependencies=(dependency,),
+                ),
+            )
+        named = tuple(named_source_links(frame.text, source_pieces, items, passages))
+        if named:
+            named_op = operation_identity(NAMED_QUESTION, VERSION, pin, selection)
+            first = len(products)
+            limited = False
+            for link in named:
+                subject = participant(
+                    *link.left,
+                    role="named_link_subject",
+                    pointer=link.pointer,
+                    region=link.passage,
+                    extra={"resolution": link.resolution} if link.resolution else None,
+                    operation=named_op,
+                )
+                cue = participant(
+                    *link.cue,
+                    role="named_link_cue",
+                    pointer=link.pointer,
+                    region=link.passage,
+                    operation=named_op,
+                )
+                if link.right is None or link.target_pointer is None:
+                    limited = True
+                    continue
+                target = participant(
+                    *link.right,
+                    role="named_link_target",
+                    pointer=link.target_pointer,
+                    region=link.passage,
+                    operation=named_op,
+                )
+                relation(
+                    subject,
+                    target,
+                    link.kind,
+                    link.scope,
+                    "matched_cue",
+                    operation=named_op,
+                    witness=cue,
+                    question=NAMED_QUESTION,
+                )
+            witnessed_operations += (
+                dict(
+                    operation_key=named_op,
+                    question=NAMED_QUESTION,
+                    operation_version=VERSION,
+                    outcome="limited" if limited else "succeeded",
+                    inspected_count=len(named),
+                    emitted_count=len(products) - first,
+                    computation_dependencies=(dependency,),
+                    **(
+                        {"reason": "Some explicit references lack a unique selected target."}
+                        if limited
+                        else {}
+                    ),
+                ),
+            )
     return dict(
         contributions=tuple(products),
         coordinates=tuple(coordinates.values()),
-        extra_operations=(*extra_operations, *predicate_operations, *inline_operations),
+        extra_operations=(
+            *extra_operations,
+            *predicate_operations,
+            *inline_operations,
+            *witnessed_operations,
+        ),
         formula_diagnostics=tuple(formula_diagnostics),
         operation=dict(
             operation_key=op,
             question="source_structural_relations",
             operation_version="1",
-            outcome="succeeded" if len(products) > inline_emitted else "empty",
+            outcome="succeeded" if any(p["operation_key"] == op for p in products) else "empty",
             inspected_count=len(source_pieces),
             emitted_count=sum(p["operation_key"] == op for p in products),
             computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
@@ -1047,7 +1204,7 @@ def discover_relations(
 
 class ScopedRelationsMethod:
     name = "structure.scoped_relations"
-    version = "5"
+    version = "6"
     family = MethodFamily.RESOLVE
     tier = MethodTier.DETERMINISTIC
     unit_type = TaskUnitType.SOURCE_VIEW
@@ -1069,6 +1226,25 @@ class ScopedRelationsMethod:
 
     def run(self, units, cfg, ctx):
         results = []
+        classifications = [
+            (
+                ref,
+                StructuralProductReport.model_validate(
+                    ctx.reader.retained_structural_report(ref)["report"]
+                ),
+            )
+            for ref in cfg.classification_refs
+        ]
+
+        def resolve_frame(ref):
+            retained = ctx.reader.retained_source_contribution(ref)
+            (frame,) = [
+                row
+                for row in retained["contributions"]
+                if row["contribution_id"] == ref.contribution_id
+            ]
+            return frame
+
         for unit in units:
             ctx.check_active()
             view = ctx.reader.source_view(unit.ref.unit_id)
@@ -1153,6 +1329,7 @@ class ScopedRelationsMethod:
                 max_formula_chars=cfg.max_formula_chars,
                 predicate_version="3",
                 inline_equations_enabled=True,
+                witnessed_links_enabled=True,
             )
             from corpus_structure.methods.inline_formula_occurrences import INLINE_FORMULA_QUESTION
             from corpus_structure.methods.table_interpretation import table_policy_operations
@@ -1181,6 +1358,26 @@ class ScopedRelationsMethod:
                 mode=cfg.interpretation_mode,
                 weight_scale=cfg.interpretation_weight_scale,
             )
+            model_readings = []
+            if classifications:
+                from corpus_structure.methods.clause_classification import model_concordance
+
+                for ref, report in classifications:
+                    model_readings.extend(
+                        model_concordance(
+                            ref,
+                            report,
+                            view.ref.id,
+                            output["contributions"],
+                            resolve_frame,
+                        )
+                    )
+            parse_detail: dict[str, JsonValue] = {
+                "formula_syntax": list(output["formula_diagnostics"]),
+                "annotation_errors": list(annotation_errors),
+            }
+            if model_readings:
+                parse_detail["clause_model_concordance"] = cast(JsonValue, model_readings)
             results.append(
                 UnitResult(
                     ref=unit.ref,
@@ -1193,10 +1390,7 @@ class ScopedRelationsMethod:
                         *output["extra_operations"],
                         *interpretation,
                     ),
-                    parse_detail=dict(
-                        formula_syntax=list(output["formula_diagnostics"]),
-                        annotation_errors=list(annotation_errors),
-                    ),
+                    parse_detail=parse_detail,
                     contribution_coordinate_texts=output["coordinates"],
                 )
             )

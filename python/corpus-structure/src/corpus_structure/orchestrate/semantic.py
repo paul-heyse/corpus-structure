@@ -264,7 +264,7 @@ def run_source_methods(
         from importlib.metadata import version
 
         library_names = set()
-        if "structure.definition_components" in configs:
+        if set(configs) & {"structure.definition_components", "structure.clause_classification"}:
             library_names.update(
                 (
                     "gliner2",
@@ -282,9 +282,14 @@ def run_source_methods(
             from corpus_structure.ingest.pdf import pdf_package_versions
 
             native_libraries = dict(pdf_package_versions())
-        if set(configs) & {"extract.math", "normalize.formula"}:
+        if set(configs) & {
+            "extract.math",
+            "normalize.formula",
+            "structure.compare",
+            "structure.scoped_relations",
+        }:
             library_names.add("lark")
-        if "extract.m1_annotations" in configs:
+        if set(configs) & {"extract.m1_annotations", "structure.scoped_relations"}:
             library_names.update(("spacy", "en-core-web-sm"))
         if "resolve.symbol_scope" in configs:
             library_names.update(("spacy", "en-core-web-sm"))

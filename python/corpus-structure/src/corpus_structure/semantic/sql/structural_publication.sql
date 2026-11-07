@@ -38,9 +38,38 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION data.retained_definition_citations(jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION data.structural_public_clause_field(report jsonb,field_ jsonb)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+DECLARE result jsonb; witness jsonb;
+BEGIN
+ result:=jsonb_build_object('dimension',field_->>'dimension','lexical_value',field_->>'lexical_value',
+  'evidence',data.structural_citations(report,field_->'evidence'));
+ IF nullif(field_->'span','null') IS NOT NULL THEN
+  result:=result||jsonb_build_object('span',data.structural_citation(report,field_->'span'->>'passage_id')||((field_->'span')-'passage_id'));
+ END IF;
+ IF nullif(field_->'spans','null') IS NOT NULL THEN
+  result:=result||jsonb_build_object('spans',(SELECT jsonb_agg(data.structural_citation(report,v->>'passage_id')||(v-'passage_id') ORDER BY n)
+   FROM jsonb_array_elements(field_->'spans') WITH ORDINALITY x(v,n)));
+ END IF;
+ IF nullif(field_->'literal','null') IS NOT NULL THEN
+  result:=result||jsonb_build_object('literal',field_->'literal');
+ END IF;
+ IF nullif(field_->'condition','null') IS NOT NULL THEN
+  result:=result||jsonb_build_object('condition',field_->'condition');
+ END IF;
+ IF nullif(field_->'typed','null') IS NOT NULL THEN
+  result:=result||jsonb_build_object('typed',((field_->'typed')-ARRAY['span','basis_evidence'])||
+   jsonb_build_object('span',data.structural_citation(report,field_->'typed'->'span'->>'passage_id')||((field_->'typed'->'span')-'passage_id')));
+  witness:=nullif(field_->'typed'->'basis_evidence','null');
+  IF witness IS NOT NULL THEN result:=jsonb_set(result,ARRAY['typed','basis_evidence'],data.structural_citation(report,witness->>'passage_id')||(witness-'passage_id'));END IF;
+ END IF;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION data.structural_public_clause_field(jsonb,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION data.structural_public_statement(report jsonb,component_id text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb; witness jsonb;
+DECLARE result jsonb; value jsonb; items jsonb; item jsonb; side text; entry jsonb; witness jsonb; group_ jsonb;
 BEGIN
  result:=jsonb_build_object('version','structural-public-statement-3','kind',report->>'kind',
   'scope',report->'inputs'->>'scope',
@@ -70,14 +99,14 @@ BEGIN
    IF nullif(item->'added_interval','null') IS NOT NULL THEN entry:=entry||jsonb_build_object('added_interval',item->'added_interval');END IF;
    FOREACH side IN ARRAY ARRAY['left','right'] LOOP
     IF item->side IS NOT NULL AND item->side<>'null' THEN
-     entry:=entry||jsonb_build_object(side,jsonb_build_object('dimension',item->side->>'dimension',
-      'lexical_value',item->side->>'lexical_value','evidence',data.structural_citations(report,item->side->'evidence')));
-     IF nullif(item->side->'span','null') IS NOT NULL THEN entry:=jsonb_set(entry,ARRAY[side,'span'],data.structural_citation(report,item->side->'span'->>'passage_id')||((item->side->'span')-'passage_id'));END IF;
-     IF nullif(item->side->'typed','null') IS NOT NULL THEN
-      entry:=jsonb_set(entry,ARRAY[side,'typed'],((item->side->'typed')-ARRAY['span','basis_evidence'])||jsonb_build_object('span',data.structural_citation(report,item->side->'typed'->'span'->>'passage_id')||((item->side->'typed'->'span')-'passage_id')));
-      witness:=nullif(item->side->'typed'->'basis_evidence','null');
-      IF witness IS NOT NULL THEN entry:=jsonb_set(entry,ARRAY[side,'typed','basis_evidence'],data.structural_citation(report,witness->>'passage_id')||(witness-'passage_id'));END IF;
-     END IF;
+     entry:=entry||jsonb_build_object(side,data.structural_public_clause_field(report,item->side));
+    END IF;
+    group_:=nullif(item->(side||'_group'),'null');
+    IF group_ IS NOT NULL THEN
+     entry:=entry||jsonb_build_object(side||'_group',jsonb_strip_nulls(jsonb_build_object(
+      'state',group_->'state','grouping',group_->'grouping',
+      'members',(SELECT COALESCE(jsonb_agg(data.structural_public_clause_field(report,v) ORDER BY n),'[]') FROM jsonb_array_elements(group_->'members') WITH ORDINALITY x(v,n)),
+      'witnesses',(SELECT COALESCE(jsonb_agg(data.structural_citation(report,v->>'passage_id')||(v-'passage_id') ORDER BY n),'[]') FROM jsonb_array_elements(group_->'witnesses') WITH ORDINALITY x(v,n)))));
     END IF;
    END LOOP;
    items:=items||jsonb_build_array(entry);

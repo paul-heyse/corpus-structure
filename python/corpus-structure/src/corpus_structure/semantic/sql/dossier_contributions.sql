@@ -1,6 +1,26 @@
 
 -- Private batch assembly: authenticate each exact custody binding once; retain every root.
 -- No caller-supplied raw rows, persistent cache, database writes or application EXECUTE grant.
+CREATE OR REPLACE FUNCTION ops.retained_contribution_roots(row_map jsonb,root text)
+RETURNS SETOF text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT root
+ UNION ALL
+ SELECT candidate.key FROM jsonb_each(row_map) candidate
+ CROSS JOIN LATERAL (SELECT row_map->(row_map->root->'component'->>'frame')->'component' AS frame) host
+ WHERE row_map->root->'component'->>'kind'='predicate_reading'
+  AND (
+   (candidate.value->'component'->>'kind'='predicate_qualifier'
+    AND candidate.value->'component'->>'host_contribution_id'=row_map->root->'component'->>'frame')
+   OR
+   (candidate.value->'component'->>'kind'='predicate_cue'
+    AND candidate.value->'component'->>'host_state'='unresolved'
+    AND candidate.value->'component'->>'scope'=host.frame->>'scope'
+    AND candidate.value->'component'->>'annotation'=host.frame->>'annotation'
+    AND candidate.value->'component'->'candidate_tokens' @> jsonb_build_array(host.frame->'predicate_token'))
+  )
+$$;
+REVOKE ALL ON FUNCTION ops.retained_contribution_roots(jsonb,text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.resolve_retained_source_contributions(refs jsonb)
 RETURNS TABLE(reference jsonb,contributions jsonb,sources jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE binding record; selected record; ref jsonb; first_ref jsonb; field_ text;
@@ -52,7 +72,8 @@ BEGIN
   IF EXISTS(SELECT FROM jsonb_array_elements(binding.refs_) r WHERE NOT row_map ? (r->>'contribution_id')) THEN
    RAISE EXCEPTION 'retained contribution unavailable' USING ERRCODE='23514';END IF;
   WITH RECURSIVE closure(id) AS (
-   SELECT r->>'contribution_id' FROM jsonb_array_elements(binding.refs_) r
+   SELECT id FROM jsonb_array_elements(binding.refs_) r
+    CROSS JOIN LATERAL ops.retained_contribution_roots(row_map,r->>'contribution_id') id
    UNION SELECT ep.id FROM closure r CROSS JOIN LATERAL (
     SELECT e->>'contribution_id' id FROM jsonb_array_elements(COALESCE(row_map->r.id->'endpoints','[]')) e
     UNION SELECT jsonb_array_elements_text(COALESCE(row_map->r.id->'members','[]'))) ep)
@@ -74,7 +95,8 @@ BEGIN
     WHERE a->'pin' IS DISTINCT FROM r->'pin') THEN
    RAISE EXCEPTION 'retained contribution source pin differs' USING ERRCODE='23514';END IF;
   FOR ref IN SELECT value FROM jsonb_array_elements(binding.refs_) LOOP
-   WITH RECURSIVE closure(id) AS (SELECT ref->>'contribution_id' UNION
+   WITH RECURSIVE closure(id) AS (
+    SELECT id FROM ops.retained_contribution_roots(row_map,ref->>'contribution_id') id UNION
     SELECT ep.id FROM closure r CROSS JOIN LATERAL (
      SELECT e->>'contribution_id' id FROM jsonb_array_elements(COALESCE(row_map->r.id->'endpoints','[]')) e
      UNION SELECT jsonb_array_elements_text(COALESCE(row_map->r.id->'members','[]'))) ep)

@@ -108,10 +108,14 @@ def _contract_row(prepared):
 
 
 def _structural_predecessors(report):
+    if report.clause_classification is not None:
+        return (), tuple(row.selection.frame for row in report.clause_classification.readings)
     if report.dossier is not None:
         return report.dossier.predecessors, report.dossier.contribution_predecessors
     if report.artifact_identity is not None:
         return (), tuple(n.relationship for n in report.artifact_identity.external_nominations)
+    if report.comparison is not None and report.comparison.left_reading is not None:
+        return (), (report.comparison.left_reading, report.comparison.right_reading)
     return (), ()
 
 
@@ -377,7 +381,9 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                             assessment_id=assertion["assertion_id"], statement=statement
                         )
                 if selection.completeness == "selected_source_closure" and (
-                    report.dossier or report.artifact_identity
+                    report.dossier
+                    or report.artifact_identity
+                    or (report.comparison and report.comparison.left_reading)
                 ):
                     from corpus_structure.semantic.operations import BoundReader
                     from corpus_structure.semantic.retained_contributions import (
@@ -575,13 +581,21 @@ def _item_source_ids(value: Any) -> set[int]:
 def _report_source_ids(body: Any) -> set[int]:
     if not isinstance(body, dict):
         return set()
-    return set().union(
+    source_ids = set().union(
         *(
             _item_source_ids(item)
             for field in ("records", "contributions")
             for item in body.get(field, ())
         )
     )
+    structural = body.get("structural_product") or {}
+    if structural.get("kind") == "definition_components":
+        source_ids.update(
+            s["source_view_id"]
+            for s in (structural.get("inputs") or {}).get("sources", ())
+            if type(s.get("source_view_id")) is int
+        )
+    return source_ids
 
 
 def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
@@ -596,7 +610,17 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
             for op in body.get("contribution_operations", ())
             if "annotation_origin_task_id" in op
             and op.get("question") in {"source_predicate_frames", "source_predicate_interpretation"}
+        ) + tuple(
+            ref["origin_task_id"] for ref in report["configuration"].get("classification_refs", ())
         )
+    elif report.get("method") == "structure.clause_classification":
+        values = tuple(
+            focus["frame"]["origin_task_id"] for focus in report["configuration"]["focuses"]
+        )
+    elif report.get("method") == "retrieve.contextual":
+        from .contextual_witness_replay import witness_origin_ids
+
+        values = witness_origin_ids(report.get("body") or {}, report["configuration"])
     else:
         return set()
     if any(type(value) is not int or value <= 0 for value in values):
@@ -1199,6 +1223,7 @@ def _detached_relation(root, manifest, name):
 
 def _retained_contribution_payloads(root, manifest, requested, scopes, inventory):
     """Read exact selected raw provenance and endpoint closure once for dependent products."""
+    from corpus_structure.methods.structural_products import comparison_host_evidence
     from corpus_structure.semantic.contributions import contribution_identity
 
     if not requested:
@@ -1253,6 +1278,15 @@ def _retained_contribution_payloads(root, manifest, requested, scopes, inventory
             )
         available = {row["contribution_id"]: row for row in raw["body"].get("contributions", ())}
         closure, pending = {}, [reference.contribution_id]
+        component = available.get(reference.contribution_id, {}).get("component", {})
+        if component.get("kind") == "predicate_reading":
+            frame_id = component["frame"]
+            frame = available.get(frame_id, {}).get("component", {})
+            pending.extend(
+                key
+                for key, row in available.items()
+                if comparison_host_evidence(row.get("component", {}), frame, frame_id)
+            )
         while pending:
             key = pending.pop()
             if key in closure:
@@ -1289,6 +1323,102 @@ def _retained_contribution_payloads(root, manifest, requested, scopes, inventory
             contributions=list(closure.values()),
             sources=[sources[key] for key in sorted(source_ids)],
         )
+
+
+def _verify_comparison_closure(root, manifest, products, structural_scopes, scopes, inventory):
+    from corpus_structure.core.evidence import config_key
+    from corpus_structure.methods.structural_products import (
+        StructuralComparisonConfig,
+        StructuralComparisonMethod,
+        compare_clauses,
+        read_retained_clause,
+    )
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    origins = {item[2] for item in products}
+    captured = {}
+    for raw in _detached_relation(root, manifest, "reports"):
+        origin = raw["origin_task_id"]
+        if (
+            origin in origins
+            and (raw.get("body") or {}).get("method") == StructuralComparisonMethod.name
+        ):
+            if origin in captured:
+                raise ValueError("comparison producer raw result repeats")
+            captured[origin] = raw
+
+    reports = []
+    for index, _selected, origin, origin_run, origin_project, runtime, report in products:
+        comparison = report.comparison
+        raw = captured.get(origin)
+        if comparison is None and raw is None:
+            continue
+        if raw is None or comparison is None:
+            raise ValueError("comparison lacks its exact registered producer result")
+        body = raw["body"]
+        config = raw.get("configuration")
+        version = body.get("operation_version")
+        if (
+            not isinstance(config, dict)
+            or version not in {"2", StructuralComparisonMethod.version}
+            or raw.get("project_id") != origin_project
+            or raw.get("origin_run_id") != origin_run
+            or raw.get("runtime_fingerprint") != runtime
+            or body.get("release_id") != structural_scopes[index]["release_id"]
+            or body.get("outcome") != "produced"
+            or body.get("configuration_hash")
+            != config_key(StructuralComparisonMethod.name, version, config)
+            or body.get("configuration_hash") != raw.get("config_hash")
+            or not raw.get("input_hash")
+            or body.get("input_hash") != raw["input_hash"]
+            or StructuralProductReport.model_validate(body.get("structural_product")) != report
+        ):
+            raise ValueError("comparison differs from its registered producer result")
+        if version == "2":
+            if comparison.left_reading is not None or (
+                {"left_reading", "right_reading"} & config.keys()
+            ):
+                raise ValueError("archived singleton comparison has a current reading binding")
+            continue
+        configured = StructuralComparisonConfig.model_validate(config)
+        if (
+            comparison.left_reading is None
+            or comparison.right_reading is None
+            or configured.inputs != report.inputs
+            or configured.left_id != comparison.left_id
+            or configured.right_id != comparison.right_id
+            or configured.left_reading != comparison.left_reading
+            or configured.right_reading != comparison.right_reading
+        ):
+            raise ValueError("comparison differs from its registered predicate readings")
+        reports.append(report)
+
+    requests = [
+        (report, reference)
+        for report in reports
+        for reference in (report.comparison.left_reading, report.comparison.right_reading)
+    ]
+    payloads = _retained_contribution_payloads(root, manifest, requests, scopes, inventory)
+    for report, (left_payload, right_payload) in zip(
+        reports, zip(payloads, payloads, strict=True), strict=True
+    ):
+        comparison = report.comparison
+        passages = {passage.passage_id: passage for passage in report.inputs.passages}
+        sources = {source.identity: source for source in report.inputs.sources}
+        left, right = passages[comparison.left_id], passages[comparison.right_id]
+        expected = compare_clauses(
+            report.inputs,
+            left=read_retained_clause(
+                left, sources[left.source_ref], comparison.left_reading, left_payload
+            ),
+            right=read_retained_clause(
+                right, sources[right.source_ref], comparison.right_reading, right_payload
+            ),
+            left_reading=comparison.left_reading,
+            right_reading=comparison.right_reading,
+        )
+        if comparison != expected.comparison:
+            raise ValueError("comparison differs from its exact retained predicate evidence")
 
 
 def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
@@ -1495,7 +1625,7 @@ def _verify_predicate_closure(root, manifest):
             max_pieces=max(1, len(view.pieces)),
         )
         method_version = row["body"].get("operation_version")
-        version = {"4": "2", "5": "3"}.get(method_version)
+        version = {"4": "2", "5": "3", "6": "3"}.get(method_version)
         if version is None or {
             op["operation_version"]
             for op in row["body"].get("contribution_operations", ())
@@ -1854,9 +1984,20 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
         raise ValueError("public structural witness has no selected product")
     if selection.completeness == "selected_source_closure":
         from .inline_formula_replay import verify_inline_formula_closure
+        from .model_observation_replay import (
+            verify_model_concordance_closure,
+            verify_model_observation_closure,
+        )
 
         _verify_predicate_closure(root, manifest)
         verify_inline_formula_closure(root, manifest)
+        from .contextual_witness_replay import verify_contextual_witness_closure
+
+        verify_contextual_witness_closure(root, manifest)
+        verify_model_observation_closure(
+            root, manifest, structural_products, contribution_scopes, contribution_inventory
+        )
+        verify_model_concordance_closure(root, manifest)
         if not required_contracts <= captured_contracts:
             raise ValueError("structural release contracts are missing")
         if any(index not in structural_scopes for index, _ in structural_members):
@@ -1886,6 +2027,15 @@ def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedRe
                 root,
                 manifest,
                 artifacts,
+                structural_scopes,
+                contribution_scopes,
+                contribution_inventory,
+            )
+        if structural_products:
+            _verify_comparison_closure(
+                root,
+                manifest,
+                structural_products,
                 structural_scopes,
                 contribution_scopes,
                 contribution_inventory,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from dataclasses import asdict
 from typing import Literal
@@ -23,7 +24,11 @@ from corpus_structure.semantic.contextual_registry import (
     ExtractedComponentTarget,
     component_target_input,
 )
-from corpus_structure.semantic.contextual_retrieval import freeze_inventory
+from corpus_structure.semantic.contextual_retrieval import (
+    ChannelHit,
+    freeze_inventory,
+    fuse_candidates,
+)
 from corpus_structure.semantic.contextual_storage import enrichment_report
 from corpus_structure.semantic.contributions import (
     contribution_identity,
@@ -226,6 +231,27 @@ def coincident_component_terms(frame, view, semantic_targets, pin):
     return by_occurrence
 
 
+def explicit_definition_section(product, nodes):
+    """Read the exact source marker immediately preceding this selected occurrence."""
+    if len(product["anchors"]) != 1:
+        return None
+    value = source_python(product["value"])
+    if value.get("producer_semantic_type") != "structural.located_participant" or (
+        source_python(value["producer_value"]).get("role") != "named_link_subject"
+    ):
+        return None
+    (anchor,) = product["anchors"]
+    if anchor["precision"] != "exact":
+        return None
+    reference = re.fullmatch(r"Section ([0-9]+(?:\.[0-9]+)+)", anchor["source_piece"])
+    if reference is None:
+        return None
+    original = nodes[anchor["pointer"]]["text"]
+    if not re.search(r"\b[Aa]s defined in $", original[: anchor["start"]]):
+        return None
+    return reference[1]
+
+
 class ProducerRelationshipRecipe(BaseModel):
     """Domain-authored mapping from named producer roles to a scoped relationship."""
 
@@ -385,7 +411,7 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
 
 class ContextualCandidates:
     name = "retrieve.contextual"
-    version = "5"
+    version = "6"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.ENCODER
@@ -424,7 +450,6 @@ class ContextualCandidates:
 
     def run(self, units, cfg, ctx):
         profile = E5 if cfg.profile == "e5" else QWEN
-        verify_encoder_implementation(profile)
         semantic_targets = ctx.reader.component_semantic_targets(cfg.target_components)
         registry_id, targets = component_target_input(cfg.target_components)
         inventory = freeze_inventory(
@@ -465,43 +490,71 @@ class ContextualCandidates:
                 if any("denotes" in c.relation_kinds for c in cfg.relationship_constraints)
                 else {}
             )
+            section_mentions = {}
+            section_targets = defaultdict(list)
+            if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
+                for product in source_products:
+                    section = explicit_definition_section(product, nodes)
+                    if section is not None:
+                        section_mentions.setdefault(product["occurrence_id"], (section, []))[
+                            1
+                        ].append(product)
+                if section_mentions:
+                    for target in cfg.target_components:
+                        reference = target.authenticated_reference()
+                        if reference.component_id not in inventory.target_ids:
+                            continue
+                        code = ctx.reader.retained_component_section(
+                            reference, pin["product_digest"]
+                        )
+                        if code is not None:
+                            section_targets[code].append(reference)
             products = list(source_products)
             inputs = [
                 ContextInput(occurrence, frame.unit_ref, "query", mention, text, start, end)
                 for occurrence, (text, start, end, mention) in contexts.items()
             ]
-            if len(inputs) + len(targets) > profile.max_items:
-                raise ValueError("contextual combined input population exceeds encoder bound")
-            cached = ctx.reader.cached_contextual_vectors(
-                profile_id=profile.profile_id, targets=inventory.targets
-            )
-            for target in inventory.targets:
-                text = target.label + "\n" + target.description
-                inputs.append(
-                    ContextInput(
-                        target.target_id,
-                        target.source_binding,
-                        "document",
-                        target.label,
-                        text,
-                        0,
-                        len(target.label),
-                        parent=target.parent or "",
-                        heading=("Aliases: " + ", ".join(target.aliases)) if target.aliases else "",
-                        type_name=target.type_name,
-                        representation_digest=target.representation_digest,
-                    )
+            encoder_error = None
+            try:
+                verify_encoder_implementation(profile)
+                if len(inputs) + len(targets) > profile.max_items:
+                    raise ValueError("contextual combined input population exceeds encoder bound")
+                cached = ctx.reader.cached_contextual_vectors(
+                    profile_id=profile.profile_id, targets=inventory.targets
                 )
-            encoded = encode_contexts(
-                inputs,
-                profile,
-                check_active=ctx.check_active,
-                cached_vectors=tuple(item.vector for item in cached),
-            )
-            cached = tuple(
-                item for item in cached if item.vector.vector_id in encoded.reused_vector_ids
-            )
-            all_vectors = (*encoded.vectors, *(item.vector for item in cached))
+                for target in inventory.targets:
+                    text = target.label + "\n" + target.description
+                    inputs.append(
+                        ContextInput(
+                            target.target_id,
+                            target.source_binding,
+                            "document",
+                            target.label,
+                            text,
+                            0,
+                            len(target.label),
+                            parent=target.parent or "",
+                            heading=("Aliases: " + ", ".join(target.aliases))
+                            if target.aliases
+                            else "",
+                            type_name=target.type_name,
+                            representation_digest=target.representation_digest,
+                        )
+                    )
+                encoded = encode_contexts(
+                    inputs,
+                    profile,
+                    check_active=ctx.check_active,
+                    cached_vectors=tuple(item.vector for item in cached),
+                )
+                cached = tuple(
+                    item for item in cached if item.vector.vector_id in encoded.reused_vector_ids
+                )
+                all_vectors = (*encoded.vectors, *(item.vector for item in cached))
+            except (ValueError, DBAPIError, RuntimeError, TimeoutError, OSError) as error:
+                _propagate_cancellation(error, ctx.check_active)
+                encoder_error = error
+                encoded, cached, all_vectors = None, (), ()
             vectors = {v.object_id: v for v in all_vectors}
             target_vectors = tuple(v for v in all_vectors if v.object_id in inventory.target_ids)
             lists, decisions, phases = [], [], []
@@ -526,23 +579,84 @@ class ContextualCandidates:
                 )
             for occurrence, (_text, _start, _end, mention) in contexts.items():
                 ctx.check_active()
+                query = vectors.get(occurrence)
                 dependencies = (
-                    vectors[occurrence].vector_id,
-                    inventory.inventory_id,
-                    profile.profile_id,
+                    (query.vector_id, inventory.inventory_id, profile.profile_id)
+                    if query is not None
+                    else (inventory.inventory_id,)
                 )
                 try:
-                    candidate_list = ctx.reader.contextual_candidates(
+                    exact_witnesses = ()
+                    if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
+                        exact_witnesses += retained_definition_witnesses(
+                            upstream,
+                            source_products,
+                            occurrence,
+                            inventory,
+                            set(inventory.target_ids),
+                            frame.unit_ref,
+                            cfg.scope,
+                            cfg.effective_version,
+                        )
+                    if occurrence in section_mentions:
+                        code, carriers = section_mentions[occurrence]
+                        exact_witnesses += tuple(
+                            RelationshipWitness(
+                                "section-definition:"
+                                + operation_identity(
+                                    product["contribution_id"], reference.identity, code
+                                ),
+                                occurrence,
+                                reference.component_id,
+                                "defined-by",
+                                frame.unit_ref,
+                                cfg.scope,
+                                cfg.effective_version,
+                                (product["contribution_id"],),
+                                "explicit_source_cue",
+                                "unassessed",
+                            )
+                            for reference in section_targets[code]
+                            for product in carriers
+                        )
+                    retrieval_error = encoder_error
+                    channels = {}
+                    if query is not None:
+                        try:
+                            exploratory = ctx.reader.contextual_candidates(
+                                occurrence_id=occurrence,
+                                query=query,
+                                inventory=inventory,
+                                target_vectors=target_vectors,
+                                lexical_query=mention,
+                                dimension=profile.dimension,
+                                budget=cfg.unique_target_budget,
+                                channel_budget=cfg.channel_budget,
+                            )
+                            channels = {c.channel: c.hits for c in exploratory.channel_results}
+                        except (ValueError, DBAPIError, TimeoutError, OSError) as error:
+                            _propagate_cancellation(error, ctx.check_active)
+                            retrieval_error = error
+                    if retrieval_error is not None and not exact_witnesses:
+                        raise retrieval_error
+                    if exact_witnesses:
+                        evidence = defaultdict(set)
+                        for witness in exact_witnesses:
+                            evidence[witness.target_id].update(witness.evidence_ids)
+                        channels["witness"] = tuple(
+                            ChannelHit(target_id, 1.0, tuple(sorted(evidence[target_id])))
+                            for target_id in sorted(evidence)
+                        )
+                    candidate_list = fuse_candidates(
                         occurrence_id=occurrence,
-                        query=vectors[occurrence],
+                        query=query if retrieval_error is None else None,
                         inventory=inventory,
-                        target_vectors=target_vectors,
-                        lexical_query=mention,
-                        dimension=profile.dimension,
+                        channels=channels,
                         budget=cfg.unique_target_budget,
                         channel_budget=cfg.channel_budget,
+                        lexical_query=mention,
                     )
-                except (ValueError, DBAPIError, TimeoutError, OSError) as error:
+                except (ValueError, DBAPIError, RuntimeError, TimeoutError, OSError) as error:
                     _propagate_cancellation(error, ctx.check_active)
                     phases.append(
                         _phase_operation(
@@ -556,19 +670,22 @@ class ContextualCandidates:
                     )
                     continue
                 lists.append(candidate_list)
-                phases.append(
-                    _phase_operation(
-                        "candidate retrieval",
-                        occurrence,
-                        dependencies,
-                        result_id=candidate_list.list_id,
-                    )
+                phase = _phase_operation(
+                    "candidate retrieval",
+                    occurrence,
+                    dependencies,
+                    result_id=candidate_list.list_id,
+                    error=retrieval_error,
                 )
+                if retrieval_error is not None:
+                    phase["outcome"] = "limited"
+                    phase["reason"] = (
+                        "Exploratory retrieval unavailable. " + str(phase["reason"])[:730]
+                    )
+                phases.append(phase)
                 try:
                     available = {c.target_id for c in candidate_list.candidates}
-                    # Labels rank candidates. Only located producer relationships
-                    # supply a witness for selecting an edge.
-                    witnesses = producer_relationship_witnesses(
+                    witnesses = exact_witnesses + producer_relationship_witnesses(
                         upstream,
                         source_products,
                         occurrence,
@@ -598,17 +715,6 @@ class ContextualCandidates:
                         for target_id in own_terms.get(occurrence, ())
                         if target_id in available
                     )
-                    if any("defined-by" in c.relation_kinds for c in cfg.relationship_constraints):
-                        witnesses += retained_definition_witnesses(
-                            upstream,
-                            source_products,
-                            occurrence,
-                            inventory,
-                            available,
-                            frame.unit_ref,
-                            cfg.scope,
-                            cfg.effective_version,
-                        )
                     decision = select_relationships(
                         candidates=candidate_list,
                         inventory=inventory,
@@ -617,7 +723,13 @@ class ContextualCandidates:
                         effective_version=cfg.effective_version,
                         constraints=cfg.relationship_constraints,
                         witnesses=witnesses,
-                        insufficient_reason="no source-grounded relationship witness",
+                        insufficient_reason=(
+                            "explicit definition section is outside the represented "
+                            "target inventory"
+                            if occurrence in section_mentions
+                            and not section_targets[section_mentions[occurrence][0]]
+                            else "no source-grounded relationship witness"
+                        ),
                     )
                 except (ValueError, TimeoutError, OSError) as error:
                     _propagate_cancellation(error, ctx.check_active)
@@ -651,7 +763,7 @@ class ContextualCandidates:
                 ) or (candidate_list.list_id,)
                 phases.append(phase)
             report = enrichment_report(
-                profiles=(profile,),
+                profiles=(profile,) if encoded is not None else (),
                 vectors=all_vectors,
                 inventories=(inventory,),
                 candidate_lists=lists,
@@ -663,7 +775,7 @@ class ContextualCandidates:
                 operation_key=operation_key,
                 question="retained producer occurrence roles and contextual encoder products",
                 operation_version=self.version,
-                outcome="succeeded",
+                outcome="succeeded" if encoder_error is None else "limited",
                 inspected_count=len(source_products),
                 emitted_count=len(source_products),
                 contextual_enrichment=report,
@@ -685,10 +797,12 @@ class ContextualCandidates:
                             dict(
                                 input_population="retained-producer-occurrences-1",
                                 target_standing="retained_component_private_proposal",
-                                encoder_implementation=encoded.implementation,
-                                fresh_vector_count=len(encoded.vectors),
+                                encoder_implementation=encoded.implementation if encoded else None,
+                                fresh_vector_count=len(encoded.vectors) if encoded else 0,
                                 reused_vector_count=len(cached),
-                                encoder_inputs=[asdict(i) for i in encoded.inputs],
+                                encoder_inputs=[asdict(i) for i in encoded.inputs]
+                                if encoded
+                                else [],
                             )
                         )
                     ),

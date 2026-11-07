@@ -126,11 +126,15 @@ def enrichment_report(
         raise ValueError("duplicate contextual candidate list")
     for candidate_list in candidate_lists:
         inventory = inventory_map.get(candidate_list.inventory_id)
-        vector = vector_map.get(candidate_list.query_vector_id)
-        if inventory is None or vector is None or vector.profile_id != candidate_list.profile_id:
+        vector_id = candidate_list.query_vector_id
+        vector = vector_map.get(vector_id) if vector_id is not None else None
+        if inventory is None or (vector_id is not None and vector is None):
             raise ValueError("candidate list has unavailable inventory or query vector")
-        if vector.object_id != candidate_list.occurrence_id:
-            raise ValueError("candidate query vector belongs to another occurrence")
+        if vector is not None and (
+            vector.object_id != candidate_list.occurrence_id
+            or vector.profile_id != candidate_list.profile_id
+        ):
+            raise ValueError("candidate query vector differs from selected occurrence/profile")
         channels = {c.channel: c.hits for c in candidate_list.channel_results}
         if len(channels) != len(candidate_list.channel_results):
             raise ValueError("duplicate candidate channel")

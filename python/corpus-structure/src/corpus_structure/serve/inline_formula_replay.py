@@ -67,6 +67,11 @@ def verify_inline_formula_report(report, source):
         d for d in detail["formula_syntax"] if d.get("input_policy") == INLINE_FORMULA_POLICY
     ]
     actual = [row for row in body["contributions"] if row["operation_key"] == op_key]
+    if body.get("operation_version") == "6":
+        from .witnessed_source_link_replay import verify_named_links, verify_witnessed_links
+
+        verify_witnessed_links(report, source, pin, cfg.inputs)
+        verify_named_links(report, source, pin, cfg.inputs)
     if not equations and not operations and not diagnostics and not actual:
         return
     if len(operations) != 1 or len(equations) != len(diagnostics) or not equations:
@@ -111,11 +116,22 @@ def verify_inline_formula_report(report, source):
     if op["outcome"] != outcome or len(expected) != len(actual):
         raise ValueError("inline formula operation differs from replayed syntax")
 
+    from corpus_structure.methods.witnessed_source_links import QUESTION
+
+    witnessed_ops = (
+        {
+            op["operation_key"]
+            for op in body["contribution_operations"]
+            if op["question"] == QUESTION
+        }
+        if body.get("operation_version") == "6"
+        else set()
+    )
     formula_ids = {row["contribution_id"] for row in actual}
     if formula_ids and any(
         endpoint["contribution_id"] in formula_ids
         for row in body["contributions"]
-        if row["kind"] == "relation"
+        if row["kind"] == "relation" and row.get("operation_key") not in witnessed_ops
         for endpoint in row["endpoints"]
     ):
         raise ValueError("inline formula occurrence must remain syntax-only evidence")
@@ -170,7 +186,7 @@ def verify_inline_formula_closure(root, manifest):
         row
         for row in _detached_relation(root, manifest, "reports")
         if row.get("method") == "structure.scoped_relations"
-        and (row.get("body") or {}).get("operation_version") == "5"
+        and (row.get("body") or {}).get("operation_version") in {"5", "6"}
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}
     ]
     if not reports:

@@ -30,6 +30,7 @@ from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionComponentsProduct,
     DefinitionProduct,
+    DefinitionRoleCandidate,
     DefinitionStage,
     LocatedDefinitionComponent,
     LocatedDefinitionSpan,
@@ -57,6 +58,8 @@ class DefinitionComponentsConfig(StructuralValue):
     content_entity: str = Field(default="defining text or formula", min_length=1)
     attachment_relation: str = Field(default="term is defined or explained by", min_length=1)
     threshold: float = Field(default=0.5, gt=0, lt=1)
+    description_arm: Literal["bare", "described"] = "bare"
+    evaluation_overlap: Literal["flat", "nested", "allow"] | None = None
     term_role: str = Field(default="defined_term", min_length=1)
     content_role: str = Field(default="defining_content", min_length=1)
     use_named_candidates: bool = True
@@ -79,6 +82,10 @@ class DefinitionComponentsConfig(StructuralValue):
             raise ValueError(
                 "linguistic-only extraction requires named candidates and no model profile"
             )
+        if not self.use_model and (
+            self.description_arm != "bare" or self.evaluation_overlap is not None
+        ):
+            raise ValueError("model experiments require enabled model extraction")
         passages = {p.passage_id for p in self.inputs.passages}
         if (
             not self.target_ids
@@ -92,10 +99,29 @@ class DefinitionComponentsConfig(StructuralValue):
 
 
 def definition_pack(release: str, cfg: DefinitionComponentsConfig) -> GlinerPack:
+    entities: list[str] | dict[str, str] = [cfg.term_entity, cfg.content_entity]
+    relations: list[str] | dict[str, str] = [cfg.attachment_relation]
+    if cfg.description_arm == "described":
+        entities = {
+            cfg.term_entity: (
+                "The exact term or expression whose meaning is stated, distinct from "
+                "neighboring examples, subjects of historical reports, and incidental symbols."
+            ),
+            cfg.content_entity: (
+                "The complete text or formula conveying that meaning, including complements "
+                "and restrictions needed to state it."
+            ),
+        }
+        relations = {
+            cfg.attachment_relation: (
+                "Directed from the exact term occurrence to the text or formula that defines "
+                "or explains that occurrence in its local scope."
+            ),
+        }
     return GlinerPack.from_declaration(
         release,
         {
-            "entities": [cfg.term_entity, cfg.content_entity],
+            "entities": entities,
             "entity_attributes": {
                 "interpretation": {
                     "labels": ["definition", "explanation", "unresolved"],
@@ -103,7 +129,7 @@ def definition_pack(release: str, cfg: DefinitionComponentsConfig) -> GlinerPack
                     "qualify_labels": True,
                 }
             },
-            "relations": [cfg.attachment_relation],
+            "relations": relations,
         },
         version="native-local-v1",
     )
@@ -156,6 +182,9 @@ def decode_definition_components(
         )
 
     entities = raw["entities"]
+    relations = raw["relation_extraction"].get(cfg.attachment_relation, [])
+    if not isinstance(relations, list):
+        raise GlinerRefused("declared definition attachment channel is not a candidate list")
     term_spans = {}
     for index, term in enumerate(entities.get(cfg.term_entity, ())):
         try:
@@ -176,7 +205,7 @@ def decode_definition_components(
         except ValueError as error:
             rejected("content", index, error)
     components = {}
-    for index, relation in enumerate(raw["relation_extraction"].get(cfg.attachment_relation, ())):
+    for index, relation in enumerate(relations):
         try:
             if not isinstance(relation, dict):
                 raise GlinerRefused("attachment has no located endpoints")
@@ -206,17 +235,48 @@ def decode_definition_components(
     return tuple(components[key] for key in sorted(components))
 
 
-def located_entity_count(raw, passage, cfg):
-    """Count actual source-validated entity proposals independently of attachments."""
+def located_definition_roles(raw, passage, cfg, *, envelope, errors=None):
+    """Read each authenticated entity candidate independently of its group and relation."""
     if not isinstance(raw, dict) or not isinstance(raw.get("entities"), dict):
         raise GlinerRefused("located extraction returned no declared entity channel")
-    located = set()
-    for role, values in raw["entities"].items():
-        if role not in {cfg.term_entity, cfg.content_entity} or not isinstance(values, list):
-            raise GlinerRefused("located extraction returned an undeclared entity population")
-        for value in values:
-            located.add((role, _located(passage, value).identity))
-    return len(located)
+    entities = raw["entities"]
+    if set(entities) - {cfg.term_entity, cfg.content_entity} or any(
+        not isinstance(values, list) for values in entities.values()
+    ):
+        raise GlinerRefused("located extraction returned an undeclared entity population")
+    candidates = []
+    for role, channel in (("term", cfg.term_entity), ("content", cfg.content_entity)):
+        for index, value in enumerate(entities.get(channel, ())):
+            try:
+                span = _located(passage, value)
+            except GlinerRefused as error:
+                if errors is None:
+                    raise
+                errors.append(
+                    dict(channel=role, index=index, type=type(error).__name__, reason=str(error))
+                )
+                continue
+            candidates.append(
+                DefinitionRoleCandidate(
+                    role=role,
+                    span=span,
+                    window_start=passage.start,
+                    window_end=passage.end,
+                    envelope=envelope,
+                    index=index,
+                )
+            )
+    return tuple(candidates)
+
+
+def located_entity_count(raw, passage, cfg):
+    """Count distinct exact proposals without requiring attachment or interpretation."""
+    return len(
+        {
+            (r.role, r.span.identity)
+            for r in located_definition_roles(raw, passage, cfg, envelope="count")
+        }
+    )
 
 
 type DefinitionDisposition = Literal[
@@ -791,7 +851,7 @@ def definition_windows(passage: StructuralPassage, cfg: DefinitionComponentsConf
 
 class DefinitionComponentsMethod:
     name = "structure.definition_components"
-    version = "7"
+    version = "8"
     family = MethodFamily.RESOLVE
     unit_type = TaskUnitType.RUN
     tier = MethodTier.ENCODER
@@ -832,6 +892,7 @@ class DefinitionComponentsMethod:
                 raise GlinerRefused("definition worker cannot switch model profile")
         passages = {p.passage_id: p for p in cfg.inputs.passages}
         components, stages, raw_reports = [], [], []
+        role_candidates = []
         named_rule_operations = []
         annotation_sources = {}
         if cfg.use_named_candidates and cfg.annotation_rules:
@@ -900,7 +961,8 @@ class DefinitionComponentsMethod:
                         pack,
                         (request,),
                         threshold=cfg.threshold,
-                        overlap_policy="flat",
+                        overlap_policy=cfg.evaluation_overlap or "flat",
+                        **({"evaluation": True} if cfg.evaluation_overlap is not None else {}),
                         check_active=ctx.check_active,
                     )
                     raw_reports.append(
@@ -911,7 +973,12 @@ class DefinitionComponentsMethod:
                             **asdict(reply),
                         )
                     )
-                    locations = located_entity_count(reply.raw, window, cfg)
+                    role_errors: list[dict[str, JsonValue]] = []
+                    roles = located_definition_roles(
+                        reply.raw, window, cfg, envelope=reply.computation, errors=role_errors
+                    )
+                    role_candidates.extend(roles)
+                    locations = len({(r.role, r.span.identity) for r in roles})
                 except (
                     GlinerRefused,
                     GlinerWorkerError,
@@ -943,11 +1010,12 @@ class DefinitionComponentsMethod:
                     )
                     continue
                 raw_reports[-1]["located_proposal_count"] = locations
+                raw_reports[-1]["role_errors"] = role_errors
                 stages.append(
                     DefinitionStage(
                         passage_id=passage_id,
                         operation="located_extraction",
-                        outcome="succeeded" if locations else "empty",
+                        outcome="failed" if role_errors else "succeeded" if locations else "empty",
                         reason=(
                             f"Window {window.start}:{window.end}: {locations} "
                             "source-validated entity proposals retained; "
@@ -1012,7 +1080,9 @@ class DefinitionComponentsMethod:
             kind="definition_components",
             inputs=cfg.inputs,
             definition_components=DefinitionComponentsProduct(
-                components=tuple(components), stages=tuple(stages)
+                components=tuple(components),
+                stages=tuple(stages),
+                role_candidates=tuple(role_candidates),
             ),
         )
         detail = (
@@ -1020,7 +1090,7 @@ class DefinitionComponentsMethod:
             .model_validate_json(
                 canonical_bytes(
                     dict(
-                        version="located-definition-extraction-2",
+                        version="located-definition-extraction-3",
                         predicate_frame_version=PREDICATE_FRAME_VERSION,
                         raw_reports=raw_reports,
                         named_rule_operations=named_rule_operations,
@@ -1037,6 +1107,8 @@ class DefinitionComponentsMethod:
                         schema_declaration=pack.declaration_json if pack else None,
                         profile_fingerprint=cfg.profile.fingerprint if cfg.profile else None,
                         profile=cfg.model_dump(mode="json")["profile"],
+                        description_arm=cfg.description_arm,
+                        overlap_policy=cfg.evaluation_overlap or "flat",
                     )
                 )
             )

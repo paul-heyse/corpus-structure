@@ -1143,3 +1143,124 @@ def test_artifact_nomination_refuses_incomplete_or_substituted_source_closure(tm
     with pytest.raises(ValueError, match=error):
         write_review_bundle(request, root, iter(rows))
     assert not root.exists()
+
+
+def comparison_rows(variant):
+    from corpus_structure.core.evidence import config_key
+    from corpus_structure.methods.structural_products import compare_clauses
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.structural_products import (
+        DIMENSIONS,
+        ClauseFieldGroup,
+        ClauseReading,
+        StructuralProductReport,
+    )
+    from corpus_structure.serve.structural_products import StructuralRequest
+
+    rows = structural_rows("abcd")
+    base = StructuralProductReport.model_validate(rows[1][1]["report"]).inputs
+    original = base.passages[0]
+    left = original.model_copy(update={"passage_id": "left", "text": "ab", "end": 2})
+    right = original.model_copy(update={"passage_id": "right", "text": "cd", "start": 2})
+    refs = [
+        RetainedContributionRef(
+            contribution_id="source-contribution:" + digit * 64,
+            project_id="test",
+            run_id=7,
+            cut_id=8,
+            release_id="release:old",
+            result_revision=1,
+            selected_task_id=71,
+            origin_task_id=71,
+            runtime_fingerprint="runtime:scope",
+        )
+        for digit in ("a", "b", "c")
+    ]
+    inputs = base.model_copy(
+        update={"passages": (left, right), "dependencies": tuple(r.contribution_id for r in refs)}
+    )
+    legacy = compare_clauses(
+        inputs,
+        left=ClauseReading(passage_id=left.passage_id),
+        right=ClauseReading(passage_id=right.passage_id),
+    )
+    groups = {dimension: ClauseFieldGroup(state="absent") for dimension in DIMENSIONS}
+    current = compare_clauses(
+        inputs,
+        left=ClauseReading(passage_id=left.passage_id, groups=groups),
+        right=ClauseReading(passage_id=right.passage_id, groups=groups),
+        left_reading=refs[0],
+        right_reading=refs[1],
+    )
+    assert current.comparison is not None
+    alternate = current.model_copy(
+        update={"comparison": current.comparison.model_copy(update={"left_reading": refs[2]})}
+    )
+    registered_version = "2" if variant == "archive" else "3"
+    claimed_version = "2" if variant == "downgrade" else registered_version
+    config = {
+        "inputs": inputs.model_dump(mode="json"),
+        "structural_input_digest": inputs.identity,
+        "left_id": left.passage_id,
+        "right_id": right.passage_id,
+    }
+    if registered_version == "3":
+        config.update(
+            left_reading=refs[0].model_dump(mode="json"),
+            right_reading=refs[1].model_dump(mode="json"),
+        )
+    registered_hash = config_key("structure.compare", registered_version, config)
+    selected = {"alternate": alternate, "drop": legacy, "archive": legacy, "downgrade": legacy}[
+        variant
+    ]
+    origin = {"alternate": alternate, "drop": current, "archive": legacy, "downgrade": legacy}[
+        variant
+    ]
+    rows[1][1].update(
+        origin_run_id=2,
+        origin_project_id="test",
+        runtime_fingerprint="runtime:comparison",
+        product_id=selected.product_id,
+        report=selected.model_dump(mode="json"),
+    )
+    rows[2][1].update(
+        origin_run_id=2,
+        project_id="test",
+        runtime_fingerprint="runtime:comparison",
+        config_hash=registered_hash,
+        input_hash="comparison-input",
+        configuration=config,
+        body=dict(
+            method="structure.compare",
+            operation_version=claimed_version,
+            release_id="release:structural",
+            outcome="produced",
+            configuration_hash=registered_hash,
+            input_hash="comparison-input",
+            structural_product=origin.model_dump(mode="json"),
+        ),
+    )
+    return ReviewSelection(
+        structural_selections=(StructuralRequest(run_id=2, kind="qualified_comparison"),),
+    ), rows
+
+
+def test_detached_archive_requires_registered_singleton_comparison(tmp_path):
+    request, rows = comparison_rows("archive")
+    write_review_bundle(request, tmp_path / "archive", iter(rows))
+    verify_review_bundle(tmp_path / "archive")
+
+
+@pytest.mark.parametrize(
+    "variant, reason",
+    [
+        ("drop", "registered producer result"),
+        ("alternate", "registered predicate readings"),
+        ("downgrade", "registered producer result"),
+    ],
+)
+def test_detached_comparison_refuses_resealed_reading_substitution(tmp_path, variant, reason):
+    request, rows = comparison_rows(variant)
+    with pytest.raises(ValueError, match=reason):
+        write_review_bundle(request, tmp_path / "comparison", iter(rows))
+    assert not (tmp_path / "comparison").exists()

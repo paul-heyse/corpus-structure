@@ -254,8 +254,8 @@ class ChannelResult:
 class CandidateList:
     list_id: str
     occurrence_id: str
-    query_vector_id: str
-    profile_id: str
+    query_vector_id: str | None
+    profile_id: str | None
     inventory_id: str
     policy_id: str
     unique_target_budget: int
@@ -268,29 +268,39 @@ class CandidateList:
 
 
 RETRIEVAL_POLICY = "exact-alias-postgresql-english-cosine-rrf60-1"
+WITNESSED_RETRIEVAL_POLICY = "exact-source-witness-then-rrf60-1"
+WITNESS_ONLY_RETRIEVAL_POLICY = "exact-source-witness-only-1"
 
 
 def fuse_candidates(
     *,
     occurrence_id: str,
-    query: EncodedVector,
+    query: EncodedVector | None,
     inventory: FrozenInventory,
     channels: Mapping[str, Sequence[ChannelHit]],
     budget: int = 10,
     channel_budget: int = 30,
     lexical_query: str = "",
 ) -> CandidateList:
-    if query.object_id != occurrence_id:
-        raise ValueError("query vector belongs to another occurrence")
-    if not occurrence_id or not query.vector_id or not query.profile_id:
-        raise ValueError("candidate list requires occurrence and vector identities")
+    if not occurrence_id:
+        raise ValueError("candidate list requires an occurrence identity")
+    if query is None:
+        if set(channels) != {"witness"} or not channels["witness"]:
+            raise ValueError("vector-free retrieval requires exact witnesses")
+        policy = WITNESS_ONLY_RETRIEVAL_POLICY
+    else:
+        if query.object_id != occurrence_id:
+            raise ValueError("query vector belongs to another occurrence")
+        if not query.vector_id or not query.profile_id:
+            raise ValueError("encoded retrieval requires vector and profile identities")
+        policy = WITNESSED_RETRIEVAL_POLICY if "witness" in channels else RETRIEVAL_POLICY
     if (
         type(budget) is not int
         or type(channel_budget) is not int
         or not 1 <= budget <= channel_budget
     ):
         raise ValueError("candidate budgets require positive bounded overfetch")
-    if not channels or not set(channels) <= {"alias", "lexical", "dense"}:
+    if not channels or not set(channels) <= {"alias", "lexical", "dense", "witness"}:
         raise ValueError("candidate retrieval requires explicit supported channels")
     eligible = set(inventory.target_ids)
     by_target: dict[str, list[ChannelEvidence]] = {}
@@ -311,7 +321,12 @@ def fuse_candidates(
         target: sum(1 / (60 + value.rank) for value in evidence)
         for target, evidence in by_target.items()
     }
-    ordered = sorted(by_target, key=lambda target: (-scores[target], target))[:budget]
+    exact_targets = {hit.target_id for hit in channels.get("witness", ())}
+    if len(exact_targets) > budget:
+        raise ValueError("exact witness population exceeds target budget")
+    ordered = sorted(
+        by_target, key=lambda target: (target not in exact_targets, -scores[target], target)
+    )[:budget]
     candidates = tuple(
         Candidate(target, rank, scores[target], tuple(by_target[target]))
         for rank, target in enumerate(ordered, 1)
@@ -319,10 +334,10 @@ def fuse_candidates(
     result = CandidateList(
         "",
         occurrence_id,
-        query.vector_id,
-        query.profile_id,
+        query.vector_id if query else None,
+        query.profile_id if query else None,
         inventory.inventory_id,
-        RETRIEVAL_POLICY,
+        policy,
         budget,
         channel_budget,
         candidates,
@@ -331,7 +346,11 @@ def fuse_candidates(
         tuple(ChannelResult(name, tuple(hits)) for name, hits in sorted(channels.items())),
         lexical_query,
     )
-    meaning = {key: value for key, value in asdict(result).items() if key != "list_id"}
+    meaning = {
+        key: value
+        for key, value in asdict(result).items()
+        if key != "list_id" and value is not None
+    }
     return replace(result, list_id=numeric_identity("concept-candidates", meaning))
 
 

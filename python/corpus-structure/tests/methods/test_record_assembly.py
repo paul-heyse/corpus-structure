@@ -1002,6 +1002,10 @@ def test_report_pack_release_context_and_unlocated_occurrence_controls():
     )
     assert not result.records and result.raw_report is raw
     assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
+    (located,) = result.unattached_roles
+    assert (located.group, located.role) == (0, "defining_text")
+    (anchor,) = located.anchors
+    assert (anchor["source_piece"], anchor["start"], anchor["end"]) == ("mean", 0, 4)
     for changed in (
         replace(raw, pack="foreign"),
         replace(raw, context_id="foreign"),

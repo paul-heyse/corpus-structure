@@ -1107,6 +1107,15 @@ class BoundReader:
             {"reference": json.dumps(ref.model_dump(mode="json"))},
         ).scalar_one()
 
+    def retained_component_section(self, reference, work_digest):
+        """Read a native section designator from the original component's own source."""
+        import json
+
+        return self.conn.execute(
+            text("SELECT ops.contextual_component_section(CAST(:reference AS jsonb), :digest)"),
+            {"reference": json.dumps(reference.model_dump(mode="json")), "digest": work_digest},
+        ).scalar_one()
+
     def retained_structural_report(self, reference):
         """Authenticate one completed original report and its separately published support."""
         import json

@@ -6,10 +6,13 @@ import pytest
 
 from corpus_structure.methods.structural_products import (
     compare_clauses,
-    read_clause,
     select_dossier,
+    threshold_readings,
 )
 from corpus_structure.semantic.structural_products import (
+    DIMENSIONS,
+    ClauseField,
+    ClauseReading,
     DossierFacet,
     DossierMember,
     LocatedDefinitionSpan,
@@ -26,6 +29,38 @@ def threshold_inputs(left, right, scope="scope"):
         for p, t in zip(value.passages, (left, right), strict=True)
     )
     return value.model_copy(update=dict(passages=passages))
+
+
+def read_clause(passage, **expected_roles):
+    """Nominate exact fixture roles independently of the current retained-frame producer."""
+    fields = []
+    for name, spelling in expected_roles.items():
+        dimension = next(dimension for dimension in DIMENSIONS if dimension == name)
+        start = passage.start + passage.text.index(spelling)
+        fields.append(
+            ClauseField(
+                dimension=dimension,
+                lexical_value=spelling,
+                evidence=(passage.passage_id,),
+                span=LocatedDefinitionSpan(
+                    passage_id=passage.passage_id,
+                    start=start,
+                    end=start + len(spelling),
+                    text=spelling,
+                ),
+            )
+        )
+    for dimension, value in (("parent", passage.parent), ("version", passage.effective_version)):
+        if value:
+            fields.append(
+                ClauseField(
+                    dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
+                )
+            )
+    thresholds = threshold_readings(passage)
+    if len(thresholds) == 1:
+        fields.extend(thresholds)
+    return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
 
 
 def revision_inputs(left, right, *, same_source=True):
@@ -250,25 +285,21 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
         )
 
 
-def test_cued_clause_dimensions_keep_original_roles_conditions_and_exceptions():
+def test_independently_located_clause_premises_preserve_threshold_consequence():
     text = "Manager must approve Table 5.1 if revenue > 25000 USD unless account is closed."
     text += "\nComparison basis: annual gross revenue."
     value = threshold_inputs(text, text.replace("25000", "50000"))
-    fields = {f.dimension: f for f in read_clause(value.passages[0]).fields}
-    assert {k: f.lexical_value for k, f in fields.items() if k != "threshold_unit"} == {
+    roles = {
         "actor": "Manager",
         "action": "approve",
         "object": "Table 5.1",
         "modality": "must",
-        "condition": "if revenue > 25000 USD",
         "exception": "unless account is closed",
     }
-    assert fields["actor"].span is not None
-    assert fields["actor"].span.text == "Manager"
-    assert fields["object"].span is not None
-    assert fields["object"].span.text == "Table 5.1"
     comparison = compare_clauses(
-        value, left=read_clause(value.passages[0]), right=read_clause(value.passages[1])
+        value,
+        left=read_clause(value.passages[0], **roles, condition="if revenue > 25000 USD"),
+        right=read_clause(value.passages[1], **roles, condition="if revenue > 50000 USD"),
     ).comparison
     assert comparison is not None
     assert comparison.dimensions[0].outcome == "same_lexical_value"
@@ -276,20 +307,3 @@ def test_cued_clause_dimensions_keep_original_roles_conditions_and_exceptions():
     assert comparison.dimensions[5].removed_interval is not None
     assert comparison.dimensions[5].removed_interval.upper == "50000"
     assert comparison.applicability == "unestablished"
-
-
-def test_passive_clause_retains_agent_patient_direction_and_ambiguous_clauses_unknown():
-    value = threshold_inputs(
-        "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
-        "Nothing is prescribed here.",
-    )
-    fields = {f.dimension: f for f in read_clause(value.passages[0]).fields}
-    assert fields["actor"].lexical_value == "Manager"
-    assert fields["object"].lexical_value == "Table 5.1"
-    assert fields["action"].lexical_value == "approved"
-    assert read_clause(value.passages[1]).fields == ()
-    text = "Manager must approve Table; Analyst may reject Form."
-    value = threshold_inputs(text, "unknown")
-    assert not {"actor", "action", "object", "modality"} & {
-        f.dimension for f in read_clause(value.passages[0]).fields
-    }

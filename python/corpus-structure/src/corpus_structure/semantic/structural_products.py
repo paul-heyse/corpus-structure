@@ -207,15 +207,65 @@ class DefinitionStage(StructuralValue):
     reason: Nonempty
 
 
+class DefinitionRoleCandidate(StructuralValue):
+    """Exactly located provider proposal with immutable envelope coordinates."""
+
+    role: Literal["term", "content"]
+    span: LocatedDefinitionSpan
+    window_start: Annotated[int, Field(strict=True, ge=0)]
+    window_end: Positive
+    envelope: Nonempty
+    index: Annotated[int, Field(strict=True, ge=0)]
+
+    @model_validator(mode="after")
+    def within_window(self) -> Self:
+        if not self.window_start <= self.span.start < self.span.end <= self.window_end:
+            raise ValueError("definition role lies outside its provider window")
+        return self
+
+
 class DefinitionComponentsProduct(StructuralValue):
     components: tuple[LocatedDefinitionComponent, ...]
     stages: tuple[DefinitionStage, ...]
+    role_candidates: tuple[DefinitionRoleCandidate, ...] | None = None
 
     @model_validator(mode="after")
     def unique_components(self) -> Self:
         if len({c.component_id for c in self.components}) != len(self.components):
             raise ValueError("duplicate definition component")
+        roles = self.role_candidates or ()
+        if len({(r.envelope, r.role, r.index) for r in roles}) != len(roles):
+            raise ValueError("duplicate definition role envelope index")
         return self
+
+
+class ClauseFocusSelection(StructuralValue):
+    passage_id: Nonempty
+    frame: RetainedContributionRef
+
+
+class ClauseModelLabel(StructuralValue):
+    label: Nonempty
+    score: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    accepted: bool
+
+
+class ClauseModelReading(StructuralValue):
+    selection: ClauseFocusSelection
+    focus: LocatedDefinitionSpan
+    preceding: LocatedDefinitionSpan | None = None
+    following: LocatedDefinitionSpan | None = None
+    context_digest: Digest
+    envelope: Nonempty | None = None
+    function: tuple[ClauseModelLabel, ...] = ()
+    presentation: tuple[ClauseModelLabel, ...] = ()
+    disposition: Literal["observed", "withheld", "failed"]
+    reason: Nonempty
+
+
+class ClauseClassificationProduct(StructuralValue):
+    context_policy: Literal["exact_focus", "adjacent_sentences"]
+    readings: tuple[ClauseModelReading, ...]
 
 
 class ApplicabilityPremise(StructuralValue):
@@ -373,14 +423,68 @@ class ClauseField(StructuralValue):
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
     typed: TypedPremise | None = None
     span: LocatedDefinitionSpan | None = None
+    spans: tuple[LocatedDefinitionSpan, ...] | None = None
+    contribution_id: Nonempty | None = None
+    literal: ComparisonLiteral | None = None
+    condition: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def formal_source(self) -> Self:
+        if self.literal is not None:
+            from .structural_parsing import parse_comparison_literal
+
+            if (
+                self.spans is None
+                or len(self.spans) != 1
+                or parse_comparison_literal(self.spans[0].text)
+                != self.literal.model_dump(mode="json", exclude_none=True)
+            ):
+                raise ValueError("formal operand differs from exact located syntax")
+        return self
+
+
+class ComparisonLiteral(StructuralValue):
+    kind: Literal["date", "identifier", "quantity", "range"]
+    value: str | None = None
+    unit: str | None = None
+    lower: str | None = None
+    upper: str | None = None
+    lower_closed: bool | None = None
+    upper_closed: bool | None = None
+
+
+class ClauseFieldGroup(StructuralValue):
+    state: Literal["absent", "empty", "present", "unresolved"]
+    grouping: Literal["singleton", "conjunction", "disjunction", "unresolved"] | None = None
+    members: tuple[ClauseField, ...] = ()
+    witnesses: tuple[LocatedDefinitionSpan, ...] = ()
+
+    @model_validator(mode="after")
+    def complete(self) -> Self:
+        if self.state == "present" and not self.members:
+            raise ValueError("present dimension requires members")
+        if self.state in {"absent", "empty"} and (self.members or self.grouping):
+            raise ValueError("absent or empty dimension cannot have members")
+        if self.state == "empty" and not self.witnesses:
+            raise ValueError("known empty dimension requires its source witness")
+        if self.grouping == "singleton" and len(self.members) != 1:
+            raise ValueError("singleton dimension requires one member")
+        if self.grouping in {"conjunction", "disjunction"} and (
+            len(self.members) < 2 or len(self.witnesses) != len(self.members) - 1
+        ):
+            raise ValueError("grouped members require an exact witness between each pair")
+        return self
 
 
 class ClauseReading(StructuralValue):
     passage_id: Nonempty
-    fields: tuple[ClauseField, ...]
+    fields: tuple[ClauseField, ...] = ()
+    groups: dict[Dimension, ClauseFieldGroup] | None = None
 
     @model_validator(mode="after")
     def dimensions(self) -> Self:
+        if self.groups is not None and (self.fields or set(self.groups) != set(DIMENSIONS)):
+            raise ValueError("a grouped reading requires every dimension and no legacy fields")
         if len({f.dimension for f in self.fields}) != len(self.fields):
             raise ValueError("duplicate clause dimension")
         return self
@@ -393,6 +497,8 @@ class DimensionComparison(StructuralValue):
     ]
     left: ClauseField | None = None
     right: ClauseField | None = None
+    left_group: ClauseFieldGroup | None = None
+    right_group: ClauseFieldGroup | None = None
     typed_outcome: Literal["equivalent", "different", "unknown", "unsupported", "ambiguous"] = (
         "unknown"
     )
@@ -413,6 +519,8 @@ class ComparisonProduct(StructuralValue):
     left_id: Nonempty
     right_id: Nonempty
     dimensions: tuple[DimensionComparison, ...]
+    left_reading: RetainedContributionRef | None = None
+    right_reading: RetainedContributionRef | None = None
     equivalence: Literal["not_asserted"] = "not_asserted"
     identity_standing: Literal["not_asserted"] = "not_asserted"
     applicability: Literal[
@@ -423,6 +531,14 @@ class ComparisonProduct(StructuralValue):
 
     @model_validator(mode="after")
     def succession_custody(self) -> Self:
+        grouped = self.left_reading is not None
+        if grouped != (self.right_reading is not None) or any(
+            (d.left_group is not None) != grouped
+            or (d.right_group is not None) != grouped
+            or (grouped and (d.left is not None or d.right is not None))
+            for d in self.dimensions
+        ):
+            raise ValueError("comparison must bind both grouped sides")
         if (self.succession is not None) != (self.applicability == "successive_revisions"):
             raise ValueError("successive revisions require their directed source witness")
         if self.succession and (
@@ -607,6 +723,7 @@ class StructuralProductReport(StructuralValue):
         "qualified_comparison",
         "dossier",
         "artifact_identity",
+        "clause_classification",
     ]
     inputs: StructuralInput
     standing: Literal["private_proposal"] = "private_proposal"
@@ -615,6 +732,7 @@ class StructuralProductReport(StructuralValue):
     comparison: ComparisonProduct | None = None
     dossier: DossierProduct | None = None
     artifact_identity: ArtifactIdentityProduct | None = None
+    clause_classification: ClauseClassificationProduct | None = None
     # The released ContextualEnrichmentReport validates this ordinary upstream report.
     retrieval_report: dict[str, Any] | None = None
 
@@ -626,18 +744,63 @@ class StructuralProductReport(StructuralValue):
             self.comparison is not None,
             self.dossier is not None,
             self.artifact_identity is not None,
+            self.clause_classification is not None,
         ) != (
             self.kind == "definition_components",
             self.kind == "definition_applicability",
             self.kind == "qualified_comparison",
             self.kind == "dossier",
             self.kind == "artifact_identity",
+            self.kind == "clause_classification",
         ):
             raise ValueError("structural report must contain exactly its declared product")
         passages = {p.passage_id for p in self.inputs.passages}
         cited: set[str] = set()
+        if self.clause_classification is not None:
+            by_id = {p.passage_id: p for p in self.inputs.passages}
+            readings = self.clause_classification.readings
+            if not readings or len({r.selection for r in readings}) != len(readings):
+                raise ValueError("clause classification requires distinct selected focuses")
+            for row in readings:
+                passage = by_id.get(row.selection.passage_id)
+                if (
+                    passage is None
+                    or row.selection.frame.contribution_id not in self.inputs.dependencies
+                ):
+                    raise ValueError("clause classification lacks its selected source dependency")
+                if self.clause_classification.context_policy == "exact_focus" and (
+                    row.preceding is not None or row.following is not None
+                ):
+                    raise ValueError("exact focus cannot include adjacent context")
+                for span in (row.focus, row.preceding, row.following):
+                    if span is not None and (
+                        span.passage_id != passage.passage_id
+                        or not passage.start <= span.start < span.end <= passage.end
+                        or span.text
+                        != passage.text[span.start - passage.start : span.end - passage.start]
+                    ):
+                        raise ValueError("model context span differs from its selected source")
+                if (row.preceding is not None and row.preceding.end > row.focus.start) or (
+                    row.following is not None and row.following.start < row.focus.end
+                ):
+                    raise ValueError("clause model context crosses its exact focus")
+                cited.add(passage.passage_id)
         if self.definition_components:
             by_id = {p.passage_id: p for p in self.inputs.passages}
+            for candidate in self.definition_components.role_candidates or ():
+                span = candidate.span
+                passage = by_id.get(span.passage_id)
+                if (
+                    passage is None
+                    or not passage.start
+                    <= candidate.window_start
+                    < candidate.window_end
+                    <= passage.end
+                    or passage.text[span.start - passage.start : span.end - passage.start]
+                    != span.text
+                ):
+                    raise ValueError("definition role differs from original passage")
+                cited.add(span.passage_id)
             for component in self.definition_components.components:
                 cited.update(component.evidence)
                 for span in (component.term, component.content):
@@ -712,7 +875,34 @@ class StructuralProductReport(StructuralValue):
             if tuple(d.dimension for d in self.comparison.dimensions) != DIMENSIONS:
                 raise ValueError("comparison requires every ordered dimension, including unknowns")
             for dimension in self.comparison.dimensions:
-                for side in (dimension.left, dimension.right):
+                for passage_id, group in (
+                    (self.comparison.left_id, dimension.left_group),
+                    (self.comparison.right_id, dimension.right_group),
+                ):
+                    if group is None:
+                        continue
+                    if any(
+                        not exact(span) or span.passage_id != passage_id for span in group.witnesses
+                    ):
+                        raise ValueError("group witness differs from selected original passage")
+                    for member in group.members:
+                        if member.dimension != dimension.dimension or member.evidence != (
+                            passage_id,
+                        ):
+                            raise ValueError("group member differs from selected dimension/passage")
+                        if member.spans and (
+                            any(
+                                not exact(span) or span.passage_id != passage_id
+                                for span in member.spans
+                            )
+                            or member.lexical_value != " ".join(span.text for span in member.spans)
+                        ):
+                            raise ValueError("group member differs from original source spans")
+                sides = [dimension.left, dimension.right]
+                for group in (dimension.left_group, dimension.right_group):
+                    if group is not None:
+                        sides.extend(group.members)
+                for side in sides:
                     if side:
                         cited.update(side.evidence)
                         if side.span is not None:

@@ -5806,6 +5806,15 @@ operations:
   - id: structure.definition_components/result.outcome
     field: outcome
     outcome_domain: source_result_outcome
+  - id: structure.clause_classification/family
+    field: family
+    outcome_domain: method_family_resolve
+  - id: structure.clause_classification/tier
+    field: tier
+    outcome_domain: method_tier_encoder
+  - id: structure.clause_classification/result.outcome
+    field: outcome
+    outcome_domain: source_result_outcome
   - id: structure.definitions/family
     field: family
     outcome_domain: method_family_resolve

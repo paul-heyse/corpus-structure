@@ -326,5 +326,6 @@ configs:
       feature_instances: []
 
   structure.definition_components: {}
+  structure.clause_classification: {}
   structure.definitions: {}
   retrieve.contextual: {}
