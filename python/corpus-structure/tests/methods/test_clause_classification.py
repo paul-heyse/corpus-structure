@@ -1,4 +1,6 @@
+from copy import deepcopy
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -6,6 +8,7 @@ from corpus_structure.methods.clause_classification import (
     clause_context,
     clause_focus,
     clause_labels,
+    model_concordance,
 )
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import ClauseFocusSelection, StructuralPassage
@@ -31,6 +34,51 @@ def test_native_fallback_preserves_score_without_accepting_presentation():
         }
     )
     assert withheld == "withheld"
+
+
+def test_concordance_matches_retained_and_current_focus_extents():
+    retained: dict[str, Any] = {
+        "contribution_id": "old-frame",
+        "pin": {"source_view_id": 1},
+        "component": {
+            "kind": "predicate_frame",
+            "focus_state": "exact",
+            "frame_members": [{"role": "focus", "extents": [{"start": 3, "end": 8}]}],
+        },
+    }
+    current = deepcopy(retained)
+    current["contribution_id"] = "current-frame"
+    current["component"]["frame_members"][0]["extents"] = ({"start": 3, "end": 8},)
+    reading = {
+        "component": {
+            "kind": "predicate_reading",
+            "frame": "current-frame",
+            "reading": "explanation",
+        }
+    }
+    reference = SimpleNamespace(product_id="observation", model_dump=lambda **_: {})
+    report = SimpleNamespace(
+        product_id="observation",
+        inputs=SimpleNamespace(
+            sources=[SimpleNamespace(identity="view", source_view_id=1)],
+            passages=[SimpleNamespace(passage_id="passage", source_ref="view")],
+        ),
+        clause_classification=SimpleNamespace(
+            readings=[
+                SimpleNamespace(
+                    selection=SimpleNamespace(passage_id="passage", frame="old-frame"),
+                    function=[SimpleNamespace(accepted=True, label="definition")],
+                    model_dump=lambda **_: {},
+                )
+            ]
+        ),
+    )
+    (match,) = model_concordance(reference, report, 1, (current, reading), lambda _: retained)
+    assert (match["deterministic_reading"], match["comparison"]) == ("explanation", "disagrees")
+
+    current["component"]["frame_members"][0]["extents"] = ({"start": 4, "end": 8},)
+    with pytest.raises(ValueError):
+        model_concordance(reference, report, 1, (current, reading), lambda _: retained)
 
 
 def test_context_contains_only_exact_focus_and_source_owned_adjacent_sentences():

@@ -598,6 +598,15 @@ def _report_source_ids(body: Any) -> set[int]:
     return source_ids
 
 
+def _predicate_annotation_origin_ids(body: Mapping[str, Any]) -> set[int]:
+    return {
+        op["annotation_origin_task_id"]
+        for op in body.get("contribution_operations", ())
+        if "annotation_origin_task_id" in op
+        and op.get("question") in {"source_predicate_frames", "source_predicate_interpretation"}
+    }
+
+
 def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
     # This is the declared upstream-input ABI of the typed replay operation,
     # not a recursive interpretation of arbitrary returned JSON.
@@ -605,12 +614,7 @@ def _retained_report_ids(report: Mapping[str, Any]) -> set[int]:
         values = report["configuration"].get("retained_source_tasks", ())
     elif report.get("method") == "structure.scoped_relations":
         body = report.get("body") or {}
-        values = tuple(
-            op["annotation_origin_task_id"]
-            for op in body.get("contribution_operations", ())
-            if "annotation_origin_task_id" in op
-            and op.get("question") in {"source_predicate_frames", "source_predicate_interpretation"}
-        ) + tuple(
+        values = tuple(_predicate_annotation_origin_ids(body)) + tuple(
             ref["origin_task_id"] for ref in report["configuration"].get("classification_refs", ())
         )
     elif report.get("method") == "structure.clause_classification":
@@ -1574,7 +1578,7 @@ def _verify_predicate_closure(root, manifest):
         if row["source_view_id"] in source_ids
     }
     for row in scoped:
-        (producer_id,) = tuple(_retained_report_ids(row))
+        (producer_id,) = _predicate_annotation_origin_ids(row["body"])
         producer = producers.get(producer_id)
         if (
             producer is None

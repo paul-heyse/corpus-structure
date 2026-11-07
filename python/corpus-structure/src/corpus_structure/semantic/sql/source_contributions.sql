@@ -1801,7 +1801,7 @@ BEGIN
       OR witness->>'relation' IS DISTINCT FROM 'defined-by'
       OR NOT EXISTS(SELECT FROM jsonb_array_elements(candidate_list->'channel_results') ch,
        LATERAL jsonb_array_elements(ch->'hits') hit WHERE ch->>'channel'='witness'
-       AND hit->>'target_id'=witness->>'target_id' AND hit->'evidence' @> witness->'evidence_ids')
+       AND hit->>'target_id'=witness->>'target_id' AND (hit->'evidence') @> (witness->'evidence_ids'))
      ) THEN RAISE EXCEPTION 'section relationship lacks its exact section witness nomination' USING ERRCODE='23514'; END IF;
      IF witness->>'source_binding' IS DISTINCT FROM p_envelope->>'source'
       OR witness->>'occurrence_id' IS DISTINCT FROM decision->>'occurrence_id'

@@ -229,7 +229,9 @@ def model_concordance(reference, report, source_view_id, contributions, resolve_
     def frame_key(frame):
         component = frame["component"]
         (focus,) = [m["extents"] for m in component["frame_members"] if m["role"] == "focus"]
-        return frame["pin"], tuple(component.get(k) for k in frame_keys), focus
+        # The retained JSON array is a list, while the current producer emits a tuple.
+        extents = tuple((extent["start"], extent["end"]) for extent in focus)
+        return frame["pin"], tuple(component.get(k) for k in frame_keys), extents
 
     for row in report.clause_classification.readings:
         passage = passages[row.selection.passage_id]
