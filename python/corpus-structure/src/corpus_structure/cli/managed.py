@@ -374,7 +374,9 @@ def result_store(ctx: typer.Context) -> ResultStore:
 def result_boundary(json: bool) -> Generator[None]:
     from corpus_structure.cli.failures import failure_boundary
 
-    with failure_boundary(json, expected=(ResultError, RecipeError, OSError)):
+    with failure_boundary(
+        json, expected=(ResultError, RecipeError, OSError), report_expected_validation=False
+    ):
         yield
 
 

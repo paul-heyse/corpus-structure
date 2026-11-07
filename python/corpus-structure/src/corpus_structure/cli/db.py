@@ -179,7 +179,9 @@ def _run(
     )
     try:
         with failure_boundary(
-            json_, expected=(DbRefused, ExtensionVersionMismatch, MigrationPredecessorError)
+            json_,
+            expected=(DbRefused, ExtensionVersionMismatch, MigrationPredecessorError),
+            report_expected_validation=False,
         ):
             created = (
                 _create(admin, name, settings.database.template, creation_token)

@@ -198,7 +198,7 @@ def release_check(
 
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.releases import verify_release
+    from corpus_structure.semantic.releases import ReleaseConflict, verify_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     class ReleaseCheck(BaseModel):
@@ -224,7 +224,14 @@ def release_check(
                 if row is None or row.active_release_id is None:
                     raise ResultError("project has no active release; supply an archived --release")
                 release, generation = row.active_release_id, row.generation
-            verify_release(conn, release)
+            try:
+                verify_release(conn, release)
+            except KeyError as error:
+                if error.args != (release,):
+                    raise
+                raise ResultError("release is unavailable in the configured archive") from error
+            except ReleaseConflict as error:
+                raise ResultError(str(error)) from error
             emit(
                 ReleaseCheck(
                     project=project,

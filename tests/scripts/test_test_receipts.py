@@ -962,6 +962,10 @@ def test_external_supervisor_signal_drains_group_finalizes_and_stops_rust(
                     "--test-timeout",
                     "60",
                     "--",
+                    # Exercise the supervisor's child and its descendant without
+                    # a second xdist controller buffering the inner test report.
+                    "-n",
+                    "0",
                     str(source),
                 ],
                 stdout=stdout,

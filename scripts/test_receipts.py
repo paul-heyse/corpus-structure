@@ -546,16 +546,21 @@ def _node_aliases(manifests: list[dict[str, Any]]) -> dict[str, str]:
 def _required_manifests(paths: list[Path]) -> list[dict[str, Any]]:
     manifests = []
     for path in paths:
-        if path.suffix == ".jsonl":
-            events, errors = read_stream(path)
+        if not path.is_dir() and path.suffix != ".jsonl":
+            manifests.append(read_json(path))
+            continue
+        found = []
+        streams = sorted(path.glob("events-*.jsonl")) if path.is_dir() else [path]
+        for stream in streams:
+            events, errors = read_stream(stream)
             if errors:
                 raise ValueError("; ".join(errors))
-            found = [event for event in events if event.get("event") == "collection_finish"]
-            if not found:
-                raise ValueError(f"no collection manifest: {path}")
-            manifests.extend(found)
-        else:
-            manifests.append(read_json(path))
+            found.extend(event for event in events if event.get("event") == "collection_finish")
+        if not found:
+            raise ValueError(f"no collection manifest: {path}")
+        if len({tuple(sorted(item["selected"])) for item in found}) > 1:
+            raise ValueError(f"workers disagree on selected identities: {path}")
+        manifests.extend(found)
     return manifests
 
 
@@ -898,13 +903,18 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
         json.dumps((context["invocation"] or {}).get("source"), sort_keys=True)
         for context in contexts
     }
+    rust_processes = (
+        read_json(path)
+        for directory in directories
+        for name in ("rustc", "nextest-version", "nextest-list", "nextest")
+        if (path := directory / f"{name}.process.json").is_file()
+    )
     return {
         "status": status,
         "contexts": contexts,
         "source_contexts_differ": len(sources) > 1,
-        "custody_unsettled": any(
-            _group_unsettled(item.get("process", {})) for item in [*receipts, *rust]
-        ),
+        "custody_unsettled": any(_group_unsettled(item.get("process", {})) for item in receipts)
+        or any(_group_unsettled(process) for process in rust_processes),
         "receipts": receipts,
         "rust": rust,
         "required": sorted(required),

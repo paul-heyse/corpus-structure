@@ -188,12 +188,7 @@ def _receipts(store: ResultStore, result_id: str) -> dict[str, Path]:
 
 
 def _manifest_paths(receipts: list[Path]) -> list[str]:
-    return [
-        token
-        for lane in receipts
-        for events in sorted(lane.glob("events-*.jsonl"))
-        for token in ("--required-from", str(events))
-    ]
+    return [token for lane in receipts for token in ("--required-from", str(lane))]
 
 
 @app.command("coverage")

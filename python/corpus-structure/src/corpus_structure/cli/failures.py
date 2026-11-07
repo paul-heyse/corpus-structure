@@ -22,7 +22,11 @@ from corpus_structure.semantic.refusals import (
 
 @contextmanager
 def failure_boundary(
-    json: bool, *, expected: tuple[type[Exception], ...] = (), context: FailureContext | None = None
+    json: bool,
+    *,
+    expected: tuple[type[Exception], ...] = (),
+    context: FailureContext | None = None,
+    report_expected_validation: bool = True,
 ) -> Generator[FailureContext]:
     """Report deliberate failures; programming errors and cancellation retain their identity."""
     from corpus_structure.semantic.operation_value_types import NativeResultViolation
@@ -59,7 +63,11 @@ def failure_boundary(
         from corpus_structure.semantic.types import PreparationError
 
         if json:
-            detail = semantic_refusal_report(error, context=context)
+            detail = (
+                {"code": type(error).__name__, "message": str(error)}
+                if not report_expected_validation and isinstance(error, expected)
+                else semantic_refusal_report(error, context=context)
+            )
             detail["message"] = safe_text(detail["message"])
             if getattr(error, "reason", None) is not None:
                 detail["reason"] = safe_text(str(error.reason))
