@@ -110,7 +110,8 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
         children = tuple(ref["$ref"] for ref in group_node.get("children", ()))
         following = position[product.block_id] + 1
         if (
-            group not in selected_items or group_node.get("label") != "list"
+            group not in selected_items or siblings.count(group) != 1
+            or group_node.get("label") != "list"
             or group_node.get("content_layer") != "body"
             or group_node.get("parent") != node.get("parent")
             or not children or len(set(children)) != len(children)
@@ -122,6 +123,7 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
             candidates = [
                 target for target in by_block[pointer]
                 if target.annotation.tokens[target.predicate].dependency == "ROOT"
+                and target.annotation.tokens[target.predicate].pos in {"VERB", "AUX"}
             ]
             if len(candidates) != 1:
                 continue
@@ -145,15 +147,19 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
         tokens = product.tokens
         for indices in sentences:
             a, b = indices[0], indices[-1] + 1
+            folded = tuple(s.lower() for s in spelling[a:b])
             if (
-                b - a < 13 or tuple(s.lower() for s in spelling[a:a+2]) != ("the", "parameter")
-                or tuple(s.lower() for s in spelling[b-9:b]) != suffix
+                b - a < 13 or folded[:2] != ("the", "parameter")
+                or sum(folded[i:i+2] == ("the", "parameter") for i in range(len(folded)-1)) != 1
+                or folded[-9:] != suffix
                 or len(spelling[a+2]) != 1 or not spelling[a+2].isalpha()
             ):
                 continue
             assumed = b - 5
             if (
                 tokens[b-7].head != assumed or tokens[b-7].dependency != "nsubjpass"
+                or tokens[b-6].head != assumed or tokens[b-6].dependency != "auxpass"
+                or tokens[b-4].head != b-3 or tokens[b-4].dependency != "aux"
                 or tokens[b-3].head != assumed or tokens[b-3].dependency != "xcomp"
                 or tokens[b-2].head != b-3 or tokens[b-2].dependency != "acomp"
             ):
@@ -167,6 +173,8 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
                 if (
                     items.get(display, {}).get("label") == "formula"
                     and display in selected_items
+                    and items[display].get("content_layer") == "body"
+                    and items.get(origin, {}).get("label") == "text"
                     and items[display].get("parent") == node.get("parent")
                     and items.get(origin, {}).get("parent") == node.get("parent")
                     and position.get(origin) == position[product.block_id] - 2
@@ -200,6 +208,8 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
         if not complete_block(product):
             continue
         node = items[product.block_id]
+        if node.get("label") != "text":
+            continue
         spelling = words(product)
         sentences = _sentences(product)
         intro = list_intro(product, node, spelling, sentences)
