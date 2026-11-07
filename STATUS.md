@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. CLI operations are installed on main. The selected functional union was reconciled. WCE12 remains open._
+_Updated 2026-11-07. CLI completion audit confirmed partial delivery. The observed test union remains verified at its recorded scope. WCE12 remains open._
 
 ## Current authority
 
@@ -36,9 +36,9 @@ _Updated 2026-11-07. CLI operations are installed on main. The selected function
 
 ## CLI operations — 2026-11-07
 
-- [CLI-00–08](docs/plans/cli-operations_2026-11-07.md#execution-disposition--2026-11-07) owns
-  the assembled review and qualification. ADR-0069 governs routing, retention and explicit
-  effects. Typer 0.28.0 uses a workspace resolver override for Docling Core's CLI dependency.
+- The [CLI completion audit](docs/plans/cli-operations_2026-11-07.md#completion-audit) keeps
+  CLI-00 complete and CLI-01–08 partial. ADR-0069 governs routing, retention and explicit effects.
+  Typer 0.28.0 uses a workspace resolver override for Docling Core's CLI dependency.
 - Targeted managed test `a92491e73591416d93ddf279e9b1f768` passed 28 nodes. Native exact
   review export and replay agreed for run205/cut283. Fresh reader-only MCP stdio passed its
   exact response budget and refused one byte less.
@@ -48,6 +48,7 @@ _Updated 2026-11-07. CLI operations are installed on main. The selected function
 - `uv run ci test --json` at `88fd5d108` passed 5,093 ordinary tests and eight serial fault
   controls. Four stdio tests passed on exact retry. `ci test coverage` reported 5,105 covered
   nodes and zero unresolved. The original failure and source-context differences remain recorded.
+- `just docs-check` passed for the 2026-11-07 completion audit.
 
 ## Next
 
@@ -55,5 +56,5 @@ _Updated 2026-11-07. CLI operations are installed on main. The selected function
   the WCE plan. The authentic table-note and alias examples remain unavailable in their
   inspected frames. Operation fitting remains `not_run` pending compatible events and
   protected evaluations.
-- Native orphan assessment and live deployment to a configured production service remain
-  open in the CLI plan. The development and isolated PostgreSQL journeys are verified.
+- The CLI plan owns repairs to custody, lane coverage, effect and target binding, and the
+  remaining operator journeys. Live production qualification remains blocked on configured authority.

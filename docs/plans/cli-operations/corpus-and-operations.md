@@ -1,6 +1,6 @@
 # Corpus journeys, production operations and adoption
 
-**Proposed.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
+**Accepted target.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
 Owns CLI-06 through CLI-08. D6 owns run/task supervision, D3 owns target and purpose roles,
 D8 owns source/read/export interfaces and D9 owns developer and production tooling.
 
@@ -163,3 +163,79 @@ A failed or blocked required obligation stays open in the coordinator. Publish o
 evidence closure that remains useful after qualification.
 [Repository acceptance policy](../../design_review/design_principles/binding/corpus-structure.md) ·
 [WCE bounded repair evidence](../witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
+
+### Completion audit follow-up
+
+**F04 · Reader authority across MCP.** `find` and `inspect_source` use the reader, and the queue
+writer opens lazily. Structural products, dossiers, contributions, records and record support
+still resolve through the writer-backed `bound_run`. Even `queue_status` acquires the writer for
+its reads. Compose the existing scope checks with reader snapshots for pure read paths, while
+preserving the writer for leases and proposals. Verify the affected operations with a fresh
+reader-only client, wrong-run and denied-role controls, and the existing writer queue journey.
+Keep the 1,895-byte `find` wire result scoped to that operation and actual transport.
+[MCP composition](../../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py#L556) ·
+[Record and structural tools](../../../python/corpus-structure/src/corpus_structure/intervene/record_tools.py#L23)
+
+**F05 · Exact interrupted export.** Retained native exports verify replay of a settled selection
+and reject a changed connection route. Retry reads `selection.json` without checking a digest
+bound to the first attempt, while the database binding hashes completed roots. A modified
+selection over the same roots can pass. The adapter also lacks a SIGTERM settlement path. A
+terminated capture can stay running, with its retained selection unavailable to retry. Bind the
+exact selection and acquired source, make interruption/recovery truthful under managed custody,
+and exercise an interrupted export, edited same-root selection, missing predecessor and retry
+from retained data with no new extraction. The two successful manifests do not exercise
+interruption.
+[Export and retry](../../../python/corpus-structure/src/corpus_structure/cli/review.py#L20) ·
+[Snapshot binding](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L966)
+
+**CLI-CA04 · Source preparation and run lifecycle.** `ci ingest` still requires domain and
+corpus even for an existing bound project and calls regeneration, which archives/adopts a release
+before source preparation. This exceeds source-only intent and needs admission authority.
+Resolve existing project/release/source defaults once and keep admission an explicit effect.
+`run resume --prepare-only` can report `prepared` without checking the retained run state or
+source-ready cut. Distinguish completed, source-ready, incomplete and terminal attempts before
+choosing a supported continuation or refusal. Native orphan assessment remains open with the
+run supervisor. Route expected run refusals through the common typed output boundary and test
+the existing-project writer route and incomplete/cancelled/ambiguous attempts.
+[Ingest adapter](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py#L414) ·
+[Regeneration](../../../python/corpus-structure/src/corpus_structure/cli/regenerate.py#L161) ·
+[Run supervisor](../../../python/corpus-structure/src/corpus_structure/orchestrate/semantic.py#L372)
+
+**CLI-CA05 · Fitting prerequisites.** The installed fit route requires a protected evaluation
+before it can distinguish an unfit population. The retained WCE census establishes a particular
+missing-input case and has no installed applicability route. Project the current missing-events,
+missing-evaluation and unfit outcomes with remedies pointing to the producer or assessment
+owner. Verify the unavailable frame without exposing protected assessments or starting fitting.
+[Installed fit](../../../python/corpus-structure/src/corpus_structure/cli/eval.py#L198) ·
+[Fitting owner](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py#L164)
+
+**CLI-CA06 · Production target continuity and health.** Deploy selects an independent profile,
+while database status/check and release check/activation/promotion use the base profile without
+a selector. A same-identity operation can address development after a separate deployment.
+Resolve explicit production target and purpose consistently through these installed routes,
+surface the acquired target, and type wrong-target, missing-project and generation refusals.
+Separately, local host status can print unreachable or mismatched extensions and still exit zero.
+Make the recipe report the unhealthy outcome and its remedy. Exercise wrong-target and healthy/
+unhealthy controls independently. Live deployment qualification remains blocked on the configured
+service and authority. Keep the separate-target isolated PostgreSQL rehearsal as bounded evidence.
+[Release actions](../../../python/corpus-structure/src/corpus_structure/cli/operations.py#L189) ·
+[Database actions](../../../python/corpus-structure/src/corpus_structure/cli/db.py#L245) ·
+[Host status owner](../../../scripts/pg_provision.sh#L56)
+
+**CLI-CA07 · Caller cutover.** README and agent instructions cover several installed routes,
+and `ci docs commands` can generate the command reference. The accepted routine route/caller
+inventory and cutover are incomplete. The current purpose-role instructions still use a direct
+`just db-semantic-roles` call although the installed host route exists. D7 still names the removed
+`ci digest` route without a current disposition. Reconcile current operators, scripts and published
+examples with the installed registry. Preserve historical labels and the direct bootstrap and
+recovery paths. Attach an opportunity disposition to removed commands with current consumers.
+[Purpose-role instructions](../../design/D3-database.md#unified-operation-realization) ·
+[Digest description](../../design/D7-evaluation-goldens-outer-loop.md#81-the-digest)
+
+**CLI-CA08 · Assembled acceptance.** The original ordinary and fault lanes and exact stdio retry
+establish their declared 5,105-node union. A later replay product change has focused evidence.
+The union does not establish the installed controls still called out here and in the companion
+packages. Reconcile the affected required selections and contexts after the repairs, including
+the authentic interrupted export, concurrent receipt ownership, generated-wrapper deployment
+and failure remedies. Keep the live service prerequisite explicit. The audit adds no requirement
+to re-extract sources or adopt conditional tooling.

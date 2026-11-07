@@ -1,6 +1,6 @@
 # Model changes and target-bound deployment
 
-**Proposed.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
+**Accepted target.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
 Owns CLI-04 and CLI-05, with semantics in D2, database authority in D3 and transport in D8.
 The model operation is callable from Python. Installed adapters consume the same request and result.
 Keep `ci model check` on the owned `just model check` route. The new typed change composition is
@@ -129,3 +129,47 @@ effects. Interrupt after a settled file effect and after migration but before ad
 by exact evidence, preserving concurrent edits. Exercise explicit activation and wrong-role
 refusal. A runtime-only correction keeps the release ID. Verify Reader, installed CLI, fresh
 MCP and detached consumers wherever the approved change affects their contract.
+
+### Completion audit follow-up
+
+**F02 · Approved effects and semantic inputs.** Preview records a canonical patch and can pin
+a prepared release, and candidate preparation refuses a differing release. The preview still
+leaves effect applicability and required checks to the request's native and deployment flags.
+The existing canonical change routes do not feed the approved preview. A declaration change
+does not produce an inspectable account of its applicable generated, native, admission and
+consumer effects. Bind the independently classified effects and release determinants to the
+reviewed change and use them when composing apply and candidate. Exercise additive, mapped and
+provenance-only controls. Preserve the existing zero-write refusal and exact file recovery.
+[Preview and staged effects](../../../python/corpus-structure/src/corpus_structure/schema/model_change.py#L118) ·
+[Canonical change routing](../../../python/corpus-structure/src/corpus_structure/schema/change.py#L474) ·
+[Candidate command](../../../python/corpus-structure/src/corpus_structure/cli/model.py#L239)
+
+**CLI-CA03 · Consumer discovery.** The bounded locator reports AST and ast-grep hits for tokens
+from canonical declaration changes. It does not establish lexical ambiguity, independently
+compile affected Python or trace the approved semantic impact through declared consumers.
+Archive-only comparison can produce no discovery because it has no changed canonical tokens.
+Report structural versus semantic coverage, tool/input identity and ambiguity explicitly.
+Qualify the accepted coordinate, compile-only and native165 retirement controls. Preserve the
+manual patch route and the existing conditions on additional codemod tools.
+[Locator](../../../python/corpus-structure/src/corpus_structure/schema/model_discovery.py#L15) ·
+[Preview consumer selection](../../../python/corpus-structure/src/corpus_structure/schema/model_change.py#L196)
+
+**F02a · Native authoring, registration and target fence.** Both installed authoring routes
+omit retirement and recreation from their request to the owner, even though the owner requires
+explicit retirement for general removed identities. The preview stages the core/system model,
+while native authoring reads the separately owned physical model. The command does not convey an
+approved physical change to that owner. Deployment verifies the registered wrapper's
+bytes only when its basename is the generated name. A suffixed wrapper with matching IDs and
+product digests can run different code. The target fingerprint hashes the declared URL while
+libpq may fill omitted routing from its environment, so an equal fingerprint does not prove
+acquired target identity. Bind applicable retirement, recreation and executable migration bytes,
+then prove the same authorized acquired target before maintenance, admission and verification
+effects. Use the registered generated wrapper in an installed additive/retirement journey and
+exercise a renamed/changed wrapper, routing substitution, predecessor mismatch and interrupted
+replay. The retained isolated PostgreSQL rehearsal used a historical wrapper and called activation
+at the owner, which remains valid at that scope. Post-deploy command target continuity belongs to
+[CLI-CA06](corpus-and-operations.md#completion-audit-follow-up).
+[Native authoring adapter](../../../python/corpus-structure/src/corpus_structure/cli/schema.py#L238) ·
+[Native series owner](../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py#L1514) ·
+[Wrapper and target checks](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L228) ·
+[Isolated rehearsal](../../../python/corpus-structure/tests/semantic/test_model_deployment.py#L28)

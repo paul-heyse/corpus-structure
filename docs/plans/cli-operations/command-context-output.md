@@ -1,6 +1,6 @@
 # Command surface, context and output
 
-**Proposed.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
+**Accepted target.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
 Owns the CLI-01 contract consumed by testing, model changes, corpus reads and host operations.
 The coordinator owns status and dispositions.
 
@@ -144,3 +144,24 @@ registered commands. The recipe remains independently usable for recovery.
 [Typer testing](https://typer.tiangolo.com/tutorial/testing/) ·
 [Invocation and output owner](../../../python/corpus-structure/src/corpus_structure/cli/output.py) ·
 [Failure adapter](../../../python/corpus-structure/src/corpus_structure/cli/failures.py)
+
+### Completion audit follow-up
+
+**CLI-CA01 · Invocation context and safe output.** The Typer pin, workspace override, lazy help
+and reference generation have bounded installed evidence. `ci context show` reports resolved
+values and environment names, but cannot say which source won or resolve the interpreter,
+operation purpose and source/release binding or their absence. Move these projections through the
+existing settings and operation context owners. `ci status --json` sends command refusals to
+stderr alone, and its Rich tables pass external strings directly to markup-enabled rendering.
+An invalid `CORPUS_GPU__MODE` produced a traceback and empty machine output. The active
+`CORPUS_CI_RESULTS` override appeared in `unknown_env` even while selecting the results directory.
+Recipe reports cut their raw streams before sanitizing. An installed command returned a synthetic
+URI credential when only its prefix fell outside the excerpt. Apply the safe rendering boundary
+before truncating, and use the typed refusal route for status. Qualify real redirected output,
+literal text and control handling, environment precedence and checkout isolation. Retain the
+existing distinction between usage errors and typed operation results. Live test progress and
+unavailable diagnostics belong to [CLI-CA02](managed-results-and-testing.md#completion-audit-follow-up).
+[Context and recipe reports](../../../python/corpus-structure/src/corpus_structure/cli/operations.py#L27) ·
+[Settings report](../../../python/corpus-structure/src/corpus_structure/settings.py#L158) ·
+[Status rendering](../../../python/corpus-structure/src/corpus_structure/cli/status.py#L15) ·
+[Output owner](../../../python/corpus-structure/src/corpus_structure/cli/output.py#L56)

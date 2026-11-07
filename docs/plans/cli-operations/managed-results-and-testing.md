@@ -1,6 +1,6 @@
 # Managed invocation results, tests and repository maintenance
 
-**Proposed.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
+**Accepted target.** Companion to the [CLI operations coordinator](../cli-operations_2026-11-07.md).
 Owns CLI-02 and CLI-03. The receipt supervisor owns process evidence and classification.
 Domain data and published evidence have separate custody. CLI-02 also owns the bounded
 diagnostic retrieval and retention used by other packages.
@@ -189,3 +189,52 @@ Verify the declared union against independently known gaps without rewriting the
 and confirm child-group settlement or explicit cleanup failure. Retry by ID from a second process. Exercise concurrent campaigns to
 verify receipt isolation and exclusive native prerequisites. Check with a deliberately fixable source issue and demonstrate that only the explicit fix path
 writes it.
+
+### Completion audit follow-up
+
+**F01 · Managed custody and settlement.** The normal lease, no-replace delivery, expiry and
+hold paths have bounded controls. Reads accept a manifest artifact path of `.` and can copy the
+entire invocation, including private staging. GC deletes a `.gc-<id>` directory based on its
+name, without proving it was retired by the store or including it in preview/removal output.
+Both were reproduced in temporary storage. Validate stored artifact roles and path identity at
+read and delivery, and authenticate retired directories under the existing namespace boundary
+before cleanup. An abandoned running invocation has no installed settlement or recovery path.
+Add recovery that preserves unknown child ownership and permits inspection or retry when the
+owner proves settlement. Exercise substituted paths, unrelated directories, authenticated
+interrupted cleanup and active exporter/producer interleavings. Keep existing retention windows.
+[Artifact reads and delivery](../../../python/corpus-structure/src/corpus_structure/cli/managed.py#L260) ·
+[Collection](../../../python/corpus-structure/src/corpus_structure/cli/managed.py#L321)
+
+**CLI-CA02 · Actionable diagnostics and durable promotion.** `show` returns the raw manifest
+without effective expiry or diagnostic availability. `watch` exits at settlement before reading
+remaining records and treats a missing stream as silence. Test progress has stage/failure output
+but lacks the planned owner counts. The supervisor writes and then prints the full classification,
+which the recipe adapter buffers before the CLI rereads the retained copy. Project compact bounded
+status from the existing owners, including explicit unavailable, corrupt or truncated diagnostics
+and the next action by ID. `ci evidence retain` copies the artifact and indexes a folder without
+creating a finalized record, so provenance, consumer references and file hashes are missing from
+the evidence owner. Compose the existing record/finalize path for the selected necessary closure.
+Exercise settled and partial tails, blocked diagnostics, and a promoted result that can be verified
+after its managed copy expires. Keep optional logging and extra capture conditional.
+[Show and watch](../../../python/corpus-structure/src/corpus_structure/cli/managed.py#L409) ·
+[Supervisor publication](../../../scripts/test_receipts.py#L1204) ·
+[Promotion adapter](../../../python/corpus-structure/src/corpus_structure/cli/operations.py#L151) ·
+[Evidence records](../../design_review/evidence/README.md)
+
+**F03 · Test dispatch, retry and qualification context.** The selector validator returns false
+for `-k EXPRESSION` alone, just as for display-only `-q`. The installed adapter then treats a
+filtered request as the full campaign and can send the filter to the exclusive fault lane.
+Classify keyword selections as narrowing intent and refuse them for that lane. The current
+failure summary recommends a node retry whenever any artifact exists, even for failures that
+cannot be retried by node. Use the supervisor's failure scope to distinguish node retry, a fresh
+lane or a custody diagnosis. The retry preflight compares source, Python and library versions,
+and installed coverage drops the per-attempt native and invocation context already retained by
+the supervisor. Expose enough context to judge applicability and separate original outcomes,
+replacement evidence and unresolved identities. Coverage also derives the required set solely from
+published artifacts. In a temporary full-campaign control with a passed ordinary receipt and a
+failed fault lane without an artifact, installed coverage returned `passed` and `covered` for the
+ordinary nodes. Preserve the requested applicable lanes and their original outcomes even when a
+lane cannot publish a receipt. Exercise keyword-only and display-only inputs, reserved options,
+unavailable prerequisites and retry actions without changing the recorded failed attempt.
+[Selector validation](../../../scripts/test_receipts.py#L1054) ·
+[Dispatch and next action](../../../python/corpus-structure/src/corpus_structure/cli/testing.py#L127)
