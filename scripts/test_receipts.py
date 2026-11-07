@@ -1096,9 +1096,11 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[dict[str, str]]:
     for nodeid, node in receipt["nodes"].items():
         for report in sorted(
             (report for report in node["reports"] if report.get("outcome") == "failed"),
-            key=lambda report: _FAILURE_PHASES.index(report["when"])
-            if report.get("when") in _FAILURE_PHASES
-            else len(_FAILURE_PHASES) - 1,
+            key=lambda report: (
+                _FAILURE_PHASES.index(report["when"])
+                if report.get("when") in _FAILURE_PHASES
+                else len(_FAILURE_PHASES) - 1
+            ),
         ):
             phase = report.get("when")
             blocked = _failed_prerequisite(report)

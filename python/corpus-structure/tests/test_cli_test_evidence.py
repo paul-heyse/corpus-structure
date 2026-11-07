@@ -300,8 +300,6 @@ def test_installed_named_reports_wrap_and_sanitize_the_same_ordered_identities(t
         assert "fixture-secret" not in human and "\x1b[91m" not in human
         plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", human)
         displayed = "".join(
-            line.split("│")[column].strip()
-            for line in plain.splitlines()
-            if line.startswith("│")
+            line.split("│")[column].strip() for line in plain.splitlines() if line.startswith("│")
         )
         assert first + second in displayed

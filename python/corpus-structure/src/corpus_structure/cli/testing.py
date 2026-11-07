@@ -588,11 +588,7 @@ def coverage(
                     actions[manifest.id] = action
             report = CoverageSummary(
                 results=results,
-                status=(
-                    "incomplete"
-                    if missing or active or unsettled
-                    else summary["status"]
-                ),
+                status=("incomplete" if missing or active or unsettled else summary["status"]),
                 node_coverage=counts,
                 sources_differ=summary["source_contexts_differ"],
                 context_differences=summary["context_differences"],
