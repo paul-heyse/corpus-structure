@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-07. CLI completion audit confirmed partial delivery. The observed test union remains verified at its recorded scope. WCE12 remains open._
+_Updated 2026-11-07. CLI audit repairs verified in development. Live production qualification and WCE12 remain open._
 
 ## Current authority
 
@@ -36,18 +36,16 @@ _Updated 2026-11-07. CLI completion audit confirmed partial delivery. The observ
 
 ## CLI operations — 2026-11-07
 
-- The [CLI completion audit](docs/plans/cli-operations_2026-11-07.md#completion-audit) keeps
-  CLI-00 complete and CLI-01–08 partial. ADR-0069 governs routing, retention and explicit effects.
-  Typer 0.28.0 uses a workspace resolver override for Docling Core's CLI dependency.
-- Targeted managed test `a92491e73591416d93ddf279e9b1f768` passed 28 nodes. Native exact
-  review export and replay agreed for run205/cut283. Fresh reader-only MCP stdio passed its
-  exact response budget and refused one byte less.
-- `uv run ci db status --maintenance --json` passed on `18/corpus`, port5434, and read
-  `semantic_wce_lineage_20261107` as `paul`. The ordinary reader reports the migration table
-  as private. Native interruption, replay and explicit activation passed on isolated PostgreSQL.
-- `uv run ci test --json` at `88fd5d108` passed 5,093 ordinary tests and eight serial fault
-  controls. Four stdio tests passed on exact retry. `ci test coverage` reported 5,105 covered
-  nodes and zero unresolved. The original failure and source-context differences remain recorded.
+- The [CLI audit disposition](docs/plans/cli-operations_2026-11-07.md#completion-audit) owns the
+  verified development repairs and live prerequisite. ADR-0069 governs routing, retention and
+  explicit effects. Typer 0.28.0 retains the workspace override for Docling Core's CLI dependency.
+- `uv run ci db migrate --expected-predecessor semantic_wce_lineage_20261107 --json` and
+  `uv run ci db status --maintenance --json` passed against `18/corpus`, port 5434. Development
+  is at operational revision `semantic_cli_run_supervisor` with the same corpus physical model.
+- `uv run ci test --json` recorded 5,110 ordinary passes, one failure and eight fault passes.
+  The [reconciled coverage](docs/plans/cli-operations_2026-11-07.md#reconciled-functional-and-nonfunctional-results)
+  covers 5,119 required nodes with zero unresolved after the affected checks and exact retry.
+  Rust was `not_run` with an empty selection. `uv run ci check --json` and `just turn-end` passed.
 
 ## Next
 
@@ -57,4 +55,5 @@ _Updated 2026-11-07. CLI completion audit confirmed partial delivery. The observ
 - Settle the remaining source opportunities and exact native table factor reconstruction in
   the WCE plan. Authentic table-note and alias examples remain unavailable in their frames.
   Fitting remains `not_run` pending compatible events and protected evaluations.
-- The CLI plan owns the remaining operator journeys and their repairs. Live production qualification remains blocked on configured authority.
+- Resume live CLI qualification once the production target and its purpose roles are configured
+  and the exact deployment and selection effects are authorized.

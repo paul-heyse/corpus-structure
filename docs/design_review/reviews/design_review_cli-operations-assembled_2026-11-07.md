@@ -26,3 +26,23 @@ and applicable qualification union. G8 remains interface-checked for the selecte
 The [CLI plan](../../plans/cli-operations_2026-11-07.md#execution-disposition--2026-11-07) owns
 all implementation and evidence dispositions. The [initial target review](design_review_cli-operations-target_2026-11-07.md)
 established the original four correction areas. No new rule impact was identified.
+
+## Completion audit repair assessment
+
+**2026-11-07 · design/target · Tested in the stated development scope.** An independent assembled
+inspection started from `e68623e26` and traced the repairs across CLI, managed test receipts,
+Alembic, PostgreSQL and MCP. The assembled product qualification spans `107053d33` and the
+affected fixes in `52623af68` and `562b3e49e`.
+
+| Scenario | Integrated judgment |
+|---|---|
+| A published test directory has a substituted member, or an interrupted lane lacks an authoritative collection | The result owner authenticates the published entry. The supervisor opens receipt members without following links. Coverage retains missing required lanes and records which candidate supplies a valid collection. Recovery distinguishes process settlement from exact retry eligibility. |
+| A physical declaration is changed through preview and a later candidate executes on an explicit target | The proposed physical closure determines both the reviewed release and candidate admission metadata. The migration adapter verifies and stages the exact wrapper bytes at a private path. A stale checkout bytecode cache cannot supply those bytes. Native fixtures exercised interruption, retry, role and target refusal, and separate activation. |
+| The same installation reads retained corpus knowledge, loses a supervisor, or receives SIGTERM during export | Pure tools use reader authority. A dedicated PostgreSQL session records active custody or intentional handoff. A missing lease with retained active evidence identifies an orphan. Review retry requires exact selection, acquired source and settled predecessor. |
+| Host, output and fitting prerequisites differ | Host status reports unhealthy exit. Safe settings and diagnostics preserve caller meaning. Fitting availability names the missing prerequisite and its owner before starting a fit. |
+
+A1–A3 follow the stated owners in these scenarios. A4 fits the single-host workload through compact
+managed summaries, short reader snapshots, a dedicated supervisor connection and rollback-only
+native authoring on the working database. The applicable G7 evidence is reconciled in the
+[CLI plan](../../plans/cli-operations_2026-11-07.md#repair-verification--2026-11-07). Live production
+G7 evidence is `blocked` on configured target and effect authority. No new rule impact was identified.

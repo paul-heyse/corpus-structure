@@ -192,6 +192,9 @@ writes it.
 
 ### Completion audit follow-up
 
+The items below describe the audited baseline and the acceptance controls. The
+[coordinator](../cli-operations_2026-11-07.md#completion-audit) owns current dispositions.
+
 **F01 · Managed custody and settlement.** The normal lease, no-replace delivery, expiry and
 hold paths have bounded controls. Reads accept a manifest artifact path of `.` and can copy the
 entire invocation, including private staging. GC deletes a `.gc-<id>` directory based on its

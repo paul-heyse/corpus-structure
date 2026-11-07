@@ -132,6 +132,9 @@ MCP and detached consumers wherever the approved change affects their contract.
 
 ### Completion audit follow-up
 
+The items below describe the audited baseline and the acceptance controls. The
+[coordinator](../cli-operations_2026-11-07.md#completion-audit) owns current dispositions.
+
 **F02 · Approved effects and semantic inputs.** Preview records a canonical patch and can pin
 a prepared release, and candidate preparation refuses a differing release. The preview still
 leaves effect applicability and required checks to the request's native and deployment flags.

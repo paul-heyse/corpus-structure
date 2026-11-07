@@ -166,6 +166,9 @@ evidence closure that remains useful after qualification.
 
 ### Completion audit follow-up
 
+The items below describe the audited baseline and the acceptance controls. The
+[coordinator](../cli-operations_2026-11-07.md#completion-audit) owns current dispositions.
+
 **F04 · Reader authority across MCP.** `find` and `inspect_source` use the reader, and the queue
 writer opens lazily. Structural products, dossiers, contributions, records and record support
 still resolve through the writer-backed `bound_run`. Even `queue_status` acquires the writer for

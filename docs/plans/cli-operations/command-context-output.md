@@ -147,6 +147,9 @@ registered commands. The recipe remains independently usable for recovery.
 
 ### Completion audit follow-up
 
+The items below describe the audited baseline and the acceptance controls. The
+[coordinator](../cli-operations_2026-11-07.md#completion-audit) owns current dispositions.
+
 **CLI-CA01 · Invocation context and safe output.** The Typer pin, workspace override, lazy help
 and reference generation have bounded installed evidence. `ci context show` reports resolved
 values and environment names, but cannot say which source won or resolve the interpreter,
