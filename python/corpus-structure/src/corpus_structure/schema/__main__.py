@@ -10,28 +10,25 @@ from __future__ import annotations
 
 import sys
 
-from corpus_structure.schema import generate, model
+from corpus_structure.schema import generate, model, preparation
 
 
 def main(argv: list[str]) -> int:
     if argv not in (["generate"], ["check"]):
         print("usage: python -m corpus_structure.schema generate|check", file=sys.stderr)
         return 2
-    loaded = model.load()
-    current = model.revision(loaded)
     if argv == ["generate"]:
-        problems = model.check(loaded)
-        if problems:
-            print("\n".join(problems), file=sys.stderr)
-            return 1
-        changed = generate.write(generate.render(loaded))
-        log = model.record_root(current, model.read_log())
-        text = model.render_log(log)
-        if not model.REVISIONS.exists() or model.REVISIONS.read_text(encoding="utf-8") != text:
-            model.REVISIONS.write_text(text, encoding="utf-8")
-            changed.append("model/revisions.yaml")
+        with preparation.writer_lock(generate.REPOSITORY):
+            try:
+                files = preparation.prepare(model.load(), model.read_log())
+            except model.ModelError as error:
+                print(str(error), file=sys.stderr)
+                return 1
+            changed = generate.write(files, root=generate.REPOSITORY)
         print("\n".join(f"wrote {path}" for path in changed) or "model: generated files current")
         return 0
+    loaded = model.load()
+    current = model.revision(loaded)
     from corpus_structure.core import vocab
 
     problems = model.check(loaded, vocab.MEMBER_PROPERTIES)

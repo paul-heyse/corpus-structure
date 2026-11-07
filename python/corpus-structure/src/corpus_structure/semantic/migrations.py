@@ -33,8 +33,30 @@ def current_revision(connection: Connection) -> str | None:
     ).get_current_revision()
 
 
-def upgrade(connection: Connection, target: str = "head") -> list[dict[str, Any]]:
+class MigrationPredecessorError(ValueError):
+    """An explicit migration target does not have the expected current predecessor."""
+
+
+def migration_fence(connection: Connection) -> None:
+    """Serialize migration effects on the same PostgreSQL database for this transaction."""
+    connection.exec_driver_sql(
+        "SELECT pg_advisory_xact_lock(hashtextextended('corpus-structure semantic migrations', 0))"
+    )
+
+
+def upgrade(
+    connection: Connection, target: str = "head", *, expected_predecessor: str | None = None
+) -> list[dict[str, Any]]:
     """Migrate on the caller's connection and transaction; never open a second connection."""
+    migration_fence(connection)
+    if expected_predecessor is not None:
+        actual = current_revision(connection)
+        if actual == target:
+            return []
+        if actual != expected_predecessor:
+            raise MigrationPredecessorError(
+                f"expected native predecessor {expected_predecessor}, found {actual}"
+            )
     config = alembic_config(connection)
     command.upgrade(config, target)
     return list(config.attributes.get("applied", []))
@@ -46,4 +68,5 @@ def downgrade(connection: Connection, target: str = "base") -> None:
         raise RuntimeError(
             "semantic bootstrap downgrade is destructive; rebuild the owned realization"
         )
+    migration_fence(connection)
     command.downgrade(alembic_config(connection), target)
