@@ -18,8 +18,9 @@ from .test_scoped_relations import complete_native_fields
 
 _FROZEN_TEXT = (
     "We have seen above that it is possible to simulate a standard normal random variable Z. "
-    "If we wish to simulate a normal random variable X with parameters µ and σ, then we need only "
-    "transform the simulated values for Z using the equation X = σZ + µ."
+    "If we wish to simulate a normal random variable X with parameters µ and \u03c3, "
+    "then we need only "
+    "transform the simulated values for Z using the equation X = \u03c3Z + µ."
 )
 
 
@@ -27,12 +28,18 @@ def discovery(text, **kwargs):
     view = complete_native_fields(source(text, labels=("text",)))
     pieces = tuple(dict(piece, source_field="text") for piece in view.pieces)
     projection = dict(
-        text=view.text, pieces=pieces, items=[node["self_ref"] for node in view.items],
-        ancestors=[], health={},
+        text=view.text,
+        pieces=pieces,
+        items=[node["self_ref"] for node in view.items],
+        ancestors=[],
+        health={},
     )
     view = replace(
-        view, pieces=pieces, ref=replace(
-            view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest(),
+        view,
+        pieces=pieces,
+        ref=replace(
+            view.ref,
+            projection_digest=sha256(canonical_bytes(projection)).hexdigest(),
         ),
     )
     frame = native_source_frame(view, ())
@@ -55,7 +62,7 @@ def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry():
     assert operation["inspected_count"] == 1
     assert operation["outcome"] == "succeeded"
     assert operation["emitted_count"] == len(rows) == 4
-    assert {source_python(row["value"])["text"] for row in rows} == {"X", "σ", "Z", "µ"}
+    assert {source_python(row["value"])["text"] for row in rows} == {"X", "\u03c3", "Z", "µ"}
     (z,) = [row for row in rows if source_python(row["value"])["text"] == "Z"]
     (anchor,) = z["anchors"]
     assert (anchor["start"], anchor["end"], anchor["source_piece"]) == (242, 243, "Z")
@@ -71,9 +78,14 @@ def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry():
 def test_clipped_equation_produces_no_formula_operation():
     _, _, output = discovery(
         _FROZEN_TEXT,
-        passages=(SimpleNamespace(
-            passage_id="clipped", start=237, end=247, effective_version=None,
-        ),),
+        passages=(
+            SimpleNamespace(
+                passage_id="clipped",
+                start=237,
+                end=247,
+                effective_version=None,
+            ),
+        ),
     )
     assert all(o["question"] != "source_formula_occurrences" for o in output["extra_operations"])
 
@@ -82,8 +94,8 @@ def test_clipped_equation_produces_no_formula_operation():
     ("text", "max_chars", "outcome"),
     [
         ("using the equation X = χZ + µ.", 200, "unsupported"),
-        ("using the equation X = σZ + µ.", 6, "limited"),
-        ("using the equation X = σZ + µ", 200, "unsupported"),
+        ("using the equation X = \u03c3Z + µ.", 6, "limited"),
+        ("using the equation X = \u03c3Z + µ", 200, "unsupported"),
     ],
 )
 def test_failed_capture_reports_diagnostic_without_occurrences(text, max_chars, outcome):
@@ -96,28 +108,38 @@ def test_failed_capture_reports_diagnostic_without_occurrences(text, max_chars, 
 
 def test_detached_verifier_rejects_the_exact_same_symbol_outside_the_equation():
     view, frame, output = discovery(_FROZEN_TEXT)
-    report = json.loads(canonical_bytes({
-        "configuration": ScopedRelationsConfig().model_dump(mode="json"),
-        "body": {
-            "contribution_operations": output["extra_operations"],
-            "contributions": output["contributions"],
-            "parse_detail": source_value({"formula_syntax": output["formula_diagnostics"]}),
-        },
-    }))
-    original = json.loads(canonical_bytes({
-        "source_view_id": frame.source_view_id,
-        "text": view.text,
-        "context": {"items": view.items, "pieces": view.pieces},
-        "ref": {
-            "key": frame.unit_ref,
-            "projection_digest": frame.projection_digest,
-            "recipe_digest": frame.recipe_digest,
-            "native_product": frame.native_product.values(),
-        },
-    }))
+    report = json.loads(
+        canonical_bytes(
+            {
+                "configuration": ScopedRelationsConfig().model_dump(mode="json"),
+                "body": {
+                    "contribution_operations": output["extra_operations"],
+                    "contributions": output["contributions"],
+                    "parse_detail": source_value({"formula_syntax": output["formula_diagnostics"]}),
+                },
+            }
+        )
+    )
+    original = json.loads(
+        canonical_bytes(
+            {
+                "source_view_id": frame.source_view_id,
+                "text": view.text,
+                "context": {"items": view.items, "pieces": view.pieces},
+                "ref": {
+                    "key": frame.unit_ref,
+                    "projection_digest": frame.projection_digest,
+                    "recipe_digest": frame.recipe_digest,
+                    "native_product": frame.native_product.values(),
+                },
+            }
+        )
+    )
     verify_inline_formula_report(report, original)
 
-    (row,) = [r for r in report["body"]["contributions"] if source_python(r["value"])["text"] == "Z"]
+    (row,) = [
+        r for r in report["body"]["contributions"] if source_python(r["value"])["text"] == "Z"
+    ]
     value = source_python(row["value"])
     start = _FROZEN_TEXT.rindex("Z", 0, 242)
     value.update(start=start, end=start + 1)

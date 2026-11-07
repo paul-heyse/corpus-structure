@@ -42,12 +42,14 @@ def verify_inline_formula_report(report, source):
     )
     op_key = operation_identity(INLINE_FORMULA_QUESTION, INLINE_FORMULA_VERSION, pin, selection)
     operations = [
-        op for op in body["contribution_operations"]
-        if op["question"] == INLINE_FORMULA_QUESTION
+        op for op in body["contribution_operations"] if op["question"] == INLINE_FORMULA_QUESTION
     ]
     equations = tuple(
         inline_equations(
-            text, pieces, {item["self_ref"]: item for item in context["items"]}, selection,
+            text,
+            pieces,
+            {item["self_ref"]: item for item in context["items"]},
+            selection,
             max_chars=cfg.max_formula_chars,
         )
     )
@@ -55,9 +57,7 @@ def verify_inline_formula_report(report, source):
     diagnostics = [
         d for d in detail["formula_syntax"] if d.get("input_policy") == INLINE_FORMULA_POLICY
     ]
-    actual = [
-        row for row in body["contributions"] if row["operation_key"] == op_key
-    ]
+    actual = [row for row in body["contributions"] if row["operation_key"] == op_key]
     if not equations and not operations and not diagnostics and not actual:
         return
     if len(operations) != 1 or len(equations) != len(diagnostics) or not equations:
@@ -91,11 +91,13 @@ def verify_inline_formula_report(report, source):
         if result != "parsed":
             raise ValueError("inline formula syntax could not be replayed")
         for symbol in symbols:
-            expected[equation.pointer, symbol.start, symbol.end] = text[symbol.start:symbol.end]
+            expected[equation.pointer, symbol.start, symbol.end] = text[symbol.start : symbol.end]
 
     unavailable = any(d["outcome"] != "parsed" for d in diagnostics)
-    outcome = ("limited" if expected else "unsupported") if unavailable else (
-        "succeeded" if expected else "empty"
+    outcome = (
+        ("limited" if expected else "unsupported")
+        if unavailable
+        else ("succeeded" if expected else "empty")
     )
     if op["outcome"] != outcome or len(expected) != len(actual):
         raise ValueError("inline formula operation differs from replayed syntax")
@@ -105,25 +107,38 @@ def verify_inline_formula_report(report, source):
         pointer, start, end = value["source_pointer"], value["start"], value["end"]
         literal = expected.pop((pointer, start, end), None)
         matching = [
-            piece for piece in pieces
-            if piece.get("item_ref") == pointer and piece.get("kind") == "native_text"
+            piece
+            for piece in pieces
+            if piece.get("item_ref") == pointer
+            and piece.get("kind") == "native_text"
             and piece["start"] <= start < end <= piece["end"]
         ]
         if literal is None or len(matching) != 1 or len(row.get("anchors", ())) != 1:
             raise ValueError("inline formula occurrence differs from exact native symbol")
         (piece,), (anchor,) = matching, row["anchors"]
         if (
-            row["pin"] != pin or anchor["pin"] != pin
-            or row["kind"] != "occurrence" or row["semantic_type"] != "structural.located_participant"
-            or row.get("members") or row.get("endpoints")
+            row["pin"] != pin
+            or anchor["pin"] != pin
+            or row["kind"] != "occurrence"
+            or row["semantic_type"] != "structural.located_participant"
+            or row.get("members")
+            or row.get("endpoints")
             or row["computation_dependencies"] != [dependency]
-            or anchor["pointer"] != pointer or anchor["space"] != "native"
-            or anchor["precision"] != "exact" or anchor["source_piece"] != literal
+            or anchor["pointer"] != pointer
+            or anchor["space"] != "native"
+            or anchor["precision"] != "exact"
+            or anchor["source_piece"] != literal
             or anchor["start"] != start - piece["start"]
             or anchor["end"] != end - piece["start"]
-            or value != dict(
-                role="formula_symbol", source_pointer=pointer, region=pointer, text=literal,
-                start=start, end=end, **INLINE_FORMULA_OCCURRENCE_FIELDS,
+            or value
+            != dict(
+                role="formula_symbol",
+                source_pointer=pointer,
+                region=pointer,
+                text=literal,
+                start=start,
+                end=end,
+                **INLINE_FORMULA_OCCURRENCE_FIELDS,
             )
         ):
             raise ValueError("inline formula occurrence differs from exact native symbol")
@@ -135,7 +150,8 @@ def verify_inline_formula_closure(root, manifest):
     if "reports" not in manifest["relations"]:
         return
     reports = [
-        row for row in _detached_relation(root, manifest, "reports")
+        row
+        for row in _detached_relation(root, manifest, "reports")
         if row.get("method") == "structure.scoped_relations"
         and (row.get("body") or {}).get("operation_version") == "5"
         and (row.get("body") or {}).get("outcome") in {"produced", "empty"}

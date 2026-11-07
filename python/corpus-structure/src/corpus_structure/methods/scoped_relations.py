@@ -985,7 +985,9 @@ def discover_relations(
             else tuple((p.passage_id, p.start, p.end, p.effective_version) for p in passages)
         )
         equations = tuple(
-            inline_equations(frame.text, source_pieces, items, selection, max_chars=max_formula_chars)
+            inline_equations(
+                frame.text, source_pieces, items, selection, max_chars=max_formula_chars
+            )
         )
         if equations:
             inline_op = operation_identity(

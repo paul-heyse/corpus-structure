@@ -44,8 +44,25 @@ def _qualifier_patterns(vocab: Vocab) -> Matcher:
         ),
         (
             "population",
-            tuple(
-                "counting the waiting time of all customers , even those that do not have to wait at all".split()
+            (
+                "counting",
+                "the",
+                "waiting",
+                "time",
+                "of",
+                "all",
+                "customers",
+                ",",
+                "even",
+                "those",
+                "that",
+                "do",
+                "not",
+                "have",
+                "to",
+                "wait",
+                "at",
+                "all",
             ),
         ),
     ):

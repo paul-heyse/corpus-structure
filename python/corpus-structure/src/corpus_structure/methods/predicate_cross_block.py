@@ -40,8 +40,15 @@ def _cue(product, variant, start, stop, marker):
         )
 
     return FrameCue(
-        product.block_id, product.dependency_digest, "assumption", variant,
-        span(start, stop), span(marker, marker + 1), "located", (), None,
+        product.block_id,
+        product.dependency_digest,
+        "assumption",
+        variant,
+        span(start, stop),
+        span(marker, marker + 1),
+        "located",
+        (),
+        None,
     )
 
 
@@ -55,7 +62,8 @@ def _sentences(product):
 
 def _whole_piece(product, piece):
     return piece is not None and (product.block_start, product.block_end) == (
-        piece["start"], piece["end"],
+        piece["start"],
+        piece["end"],
     )
 
 
@@ -88,15 +96,17 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
         )
 
     def words(product):
-        return tuple(text[token.start:token.end] for token in product.tokens)
+        return tuple(text[token.start : token.end] for token in product.tokens)
 
     def list_intro(product, node, spelling, sentences):
         prefix = ("for", "each", "of", "the", "following", ",", "assume", "that")
         tokens = product.tokens
         if (
-            product.kind != "paragraph" or len(sentences) != 1
+            product.kind != "paragraph"
+            or len(sentences) != 1
             or tuple(s.lower() for s in spelling[:8]) != prefix
-            or len(spelling) < 11 or spelling[-1] != ":"
+            or len(spelling) < 11
+            or spelling[-1] != ":"
             or tokens[6].dependency != "ROOT"
             or sum(t.head == 6 and t.dependency == "ccomp" for t in tokens[8:-1]) != 1
         ):
@@ -110,37 +120,47 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
         children = tuple(ref["$ref"] for ref in group_node.get("children", ()))
         following = position[product.block_id] + 1
         if (
-            group not in selected_items or siblings.count(group) != 1
+            group not in selected_items
+            or siblings.count(group) != 1
             or group_node.get("label") != "list"
             or group_node.get("content_layer") != "body"
             or group_node.get("parent") != node.get("parent")
-            or not children or len(set(children)) != len(children)
-            or following == len(pieces) or pieces[following].get("item_ref") != children[0]
+            or not children
+            or len(set(children)) != len(children)
+            or following == len(pieces)
+            or pieces[following].get("item_ref") != children[0]
         ):
             return CrossBlockQualifier(product, cue, (), None)
         targets = []
         for pointer in children:
             candidates = [
-                target for target in by_block[pointer]
+                target
+                for target in by_block[pointer]
                 if target.annotation.tokens[target.predicate].dependency == "ROOT"
                 and target.annotation.tokens[target.predicate].pos in {"VERB", "AUX"}
             ]
             if len(candidates) != 1:
                 continue
             (host,) = candidates
-            if sum(
-                t.dependency == "ROOT" and t.pos in {"VERB", "AUX"}
-                for t in host.annotation.tokens
-            ) != 1:
+            if (
+                sum(
+                    t.dependency == "ROOT" and t.pos in {"VERB", "AUX"}
+                    for t in host.annotation.tokens
+                )
+                != 1
+            ):
                 continue
             child = items.get(pointer, {})
             if (
-                host.annotation.kind == "list_item" and child.get("label") == "list_item"
+                host.annotation.kind == "list_item"
+                and child.get("label") == "list_item"
                 and child.get("parent") == {"$ref": group}
                 and complete_block(host.annotation)
             ):
                 targets.append(host)
-        return CrossBlockQualifier(product, cue, tuple(targets), dict(kind="list_intro", list_group=group))
+        return CrossBlockQualifier(
+            product, cue, tuple(targets), dict(kind="list_intro", list_group=group)
+        )
 
     def parameter_note(product, node, spelling, sentences):
         suffix = ("and", "thus", "it", "is", "assumed", "to", "be", "positive", ".")
@@ -149,26 +169,34 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
             a, b = indices[0], indices[-1] + 1
             folded = tuple(s.lower() for s in spelling[a:b])
             if (
-                b - a < 13 or folded[:2] != ("the", "parameter")
-                or sum(folded[i:i+2] == ("the", "parameter") for i in range(len(folded)-1)) != 1
+                b - a < 13
+                or folded[:2] != ("the", "parameter")
+                or sum(folded[i : i + 2] == ("the", "parameter") for i in range(len(folded) - 1))
+                != 1
                 or folded[-9:] != suffix
-                or len(spelling[a+2]) != 1 or not spelling[a+2].isalpha()
+                or len(spelling[a + 2]) != 1
+                or not spelling[a + 2].isalpha()
             ):
                 continue
             assumed = b - 5
             if (
-                tokens[b-7].head != assumed or tokens[b-7].dependency != "nsubjpass"
-                or tokens[b-6].head != assumed or tokens[b-6].dependency != "auxpass"
-                or tokens[b-4].head != b-3 or tokens[b-4].dependency != "aux"
-                or tokens[b-3].head != assumed or tokens[b-3].dependency != "xcomp"
-                or tokens[b-2].head != b-3 or tokens[b-2].dependency != "acomp"
+                tokens[b - 7].head != assumed
+                or tokens[b - 7].dependency != "nsubjpass"
+                or tokens[b - 6].head != assumed
+                or tokens[b - 6].dependency != "auxpass"
+                or tokens[b - 4].head != b - 3
+                or tokens[b - 4].dependency != "aux"
+                or tokens[b - 3].head != assumed
+                or tokens[b - 3].dependency != "xcomp"
+                or tokens[b - 2].head != b - 3
+                or tokens[b - 2].dependency != "acomp"
             ):
                 continue
-            cue = _cue(product, "parameter_positive", b-7, b-1, assumed)
+            cue = _cue(product, "parameter_positive", b - 7, b - 1, assumed)
             siblings, index = _siblings(items, node)
             targets = []
             if index >= 2:
-                origin, display = siblings[index-2:index]
+                origin, display = siblings[index - 2 : index]
                 host_candidates = by_block[origin]
                 if (
                     items.get(display, {}).get("label") == "formula"
@@ -194,12 +222,15 @@ def cross_block_qualifiers(frame, annotations, selected, hosts, population, nati
                             if parameter["variant"] != "nominal_parameter_pair":
                                 continue
                             symbol = host.annotation.tokens[parameter["token_indices"][-1]]
-                            if text[symbol.start:symbol.end] == spelling[a+2]:
+                            if text[symbol.start : symbol.end] == spelling[a + 2]:
                                 targets.append((host, relation["contribution_id"]))
             if len(targets) == 1:
                 host, predecessor = targets[0]
                 yield CrossBlockQualifier(
-                    product, cue, (host,), dict(kind="parameter_note", parameterization=predecessor),
+                    product,
+                    cue,
+                    (host,),
+                    dict(kind="parameter_note", parameterization=predecessor),
                 )
             else:
                 yield CrossBlockQualifier(product, cue, (), None)

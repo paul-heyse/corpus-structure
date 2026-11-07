@@ -33,20 +33,33 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
     first["parent"] = ref(group)
     second["parent"] = ref(parent if case == "wrong_group" else group)
     nodes = (
-        dict(self_ref=parent, label="section", content_layer="body",
-             children=[ref(intro_node["self_ref"]), ref(group)]),
+        dict(
+            self_ref=parent,
+            label="section",
+            content_layer="body",
+            children=[ref(intro_node["self_ref"]), ref(group)],
+        ),
         intro_node,
-        dict(self_ref=group, label="list", content_layer="body", parent=ref(parent),
-             children=[ref(first["self_ref"]), ref(second["self_ref"])]),
+        dict(
+            self_ref=group,
+            label="list",
+            content_layer="body",
+            parent=ref(parent),
+            children=[ref(first["self_ref"]), ref(second["self_ref"])],
+        ),
         first,
         second,
     )
     projection = dict(
-        text=text, pieces=view.pieces, items=[node["self_ref"] for node in nodes],
-        ancestors=[], health={},
+        text=text,
+        pieces=view.pieces,
+        items=[node["self_ref"] for node in nodes],
+        ancestors=[],
+        health={},
     )
     view = replace(
-        view, items=nodes,
+        view,
+        items=nodes,
         ref=replace(view.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()),
     )
     profile = AnnotationProfile()
@@ -55,15 +68,23 @@ def test_explicit_list_intro_has_independent_located_hosts(case):
     assert {a.block_id for a in prepared.annotations} == {"#/texts/0", "#/texts/1", "#/texts/2"}
     end = text.index("\nThe reviewer") if case == "clipped" else len(text)
     passage = StructuralPassage(
-        passage_id="layout", scope="layout", source_ref="fixture", start=0, end=end, text=text[:end],
+        passage_id="layout",
+        scope="layout",
+        source_ref="fixture",
+        start=0,
+        end=end,
+        text=text[:end],
     )
     output = discover_relations(
-        native_source_frame(view, ()), annotations=prepared.annotations,
-        passages=None if case == "no_scope" else (passage,), predicate_version="3",
+        native_source_frame(view, ()),
+        annotations=prepared.annotations,
+        passages=None if case == "no_scope" else (passage,),
+        predicate_version="3",
     )
     rows = {row["contribution_id"]: row for row in output["contributions"]}
     inherited = [
-        row["component"] for row in rows.values()
+        row["component"]
+        for row in rows.values()
         if row.get("component", {}).get("host_witness") is not None
     ]
     assert len(inherited) == {"complete": 2, "clipped": 1, "wrong_group": 1, "no_scope": 0}[case]

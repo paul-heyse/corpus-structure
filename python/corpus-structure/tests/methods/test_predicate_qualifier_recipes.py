@@ -10,7 +10,6 @@ from corpus_structure.methods.predicate_qualifier_recipes import local_qualifier
 
 from .test_predicate_frames import retained, strings
 
-
 EVENT = (
     "Definition 6.2 If F is any event and X is a random variable "
     "with sample space Ω = {x1, x2, . . .}, then the conditional expectation given F is defined by"
@@ -19,7 +18,7 @@ VARIANCE = (
     "Let X and Y be random variables with positive variance. "
     "The correlation of X and Y is defined as"
 )
-PARAMETERS = "The normal density function with parameters µ and σ is defined as follows:"
+PARAMETERS = "The normal density function with parameters µ and \u03c3 is defined as follows:"
 POPULATION = (
     "Note that in this case we are counting the waiting time of all customers, "
     "even those that do not have to wait at all."
@@ -59,7 +58,7 @@ def _analyze(text, kind):
             "paragraph",
             "nominal_parameter_pair",
             "parameterization",
-            "with parameters µ and σ",
+            "with parameters µ and \u03c3",
             "defined",
         ),
         (
@@ -103,7 +102,7 @@ def test_attaches_exact_cue_to_one_host(text, kind, variant, cue_kind, expected,
         ),
         (VARIANCE, "paragraph", "adjacent_variance_premise"),
         (
-            PARAMETERS.replace("µ and σ", "σ and σ"),
+            PARAMETERS.replace("µ and \u03c3", "\u03c3 and \u03c3"),
             "paragraph",
             "nominal_parameter_pair",
         ),

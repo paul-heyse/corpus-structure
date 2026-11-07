@@ -405,10 +405,7 @@ def _validate_predicate_component(row, component, population):
         if (
             row["kind"] != "occurrence"
             or not row.get("occurrence_id")
-            or (
-                component["host_state"] == "located"
-                and (not (local or cross) or marker is None)
-            )
+            or (component["host_state"] == "located" and (not (local or cross) or marker is None))
             or members != ((marker,) if marker is not None else ())
             or (
                 marker is not None
@@ -460,17 +457,21 @@ def _validate_predicate_component(row, component, population):
             )
             if witness["kind"] == "list_intro":
                 host_matches = (
-                    host_matches and cue["variant"] == "list_assumption"
-                    and set(witness) == {"kind", "list_group"} and bool(witness["list_group"])
+                    host_matches
+                    and cue["variant"] == "list_assumption"
+                    and set(witness) == {"kind", "list_group"}
+                    and bool(witness["list_group"])
                 )
             else:
                 predecessor_id = witness.get("parameterization")
                 predecessor = (
                     same_scope(population[predecessor_id], "predicate_qualifier")
-                    if predecessor_id in deps else {}
+                    if predecessor_id in deps
+                    else {}
                 )
                 host_matches = (
-                    host_matches and cue["variant"] == "parameter_positive"
+                    host_matches
+                    and cue["variant"] == "parameter_positive"
                     and set(witness) == {"kind", "parameterization"}
                     and predecessor.get("host_contribution_id") == host
                     and predecessor.get("qualifier_kind") == "parameterization"

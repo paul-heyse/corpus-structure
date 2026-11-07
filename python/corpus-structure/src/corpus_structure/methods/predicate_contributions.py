@@ -130,11 +130,7 @@ def publish_predicate_evidence(
     if version not in {"2", "3"}:
         raise ValueError("unknown predicate contribution recipe")
     native = json.loads(frame.native_context)
-    pieces = tuple(
-        piece
-        for piece in native["pieces"]
-        if piece["kind"] == "native_text"
-    )
+    pieces = tuple(piece for piece in native["pieces"] if piece["kind"] == "native_text")
     piece_ends = tuple(piece["end"] for piece in pieces)
     scope = (
         None
@@ -314,7 +310,8 @@ def publish_predicate_evidence(
         basis_extents, basis_anchors, basis_tokens = evidence(annotation, selected, cue.basis)
         whole = extents == cue.span.extents and basis_extents == cue.basis.extents
         host_state = (
-            "located" if whole and cue.status == "located" and (cue.hosts or cross_hosts)
+            "located"
+            if whole and cue.status == "located" and (cue.hosts or cross_hosts)
             else "unresolved"
         )
         cross_hosts = cross_hosts if host_state == "located" else ()
@@ -430,8 +427,10 @@ def publish_predicate_evidence(
             from .predicate_qualifier_recipes import local_qualifier_result
 
             view = annotation_view(
-                annotation, frame.text[annotation.block_start:annotation.block_end],
-                _frame_vocabulary(), required=("DEP", "POS", "SENT_START"),
+                annotation,
+                frame.text[annotation.block_start : annotation.block_end],
+                _frame_vocabulary(),
+                required=("DEP", "POS", "SENT_START"),
             )
             result = local_qualifier_result(view, result)
         dep = "annotation:" + annotation.dependency_digest
@@ -565,7 +564,12 @@ def publish_predicate_evidence(
                     ),
                 )
                 target = CrossBlockTarget(
-                    host, reading_id, interpretation, polarity, annotation, predicate_token,
+                    host,
+                    reading_id,
+                    interpretation,
+                    polarity,
+                    annotation,
+                    predicate_token,
                 )
                 if version == "3" and scope is not None:
                     scoped_hosts[selected].append(target)
@@ -573,7 +577,7 @@ def publish_predicate_evidence(
                     located = cue_row(annotation, selected, cue, dep, bases)
                     if located is None:
                         continue
-                    qualifier, kind, host_state, source_text, contiguous = located
+                    _, kind, host_state, _, _ = located
                     if (
                         host_state != "located"
                         or predicate_token not in cue.hosts
@@ -585,13 +589,22 @@ def publish_predicate_evidence(
     if version == "3" and scope is not None:
         for selected in scope:
             for entry in cross_block_qualifiers(
-                frame, tuple(annotation for annotation, _ in results), selected,
-                scoped_hosts[selected], row_cache, native, pieces,
+                frame,
+                tuple(annotation for annotation, _ in results),
+                selected,
+                scoped_hosts[selected],
+                row_cache,
+                native,
+                pieces,
             ):
                 dep = "annotation:" + entry.source.dependency_digest
                 bases = (dependency, dep)
                 located = cue_row(
-                    entry.source, selected, entry.cue, dep, bases,
+                    entry.source,
+                    selected,
+                    entry.cue,
+                    dep,
+                    bases,
                     cross_hosts=tuple(target.frame for target in entry.targets),
                 )
                 if located is None or located[2] != "located":
@@ -599,8 +612,12 @@ def publish_predicate_evidence(
                 for target in entry.targets:
                     target_dep = "annotation:" + target.annotation.dependency_digest
                     attach(
-                        selected, located, entry.cue.variant, target,
-                        (*bases, target_dep), witness=entry.witness,
+                        selected,
+                        located,
+                        entry.cue.variant,
+                        target,
+                        (*bases, target_dep),
+                        witness=entry.witness,
                     )
 
     reason = "; ".join(issues)
