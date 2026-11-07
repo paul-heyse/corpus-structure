@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
-import sys
+import re
 from hashlib import sha256
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
+from rich.console import Group
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, state
+from corpus_structure.cli.output import (
+    JsonOpt,
+    diagnostic,
+    emit,
+    read_request_bytes,
+    safe_text,
+    state,
+    write_report_bytes,
+    write_report_text,
+)
 from corpus_structure.cli.schema import refusal
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
@@ -35,6 +48,64 @@ class CheckResult(BaseModel):
     report: str
 
 
+class PreviewEffectsReport(BaseModel):
+    preview_id: str
+    revision: str
+    baseline: str
+    head: str
+    workspace: str
+    target: str | None
+    target_profile: DeploymentProfile | None
+    acquired_target: StorageTarget | None
+    authoring_target: StorageTarget | None
+    predecessor: str | None
+    release: str | None
+    changed_paths: tuple[str, ...]
+    effects: dict[str, JsonValue]
+    comparison_status: Literal["available", "unavailable", "not_applicable"]
+    comparison: dict[str, JsonValue] | None
+    discovery_status: Literal["available", "unavailable"]
+    next_command: str | None
+
+
+class PreviewDiscoveryReport(BaseModel):
+    preview_id: str
+    status: Literal["available", "unavailable"]
+    discovery: dict[str, JsonValue] | None
+
+
+class PatchHunk(BaseModel):
+    ordinal: int
+    patch_line: int
+    excerpt: str
+    truncated: bool
+
+
+class PreviewPatchReport(BaseModel):
+    preview_id: str
+    changed_paths: tuple[str, ...]
+    total_hunks: int
+    hunks: list[PatchHunk]
+    next_after_hunk: int | None
+
+
+class CandidateInspection(BaseModel):
+    candidate_id: str
+    preview_id: str | None
+    workspace: str
+    model_revision: str
+    native_revision: str | None
+    predecessor: str | None
+    release: str
+    target: str
+    target_profile: DeploymentProfile
+    acquired_target: StorageTarget | None
+    authoring_target: StorageTarget | None
+    registration: Literal["verified", "unverified", "not_applicable"]
+    registration_detail: str | None
+    next_command: str | None
+
+
 @app.command()
 def check(json_: JsonOpt = False) -> None:
     """Check canonical declarations, generated output and revision log."""
@@ -46,9 +117,13 @@ def check(json_: JsonOpt = False) -> None:
             diagnostic(done.stderr)
         report = safe_text(done.stdout)
         if not json_ and report:
-            typer.echo(report, nl=False)
+            write_report_text(report, exit_code=done.returncode)
         else:
-            emit(CheckResult(exit_code=done.returncode, report=report), json=json_)
+            emit(
+                CheckResult(exit_code=done.returncode, report=report),
+                json=json_,
+                exit_code=done.returncode,
+            )
         if done.returncode:
             raise typer.Exit(done.returncode)
 
@@ -63,6 +138,333 @@ def _load_artifact(store, result_id: str, action: str, role: str) -> bytes:
     if sha256(raw).hexdigest() != manifest.details.get("sha256"):
         raise ResultError("result artifact no longer matches its settled digest")
     return raw
+
+
+_HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@[^\n]*\n", re.MULTILINE)
+_PATCH_STREAM_LIMIT = 8 * 1024 * 1024
+_HUNK_LINES = 40
+_HUNK_CHARS = 3000
+
+
+def _patch_hunks(patch: str, after: int, limit: int) -> tuple[int, list[PatchHunk]]:
+    hunks: list[PatchHunk] = []
+    total = 0
+    patch_line, prior = 1, 0
+    for total, header in enumerate(_HUNK.finditer(patch), 1):
+        if total > after + limit:
+            continue
+        patch_line += patch.count("\n", prior, header.start())
+        prior = header.start()
+        if total <= after:
+            continue
+        old, new = (int(count) if count is not None else 1 for count in header.groups())
+        excerpt = safe_text(header[0])[:_HUNK_CHARS]
+        offset = header.end()
+        truncated = len(excerpt) == _HUNK_CHARS
+        for _ in range(_HUNK_LINES):
+            if not (old or new) or truncated or offset >= len(patch):
+                break
+            end = patch.find("\n", offset)
+            end = len(patch) if end < 0 else end + 1
+            kind = patch[offset]
+            if kind not in " +-":
+                break
+            old -= kind != "+"
+            new -= kind != "-"
+            line = safe_text(patch[offset:end])
+            remaining = _HUNK_CHARS - len(excerpt)
+            excerpt += line[:remaining]
+            truncated = len(line) > remaining
+            offset = end
+        hunks.append(
+            PatchHunk(
+                ordinal=total,
+                patch_line=patch_line,
+                excerpt=excerpt,
+                truncated=truncated or bool(old or new),
+            )
+        )
+    return total, hunks
+
+
+def _summary(*rows: tuple[str, object]) -> Table:
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="bold")
+    table.add_column(overflow="fold")
+    for label, value in rows:
+        table.add_row(label, Text(safe_text(str(value))))
+    return table
+
+
+def _path_summary(paths: tuple[str, ...]) -> str:
+    listed = "\n".join(paths[:8])
+    if len(paths) > 8:
+        return f"{listed}\n… {len(paths) - 8} more"
+    return listed or "none"
+
+
+def _target_summary(profile: DeploymentProfile | None, target: StorageTarget | None) -> str:
+    if target is not None:
+        return (
+            f"{profile or 'bound'} · {target.database} at "
+            f"{target.host}:{target.port} ({target.purpose})"
+        )
+    return f"{profile} · acquired identity unavailable" if profile else "unbound"
+
+
+def _effects_view(report: PreviewEffectsReport) -> Table:
+    changes = (report.comparison or {}).get("changes")
+    impact = report.comparison_status
+    if isinstance(changes, list):
+        visible = [
+            f"{item.get('kind', 'change')} {item.get('model_ref', '')}"
+            for item in changes[:8]
+            if isinstance(item, dict)
+        ]
+        impact = "\n".join((f"{len(changes)} declared changes", *visible))
+    routes = report.effects.get("routes")
+    route_summary = (
+        "\n".join(f"{kind} → {route}" for kind, route in list(routes.items())[:8])
+        if isinstance(routes, dict)
+        else ""
+    )
+    return _summary(
+        ("Preview", report.preview_id),
+        ("Revision", report.revision),
+        ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Target fingerprint", report.target or "unbound"),
+        ("Authoring target", _target_summary(None, report.authoring_target)),
+        ("Predecessor", report.predecessor or "not applicable"),
+        ("Release", report.release or "unavailable"),
+        ("Changed paths", _path_summary(report.changed_paths)),
+        ("Native authoring", "required" if report.effects["native"] else "not required"),
+        ("Release admission", "planned" if report.effects["admission"] else "not planned"),
+        ("Compatibility routes", route_summary or "none declared"),
+        ("Semantic comparison", impact),
+        ("Discovery", report.discovery_status),
+        ("Review before", report.next_command or "no effect command proposed"),
+    )
+
+
+def _patch_view(report: PreviewPatchReport) -> Group:
+    summary = _summary(
+        ("Preview", report.preview_id),
+        ("Changed paths", _path_summary(report.changed_paths)),
+        ("Selected hunks", f"{len(report.hunks)} of {report.total_hunks}"),
+        (
+            "Next page",
+            f"--after-hunk {report.next_after_hunk}"
+            if report.next_after_hunk is not None
+            else "none",
+        ),
+    )
+    parts: list[Table | Text | Syntax] = [summary]
+    for hunk in report.hunks:
+        suffix = " (excerpt truncated)" if hunk.truncated else ""
+        parts.append(Text(f"Hunk {hunk.ordinal}{suffix}", style="bold"))
+        parts.append(
+            Syntax(hunk.excerpt, "diff", line_numbers=True, start_line=hunk.patch_line, word_wrap=True)
+        )
+    return Group(*parts)
+
+
+def _discovery_view(report: PreviewDiscoveryReport) -> Table:
+    discovery = report.discovery
+    if discovery is None:
+        return _summary(("Preview", report.preview_id), ("Discovery", report.status))
+    hits = discovery.get("ast")
+    selected = []
+    if isinstance(hits, list):
+        selected = [
+            f"{item.get('name', '')} · {item.get('path', '')}:{item.get('line', '')}"
+            for item in hits[:8]
+            if isinstance(item, dict)
+        ]
+    coverage = discovery.get("semantic_coverage")
+    return _summary(
+        ("Preview", report.preview_id),
+        ("Discovery", report.status),
+        ("Source head", discovery.get("head", "unavailable")),
+        ("Unscanned files", discovery.get("unscanned_files", "unknown")),
+        (
+            "AST candidates",
+            f"{len(selected)} displayed of {len(hits)} recorded"
+            if isinstance(hits, list)
+            else "unknown",
+        ),
+        ("Candidate examples", "\n".join(selected) or "none displayed"),
+        ("AST-grep", discovery.get("ast_grep_status", "unknown")),
+        ("Semantic coverage", coverage.get("status", "unknown") if isinstance(coverage, dict) else "unknown"),
+    )
+
+
+@changes.command("inspect")
+def inspect_preview(
+    ctx: typer.Context,
+    preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
+    view: Annotated[Literal["effects", "patch", "discovery"], typer.Option()] = "effects",
+    limit: Annotated[int | None, typer.Option(min=1, max=20, help="Maximum hunks.")] = None,
+    after_hunk: Annotated[int, typer.Option(min=0, help="Continue after this hunk ordinal.")] = 0,
+    stdout: Annotated[bool, typer.Option(help="Write the exact safe patch bytes to stdout.")] = False,
+    json_: JsonOpt = False,
+) -> None:
+    """Inspect a settled preview by ID without applying it."""
+    from corpus_structure.cli.managed import ResultError, result_store
+    from corpus_structure.schema.model_change import ChangePreview
+
+    if stdout and (view != "patch" or json_ or limit is not None or after_hunk):
+        raise typer.BadParameter("--stdout requires --view patch without JSON or hunk selection")
+    if view != "patch" and (limit is not None or after_hunk):
+        raise typer.BadParameter("hunk selection requires --view patch")
+    with refusal(json_, expected=(ResultError, OSError)):
+        store = result_store(ctx)
+        with store.lease(preview_id):
+            staged = ChangePreview.model_validate_json(
+                _load_artifact(store, preview_id, "model.preview", "preview")
+            )
+            if stdout:
+                patch = staged.patch.encode("utf-8")
+                if len(patch) > _PATCH_STREAM_LIMIT:
+                    raise ResultError("patch exceeds the 8 MiB stream limit")
+                if safe_text(staged.patch) != staged.patch:
+                    raise ResultError("patch cannot be delivered unchanged; use the bounded patch view")
+                write_report_bytes(patch)
+                return
+        paths = tuple(file.path for file in staged.files)
+        if view == "patch":
+            total, hunks = _patch_hunks(staged.patch, after_hunk, limit or 8)
+            emit(
+                PreviewPatchReport(
+                    preview_id=preview_id,
+                    changed_paths=paths,
+                    total_hunks=total,
+                    hunks=hunks,
+                    next_after_hunk=hunks[-1].ordinal if hunks and hunks[-1].ordinal < total else None,
+                ),
+                json=json_,
+                render=_patch_view,
+            )
+            return
+        discovery_status: Literal["available", "unavailable"] = (
+            "available" if staged.discovery is not None else "unavailable"
+        )
+        if view == "discovery":
+            emit(
+                PreviewDiscoveryReport(
+                    preview_id=preview_id, status=discovery_status, discovery=staged.discovery
+                ),
+                json=json_,
+                render=_discovery_view,
+            )
+            return
+        emit(
+            PreviewEffectsReport(
+                preview_id=preview_id,
+                revision=staged.revision,
+                baseline=staged.baseline,
+                head=staged.head,
+                workspace=staged.workspace,
+                target=staged.target,
+                target_profile=staged.target_profile,
+                acquired_target=staged.target_identity,
+                authoring_target=staged.authoring_identity,
+                predecessor=staged.request.native_predecessor,
+                release=staged.local_release,
+                changed_paths=paths,
+                effects=staged.effects.model_dump(mode="json"),
+                comparison_status="available"
+                if staged.comparison is not None
+                else "not_applicable"
+                if staged.effects.release == "not_applicable"
+                else "unavailable",
+                comparison=staged.comparison,
+                discovery_status=discovery_status,
+                next_command=(
+                    f"ci model change apply {preview_id}"
+                    if paths
+                    else f"ci model change candidate {preview_id}"
+                    if staged.effects.admission
+                    else None
+                ),
+            ),
+            json=json_,
+            render=_effects_view,
+        )
+
+
+def _candidate_view(report: CandidateInspection) -> Table:
+    return _summary(
+        ("Candidate", report.candidate_id),
+        ("Preview", report.preview_id or "unavailable"),
+        ("Target", _target_summary(report.target_profile, report.acquired_target)),
+        ("Target fingerprint", report.target),
+        ("Authoring target", _target_summary(None, report.authoring_target)),
+        ("Release", report.release),
+        ("Native revision", report.native_revision or "not applicable"),
+        ("Predecessor", report.predecessor or "not applicable"),
+        ("Registration", report.registration),
+        ("Registration detail", report.registration_detail or "none"),
+        ("Review before", report.next_command or "no effect command proposed"),
+    )
+
+
+@changes.command("inspect-candidate")
+def inspect_candidate(
+    ctx: typer.Context,
+    candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
+    json_: JsonOpt = False,
+) -> None:
+    """Inspect a settled candidate and its registration in the bound checkout."""
+    from corpus_structure.cli.managed import ResultError, result_store
+    from corpus_structure.cli.recipes import RecipeError, checkout
+    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.model_deployment import Candidate, _verify_installed_revision
+
+    with refusal(json_, expected=(ResultError, OSError)):
+        store = result_store(ctx)
+        with store.lease(candidate_id):
+            binding = Candidate.model_validate_json(
+                _load_artifact(store, candidate_id, "model.candidate", "deployment")
+            )
+            scope = store.show(candidate_id).scope
+        preview_id = scope.get("preview")
+        status: Literal["verified", "unverified", "not_applicable"] = "unverified"
+        detail = None
+        next_command = None
+        try:
+            root = checkout(ctx)
+            if str(root) != binding.workspace:
+                detail = "candidate is bound to a different checkout"
+            elif binding.revision is None:
+                status = "not_applicable"
+                next_command = f"ci model change deploy {candidate_id}"
+            else:
+                next_command = f"ci model change register {candidate_id}"
+                _verify_installed_revision(root, binding)
+                status = "verified"
+                next_command = f"ci model change deploy {candidate_id}"
+        except (ModelError, OSError, RecipeError) as error:
+            detail = safe_text(str(error))
+        emit(
+            CandidateInspection(
+                candidate_id=candidate_id,
+                preview_id=preview_id if isinstance(preview_id, str) else None,
+                workspace=binding.workspace,
+                model_revision=binding.model_revision,
+                native_revision=binding.revision,
+                predecessor=binding.predecessor,
+                release=binding.release,
+                target=binding.target,
+                target_profile=binding.target_profile,
+                acquired_target=binding.target_identity,
+                authoring_target=binding.authoring_identity,
+                registration=status,
+                registration_detail=detail,
+                next_command=next_command,
+            ),
+            json=json_,
+            render=_candidate_view,
+        )
 
 
 def _prepare_release(root, names, *, physical_sources: dict[str, bytes] | None = None):
@@ -89,8 +491,6 @@ def preview(
     json_: JsonOpt = False,
 ) -> None:
     """Validate and stage an inspectable patch without changing tracked or native state."""
-    import re
-
     import yaml
 
     from corpus_structure.cli.managed import ResultError, result_store
@@ -109,7 +509,7 @@ def preview(
         verify_predecessor,
     )
 
-    with refusal(json_, expected=(ModelError, ResultError, OSError, yaml.YAMLError)):
+    with refusal(json_, expected=(ModelError, ResultError, OSError, ValueError, yaml.YAMLError)):
         store = result_store(ctx)
         root = checkout(ctx)
         with store.operation("model.preview") as result:
@@ -120,12 +520,8 @@ def preview(
                         _load_artifact(store, request, "model.preview", "preview")
                     ).request
             else:
-                raw = (
-                    sys.stdin.read()
-                    if request == "-"
-                    else Path(request).read_text(encoding="utf-8")
-                )
-                bound = ChangeRequest.model_validate(yaml.safe_load(raw))
+                raw = read_request_bytes(request)
+                bound = ChangeRequest.model_validate(yaml.safe_load(raw.decode("utf-8")))
             target = None
             profile: DeploymentProfile = "development"
             authoring_target = None
