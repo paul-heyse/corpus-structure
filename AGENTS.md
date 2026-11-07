@@ -70,6 +70,12 @@ workflows and result handling. Repository automation stays owned by `just`. Use 
 tools for bootstrap, documented recovery, root turn-end maintenance and workflows that have
 only a direct route. [ADR-0069](docs/adr/0069-cli-operations-custody.md) governs the boundaries.
 
+Have `ci` materialize routine reports from the owning operation or managed result. Read the
+answer by ID or pipe a bounded typed view directly. When a report needed for assigned work
+requires exporting and reopening an intermediate file or repeatedly extracting the same answer
+from bulk output, treat the missing or incomplete CLI view as a CLI defect. Managed receipts
+and deliberate detached delivery follow their existing custody rules.
+
 When a `ci` command fails its intended contract in the course of assigned work, diagnosing
 and repairing the defect is an immediate responsibility within that plan. Fix the smallest
 owning layer and verify the command and directly affected behavior. Route issues that cross a

@@ -29,6 +29,9 @@ boundaries. Here `ci` is the installed project CLI. Hosted CI is a separate veri
   `--json` where supported and capture stdout separately from diagnostics on stderr.
   Retain the exit status and managed result ID. Exit 74 means stdout closed before a
   report could be delivered. An already-known operation failure keeps its own exit status.
+- Read routine reports directly from `ci` by managed ID, or pipe the named typed view to
+  its consumer. For example, use `ci test failures ID` or `ci review inspect --result ID`
+  to get the answer. Use artifact delivery when a recipient needs the artifact itself.
 
 Read only the reference needed for the task.
 
@@ -50,8 +53,9 @@ behavior. Loading this skill does not initiate a CLI audit or a test sweep.
 
 1. Check the installed syntax, resolved context, actual result and owning contract. A
    usage error, a valid refusal, a missing prerequisite and a product test failure each have
-   their own remedy. An adapter that drops scope, calls the wrong owner, mishandles custody
-   or reports the wrong outcome is a CLI defect.
+   their own remedy. An adapter that drops scope, calls the wrong owner, mishandles custody,
+   reports the wrong outcome, or requires a scratch export for routine inspection is a
+   CLI defect. Repair reporting at its owner so the installed command delivers the answer.
 2. Treat a CLI defect encountered in assigned work as part of the active plan. Preserve the
    failure or result ID. Fix the smallest responsible layer, whether that is the adapter, its
    recipe, or the owning operation. If the defect crosses your assigned write boundary, send
