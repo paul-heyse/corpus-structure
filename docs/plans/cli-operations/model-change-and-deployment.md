@@ -99,6 +99,17 @@ and runtime binding.
 [Autogenerate API](https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html#alembic.autogenerate.produce_migrations) ·
 [Native candidate owner](../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py)
 
+The installed native path stages the wrapper with the candidate. Inspect it by managed ID,
+then use `ci model change register CANDIDATE` to install the exact files in the checkout. The
+registration writes the wrapper last and accepts exact already-installed bytes on retry.
+It binds `ScriptDirectory.get_current_head()` to the approved predecessor and installs no database
+effects. `ci model change deploy CANDIDATE` checks the registered revision and frozen artifact
+hashes at the migration boundary. Use the optional `CORPUS_DEPLOYMENT__URL` profile and its
+purpose credentials to configure a distinct destination. A request can pin `deployment_profile`
+to `deployment` or `development`. Native authoring uses the working database profile and checks
+its exact predecessor. Endpoint pins identify the declared URLs, including routing parameters.
+[Alembic ScriptDirectory](https://alembic.sqlalchemy.org/en/latest/api/script.html#alembic.script.ScriptDirectory)
+
 Deploy only when explicitly requested against a resolved target and approved change. Compose
 existing migration, archive/admission and verification operations under their current roles.
 A later failure reports which stages settled and leaves resumable evidence for the exact target

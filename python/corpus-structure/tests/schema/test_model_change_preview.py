@@ -86,8 +86,14 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
     from corpus_structure.schema import model_deployment
+    from corpus_structure.semantic import migrations
 
     root, _ = model_checkout
+    migrations_dir = root / "migrations"
+    versions = migrations_dir / "versions"
+    versions.mkdir(parents=True)
+    (versions / "before.py").write_text('revision = "before"\ndown_revision = None\n')
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", migrations_dir)
     settings = Settings(
         database={"url": "postgresql:///development"},
         deployment={"url": "postgresql:///approved-destination"},
@@ -140,7 +146,11 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
             native_operations=0,
             ordinary_operations=0,
             products=[],
-        ), {}
+        ), {
+            "native_candidate.py": b"def upgrade():\n    pass\n",
+            "native_operations.json": b'{"version":1,"predecessor":"before","desired":[]}',
+            "native_admission.sql": b"-- fixture\n",
+        }
 
     monkeypatch.setattr(schema, "author_native_candidate", author)
     runner = CliRunner()
@@ -180,6 +190,17 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     assert binding.authoring_target == development
     with pytest.raises(model.ModelError, match="deployment target differs"):
         deploy_candidate(root, changed_destination, binding, (), report=lambda _: None)
+    registered = run(["register", authored_id], settings)
+    assert registered.exit_code == 0, registered.output
+    assert migrations.head_revision() == "after"
+    assert (versions / "after.py").read_bytes() == (
+        root / "results" / authored_id / "migration.py"
+    ).read_bytes()
+    assert run(["register", authored_id], settings).exit_code == 0
+    (versions / "after_admission.sql").write_bytes(b"changed")
+    refused = run(["register", authored_id], settings)
+    assert refused.exit_code == 1
+    assert "migration file already has different content" in refused.output
 
 
 def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatch):

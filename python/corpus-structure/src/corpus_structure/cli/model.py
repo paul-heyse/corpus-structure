@@ -244,7 +244,11 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
     from corpus_structure.cli.schema import author_native_candidate, publish_native_candidate
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.model_change import ChangePreview, check_preview
-    from corpus_structure.schema.model_deployment import Candidate, target_fingerprint
+    from corpus_structure.schema.model_deployment import (
+        Candidate,
+        migration_wrapper,
+        target_fingerprint,
+    )
     from corpus_structure.schema.preparation import writer_lock
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
@@ -296,6 +300,10 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                         target_profile=staged.target_profile,
                     )
                 binding = Candidate.from_preview(staged, revision, prepared.release_id, products)
+                if revision:
+                    wrapper = result.directory / "migration.py"
+                    wrapper.write_bytes(migration_wrapper(binding))
+                    result.publish("wrapper", wrapper)
             artifact = result.directory / "deployment.json"
             artifact.write_text(binding.model_dump_json(), encoding="utf-8")
             result.publish("deployment", artifact)
@@ -308,6 +316,46 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
                 predecessor=binding.predecessor,
             )
         emit(report, json=json_)
+
+
+@changes.command("register")
+def register_native(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
+    """Register the candidate's frozen Alembic revision in the selected checkout."""
+    from corpus_structure.cli.managed import ResultError, result_store
+    from corpus_structure.cli.recipes import checkout
+    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.model_deployment import (
+        Candidate,
+        migration_wrapper,
+        register_candidate,
+    )
+    from corpus_structure.schema.preparation import writer_lock
+
+    with refusal(json_, expected=(ModelError, ResultError, OSError)):
+        store = result_store(ctx)
+        with store.recovery_operation(
+            "model.register", candidate, source_role="candidate"
+        ) as result:
+            binding = Candidate.model_validate_json(
+                _load_artifact(store, candidate, "model.candidate", "deployment")
+            )
+            wrapper = store.artifact(candidate, "wrapper")
+            if wrapper.read_bytes() != migration_wrapper(binding):
+                raise ModelError(["managed migration wrapper differs from the reviewed candidate"])
+            root = checkout(ctx)
+            with writer_lock(root):
+                paths = register_candidate(root, binding, store.artifact(candidate, "candidate"))
+            result.settle(paths=paths, revision=binding.revision)
+        emit(
+            ModelResult(
+                result_id=result.id,
+                stage="registered",
+                revision=binding.model_revision,
+                predecessor=binding.predecessor,
+                changed=paths,
+            ),
+            json=json_,
+        )
 
 
 @changes.command("deploy")

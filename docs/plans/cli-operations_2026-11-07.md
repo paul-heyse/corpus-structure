@@ -1,6 +1,7 @@
 # CLI operations and managed results
 
-**Status:** Proposed. Owns the CLI operations target, execution queue, and dispositions for O01–O07 and I01–I10.
+**Status:** Executing. Installed operations and targeted evidence are recorded below. Owns the CLI
+operations target, execution queue, and dispositions for O01–O07 and I01–I10.
 **Created:** 2026-11-07. **Revised:** 2026-11-07.
 
 ## Outcome and baseline
@@ -86,8 +87,8 @@ CLI-03 is the first end-to-end exercise of the CLI-02 custody and diagnostic con
 working contract for native candidates and exports. Pure model preparation in CLI-04 can proceed
 from the declaration and release owners while the managed-result slice is underway.
 
-All packages are proposed. CLI-00 carries accepted shared rules into their owners and obtains
-the design/target review at the first substantial stage. A bounded slice uses change/target
+CLI-00 carries accepted shared rules into their owners and obtains the design/target review
+at the first substantial stage. A bounded slice uses change/target
 review under the accepted contracts.
 Before another substantial stage, changed authority or §B decision, and at the assembled boundary,
 apply the [repository review cadence](../design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository).
@@ -152,3 +153,29 @@ with an intentionally invalid database URL. `just --justfile "$PWD/justfile" --w
 
 **Revision verification, 2026-11-07.** `just docs-check` and `just turn-end` passed.
 Product qualification is `not_run` for the documentation revision.
+
+### Execution disposition · 2026-11-07
+
+ADR-0069 adopts CLI-RC01–03. The [initial target review](../design_review/reviews/design_review_cli-operations-target_2026-11-07.md)
+and [assembled review](../design_review/reviews/design_review_cli-operations-assembled_2026-11-07.md)
+set the evidence boundary. The sections below own the package-level evidence and remaining work.
+
+| Package | Current implementation and evidence |
+|---|---|
+| CLI-00 | Adopted under ADR-0069, D8 and D9. Initial and assembled target reviews recorded. |
+| CLI-01 | Installed Typer 0.28.0 with a workspace resolver override for the Docling Core CLI constraint. `just ready` passed. Existing Python Docling consumer and managed CLI controls passed on the pin slice. |
+| CLI-02 | Installed managed result publication, second-process lookup, explicit holds, one-day/seven-day GC policy, no-replace delivery and bounded watch. F01 corrections include recovery protection and unsettled child custody. |
+| CLI-03 | Installed `ci test` routes ordinary and exclusive native lanes through `just`, retaining actual pytest-xdist and nextest ownership. Scoped forwarding passed. The first full campaign `fab86740c6c44d4187c3d105e87876a0` was interrupted after a source edit changed the runtime pin. The child group settled. This receipt supplies cancellation evidence. |
+| CLI-04 | Shared declaration validation, inspectable preview, archive comparison and bounded AST/ast-grep discovery implemented. F02 binds the reviewed prepared release before candidate authoring. |
+| CLI-05 | Exact apply and recovery, managed rollback-only native authoring and registered deployment implemented. Development candidate `1551a8ce2e5845679c459d8fdf86bc91` ran on `corpus_structure_dev`. An isolated PostgreSQL test passed interruption after migration, replay, admission and separate activation. F02a owns the remaining distinct-target and registration journey. |
+| CLI-06 | Installed ingest and run continuation, read-purpose status, native review export, shared CLI/MCP refusal and replay binding implemented. Retained run 205/cut 283 exported and verified detached without extraction. F04/F05 assembled controls are being qualified. |
+| CLI-07 | Added read and explicit maintenance health, release check and activation, host recipe routes and current README examples. The installed registry removed inert commands. Reader status and maintenance revision passed against 18/corpus. |
+| CLI-08 | Assembled review and qualification in progress. Final source, context and required selection must be reconciled before closure. |
+
+The PostgreSQL tooling review selected installed `psql` for maintenance diagnosis and the existing
+template-backed native fixture for exact predecessor testing. `psql -X -w -p 5434 -U paul -d corpus_structure_dev`
+read `semantic_wce_lineage_20261107`; `uv run ci db status --maintenance --json` agreed. The ordinary
+reader reports the migration revision as private. Dedicated-cluster status passed through
+`uv run ci host status --json`. Backup/restore remains conditional on a recovery scope and owner.
+[Tool inventory](../libraries/postgresql/system-tool-usage.md) ·
+[Ubuntu tooling options](../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md#87-ephemeral-database-state-cloning-and-migration-testing)

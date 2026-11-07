@@ -6,6 +6,7 @@ import json as jsonlib
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict
+from typing import Any
 
 import typer
 from pydantic import ValidationError
@@ -63,7 +64,7 @@ def failure_boundary(
         from corpus_structure.semantic.types import PreparationError
 
         if json:
-            detail = (
+            detail: dict[str, Any] = (
                 {"code": type(error).__name__, "message": str(error)}
                 if not report_expected_validation and isinstance(error, expected)
                 else semantic_refusal_report(error, context=context)

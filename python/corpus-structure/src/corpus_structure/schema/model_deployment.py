@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import ChangePreview, checked_path, generator_fingerprint
 from corpus_structure.settings import DeploymentProfile, Settings
+
+_NATIVE_PRODUCTS = (
+    ("UPGRADE", "native_candidate.py", "upgrade.txt"),
+    ("STATE", "native_operations.json", "native.json"),
+    ("ADMISSION", "native_admission.sql", "admission.sql"),
+)
 
 
 class Candidate(BaseModel):
@@ -125,6 +134,97 @@ def verify_predecessor(settings: Settings, target: str, predecessor: str) -> Non
         pass
 
 
+def _migration_names(binding: Candidate) -> dict[str, str]:
+    if not binding.revision or not re.fullmatch(r"[A-Za-z0-9_]{1,32}", binding.revision):
+        raise ModelError(["revision ID must contain 1–32 letters, digits or underscores"])
+    if not binding.predecessor or binding.predecessor == binding.revision:
+        raise ModelError(["native registration requires a distinct predecessor"])
+    return {kind: f"{binding.revision}_{suffix}" for kind, _, suffix in _NATIVE_PRODUCTS}
+
+
+def migration_wrapper(binding: Candidate) -> bytes:
+    names = _migration_names(binding)
+    constants = "\n".join(
+        f"NATIVE_{kind}_FILE = {json.dumps(names[kind])}\n"
+        f"NATIVE_{kind}_SHA256 = {json.dumps(binding.hashes[product])}"
+        for kind, product, _ in _NATIVE_PRODUCTS
+    )
+    return f'''\
+"""Apply the frozen native candidate {binding.revision}."""
+
+import json
+from hashlib import sha256
+from pathlib import Path
+
+from alembic import op
+
+from corpus_structure.semantic.native_objects import NativeObject, admit_native
+
+revision = {json.dumps(binding.revision)}
+down_revision = {json.dumps(binding.predecessor)}
+branch_labels = None
+depends_on = None
+{constants}
+
+
+def _read(name, digest):
+    content = Path(__file__).with_name(name).read_bytes()
+    if sha256(content).hexdigest() != digest:
+        raise RuntimeError("frozen native artifact differs: " + name)
+    return content
+
+
+def upgrade():
+    state = json.loads(_read(NATIVE_STATE_FILE, NATIVE_STATE_SHA256))
+    _read(NATIVE_ADMISSION_FILE, NATIVE_ADMISSION_SHA256)
+    if state["version"] != 1 or state["predecessor"] != down_revision:
+        raise RuntimeError("incompatible native predecessor")
+    source = _read(NATIVE_UPGRADE_FILE, NATIVE_UPGRADE_SHA256)
+    namespace = {{}}
+    exec(compile(source, NATIVE_UPGRADE_FILE, "exec"), namespace)
+    namespace["upgrade"]()
+    admit_native(op.get_bind(), tuple(NativeObject.from_payload(item) for item in state["desired"]))
+
+
+def downgrade():
+    raise RuntimeError("native candidate downgrade is unsupported")
+'''.encode()
+
+
+def register_candidate(root: Path, binding: Candidate, products: Path) -> tuple[str, ...]:
+    """Install exact migration products under the caller's checkout writer lock."""
+    from alembic.script import ScriptDirectory
+
+    from corpus_structure.semantic.migrations import alembic_config
+
+    _verify_candidate_files(root, binding)
+    names = _migration_names(binding)
+    script = ScriptDirectory.from_config(alembic_config())
+    versions = (Path(script.dir) / "versions").relative_to(root)
+    wrapper = checked_path(root, (versions / f"{binding.revision}.py").as_posix())
+    if script.get_current_head() != binding.predecessor and not wrapper.is_file():
+        raise ModelError(["installed migration head differs from the candidate predecessor"])
+    staged = {}
+    for kind, product, _ in _NATIVE_PRODUCTS:
+        content = (products / product).read_bytes()
+        if sha256(content).hexdigest() != binding.hashes.get(product):
+            raise ModelError([f"candidate artifact differs: {product}"])
+        staged[checked_path(root, (versions / names[kind]).as_posix())] = content
+    staged[wrapper] = migration_wrapper(binding)
+    for path, content in staged.items():
+        if path.exists() and path.read_bytes() != content:
+            raise ModelError([f"migration file already has different content: {path.name}"])
+    for path, content in staged.items():
+        if path.exists():
+            continue
+        with NamedTemporaryFile(dir=path.parent) as pending:
+            pending.write(content)
+            pending.flush()
+            os.fchmod(pending.fileno(), 0o644)
+            os.link(pending.name, path)
+    return tuple(path.relative_to(root).as_posix() for path in staged)
+
+
 def _verify_installed_revision(binding: Candidate) -> None:
     """Only the repository migration owner may execute an admitted frozen revision."""
     from alembic.script import ScriptDirectory
@@ -149,11 +249,11 @@ def _verify_installed_revision(binding: Candidate) -> None:
         raise ModelError(
             ["installed migration differs from the exact candidate revision and predecessor"]
         )
-    for kind, product in (
-        ("UPGRADE", "native_candidate.py"),
-        ("STATE", "native_operations.json"),
-        ("ADMISSION", "native_admission.sql"),
+    if Path(script.path).name == f"{binding.revision}.py" and (
+        Path(script.path).read_bytes() != migration_wrapper(binding)
     ):
+        raise ModelError(["registered migration wrapper differs from the generated candidate"])
+    for kind, product, _ in _NATIVE_PRODUCTS:
         name = getattr(script.module, f"NATIVE_{kind}_FILE", None)
         digest = getattr(script.module, f"NATIVE_{kind}_SHA256", None)
         if (
@@ -165,6 +265,16 @@ def _verify_installed_revision(binding: Candidate) -> None:
         content = Path(script.path).with_name(name).read_bytes()
         if sha256(content).hexdigest() != digest:
             raise ModelError([f"installed migration artifact differs: {name}"])
+
+
+def _verify_candidate_files(root: Path, binding: Candidate) -> None:
+    if str(root) != binding.workspace or generator_fingerprint(root) != binding.generator:
+        raise ModelError(["candidate belongs to another workspace or generator"])
+    for relative, expected in binding.files.items():
+        file = checked_path(root, relative)
+        actual = sha256(file.read_bytes()).hexdigest() if file.exists() else None
+        if actual != expected:
+            raise ModelError([f"candidate input has changed: {relative}"])
 
 
 def deploy_candidate(
@@ -186,16 +296,10 @@ def deploy_candidate(
     from corpus_structure.semantic.releases import open_release, persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    if str(root) != binding.workspace or generator_fingerprint(root) != binding.generator:
-        raise ModelError(["candidate belongs to another workspace or generator"])
+    _verify_candidate_files(root, binding)
     _, destination = deployment_settings(settings, binding.target_profile)
     if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])
-    for relative, expected in binding.files.items():
-        file = checked_path(root, relative)
-        actual = sha256(file.read_bytes()).hexdigest() if file.exists() else None
-        if actual != expected:
-            raise ModelError([f"candidate input has changed: {relative}"])
     bundle, deps, profile, prepared = deployment
     if prepared.release_id != binding.release:
         raise ModelError(["prepared release identity differs from the candidate"])
