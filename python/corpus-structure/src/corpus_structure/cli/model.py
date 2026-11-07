@@ -121,14 +121,18 @@ def preview(
                 if bound.native_predecessor:
                     verify_predecessor(settings, target, bound.native_predecessor)
             impact = None
+            local = None
             release = None
+            if bound.archive_release or target is not None:
+                _, _, _, local = _prepare_release(root, bound.packs)
+                release = local.release_id
             if bound.archive_release:
                 from corpus_structure.semantic.operation_reporting import compare_semantic_releases
                 from corpus_structure.semantic.query import read_snapshot
                 from corpus_structure.semantic.releases import open_release
                 from corpus_structure.semantic.runtime import open_runtime_engine
 
-                _, _, _, local = _prepare_release(root, bound.packs)
+                assert local is not None
                 with (
                     open_runtime_engine(
                         state(ctx).settings(), "ci-model-compare", purpose="read"
@@ -137,7 +141,6 @@ def preview(
                 ):
                     before = open_release(connection, bound.archive_release)
                     impact = compare_semantic_releases(before, local).model_dump(mode="json")
-                release = local.release_id
             result.stage("validate and stage")
             staged = prepare_preview(
                 root, bound, target=target, comparison=impact, local_release=release
@@ -175,10 +178,7 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
 
     with refusal(json_, expected=(ModelError, ResultError, OSError)):
         store = result_store(ctx)
-        with (
-            store.lease(change),
-            store.operation("model.apply", scope={"preview": change}) as result,
-        ):
+        with store.recovery_operation("model.apply", change, source_role="preview") as result:
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
             )
@@ -194,7 +194,7 @@ def apply(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
 
             def report(path: str) -> None:
                 settled.append(path)
-                result.stage(f"applied {path}")
+                result.stage(f"applied {path}", settled_paths=settled)
 
             result.stage("verify exact preview")
             try:
@@ -253,6 +253,10 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             with writer_lock(root):
                 check_preview(root, staged, applied=True)
                 _, _, _, prepared = _prepare_release(root, staged.request.packs)
+                if prepared.release_id != staged.local_release:
+                    raise ModelError(
+                        ["prepared release identity differs from the reviewed preview"]
+                    )
                 products: dict[str, bytes] = {}
                 if revision:
                     result.stage("rollback-only authoring")
@@ -274,7 +278,12 @@ def candidate(ctx: typer.Context, change: str, json_: JsonOpt = False) -> None:
             artifact = result.directory / "deployment.json"
             artifact.write_text(binding.model_dump_json(), encoding="utf-8")
             result.publish("deployment", artifact)
-            result.settle(sha256=sha256(artifact.read_bytes()).hexdigest(), target=binding.target)
+            result.settle(
+                sha256=sha256(artifact.read_bytes()).hexdigest(),
+                target=binding.target,
+                release=binding.release,
+                predecessor=binding.predecessor,
+            )
         emit(report, json=json_)
 
 
@@ -302,10 +311,7 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
         ),
     ):
         store = result_store(ctx)
-        with (
-            store.lease(candidate),
-            store.operation("model.deploy", scope={"candidate": candidate}) as result,
-        ):
+        with store.recovery_operation("model.deploy", candidate, source_role="candidate") as result:
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate, "model.candidate", "deployment")
             )
@@ -316,7 +322,7 @@ def deploy(ctx: typer.Context, candidate: str, json_: JsonOpt = False) -> None:
 
                 def report(effect: str) -> None:
                     applied.append(effect)
-                    result.stage(effect)
+                    result.stage(effect, settled_effects=applied)
 
                 try:
                     deploy_candidate(

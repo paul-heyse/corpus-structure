@@ -7,6 +7,7 @@ import pytest
 from corpus_structure.schema import generate, model, preparation
 from corpus_structure.schema.change import ChangeRecord, ElementChange
 from corpus_structure.schema.model_change import ChangeRequest, apply_preview, prepare_preview
+from corpus_structure.schema.model_deployment import Candidate
 
 
 @pytest.fixture
@@ -56,6 +57,19 @@ def test_invalid_revision_refuses_before_render_or_write(model_checkout, monkeyp
         prepare_preview(root, ChangeRequest(**declarations))
     assert {path.name: path.read_bytes() for path in location.iterdir()} == before
     assert subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"]) == b""
+
+
+def test_release_candidate_must_match_the_reviewed_release(model_checkout):
+    root, _ = model_checkout
+    preview = prepare_preview(
+        root,
+        ChangeRequest(deployment=True, packs=("fixture",)),
+        target="target",
+        local_release="reviewed",
+    )
+    with pytest.raises(model.ModelError, match="differs from the reviewed preview"):
+        Candidate.from_preview(preview, None, "different", {})
+    assert Candidate.from_preview(preview, None, "reviewed", {}).release == "reviewed"
 
 
 def test_exact_patch_resumes_and_refuses_changed_file(model_checkout, monkeypatch):

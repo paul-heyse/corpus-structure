@@ -37,6 +37,8 @@ class Candidate(BaseModel):
             raise ModelError(
                 ["candidate requires a target and matching native revision/predecessor"]
             )
+        if preview.local_release != release:
+            raise ModelError(["prepared release identity differs from the reviewed preview"])
         return cls(
             workspace=preview.workspace,
             model_revision=preview.revision,

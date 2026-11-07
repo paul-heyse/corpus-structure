@@ -49,6 +49,38 @@ def test_failed_window_and_late_reader(tmp_path):
     assert store.collect(apply=True, now=expiry).removed == [result.id]
 
 
+def test_interrupted_effect_retains_its_exact_input_for_recovery(tmp_path):
+    store = ResultStore(tmp_path)
+    with store.operation("model.preview") as source:
+        pass
+    source_expiry = store.show(source.id).expiry()
+
+    with (
+        pytest.raises(KeyboardInterrupt),
+        store.recovery_operation("model.apply", source.id, source_role="preview") as dependent,
+    ):
+        assert store.show(source.id).holds == (dependent.id,)
+        assert store.collect(apply=True, now=10**12).removed == []
+        raise KeyboardInterrupt
+
+    assert store.show(dependent.id).scope == {"preview": source.id}
+    assert store.show(dependent.id).outcome == "interrupted"
+    recovery_expiry = store.show(dependent.id).expiry()
+    assert store.collect(apply=True, now=source_expiry).removed == []
+    assert store.collect(apply=True, now=recovery_expiry - 0.1).removed == []
+    assert set(store.collect(apply=True, now=recovery_expiry).removed) == {source.id, dependent.id}
+
+
+def test_successful_effect_releases_its_recovery_hold(tmp_path):
+    store = ResultStore(tmp_path)
+    with store.operation("model.candidate") as source:
+        pass
+    with store.recovery_operation("model.deploy", source.id, source_role="candidate") as dependent:
+        assert store.show(source.id).holds == (dependent.id,)
+    assert store.show(source.id).holds == ()
+    assert store.collect(apply=True, now=store.show(source.id).expiry()).removed == [source.id]
+
+
 def test_delivery_never_replaces_or_escapes(tmp_path):
     store = ResultStore(tmp_path / "state")
     with store.operation("test") as result:

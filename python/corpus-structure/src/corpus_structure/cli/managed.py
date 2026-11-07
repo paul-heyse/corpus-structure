@@ -23,6 +23,7 @@ from corpus_structure.cli.recipes import RecipeError, checkout
 
 _ID = re.compile(r"[a-f0-9]{32}")
 _TERMINAL = frozenset({"passed", "failed", "interrupted", "blocked", "empty"})
+_RECOVERY = ".recovery"
 app = typer.Typer(help="Inspect and deliver managed invocation results.")
 
 
@@ -37,6 +38,10 @@ class Manifest(BaseModel):
     artifacts: dict[str, str] = Field(default_factory=dict)
     details: dict[str, Any] = Field(default_factory=dict)
     holds: tuple[str, ...] = ()
+
+    def expiry(self) -> float:
+        days = 1 if self.outcome == "passed" else 7
+        return (self.started if self.settled is None else self.settled) + days * 86400
 
 
 class ResultList(BaseModel):
@@ -78,8 +83,9 @@ class Invocation:
             finally:
                 stage.unlink(missing_ok=True)
 
-    def stage(self, name: str) -> None:
+    def stage(self, name: str, **details: Any) -> None:
         self.manifest.stage = name
+        self.manifest.details.update(details)
         self._write()
 
     def publish(self, role: str, path: Path) -> None:
@@ -88,7 +94,7 @@ class Invocation:
         if not resolved.is_relative_to(root) or resolved == root:
             raise ResultError("artifact must be inside the invocation workspace")
         relative = resolved.relative_to(root)
-        if relative.parts[0] in {"manifest.json", ".holds"}:
+        if relative.parts[0] in {"manifest.json", ".holds", ".lease", _RECOVERY}:
             raise ResultError("cannot expose result bookkeeping as an artifact")
         self.manifest.artifacts[role] = relative.as_posix()
         self._write()
@@ -163,6 +169,25 @@ class ResultStore:
                 if manifest.outcome == "running":
                     result.settle()
 
+    @contextmanager
+    def recovery_operation(
+        self, action: str, source_id: str, *, source_role: str
+    ) -> Generator[Invocation]:
+        """Keep an exact source usable while a dependent may still need recovery."""
+        with (
+            self.lease(source_id),
+            self.operation(action, scope={source_role: source_id}) as result,
+        ):
+            with self._namespace():
+                recovery = self._directory(source_id) / _RECOVERY
+                recovery.mkdir(exist_ok=True, mode=0o700)
+                marker = recovery / result.id
+                marker.touch()
+            yield result
+            if result.manifest.outcome in {"running", "passed"}:
+                with self._namespace():
+                    marker.unlink(missing_ok=True)
+
     def _read(self, directory: Path) -> Manifest:
         try:
             manifest = Manifest.model_validate_json((directory / "manifest.json").read_bytes())
@@ -170,8 +195,15 @@ class ResultStore:
             raise ResultError("result manifest unavailable or invalid") from error
         if manifest.id != directory.name:
             raise ResultError("result identity does not match its workspace")
-        holds = directory / ".holds"
-        manifest.holds = tuple(sorted(p.name for p in holds.iterdir())) if holds.exists() else ()
+        manifest.holds = tuple(
+            sorted(
+                {
+                    marker.name
+                    for kind in (".holds", _RECOVERY)
+                    for marker in (directory / kind).glob("*")
+                }
+            )
+        )
         return manifest
 
     def show(self, result_id: str) -> Manifest:
@@ -191,6 +223,25 @@ class ResultStore:
             raise ResultError("invalid dependent ID")
         with self._namespace():
             (self._directory(result_id) / ".holds" / dependent_id).unlink(missing_ok=True)
+
+    def _needs_recovery(self, directory: Path, now: float) -> bool:
+        for marker in (directory / _RECOVERY).glob("*"):
+            try:
+                dependent = self._directory(marker.name)
+            except ResultError:
+                continue
+            manifest = self._read(dependent)
+            if manifest.outcome == "passed":
+                continue
+            if now < manifest.expiry():
+                return True
+            if manifest.settled is None:
+                with (dependent / ".lease").open("ab") as stream:
+                    try:
+                        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        return True
+        return False
 
     def artifact(self, result_id: str, role: str) -> Path:
         directory = self._directory(result_id)
@@ -274,12 +325,12 @@ class ResultStore:
                     with (directory / ".lease").open("ab") as stream:
                         fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
                         manifest = self._read(directory)
-                        days = 1 if manifest.outcome == "passed" else 7
                         if (
                             manifest.settled is None
-                            or manifest.holds
                             or manifest.details.get("custody_unsettled")
-                            or timestamp < manifest.settled + days * 86400
+                            or timestamp < manifest.expiry()
+                            or any((directory / ".holds").glob("*"))
+                            or self._needs_recovery(directory, timestamp)
                         ):
                             continue
                         result.eligible.append(manifest.id)
