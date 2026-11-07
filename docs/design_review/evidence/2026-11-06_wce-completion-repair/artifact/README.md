@@ -11,7 +11,8 @@ uv run python docs/design_review/evidence/2026-11-06_wce-completion-repair/artif
 ```
 
 `artifact_nomination_refs` selects exact retained relationships from ordinary scoped inspection
-receipts. Add their contribution IDs to the artifact input dependencies and submit the exact
+receipts and the matching verified raw scoped bundle. Include the scoped predecessor selections
+in the final full-closure artifact bundle. Add their contribution IDs to the artifact input dependencies and submit the exact
 references in `external_nomination_refs`. The registered producer resolves them and validates
 their source-backed reference and caption endpoints. The source-authored label frame is
 reserved for assessment.

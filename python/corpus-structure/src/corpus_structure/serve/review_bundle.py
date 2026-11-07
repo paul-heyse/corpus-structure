@@ -362,18 +362,25 @@ def capture_review_relations(conn, selection: ReviewSelection, cancellation: Ope
                         enriched_assertions[canonical_bytes(assertion)] = dict(
                             assessment_id=assertion["assertion_id"], statement=statement
                         )
-                if selection.completeness == "selected_source_closure" and report.dossier:
-                    # The detached reader must carry the same exact original source
-                    # custody as native dossier replay, never a projected semantic bridge.
+                if selection.completeness == "selected_source_closure" and (
+                    report.dossier or report.artifact_identity
+                ):
                     from corpus_structure.semantic.operations import BoundReader
                     from corpus_structure.semantic.retained_contributions import (
                         RetainedContributionRef,
                     )
 
-                    for reference in (
-                        *report.dossier.predecessors,
-                        *report.dossier.contribution_predecessors,
-                    ):
+                    if report.dossier is not None:
+                        references = (
+                            *report.dossier.predecessors,
+                            *report.dossier.contribution_predecessors,
+                        )
+                    else:
+                        assert report.artifact_identity is not None
+                        references = tuple(
+                            n.relationship for n in report.artifact_identity.external_nominations
+                        )
+                    for reference in references:
                         key = (reference.run_id, reference.cut_id)
                         if key not in predecessor_readers:
                             predecessor = bind_completed_result(conn, reference.run_id)
@@ -967,29 +974,32 @@ def _verify_dossier_structural_closure(root, manifest, dossiers, products, scope
     return roots
 
 
-def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
-    """Replay source membership from exact detached selected raw producer custody."""
-    from corpus_structure.methods.dossier_contributions import derive_contribution_members
+def _detached_relation(root, manifest, name):
+    spec = manifest["relations"].get(name)
+    if spec is None:
+        return
+    with _member(root, spec["files"]["jsonl"]["path"]).open("rb") as stream:
+        for line in stream:
+            yield json.loads(json.loads(line)["payload_json"])
 
-    def relation(name):
-        spec = manifest["relations"].get(name)
-        if spec is None:
-            return
-        with _member(root, spec["files"]["jsonl"]["path"]).open("rb") as stream:
-            for line in stream:
-                yield json.loads(json.loads(line)["payload_json"])
 
-    origin_ids = {member.contribution_ref.origin_task_id for _, member in members}
+def _retained_contribution_payloads(root, manifest, requested, scopes, inventory):
+    """Read exact selected raw provenance and endpoint closure once for dependent products."""
+    from corpus_structure.semantic.contributions import contribution_identity
+
+    if not requested:
+        return
+    origin_ids = {reference.origin_task_id for _, reference in requested}
     reports = {
         row["origin_task_id"]: row
-        for row in relation("reports")
+        for row in _detached_relation(root, manifest, "reports")
         if row["origin_task_id"] in origin_ids
     }
     source_ids = {
-        source.source_view_id for report, _ in members for source in report.inputs.sources
+        source.source_view_id for report, _ in requested for source in report.inputs.sources
     }
     sources = {}
-    for row in relation("sources"):
+    for row in _detached_relation(root, manifest, "sources"):
         if row["source_view_id"] not in source_ids:
             continue
         ref = row["ref"]
@@ -1006,10 +1016,7 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
             ),
             projection=dict(text=row["text"], pieces=row["context"]["pieces"]),
         )
-    for report, member in members:
-        reference = member.contribution_ref
-        if reference not in report.dossier.contribution_predecessors:
-            raise ValueError("dossier source member lacks its declared contribution predecessor")
+    for report, reference in requested:
         candidates = [
             index
             for index, scope in scopes.items()
@@ -1028,7 +1035,7 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
             or raw.get("body", {}).get("release_id") != reference.release_id
         ):
             raise ValueError(
-                "dossier contribution differs from exact selected raw producer custody"
+                "retained contribution differs from exact selected raw producer custody"
             )
         available = {row["contribution_id"]: row for row in raw["body"].get("contributions", ())}
         closure, pending = {}, [reference.contribution_id]
@@ -1038,7 +1045,7 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
                 continue
             row = available.get(key)
             if row is None:
-                raise ValueError("dossier contribution raw endpoint closure missing")
+                raise ValueError("retained contribution raw endpoint closure missing")
             if not any(
                 (
                     captured := inventory.get(
@@ -1051,7 +1058,7 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
                 and captured.get("runtime_fingerprint") == reference.runtime_fingerprint
                 for index in candidates
             ):
-                raise ValueError("dossier contribution selected endpoint inventory missing")
+                raise ValueError("retained contribution selected endpoint inventory missing")
             closure[key] = row
             pending.extend(e["contribution_id"] for e in row.get("endpoints", ()))
             pending.extend(row.get("members", ()))
@@ -1061,20 +1068,122 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
             for anchor in row.get("anchors", ())
         }
         if not source_ids <= sources.keys():
-            raise ValueError("dossier contribution original endpoint source missing")
+            raise ValueError("retained contribution original endpoint source missing")
+        if any(contribution_identity(row) != key for key, row in closure.items()):
+            raise ValueError("retained contribution identity differs from original content")
+        yield dict(
+            contributions=list(closure.values()),
+            sources=[sources[key] for key in sorted(source_ids)],
+        )
+
+
+
+def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
+    from corpus_structure.methods.dossier_contributions import derive_contribution_members
+
+    requested = []
+    for report, member in members:
+        if member.contribution_ref not in report.dossier.contribution_predecessors:
+            raise ValueError("dossier source member lacks its declared contribution predecessor")
+        requested.append((report, member.contribution_ref))
+    payloads = _retained_contribution_payloads(root, manifest, requested, scopes, inventory)
+    for (report, member), payload in zip(members, payloads, strict=True):
         derived = derive_contribution_members(
-            report.inputs,
-            reference,
-            dict(
-                contributions=list(closure.values()),
-                sources=[sources[key] for key in sorted(source_ids)],
-            ),
-            root=roots[report.product_id],
+            report.inputs, member.contribution_ref, payload, root=roots[report.product_id]
         )
         if derived != (member,):
-            raise ValueError(
-                "dossier source membership differs from original contribution evidence"
-            )
+            raise ValueError("dossier source membership differs from original contribution evidence")
+
+
+def _verify_artifact_nomination_closure(
+    root, manifest, artifacts, structural_scopes, contribution_scopes, inventory
+):
+    from corpus_structure.methods.artifact_identity import (
+        ArtifactIdentityMethod,
+        retained_artifact_nomination,
+    )
+    from corpus_structure.semantic.contributions import occurrence_identity
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+
+    origin_ids = {item[2] for item in artifacts}
+    captured = {}
+    for row in _detached_relation(root, manifest, "reports"):
+        origin_id = row["origin_task_id"]
+        if origin_id in origin_ids:
+            if origin_id in captured:
+                raise ValueError("artifact producer raw result repeats")
+            captured[origin_id] = row
+
+    expected, requested = [], []
+    for index, _selected, origin, origin_run, origin_project, runtime, report in artifacts:
+        product = report.artifact_identity
+        if product is None:
+            raise ValueError("artifact nomination closure requires an exact artifact product")
+        raw = captured.get(origin, {})
+        body = raw.get("body") or {}
+        config = raw.get("configuration") or {}
+        refs = [n.relationship.model_dump(mode="json") for n in product.external_nominations]
+        declared = config.get("external_nomination_refs")
+        if (
+            raw.get("project_id") != origin_project
+            or raw.get("origin_run_id") != origin_run
+            or raw.get("runtime_fingerprint") != runtime
+            or body.get("release_id") != structural_scopes[index]["release_id"]
+            or body.get("method") != ArtifactIdentityMethod.name
+            or body.get("operation_version") != ArtifactIdentityMethod.version
+            or not isinstance(declared, list)
+            or len(declared) != len(refs)
+            or sorted(declared, key=canonical_bytes) != sorted(refs, key=canonical_bytes)
+            or StructuralProductReport.model_validate(body.get("structural_product")) != report
+        ):
+            raise ValueError("artifact product differs from original registered producer and nomination configuration")
+        for nomination in product.external_nominations:
+            expected.append((report, nomination))
+            requested.append((report, nomination.relationship))
+
+    payloads = _retained_contribution_payloads(
+        root, manifest, requested, contribution_scopes, inventory
+    )
+    for (report, nomination), payload in zip(expected, payloads, strict=True):
+        source_views = {source["source_view_id"]: source for source in payload["sources"]}
+        for row in payload["contributions"]:
+            if row["kind"] != "occurrence":
+                continue
+            anchors = row["anchors"]
+            if not anchors or occurrence_identity(anchors) != row["occurrence_id"]:
+                raise ValueError("artifact nomination endpoint physical identity differs")
+            for anchor in anchors:
+                view = source_views[anchor["pin"]["source_view_id"]]
+                projection = view["projection"]
+                pieces = [
+                    piece
+                    for piece in projection["pieces"]
+                    if piece.get("kind") == "native_text"
+                    and piece.get("item_ref") == anchor["pointer"]
+                    and piece.get("cell_index") is None
+                ]
+                if (
+                    anchor["pin"] != view["pin"]
+                    or anchor["space"] != "native"
+                    or anchor["precision"] != "exact"
+                    or len(pieces) != 1
+                ):
+                    raise ValueError("artifact nomination endpoint lacks exact native bridge")
+                piece = pieces[0]
+                start, end = piece["start"] + anchor["start"], piece["start"] + anchor["end"]
+                if (
+                    not piece["start"] <= start < end <= piece["end"]
+                    or projection["text"][start:end] != anchor["source_piece"]
+                ):
+                    raise ValueError("artifact nomination endpoint differs from original source")
+        product = report.artifact_identity
+        assert product is not None
+        actual = retained_artifact_nomination(
+            report.inputs, product.records, nomination.relationship, payload
+        )
+        if actual != nomination:
+            raise ValueError("artifact nomination differs from exact retained endpoints")
+
 
 
 def verify_review_bundle(root: Path) -> dict[str, Any]:
@@ -1337,6 +1446,11 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
                 contribution_scopes,
                 contribution_inventory,
                 dossier_roots,
+            )
+        artifacts = [item for item in structural_products if item[-1].artifact_identity is not None]
+        if artifacts:
+            _verify_artifact_nomination_closure(
+                root, manifest, artifacts, structural_scopes, contribution_scopes, contribution_inventory
             )
         for run_id, unit_id in graded_units:
             if unit_id not in assessment_units or not _covers_assessment_unit(

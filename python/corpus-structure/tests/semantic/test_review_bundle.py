@@ -891,3 +891,181 @@ def test_published_capture_keeps_selected_revision_after_reading_original_source
         assert unrelated == dict(selection_index=0, **assertions[1])
         assert "statement" not in unrelated and "assessment_id" not in unrelated
     assert witness["assessment_id"] == "protected-meaning"
+
+
+def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.artifact_identity import (
+        ArtifactIdentityProduct,
+        ArtifactNomination,
+        ArtifactRecord,
+        ArtifactScoringPolicy,
+        SourceArtifactOccurrence,
+        pair_candidates,
+    )
+    from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.observations import source_value
+    from corpus_structure.semantic.retained_contributions import RetainedContributionRef
+    from corpus_structure.semantic.structural_products import StructuralProductReport
+    from corpus_structure.serve.structural_products import StructuralRequest
+
+    literal = "See Figure 1. Figure 1 shows a known comparison."
+    rows = structural_rows(literal)
+    inputs = StructuralProductReport.model_validate(rows[1][1]["report"]).inputs
+    source = rows[3][1]
+    piece = source["context"]["pieces"][0]
+    piece.update(kind="native_text", source_field="text")
+    projection = {**source["context"], "items": ["#/texts/0"]}
+    digest = sha256(canonical_bytes(projection)).hexdigest()
+    source["ref"]["projection_digest"] = digest
+    source_ref = inputs.sources[0].model_copy(update=dict(projection_digest=digest))
+    passage = inputs.passages[0].model_copy(update=dict(source_ref=source_ref.identity))
+    inputs = inputs.model_copy(update=dict(sources=(source_ref,), passages=(passage,)))
+    pin = dict(
+        source="known",
+        native_product_task_id=1,
+        product_key="native",
+        product_digest="a" * 64,
+        projection_digest=digest,
+        recipe_digest="b" * 64,
+        source_view_id=1,
+    )
+    endpoints = []
+    records = []
+    for start, role in ((4, "reference"), (14, "caption")):
+        quote = "Figure 1"
+        end = start + len(quote)
+        assert literal[start:end] == quote
+        anchor = dict(
+            pin=pin, space="native", pointer="#/texts/0", precision="exact", start=start,
+            end=end, source_piece=quote,
+        )
+        occurrence = occurrence_identity([anchor])
+        endpoint = dict(
+            semantic_type="structural.located_participant", kind="occurrence", pin=pin,
+            anchors=[anchor], occurrence_id=occurrence,
+            value=source_value({"role": "artifact_reference"}),
+        )
+        endpoint["contribution_id"] = contribution_identity(endpoint)
+        endpoints.append(endpoint)
+        artifact = SourceArtifactOccurrence(
+            artifact_kind="figure", source_work="controlled-work", controlled_code="1",
+            occurrence_role=role, source_pointer="#/texts/0", scope="controlled",
+            dependencies=("native:1",),
+        )
+        product_row = dict(
+            endpoint, semantic_type="structural.artifact", value=source_value(artifact.model_dump())
+        )
+        product_row["contribution_id"] = contribution_identity(product_row)
+        records.append(
+            ArtifactRecord(
+                contribution_id=product_row["contribution_id"], occurrence_id=occurrence,
+                artifact=artifact, source_contribution=json.loads(canonical_bytes(product_row)),
+                citations=(
+                    dict(source_ref=source_ref.identity, passage_id="p1", source_pointer="#/texts/0",
+                         start=start, end=end, text=quote),
+                ),
+            )
+        )
+    relation = dict(
+        semantic_type="structural.scoped_attachment",
+        kind="relation",
+        pin=pin,
+        anchors=[],
+        endpoints=[
+            dict(role=role, contribution_id=row["contribution_id"])
+            for role, row in zip(("attachment", "target"), endpoints, strict=True)
+        ],
+        value=source_value({"relation": relation_kind}),
+    )
+    relation["contribution_id"] = contribution_identity(relation)
+    reference = RetainedContributionRef(
+        contribution_id=relation["contribution_id"], project_id="selected-project", run_id=5,
+        cut_id=6, release_id="release:structural", result_revision=2, selected_task_id=75,
+        origin_task_id=70, runtime_fingerprint="runtime:source",
+    )
+    left, right = sorted(record.contribution_id for record in records)
+    nomination = ArtifactNomination(left=left, right=right, relationship=reference)
+    inputs = inputs.model_copy(update=dict(dependencies=(*inputs.dependencies, reference.contribution_id)))
+    report = StructuralProductReport(
+        kind="artifact_identity",
+        inputs=inputs,
+        artifact_identity=ArtifactIdentityProduct(
+            records=tuple(records),
+            pairs=pair_candidates(tuple(records), external_nominations=(nomination,)),
+            external_nominations=(nomination,),
+            policy=ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05),
+        ),
+    )
+    structural = dict(
+        selection_index=0, selected_task_id=100, origin_task_id=100, origin_run_id=2,
+        origin_project_id="selected-project", runtime_fingerprint="runtime:artifact",
+        product_id=report.product_id, report=report.model_dump(mode="json"),
+    )
+    raw = dict(
+        origin_task_id=100, origin_run_id=2, project_id="selected-project",
+        runtime_fingerprint="runtime:artifact",
+        configuration=dict(external_nomination_refs=[reference.model_dump(mode="json")]),
+        body=dict(
+            release_id="release:structural", method="structure.artifact_identity",
+            operation_version="2", structural_product=report.model_dump(mode="json"),
+        ),
+    )
+    member_rows = [*endpoints, relation]
+    scoped = dict(
+        origin_task_id=70, origin_run_id=4, project_id="source-project",
+        runtime_fingerprint="runtime:source", unit_type="source_view", origin_unit_id=1,
+        body=dict(release_id="release:structural", contributions=member_rows),
+    )
+    captures = [
+        ("selections", dict(
+            selection_index=0, run_id=5, cut_id=6, project_id="selected-project",
+            binding=dict(release_id="release:structural", data_revision=2),
+        )),
+        *(
+            ("inventory", dict(selection_index=0, population="contribution", row=dict(
+                selected_task_id=75, origin_task_id=70, origin_project_id="source-project",
+                origin_run_id=4, runtime_fingerprint="runtime:source", source_view_id=1,
+                contribution_id=row["contribution_id"],
+            )))
+            for row in member_rows
+        ),
+        ("reports", scoped),
+        rows[0],
+        ("structural_products", structural),
+        ("reports", raw),
+        *rows[3:],
+    ]
+    return ReviewSelection(
+        selections=(ContributionRequest(run_id=5),),
+        structural_selections=(StructuralRequest(run_id=2, kind="artifact_identity"),),
+    ), captures
+
+
+def test_artifact_nomination_replays_exact_retained_cross_cut_source(tmp_path):
+    request, rows = artifact_nomination_rows()
+    root = tmp_path / "artifact"
+    write_review_bundle(request, root, iter(rows))
+    assert inspect_review_bundle(root)["relations"]["inventory"] == 3
+
+
+@pytest.mark.parametrize("broken", ["selected_endpoint", "other_relation", "omitted_ref"])
+def test_artifact_nomination_refuses_incomplete_or_substituted_source_closure(tmp_path, broken):
+    request, rows = artifact_nomination_rows(
+        relation_kind="uses_artifact" if broken == "other_relation" else "artifact_reference_target"
+    )
+    if broken == "selected_endpoint":
+        next(value["row"] for name, value in rows if name == "inventory")["selected_task_id"] = 80
+        error = "selected endpoint inventory missing"
+    elif broken == "other_relation":
+        error = "requires a retained reference-target relationship"
+    else:
+        raw = next(value for name, value in rows if name == "reports" and value["origin_task_id"] == 100)
+        raw["configuration"]["external_nomination_refs"] = []
+        error = "differs from original registered producer and nomination configuration"
+    root = tmp_path / "artifact"
+    with pytest.raises(ValueError, match=error):
+        write_review_bundle(request, root, iter(rows))
+    assert not root.exists()

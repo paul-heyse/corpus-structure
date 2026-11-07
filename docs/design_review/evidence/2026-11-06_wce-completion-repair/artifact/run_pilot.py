@@ -23,7 +23,7 @@ def frozen_json(path):
     return json.loads(raw), sha256(raw).hexdigest()
 
 
-def artifact_nomination_refs(scoped):
+def artifact_nomination_refs(scoped, verified_bundle):
     """Select the actual independently produced relation refs from ordinary scoped receipts."""
     completed, _ = frozen_json(scoped / "completed.json")
     raw_refs, _ = frozen_json(scoped / "contribution-predecessors.json")
@@ -35,19 +35,24 @@ def artifact_nomination_refs(scoped):
     if len(refs) != len(raw_refs):
         raise ValueError("retained scoped contribution references repeat")
     selected = set()
-    for path in sorted(scoped.glob("source-*/pages.json")):
-        pages, _ = frozen_json(path)
-        for page in pages:
-            if (page["run_id"], page["cut_id"]) != (completed["run_id"], completed["cut_id"]):
-                raise ValueError("scoped receipt differs from completed nomination population")
-            for item in page["items"]:
-                if item["population"] != "contribution":
-                    continue
-                row = item["row"]
+    with (verified_bundle / "reports.jsonl").open("rb") as stream:
+        for line in stream:
+            raw = json.loads(json.loads(line)["payload_json"])
+            body = raw.get("body") or {}
+            if body.get("method") != "structure.scoped_relations":
+                continue
+            for row in body.get("contributions", ()):
                 if (
                     row["semantic_type"] == "structural.scoped_attachment"
                     and source_python(row["value"])["relation"] == "artifact_reference_target"
                 ):
+                    reference = refs[row["contribution_id"]]
+                    if (
+                        reference.origin_task_id != raw["origin_task_id"]
+                        or reference.runtime_fingerprint != raw["runtime_fingerprint"]
+                        or reference.release_id != body["release_id"]
+                    ):
+                        raise ValueError("nomination raw producer differs from exact scoped reference")
                     selected.add(row["contribution_id"])
     references = tuple(refs[key] for key in sorted(selected))
     if any(
