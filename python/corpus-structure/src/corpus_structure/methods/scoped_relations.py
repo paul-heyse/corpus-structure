@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -40,13 +40,15 @@ class ScopedRelationsConfig(StructuralValue):
     structural_input_digest: str | None = None
     work_bindings: tuple[SourceWorkBinding, ...] = ()
     interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
-    interpretation_weight_scale: Literal[0.5, 1.0, 2.0] = 1.0
+    interpretation_weight_scale: float = Field(default=1.0, strict=True)
     sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
     formula_seconds: float = Field(default=0.5, gt=0)
     max_formula_chars: int = Field(default=2048, gt=0, strict=True)
 
     @model_validator(mode="after")
     def bound_inputs(self) -> Self:
+        if self.interpretation_weight_scale not in (0.5, 1.0, 2.0):
+            raise ValueError("table interpretation weight scale must be 0.5, 1, or 2")
         if self.inputs is None:
             if self.structural_input_digest is not None:
                 raise ValueError("original annotation inputs and digest must be supplied together")
@@ -59,9 +61,7 @@ class ScopedRelationsConfig(StructuralValue):
 
 def artifact_spans(text):
     """Locate numbered mentions; never copy nearby captions into references."""
-    pattern = re.compile(
-        r"\b(Table|Figure|Theorem|Section)\s+([A-Z]?\d[\w./-]*)", re.IGNORECASE
-    )
+    pattern = re.compile(r"\b(Table|Figure|Theorem|Section)\s+([A-Z]?\d[\w./-]*)", re.IGNORECASE)
     for match in pattern.finditer(text):
         code = match[2].removesuffix(".")
         yield dict(
@@ -72,12 +72,13 @@ def artifact_spans(text):
         )
 
 
-def _measure_table_geometry(node):
+def _measure_table_geometry(node: dict[str, Any]) -> dict[str, Any]:
     """Recognize nested sample-size bands without modifying the native annotations."""
     data = node.get("data", {})
-    cells = data.get("table_cells", ())
+    cells: list[dict[str, Any]] = data.get("table_cells", [])
     bands = [
-        c for c in cells
+        c
+        for c in cells
         if c.get("start_row_offset_idx") == 0
         and c.get("end_row_offset_idx") == 1
         and c.get("end_col_offset_idx", 0) - c.get("start_col_offset_idx", 0) > 1
@@ -87,7 +88,8 @@ def _measure_table_geometry(node):
         return node
     labels = {"frequency", "relative frequency"}
     measures = [
-        c for c in cells
+        c
+        for c in cells
         if c.get("start_row_offset_idx") == 1
         and c.get("end_row_offset_idx") == 2
         and c.get("text", "").strip().casefold() in labels
@@ -102,7 +104,8 @@ def _measure_table_geometry(node):
             return node
     row_key = next(
         (
-            c for c in cells
+            c
+            for c in cells
             if c.get("start_col_offset_idx") == 0
             and c.get("end_col_offset_idx") == 1
             and c.get("start_row_offset_idx") == 1
@@ -148,6 +151,32 @@ def _note_scope(note: str, cells, targets):
         return ()
     index = next(iter(qualified))
     return tuple(target for target in targets if index in getattr(target, paths))
+
+
+def _table_schematics(items, text):
+    """Resolve a source-declared observed/schematic pair within one native view."""
+    cue = re.search(
+        r"\bdata shown in Table (\d+(?:\.\d+)+)\b.*?"
+        r"\bgeneral data table will look as shown in Table (\d+(?:\.\d+)+)\b",
+        text,
+        re.I | re.S,
+    )
+    if cue is None or cue[1] == cue[2]:
+        return None
+    selected = []
+    for code in cue.groups():
+        pointers = []
+        for pointer, node in items.items():
+            if node.get("label") != "table":
+                continue
+            for caption in node.get("captions", ()):
+                title = items.get(caption.get("$ref"), {}).get("text", "")
+                if re.match(rf"^Table\s+{re.escape(code)}(?=:|\s|$)", title, re.I):
+                    pointers.append(pointer)
+        if len(pointers) != 1:
+            return None
+        selected.append(pointers[0])
+    return selected
 
 
 def discover_relations(
@@ -243,8 +272,17 @@ def discover_relations(
         return row
 
     def relation(
-        subject, target, kind, region, basis="native_geometry", state="unassessed", operation=op
+        subject,
+        target,
+        kind,
+        region,
+        basis="native_geometry",
+        state="unassessed",
+        operation=op,
+        *,
+        witness=None,
     ):
+        extra = (witness["contribution_id"],) if witness is not None else ()
         deps = tuple(
             dict.fromkeys(
                 (
@@ -253,6 +291,7 @@ def discover_relations(
                     dependency,
                     *subject["computation_dependencies"],
                     *target["computation_dependencies"],
+                    *extra,
                 )
             )
         )
@@ -290,6 +329,7 @@ def discover_relations(
                                 (
                                     *subject["computation_dependencies"],
                                     *target["computation_dependencies"],
+                                    *extra,
                                 )
                             )
                         ),
@@ -456,6 +496,80 @@ def discover_relations(
                     cell = cell_rows.get((pointer, target.cell_index))
                     if cell is not None:
                         relation(cell, note_row, "note", pointer, "matched_cue")
+
+    # In an unlabeled marginal row/column, layout alone leaves an ordinary-count
+    # reading viable. An explicitly identified schematic supplies the competing
+    # source-conditioned role and the exact declaration behind it.
+    role_patterns = (
+        (r"\brow sums by (\w+) and (\w+)", "row_sum"),
+        (r"\bcolumn sums by (\w+) and (\w+)", "column_sum"),
+        (r"\bsize of the data set will be denoted by (\w+)", "sample_count"),
+        (r"\bijth entry in the table will be denoted by (sij)\b", "observed_count"),
+    )
+    coordinate_fields = (
+        "start_row_offset_idx",
+        "end_row_offset_idx",
+        "start_col_offset_idx",
+        "end_col_offset_idx",
+    )
+    for piece, _node, source_text in text_rows:
+        tables = _table_schematics(items, source_text)
+        if tables is None:
+            continue
+        cues = [(re.search(pattern, source_text, re.I), role) for pattern, role in role_patterns]
+        if not all(match is not None for match, _ in cues):
+            continue
+        observed, schematic = tables
+        literals, occurrence_roles = {}, {}
+        for match, role in cues:
+            assert match is not None
+            cue = participant(
+                piece["start"] + match.start(),
+                piece["start"] + match.end(),
+                role="table_role_declaration",
+                pointer=piece["item_ref"],
+                region=observed,
+                extra={"measure_role": role},
+            )
+            occurrence_roles[role] = cue
+            for literal in match.groups():
+                literals[literal.casefold()] = role
+        cells = items[schematic]["data"]["table_cells"]
+        by_extent = {
+            tuple(cell.get(k) for k in coordinate_fields): (index, cell["text"].strip())
+            for index, cell in enumerate(cells)
+            if all(type(cell.get(k)) is int for k in coordinate_fields)
+        }
+        for index, cell in enumerate(items[observed]["data"]["table_cells"]):
+            if not re.fullmatch(r"\d+", cell.get("text", "").strip()):
+                continue
+            counterpart = by_extent.get(tuple(cell.get(k) for k in coordinate_fields))
+            if counterpart is None:
+                continue
+            other_index, symbol = counterpart
+            role = literals.get("sij" if re.fullmatch(r"s\d+", symbol) else symbol.casefold())
+            subject, target = (
+                cell_rows.get((observed, index)),
+                cell_rows.get((schematic, other_index)),
+            )
+            if role is None or subject is None or target is None:
+                continue
+            relation(
+                subject,
+                target,
+                "value_role",
+                observed,
+                "matched_cue",
+                witness=occurrence_roles[role],
+            )
+            if role != "observed_count":
+                relation(
+                    subject,
+                    occurrence_roles["observed_count"],
+                    "value_role",
+                    observed,
+                    "native_geometry",
+                )
 
     # Symbol declaration is source local and explicitly cued. Each occurrence has
     # independent offsets, so repeated symbols never collapse into one identity.

@@ -32,7 +32,6 @@ from .local_interpretation import local_constraint_id, local_question_operation
 POLICY_VERSION = "shared-table-band-3"
 MAX_BAND_EDGES = 16
 MODE = Literal["feasibility", "independent", "coupled"]
-WEIGHT_SCALE = Literal[0.5, 1.0, 2.0]
 _RELATIONS = frozenset({"header", "unit", "note", "value_role"})
 _UNRESOLVED = "unresolved"
 _INAPPLICABLE = "does_not_apply"
@@ -138,9 +137,13 @@ def _request(question_id, deps, edges, decisions, source_revision, mode, weight_
     events: dict[str, list[tuple[Choice, ...]]] = defaultdict(list)
     constraints = []
     for decision in decisions:
-        masked = tuple(candidate.key for candidate in decision.candidates if candidate.key in forbidden)
+        masked = tuple(
+            candidate.key for candidate in decision.candidates if candidate.key in forbidden
+        )
         if masked:
-            source_evidence = {key for eid in masked for key in (eid, by_id[eid].subject, by_id[eid].target)}
+            source_evidence = {
+                key for eid in masked for key in (eid, by_id[eid].subject, by_id[eid].target)
+            }
             constraints.append(
                 HardConstraint(
                     "source-disjoint:" + decision.key,
@@ -168,7 +171,9 @@ def _request(question_id, deps, edges, decisions, source_revision, mode, weight_
         targets = tuple(sorted(evidence_ids[observation]))
         if len(axes) > 1:
             scopes.append(
-                DependenceScope(axes, targets, "same located header or note constrains several readings")
+                DependenceScope(
+                    axes, targets, "same located header or note constrains several readings"
+                )
             )
         if mode == "feasibility":
             continue
@@ -179,11 +184,16 @@ def _request(question_id, deps, edges, decisions, source_revision, mode, weight_
             assignments = product(*(by_decision[axis].candidates for axis in axes))
             values = tuple(
                 evidence_weight
-                if all(choice.key in candidates_by_axis[axis] for axis, choice in zip(axes, choices, strict=True))
+                if all(
+                    choice.key in candidates_by_axis[axis]
+                    for axis, choice in zip(axes, choices, strict=True)
+                )
                 else 0.0
                 for choices in assignments
             )
-            joint.append(LogPotential("shared-source:" + observation, axes, values, (*targets, policy_id)))
+            joint.append(
+                LogPotential("shared-source:" + observation, axes, values, (*targets, policy_id))
+            )
         else:
             # The independent comparison allocates the same evidence budget
             # across its unary terms, preserving the aggregate weight.
@@ -232,7 +242,7 @@ def table_policy_operations(
     dependency_ids,
     source_revision: str,
     mode: MODE = "coupled",
-    weight_scale: WEIGHT_SCALE = 1.0,
+    weight_scale: float = 1.0,
     cancellation: Event | None = None,
 ):
     if (
@@ -273,8 +283,18 @@ def table_policy_operations(
         if pair in seen:
             raise ValueError("table policy repeats one physical attachment in its band")
         seen.add(pair)
+        declarations = [
+            key
+            for key in row.get("computation_dependencies", ())
+            if key in by_id and _value(by_id[key]).get("role") == "table_role_declaration"
+        ]
+        if len(declarations) > 1:
+            raise ValueError("one attachment cannot vote through multiple role declarations")
+        evidence_key = (
+            declarations[0] if declarations else target_row.get("occurrence_id") or target
+        )
         groups[group].append(
-            _attachment(identity, value, subject_value, target_value, target_row.get("occurrence_id") or target)
+            _attachment(identity, value, subject_value, target_value, evidence_key)
         )
     if not groups:
         return (
@@ -290,6 +310,7 @@ def table_policy_operations(
     for group, unsorted_edges in sorted(groups.items()):
         edges = tuple(sorted(unsorted_edges, key=lambda edge: edge.identity))
         ids = {key for edge in edges for key in (edge.identity, edge.subject, edge.target)}
+        ids.update(edge.evidence_key for edge in edges if edge.evidence_key in by_id)
         retained = tuple(by_id[key] for key in sorted(ids))
         deps = tuple(
             sorted(

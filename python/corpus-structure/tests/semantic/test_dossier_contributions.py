@@ -250,6 +250,7 @@ def test_public_source_membership_identity_excludes_execution_custody_aliases():
 
     inputs, reference, payload = source_fixture()
     member = derive_contribution_members(inputs, reference, payload)[0]
+    assert member.contribution_citations is not None
     original = select_dossier(
         inputs, root_id="corpus", members=(member,), contribution_predecessors=(reference,)
     )
@@ -365,8 +366,11 @@ def detached_source_dossier_rows():
 
     from corpus_structure.methods.structural_products import derive_dossier_members
     from corpus_structure.semantic.structural_products import (
-        DefinitionComponentsProduct, RetainedComponentRef, RetainedStructuralRef,
-        StructuralProductReport, definition_component,
+        DefinitionComponentsProduct,
+        RetainedComponentRef,
+        RetainedStructuralRef,
+        StructuralProductReport,
+        definition_component,
     )
     from corpus_structure.serve.contributions import ContributionRequest
     from corpus_structure.serve.review_bundle import ReviewSelection
@@ -374,33 +378,56 @@ def detached_source_dossier_rows():
 
     inputs, reference, payload = source_fixture()
     member = derive_contribution_members(inputs, reference, payload)[0]
+    assert member.contribution_citations is not None
     by_text = {c.span.text: c.span for c in member.contribution_citations}
     component = definition_component(
-        term=by_text["Probability %"], content=by_text["50"], scope=inputs.scope,
-        interpretation="definition", basis="matched_cue",
-        evidence=(inputs.passages[0].passage_id,), reason="Controlled fixture.",
+        term=by_text["Probability %"],
+        content=by_text["50"],
+        scope=inputs.passages[0].scope,
+        interpretation="definition",
+        basis="matched_cue",
+        evidence=(inputs.passages[0].passage_id,),
+        reason="Controlled fixture.",
     )
     predecessor = StructuralProductReport(
-        kind="definition_components", inputs=inputs,
+        kind="definition_components",
+        inputs=inputs,
         definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
     )
     predecessor_ref = RetainedStructuralRef(
-        product_id=predecessor.product_id, project_id="fixture-project", run_id=8, cut_id=9,
-        release_id=reference.release_id, result_revision=1, selected_task_id=71, origin_task_id=70,
+        product_id=predecessor.product_id,
+        project_id="fixture-project",
+        run_id=8,
+        cut_id=9,
+        release_id=reference.release_id,
+        result_revision=1,
+        selected_task_id=71,
+        origin_task_id=70,
         runtime_fingerprint="fixture-definition-runtime",
     )
     root = RetainedComponentRef(
-        **predecessor_ref.model_dump(), operation_id="structure.definition_components",
-        operation_version="5", component_id=component.component_id, dependencies=inputs.dependencies,
+        **predecessor_ref.model_dump(),
+        operation_id="structure.definition_components",
+        operation_version="5",
+        component_id=component.component_id,
+        dependencies=inputs.dependencies,
     )
-    inputs = inputs.model_copy(update={"dependencies": (*inputs.dependencies, predecessor.product_id)})
+    inputs = inputs.model_copy(
+        update={"dependencies": (*inputs.dependencies, predecessor.product_id)}
+    )
     structural, _ = derive_dossier_members(
-        inputs, ((predecessor_ref, {"report":predecessor.model_dump(mode="json")}),), root=component
+        inputs,
+        ((predecessor_ref, {"report": predecessor.model_dump(mode="json")}),),
+        root=component,
     )
     member = derive_contribution_members(inputs, reference, payload, root=component)[0]
     report = select_dossier(
-        inputs, root_id=root.component_id, root_component=root, members=(member,*structural),
-        contribution_predecessors=(reference,), predecessors=(predecessor_ref,),
+        inputs,
+        root_id=root.component_id,
+        root_component=root,
+        members=(member, *structural),
+        contribution_predecessors=(reference,),
+        predecessors=(predecessor_ref,),
     )
     view = complete_native_fields(
         native_table_source(
@@ -470,23 +497,48 @@ def detached_source_dossier_rows():
             ),
         ),
         ("contracts", dict(release_id=reference.release_id, definitions=[], registry_rows=[])),
-        ("structural_selections", dict(
-            selection_index=1, project_id=predecessor_ref.project_id,
-            run_id=predecessor_ref.run_id, cut_id=predecessor_ref.cut_id,
-            release_id=predecessor_ref.release_id,
-            binding=dict(release_id=predecessor_ref.release_id, data_revision=predecessor_ref.result_revision),
-        )),
-        ("structural_products", dict(
-            selection_index=1, selected_task_id=71, origin_task_id=70, origin_run_id=7,
-            origin_project_id="fixture-original", runtime_fingerprint=predecessor_ref.runtime_fingerprint,
-            product_id=predecessor.product_id, report=predecessor.model_dump(mode="json"),
-        )),
-        ("reports", dict(
-            origin_task_id=70, origin_run_id=7, project_id="fixture-original",
-            runtime_fingerprint=predecessor_ref.runtime_fingerprint,
-            body=dict(release_id=predecessor_ref.release_id, method=root.operation_id,
-                operation_version=root.operation_version, structural_product=predecessor.model_dump(mode="json")),
-        )),
+        (
+            "structural_selections",
+            dict(
+                selection_index=1,
+                project_id=predecessor_ref.project_id,
+                run_id=predecessor_ref.run_id,
+                cut_id=predecessor_ref.cut_id,
+                release_id=predecessor_ref.release_id,
+                binding=dict(
+                    release_id=predecessor_ref.release_id,
+                    data_revision=predecessor_ref.result_revision,
+                ),
+            ),
+        ),
+        (
+            "structural_products",
+            dict(
+                selection_index=1,
+                selected_task_id=71,
+                origin_task_id=70,
+                origin_run_id=7,
+                origin_project_id="fixture-original",
+                runtime_fingerprint=predecessor_ref.runtime_fingerprint,
+                product_id=predecessor.product_id,
+                report=predecessor.model_dump(mode="json"),
+            ),
+        ),
+        (
+            "reports",
+            dict(
+                origin_task_id=70,
+                origin_run_id=7,
+                project_id="fixture-original",
+                runtime_fingerprint=predecessor_ref.runtime_fingerprint,
+                body=dict(
+                    release_id=predecessor_ref.release_id,
+                    method=root.operation_id,
+                    operation_version=root.operation_version,
+                    structural_product=predecessor.model_dump(mode="json"),
+                ),
+            ),
+        ),
     ]
     rows.extend(
         (

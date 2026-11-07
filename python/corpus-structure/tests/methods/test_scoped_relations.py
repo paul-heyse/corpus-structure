@@ -42,7 +42,9 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants(explici
             table_cell("50", 2, 1),
         ),
         caption="Table 5.1 Coin",
-        note="Only the Heads row uses percentages." if explicit_scope else "Values are percentages.",
+        note="Only the Heads row uses percentages."
+        if explicit_scope
+        else "Values are percentages.",
     )
     output = discover_relations(
         native_source_frame(complete_native_fields(view), ()), source_work="actual-parent-sha"
@@ -59,7 +61,8 @@ def test_native_table_roles_notes_and_units_keep_exact_cell_participants(explici
         "value_role",
     }
     note_links = [
-        values[r["contribution_id"]] for r in relations
+        values[r["contribution_id"]]
+        for r in relations
         if values[r["contribution_id"]]["relation"] == "note"
     ]
     assert len(note_links) == int(explicit_scope)

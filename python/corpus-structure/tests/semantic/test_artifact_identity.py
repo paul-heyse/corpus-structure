@@ -81,10 +81,17 @@ def test_shared_generators_are_one_pair_with_complete_provenance():
     assert counts[0]["is_estimate"] is False
     (pair,) = pair_candidates(records, external_nominations=external, native_alias_pairs=alias)
     assert pair.candidate_routes == (
-        "exact_code", "lexical_title", "external_pairs", "native_alias_array"
+        "exact_code",
+        "lexical_title",
+        "external_pairs",
+        "native_alias_array",
     )
     assert pair.dependencies == (
-        "a", "b", *(n.relationship.contribution_id for n in external), "source:a", "source:b"
+        "a",
+        "b",
+        *(n.relationship.contribution_id for n in external),
+        "source:a",
+        "source:b",
     )
     assert pair.model_probability is None and pair.standing == "candidate_relative_private"
     assert pair_candidates(
@@ -119,7 +126,9 @@ def test_revisions_distinguish_lineage_from_immutable_version():
 def test_external_missing_edge_does_not_grow_a_component():
     records = tuple(record(x, code=None) for x in "abc")
     pairs = pair_candidates(
-        records, external_nominations=(nomination("a", "b"), nomination("b", "c", 2)), exclusions=(("a", "c"),)
+        records,
+        external_nominations=(nomination("a", "b"), nomination("b", "c", 2)),
+        exclusions=(("a", "c"),),
     )
     assert {(p.left, p.right) for p in pairs} == {("a", "b"), ("b", "c")}
     with pytest.raises(ValueError, match="endpoints"):
@@ -363,7 +372,7 @@ def test_explicit_alias_states_preserve_native_occurrences_and_unknown():
     actual = source_alias_fields(raw, len("Table 5.1"), "#/texts/1")
     assert actual["alias_state"] == "observed"
     assert actual["aliases"] == ("Grid", "GRID")
-    assert all(raw[a["start"]:a["end"]] == a["text"] for a in actual["alias_occurrences"])
+    assert all(raw[a["start"] : a["end"]] == a["text"] for a in actual["alias_occurrences"])
     unknown = source_alias_fields("Table 5.1 just a title", len("Table 5.1"), "#/texts/1")
     assert unknown == dict(alias_state="unknown", aliases=(), alias_occurrences=())
     empty = source_alias_fields("Table 5.1 (aliases: none)", len("Table 5.1"), "#/texts/1")
@@ -376,20 +385,25 @@ def test_explicit_alias_states_preserve_native_occurrences_and_unknown():
 
 
 def test_pilot_scores_the_fixed_labeled_support_without_nominating_a_missed_pair():
-    from corpus_structure.evaluate.artifact_pilot import ArtifactPairJudgment, evaluate_artifact_pilot
+    from corpus_structure.evaluate.artifact_pilot import (
+        ArtifactPairJudgment,
+        evaluate_artifact_pilot,
+    )
     from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
 
     records = (
-        record("a", title="Moments"), record("b", title="Moments"),
-        record("c", code="??", title="reference"), record("d", code=None)
+        record("a", title="Moments"),
+        record("b", title="Moments"),
+        record("c", code="??", title="reference"),
+        record("d", code=None),
     )
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     product = ArtifactIdentityProduct(
         records=records, pairs=score_pairs(records, pair_candidates(records), policy), policy=policy
     )
     judgments = tuple(
-        ArtifactPairJudgment(left=l, right=r, case_id=case, judgment=judgment)
-        for l, r, case, judgment in (
+        ArtifactPairJudgment(left=left, right=right, case_id=case, judgment=judgment)
+        for left, right, case, judgment in (
             ("a", "b", "false-code", "unsupported"),
             ("a", "c", "miss", "supported"),
             ("c", "d", "unknown-codes", "ambiguous"),

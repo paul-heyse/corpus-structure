@@ -8,7 +8,7 @@ from hashlib import sha256
 from itertools import combinations
 from typing import Literal
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue, TypeAdapter, model_validator
 from rapidfuzz.fuzz import ratio
 
 from .identity import canonical_bytes
@@ -71,8 +71,10 @@ class SourceArtifactOccurrence(StructuralValue):
         return self
 
 
-_ALIAS = re.compile(r'\s*\((?:alias:|also called|also known as)\s*"([^"\r\n]+)"\s*\)', re.I | re.ASCII)
-_ALIAS_ABSENCE = re.compile(r'\s*\((aliases:\s*none)\s*\)', re.I | re.ASCII)
+_ALIAS = re.compile(
+    r'\s*\((?:alias:|also called|also known as)\s*"([^"\r\n]+)"\s*\)', re.I | re.ASCII
+)
+_ALIAS_ABSENCE = re.compile(r"\s*\((aliases:\s*none)\s*\)", re.I | re.ASCII)
 
 
 def source_alias_fields(text: str, artifact_end: int, source_pointer: str) -> dict:
@@ -95,7 +97,9 @@ def source_alias_fields(text: str, artifact_end: int, source_pointer: str) -> di
             aliases=(),
             alias_state="known_empty",
             alias_occurrences=(),
-            alias_absence=dict(source_pointer=source_pointer, start=start, end=end, text=absence.group(1)),
+            alias_absence=dict(
+                source_pointer=source_pointer, start=start, end=end, text=absence.group(1)
+            ),
         )
     return dict(aliases=(), alias_state="unknown", alias_occurrences=())
 
@@ -185,7 +189,10 @@ def pair_candidates(
         external.setdefault(key, set()).add(nomination.relationship.contribution_id)
     alias = {(min(left, right), max(left, right)) for left, right in native_alias_pairs}
     forbidden = {(min(left, right), max(left, right)) for left, right in exclusions}
-    if any(len(p) != 2 or p[0] == p[1] or not set(p) <= by_id.keys() for p in external.keys() | forbidden | alias):
+    if any(
+        len(p) != 2 or p[0] == p[1] or not set(p) <= by_id.keys()
+        for p in external.keys() | forbidden | alias
+    ):
         raise ValueError("pair endpoints must be distinct selected artifact records")
     anchors = frozenset(known_anchor_ids)
     if len(anchors) != len(known_anchor_ids) or not anchors <= by_id.keys():
@@ -404,17 +411,20 @@ def native_alias_candidates(
         api = DuckDBAPI(connection=connection)
         linker = Linker(api.register(payload, dataset_display_name="artifacts"), settings)
         blocked = linker.inference.compute_blocked_pairs_for_predict().as_record_list()
-        counts = (
-            tuple(dict(row) for row in linker.blocking_analysis.count_comparisons_from_blocking_rules(
-                record_sample_proportion=1.0
-            ))
-            if count_rules
-            else ()
-        )
+        counts: tuple[dict[str, JsonValue], ...] = ()
+        if count_rules:
+            counts = TypeAdapter(tuple[dict[str, JsonValue], ...]).validate_python(
+                linker.blocking_analysis.count_comparisons_from_blocking_rules(
+                    record_sample_proportion=1.0
+                )
+            )
     pairs = tuple(
         sorted(
             {
-                (min(row["join_key_l"], row["join_key_r"]), max(row["join_key_l"], row["join_key_r"]))
+                (
+                    min(row["join_key_l"], row["join_key_r"]),
+                    max(row["join_key_l"], row["join_key_r"]),
+                )
                 for row in blocked
             }
         )
@@ -478,7 +488,9 @@ class ArtifactIdentityProduct(StructuralValue):
                 raise ValueError("external nomination lacks its exact pair and relationship proof")
             nomination_ids.add(relation_id)
             nominated.add(key)
-        if nominated != {key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes}:
+        if nominated != {
+            key for key, p in by_pair.items() if "external_pairs" in p.candidate_routes
+        }:
             raise ValueError("external pair route lacks an authenticated nomination")
 
         alias_pairs = {(p.left, p.right) for p in self.native_alias_pairs}
@@ -488,9 +500,8 @@ class ArtifactIdentityProduct(StructuralValue):
             raise ValueError("native alias pair ledger differs from candidate routes")
         for left, right in alias_pairs:
             a, b = by_id[left].artifact, by_id[right].artifact
-            if (
-                (a.source_work, a.artifact_kind) != (b.source_work, b.artifact_kind)
-                or not set(alias_tokens(a)) & set(alias_tokens(b))
-            ):
+            if (a.source_work, a.artifact_kind) != (b.source_work, b.artifact_kind) or not set(
+                alias_tokens(a)
+            ) & set(alias_tokens(b)):
                 raise ValueError("native alias pair lacks compatible located alias evidence")
         return self

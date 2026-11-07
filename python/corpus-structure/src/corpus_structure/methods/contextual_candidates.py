@@ -287,14 +287,23 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
         anchors = tuple(original.get("anchors", ()))
         if original.get("kind") not in {"occurrence", "proposal", "group"} or not anchors:
             continue
+        has_exact_context = True
         for anchor in anchors:
             node = nodes.get(anchor["pointer"])
             if node is None or anchor["pin"] != pin or anchor["space"] != "native":
                 raise ValueError("retained occurrence differs from actual native source")
-            if node.get("text", "")[anchor["start"] : anchor["end"]] != anchor["source_piece"]:
+            start, end = anchor.get("start"), anchor.get("end")
+            if anchor["precision"] != "exact":
+                has_exact_context = False
+            elif (
+                type(start) is not int
+                or type(end) is not int
+                or not 0 <= start < end <= len(node.get("text", ""))
+                or node["text"][start:end] != anchor["source_piece"]
+            ):
                 raise ValueError("retained occurrence source slice is invalid")
             coordinates[anchor["pointer"]] = dict(
-                pin=pin, space="native", pointer=anchor["pointer"], text=node["text"]
+                pin=pin, space="native", pointer=anchor["pointer"], text=node.get("text", "")
             )
         occurrence = occurrence_identity(anchors)
         if occurrence != original["occurrence_id"]:
@@ -322,7 +331,7 @@ def retained_occurrences(upstream, nodes, pin, operation_key, semantic_types=())
         )
         product["contribution_id"] = contribution_identity(product)
         products.append(product)
-        if len({a["pointer"] for a in anchors}) == 1:
+        if has_exact_context and len({a["pointer"] for a in anchors}) == 1:
             start, end = min(a["start"] for a in anchors), max(a["end"] for a in anchors)
             text = nodes[anchors[0]["pointer"]]["text"]
             contexts[occurrence] = (text, start, end, text[start:end])
@@ -454,7 +463,7 @@ class ContextualCandidates:
                 )
                 phase.update(
                     outcome="not_run",
-                    reason="multi-item occurrence has no single owned encoder context",
+                    reason="occurrence has no single exact owned encoder context",
                 )
                 phases.append(phase)
                 phases.append(

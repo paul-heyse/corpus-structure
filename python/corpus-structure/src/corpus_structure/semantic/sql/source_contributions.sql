@@ -74,6 +74,65 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION ops.source_contribution_occurrence(jsonb) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION ops.validate_source_table_note_scope(p_view kb.source_view,p_rows jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE link_ jsonb; subject_ jsonb; note_ jsonb; table_ jsonb; note_text text;
+ cell_pointer text[]; cell_ jsonb; named text[]; eligible_count integer; matching_count integer;
+BEGIN
+ FOR link_ IN
+  SELECT value FROM jsonb_array_elements(p_rows) c(row_)
+  CROSS JOIN LATERAL (SELECT data.record_source_json(c.row_->'value') value) meaning
+  WHERE c.row_->>'semantic_type'='structural.scoped_attachment' AND value->>'relation'='note'
+ LOOP
+  SELECT row_ INTO STRICT subject_ FROM jsonb_array_elements(p_rows) row_
+   WHERE row_->>'contribution_id'=link_->>'subject_id';
+  SELECT row_ INTO STRICT note_ FROM jsonb_array_elements(p_rows) row_
+   WHERE row_->>'contribution_id'=link_->>'target_id';
+  cell_pointer:=regexp_match(subject_->'anchors'->0->>'pointer','^(.*)/data/table_cells/([0-9]+)$');
+  IF cell_pointer IS NULL OR cell_pointer[1] IS DISTINCT FROM link_->>'region'
+   OR jsonb_array_length(note_->'anchors')<>1 THEN
+   RAISE EXCEPTION 'table note lacks exact note and cell endpoints' USING ERRCODE='23514';
+  END IF;
+  SELECT native_json INTO STRICT table_ FROM ops.read_pdf_published_items(
+   p_view.native_task_id,p_view.native_product_key,p_view.native_content_digest,ARRAY[cell_pointer[1]]);
+  IF table_->>'label' IS DISTINCT FROM 'table' OR NOT EXISTS(
+   SELECT FROM jsonb_array_elements(COALESCE(table_->'footnotes','[]')) n
+    WHERE n->>'$ref'=note_->'anchors'->0->>'pointer'
+  ) THEN
+   RAISE EXCEPTION 'table note is outside its native table association' USING ERRCODE='23514';
+  END IF;
+  cell_:=table_->'data'->'table_cells'->(cell_pointer[2]::integer);
+  IF cell_ IS NULL OR COALESCE((cell_->>'column_header')::boolean,false)
+   OR COALESCE((cell_->>'row_header')::boolean,false) THEN
+   RAISE EXCEPTION 'table note does not apply to a data cell' USING ERRCODE='23514';
+  END IF;
+  note_text:=btrim(note_->'anchors'->0->>'source_piece',E' \t\n\r');
+  IF note_text ~* '^(?:This note applies to )?all rows[.!]?$' THEN CONTINUE; END IF;
+  named:=regexp_match(note_text,'^(?:Only )?the (.+?) (row|column|band)\y','i');
+  IF named IS NULL THEN
+   RAISE EXCEPTION 'table association alone does not establish cell note scope' USING ERRCODE='23514';
+  END IF;
+  SELECT count(*),count(*) FILTER(WHERE CASE WHEN lower(named[2])='row' THEN
+   (h->>'start_row_offset_idx')::integer<=(cell_->>'start_row_offset_idx')::integer AND
+   (h->>'end_row_offset_idx')::integer>=(cell_->>'end_row_offset_idx')::integer AND
+   (h->>'end_col_offset_idx')::integer<=(cell_->>'start_col_offset_idx')::integer
+  ELSE
+   (h->>'start_col_offset_idx')::integer<=(cell_->>'start_col_offset_idx')::integer AND
+   (h->>'end_col_offset_idx')::integer>=(cell_->>'end_col_offset_idx')::integer AND
+   (h->>'end_row_offset_idx')::integer<=(cell_->>'start_row_offset_idx')::integer
+  END) INTO eligible_count,matching_count
+  FROM jsonb_array_elements(table_->'data'->'table_cells') h
+  WHERE lower(btrim(h->>'text'))=lower(named[1]) AND CASE WHEN lower(named[2])='row'
+   THEN (h->>'row_header')::boolean ELSE (h->>'column_header')::boolean END;
+  IF eligible_count<>1 OR matching_count<>1 THEN
+   RAISE EXCEPTION 'table note does not establish the selected row or band' USING ERRCODE='23514';
+  END IF;
+ END LOOP;
+EXCEPTION WHEN no_data_found OR too_many_rows THEN
+ RAISE EXCEPTION 'table note cannot resolve original endpoints' USING ERRCODE='23514';
+END $$;
+REVOKE ALL ON FUNCTION ops.validate_source_table_note_scope(kb.source_view,jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.validate_source_contribution_report(p_task bigint,p_envelope jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE t ops.task; v kb.source_view; shape json; op jsonb; contribution jsonb; anchor_ jsonb; ep jsonb;
@@ -102,6 +161,9 @@ BEGIN
  IF t.status<>'running' AND NOT EXISTS(SELECT FROM ops.task_result WHERE task_id=t.id AND body=p_envelope) THEN
   RAISE EXCEPTION 'contribution report differs from immutable origin result' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT v FROM kb.source_view WHERE id=t.unit_id;
+ IF p_envelope->>'method'='structure.scoped_relations' AND p_envelope->>'operation_version'='2' THEN
+  PERFORM ops.validate_source_table_note_scope(v,p_envelope->'contributions');
+ END IF;
  IF p_envelope->>'source' IS NULL OR p_envelope->>'source' NOT IN (t.unit_key,v.key) THEN
   RAISE EXCEPTION 'contribution source differs from selected task/view' USING ERRCODE='23514'; END IF;
  IF (SELECT count(*)<>count(DISTINCT o->>'operation_key') FROM jsonb_array_elements(p_envelope->'contribution_operations') o) THEN

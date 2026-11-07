@@ -79,14 +79,14 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
     )
     pairs = score_pairs(
         records,
-        pair_candidates(records, external_nominations=nominations, title_threshold=ratio("abc", "abd")),
+        pair_candidates(
+            records, external_nominations=nominations, title_threshold=ratio("abc", "abd")
+        ),
         policy,
     )
     product = ArtifactIdentityProduct(
         records=records, pairs=pairs, policy=policy, external_nominations=nominations
-    ).model_dump(
-        mode="json", exclude_none=True
-    )
+    ).model_dump(mode="json", exclude_none=True)
     inputs = {"sources": []}
     with semantic_db_engine.connect() as conn, conn.begin():
         conn.exec_driver_sql(artifact_helper_sql(), execution_options={"no_parameters": True})
@@ -100,9 +100,9 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             + "'::jsonb $source$",
             execution_options={"no_parameters": True},
         )
-        external_literal = json.dumps(
-            [n.model_dump(mode="json") for n in nominations]
-        ).replace("'", "''")
+        external_literal = json.dumps([n.model_dump(mode="json") for n in nominations]).replace(
+            "'", "''"
+        )
         conn.exec_driver_sql(
             "CREATE OR REPLACE FUNCTION ops.artifact_external_nominations("
             "inputs jsonb,config jsonb,records jsonb) "
@@ -202,8 +202,11 @@ def test_native_frozen_likelihood_and_routes_after_source_boundary(semantic_db_e
             policy,
         )
         guarded = ArtifactIdentityProduct(
-            records=records, pairs=guarded_pairs, policy=policy, known_anchor_ids=("a", "b"),
-            external_nominations=nominations
+            records=records,
+            pairs=guarded_pairs,
+            policy=policy,
+            known_anchor_ids=("a", "b"),
+            external_nominations=nominations,
         ).model_dump(mode="json", exclude_none=True)
         check(guarded, guarded_cfg)
         for invalid in (["missing"], ["a", "a"]):

@@ -52,6 +52,8 @@ def test_exact_threshold_difference(left, right, removed, added):
     assert endpoint(d.removed_interval) == removed
     assert endpoint(d.added_interval) == added
     assert d.typed_outcome == "different"
+    assert d.left is not None and d.left.typed is not None
+    assert d.left.typed.basis_evidence is not None
     assert d.left.typed.basis_evidence.text == basis[1:]
     assert report.comparison.applicability == "unestablished"
 

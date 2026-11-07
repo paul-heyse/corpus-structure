@@ -602,7 +602,9 @@ def cross_cut_dossier_rows():
                         runtime_fingerprint=runtime,
                         body=dict(
                             release_id="release:structural",
-                            method="structure.definition_components" if index == 0 else "structure.dossier",
+                            method="structure.definition_components"
+                            if index == 0
+                            else "structure.dossier",
                             operation_version="5" if index == 0 else "2",
                             structural_product=report.model_dump(mode="json"),
                         ),
@@ -939,20 +941,32 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
         end = start + len(quote)
         assert literal[start:end] == quote
         anchor = dict(
-            pin=pin, space="native", pointer="#/texts/0", precision="exact", start=start,
-            end=end, source_piece=quote,
+            pin=pin,
+            space="native",
+            pointer="#/texts/0",
+            precision="exact",
+            start=start,
+            end=end,
+            source_piece=quote,
         )
         occurrence = occurrence_identity([anchor])
         endpoint = dict(
-            semantic_type="structural.located_participant", kind="occurrence", pin=pin,
-            anchors=[anchor], occurrence_id=occurrence,
+            semantic_type="structural.located_participant",
+            kind="occurrence",
+            pin=pin,
+            anchors=[anchor],
+            occurrence_id=occurrence,
             value=source_value({"role": "artifact_reference"}),
         )
         endpoint["contribution_id"] = contribution_identity(endpoint)
         endpoints.append(endpoint)
         artifact = SourceArtifactOccurrence(
-            artifact_kind="figure", source_work="controlled-work", controlled_code="1",
-            occurrence_role=role, source_pointer="#/texts/0", scope="controlled",
+            artifact_kind="figure",
+            source_work="controlled-work",
+            controlled_code="1",
+            occurrence_role=role,
+            source_pointer="#/texts/0",
+            scope="controlled",
             dependencies=("native:1",),
         )
         product_row = dict(
@@ -961,11 +975,19 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
         product_row["contribution_id"] = contribution_identity(product_row)
         records.append(
             ArtifactRecord(
-                contribution_id=product_row["contribution_id"], occurrence_id=occurrence,
-                artifact=artifact, source_contribution=json.loads(canonical_bytes(product_row)),
+                contribution_id=product_row["contribution_id"],
+                occurrence_id=occurrence,
+                artifact=artifact,
+                source_contribution=json.loads(canonical_bytes(product_row)),
                 citations=(
-                    dict(source_ref=source_ref.identity, passage_id="p1", source_pointer="#/texts/0",
-                         start=start, end=end, text=quote),
+                    dict(
+                        source_ref=source_ref.identity,
+                        passage_id="p1",
+                        source_pointer="#/texts/0",
+                        start=start,
+                        end=end,
+                        text=quote,
+                    ),
                 ),
             )
         )
@@ -982,13 +1004,21 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
     )
     relation["contribution_id"] = contribution_identity(relation)
     reference = RetainedContributionRef(
-        contribution_id=relation["contribution_id"], project_id="selected-project", run_id=5,
-        cut_id=6, release_id="release:structural", result_revision=2, selected_task_id=75,
-        origin_task_id=70, runtime_fingerprint="runtime:source",
+        contribution_id=relation["contribution_id"],
+        project_id="selected-project",
+        run_id=5,
+        cut_id=6,
+        release_id="release:structural",
+        result_revision=2,
+        selected_task_id=75,
+        origin_task_id=70,
+        runtime_fingerprint="runtime:source",
     )
     left, right = sorted(record.contribution_id for record in records)
     nomination = ArtifactNomination(left=left, right=right, relationship=reference)
-    inputs = inputs.model_copy(update=dict(dependencies=(*inputs.dependencies, reference.contribution_id)))
+    inputs = inputs.model_copy(
+        update=dict(dependencies=(*inputs.dependencies, reference.contribution_id))
+    )
     report = StructuralProductReport(
         kind="artifact_identity",
         inputs=inputs,
@@ -996,40 +1026,72 @@ def artifact_nomination_rows(*, relation_kind="artifact_reference_target"):
             records=tuple(records),
             pairs=pair_candidates(tuple(records), external_nominations=(nomination,)),
             external_nominations=(nomination,),
-            policy=ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05),
+            policy=ArtifactScoringPolicy(
+                prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05
+            ),
         ),
     )
     structural = dict(
-        selection_index=0, selected_task_id=100, origin_task_id=100, origin_run_id=2,
-        origin_project_id="selected-project", runtime_fingerprint="runtime:artifact",
-        product_id=report.product_id, report=report.model_dump(mode="json"),
+        selection_index=0,
+        selected_task_id=100,
+        origin_task_id=100,
+        origin_run_id=2,
+        origin_project_id="selected-project",
+        runtime_fingerprint="runtime:artifact",
+        product_id=report.product_id,
+        report=report.model_dump(mode="json"),
     )
     raw = dict(
-        origin_task_id=100, origin_run_id=2, project_id="selected-project",
+        origin_task_id=100,
+        origin_run_id=2,
+        project_id="selected-project",
         runtime_fingerprint="runtime:artifact",
         configuration=dict(external_nomination_refs=[reference.model_dump(mode="json")]),
         body=dict(
-            release_id="release:structural", method="structure.artifact_identity",
-            operation_version="2", structural_product=report.model_dump(mode="json"),
+            release_id="release:structural",
+            method="structure.artifact_identity",
+            operation_version="2",
+            structural_product=report.model_dump(mode="json"),
         ),
     )
     member_rows = [*endpoints, relation]
     scoped = dict(
-        origin_task_id=70, origin_run_id=4, project_id="source-project",
-        runtime_fingerprint="runtime:source", unit_type="source_view", origin_unit_id=1,
+        origin_task_id=70,
+        origin_run_id=4,
+        project_id="source-project",
+        runtime_fingerprint="runtime:source",
+        unit_type="source_view",
+        origin_unit_id=1,
         body=dict(release_id="release:structural", contributions=member_rows),
     )
     captures = [
-        ("selections", dict(
-            selection_index=0, run_id=5, cut_id=6, project_id="selected-project",
-            binding=dict(release_id="release:structural", data_revision=2),
-        )),
+        (
+            "selections",
+            dict(
+                selection_index=0,
+                run_id=5,
+                cut_id=6,
+                project_id="selected-project",
+                binding=dict(release_id="release:structural", data_revision=2),
+            ),
+        ),
         *(
-            ("inventory", dict(selection_index=0, population="contribution", row=dict(
-                selected_task_id=75, origin_task_id=70, origin_project_id="source-project",
-                origin_run_id=4, runtime_fingerprint="runtime:source", source_view_id=1,
-                contribution_id=row["contribution_id"],
-            )))
+            (
+                "inventory",
+                dict(
+                    selection_index=0,
+                    population="contribution",
+                    row=dict(
+                        selected_task_id=75,
+                        origin_task_id=70,
+                        origin_project_id="source-project",
+                        origin_run_id=4,
+                        runtime_fingerprint="runtime:source",
+                        source_view_id=1,
+                        contribution_id=row["contribution_id"],
+                    ),
+                ),
+            )
             for row in member_rows
         ),
         ("reports", scoped),
@@ -1062,7 +1124,9 @@ def test_artifact_nomination_refuses_incomplete_or_substituted_source_closure(tm
     elif broken == "other_relation":
         error = "requires a retained reference-target relationship"
     else:
-        raw = next(value for name, value in rows if name == "reports" and value["origin_task_id"] == 100)
+        raw = next(
+            value for name, value in rows if name == "reports" and value["origin_task_id"] == 100
+        )
         raw["configuration"]["external_nomination_refs"] = []
         error = "differs from original registered producer and nomination configuration"
     root = tmp_path / "artifact"

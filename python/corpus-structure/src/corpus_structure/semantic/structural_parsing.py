@@ -1,8 +1,8 @@
 """Small source-preserving field grammars, prepared once per declared route."""
 
+import re
 from decimal import Decimal
 from functools import lru_cache
-import re
 from typing import Literal, TypedDict
 
 from lark import Lark, Token, UnexpectedInput
@@ -11,9 +11,7 @@ from corpus_structure.semantic.scientific_evidence import canonical_operand
 
 Comparator = Literal[">", ">=", "<", "<=", "="]
 
-COMPARISON_BASIS = re.compile(
-    r"^Comparison basis:[ \t]*([^\n\r.]+?)[ \t]*\.?[ \t]*$", re.M
-)
+COMPARISON_BASIS = re.compile(r"^Comparison basis:[ \t]*([^\n\r.]+?)[ \t]*\.?[ \t]*$", re.M)
 REVISION_SUCCESSION = re.compile(
     r"^Revision ([A-Za-z0-9_-]+) supersedes revision ([A-Za-z0-9_-]+)\.[ \t]*$", re.M
 )

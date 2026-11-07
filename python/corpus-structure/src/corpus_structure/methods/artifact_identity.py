@@ -234,7 +234,9 @@ class ArtifactIdentityMethod:
         for reference in sorted(cfg.external_nomination_refs, key=lambda ref: ref.contribution_id):
             ctx.check_active()
             payload = ctx.reader.retained_source_contribution(reference)
-            nominations.append(retained_artifact_nomination(cfg.inputs, selected, reference, payload))
+            nominations.append(
+                retained_artifact_nomination(cfg.inputs, selected, reference, payload)
+            )
         alias, _ = native_alias_candidates(selected)
         pairs = pair_candidates(
             selected,

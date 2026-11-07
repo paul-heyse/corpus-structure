@@ -91,6 +91,23 @@ def test_actual_occurrence_cannot_invent_source_extent():
         )
 
 
+def test_coarse_native_occurrence_is_retained_without_an_encoder_span():
+    row = located()
+    anchor = row["anchors"][0]
+    anchor.pop("start")
+    anchor.pop("end")
+    anchor.pop("source_piece")
+    anchor["precision"] = "item"
+    anchor["anchor_id"] = anchor_identity(anchor)
+    row["occurrence_id"] = occurrence_identity((anchor,))
+    row["contribution_id"] = contribution_identity(row)
+    (actual,), contexts, _ = retained_occurrences(
+        {"contributions": (row,)}, {"#/texts/1": {"text": "Mean is average."}}, PIN, "new-op"
+    )
+    assert actual["anchors"] == (anchor,)
+    assert contexts == {}
+
+
 def test_supplied_mention_and_registry_production_bridge_removed():
     with pytest.raises(ValueError):
         ContextualCandidateConfig.model_validate(dict(cases=(), registry_targets=(), scope="s"))

@@ -16,7 +16,9 @@ from corpus_structure.semantic.structural_products import (
 )
 
 
-def derive_contribution_members(inputs, reference, payload, *, root=None):
+def derive_contribution_members(
+    inputs, reference, payload, *, root=None
+) -> tuple[DossierMember, ...]:
     """Consume only detached owned-reader output; authenticate again at native replay."""
     rows = {r["contribution_id"]: r for r in payload["contributions"]}
     selected = rows.get(reference.contribution_id)

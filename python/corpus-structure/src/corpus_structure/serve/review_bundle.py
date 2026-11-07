@@ -1016,7 +1016,7 @@ def _retained_contribution_payloads(root, manifest, requested, scopes, inventory
             ),
             projection=dict(text=row["text"], pieces=row["context"]["pieces"]),
         )
-    for report, reference in requested:
+    for _report, reference in requested:
         candidates = [
             index
             for index, scope in scopes.items()
@@ -1077,7 +1077,6 @@ def _retained_contribution_payloads(root, manifest, requested, scopes, inventory
         )
 
 
-
 def _verify_dossier_contribution_closure(root, manifest, members, scopes, inventory, roots):
     from corpus_structure.methods.dossier_contributions import derive_contribution_members
 
@@ -1092,7 +1091,9 @@ def _verify_dossier_contribution_closure(root, manifest, members, scopes, invent
             report.inputs, member.contribution_ref, payload, root=roots[report.product_id]
         )
         if derived != (member,):
-            raise ValueError("dossier source membership differs from original contribution evidence")
+            raise ValueError(
+                "dossier source membership differs from original contribution evidence"
+            )
 
 
 def _verify_artifact_nomination_closure(
@@ -1136,7 +1137,9 @@ def _verify_artifact_nomination_closure(
             or sorted(declared, key=canonical_bytes) != sorted(refs, key=canonical_bytes)
             or StructuralProductReport.model_validate(body.get("structural_product")) != report
         ):
-            raise ValueError("artifact product differs from original registered producer and nomination configuration")
+            raise ValueError(
+                "artifact product differs from its registered producer and nomination configuration"
+            )
         for nomination in product.external_nominations:
             expected.append((report, nomination))
             requested.append((report, nomination.relationship))
@@ -1183,7 +1186,6 @@ def _verify_artifact_nomination_closure(
         )
         if actual != nomination:
             raise ValueError("artifact nomination differs from exact retained endpoints")
-
 
 
 def verify_review_bundle(root: Path) -> dict[str, Any]:
@@ -1450,7 +1452,12 @@ def verify_review_bundle(root: Path) -> dict[str, Any]:
         artifacts = [item for item in structural_products if item[-1].artifact_identity is not None]
         if artifacts:
             _verify_artifact_nomination_closure(
-                root, manifest, artifacts, structural_scopes, contribution_scopes, contribution_inventory
+                root,
+                manifest,
+                artifacts,
+                structural_scopes,
+                contribution_scopes,
+                contribution_inventory,
             )
         for run_id, unit_id in graded_units:
             if unit_id not in assessment_units or not _covers_assessment_unit(

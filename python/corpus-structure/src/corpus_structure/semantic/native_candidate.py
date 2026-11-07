@@ -811,7 +811,10 @@ def series_native_definitions(connection, *, include_selected=True):
         "resolve_retained_relationship_decision",
         "validate_component_targets",
         "component_semantic_target",
+        "artifact_alias_fields",
+        "artifact_alias_span_source_value",
         "artifact_source_records",
+        "artifact_external_nominations",
         "artifact_lexical_score",
         "validate_artifact_identity",
         "structural_clause_fields",
@@ -846,6 +849,7 @@ def series_native_definitions(connection, *, include_selected=True):
     for name in (
         "source_contribution_occurrence",
         "validate_source_anchor_coordinates",
+        "validate_source_table_note_scope",
         "validate_source_contribution_report",
         "project_source_contributions",
         "contextual_identity_value",

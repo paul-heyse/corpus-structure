@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 from rapidfuzz.fuzz import ratio
+from splink.internals.splink_dataframe import SplinkDataFrame
 
 from corpus_structure.semantic.artifact_identity import (
     ArtifactIdentityProduct,
@@ -96,7 +97,9 @@ def evaluate_artifact_pilot(
     retained_alias = {(p.left, p.right) for p in product.native_alias_pairs}
     if set(alias) != retained_alias:
         raise ValueError("provider alias blocking differs from retained actual nomination ledger")
-    candidates = {route: {key for key, p in pairs.items() if route in p.candidate_routes} for route in ROUTES}
+    candidates = {
+        route: {key for key, p in pairs.items() if route in p.candidate_routes} for route in ROUTES
+    }
     eligible = {key for key, p in pairs.items() if p.scope_state == "compatible"}
     previous: set[tuple[str, str]] = set()
     route_counts = []
@@ -131,7 +134,11 @@ def evaluate_artifact_pilot(
     scored_keys = tuple(sorted(eligible | common))
     models = {}
     if scored_keys:
-        for name, odds_scale in (("primary", 1.0), ("half_prior_odds", 0.5), ("double_prior_odds", 2.0)):
+        for name, odds_scale in (
+            ("primary", 1.0),
+            ("half_prior_odds", 0.5),
+            ("double_prior_odds", 2.0),
+        ):
             policy = product.policy.model_copy(
                 update={"prior": _prior_with_odds_scale(product.policy.prior, odds_scale)}
             )
@@ -140,18 +147,28 @@ def evaluate_artifact_pilot(
                 if name == "primary":
                     for key in eligible:
                         original = pairs[key].model_probability
-                        if original is None or abs(scored[key]["match_probability"] - original) > 1e-10:
-                            raise ValueError("primary scoring differs from retained candidate model")
+                        if (
+                            original is None
+                            or abs(scored[key]["match_probability"] - original) > 1e-10
+                        ):
+                            raise ValueError(
+                                "primary scoring differs from retained candidate model"
+                            )
                 if labeled_rows:
                     labels = linker.table_management.register_labels_table(
-                        linker.table_management.register_table(labeled_rows, "owned_artifact_labels")
+                        linker.table_management.register_table(
+                            labeled_rows, "owned_artifact_labels"
+                        )
                     )
-                    accuracy = linker.evaluation.accuracy_analysis_from_labels_table(
+                    accuracy_table = linker.evaluation.accuracy_analysis_from_labels_table(
                         labels,
                         output_type="table",
                         threshold_match_probability=CLERICAL_THRESHOLD,
                         match_weight_round_to_nearest=WEIGHT_ROUNDING,
-                    ).as_record_list()
+                    )
+                    if not isinstance(accuracy_table, SplinkDataFrame):
+                        raise TypeError("Splink did not return its declared accuracy table")
+                    accuracy = accuracy_table.as_record_list()
                     prediction_errors = {
                         str(threshold): linker.evaluation.prediction_errors_from_labels_table(
                             labels, threshold_match_probability=threshold
@@ -194,12 +211,16 @@ def evaluate_artifact_pilot(
             for (left, right), pair in sorted(pairs.items())
         ],
         "native_alias_provider_outcome": (
-            "passed" if sum(bool(record.artifact.aliases) for record in product.records) >= 2 else "not_run"
+            "passed"
+            if sum(bool(record.artifact.aliases) for record in product.records) >= 2
+            else "not_run"
         ),
         "external_nomination_count": len(product.external_nominations),
         "external_nomination_outcome": "passed" if product.external_nominations else "not_run",
         "external_nomination_unavailable_reason": (
-            None if product.external_nominations else "No authenticated external pair nominations supplied."
+            None
+            if product.external_nominations
+            else "No authenticated external pair nominations supplied."
         ),
         "alias_state_counts": dict(Counter(a.alias_state for a in by_id.values())),
         "cases": case_rows,

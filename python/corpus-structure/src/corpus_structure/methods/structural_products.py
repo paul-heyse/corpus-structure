@@ -32,6 +32,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralValue,
 )
 
+
 def _located(passage, text: str, start: int) -> LocatedDefinitionSpan:
     return LocatedDefinitionSpan(
         passage_id=passage.passage_id,
@@ -361,7 +362,9 @@ def select_dossier(
 def dossier_root(reference, retained) -> LocatedDefinitionComponent:
     """Resolve a provisional sense against the exact selected producer result."""
     selected_ref = RetainedStructuralRef.model_validate(
-        reference.model_dump(exclude={"component_id", "operation_id", "operation_version", "dependencies"})
+        reference.model_dump(
+            exclude={"component_id", "operation_id", "operation_version", "dependencies"}
+        )
     )
     for ref, payload in retained:
         if ref != selected_ref:
@@ -443,7 +446,8 @@ def derive_dossier_members(inputs, retained, *, root=None):
                 )
         if report.definition:
             readings = tuple(
-                reading for reading in report.definition.readings
+                reading
+                for reading in report.definition.readings
                 if root is None or reading.component.component_id == root.component_id
             )
             if not readings:
@@ -494,9 +498,7 @@ def derive_dossier_members(inputs, retained, *, root=None):
                                 )
                             )
             if report.comparison.succession:
-                roles.append(
-                    ("revision", report.comparison.succession.evidence, None, None, None)
-                )
+                roles.append(("revision", report.comparison.succession.evidence, None, None, None))
         for role, span, component_id, interpretation, outcome in roles:
             p = passages[span.passage_id]
             key = sha256(
@@ -653,9 +655,7 @@ class StructuralDossierConfig(StructuralValue):
         elif (
             self.structural_input_digest != self.inputs.identity
             or self.root_component is None
-            or not any(
-                p.product_id == self.root_component.product_id for p in self.predecessors
-            )
+            or not any(p.product_id == self.root_component.product_id for p in self.predecessors)
         ):
             raise ValueError("dossier requires original inputs and retained predecessors")
         if len({p.product_id for p in self.predecessors}) != len(self.predecessors):
